@@ -18,6 +18,8 @@ package org.astraea.etl
 
 import java.awt.geom.IllegalPathStateException
 import java.io.File
+import java.util.concurrent.CompletionStage
+import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 
 object Utils {
@@ -54,6 +56,16 @@ object Utils {
         exception = e
         throw e
     } finally closeAndAddSuppressed(exception, resource)
+  }
+
+  /** convert java future to scala in scala 2.12.
+    */
+  def asScala[T](f: CompletionStage[T]): Future[T] = {
+    val promise = Promise[T]
+    f.whenComplete { (r, e) =>
+      if (e != null) promise.failure(e) else promise.success(r)
+    }
+    promise.future
   }
 
   private def closeAndAddSuppressed(

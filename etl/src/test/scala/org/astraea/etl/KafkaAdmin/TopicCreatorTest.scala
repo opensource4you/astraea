@@ -16,16 +16,18 @@
  */
 package org.astraea.etl.KafkaAdmin
 
-import org.astraea.common.admin.{AsyncAdmin}
+import org.astraea.common.admin.AsyncAdmin
 import org.astraea.etl.Utils
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertInstanceOf, assertThrows}
 import org.junit.jupiter.api.Test
 
-import java.util.concurrent.ExecutionException
+import java.util.concurrent.CompletionException
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 
 class TopicCreatorTest extends RequireBrokerCluster {
 
@@ -33,7 +35,9 @@ class TopicCreatorTest extends RequireBrokerCluster {
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        testTopicCreator(admin, TOPIC)
+        Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
+
+        println(admin.topicNames(true).toCompletableFuture.get().size())
         assert(
           admin.topicNames(true).toCompletableFuture.get().contains(TOPIC),
           true
@@ -71,58 +75,67 @@ class TopicCreatorTest extends RequireBrokerCluster {
 
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        testTopicCreator(admin, TOPIC)
+        Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
           assertThrows(
-            classOf[ExecutionException],
+            classOf[CompletionException],
             () =>
-              TopicCreatorImpl
-                .apply(admin)
-                .topic(TOPIC)
-                .numberOfPartitions(2)
-                .numberOfReplicas(2)
-                .create()
-                .get
+              Await.result(
+                TopicCreatorImpl
+                  .apply(admin)
+                  .topic(TOPIC)
+                  .numberOfPartitions(2)
+                  .numberOfReplicas(2)
+                  .create(),
+                Duration.Inf
+              )
           ).getCause
         )
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
           assertThrows(
-            classOf[ExecutionException],
+            classOf[CompletionException],
             () =>
-              TopicCreatorImpl
-                .apply(admin)
-                .topic(TOPIC)
-                .numberOfPartitions(10)
-                .numberOfReplicas(1)
-                .create()
-                .get()
+              Await.result(
+                TopicCreatorImpl
+                  .apply(admin)
+                  .topic(TOPIC)
+                  .numberOfPartitions(10)
+                  .numberOfReplicas(1)
+                  .create(),
+                Duration.Inf
+              )
           ).getCause
         )
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
           assertThrows(
-            classOf[ExecutionException],
+            classOf[CompletionException],
             () =>
-              TopicCreatorImpl
-                .apply(admin)
-                .topic(TOPIC)
-                .numberOfPartitions(10)
-                .numberOfReplicas(2)
-                .config(Map("compression.type" -> "lz4"))
-                .create()
-                .get()
+              Await.result(
+                TopicCreatorImpl
+                  .apply(admin)
+                  .topic(TOPIC)
+                  .numberOfPartitions(10)
+                  .numberOfReplicas(2)
+                  .config(Map("compression.type" -> "lz4"))
+                  .create(),
+                Duration.Inf
+              )
           ).getCause
         )
       }
     }
   }
 
-  def testTopicCreator(admin: AsyncAdmin, TOPIC: String): Unit = {
+  def testTopicCreator(
+      admin: AsyncAdmin,
+      TOPIC: String
+  ): Future[java.lang.Boolean] = {
     val config = Map("compression.type" -> "gzip")
     TopicCreatorImpl
       .apply(admin)
@@ -131,6 +144,5 @@ class TopicCreatorTest extends RequireBrokerCluster {
       .numberOfReplicas(2)
       .config(config)
       .create()
-      .get()
   }
 }

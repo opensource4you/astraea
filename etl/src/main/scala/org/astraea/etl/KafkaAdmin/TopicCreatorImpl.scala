@@ -17,11 +17,9 @@
 package org.astraea.etl.KafkaAdmin
 
 import org.astraea.common.admin.AsyncAdmin
+import org.astraea.etl.Utils
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
-import scala.collection.convert.ImplicitConversions.`list asScalaBuffer`
 import scala.concurrent.Future
 
 class TopicCreatorImpl(admin: AsyncAdmin) extends TopicCreator {
@@ -55,16 +53,16 @@ class TopicCreatorImpl(admin: AsyncAdmin) extends TopicCreator {
     this
   }
 
-  //Starting Scala 2.13, the standard library includes scala.jdk.FutureConverters which provides Java to Scala CompletableFuture/Future implicit conversions
-  override def create(): CompletableFuture[java.lang.Boolean] = {
-    admin
-      .creator()
-      .topic(topic)
-      .numberOfPartitions(numberOfPartitions)
-      .numberOfReplicas(numberOfReplicas)
-      .configs(configs.asJava)
-      .run()
-      .toCompletableFuture
+  override def create(): Future[java.lang.Boolean] = {
+    Utils.asScala(
+      admin
+        .creator()
+        .topic(topic)
+        .numberOfPartitions(numberOfPartitions)
+        .numberOfReplicas(numberOfReplicas)
+        .configs(configs.asJava)
+        .run()
+    )
   }
 }
 

@@ -16,7 +16,7 @@
  */
 package org.astraea.etl.KafkaAdmin
 
-import java.util.concurrent.CompletableFuture
+import scala.concurrent.Future
 
 trait TopicCreator {
   def topic(name: String): TopicCreator
@@ -29,5 +29,5 @@ trait TopicCreator {
 
   def config(map: Map[String, String]): TopicCreator
 
-  def create(): CompletableFuture[java.lang.Boolean]
+  def create(): Future[java.lang.Boolean]
 }
