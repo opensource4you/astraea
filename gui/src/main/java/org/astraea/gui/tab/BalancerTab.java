@@ -145,34 +145,16 @@ public class BalancerTab {
               }
               logger.log("applying better assignments ... ");
               // TODO: how to migrate folder safely ???
-              return org.astraea.common.Utils.sequence(
+              return admin
+                  .moveToBrokers(
                       tpAndReplicasMap.entrySet().stream()
-                          .map(
-                              tpAndReplicas ->
-                                  admin
-                                      .migrator()
-                                      .partition(
-                                          tpAndReplicas.getKey().topic(),
-                                          tpAndReplicas.getKey().partition())
-                                      .moveTo(
-                                          tpAndReplicas.getValue().stream()
-                                              .map(r -> r.nodeInfo().id())
-                                              .collect(Collectors.toList()))
-                                      .whenComplete(
-                                          (r, e) -> {
-                                            if (e == null)
-                                              logger.log(
-                                                  "succeed to move "
-                                                      + tpAndReplicas.getKey()
-                                                      + " to "
-                                                      + tpAndReplicas.getValue().stream()
-                                                          .map(
-                                                              n ->
-                                                                  String.valueOf(n.nodeInfo().id()))
-                                                          .collect(Collectors.joining(",")));
-                                          })
-                                      .toCompletableFuture())
-                          .collect(Collectors.toList()))
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(r -> r.nodeInfo().id())
+                                          .collect(Collectors.toList()))))
                   .thenApply(
                       ignored ->
                           entry
