@@ -14,20 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl.KafkaAdmin
+package org.astraea.etl
+
+import org.astraea.common.admin.AsyncAdmin
 
 import scala.concurrent.Future
+import scala.collection.JavaConverters._
 
-trait TopicCreator {
-  def topic(name: String): TopicCreator
-
-  def numberOfPartitions(num: Int): TopicCreator
-
-  def numberOfReplicas(num: Short): TopicCreator
-
-  def config(key: String, value: String): TopicCreator
-
-  def config(map: Map[String, String]): TopicCreator
-
-  def create(): Future[java.lang.Boolean]
+object KafkaWriter {
+  def createTopic(
+      admin: AsyncAdmin,
+      metadata: Metadata
+  ): Future[java.lang.Boolean] = {
+    Utils.asScala(
+      admin
+        .creator()
+        .topic(metadata.topicName)
+        .numberOfPartitions(metadata.numPartitions)
+        .numberOfReplicas(metadata.numReplicas)
+        .configs(metadata.topicConfig.asJava)
+        .run()
+    )
+  }
 }

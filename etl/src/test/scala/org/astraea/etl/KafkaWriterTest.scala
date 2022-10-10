@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl.KafkaAdmin
+package org.astraea.etl
 
 import org.astraea.common.admin.AsyncAdmin
-import org.astraea.etl.Utils
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{
@@ -27,21 +26,20 @@ import org.junit.jupiter.api.Assertions.{
 }
 import org.junit.jupiter.api.Test
 
+import java.io.File
 import java.util.concurrent.CompletionException
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-class TopicCreatorTest extends RequireBrokerCluster {
+class KafkaWriterTest extends RequireBrokerCluster {
 
   @Test def TopicCreatorTest(): Unit = {
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-
-        println(admin.topicNames(true).toCompletableFuture.get().size())
         assert(
           admin.topicNames(true).toCompletableFuture.get().contains(TOPIC),
           true
@@ -82,23 +80,42 @@ class TopicCreatorTest extends RequireBrokerCluster {
 
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
+        val partition = Metadata(
+          new File(""),
+          new File(""),
+          Map.empty,
+          Map.empty,
+          bootstrapServers(),
+          TOPIC,
+          2,
+          2,
+          Map("compression.type" -> "gzip"),
+          "local[2]"
+        )
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-
         assertInstanceOf(
           classOf[IllegalArgumentException],
           assertThrows(
             classOf[CompletionException],
             () =>
               Await.result(
-                TopicCreatorImpl
-                  .apply(admin)
-                  .topic(TOPIC)
-                  .numberOfPartitions(2)
-                  .numberOfReplicas(2)
-                  .create(),
+                KafkaWriter.createTopic(admin, partition),
                 Duration.Inf
               )
           ).getCause
+        )
+
+        val replica = Metadata(
+          new File(""),
+          new File(""),
+          Map.empty,
+          Map.empty,
+          bootstrapServers(),
+          TOPIC,
+          10,
+          1,
+          Map("compression.type" -> "gzip"),
+          "local[2]"
         )
 
         assertInstanceOf(
@@ -107,15 +124,23 @@ class TopicCreatorTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                TopicCreatorImpl
-                  .apply(admin)
-                  .topic(TOPIC)
-                  .numberOfPartitions(10)
-                  .numberOfReplicas(1)
-                  .create(),
+                KafkaWriter.createTopic(admin, replica),
                 Duration.Inf
               )
           ).getCause
+        )
+
+        val config = Metadata(
+          new File(""),
+          new File(""),
+          Map.empty,
+          Map.empty,
+          bootstrapServers(),
+          TOPIC,
+          10,
+          1,
+          Map("compression.type" -> "lz4"),
+          "local[2]"
         )
 
         assertInstanceOf(
@@ -124,13 +149,7 @@ class TopicCreatorTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                TopicCreatorImpl
-                  .apply(admin)
-                  .topic(TOPIC)
-                  .numberOfPartitions(10)
-                  .numberOfReplicas(2)
-                  .config(Map("compression.type" -> "lz4"))
-                  .create(),
+                KafkaWriter.createTopic(admin, config),
                 Duration.Inf
               )
           ).getCause
@@ -140,16 +159,22 @@ class TopicCreatorTest extends RequireBrokerCluster {
   }
 
   def testTopicCreator(
-      admin: AsyncAdmin,
+      asyncAdmin: AsyncAdmin,
       TOPIC: String
   ): Future[java.lang.Boolean] = {
     val config = Map("compression.type" -> "gzip")
-    TopicCreatorImpl
-      .apply(admin)
-      .topic(TOPIC)
-      .numberOfPartitions(10)
-      .numberOfReplicas(2)
-      .config(config)
-      .create()
+    val metadata = Metadata(
+      new File(""),
+      new File(""),
+      Map.empty,
+      Map.empty,
+      bootstrapServers(),
+      TOPIC,
+      10,
+      2,
+      config,
+      "local[2]"
+    )
+    KafkaWriter.createTopic(asyncAdmin, metadata)
   }
 }
