@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +26,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.LinkedHashSet;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -38,20 +36,30 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.gui.Context;
+import org.astraea.gui.Logger;
+import org.astraea.gui.button.RadioButtonAble;
+import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class BalancerTab {
 
-  private enum Cost {
+  private enum Cost implements RadioButtonAble {
     REPLICA("replica", new ReplicaNumberCost()),
     LEADER("leader", new ReplicaLeaderCost()),
     SIZE("size", new ReplicaSizeCost());
 
     private final HasClusterCost costFunction;
-    private final String alias;
+    private final String display;
 
-    Cost(String alias, HasClusterCost costFunction) {
-      this.alias = alias;
+    Cost(String display, HasClusterCost costFunction) {
+      this.display = display;
       this.costFunction = costFunction;
+    }
+
+    @Override
+    public String display() {
+      return display;
     }
   }
 
@@ -78,46 +86,35 @@ public class BalancerTab {
         .collect(Collectors.toList());
   }
 
-  private static PaneBuilder.Output output(AsyncAdmin admin, PaneBuilder.Input input) {
-    var clusterInfoAndPlan =
-        admin
-            .topicNames(true)
-            .thenCompose(admin::clusterInfo)
-            .thenCompose(
-                clusterInfo ->
-                    admin
-                        .brokerFolders()
-                        .thenApply(
-                            brokerFolders -> {
-                              input.log("searching better assignments ... ");
-                              return Map.entry(
-                                  clusterInfo,
-                                  Balancer.builder()
-                                      .planGenerator(new ShufflePlanGenerator(0, 30))
-                                      .clusterCost(
-                                          Arrays.stream(Cost.values())
-                                              .filter(
-                                                  c ->
-                                                      input
-                                                          .selectedRadio()
-                                                          .filter(c.alias::equals)
-                                                          .isPresent())
-                                              .findFirst()
-                                              .orElse(Cost.REPLICA)
-                                              .costFunction)
-                                      .limit(Duration.ofSeconds(10))
-                                      .limit(10000)
-                                      .greedy(true)
-                                      .build()
-                                      .offer(clusterInfo, input::matchSearch, brokerFolders));
-                            }));
-
-    var tableAction =
-        clusterInfoAndPlan.thenApply(
-            entry -> entry.getValue().map(plan -> result(entry.getKey(), plan)).orElse(List.of()));
-
-    var messageAction =
-        clusterInfoAndPlan.thenCompose(
+  private static CompletionStage<List<Map<String, Object>>> generator(
+      AsyncAdmin admin, Input input, Logger logger) {
+    return admin
+        .topicNames(true)
+        .thenCompose(admin::clusterInfo)
+        .thenCompose(
+            clusterInfo ->
+                admin
+                    .brokerFolders()
+                    .thenApply(
+                        brokerFolders -> {
+                          logger.log("searching better assignments ... ");
+                          return Map.entry(
+                              clusterInfo,
+                              Balancer.builder()
+                                  .planGenerator(new ShufflePlanGenerator(0, 30))
+                                  .clusterCost(
+                                      input
+                                          .selectedRadio()
+                                          .map(o -> (Cost) o)
+                                          .orElse(Cost.REPLICA)
+                                          .costFunction)
+                                  .limit(Duration.ofSeconds(10))
+                                  .limit(10000)
+                                  .greedy(true)
+                                  .build()
+                                  .offer(clusterInfo, input::matchSearch, brokerFolders));
+                        }))
+        .thenCompose(
             entry -> {
               var tpAndReplicasMap =
                   entry
@@ -142,11 +139,11 @@ public class BalancerTab {
                                                           Replica::isPreferredLeader))
                                                   .collect(Collectors.toList()))))
                       .orElse(Map.of());
-              if (tpAndReplicasMap.isEmpty())
-                return CompletableFuture.completedFuture("there is no better assignments");
-
-              input.log("applying better assignments ... ");
-
+              if (tpAndReplicasMap.isEmpty()) {
+                logger.log("there is no better assignments");
+                return CompletableFuture.completedFuture(List.of());
+              }
+              logger.log("applying better assignments ... ");
               // TODO: how to migrate folder safely ???
               return org.astraea.common.Utils.sequence(
                       tpAndReplicasMap.entrySet().stream()
@@ -164,7 +161,7 @@ public class BalancerTab {
                                       .whenComplete(
                                           (r, e) -> {
                                             if (e == null)
-                                              input.log(
+                                              logger.log(
                                                   "succeed to move "
                                                       + tpAndReplicas.getKey()
                                                       + " to "
@@ -176,30 +173,23 @@ public class BalancerTab {
                                           })
                                       .toCompletableFuture())
                           .collect(Collectors.toList()))
-                  .thenApply(ignored -> "the balance is completed");
+                  .thenApply(
+                      ignored ->
+                          entry
+                              .getValue()
+                              .map(plan -> result(entry.getKey(), plan))
+                              .orElse(List.of()));
             });
-    return new PaneBuilder.Output() {
-      @Override
-      public CompletionStage<String> message() {
-        return messageAction;
-      }
-
-      @Override
-      public CompletionStage<List<Map<String, Object>>> table() {
-        return tableAction;
-      }
-    };
   }
 
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(
-                LinkedHashSet.of(
-                    Arrays.stream(Cost.values()).map(c -> c.alias).toArray(String[]::new)))
+            .radioButtons(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
-            .buttonAction(input -> context.submit(admin -> output(admin, input)))
+            .buttonAction(
+                (input, logger) -> context.submit(admin -> generator(admin, input, logger)))
             .build();
 
     var tab = new Tab("balance topic");

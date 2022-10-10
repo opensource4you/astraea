@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class MoveTopicTab {
 
@@ -40,8 +42,8 @@ public class MoveTopicTab {
             .input(TOPIC_NAME, true, false)
             .input(MOVE_TO, true, false)
             .input(PARTITION_ID, false, true)
-            .buttonMessageAction(
-                input -> {
+            .buttonListener(
+                (input, logger) -> {
                   var topic = input.texts().get(TOPIC_NAME);
 
                   var moveTo =
@@ -77,9 +79,15 @@ public class MoveTopicTab {
                                                           .moveTo(moveTo)))
                                       .map(CompletionStage::toCompletableFuture)
                                       .collect(Collectors.toList()))
-                              .thenApply(
+                              .thenAccept(
                                   ignored ->
-                                      "succeed to move " + topic + "-" + ps + " to " + moveTo));
+                                      logger.log(
+                                          "succeed to move "
+                                              + topic
+                                              + "-"
+                                              + ps
+                                              + " to "
+                                              + moveTo)));
                 })
             .build();
 

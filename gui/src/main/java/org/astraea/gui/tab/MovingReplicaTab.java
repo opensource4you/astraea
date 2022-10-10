@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.List;
 import java.util.Map;
@@ -24,6 +24,8 @@ import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AddingReplica;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class MovingReplicaTab {
 
@@ -57,8 +59,8 @@ public class MovingReplicaTab {
     var pane =
         PaneBuilder.of()
             .searchField("topic name")
-            .buttonTableAction(
-                input ->
+            .buttonAction(
+                (input, logger) ->
                     context.submit(
                         admin ->
                             admin

@@ -14,43 +14,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
-import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.LinkedHashSet;
+import org.astraea.gui.Context;
+import org.astraea.gui.button.RadioButtonAble;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class ConfigTab {
 
-  private enum Resource {
+  private enum Resource implements RadioButtonAble {
     BROKER("broker"),
     TOPIC("topic");
 
-    private final String alias;
+    private final String display;
 
-    Resource(String alias) {
-      this.alias = alias;
+    Resource(String display) {
+      this.display = display;
+    }
+
+    @Override
+    public String display() {
+      return display;
     }
   }
 
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(
-                LinkedHashSet.of(
-                    Arrays.stream(Resource.values()).map(r -> r.alias).toArray(String[]::new)))
+            .radioButtons(Resource.values())
             .searchField("config key")
-            .buttonTableAction(
-                input -> {
-                  var isTopic =
-                      input.selectedRadio().map(Resource.TOPIC.alias::equals).orElse(true);
+            .buttonAction(
+                (input, logger) -> {
+                  var resource =
+                      input.selectedRadio().map(o -> (Resource) o).orElse(Resource.TOPIC);
                   return context
                       .submit(
                           admin ->
-                              isTopic
+                              resource == Resource.TOPIC
                                   ? admin
                                       .topicNames(true)
                                       .thenCompose(admin::topics)
@@ -73,7 +77,9 @@ public class ConfigTab {
                                   .map(
                                       e -> {
                                         var map = new LinkedHashMap<String, Object>();
-                                        map.put(isTopic ? "name" : "broker id", e.getKey());
+                                        map.put(
+                                            resource == Resource.TOPIC ? "topic" : "broker id",
+                                            e.getKey());
                                         e.getValue().raw().entrySet().stream()
                                             .filter(entry -> input.matchSearch(entry.getKey()))
                                             .sorted(Map.Entry.comparingByKey())

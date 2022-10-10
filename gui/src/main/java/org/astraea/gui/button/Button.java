@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.button;
 
 import javafx.application.Platform;
-import javafx.scene.control.Button;
 
-public class SafeButton extends Button {
+public class Button extends javafx.scene.control.Button {
 
-  public SafeButton(String topic) {
+  public Button(String topic) {
     super(topic);
   }
 

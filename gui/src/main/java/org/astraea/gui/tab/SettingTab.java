@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.tab;
 
 import java.util.Optional;
 import javafx.scene.control.Tab;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.gui.Context;
+import org.astraea.gui.pane.PaneBuilder;
 
 public class SettingTab {
 
@@ -32,23 +34,25 @@ public class SettingTab {
             .input(BOOTSTRAP_SERVERS, true, false)
             .input(JMX_PORT, false, true)
             .buttonName("CHECK")
-            .buttonMessageAction(
-                input -> {
+            .buttonListener(
+                (input, logger) -> {
                   var bootstrapServers = input.texts().get(BOOTSTRAP_SERVERS);
                   var jmxPort =
                       Optional.ofNullable(input.texts().get(JMX_PORT)).map(Integer::parseInt);
                   var newAdmin = AsyncAdmin.of(bootstrapServers);
                   return newAdmin
                       .nodeInfos()
-                      .thenApply(
+                      .thenAccept(
                           nodeInfos -> {
                             context
                                 .replace(newAdmin)
                                 .ifPresent(
                                     admin ->
                                         org.astraea.common.Utils.swallowException(admin::close));
-                            if (jmxPort.isEmpty())
-                              return "succeed to connect to " + bootstrapServers;
+                            if (jmxPort.isEmpty()) {
+                              logger.log("succeed to connect to " + bootstrapServers);
+                              return;
+                            }
                             nodeInfos.forEach(
                                 n -> {
                                   try (var client = MBeanClient.jndi(n.host(), jmxPort.get())) {
@@ -56,11 +60,12 @@ public class SettingTab {
                                   }
                                 });
                             context.replace(jmxPort.get());
-                            return "succeed to connect to "
-                                + bootstrapServers
-                                + ", and jmx: "
-                                + jmxPort.get()
-                                + " works well";
+                            logger.log(
+                                "succeed to connect to "
+                                    + bootstrapServers
+                                    + ", and jmx: "
+                                    + jmxPort.get()
+                                    + " works well");
                           });
                 })
             .build();

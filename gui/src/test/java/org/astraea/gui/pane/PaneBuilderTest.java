@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui;
+package org.astraea.gui.pane;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
