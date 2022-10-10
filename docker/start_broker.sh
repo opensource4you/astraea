@@ -395,3 +395,6 @@ if [[ "$SASL" == "true" ]]; then
   echo "SASL_PLAINTEXT is enabled. user config: $user_jaas_file admin config: $admin_jaas_file"
 fi
 echo "================================================="
+echo "run $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT to join kafka worker"
+echo "run env CONFLUENT_WORKER=true $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT to join confluent kafka worker"
+echo "================================================="
