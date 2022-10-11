@@ -719,7 +719,7 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<Void> updateConfig(String topic, Map<String, String> override) {
+  public CompletionStage<Void> setConfigs(String topic, Map<String, String> override) {
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -736,7 +736,23 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override) {
+  public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
+    return to(
+        kafkaAdmin
+            .incrementalAlterConfigs(
+                Map.of(
+                    new ConfigResource(ConfigResource.Type.TOPIC, topic),
+                    keys.stream()
+                        .map(
+                            key ->
+                                new AlterConfigOp(
+                                    new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
+                        .collect(Collectors.toList())))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -748,6 +764,22 @@ class AsyncAdminImpl implements AsyncAdmin {
                                 new AlterConfigOp(
                                     new ConfigEntry(entry.getKey(), entry.getValue()),
                                     AlterConfigOp.OpType.SET))
+                        .collect(Collectors.toList())))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+    return to(
+        kafkaAdmin
+            .incrementalAlterConfigs(
+                Map.of(
+                    new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)),
+                    keys.stream()
+                        .map(
+                            key ->
+                                new AlterConfigOp(
+                                    new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
                         .collect(Collectors.toList())))
             .all());
   }

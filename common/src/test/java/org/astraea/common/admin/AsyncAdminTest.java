@@ -101,40 +101,64 @@ public class AsyncAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testUpdateTopicConfig() throws ExecutionException, InterruptedException {
+  void testSetAndUnsetTopicConfig() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
 
+      admin
+          .setConfigs(topic, Map.of(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG, "3000"))
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
       var config = admin.topics(Set.of(topic)).toCompletableFuture().get().get(0).config();
-      Assertions.assertEquals("delete", config.value("cleanup.policy").get());
+      Assertions.assertEquals("3000", config.value(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG).get());
 
-      admin.updateConfig(topic, Map.of("cleanup.policy", "compact")).toCompletableFuture().get();
+      admin
+          .unsetConfigs(topic, Set.of(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG))
+          .toCompletableFuture()
+          .get();
       Utils.sleep(Duration.ofSeconds(2));
       config = admin.topics(Set.of(topic)).toCompletableFuture().get().get(0).config();
-      Assertions.assertEquals("compact", config.value("cleanup.policy").get());
+      Assertions.assertNotEquals(
+          "3000", config.value(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG).get());
     }
   }
 
   @Test
-  void testUpdateBrokerConfig() throws ExecutionException, InterruptedException {
+  void testSetAndUnsetBrokerConfig() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var broker = admin.brokers().toCompletableFuture().get().get(0);
+      var id = broker.id();
       Assertions.assertEquals("producer", broker.config().value("compression.type").get());
 
       admin
-          .updateConfig(broker.id(), Map.of("compression.type", "gzip"))
+          .setConfigs(id, Map.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG, "gzip"))
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(2));
-      var broker2 =
+      broker =
           admin.brokers().toCompletableFuture().get().stream()
-              .filter(b -> b.id() == broker.id())
+              .filter(b -> b.id() == id)
               .findFirst()
               .get();
-      Assertions.assertEquals("gzip", broker2.config().value("compression.type").get());
+      Assertions.assertEquals(
+          "gzip", broker.config().value(BrokerConfigs.COMPRESSION_TYPE_CONFIG).get());
+
+      admin
+          .unsetConfigs(id, Set.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG))
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      broker =
+          admin.brokers().toCompletableFuture().get().stream()
+              .filter(b -> b.id() == id)
+              .findFirst()
+              .get();
+      Assertions.assertNotEquals(
+          "gzip", broker.config().value(BrokerConfigs.COMPRESSION_TYPE_CONFIG).get());
     }
   }
 
