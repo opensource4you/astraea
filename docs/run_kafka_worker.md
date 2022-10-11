@@ -22,7 +22,7 @@ Worker是一個基於Kafka的服務，可以更方便的創建管理數據流管
 
 若成功啟動broker，腳本會印出該broker的訊息。 例如:
 
-```bash
+```text
 =================================================
 worker address: 192.168.1.101:16564
 group.id: worker-uddds
@@ -30,7 +30,7 @@ group.id: worker-uddds
 ```
 
 1. `worker address` : 供Client端連線使用
-2. `group.id` : 群集id，用以判斷各個worker節點是否處於同一群集，預設每次啟動此腳本都會替worker建立一隨機group.id。使用者亦可透過腳本自行指定，例如 group.id=connect-cluster
+2. `group.id` : 群集id，用以判斷各個worker節點是否處於同一群集。預設每次啟動此腳本都會替worker建立一隨機group.id，且只有相同的group.id才會被視作同一個worker cluster，使用者亦可透過腳本自行指定，例如group.id=connect-cluster
 
 #### Confluent版本的worker
 
@@ -43,10 +43,10 @@ env CONFLUENT_WORKER=true CONFLUENT_VERSION=7.0.1 /home/username/Documents/astra
 
 若成功啟動`Confluent`版本的broker，腳本會印出該broker的訊息。
 
-```bash
+```text
 =================================================
 connect address: 192.168.1.101:14418
-group.id: connect-SuXd9
+group.id: worker-SuXd9
 =================================================
 ```
 

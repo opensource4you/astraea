@@ -212,6 +212,8 @@ rejectProperty "status.storage.topic"
 requireProperty "bootstrap.servers"
 setPropertyIfEmpty "plugin.path" "/opt/connectors"
 setPropertyIfEmpty "group.id" "$WORKER_GROUP_ID"
+# Use ByteArrayConverter as default key/value converter instead of JsonConverter since there are plenty of non kafka connect applications
+# that may use kafka topics, e.g. spark-kafka-integration only accept bytearray and string format (more info, see https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#kafka-specific-configurations)
 setPropertyIfEmpty "key.converter" "org.apache.kafka.connect.converters.ByteArrayConverter"
 setPropertyIfEmpty "value.converter" "org.apache.kafka.connect.converters.ByteArrayConverter"
 setPropertyIfEmpty "key.converter.schemas.enable" "true"
@@ -226,6 +228,9 @@ setPropertyIfEmpty "config.storage.replication.factor" "1"
 setPropertyIfEmpty "status.storage.topic" "status-$WORKER_GROUP_ID"
 setPropertyIfEmpty "status.storage.replication.factor" "1"
 
+# /tmp/connectors directory is used to mount connector jars to worker container
+mkdir -p /tmp/connectors
+
 docker run -d --init \
   --name "$CONTAINER_NAME" \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
@@ -236,5 +241,6 @@ docker run -d --init \
 
 echo "================================================="
 echo "worker address: ${ADDRESS}:$WORKER_PORT"
-echo "group.id": $WORKER_GROUP_ID
+echo "group.id: $WORKER_GROUP_ID"
+echo "add group.id=$WORKER_GROUP_ID argument after start_worker.sh in command line to add more workers to current cluster group."
 echo "================================================="
