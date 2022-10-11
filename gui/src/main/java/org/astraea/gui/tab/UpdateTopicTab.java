@@ -56,8 +56,7 @@ public class UpdateTopicTab {
                                         .map(Integer::parseInt)
                                         .map(ps -> admin.addPartitions(name, ps))
                                         .orElse(CompletableFuture.completedFuture(null))
-                                        .thenCompose(
-                                            ignored -> admin.updateConfig(name, allConfigs))
+                                        .thenCompose(ignored -> admin.setConfigs(name, allConfigs))
                                         .thenAccept(
                                             ignored -> logger.log("succeed to update " + name));
                                   }));

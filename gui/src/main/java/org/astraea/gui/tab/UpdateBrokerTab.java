@@ -49,7 +49,7 @@ public class UpdateBrokerTab {
                                           new IllegalArgumentException(
                                               "broker:" + id + " is nonexistent"));
                                     return admin
-                                        .updateConfig(id, allConfigs)
+                                        .setConfigs(id, allConfigs)
                                         .thenAccept(
                                             ignored -> logger.log("succeed to update " + id));
                                   }));
