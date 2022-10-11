@@ -18,9 +18,12 @@ package org.astraea.etl
 
 import com.opencsv.CSVWriter
 import org.apache.spark.SparkException
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{Encoder, Row}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.StructType
+import org.astraea.etl.CSVReader.{createSpark, csvToJSON}
 import org.astraea.etl.DataType.{IntegerType, StringType}
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
 
 import java.io._
@@ -78,11 +81,11 @@ class CSVReaderTest {
       )
     )
 
-    assert(structType.length equals 4)
+    assertEquals(structType.length, 4)
 
     val csvDF = CSVReader.readCSV(spark, structType, file.getParent.toString)
 
-    assert(csvDF.isStreaming, "sessions must be a streaming Dataset")
+    assertTrue(csvDF.isStreaming, "sessions must be a streaming Dataset")
 
     csvDF.writeStream
       .format("csv")
@@ -97,10 +100,104 @@ class CSVReaderTest {
     val writeFile = getCSVFile(new File(myDir.getPath + "/data"))(0)
     val br = new BufferedReader(new FileReader(writeFile))
 
-    assert(br.readLine equals "1,A1,52,fghgh")
-    assert(br.readLine equals "2,B1,36,gjgbn")
-    assert(br.readLine equals "3,C1,45,fgbhjf")
-    assert(br.readLine equals "4,D1,25,dfjf")
+    assertEquals(br.readLine, "1,A1,52,fghgh")
+    assertEquals(br.readLine, "2,B1,36,gjgbn")
+    assertEquals(br.readLine, "3,C1,45,fgbhjf")
+    assertEquals(br.readLine, "4,D1,25,dfjf")
+  }
+
+  @Test def csvToJSONTest(): Unit = {
+    val spark = createSpark("local[2]")
+    import spark.implicits._
+
+    case class Person(name: String, age: Long)
+    val data =
+      Seq(Person("Michael", 29), Person("Andy", 30), Person("Justin", 19))
+    implicit val make: Encoder[Person] =
+      org.apache.spark.sql.Encoders.kryo[Person]
+    val df =
+      spark.createDataset(data).map(x => (x.name, x.age)).toDF("name", "age")
+
+    val json = csvToJSON(df, Seq("name"))
+    val iterator = (0 to 2).iterator
+    json
+      .collectAsList()
+      .forEach(row => {
+        val i = iterator.next()
+        assertEquals(row(0), data(i).name)
+        assertEquals(
+          row(1),
+          s"""{"name":"${data(i).name}","age":${data(i).age}}"""
+        )
+      })
+  }
+
+  @Test def csvToJsonMulKeysTest(): Unit = {
+    val spark = createSpark("local[2]")
+    import spark.implicits._
+
+    case class Person(firstName: String, secondName: String, age: Long)
+    val data =
+      Seq(
+        Person("Michael", "A", 29),
+        Person("Andy", "B", 30),
+        Person("Justin", "C", 19)
+      )
+    implicit val make: Encoder[Person] =
+      org.apache.spark.sql.Encoders.kryo[Person]
+    val df =
+      spark
+        .createDataset(data)
+        .map(x => (x.firstName, x.secondName, x.age))
+        .toDF("firstName", "secondName", "age")
+
+    val json = csvToJSON(
+      df,
+      Seq("firstName", "secondName")
+    )
+    val iterator = (0 to 2).iterator
+    json
+      .collectAsList()
+      .forEach(row => {
+        val i = iterator.next()
+        assertEquals(row(0), s"${data(i).firstName},${data(i).secondName}")
+        assertEquals(
+          row(1),
+          s"""{"firstName":"${data(
+            i
+          ).firstName}","secondName":"${data(i).secondName}","age":${data(
+            i
+          ).age}}"""
+        )
+      })
+  }
+
+  @Test def jsonToByteTest(): Unit = {
+    val spark = createSpark("local[2]")
+
+    var data = Seq(Row(1, "A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
+    (0 to 10000).iterator.foreach(_ =>
+      data = data ++ Seq(Row(1, "A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
+    )
+
+    val structType = new StructType()
+      .add("ID", "integer")
+      .add("name", "string")
+      .add("age", "integer")
+      .add("xx", "string")
+      .add("yy", "string")
+      .add("zz", "string")
+      .add("f", "string")
+      .add("fInt", "integer")
+
+    val df =
+      spark.createDataFrame(spark.sparkContext.parallelize(data), structType)
+
+    val json = csvToJSON(df, Seq("ID"))
+      .withColumn("byte", col("value").cast("Byte"))
+      .selectExpr("CAST(byte AS BYTE)")
+    val head = json.head()
+    assertTrue(json.filter(_ != head).isEmpty)
   }
 
   def rows: List[List[String]] = {
