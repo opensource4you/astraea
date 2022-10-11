@@ -55,7 +55,7 @@ class MetadataTest {
     assert(config.primaryKeys equals Map("ID" -> StringType))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assert(config.numPartitions.equals(15))
-    assert(config.numReplicas.equals(1))
+    assert(config.numReplicas.equals(1.toShort))
     assert(config.topicName.nonEmpty)
     assert(config.topicConfig.isEmpty)
   }
@@ -84,7 +84,7 @@ class MetadataTest {
     assert(config.primaryKeys equals Map("ID" -> StringType))
     assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assert(config.numPartitions.equals(30))
-    assert(config.numReplicas.equals(3))
+    assert(config.numReplicas.equals(3.toShort))
     assert(config.topicName.equals("spark-1"))
     assert(config.topicConfig.equals(Map("KA" -> "VA", "KB" -> "VB")))
   }
