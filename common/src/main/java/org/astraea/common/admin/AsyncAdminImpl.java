@@ -17,8 +17,6 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -154,7 +152,7 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<Set<TopicPartition>> topicPartitions(int brokerId) {
+  public CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers) {
     return topicNames(true)
         .thenCompose(topics -> to(kafkaAdmin.describeTopics(topics).all()))
         .thenApply(
@@ -163,9 +161,16 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .flatMap(
                         entry ->
                             entry.getValue().partitions().stream()
-                                .filter(
-                                    p -> p.replicas().stream().anyMatch(n -> n.id() == brokerId))
-                                .map(p -> TopicPartition.of(entry.getKey(), p.partition())))
+                                .flatMap(
+                                    p ->
+                                        p.replicas().stream()
+                                            .map(
+                                                replica ->
+                                                    TopicPartitionReplica.of(
+                                                        entry.getKey(),
+                                                        p.partition(),
+                                                        replica.id()))))
+                    .filter(replica -> brokers.contains(replica.brokerId()))
                     .collect(Collectors.toSet()));
   }
 
@@ -661,127 +666,28 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public ReplicaMigrator migrator() {
-    return new ReplicaMigrator() {
-      private final List<CompletableFuture<Set<TopicPartition>>> partitions =
-          Collections.synchronizedList(new ArrayList<>());
+  public CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments) {
+    return to(
+        kafkaAdmin
+            .alterPartitionReassignments(
+                assignments.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> TopicPartition.to(e.getKey()),
+                            e -> Optional.of(new NewPartitionReassignment(e.getValue())))))
+            .all());
+  }
 
-      @Override
-      public ReplicaMigrator topic(String topic) {
-        partitions.add(topicPartitions(Set.of(topic)).toCompletableFuture());
-        return this;
-      }
-
-      @Override
-      public ReplicaMigrator partition(String topic, int partition) {
-        partitions.add(
-            CompletableFuture.completedFuture(Set.of(TopicPartition.of(topic, partition))));
-        return this;
-      }
-
-      @Override
-      public ReplicaMigrator broker(int broker) {
-        partitions.add(topicPartitions(broker).toCompletableFuture());
-        return this;
-      }
-
-      @Override
-      public ReplicaMigrator topicOfBroker(int broker, String topic) {
-        partitions.add(
-            topicPartitions(broker)
-                .toCompletableFuture()
-                .thenApply(
-                    ps ->
-                        ps.stream()
-                            .filter(p -> p.topic().equals(topic))
-                            .collect(Collectors.toUnmodifiableSet())));
-        return this;
-      }
-
-      @Override
-      public CompletionStage<Void> moveTo(List<Integer> brokers) {
-        return Utils.sequence(partitions)
-            .thenApply(ss -> ss.stream().flatMap(Collection::stream).collect(Collectors.toList()))
-            .thenCompose(
-                partitions ->
-                    to(
-                        kafkaAdmin
-                            .alterPartitionReassignments(
-                                partitions.stream()
-                                    .collect(
-                                        Collectors.toMap(
-                                            p ->
-                                                new org.apache.kafka.common.TopicPartition(
-                                                    p.topic(), p.partition()),
-                                            ignore ->
-                                                Optional.of(
-                                                    new NewPartitionReassignment(brokers)))))
-                            .all()));
-      }
-
-      @Override
-      public CompletionStage<Void> moveTo(Map<Integer, String> brokerFolders) {
-        var f = new CompletableFuture<Void>();
-        var ps =
-            Utils.sequence(partitions)
-                .thenApply(
-                    ss -> ss.stream().flatMap(Collection::stream).collect(Collectors.toList()))
-                .thenCompose(
-                    tps ->
-                        partitions(
-                                tps.stream()
-                                    .map(TopicPartition::topic)
-                                    .collect(Collectors.toUnmodifiableSet()))
-                            .thenApply(
-                                partitions ->
-                                    partitions.stream()
-                                        .filter(
-                                            p ->
-                                                tps.contains(
-                                                    TopicPartition.of(p.topic(), p.partition())))
-                                        .collect(Collectors.toList())));
-
-        ps.whenComplete(
-            (partitions, e) -> {
-              if (e != null) {
-                f.completeExceptionally(e);
-                return;
-              }
-              for (var p : partitions) {
-                var currentBrokerIds =
-                    p.replicas().stream().map(NodeInfo::id).collect(Collectors.toList());
-                if (!brokerFolders.keySet().containsAll(currentBrokerIds)) {
-                  f.completeExceptionally(
-                      new IllegalStateException(
-                          p.topic()
-                              + " is located at "
-                              + currentBrokerIds
-                              + " which is not matched to expected brokers: "
-                              + brokerFolders.keySet()
-                              + ". Please use moveTo(List<Integer>) first"));
-                  return;
-                }
-              }
-              for (var p : partitions) {
-                var payload =
-                    brokerFolders.entrySet().stream()
-                        .collect(
-                            Collectors.toUnmodifiableMap(
-                                entry ->
-                                    new org.apache.kafka.common.TopicPartitionReplica(
-                                        p.topic(), p.partition(), entry.getKey()),
-                                Map.Entry::getValue));
-                to(kafkaAdmin.alterReplicaLogDirs(payload).all())
-                    .whenComplete(
-                        (ignored, e2) -> {
-                          if (e2 != null) f.completeExceptionally(e2);
-                          else f.complete(null);
-                        });
-              }
-            });
-        return f;
-      }
-    };
+  @Override
+  public CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments) {
+    return to(
+        kafkaAdmin
+            .alterReplicaLogDirs(
+                assignments.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> TopicPartitionReplica.to(e.getKey()), Map.Entry::getValue)))
+            .all());
   }
 
   @Override

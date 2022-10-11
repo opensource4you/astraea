@@ -17,45 +17,17 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class AsyncAdminTest extends RequireBrokerCluster {
-
-  @Test
-  void testMoveToAnotherBroker() throws ExecutionException, InterruptedException {
-    var topic = Utils.randomString();
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
-      Utils.sleep(Duration.ofSeconds(2));
-
-      var partitions = admin.partitions(Set.of(topic)).toCompletableFuture().get();
-      Assertions.assertEquals(1, partitions.size());
-      var partition = partitions.get(0);
-      Assertions.assertEquals(1, partition.replicas().size());
-
-      var ids =
-          brokerIds().stream()
-              .filter(i -> i != partition.leader().get().id())
-              .collect(Collectors.toList());
-      admin.migrator().topic(topic).moveTo(ids).toCompletableFuture().get();
-      Utils.sleep(Duration.ofSeconds(2));
-
-      var newPartitions = admin.partitions(Set.of(topic)).toCompletableFuture().get();
-      Assertions.assertEquals(1, partitions.size());
-      var newPartition = newPartitions.get(0);
-      Assertions.assertEquals(ids.size(), newPartition.replicas().size());
-      Assertions.assertEquals(ids.size(), newPartition.isr().size());
-      Assertions.assertEquals(ids.get(0), newPartition.leader().get().id());
-    }
-  }
 
   @Test
   void testMoveLeaderBroker() throws ExecutionException, InterruptedException {
@@ -75,7 +47,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .findFirst()
                   .get(),
               partition.leader().get().id());
-      admin.migrator().topic(topic).moveTo(ids).toCompletableFuture().get();
+      admin.moveToBrokers(Map.of(TopicPartition.of(topic, 0), ids)).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
 
       var newPartitions = admin.partitions(Set.of(topic)).toCompletableFuture().get();
@@ -112,8 +84,12 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .findFirst()
               .get();
       Assertions.assertEquals(1, idAndFolder.size());
-
-      admin.migrator().topic(topic).moveTo(idAndFolder).toCompletableFuture().get();
+      var id = idAndFolder.keySet().iterator().next();
+      var path = idAndFolder.values().iterator().next();
+      admin
+          .moveToFolders(Map.of(TopicPartitionReplica.of(topic, 0, id), path))
+          .toCompletableFuture()
+          .get();
       Utils.sleep(Duration.ofSeconds(2));
 
       var newReplicas = admin.replicas(Set.of(topic)).toCompletableFuture().get();
@@ -121,34 +97,6 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       var newReplica = newReplicas.get(0);
       Assertions.assertEquals(idAndFolder.get(newReplica.nodeInfo().id()), newReplica.dataFolder());
-    }
-  }
-
-  @Test
-  void testMoveToNotHostedFolder() throws ExecutionException, InterruptedException {
-    var topic = Utils.randomString();
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
-      Utils.sleep(Duration.ofSeconds(2));
-      var replicas = admin.replicas(Set.of(topic)).toCompletableFuture().get();
-      Assertions.assertEquals(1, replicas.size());
-
-      var replica = replicas.get(0);
-      var idAndFolder =
-          logFolders().entrySet().stream()
-              .filter(e -> e.getKey() != replica.nodeInfo().id())
-              .map(e -> Map.of(e.getKey(), e.getValue().iterator().next()))
-              .findFirst()
-              .get();
-      Assertions.assertEquals(1, idAndFolder.size());
-
-      Assertions.assertInstanceOf(
-          IllegalStateException.class,
-          Assertions.assertThrows(
-                  ExecutionException.class,
-                  () ->
-                      admin.migrator().topic(topic).moveTo(idAndFolder).toCompletableFuture().get())
-              .getCause());
     }
   }
 
@@ -187,6 +135,69 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .findFirst()
               .get();
       Assertions.assertEquals("gzip", broker2.config().value("compression.type").get());
+    }
+  }
+
+  @Test
+  void testMigrateToOtherBrokers() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
+
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(1, admin.replicas(Set.of(topic)).toCompletableFuture().get().size());
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(topic, 0), new ArrayList<>(brokerIds())))
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(3, admin.replicas(Set.of(topic)).toCompletableFuture().get().size());
+
+      admin
+          .moveToBrokers(
+              Map.of(TopicPartition.of(topic, 0), List.of(brokerIds().iterator().next())))
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(1, admin.replicas(Set.of(topic)).toCompletableFuture().get().size());
+    }
+  }
+
+  @Test
+  void testMigrateToOtherFolders() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(1, admin.replicas(Set.of(topic)).toCompletableFuture().get().size());
+
+      var id =
+          admin
+              .replicas(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .iterator()
+              .next()
+              .nodeInfo()
+              .id();
+      var paths = new ArrayList<>(logFolders().get(id));
+
+      for (var path : paths) {
+        admin
+            .moveToFolders(Map.of(TopicPartitionReplica.of(topic, 0, id), path))
+            .toCompletableFuture()
+            .get();
+        Utils.sleep(Duration.ofSeconds(2));
+        Assertions.assertEquals(
+            path,
+            admin
+                .replicas(Set.of(topic))
+                .toCompletableFuture()
+                .get()
+                .iterator()
+                .next()
+                .dataFolder());
+      }
     }
   }
 }

@@ -184,7 +184,16 @@ public class Builder {
     @Override
     public Set<TopicPartition> topicPartitions(int broker) {
       return Utils.packException(
-          () -> asyncAdmin.topicPartitions(broker).toCompletableFuture().get());
+          () ->
+              asyncAdmin
+                  .topicPartitionReplicas(Set.of(broker))
+                  .thenApply(
+                      rs ->
+                          rs.stream()
+                              .map(TopicPartitionReplica::topicPartition)
+                              .collect(Collectors.toSet()))
+                  .toCompletableFuture()
+                  .get());
     }
 
     @Override

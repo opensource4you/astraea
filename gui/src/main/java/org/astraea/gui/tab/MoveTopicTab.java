@@ -18,6 +18,7 @@ package org.astraea.gui.tab;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 import javafx.scene.control.Tab;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 
@@ -73,10 +75,10 @@ public class MoveTopicTab {
                                           p ->
                                               context.submit(
                                                   admin ->
-                                                      admin
-                                                          .migrator()
-                                                          .partition(topic, p)
-                                                          .moveTo(moveTo)))
+                                                      admin.moveToBrokers(
+                                                          Map.of(
+                                                              TopicPartition.of(topic, p),
+                                                              moveTo))))
                                       .map(CompletionStage::toCompletableFuture)
                                       .collect(Collectors.toList()))
                               .thenAccept(
