@@ -207,6 +207,7 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
     }
     var meters = topic.fetch(MBeanClient.local());
     Assertions.assertNotEquals(0, meters.size());
+    Assertions.assertNotEquals(0, meters.stream().filter(m -> m.topic().equals(name)).count());
     meters.forEach(
         m -> {
           Assertions.assertNotNull(m.metricsName());
