@@ -16,9 +16,12 @@
  */
 package org.astraea.gui.tab;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
@@ -26,13 +29,15 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
+import org.astraea.common.metrics.broker.HasRate;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
 public class TopicTab {
-
-  private static List<Map<String, Object>> beans(List<Partition> partitions, List<Broker> nodes) {
+  private static List<Map<String, Object>> result(
+      List<Partition> partitions, List<Broker> nodes, Map<String, Map<String, Object>> metrics) {
     var topicSize =
         nodes.stream()
             .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
@@ -65,6 +70,7 @@ public class TopicTab {
                           .mapToLong(Partition::maxTimestamp)
                           .max()
                           .orElse(-1L)));
+              result.putAll(metrics.getOrDefault(topic, Map.of()));
               tps.get(topic).stream()
                   .flatMap(p -> p.replicas().stream())
                   .collect(Collectors.groupingBy(NodeInfo::id))
@@ -76,6 +82,52 @@ public class TopicTab {
               return result;
             })
         .collect(Collectors.toList());
+  }
+
+  private static CompletionStage<Map<String, Map<String, Object>>> topicMetrics(Context context) {
+    if (!context.hasMetrics()) return CompletableFuture.completedFuture(Map.of());
+    return context
+        .metrics(
+            bs ->
+                bs.values().stream()
+                    .flatMap(
+                        client ->
+                            Arrays.stream(ServerMetrics.Topic.values())
+                                .flatMap(
+                                    m ->
+                                        MetricsTab.tryToFetch(() -> m.fetch(client).stream())
+                                            .stream()))
+                    .flatMap(m -> m)
+                    .collect(Collectors.groupingBy(ServerMetrics.Topic.Meter::topic)))
+        .thenApply(
+            ms ->
+                ms.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                e.getValue().stream()
+                                    .collect(Collectors.groupingBy(ServerMetrics.Topic.Meter::type))
+                                    .entrySet()
+                                    .stream()
+                                    .collect(
+                                        Utils.toSortedMap(
+                                            e2 -> e2.getKey().alias(),
+                                            e2 -> {
+                                              switch (e2.getKey()) {
+                                                case BYTES_IN_PER_SEC:
+                                                case BYTES_OUT_PER_SEC:
+                                                  return DataSize.Byte.of(
+                                                      (long)
+                                                          e2.getValue().stream()
+                                                              .mapToDouble(HasRate::fiveMinuteRate)
+                                                              .sum());
+                                                default:
+                                                  return e2.getValue().stream()
+                                                      .mapToDouble(HasRate::fiveMinuteRate)
+                                                      .sum();
+                                              }
+                                            })))));
   }
 
   public static Tab of(Context context) {
@@ -97,7 +149,17 @@ public class TopicTab {
                                     names ->
                                         admin
                                             .partitions(names)
-                                            .thenCombine(admin.brokers(), TopicTab::beans))))
+                                            .thenCompose(
+                                                partitions ->
+                                                    admin
+                                                        .brokers()
+                                                        .thenCombine(
+                                                            topicMetrics(context),
+                                                            (brokers, metrics) ->
+                                                                result(
+                                                                    partitions,
+                                                                    brokers,
+                                                                    metrics))))))
             .build();
     return Tab.of("topic", pane);
   }

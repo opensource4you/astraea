@@ -67,4 +67,8 @@ public class Context {
                                         b -> b, b -> MBeanClient.jndi(b.host(), jmxPort)))))
         .thenApply(executor);
   }
+
+  public boolean hasMetrics() {
+    return jmxPort.get() > 0;
+  }
 }
