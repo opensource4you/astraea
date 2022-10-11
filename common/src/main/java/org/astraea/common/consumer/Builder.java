@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.astraea.common.EnumInfo;
@@ -128,21 +127,11 @@ public abstract class Builder<Key, Value> {
     private final AtomicBoolean subscribed = new AtomicBoolean(true);
 
     private final String clientId;
-    private ConsumerRebalanceListener listener = ignore -> {};
 
     public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
       this.kafkaConsumer = kafkaConsumer;
       // KafkaConsumer does not expose client-id
       this.clientId = (String) Utils.member(kafkaConsumer, "clientId");
-    }
-
-    public BaseConsumer(
-        org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer,
-        ConsumerRebalanceListener listener) {
-      this.kafkaConsumer = kafkaConsumer;
-      // KafkaConsumer does not expose client-id
-      this.clientId = (String) Utils.member(kafkaConsumer, "clientId");
-      this.listener = listener;
     }
 
     @Override
@@ -174,10 +163,7 @@ public abstract class Builder<Key, Value> {
 
     @Override
     public void unsubscribe() {
-      if (subscribed.compareAndSet(true, false)) {
-        kafkaConsumer.unsubscribe();
-        listener.onPartitionAssigned(Set.of()); // To record sticky partitions
-      }
+      if (subscribed.compareAndSet(true, false)) kafkaConsumer.unsubscribe();
     }
 
     @Override

@@ -115,16 +115,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
-  public TopicsBuilder<Key, Value> recordListener(
-      Map<String, ConsumerRebalanceListener> clientAndListener) {
-    clientAndListener.forEach(
-        (clientId, listener) -> {
-          super.clientId(clientId);
-          this.listener = listener;
-        });
-    return this;
-  }
-
   @Override
   public TopicsBuilder<Key, Value> bootstrapServers(String bootstrapServers) {
     super.bootstrapServers(bootstrapServers);
@@ -208,7 +198,7 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
         Set<String> setTopics,
         Pattern patternTopics,
         ConsumerRebalanceListener listener) {
-      super(kafkaConsumer, listener);
+      super(kafkaConsumer);
       this.setTopics = setTopics;
       this.patternTopics = patternTopics;
       this.listener = listener;
@@ -231,6 +221,11 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
     public Optional<String> groupInstanceId() {
       return kafkaConsumer.groupMetadata().groupInstanceId();
+    }
+
+    @Override
+    public int generationId() {
+      return kafkaConsumer.groupMetadata().generationId();
     }
 
     @Override

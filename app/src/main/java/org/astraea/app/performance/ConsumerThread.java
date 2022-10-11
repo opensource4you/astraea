@@ -17,6 +17,7 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +39,8 @@ import org.astraea.common.consumer.SubscribedConsumer;
 public interface ConsumerThread extends AbstractThread {
 
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITIONS = new ConcurrentHashMap<>();
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_STICKY_PARTITIONS =
+      new ConcurrentHashMap<>();
 
   static List<ConsumerThread> create(
       int consumers,
@@ -72,12 +75,27 @@ public interface ConsumerThread extends AbstractThread {
               executors.execute(
                   () -> {
                     try {
+                      var assignments = consumer.assignments();
+                      var generationId = consumer.generationId();
                       while (!closed.get()) {
                         if (subscribed.get()) consumer.resubscribe();
                         else {
                           consumer.unsubscribe();
+                          assignments = Set.of();
+                          CLIENT_ID_PARTITIONS.put(clientId, assignments);
+                          CLIENT_ID_STICKY_PARTITIONS.put(clientId, assignments);
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
+                        }
+                        if (!assignments.containsAll(CLIENT_ID_PARTITIONS.get(clientId))
+                            || generationId < consumer.generationId()) {
+                          // check if re-balance or not.
+                          var nowPartitions = CLIENT_ID_PARTITIONS.get(clientId);
+                          var stickyPartitions = new HashSet<>(nowPartitions);
+                          stickyPartitions.retainAll(assignments);
+                          CLIENT_ID_STICKY_PARTITIONS.put(clientId, stickyPartitions);
+                          assignments = nowPartitions;
+                          generationId = consumer.generationId();
                         }
                         consumer.poll(Duration.ofSeconds(1));
                       }

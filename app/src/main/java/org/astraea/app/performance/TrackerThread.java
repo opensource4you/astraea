@@ -19,6 +19,7 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -142,7 +143,8 @@ public interface TrackerThread extends AbstractThread {
         var report = reports.get(i);
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
         var clientId = report.clientId() == null ? "forTest" : report.clientId();
-        var stickyNumber = Performance.RecordListener.stickyNumbers.get(clientId);
+        var stickyNumber =
+            ConsumerThread.CLIENT_ID_STICKY_PARTITIONS.getOrDefault(clientId, Set.of()).size();
         if (ms.isPresent()) {
           System.out.printf(
               "  consumer[%d] has %d partitions and %d sticky partitions%n",

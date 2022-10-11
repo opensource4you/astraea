@@ -27,10 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -55,7 +52,6 @@ import org.astraea.common.argument.PositiveShortField;
 import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
-import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.Isolation;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Acks;
@@ -81,8 +77,6 @@ public class Performance {
 
   public static List<String> execute(final Argument param)
       throws InterruptedException, IOException {
-    Function<String, Map<String, ConsumerRebalanceListener>> clientAndListener =
-        client -> Map.of(client, new RecordListener(client));
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -473,27 +467,5 @@ public class Performance {
             "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
         validateWith = PositiveIntegerField.class)
     int interdependent = 1;
-  }
-
-  static class RecordListener implements ConsumerRebalanceListener {
-    public static ConcurrentMap<String, Integer> stickyNumbers = new ConcurrentHashMap<>();
-    private Set<TopicPartition> prevPartitions = new HashSet<>();
-    private final String clientId;
-
-    RecordListener(String clientId) {
-      this.clientId = clientId;
-    }
-
-    @Override
-    public void onPartitionAssigned(Set<TopicPartition> partitions) {
-      var stickyPartitions = new HashSet<>(partitions);
-      stickyPartitions.retainAll(prevPartitions);
-      stickyNumbers.put(clientId, stickyPartitions.size());
-    }
-
-    @Override
-    public void onPartitionsRevoked(Set<TopicPartition> partitions) {
-      prevPartitions = partitions;
-    }
   }
 }

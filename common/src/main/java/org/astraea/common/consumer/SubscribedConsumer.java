@@ -42,4 +42,6 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
 
   /** @return group instance id (static member) */
   Optional<String> groupInstanceId();
+
+  int generationId();
 }
