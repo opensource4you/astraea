@@ -17,6 +17,7 @@ def versions = [
     "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
     "math3"     : project.properties['math3.version'] ?: "3.6.1",
     gson: project.properties['gson.version'] ?: "2.9.0",
+    jackson: project.properties['jackson.version'] ?: "2.13.4",
 ]
 
 dependencies {
@@ -30,9 +31,11 @@ dependencies {
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.4'
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
     implementation "org.apache.commons:commons-math3:${versions["math3"]}"
     implementation "com.google.code.gson:gson:${versions["gson"]}"
+
 }
 
 java {

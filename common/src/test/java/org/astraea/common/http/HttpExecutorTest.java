@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,11 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorTest {
-  private static final JsonConverter jsonConverter = JsonConverter.gson();
+  private static final JsonConverter jsonConverter = JsonConverter.defaultConverter();
 
   @Test
   void testGet() {
@@ -36,14 +38,20 @@ class HttpExecutorTest {
             httpServer.createContext(
                 "/test",
                 HttpTestUtil.createTextHandler(List.of("GET"), "{'responseValue':'testValue'}")),
-        x -> {
-          var responseHttpResponse = httpExecutor.get(getUrl(x, "/test"), TestResponse.class);
-          assertEquals("testValue", responseHttpResponse.body().responseValue());
+        x ->
+            Utils.packException(
+                () -> {
+                  var responseHttpResponse =
+                      httpExecutor.get(getUrl(x, "/test"), TestResponse.class).get();
+                  assertEquals("testValue", responseHttpResponse.body().responseValue());
 
-          assertThrows(
-              StringResponseException.class,
-              () -> httpExecutor.get(getUrl(x, "/NotFound"), TestResponse.class));
-        });
+                  var executionException =
+                      assertThrows(
+                          ExecutionException.class,
+                          () -> httpExecutor.get(getUrl(x, "/NotFound"), TestResponse.class).get());
+                  assertEquals(
+                      StringResponseException.class, executionException.getCause().getClass());
+                }));
   }
 
   @Test
@@ -57,19 +65,28 @@ class HttpExecutorTest {
                     List.of("GET"),
                     x -> assertEquals("/test?k1=v1", x.uri().toString()),
                     "{'responseValue':'testValue'}")),
-        x -> {
-          var responseHttpResponse =
-              httpExecutor.get(getUrl(x, "/test"), Map.of("k1", "v1"), TestResponse.class);
-          assertEquals("testValue", responseHttpResponse.body().responseValue());
+        x ->
+            Utils.packException(
+                () -> {
+                  var responseHttpResponse =
+                      httpExecutor
+                          .get(getUrl(x, "/test"), Map.of("k1", "v1"), TestResponse.class)
+                          .get();
+                  assertEquals("testValue", responseHttpResponse.body().responseValue());
 
-          responseHttpResponse =
-              httpExecutor.get(getUrl(x, "/test"), new TestParam("v1"), TestResponse.class);
-          assertEquals("testValue", responseHttpResponse.body().responseValue());
+                  responseHttpResponse =
+                      httpExecutor
+                          .get(getUrl(x, "/test"), new TestParam("v1"), TestResponse.class)
+                          .get();
+                  assertEquals("testValue", responseHttpResponse.body().responseValue());
 
-          assertThrows(
-              StringResponseException.class,
-              () -> httpExecutor.get(getUrl(x, "/NotFound"), TestResponse.class));
-        });
+                  var executionException =
+                      assertThrows(
+                          ExecutionException.class,
+                          () -> httpExecutor.get(getUrl(x, "/NotFound"), TestResponse.class).get());
+                  assertEquals(
+                      StringResponseException.class, executionException.getCause().getClass());
+                }));
   }
 
   @Test
@@ -86,18 +103,26 @@ class HttpExecutorTest {
                       assertEquals("testRequestValue", request.requestValue());
                     },
                     "{'responseValue':'testValue'}")),
-        x -> {
-          var request = new TestRequest();
-          request.setRequestValue("testRequestValue");
-          var responseHttpResponse =
-              httpExecutor.post(getUrl(x, "/test"), request, TestResponse.class);
-          assertEquals("testValue", responseHttpResponse.body().responseValue());
+        x ->
+            Utils.packException(
+                () -> {
+                  var request = new TestRequest();
+                  request.setRequestValue("testRequestValue");
+                  var responseHttpResponse =
+                      httpExecutor.post(getUrl(x, "/test"), request, TestResponse.class).get();
+                  assertEquals("testValue", responseHttpResponse.body().responseValue());
 
-          // response body can't convert to testResponse
-          assertThrows(
-              StringResponseException.class,
-              () -> httpExecutor.post(getUrl(x, "/NotFound"), request, TestResponse.class));
-        });
+                  // response body can't convert to testResponse
+                  var executionException =
+                      assertThrows(
+                          ExecutionException.class,
+                          () ->
+                              httpExecutor
+                                  .post(getUrl(x, "/NotFound"), request, TestResponse.class)
+                                  .get());
+                  assertEquals(
+                      StringResponseException.class, executionException.getCause().getClass());
+                }));
   }
 
   @Test
@@ -114,17 +139,25 @@ class HttpExecutorTest {
                       assertEquals("testRequestValue", request.requestValue());
                     },
                     "{'responseValue':'testValue'}")),
-        x -> {
-          var request = new TestRequest();
-          request.setRequestValue("testRequestValue");
-          var responseHttpResponse =
-              httpExecutor.put(getUrl(x, "/test"), request, TestResponse.class);
-          assertEquals("testValue", responseHttpResponse.body().responseValue());
+        x ->
+            Utils.packException(
+                () -> {
+                  var request = new TestRequest();
+                  request.setRequestValue("testRequestValue");
+                  var responseHttpResponse =
+                      httpExecutor.put(getUrl(x, "/test"), request, TestResponse.class).get();
+                  assertEquals("testValue", responseHttpResponse.body().responseValue());
 
-          assertThrows(
-              StringResponseException.class,
-              () -> httpExecutor.put(getUrl(x, "/NotFound"), request, TestResponse.class));
-        });
+                  var executionException =
+                      assertThrows(
+                          ExecutionException.class,
+                          () ->
+                              httpExecutor
+                                  .put(getUrl(x, "/NotFound"), request, TestResponse.class)
+                                  .get());
+                  assertEquals(
+                      StringResponseException.class, executionException.getCause().getClass());
+                }));
   }
 
   @Test
@@ -137,8 +170,11 @@ class HttpExecutorTest {
         x -> {
           httpExecutor.delete(getUrl(x, "/test"));
 
-          assertThrows(
-              StringResponseException.class, () -> httpExecutor.delete(getUrl(x, "/NotFound")));
+          var executionException =
+              assertThrows(
+                  ExecutionException.class,
+                  () -> httpExecutor.delete(getUrl(x, "/NotFound")).get());
+          assertEquals(StringResponseException.class, executionException.getCause().getClass());
         });
   }
 

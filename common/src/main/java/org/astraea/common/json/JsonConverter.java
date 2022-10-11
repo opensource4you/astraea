@@ -16,8 +16,15 @@
  */
 package org.astraea.common.json;
 
-import com.google.gson.Gson;
-import java.lang.reflect.Type;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker.Std;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import org.astraea.common.Utils;
 
 public interface JsonConverter {
 
@@ -25,25 +32,37 @@ public interface JsonConverter {
 
   <T> T fromJson(String json, Class<T> tClass);
 
-  /** for nested generic object ,the return value should specify type , Example: List<String> */
-  <T> T fromJson(String json, Type type);
+  /** for nested generic object ,the return value should specify typeRef , Example: List<String> */
+  <T> T fromJson(String json, TypeRef<T> typeRef);
 
-  static JsonConverter gson() {
-    var gson = new Gson();
+  static JsonConverter defaultConverter() {
+    return jackson();
+  }
+
+  static JsonConverter jackson() {
+    var objectMapper =
+        JsonMapper.builder()
+            .addModule(new Jdk8Module())
+            .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+            .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
+            .visibility(new Std(JsonAutoDetect.Visibility.NONE).with(JsonAutoDetect.Visibility.ANY))
+            .serializationInclusion(Include.NON_EMPTY)
+            .build();
     return new JsonConverter() {
       @Override
       public String toJson(Object src) {
-        return gson.toJson(src);
+        return Utils.packException(() -> objectMapper.writeValueAsString(src));
       }
 
       @Override
       public <T> T fromJson(String json, Class<T> tClass) {
-        return gson.fromJson(json, tClass);
+        return Utils.packException(() -> objectMapper.readValue(json, tClass));
       }
 
       @Override
-      public <T> T fromJson(String json, Type type) {
-        return gson.fromJson(json, type);
+      public <T> T fromJson(String json, TypeRef<T> typeRef) {
+        return Utils.packException(() -> objectMapper.readValue(json, typeRef));
       }
     };
   }

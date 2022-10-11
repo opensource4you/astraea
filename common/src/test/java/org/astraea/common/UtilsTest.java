@@ -17,7 +17,6 @@
 package org.astraea.common;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -117,17 +116,17 @@ public class UtilsTest {
 
   @Test
   void testGetQueryUrl() throws URISyntaxException {
-    var url = new URI("http://localhost:8989/test");
-    var newURL = Utils.getQueryUrl(url, Map.of("key1", "value1"));
+    var url = "http://localhost:8989/test";
+    var newURL = Utils.getQueryUri(url, Map.of("key1", "value1"));
     Assertions.assertEquals("key1=value1", newURL.getQuery());
 
-    newURL = Utils.getQueryUrl(url, Map.of("key1", "value1,value2"));
+    newURL = Utils.getQueryUri(url, Map.of("key1", "value1,value2"));
     Assertions.assertEquals("key1=value1,value2", newURL.getQuery());
 
-    newURL = Utils.getQueryUrl(url, Map.of("key1", "/redirectKey"));
+    newURL = Utils.getQueryUri(url, Map.of("key1", "/redirectKey"));
     Assertions.assertEquals("key1=%2FredirectKey", newURL.getQuery());
 
-    newURL = Utils.getQueryUrl(url, Map.of("key1", "/redirectKey,/redirectKey2"));
+    newURL = Utils.getQueryUri(url, Map.of("key1", "/redirectKey,/redirectKey2"));
     Assertions.assertEquals("key1=%2FredirectKey,%2FredirectKey2", newURL.getQuery());
   }
 

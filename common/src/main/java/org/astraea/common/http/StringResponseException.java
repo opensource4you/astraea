@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.http;
 
 import java.lang.reflect.Type;
 import java.net.http.HttpResponse;

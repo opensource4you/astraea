@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.http;
 
-import java.lang.reflect.Type;
 import java.net.http.HttpResponse;
+import java.util.concurrent.CompletableFuture;
+import org.astraea.common.json.TypeRef;
 
 /** Send json http request. */
 public interface HttpExecutor {
@@ -26,15 +27,15 @@ public interface HttpExecutor {
     return new HttpExecutorBuilder();
   }
 
-  <T> HttpResponse<T> get(String url, Class<T> respCls);
+  <T> CompletableFuture<HttpResponse<T>> get(String url, Class<T> respCls);
 
-  <T> HttpResponse<T> get(String url, Object param, Class<T> respCls);
+  <T> CompletableFuture<HttpResponse<T>> get(String url, Object param, Class<T> respCls);
 
-  <T> HttpResponse<T> get(String url, Type type);
+  <T> CompletableFuture<HttpResponse<T>> get(String url, TypeRef<T> typeRef);
 
-  <T> HttpResponse<T> post(String url, Object body, Class<T> respCls);
+  <T> CompletableFuture<HttpResponse<T>> post(String url, Object body, Class<T> respCls);
 
-  <T> HttpResponse<T> put(String url, Object body, Class<T> respCls);
+  <T> CompletableFuture<HttpResponse<T>> put(String url, Object body, Class<T> respCls);
 
-  HttpResponse<Void> delete(String url);
+  CompletableFuture<HttpResponse<Void>> delete(String url);
 }

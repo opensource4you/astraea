@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.reflect.Type;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorBuilderTest {
@@ -27,7 +27,7 @@ class HttpExecutorBuilderTest {
   @Test
   void testBuilder() {
     var builder = HttpExecutor.builder();
-    assertEquals(JsonConverter.gson().getClass(), builder.jsonConverter.getClass());
+    assertEquals(JsonConverter.defaultConverter().getClass(), builder.jsonConverter.getClass());
 
     builder = HttpExecutor.builder().jsonConverter(new TestJsonConverter());
     assertEquals(TestJsonConverter.class, builder.jsonConverter.getClass());
@@ -46,7 +46,7 @@ class HttpExecutorBuilderTest {
     }
 
     @Override
-    public <T> T fromJson(String json, Type type) {
+    public <T> T fromJson(String json, TypeRef<T> typeRef) {
       return null;
     }
   }

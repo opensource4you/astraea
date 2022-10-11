@@ -297,9 +297,11 @@ public final class Utils {
    * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
    * Map("key","value1,value2") => key=value1,value2
    *
-   * @param uri URL object without any query parameter
+   * @param url URL object without any query parameter
    */
-  public static URI getQueryUrl(URI uri, Map<String, String> parameters) throws URISyntaxException {
+  public static URI getQueryUri(String url, Map<String, String> parameters)
+      throws URISyntaxException {
+    var uri = new URI(url);
     var queryString =
         parameters.entrySet().stream()
             .map(
