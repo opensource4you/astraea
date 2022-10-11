@@ -35,6 +35,7 @@ import org.astraea.gui.tab.ProducerTab;
 import org.astraea.gui.tab.SettingTab;
 import org.astraea.gui.tab.TopicTab;
 import org.astraea.gui.tab.TransactionTab;
+import org.astraea.gui.tab.TruncateRecordTab;
 import org.astraea.gui.tab.UpdateBrokerTab;
 import org.astraea.gui.tab.UpdateTopicTab;
 
@@ -72,6 +73,7 @@ public class Main {
               MoveTopicTab.of(context),
               UpdateBrokerTab.of(context),
               BalancerTab.of(context),
+              TruncateRecordTab.of(context),
               AboutTab.of(context));
       rootPane.setSide(Side.BOTTOM);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
