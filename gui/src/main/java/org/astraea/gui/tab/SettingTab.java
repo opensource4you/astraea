@@ -36,9 +36,10 @@ public class SettingTab {
             .buttonName("CHECK")
             .buttonListener(
                 (input, logger) -> {
-                  var bootstrapServers = input.texts().get(BOOTSTRAP_SERVERS);
+                  var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
                   var jmxPort =
-                      Optional.ofNullable(input.texts().get(JMX_PORT)).map(Integer::parseInt);
+                      Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT))
+                          .map(Integer::parseInt);
                   var newAdmin = AsyncAdmin.of(bootstrapServers);
                   return newAdmin
                       .nodeInfos()

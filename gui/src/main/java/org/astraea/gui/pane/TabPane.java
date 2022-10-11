@@ -22,9 +22,13 @@ import javafx.geometry.Side;
 public class TabPane extends javafx.scene.control.TabPane {
 
   public static TabPane of(List<Tab> tabs) {
+    return of(Side.BOTTOM, tabs);
+  }
+
+  public static TabPane of(Side side, List<Tab> tabs) {
     var pane = new TabPane();
     pane.getTabs().setAll(tabs);
-    pane.setSide(Side.BOTTOM);
+    pane.setSide(side);
     pane.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
     return pane;
   }
