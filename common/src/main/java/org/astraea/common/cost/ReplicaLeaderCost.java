@@ -28,6 +28,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
@@ -53,6 +54,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   private static Map<Integer, Integer> leaderCount(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    if (clusterBean == ClusterBean.EMPTY) return leaderCount(clusterInfo);
     var leaderCount = leaderCount(clusterBean);
     // if there is no available metrics, we re-count the leaders based on cluster information
     if (leaderCount.values().stream().mapToInt(i -> i).sum() == 0) return leaderCount(clusterInfo);
@@ -70,7 +72,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                         .map(x -> (ServerMetrics.ReplicaManager.Gauge) x)
                         .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                         .limit(1)
-                        .mapToInt(v -> v.value().intValue())
+                        .mapToInt(HasGauge::value)
                         .sum()));
   }
 

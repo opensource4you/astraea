@@ -34,7 +34,7 @@ import java.util.stream.StreamSupport;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.Node;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.it.RequireBrokerCluster;
@@ -96,7 +96,11 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
       admin.replicationThrottler().throttle(topicName).apply();
       Utils.sleep(Duration.ofSeconds(1));
-      var currentReplicas = admin.replicas();
+      var currentReplicas =
+          admin.replicas().stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())));
 
       var jsonString = handler.get(Channel.EMPTY).json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
@@ -340,7 +344,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           .orElse("")
                           .contains(log.partition() + ":" + log.brokerId())));
       final var brokerConfigs =
-          admin.nodes().stream().collect(Collectors.toMap(Node::id, Function.identity()));
+          admin.brokers().stream().collect(Collectors.toMap(Broker::id, Function.identity()));
       Assertions.assertEquals(
           1000L,
           brokerConfigs
@@ -437,7 +441,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .orElse("");
       Function<Integer, Long> egressRate =
           (id) ->
-              admin.nodes().stream()
+              admin.brokers().stream()
                   .filter(n -> n.id() == id)
                   .findFirst()
                   .get()
@@ -447,7 +451,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .orElse(-1L);
       Function<Integer, Long> ingressRate =
           (id) ->
-              admin.nodes().stream()
+              admin.brokers().stream()
                   .filter(n -> n.id() == id)
                   .findFirst()
                   .get()

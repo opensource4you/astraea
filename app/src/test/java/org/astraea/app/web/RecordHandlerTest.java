@@ -52,6 +52,7 @@ import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
 import org.astraea.common.producer.Producer;
@@ -146,7 +147,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .valueDeserializer(Deserializer.INTEGER)
             .build()) {
@@ -208,7 +211,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
       Assertions.assertEquals(topic, record.topic());
@@ -242,7 +247,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
       Assertions.assertArrayEquals(expected, record.key());
@@ -667,6 +674,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           Response.OK,
           handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "0"))));

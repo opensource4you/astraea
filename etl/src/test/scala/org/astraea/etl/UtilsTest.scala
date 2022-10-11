@@ -16,15 +16,15 @@
  */
 package org.astraea.etl
 
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
-import org.scalatest.flatspec.AnyFlatSpec
 
 import java.awt.geom.IllegalPathStateException
-
-class UtilsTest extends AnyFlatSpec {
+class UtilsTest {
   @Test def requireFolderTest(): Unit = {
-    assertThrows[IllegalPathStateException] {
-      Utils.requireFolder("??")
-    }
+    assertThrows(
+      classOf[IllegalPathStateException],
+      () => Utils.requireFolder("??")
+    )
   }
 }

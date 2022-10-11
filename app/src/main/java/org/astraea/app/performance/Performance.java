@@ -21,7 +21,6 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.Compression;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -51,10 +49,10 @@ import org.astraea.common.argument.PositiveShortField;
 import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
-import org.astraea.common.consumer.Isolation;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.partitioner.Dispatcher;
-import org.astraea.common.producer.Acks;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.ProducerConfigs;
 
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
@@ -95,14 +93,19 @@ public class Performance {
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
-            listener ->
+            (clientId, listener) ->
                 Consumer.forTopics(new HashSet<>(param.topics))
-                    .bootstrapServers(param.bootstrapServers())
-                    .groupId(param.groupId)
                     .configs(param.configs())
-                    .isolation(param.isolation())
+                    .config(
+                        ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                        param.transactionSize > 1
+                            ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                            : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                    .bootstrapServers(param.bootstrapServers())
+                    .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
                     .seek(latestOffsets)
                     .consumerRebalanceListener(listener)
+                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
                     .build());
 
     System.out.println("creating tracker");
@@ -253,38 +256,23 @@ public class Performance {
     }
 
     @Parameter(
-        names = {"--compression"},
-        description =
-            "String: the compression algorithm used by producer. Available algorithm are none, gzip, snappy, lz4, and zstd",
-        converter = Compression.Field.class)
-    Compression compression = Compression.NONE;
-
-    @Parameter(
         names = {"--transaction.size"},
         description =
             "integer: number of records in each transaction. the value larger than 1 means the producer works for transaction",
         validateWith = PositiveLongField.class)
     int transactionSize = 1;
 
-    Isolation isolation() {
-      return transactionSize > 1 ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED;
-    }
-
     Producer<byte[], byte[]> createProducer() {
       return transactionSize > 1
           ? Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
-              .compression(compression)
-              .partitionClassName(partitioner())
-              .acks(acks)
+              .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
-              .compression(compression)
-              .partitionClassName(partitioner())
-              .acks(acks)
+              .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
               .build();
     }
 
@@ -339,8 +327,7 @@ public class Performance {
       else if (specifiedByBroker) {
         try (Admin admin = Admin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).values().stream()
-                  .flatMap(Collection::stream)
+              admin.replicas(Set.copyOf(topics)).stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -368,7 +355,9 @@ public class Performance {
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)
                           .collect(Collectors.toUnmodifiableSet()))
-                  .keySet();
+                  .stream()
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .collect(Collectors.toSet());
           var notExist =
               specifyPartitions.stream()
                   .filter(tp -> !allTopicPartitions.contains(tp))
@@ -424,12 +413,6 @@ public class Performance {
         description = "Consumer group id",
         validateWith = NonEmptyStringField.class)
     String groupId = "groupId-" + System.currentTimeMillis();
-
-    @Parameter(
-        names = {"--acks"},
-        description = "How many replicas should be synced when producing records.",
-        converter = Acks.Field.class)
-    Acks acks = Acks.ISRS;
 
     @Parameter(
         names = {"--read.idle"},

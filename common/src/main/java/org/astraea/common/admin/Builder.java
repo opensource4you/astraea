@@ -32,16 +32,9 @@ import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
-import org.apache.kafka.clients.admin.ReplicaInfo;
-import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
@@ -79,8 +72,17 @@ public class Builder {
   private static class AdminImpl implements Admin {
     private final org.apache.kafka.clients.admin.Admin admin;
 
+    private final AsyncAdmin asyncAdmin;
+
+    private final String clientId;
+    private final List<?> pendingRequests;
+
     AdminImpl(org.apache.kafka.clients.admin.Admin admin) {
       this.admin = Objects.requireNonNull(admin);
+      this.asyncAdmin = new AsyncAdminImpl(admin);
+      this.clientId = (String) Utils.member(admin, "clientId");
+      this.pendingRequests =
+          (ArrayList<?>) Utils.member(Utils.member(admin, "runnable"), "pendingCalls");
     }
 
     @Override
@@ -89,8 +91,8 @@ public class Builder {
     }
 
     @Override
-    public ReplicaMigrator migrator() {
-      return new MigratorImpl(admin, this::topicPartitions);
+    public SyncReplicaMigrator migrator() {
+      return new MigratorImpl(admin, this::topicPartitions, this::topicPartitions);
     }
 
     @Override
@@ -118,378 +120,81 @@ public class Builder {
     @Override
     public List<ProducerState> producerStates(Set<TopicPartition> partitions) {
       return Utils.packException(
-              () ->
-                  admin
-                      .describeProducers(
-                          partitions.stream()
-                              .map(TopicPartition::to)
-                              .collect(Collectors.toUnmodifiableList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .flatMap(
-              e ->
-                  e.getValue().activeProducers().stream().map(s -> ProducerState.of(e.getKey(), s)))
-          .collect(Collectors.toList());
+          () -> asyncAdmin.producerStates(partitions).toCompletableFuture().get());
     }
 
     @Override
     public Set<String> consumerGroupIds() {
-      return Utils.packException(() -> admin.listConsumerGroups().all().get()).stream()
-          .map(ConsumerGroupListing::groupId)
-          .collect(Collectors.toUnmodifiableSet());
+      return Utils.packException(() -> asyncAdmin.consumerGroupIds().toCompletableFuture().get());
     }
 
     @Override
     public List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames) {
       return Utils.packException(
-          () -> {
-            var consumerGroupDescriptions =
-                admin.describeConsumerGroups(consumerGroupNames).all().get();
-
-            var consumerGroupMetadata =
-                consumerGroupNames.stream()
-                    .collect(
-                        Collectors.toMap(
-                            Function.identity(),
-                            groupId ->
-                                Utils.packException(
-                                    () ->
-                                        admin
-                                            .listConsumerGroupOffsets(groupId)
-                                            .partitionsToOffsetAndMetadata()
-                                            .get())));
-
-            return consumerGroupNames.stream()
-                .map(
-                    groupId ->
-                        new ConsumerGroup(
-                            groupId,
-                            consumerGroupMetadata.get(groupId).entrySet().stream()
-                                .collect(
-                                    Collectors.toUnmodifiableMap(
-                                        tp -> TopicPartition.from(tp.getKey()),
-                                        offset -> offset.getValue().offset())),
-                            consumerGroupDescriptions.get(groupId).members().stream()
-                                .collect(
-                                    Collectors.toUnmodifiableMap(
-                                        member ->
-                                            new Member(
-                                                groupId,
-                                                member.consumerId(),
-                                                member.groupInstanceId(),
-                                                member.clientId(),
-                                                member.host()),
-                                        member ->
-                                            member.assignment().topicPartitions().stream()
-                                                .map(TopicPartition::from)
-                                                .collect(Collectors.toSet())))))
-                .collect(Collectors.toList());
-          });
-    }
-
-    private Map<TopicPartition, Long> earliestOffset(Set<TopicPartition> partitions) {
-
-      return Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      TopicPartition::to, e -> new OffsetSpec.EarliestSpec())))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset()));
-    }
-
-    private Map<TopicPartition, Long> latestOffset(Set<TopicPartition> partitions) {
-      return Utils.packException(
-          () ->
-              admin
-                  .listOffsets(
-                      partitions.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  TopicPartition::to, e -> new OffsetSpec.LatestSpec())))
-                  .all()
-                  .get()
-                  .entrySet()
-                  .stream()
-                  .collect(
-                      Collectors.toMap(
-                          e -> TopicPartition.from(e.getKey()), e -> e.getValue().offset())));
+          () -> asyncAdmin.consumerGroups(consumerGroupNames).toCompletableFuture().get());
     }
 
     @Override
     public List<Topic> topics(Set<String> names) {
-      return Utils.packException(
-              () ->
-                  admin
-                      .describeConfigs(
-                          names.stream()
-                              .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
-                              .collect(Collectors.toList()))
-                      .all()
-                      .get())
-          .entrySet()
-          .stream()
-          .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
-          .collect(Collectors.toUnmodifiableList());
+      return Utils.packException(() -> asyncAdmin.topics(names).toCompletableFuture().get());
+    }
+
+    @Override
+    public String clientId() {
+      return clientId;
+    }
+
+    @Override
+    public int pendingRequests() {
+      return pendingRequests.size();
     }
 
     @Override
     public Set<String> topicNames(boolean listInternal) {
       return Utils.packException(
-          () -> admin.listTopics(new ListTopicsOptions().listInternal(listInternal)).names().get());
+          () -> asyncAdmin.topicNames(listInternal).toCompletableFuture().get());
     }
 
     @Override
-    public void deleteTopics(Set<String> topicNames) {
-      Utils.packException(() -> admin.deleteTopics(topicNames).all().get());
+    public void deleteTopics(Set<String> topics) {
+      Utils.packException(() -> asyncAdmin.deleteTopics(topics).toCompletableFuture().get());
     }
 
     @Override
-    public Set<Integer> brokerIds() {
-      return Utils.packException(() -> admin.describeCluster().nodes().get()).stream()
-          .map(org.apache.kafka.common.Node::id)
-          .collect(Collectors.toUnmodifiableSet());
+    public Set<NodeInfo> nodes() {
+      return Utils.packException(() -> asyncAdmin.nodeInfos().toCompletableFuture().get());
     }
 
     @Override
-    public List<Node> nodes() {
-      var nodes =
-          Utils.packException(
-              () ->
-                  admin.describeCluster().nodes().get().stream()
-                      .map(NodeInfo::of)
-                      .collect(Collectors.toList()));
-      var logDirs =
-          Utils.packException(
-              () ->
-                  admin
-                      .describeLogDirs(
-                          nodes.stream().map(NodeInfo::id).collect(Collectors.toList()))
-                      .allDescriptions()
-                      .get());
-      var configs =
-          Utils.packException(
-                  () ->
-                      admin
-                          .describeConfigs(
-                              nodes.stream()
-                                  .map(
-                                      n ->
-                                          new ConfigResource(
-                                              ConfigResource.Type.BROKER, String.valueOf(n.id())))
-                                  .collect(Collectors.toList()))
-                          .all()
-                          .get())
-              .entrySet()
-              .stream()
-              .collect(
-                  Collectors.toMap(e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue));
-
-      return nodes.stream()
-          .map(n -> Node.of(n, configs.get(n.id()), logDirs.get(n.id())))
-          .collect(Collectors.toList());
+    public List<Broker> brokers() {
+      return Utils.packException(() -> asyncAdmin.brokers().toCompletableFuture().get());
     }
 
     @Override
     public List<Partition> partitions(Set<String> topics) {
-      var partitions =
-          Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
-              .flatMap(
-                  e ->
-                      e.getValue().partitions().stream()
-                          .map(
-                              p ->
-                                  Map.entry(
-                                      new org.apache.kafka.common.TopicPartition(
-                                          e.getKey(), p.partition()),
-                                      p)))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      var earliest =
-          Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.keySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Function.identity(), e -> new OffsetSpec.EarliestSpec())))
-                      .all()
-                      .get());
-
-      var latest =
-          Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.keySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Function.identity(), e -> new OffsetSpec.LatestSpec())))
-                      .all()
-                      .get());
-
-      var maxTimestamp =
-          Utils.packException(
-              () ->
-                  admin
-                      .listOffsets(
-                          partitions.keySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Function.identity(), e -> new OffsetSpec.MaxTimestampSpec())))
-                      .all()
-                      .get());
-
-      return partitions.entrySet().stream()
-          .map(
-              entry ->
-                  Partition.of(
-                      entry.getKey().topic(),
-                      entry.getValue(),
-                      Optional.ofNullable(earliest.get(entry.getKey())),
-                      Optional.ofNullable(latest.get(entry.getKey())),
-                      Optional.ofNullable(maxTimestamp.get(entry.getKey()))))
-          .collect(Collectors.toList());
+      return Utils.packException(() -> asyncAdmin.partitions(topics).toCompletableFuture().get());
     }
 
     @Override
     public Set<TopicPartition> topicPartitions(Set<String> topics) {
-      return Utils.packException(() -> admin.describeTopics(topics).all().get()).entrySet().stream()
-          .flatMap(
-              e ->
-                  e.getValue().partitions().stream()
-                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
-          .collect(Collectors.toSet());
+      return Utils.packException(
+          () -> asyncAdmin.topicPartitions(topics).toCompletableFuture().get());
     }
 
     @Override
     public Set<TopicPartition> topicPartitions(int broker) {
-      return Utils.packException(() -> admin.describeTopics(topicNames()).all().get())
-          .entrySet()
-          .stream()
-          .flatMap(
-              e ->
-                  e.getValue().partitions().stream()
-                      .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == broker))
-                      .map(p -> TopicPartition.of(e.getKey(), p.partition())))
-          .collect(Collectors.toSet());
-    }
-
-    private Map<
-            Integer, Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>
-        logDirs() {
-      return Utils.packException(() -> admin.describeLogDirs(brokerIds()).allDescriptions().get())
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  pathAndDesc ->
-                      pathAndDesc.getValue().entrySet().stream()
-                          .flatMap(
-                              e ->
-                                  e.getValue().replicaInfos().entrySet().stream()
-                                      .map(
-                                          tr ->
-                                              Map.entry(
-                                                  TopicPartition.from(tr.getKey()),
-                                                  Map.entry(e.getKey(), tr.getValue()))))
-                          .collect(Collectors.groupingBy(Map.Entry::getKey))
-                          .entrySet()
-                          .stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey,
-                                  e ->
-                                      e.getValue().stream()
-                                          .map(Map.Entry::getValue)
-                                          .collect(
-                                              Collectors.toMap(
-                                                  Map.Entry::getKey, Map.Entry::getValue))))));
+      return Utils.packException(
+          () -> asyncAdmin.topicPartitions(broker).toCompletableFuture().get());
     }
 
     @Override
-    public List<Replica> newReplicas(Set<String> topics) {
-      // pre-group folders by (broker -> topic partition) to speedup seek
-      var logInfo = logDirs();
-      var topicDesc = Utils.packException(() -> admin.describeTopics(topics).allTopicNames().get());
-      return topicDesc.entrySet().stream()
-          .flatMap(
-              topicDes ->
-                  topicDes.getValue().partitions().stream()
-                      .flatMap(
-                          tpInfo ->
-                              tpInfo.replicas().stream()
-                                  .flatMap(
-                                      node -> {
-                                        // kafka admin#describeLogDirs does not return offline
-                                        // node,when the node is not online,all TopicPartition
-                                        // return an empty dataFolder and a
-                                        // fake replicaInfo, and determine whether the node is
-                                        // online by whether the dataFolder is "".
-                                        var pathAndReplicas =
-                                            logInfo
-                                                .getOrDefault(node.id(), Map.of())
-                                                .getOrDefault(
-                                                    TopicPartition.of(
-                                                        topicDes.getKey(), tpInfo.partition()),
-                                                    Map.of(
-                                                        "",
-                                                        new org.apache.kafka.clients.admin
-                                                            .ReplicaInfo(-1L, -1L, false)));
-                                        return pathAndReplicas.entrySet().stream()
-                                            .map(
-                                                pathAndReplica ->
-                                                    Replica.of(
-                                                        topicDes.getKey(),
-                                                        tpInfo.partition(),
-                                                        NodeInfo.of(node),
-                                                        pathAndReplica.getValue().offsetLag(),
-                                                        pathAndReplica.getValue().size(),
-                                                        tpInfo.leader() != null
-                                                            && !tpInfo.leader().isEmpty()
-                                                            && tpInfo.leader().id() == node.id(),
-                                                        tpInfo.isr().contains(node),
-                                                        pathAndReplica.getValue().isFuture(),
-                                                        node.isEmpty()
-                                                            || pathAndReplica.getKey().equals(""),
-                                                        // The first replica in the return
-                                                        // result is
-                                                        // the
-                                                        // preferred leader. This only works
-                                                        // with
-                                                        // Kafka broker
-                                                        // version after
-                                                        // 0.11. Version before 0.11 returns
-                                                        // the
-                                                        // replicas in
-                                                        // unspecified order.
-                                                        tpInfo.replicas().get(0).id() == node.id(),
-                                                        // empty data folder means this
-                                                        // replica is
-                                                        // offline
-                                                        pathAndReplica.getKey().isEmpty()
-                                                            ? null
-                                                            : pathAndReplica.getKey()));
-                                      })))
-          .collect(Collectors.toList());
+    public List<Replica> replicas(Set<String> topics) {
+      return Utils.packException(() -> asyncAdmin.replicas(topics).toCompletableFuture().get());
     }
 
     @Override
     public TopicCreator creator() {
-      return new CreatorImpl(
-          admin,
-          topic -> this.replicas(Set.of(topic)),
-          topic -> topics(Set.of(topic)).get(0).config());
+      return asyncAdmin.creator();
     }
 
     @Override
@@ -523,20 +228,13 @@ public class Builder {
 
     @Override
     public Set<String> transactionIds() {
-      return Utils.packException(
-          () ->
-              admin.listTransactions().all().get().stream()
-                  .map(TransactionListing::transactionalId)
-                  .collect(Collectors.toUnmodifiableSet()));
+      return Utils.packException(() -> asyncAdmin.transactionIds().toCompletableFuture().get());
     }
 
     @Override
-    public Map<String, Transaction> transactions(Set<String> transactionIds) {
+    public List<Transaction> transactions(Set<String> transactionIds) {
       return Utils.packException(
-          () ->
-              admin.describeTransactions(transactionIds).all().get().entrySet().stream()
-                  .collect(
-                      Collectors.toMap(Map.Entry::getKey, e -> Transaction.from(e.getValue()))));
+          () -> asyncAdmin.transactions(transactionIds).toCompletableFuture().get());
     }
 
     @Override
@@ -583,76 +281,14 @@ public class Builder {
 
     @Override
     public List<AddingReplica> addingReplicas(Set<String> topics) {
-      var adding =
-          Utils.packException(
-                  () ->
-                      admin
-                          .listPartitionReassignments(
-                              topicPartitions(topics).stream()
-                                  .map(TopicPartition::to)
-                                  .collect(Collectors.toSet()))
-                          .reassignments()
-                          .get())
-              .entrySet()
-              .stream()
-              .flatMap(
-                  entry ->
-                      entry.getValue().addingReplicas().stream()
-                          .map(
-                              id ->
-                                  new org.apache.kafka.common.TopicPartitionReplica(
-                                      entry.getKey().topic(), entry.getKey().partition(), id)))
-              .collect(Collectors.toList());
-      var dirs = logDirs();
-
-      Function<TopicPartition, Long> findMaxSize =
-          tp ->
-              dirs.values().stream()
-                  .flatMap(e -> e.entrySet().stream())
-                  .filter(e -> e.getKey().equals(tp))
-                  .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
-                  .mapToLong(v -> v)
-                  .max()
-                  .orElse(0);
-
-      return adding.stream()
-          .filter(
-              r ->
-                  dirs.getOrDefault(r.brokerId(), Map.of())
-                      .containsKey(TopicPartition.of(r.topic(), r.partition())))
-          .flatMap(
-              r ->
-                  dirs
-                      .get(r.brokerId())
-                      .get(TopicPartition.of(r.topic(), r.partition()))
-                      .entrySet()
-                      .stream()
-                      .map(
-                          entry ->
-                              AddingReplica.of(
-                                  r.topic(),
-                                  r.partition(),
-                                  r.brokerId(),
-                                  entry.getKey(),
-                                  entry.getValue().size(),
-                                  findMaxSize.apply(TopicPartition.of(r.topic(), r.partition())))))
-          .collect(Collectors.toList());
+      return Utils.packException(
+          () -> asyncAdmin.addingReplicas(topics).toCompletableFuture().get());
     }
 
     @Override
-    public Map<TopicPartition, DeletedRecord> deleteRecords(
-        Map<TopicPartition, Long> recordsToDelete) {
-      var kafkaRecordsToDelete =
-          recordsToDelete.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      x -> TopicPartition.to(x.getKey()),
-                      x -> RecordsToDelete.beforeOffset(x.getValue())));
-      return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  x -> TopicPartition.from(x.getKey()),
-                  x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
+    public Map<TopicPartition, Long> deleteRecords(Map<TopicPartition, Long> recordsToDelete) {
+      return Utils.packException(
+          () -> asyncAdmin.deleteRecords(recordsToDelete).toCompletableFuture().get());
     }
 
     @Override
@@ -692,18 +328,15 @@ public class Builder {
         public ReplicationThrottler throttle(String topic) {
           replicas(Set.of(topic))
               .forEach(
-                  (tp, replicas) -> {
-                    replicas.forEach(
-                        replica -> {
-                          if (replica.isLeader())
-                            leaders.add(
-                                TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
-                          else
-                            followers.add(
-                                TopicPartitionReplica.of(
-                                    tp.topic(), tp.partition(), replica.nodeInfo().id()));
-                        });
+                  replica -> {
+                    if (replica.isLeader())
+                      leaders.add(
+                          TopicPartitionReplica.of(
+                              replica.topic(), replica.partition(), replica.nodeInfo().id()));
+                    else
+                      followers.add(
+                          TopicPartitionReplica.of(
+                              replica.topic(), replica.partition(), replica.nodeInfo().id()));
                   });
           return this;
         }
@@ -711,7 +344,9 @@ public class Builder {
         @Override
         public ReplicationThrottler throttle(TopicPartition topicPartition) {
           var replicas =
-              replicas(Set.of(topicPartition.topic())).getOrDefault(topicPartition, List.of());
+              replicas(Set.of(topicPartition.topic())).stream()
+                  .filter(replica -> replica.partition() == topicPartition.partition())
+                  .collect(Collectors.toList());
           replicas.forEach(
               replica -> {
                 if (replica.isLeader())
@@ -923,7 +558,8 @@ public class Builder {
     @Override
     public void clearReplicationThrottle(TopicPartition topicPartition) {
       var configValue =
-          replicas(Set.of(topicPartition.topic())).get(topicPartition).stream()
+          replicas(Set.of(topicPartition.topic())).stream()
+              .filter(replica -> replica.partition() == topicPartition.partition())
               .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));
       var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
@@ -1014,131 +650,45 @@ public class Builder {
     }
   }
 
-  private static class CreatorImpl implements TopicCreator {
-    private final org.apache.kafka.clients.admin.Admin admin;
-    private final Function<String, Map<TopicPartition, List<Replica>>> replicasGetter;
-    private final Function<String, Config> configsGetter;
-    private String topic;
-    private int numberOfPartitions = 1;
-    private short numberOfReplicas = 1;
-    private final Map<String, String> configs = new HashMap<>();
-
-    CreatorImpl(
-        org.apache.kafka.clients.admin.Admin admin,
-        Function<String, Map<TopicPartition, List<Replica>>> replicasGetter,
-        Function<String, Config> configsGetter) {
-      this.admin = admin;
-      this.replicasGetter = replicasGetter;
-      this.configsGetter = configsGetter;
-    }
-
-    @Override
-    public TopicCreator topic(String topic) {
-      this.topic = Objects.requireNonNull(topic);
-      return this;
-    }
-
-    @Override
-    public TopicCreator numberOfPartitions(int numberOfPartitions) {
-      this.numberOfPartitions = numberOfPartitions;
-      return this;
-    }
-
-    @Override
-    public TopicCreator numberOfReplicas(short numberOfReplicas) {
-      this.numberOfReplicas = numberOfReplicas;
-      return this;
-    }
-
-    @Override
-    public TopicCreator config(String key, String value) {
-      this.configs.put(key, value);
-      return this;
-    }
-
-    @Override
-    public TopicCreator configs(Map<String, String> configs) {
-      this.configs.putAll(configs);
-      return this;
-    }
-
-    @Override
-    public void create() {
-      if (Utils.packException(() -> admin.listTopics().names().get()).contains(topic)) {
-        var partitionReplicas = replicasGetter.apply(topic);
-        partitionReplicas.forEach(
-            (tp, replicas) -> {
-              if (replicas.size() != numberOfReplicas)
-                throw new IllegalArgumentException(
-                    topic
-                        + " is existent but its replicas: "
-                        + replicas.size()
-                        + " is not equal to expected: "
-                        + numberOfReplicas);
-            });
-        var result =
-            Utils.packException(() -> admin.describeTopics(Set.of(topic)).all().get().get(topic));
-        if (result.partitions().size() != numberOfPartitions)
-          throw new IllegalArgumentException(
-              topic
-                  + " is existent but its partitions: "
-                  + result.partitions().size()
-                  + " is not equal to expected: "
-                  + numberOfReplicas);
-
-        var actualConfigs = configsGetter.apply(topic);
-        this.configs.forEach(
-            (key, value) -> {
-              if (actualConfigs.value(key).filter(actual -> actual.equals(value)).isEmpty())
-                throw new IllegalArgumentException(
-                    topic
-                        + " is existent but its config: <"
-                        + key
-                        + ", "
-                        + actualConfigs.value(key)
-                        + "> is not equal to expected: "
-                        + key
-                        + ", "
-                        + value);
-            });
-
-        // ok, the existent topic is totally equal to what we want to create.
-        return;
-      }
-
-      Utils.packException(
-          () ->
-              admin
-                  .createTopics(
-                      List.of(
-                          new NewTopic(topic, numberOfPartitions, numberOfReplicas)
-                              .configs(configs)))
-                  .all()
-                  .get());
-    }
-  }
-
-  private static class MigratorImpl implements ReplicaMigrator {
+  private static class MigratorImpl implements SyncReplicaMigrator {
     private final org.apache.kafka.clients.admin.Admin admin;
     private final Function<Set<String>, Set<TopicPartition>> partitionGetter;
+    private final Function<Integer, Set<TopicPartition>> brokerPartitionGetter;
     private final Set<TopicPartition> partitions = new HashSet<>();
 
     MigratorImpl(
         org.apache.kafka.clients.admin.Admin admin,
-        Function<Set<String>, Set<TopicPartition>> partitionGetter) {
+        Function<Set<String>, Set<TopicPartition>> partitionGetter,
+        Function<Integer, Set<TopicPartition>> brokerPartitionGetter) {
       this.admin = admin;
       this.partitionGetter = partitionGetter;
+      this.brokerPartitionGetter = brokerPartitionGetter;
     }
 
     @Override
-    public ReplicaMigrator topic(String topic) {
+    public SyncReplicaMigrator topic(String topic) {
       partitions.addAll(partitionGetter.apply(Set.of(topic)));
       return this;
     }
 
     @Override
-    public ReplicaMigrator partition(String topic, int partition) {
+    public SyncReplicaMigrator partition(String topic, int partition) {
       partitions.add(TopicPartition.of(topic, partition));
+      return this;
+    }
+
+    @Override
+    public SyncReplicaMigrator broker(int broker) {
+      partitions.addAll(brokerPartitionGetter.apply(broker));
+      return this;
+    }
+
+    @Override
+    public SyncReplicaMigrator topicOfBroker(int broker, String topic) {
+      partitions.addAll(
+          brokerPartitionGetter.apply(broker).stream()
+              .filter(tp -> Objects.equals(tp.topic(), topic))
+              .collect(Collectors.toList()));
       return this;
     }
 

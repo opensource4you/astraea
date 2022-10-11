@@ -16,17 +16,27 @@
  */
 package org.astraea.common;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetAddress;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -123,23 +133,29 @@ public final class Utils {
     waitForNonNull(() -> done.get() ? "good" : null, timeout);
   }
 
+  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
+    return waitForNonNull(supplier, timeout, Duration.ofSeconds(1));
+  }
+
   /**
    * loop the supplier until it returns non-null value. The exception arisen in the waiting get
    * ignored if the supplier offers the non-null value in the end.
    *
    * @param supplier to loop
    * @param timeout to break the loop
+   * @param retryInterval the time interval between each supplier call
    * @param <T> returned type
    * @return value from supplier
    */
-  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
+  public static <T> T waitForNonNull(
+      Supplier<T> supplier, Duration timeout, Duration retryInterval) {
     var endTime = System.currentTimeMillis() + timeout.toMillis();
     Exception lastError = null;
     while (System.currentTimeMillis() <= endTime)
       try {
         var r = supplier.get();
         if (r != null) return r;
-        Utils.sleep(Duration.ofSeconds(1));
+        Utils.sleep(retryInterval);
       } catch (Exception e) {
         lastError = e;
       }
@@ -148,6 +164,12 @@ public final class Utils {
   }
 
   public static int requirePositive(int value) {
+    if (value <= 0)
+      throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
+    return value;
+  }
+
+  public static short requirePositive(short value) {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
     return value;
@@ -212,6 +234,13 @@ public final class Utils {
         .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
   }
 
+  public static <T, U, V> CompletionStage<V> thenCombine(
+      CompletionStage<? extends T> from,
+      CompletionStage<? extends U> other,
+      BiFunction<? super T, ? super U, ? extends CompletionStage<V>> fn) {
+    return from.thenCompose(l -> other.thenCompose(r -> fn.apply(l, r)));
+  }
+
   public static Object staticMember(Class<?> clz, String attribute) {
     return reflectionAttribute(clz, null, attribute);
   }
@@ -252,6 +281,30 @@ public final class Utils {
           throw new IllegalStateException("Duplicate key");
         },
         TreeMap::new);
+  }
+
+  public static Set<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
+    return Arrays.stream(clz.getFields())
+        .filter(field -> variableNameFilter.test(field.getName()))
+        .map(field -> packException(() -> field.get(null)))
+        .filter(obj -> obj instanceof String)
+        .map(obj -> (String) obj)
+        .collect(Collectors.toCollection(TreeSet::new));
+  }
+
+  public static String toString(Throwable e) {
+    var sw = new StringWriter();
+    var pw = new PrintWriter(sw);
+    e.printStackTrace(pw);
+    return sw.toString();
+  }
+
+  public static String format(long timestamp) {
+    if (timestamp > 0) {
+      var format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+      return format.format(new Date(timestamp));
+    }
+    return "unknown";
   }
 
   private Utils() {}

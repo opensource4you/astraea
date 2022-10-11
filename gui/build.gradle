@@ -1,0 +1,70 @@
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.13'
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+    id 'maven-publish'
+}
+repositories {
+    mavenCentral()
+}
+
+def versions = [
+        junit: project.properties['junit.version'] ?: "5.8.2",
+]
+
+java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+}
+
+javafx {
+    version = "17"
+    modules = ['javafx.controls']
+}
+
+ext {
+    numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+}
+
+archivesBaseName = "astraea-gui"
+mainClassName = 'org.astraea.gui.Main'
+
+dependencies {
+    testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+    implementation project(':common')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'org.astraea'
+            artifactId = 'astraea-gui'
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url = "https://maven.pkg.github.com/skiptests/astraea"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+}
+
+tasks.named('test') {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+
+    maxParallelForks = numberOfForks
+    // make isolation for tests. It may be expensive but stability is first choice.
+    forkEvery = 1
+    testLogging {
+        events "PASSED", "STARTED", "FAILED", "SKIPPED"
+        exceptionFormat = 'full'
+    }
+
+    minHeapSize = "512m"
+    maxHeapSize = "2048m"
+}

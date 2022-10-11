@@ -19,11 +19,11 @@ package org.astraea.app.balancer;
 import com.beust.jcommander.Parameter;
 import java.util.Set;
 import java.util.function.Predicate;
-import org.astraea.app.balancer.executor.RebalanceAdmin;
-import org.astraea.app.balancer.executor.StraightPlanExecutor;
-import org.astraea.app.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.argument.Argument;
+import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.executor.RebalanceAdmin;
+import org.astraea.common.balancer.executor.StraightPlanExecutor;
+import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ReplicaLeaderCost;
 
 /**
@@ -50,8 +50,10 @@ public class BalanceProcessDemo {
               .limit(1000)
               .build()
               .offer(clusterInfo, filter, brokerFolders);
-      new StraightPlanExecutor()
-          .run(RebalanceAdmin.of(admin), plan.get().proposal().rebalancePlan());
+      plan.ifPresent(
+          p ->
+              new StraightPlanExecutor()
+                  .run(RebalanceAdmin.of(admin), p.proposal().rebalancePlan()));
     }
   }
 

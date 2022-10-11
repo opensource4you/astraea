@@ -18,7 +18,6 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
@@ -31,8 +30,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.Argument;
-import org.astraea.common.consumer.Isolation;
-import org.astraea.common.producer.Acks;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -52,26 +49,14 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testProducerExecutor() throws InterruptedException {
+  void testProducerExecutor() {
     var topic = "testProducerExecutor";
-    String[] arguments1 = {
-      "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--compression", "gzip"
-    };
+    String[] arguments1 = {"--bootstrap.servers", bootstrapServers(), "--topics", topic};
     var latch = new CountDownLatch(1);
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertFalse(producer.transactional());
     }
-  }
-
-  @Test
-  void testTransactionSet() {
-    var argument = new Performance.Argument();
-    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
-    argument.transactionSize = 1;
-    Assertions.assertEquals(Isolation.READ_UNCOMMITTED, argument.isolation());
-    argument.transactionSize = 3;
-    Assertions.assertEquals(Isolation.READ_COMMITTED, argument.isolation());
   }
 
   @Test
@@ -150,8 +135,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
       var expectedLeaders =
-          admin.replicas(Set.of(topicName)).values().stream()
-              .flatMap(Collection::stream)
+          admin.replicas(Set.of(topicName)).stream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -186,8 +170,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
 
       var expected2 =
-          admin.replicas(Set.of(topicName, topicName2)).values().stream()
-              .flatMap(Collection::stream)
+          admin.replicas(Set.of(topicName, topicName2)).stream()
               .filter(ReplicaInfo::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -214,12 +197,7 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName3).numberOfPartitions(1).create();
       Utils.sleep(Duration.ofSeconds(2));
       var validBroker =
-          admin.replicas(Set.of(topicName3)).values().stream()
-              .findAny()
-              .get()
-              .get(0)
-              .nodeInfo()
-              .id();
+          admin.replicas(Set.of(topicName3)).stream().findFirst().get().nodeInfo().id();
       var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(
@@ -367,26 +345,6 @@ public class PerformanceTest extends RequireBrokerCluster {
       System.out.println(args.lastOffsets());
       args.lastOffsets().values().forEach(v -> Assertions.assertNotEquals(0, v));
     }
-  }
-
-  @Test
-  void testAcks() {
-    Stream.of(Acks.values())
-        .forEach(
-            ack -> {
-              var arg =
-                  Argument.parse(
-                      new Performance.Argument(),
-                      new String[] {
-                        "--bootstrap.servers",
-                        bootstrapServers(),
-                        "--acks",
-                        ack.alias(),
-                        "--topics",
-                        initTopic()
-                      });
-              Assertions.assertEquals(ack, arg.acks);
-            });
   }
 
   private static String initTopic() {

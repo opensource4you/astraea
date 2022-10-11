@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 
+@Deprecated
 public interface Admin extends Closeable {
 
   static Builder builder() {
@@ -38,6 +39,11 @@ public interface Admin extends Closeable {
   static Admin of(Map<String, String> configs) {
     return builder().configs(configs).build();
   }
+
+  String clientId();
+
+  /** @return the number of pending requests. */
+  int pendingRequests();
 
   /**
    * @param listInternal should list internal topics or not
@@ -89,7 +95,7 @@ public interface Admin extends Closeable {
   List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
 
   /** @return replica info of all partitions */
-  default Map<TopicPartition, List<Replica>> replicas() {
+  default List<Replica> replicas() {
     return replicas(topicNames());
   }
 
@@ -97,32 +103,31 @@ public interface Admin extends Closeable {
    * @param topics topic names
    * @return all replica in topics
    */
-  default Map<TopicPartition, List<Replica>> replicas(Set<String> topics) {
-    return newReplicas(topics).stream()
-        .collect(
-            Collectors.groupingBy(
-                replica -> TopicPartition.of(replica.topic(), replica.partition())));
-  }
-
-  List<Replica> newReplicas(Set<String> topics);
+  List<Replica> replicas(Set<String> topics);
 
   /** @return all alive brokers' ids */
-  Set<Integer> brokerIds();
+  default Set<Integer> brokerIds() {
+    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+  }
+
+  /** @return all node info */
+  Set<NodeInfo> nodes();
 
   /** @return all alive node information in the cluster */
-  List<Node> nodes();
+  List<Broker> brokers();
 
   /** @return data folders of all broker nodes */
   default Map<Integer, Set<String>> brokerFolders() {
-    return nodes().stream()
+    return brokers().stream()
         .collect(
             Collectors.toMap(
                 NodeInfo::id,
-                n -> n.folders().stream().map(Node.DataFolder::path).collect(Collectors.toSet())));
+                n ->
+                    n.folders().stream().map(Broker.DataFolder::path).collect(Collectors.toSet())));
   }
 
   /** @return a partition migrator used to move partitions to another broker or folder. */
-  ReplicaMigrator migrator();
+  SyncReplicaMigrator migrator();
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
@@ -174,13 +179,8 @@ public interface Admin extends Closeable {
    * @return a snapshot object of cluster state at the moment
    */
   default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
-    var nodeInfo = nodes().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
-    var replicas =
-        Utils.packException(
-            () ->
-                replicas(topics).values().stream()
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toUnmodifiableList()));
+    var nodeInfo = brokers().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
+    var replicas = Utils.packException(() -> replicas(topics));
 
     return new ClusterInfo<>() {
       @Override
@@ -198,17 +198,13 @@ public interface Admin extends Closeable {
   /** @return all transaction ids */
   Set<String> transactionIds();
 
-  /** @return all transaction states */
-  default Map<String, Transaction> transactions() {
-    return transactions(transactionIds());
-  }
   /**
    * return transaction states associated to input ids
    *
    * @param transactionIds to query state
    * @return transaction states
    */
-  Map<String, Transaction> transactions(Set<String> transactionIds);
+  List<Transaction> transactions(Set<String> transactionIds);
 
   /**
    * remove an empty group. It causes error if the group has memebrs.
@@ -234,7 +230,7 @@ public interface Admin extends Closeable {
    * @param recordsToDelete offset of partition
    * @return deletedRecord
    */
-  Map<TopicPartition, DeletedRecord> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+  Map<TopicPartition, Long> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
 
   /** @return a utility to apply replication throttle to the cluster. */
   ReplicationThrottler replicationThrottler();

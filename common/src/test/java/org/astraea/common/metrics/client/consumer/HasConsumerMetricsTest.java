@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireSingleBrokerCluster;
@@ -47,7 +48,9 @@ public class HasConsumerMetricsTest extends RequireSingleBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(10, Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
@@ -58,7 +61,6 @@ public class HasConsumerMetricsTest extends RequireSingleBrokerCluster {
       Assertions.assertDoesNotThrow(m::reauthenticationLatencyAvg);
       Assertions.assertDoesNotThrow(m::ioTimeNsTotal);
       Assertions.assertDoesNotThrow(m::successfulAuthenticationTotal);
-      Assertions.assertDoesNotThrow(m::ioWaittimeTotal);
       Assertions.assertDoesNotThrow(m::committedTimeNsTotal);
       Assertions.assertDoesNotThrow(m::reauthenticationLatencyMax);
       Assertions.assertDoesNotThrow(m::successfulAuthenticationRate);
@@ -77,13 +79,10 @@ public class HasConsumerMetricsTest extends RequireSingleBrokerCluster {
       Assertions.assertDoesNotThrow(m::successfulReauthenticationTotal);
       Assertions.assertDoesNotThrow(m::requestTotal);
       Assertions.assertDoesNotThrow(m::ioTimeNsAvg);
-      Assertions.assertDoesNotThrow(m::iotimeTotal);
       Assertions.assertDoesNotThrow(m::ioWaitTimeNsTotal);
-      Assertions.assertDoesNotThrow(m::ioWaitRatio);
       Assertions.assertDoesNotThrow(m::networkIoRate);
       Assertions.assertDoesNotThrow(m::connectionCreationRate);
       Assertions.assertDoesNotThrow(m::requestSizeAvg);
-      Assertions.assertDoesNotThrow(m::ioRatio);
       Assertions.assertDoesNotThrow(m::responseRate);
       Assertions.assertDoesNotThrow(m::successfulReauthenticationRate);
       Assertions.assertDoesNotThrow(m::selectTotal);

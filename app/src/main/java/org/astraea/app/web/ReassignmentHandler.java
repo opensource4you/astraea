@@ -31,6 +31,7 @@ public class ReassignmentHandler implements Handler {
   static final String FROM_KEY = "from";
   static final String TO_KEY = "to";
   static final String BROKER_KEY = "broker";
+  static final String EXCLUDE_KEY = "exclude";
   private final Admin admin;
 
   ReassignmentHandler(Admin admin) {
@@ -59,6 +60,28 @@ public class ReassignmentHandler implements Handler {
                         .moveTo(request.intValues(TO_KEY));
                     return Response.ACCEPT;
                   }
+                  // case 2: move specific broker's (topic's) partitions to others
+                  if (request.has(EXCLUDE_KEY)) {
+                    if (request.has(TOPIC_KEY)) {
+                      admin
+                          .migrator()
+                          .topicOfBroker(request.intValue(EXCLUDE_KEY), request.value(TOPIC_KEY))
+                          .moveTo(
+                              admin.brokerIds().stream()
+                                  .filter(i -> i != request.intValue(EXCLUDE_KEY))
+                                  .collect(Collectors.toList()));
+                      return Response.ACCEPT;
+                    } else {
+                      admin
+                          .migrator()
+                          .broker(request.intValue(EXCLUDE_KEY))
+                          .moveTo(
+                              admin.brokerIds().stream()
+                                  .filter(i -> i != request.intValue(EXCLUDE_KEY))
+                                  .collect(Collectors.toList()));
+                      return Response.ACCEPT;
+                    }
+                  }
                   return Response.BAD_REQUEST;
                 })
             .collect(Collectors.toUnmodifiableList());
@@ -69,7 +92,6 @@ public class ReassignmentHandler implements Handler {
   @Override
   public Reassignments get(Channel channel) {
     var topics = Handler.compare(admin.topicNames(), channel.target());
-    var replicas = admin.replicas(topics);
     return new Reassignments(
         admin.addingReplicas(topics).stream()
             .map(AddingReplica::new)

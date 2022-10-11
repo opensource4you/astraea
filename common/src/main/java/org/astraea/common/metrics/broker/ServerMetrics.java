@@ -136,21 +136,18 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public Collection<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .queryBeans(
+    public Gauge fetch(MBeanClient mBeanClient) {
+      return new Gauge(
+          mBeanClient.queryBean(
               BeanQuery.builder()
                   .domainName("kafka.server")
                   .property("type", "DelayedOperationPurgatory")
                   .property("delayedOperation", metricName)
                   .property("name", "PurgatorySize")
-                  .build())
-          .stream()
-          .map(Gauge::new)
-          .collect(Collectors.toUnmodifiableList());
+                  .build()));
     }
 
-    public static class Gauge implements HasGauge<Long> {
+    public static class Gauge implements HasGauge<Integer> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {
@@ -340,7 +337,7 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public static class Gauge implements HasGauge<Long> {
+    public static class Gauge implements HasGauge<Integer> {
 
       private final BeanObject beanObject;
 
