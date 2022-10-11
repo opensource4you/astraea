@@ -30,7 +30,7 @@ def versions = [
         spark_sql: project.properties['spark_sql.version'] ?: "3.3.0",
         spark_kafka: project.properties['spark_kafka.version'] ?: "3.3.0",
         junit: project.properties['junit.version'] ?: "5.8.2",
-        opencsv: project.properties['opencsv.version'] ?: "4.1"
+        opencsv: project.properties['opencsv.version'] ?: "4.1",
 ]
 
 dependencies {
@@ -42,6 +42,7 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
+    testImplementation project(':it')
 }
 
 ext {
