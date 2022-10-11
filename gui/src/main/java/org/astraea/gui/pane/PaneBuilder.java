@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -54,9 +55,11 @@ public class PaneBuilder {
 
   private List<RadioButton> radioButtons = new ArrayList<>();
 
-  private final Set<String> textKeys = new LinkedHashSet<>();
-  private final Map<String, Boolean> textPriority = new LinkedHashMap<>();
-  private final Map<String, Boolean> textNumberOnly = new LinkedHashMap<>();
+  private Supplier<CompletionStage<Map<String, String>>> inputInitializer =
+      () -> CompletableFuture.completedFuture(Map.of());
+  private final Set<String> inputKeys = new LinkedHashSet<>();
+  private final Map<String, Boolean> inputKeyPriority = new LinkedHashMap<>();
+  private final Map<String, Boolean> inputKeyNumberOnly = new LinkedHashMap<>();
   private Label searchLabel = null;
   private final TextField searchField = TextField.of();
 
@@ -90,9 +93,15 @@ public class PaneBuilder {
    * @return this builder
    */
   public PaneBuilder input(String key, boolean required, boolean numberOnly) {
-    textKeys.add(key);
-    textPriority.put(key, required);
-    textNumberOnly.put(key, numberOnly);
+    inputKeys.add(key);
+    inputKeyPriority.put(key, required);
+    inputKeyNumberOnly.put(key, numberOnly);
+    return this;
+  }
+
+  public PaneBuilder inputInitializer(
+      Supplier<CompletionStage<Map<String, String>>> inputInitializer) {
+    this.inputInitializer = inputInitializer;
     return this;
   }
 
@@ -134,19 +143,32 @@ public class PaneBuilder {
     var nodes = new ArrayList<Node>();
     if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
     Map<String, Supplier<String>> textFields;
-    if (!textKeys.isEmpty()) {
+    if (!inputKeys.isEmpty()) {
       var pairs =
-          textKeys.stream()
+          inputKeys.stream()
               .collect(
                   Utils.toLinkedHashMap(
                       key ->
-                          textPriority.getOrDefault(key, false)
+                          inputKeyPriority.getOrDefault(key, false)
                               ? Label.highlight(key)
                               : Label.of(key),
                       key ->
-                          textNumberOnly.getOrDefault(key, false)
+                          inputKeyNumberOnly.getOrDefault(key, false)
                               ? TextField.onlyNumber()
                               : TextField.of()));
+      inputInitializer
+          .get()
+          .whenComplete(
+              (r, e) -> {
+                if (r != null)
+                  r.forEach(
+                      (key, value) ->
+                          pairs.entrySet().stream()
+                              .filter(pair -> pair.getKey().key().equals(key))
+                              .map(Map.Entry::getValue)
+                              .findFirst()
+                              .ifPresent(field -> field.text(value)));
+              });
       var gridPane = pairs.size() <= 3 ? GridPane.singleColumn(pairs, 3) : GridPane.of(pairs, 3);
       nodes.add(gridPane);
       textFields =
@@ -166,18 +188,21 @@ public class PaneBuilder {
                   .filter(RadioButton::isSelected)
                   .flatMap(r -> r.selectedObject().stream())
                   .findFirst();
-          var inputTexts =
+          var rawTexts =
               textFields.entrySet().stream()
                   .flatMap(
                       entry ->
                           Optional.ofNullable(entry.getValue().get())
-                              .filter(v -> !v.isBlank())
                               .map(v -> Map.entry(entry.getKey(), v))
                               .stream())
                   .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
           var requiredNonexistentKeys =
-              textPriority.entrySet().stream()
-                  .filter(entry -> entry.getValue() && !inputTexts.containsKey(entry.getKey()))
+              inputKeyPriority.entrySet().stream()
+                  .filter(
+                      entry ->
+                          entry.getValue()
+                              && (!rawTexts.containsKey(entry.getKey())
+                                  || rawTexts.get(entry.getKey()).isBlank()))
                   .map(Map.Entry::getKey)
                   .collect(Collectors.toSet());
           if (!requiredNonexistentKeys.isEmpty()) {
@@ -201,7 +226,7 @@ public class PaneBuilder {
 
                 @Override
                 public Map<String, String> texts() {
-                  return inputTexts;
+                  return rawTexts;
                 }
 
                 @Override

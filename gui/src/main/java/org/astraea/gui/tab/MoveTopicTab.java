@@ -46,14 +46,14 @@ public class MoveTopicTab {
             .input(PARTITION_ID, false, true)
             .buttonListener(
                 (input, logger) -> {
-                  var topic = input.texts().get(TOPIC_NAME);
+                  var topic = input.nonEmptyTexts().get(TOPIC_NAME);
 
                   var moveTo =
-                      Arrays.stream(input.texts().get(MOVE_TO).split(","))
+                      Arrays.stream(input.nonEmptyTexts().get(MOVE_TO).split(","))
                           .map(Integer::parseInt)
                           .collect(Collectors.toList());
                   var partitions =
-                      Optional.ofNullable(input.texts().get(PARTITION_ID))
+                      Optional.ofNullable(input.nonEmptyTexts().get(PARTITION_ID))
                           .map(Integer::parseInt)
                           .map(partition -> CompletableFuture.completedStage(List.of(partition)))
                           .orElseGet(

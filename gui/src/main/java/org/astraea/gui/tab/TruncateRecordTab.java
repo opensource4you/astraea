@@ -42,7 +42,7 @@ public class TruncateRecordTab {
             .input(OFFSET, false, true)
             .buttonListener(
                 (input, logger) -> {
-                  var topic = input.texts().get(TOPIC_NAME);
+                  var topic = input.nonEmptyTexts().get(TOPIC_NAME);
                   return context.submit(
                       admin ->
                           admin
@@ -55,14 +55,14 @@ public class TruncateRecordTab {
                                               topic
                                                   + " is nonexistent. Also, you can't delete internal topic!"));
                                     var optionalPartitions =
-                                        Optional.ofNullable(input.texts().get(PARTITION))
+                                        Optional.ofNullable(input.nonEmptyTexts().get(PARTITION))
                                             .map(
                                                 s ->
                                                     Arrays.stream(s.split(","))
                                                         .map(Integer::parseInt)
                                                         .collect(Collectors.toSet()));
                                     var optionalOffset =
-                                        Optional.ofNullable(input.texts().get(OFFSET))
+                                        Optional.ofNullable(input.nonEmptyTexts().get(OFFSET))
                                             .map(Long::parseLong);
                                     return admin
                                         .partitions(Set.of(topic))

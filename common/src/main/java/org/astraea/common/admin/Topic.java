@@ -16,11 +16,21 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public interface Topic {
 
-  static Topic of(String name, org.apache.kafka.clients.admin.Config kafkaConfig) {
+  static Topic of(
+      String name,
+      org.apache.kafka.clients.admin.TopicDescription topicDescription,
+      org.apache.kafka.clients.admin.Config kafkaConfig) {
 
     var config = Config.of(kafkaConfig);
+    var topicPartitions =
+        topicDescription.partitions().stream()
+            .map(p -> TopicPartition.of(name, p.partition()))
+            .collect(Collectors.toUnmodifiableSet());
     return new Topic() {
       @Override
       public String name() {
@@ -31,6 +41,16 @@ public interface Topic {
       public Config config() {
         return config;
       }
+
+      @Override
+      public boolean internal() {
+        return topicDescription.isInternal();
+      }
+
+      @Override
+      public Set<TopicPartition> topicPartitions() {
+        return topicPartitions;
+      }
     };
   }
 
@@ -39,4 +59,9 @@ public interface Topic {
 
   /** @return config used by this topic */
   Config config();
+
+  /** @return true if this topic is internal (system) topic */
+  boolean internal();
+
+  Set<TopicPartition> topicPartitions();
 }
