@@ -38,6 +38,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
 import org.astraea.common.producer.Producer;
@@ -120,7 +121,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
@@ -172,7 +175,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));

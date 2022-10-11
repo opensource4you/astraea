@@ -1,17 +1,20 @@
 ![alt text](./logo/opening.gif)
 
-# Authors
-- Chia-Ping Tsai <chia7712@gmail.com>
-- Yi-Chen   Wang <warren215215@gmail.com>
-- Ching-Hong Fang <fjh7777@gmail.com>
-- Zheng-Xian Li <garyparrottt@gmail.com>
-- Xiang-Jun Sun <sean0651101@gmail.com>
-- Zhi-Mao Teng <zhimao.teng@gmail.com>
-- Jia-Sheng Chen <haser1156@gmail.com>
-- Chao-Heng Lee <chaohengstudent@gmail.com>
-- Yi-Huan Lee <yi.huan.max@gmail.com>
+# 維護者
 
-# Kafka Tools
+| 名字  | 電子信箱                      | profile                            |
+|-----|---------------------------|------------------------------------|
+| 蔡嘉平 | chia7712@gmail.com        | https://github.com/chia7712        |
+| 王懿宸 | warren215215@gmail.com    | https://github.com/wycccccc        |
+| 方竫泓 | fjh7777@gmail.com         | https://github.com/chinghongfang   |
+| 李政憲 | garyparrottt@gmail.com    | https://github.com/garyparrot      |
+| 孫祥鈞 | sean0651101@gmail.com     | https://github.com/qoo332001       |
+| 鄧智懋 | zhimao.teng@gmail.com     | https://github.com/harryteng9527   |
+| 陳嘉晟 | haser1156@gmail.com       | https://github.com/Haser0305       |
+| 李兆恆 | chaohengstudent@gmail.com | https://github.com/chaohengstudent |
+| 李宜桓 | yi.huan.max@gmail.com     | https://github.com/MaxwellYHL      |
+
+# Kafka 工具
 
 `Astraea` 提供各式工具來降低`Kafka`門檻以及提高`Kafka`效能
 

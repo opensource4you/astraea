@@ -26,6 +26,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +44,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -75,7 +76,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -97,7 +98,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -120,9 +121,11 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer0 =
               Consumer.forTopics(Set.of(topicName0))
-                  .groupId(groupId0)
+                  .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId0)
                   .bootstrapServers(bootstrapServers())
-                  .fromBeginning()
+                  .config(
+                      ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                      ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                   .build();
           var consumer1 =
               Consumer.forTopics(Set.of(topicName1)).bootstrapServers(bootstrapServers()).build();
@@ -188,7 +191,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .groupInstanceId(Utils.randomString(10))
+              .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         Assertions.assertEquals(
@@ -231,12 +234,12 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       var groupIds =
           IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
       groupIds.forEach(
-          x -> {
+          groupId -> {
             try (var consumer =
                 Consumer.forTopics(Set.of(topicName))
                     .bootstrapServers(bootstrapServers())
-                    .groupInstanceId(Utils.randomString(10))
-                    .groupId(x)
+                    .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
+                    .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                     .build()) {
               Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
             }

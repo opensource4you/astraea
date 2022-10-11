@@ -34,7 +34,6 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
@@ -287,19 +286,9 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, DeletedRecord> deleteRecords(
-        Map<TopicPartition, Long> recordsToDelete) {
-      var kafkaRecordsToDelete =
-          recordsToDelete.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      x -> TopicPartition.to(x.getKey()),
-                      x -> RecordsToDelete.beforeOffset(x.getValue())));
-      return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  x -> TopicPartition.from(x.getKey()),
-                  x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
+    public Map<TopicPartition, Long> deleteRecords(Map<TopicPartition, Long> recordsToDelete) {
+      return Utils.packException(
+          () -> asyncAdmin.deleteRecords(recordsToDelete).toCompletableFuture().get());
     }
 
     @Override

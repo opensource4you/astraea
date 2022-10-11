@@ -49,9 +49,6 @@ public interface AsyncAdmin extends AutoCloseable {
 
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
-  /** delete topics by topic names */
-  CompletionStage<Void> deleteTopics(Set<String> topics);
-
   /**
    * @param topics target
    * @return the partitions belong to input topics
@@ -68,8 +65,10 @@ public interface AsyncAdmin extends AutoCloseable {
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
+  /** @return online node information */
   CompletionStage<Set<NodeInfo>> nodeInfos();
 
+  /** @return online broker information */
   CompletionStage<List<Broker>> brokers();
 
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
@@ -121,6 +120,30 @@ public interface AsyncAdmin extends AutoCloseable {
    * @param topicPartition to perform preferred leader election
    */
   CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
+
+  /**
+   * @param total the final number of partitions. Noted that reducing number of partitions is
+   *     illegal
+   */
+  CompletionStage<Void> addPartitions(String topic, int total);
+
+  /** @param override defines the key and new value. The other undefined keys won't get changed. */
+  CompletionStage<Void> updateConfig(String topic, Map<String, String> override);
+
+  /** @param override defines the key and new value. The other undefined keys won't get changed. */
+  CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override);
+
+  /** delete topics by topic names */
+  CompletionStage<Void> deleteTopics(Set<String> topics);
+
+  /**
+   * Remove the records when their offsets are smaller than given offsets.
+   *
+   * @param offsets to truncate topic partition
+   * @return topic partition and low watermark (it means the minimum logStartOffset of all alive
+   *     replicas)
+   */
+  CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
 
   @Override
   void close();
