@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.Utils;
@@ -29,33 +28,9 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class TopicTab {
-  public static Tab of(Context context) {
-    var pane =
-        PaneBuilder.of()
-            .searchField("topic name")
-            .buttonAction(
-                (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenApply(
-                                    names ->
-                                        names.stream()
-                                            .filter(input::matchSearch)
-                                            .collect(Collectors.toSet()))
-                                .thenCompose(
-                                    names ->
-                                        admin
-                                            .partitions(names)
-                                            .thenCombine(admin.brokers(), TopicTab::beans))))
-            .build();
-    var tab = new Tab("topic");
-    tab.setContent(pane);
-    return tab;
-  }
 
   private static List<Map<String, Object>> beans(List<Partition> partitions, List<Broker> nodes) {
     var topicSize =
@@ -101,5 +76,29 @@ public class TopicTab {
               return result;
             })
         .collect(Collectors.toList());
+  }
+
+  public static Tab of(Context context) {
+    var pane =
+        PaneBuilder.of()
+            .searchField("topic name")
+            .buttonAction(
+                (input, logger) ->
+                    context.submit(
+                        admin ->
+                            admin
+                                .topicNames(true)
+                                .thenApply(
+                                    names ->
+                                        names.stream()
+                                            .filter(input::matchSearch)
+                                            .collect(Collectors.toSet()))
+                                .thenCompose(
+                                    names ->
+                                        admin
+                                            .partitions(names)
+                                            .thenCombine(admin.brokers(), TopicTab::beans))))
+            .build();
+    return Tab.of("topic", pane);
   }
 }

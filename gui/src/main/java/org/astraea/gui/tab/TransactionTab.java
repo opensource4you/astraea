@@ -20,12 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class TransactionTab {
 
@@ -70,8 +70,6 @@ public class TransactionTab {
                                                                     input.matchSearch(tp.topic()))))
                                 .thenApply(TransactionTab::result)))
             .build();
-    var tab = new Tab("transaction");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("transaction", pane);
   }
 }

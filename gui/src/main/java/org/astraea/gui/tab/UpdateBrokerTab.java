@@ -18,10 +18,10 @@ package org.astraea.gui.tab;
 
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class UpdateBrokerTab {
 
@@ -55,8 +55,6 @@ public class UpdateBrokerTab {
                                   }));
                 })
             .build();
-    var tab = new Tab("update broker");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("update broker", pane);
   }
 }
