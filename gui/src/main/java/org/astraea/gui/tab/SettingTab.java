@@ -17,11 +17,11 @@
 package org.astraea.gui.tab;
 
 import java.util.Optional;
-import javafx.scene.control.Tab;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class SettingTab {
 
@@ -69,8 +69,6 @@ public class SettingTab {
                           });
                 })
             .build();
-    var tab = new Tab("setting");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("setting", pane);
   }
 }

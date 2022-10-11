@@ -19,10 +19,10 @@ package org.astraea.gui.tab;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class UpdateTopicTab {
 
@@ -63,8 +63,6 @@ public class UpdateTopicTab {
                                   }));
                 })
             .build();
-    var tab = new Tab("update topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("update topic", pane);
   }
 }

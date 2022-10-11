@@ -42,7 +42,7 @@ public class RadioButton extends javafx.scene.control.RadioButton {
 
   private final RadioButtonAble obj;
 
-  public RadioButton(RadioButtonAble obj) {
+  private RadioButton(RadioButtonAble obj) {
     super(obj.display());
     this.obj = obj;
   }

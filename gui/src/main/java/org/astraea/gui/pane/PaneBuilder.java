@@ -25,21 +25,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Label;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.Utils;
 import org.astraea.gui.Logger;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
@@ -47,6 +41,7 @@ import org.astraea.gui.button.Button;
 import org.astraea.gui.button.RadioButton;
 import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.table.TableView;
+import org.astraea.gui.text.Label;
 import org.astraea.gui.text.TextArea;
 import org.astraea.gui.text.TextField;
 
@@ -57,21 +52,19 @@ public class PaneBuilder {
     return new PaneBuilder();
   }
 
-  private static final int MAX_NUMBER_OF_TEXT_FIELD_ONE_LINE = 3;
-
   private List<RadioButton> radioButtons = new ArrayList<>();
 
   private final Set<String> textKeys = new LinkedHashSet<>();
   private final Map<String, Boolean> textPriority = new LinkedHashMap<>();
   private final Map<String, Boolean> textNumberOnly = new LinkedHashMap<>();
   private Label searchLabel = null;
-  private final TextField searchField = new TextField();
+  private final TextField searchField = TextField.of();
 
-  private Button actionButton = new Button("SEARCH");
+  private Button actionButton = Button.of("SEARCH");
 
   private TableView tableView = null;
 
-  private final TextArea console = new TextArea();
+  private final TextArea console = TextArea.of();
 
   private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
   private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
@@ -115,12 +108,12 @@ public class PaneBuilder {
   }
 
   public PaneBuilder searchField(String hint) {
-    searchLabel = new Label(hint);
+    searchLabel = Label.of(hint);
     return this;
   }
 
   public PaneBuilder buttonName(String name) {
-    actionButton = new Button(name);
+    actionButton = Button.of(name);
     return this;
   }
 
@@ -140,12 +133,27 @@ public class PaneBuilder {
   public Pane build() {
     var nodes = new ArrayList<Node>();
     if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
-    var textFields = new LinkedHashMap<String, Supplier<String>>();
+    Map<String, Supplier<String>> textFields;
     if (!textKeys.isEmpty()) {
-      var paneAndFields = pane(textKeys, textPriority, textNumberOnly);
-      nodes.add(paneAndFields.getKey());
-      textFields.putAll(paneAndFields.getValue());
-    }
+      var pairs =
+          textKeys.stream()
+              .collect(
+                  Utils.toLinkedHashMap(
+                      key ->
+                          textPriority.getOrDefault(key, false)
+                              ? Label.highlight(key)
+                              : Label.of(key),
+                      key ->
+                          textNumberOnly.getOrDefault(key, false)
+                              ? TextField.onlyNumber()
+                              : TextField.of()));
+      var gridPane = pairs.size() <= 3 ? GridPane.singleColumn(pairs, 3) : GridPane.of(pairs, 3);
+      nodes.add(gridPane);
+      textFields =
+          pairs.entrySet().stream()
+              .collect(
+                  Utils.toLinkedHashMap(e -> e.getKey().key(), e -> () -> e.getValue().getText()));
+    } else textFields = Map.of();
     if (searchLabel != null) nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
     else nodes.add(actionButton);
     if (tableView != null) nodes.add(tableView);
@@ -250,71 +258,6 @@ public class PaneBuilder {
           });
 
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
-  }
-
-  private static Map.Entry<Pane, LinkedHashMap<String, Supplier<String>>> pane(
-      Set<String> textKeys,
-      Map<String, Boolean> textPriority,
-      Map<String, Boolean> textNumberOnly) {
-    Function<String, Label> labelFunction =
-        (key) -> {
-          if (textPriority.get(key)) {
-            var label = new Label(key + "*");
-            label.setFont(Font.font("Verdana", FontWeight.EXTRA_BOLD, 12));
-            return label;
-          }
-          return new Label(key);
-        };
-
-    Function<String, TextField> textFunction =
-        (key) -> textNumberOnly.get(key) ? TextField.onlyNumber() : new TextField();
-
-    var textFields = new LinkedHashMap<String, Supplier<String>>();
-    if (textKeys.size() <= 3) {
-      var pane = new GridPane();
-      pane.setAlignment(Pos.CENTER);
-      var row = 0;
-      for (var key : textKeys) {
-        var label = labelFunction.apply(key);
-        var textField = textFunction.apply(key);
-        textFields.put(key, textField::getText);
-        GridPane.setHalignment(label, HPos.RIGHT);
-        GridPane.setMargin(label, new Insets(10, 5, 10, 15));
-        pane.add(label, 0, row);
-
-        GridPane.setHalignment(textField, HPos.LEFT);
-        GridPane.setMargin(textField, new Insets(10, 15, 10, 5));
-        pane.add(textField, 1, row);
-        row++;
-      }
-      return Map.entry(pane, textFields);
-    }
-
-    var pane = new GridPane();
-    pane.setAlignment(Pos.CENTER);
-    var row = 0;
-    var column = 0;
-    var count = 0;
-    for (var key : textKeys) {
-      if (count >= MAX_NUMBER_OF_TEXT_FIELD_ONE_LINE) {
-        count = 0;
-        column = 0;
-        row++;
-      }
-
-      var label = labelFunction.apply(key);
-      var textField = textFunction.apply(key);
-      textFields.put(key, textField::getText);
-      GridPane.setHalignment(label, HPos.RIGHT);
-      GridPane.setMargin(label, new Insets(10, 5, 10, 15));
-      pane.add(label, column++, row);
-
-      GridPane.setHalignment(textField, HPos.LEFT);
-      GridPane.setMargin(textField, new Insets(10, 15, 10, 5));
-      pane.add(textField, column++, row);
-      count++;
-    }
-    return Map.entry(pane, textFields);
   }
 
   static Pattern wildcardToPattern(String string) {

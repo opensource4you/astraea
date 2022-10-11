@@ -18,11 +18,11 @@ package org.astraea.gui.tab;
 
 import java.util.Map;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class ConfigTab {
 
@@ -90,8 +90,6 @@ public class ConfigTab {
                                   .collect(Collectors.toList()));
                 })
             .build();
-    var tab = new Tab("config");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("config", pane);
   }
 }

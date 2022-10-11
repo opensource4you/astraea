@@ -21,13 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class PartitionTab {
 
@@ -82,8 +82,6 @@ public class PartitionTab {
                                                     .thenComparing(Partition::partition)))
                                 .thenApply(PartitionTab::result)))
             .build();
-    var tab = new Tab("partition");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("partition", pane);
   }
 }
