@@ -28,35 +28,39 @@ import org.junit.jupiter.api.Test;
 
 public class IdleCheckerTest extends RequireBrokerCluster {
   @Test
-  void testLatestTimestamp() throws InterruptedException {
+  void testLatestTimestamp() throws InterruptedException, ExecutionException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic("produce").value("1".getBytes()).run().toCompletableFuture().get();
     } catch (ExecutionException e) {
       e.printStackTrace();
     }
 
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var checkers = List.of(IdleChecker.latestTimestamp(Duration.ofSeconds(3)));
-      Assertions.assertEquals(Set.of(), admin.idleTopic(checkers));
+      Assertions.assertEquals(Set.of(), admin.idleTopic(checkers).toCompletableFuture().get());
       Thread.sleep(3000);
-      Assertions.assertEquals(Set.of("produce"), admin.idleTopic(checkers));
+      Assertions.assertEquals(
+          Set.of("produce"), admin.idleTopic(checkers).toCompletableFuture().get());
     }
   }
 
   @Test
-  void testNoAssignment() throws InterruptedException {
+  void testNoAssignment() throws InterruptedException, ExecutionException {
     var consumer =
         Consumer.forTopics(Set.of("produce")).bootstrapServers(bootstrapServers()).build();
     var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
     consumerThread.start();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       Thread.sleep(5000);
 
-      Assertions.assertEquals(Set.of(), admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)));
+      Assertions.assertEquals(
+          Set.of(),
+          admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)).toCompletableFuture().get());
       consumerThread.join();
       consumer.close();
       Assertions.assertEquals(
-          Set.of("produce"), admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)));
+          Set.of("produce"),
+          admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)).toCompletableFuture().get());
     }
   }
 }

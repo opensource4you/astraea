@@ -21,29 +21,42 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @FunctionalInterface
 public interface IdleChecker {
-  Set<String> idleTopics(Admin admin);
+  CompletionStage<Set<String>> idleTopics(AsyncAdmin admin);
 
   /** Find topics which is **not** assigned by any consumer. */
   IdleChecker NO_ASSIGNMENT =
       admin -> {
+        var groupIds = admin.consumerGroupIds();
         var topicNames = admin.topicNames(false);
-        var notIdleTopic =
-            // TODO: consumer may not belong to any consumer group
-            admin.consumerGroups(admin.consumerGroupIds()).stream()
-                .flatMap(
-                    group ->
-                        group.assignment().values().stream()
-                            .flatMap(Collection::stream)
-                            .map(TopicPartition::topic))
-                .collect(Collectors.toUnmodifiableSet());
+        try {
+          var consumerGroups = admin.consumerGroups(groupIds.toCompletableFuture().get());
 
-        return topicNames.stream()
-            .filter(name -> !notIdleTopic.contains(name))
-            .collect(Collectors.toUnmodifiableSet());
+          return topicNames.thenCombine(
+              consumerGroups,
+              (topics, groups) -> {
+                // TODO: consumer may not belong to any consumer group
+                var notIdleTopic =
+                    groups.stream()
+                        .flatMap(
+                            group ->
+                                group.assignment().values().stream()
+                                    .flatMap(Collection::stream)
+                                    .map(TopicPartition::topic))
+                        .collect(Collectors.toUnmodifiableSet());
+                return topics.stream()
+                    .filter(name -> !notIdleTopic.contains(name))
+                    .collect(Collectors.toUnmodifiableSet());
+              });
+        } catch (InterruptedException | ExecutionException ex) {
+          return CompletableFuture.failedStage(ex);
+        }
       };
 
   /** Find topics whose latest record timestamp is older than the given duration. */
@@ -51,19 +64,28 @@ public interface IdleChecker {
   // https://github.com/skiptests/astraea/issues/739#issuecomment-1254838359
   static IdleChecker latestTimestamp(Duration duration) {
     return admin -> {
-      var topicNames = admin.topicNames(false);
       long now = System.currentTimeMillis();
-      return admin.partitions(topicNames).stream()
-          .collect(
-              Collectors.groupingBy(
-                  Partition::topic,
-                  Collectors.maxBy(Comparator.comparingLong(Partition::maxTimestamp))))
-          .values()
-          .stream()
-          .filter(Optional::isPresent)
-          .filter(p -> p.get().maxTimestamp() < now - duration.toMillis())
-          .map(p -> p.get().topic())
-          .collect(Collectors.toUnmodifiableSet());
+      var topicNames = admin.topicNames(false);
+      try {
+        return admin
+            .partitions(topicNames.toCompletableFuture().get())
+            .thenApply(
+                partitions ->
+                    partitions.stream()
+                        .collect(
+                            Collectors.groupingBy(
+                                Partition::topic,
+                                Collectors.maxBy(
+                                    Comparator.comparingLong(Partition::maxTimestamp))))
+                        .values()
+                        .stream()
+                        .filter(Optional::isPresent)
+                        .filter(p -> p.get().maxTimestamp() < now - duration.toMillis())
+                        .map(p -> p.get().topic())
+                        .collect(Collectors.toUnmodifiableSet()));
+      } catch (InterruptedException | ExecutionException ex) {
+        return CompletableFuture.failedStage(ex);
+      }
     };
   }
 }

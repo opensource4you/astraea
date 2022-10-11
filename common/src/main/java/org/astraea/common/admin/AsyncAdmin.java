@@ -16,9 +16,11 @@
  */
 package org.astraea.common.admin;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -101,6 +103,38 @@ public interface AsyncAdmin extends AutoCloseable {
 
   default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
     return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
+  }
+
+  default CompletionStage<Set<String>> idleTopic(List<IdleChecker> checkers) {
+    if (checkers.isEmpty()) {
+      throw new RuntimeException("Can not check for idle topics because of no checkers!");
+    }
+    var checkerResults =
+        checkers.stream()
+            .map(checker -> checker.idleTopics(this))
+            .collect(Collectors.toUnmodifiableList());
+
+    var union =
+        checkerResults.stream()
+            .reduce(
+                CompletableFuture.completedFuture(new HashSet<>()),
+                (s1, s2) ->
+                    s1.thenCombine(
+                        s2,
+                        (ss1, ss2) -> {
+                          ss1.addAll(ss2);
+                          return ss1;
+                        }));
+    return checkerResults.stream()
+        .reduce(
+            union,
+            (s1, s2) ->
+                s1.thenCombine(
+                    s2,
+                    (ss1, ss2) -> {
+                      ss1.retainAll(ss2);
+                      return ss1;
+                    }));
   }
 
   // ---------------------------------[write]---------------------------------//
