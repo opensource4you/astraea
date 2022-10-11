@@ -21,14 +21,20 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,7 +47,7 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
     var m = request.fetch(MBeanClient.local());
-    Assertions.assertEquals(0, m.value());
+    Assertions.assertDoesNotThrow(m::value);
     MetricsTestUtil.validate(m);
   }
 
@@ -149,24 +155,25 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @Test
   void testKafkaMetricsOf() {
-    Arrays.stream(ServerMetrics.Topic.values())
+    Arrays.stream(ServerMetrics.BrokerTopic.values())
         .forEach(
             t ->
                 Assertions.assertEquals(
-                    t, ServerMetrics.Topic.ofAlias(t.metricName().toLowerCase(Locale.ROOT))));
-    Arrays.stream(ServerMetrics.Topic.values())
+                    t, ServerMetrics.BrokerTopic.ofAlias(t.metricName().toLowerCase(Locale.ROOT))));
+    Arrays.stream(ServerMetrics.BrokerTopic.values())
         .forEach(
             t ->
                 Assertions.assertEquals(
-                    t, ServerMetrics.Topic.ofAlias(t.metricName().toUpperCase(Locale.ROOT))));
-    assertThrows(IllegalArgumentException.class, () -> ServerMetrics.Topic.ofAlias("nothing"));
+                    t, ServerMetrics.BrokerTopic.ofAlias(t.metricName().toUpperCase(Locale.ROOT))));
+    assertThrows(
+        IllegalArgumentException.class, () -> ServerMetrics.BrokerTopic.ofAlias("nothing"));
   }
 
   @ParameterizedTest
-  @EnumSource(ServerMetrics.Topic.class)
-  void testBrokerTopic(ServerMetrics.Topic brokerTopic) {
+  @EnumSource(ServerMetrics.BrokerTopic.class)
+  void testBrokerTopic(ServerMetrics.BrokerTopic brokerTopic) {
     var object =
-        new ServerMetrics.Topic.Meter(
+        new ServerMetrics.BrokerTopic.Meter(
             new BeanObject("object", Map.of("name", brokerTopic.metricName()), Map.of()));
     Assertions.assertEquals(1, brokerTopic.of(List.of(object)).size());
 
@@ -175,10 +182,38 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
         brokerTopic
             .of(
                 List.of(
-                    new ServerMetrics.Topic.Meter(
+                    new ServerMetrics.BrokerTopic.Meter(
                         new BeanObject(
                             "object", Map.of("name", Utils.randomString(10)), Map.of()))))
             .size());
+  }
+
+  @ParameterizedTest
+  @EnumSource(ServerMetrics.Topic.class)
+  void testTopic(ServerMetrics.Topic topic) throws ExecutionException, InterruptedException {
+    var name = Utils.randomString();
+    try (var producer = Producer.of(bootstrapServers())) {
+      producer.sender().topic(name).key(new byte[10]).run().toCompletableFuture().get();
+    }
+    try (var consumer =
+        Consumer.forTopics(Set.of(name))
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .bootstrapServers(bootstrapServers())
+            .build()) {
+      var records = consumer.poll(1, Duration.ofSeconds(5));
+      Assertions.assertEquals(1, records.size());
+    }
+    var meters = topic.fetch(MBeanClient.local());
+    Assertions.assertNotEquals(0, meters.size());
+    meters.forEach(
+        m -> {
+          Assertions.assertNotNull(m.metricsName());
+          Assertions.assertNotNull(m.topic());
+          Assertions.assertNotNull(m.type());
+          MetricsTestUtil.validate(m);
+        });
   }
 
   @Test
@@ -192,6 +227,6 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
             ServerMetrics.DelayedOperationPurgatory::metricName));
     Assertions.assertTrue(
         MetricsTestUtil.metricDistinct(
-            ServerMetrics.Topic.values(), ServerMetrics.Topic::metricName));
+            ServerMetrics.BrokerTopic.values(), ServerMetrics.BrokerTopic::metricName));
   }
 }
