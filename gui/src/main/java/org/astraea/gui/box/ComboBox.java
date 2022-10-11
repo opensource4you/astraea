@@ -16,36 +16,17 @@
  */
 package org.astraea.gui.box;
 
-import java.util.Collection;
-import javafx.application.Platform;
+import java.util.Set;
 import javafx.collections.FXCollections;
-import javafx.scene.control.ComboBox;
+import javafx.collections.ObservableList;
 
-public class IntegerBox extends ComboBox<Integer> {
+public class ComboBox<T> extends javafx.scene.control.ComboBox<T> {
 
-  public IntegerBox() {
-    super(FXCollections.observableArrayList());
+  public static ComboBox<String> strings(Set<String> items) {
+    return new ComboBox<>(FXCollections.observableArrayList(items.toArray(String[]::new)));
   }
 
-  public IntegerBox(int initialValue) {
-    super(FXCollections.observableArrayList(initialValue));
-  }
-
-  void values(Collection<Integer> values) {
-    values(values, -1);
-  }
-
-  void values(Collection<Integer> values, int selectedIndex) {
-    if (Platform.isFxApplicationThread()) {
-      getItems().setAll(values);
-      if (selectedIndex >= 0) this.getSelectionModel().select(selectedIndex);
-      return;
-    }
-
-    Platform.runLater(
-        () -> {
-          getItems().setAll(values);
-          if (selectedIndex >= 0) this.getSelectionModel().select(selectedIndex);
-        });
+  private ComboBox(ObservableList<T> items) {
+    super(items);
   }
 }

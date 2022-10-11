@@ -16,9 +16,40 @@
  */
 package org.astraea.gui.pane;
 
+import java.util.concurrent.CompletionStage;
+import java.util.function.Supplier;
+import javafx.application.Platform;
 import javafx.scene.Node;
+import org.astraea.gui.text.TextField;
 
 public class Tab extends javafx.scene.control.Tab {
+
+  /**
+   * create a tab having dynamical content. The content is changed when the tag is selected.
+   *
+   * @param name tab name
+   * @param nodeSupplier offers the newest content
+   * @return tab
+   */
+  public static Tab dynamical(String name, Supplier<CompletionStage<Node>> nodeSupplier) {
+    var t = new Tab(name);
+    t.setOnSelectionChanged(
+        ignored -> {
+          try {
+            if (t.isSelected())
+              nodeSupplier
+                  .get()
+                  .whenComplete(
+                      (r, e) -> {
+                        if (e != null) e.printStackTrace();
+                        else t.content(r);
+                      });
+          } catch (IllegalArgumentException e) {
+            t.content(TextField.of(e.getMessage()));
+          }
+        });
+    return t;
+  }
 
   public static Tab of(String name, Node node) {
     var t = new Tab(name);
@@ -28,5 +59,10 @@ public class Tab extends javafx.scene.control.Tab {
 
   private Tab(String name) {
     super(name);
+  }
+
+  public void content(Node node) {
+    if (Platform.isFxApplicationThread()) setContent(node);
+    else Platform.runLater(() -> setContent(node));
   }
 }

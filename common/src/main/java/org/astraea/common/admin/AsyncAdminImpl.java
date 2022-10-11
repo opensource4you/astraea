@@ -99,10 +99,16 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
                     .collect(Collectors.toList()))
             .all())
-        .thenApply(
-            r ->
-                r.entrySet().stream()
-                    .map(entry -> Topic.of(entry.getKey().name(), entry.getValue()))
+        .thenCombine(
+            to(kafkaAdmin.describeTopics(names).all()),
+            (configs, desc) ->
+                configs.entrySet().stream()
+                    .map(
+                        entry ->
+                            Topic.of(
+                                entry.getKey().name(),
+                                desc.get(entry.getKey().name()),
+                                entry.getValue()))
                     .collect(Collectors.toUnmodifiableList()));
   }
 

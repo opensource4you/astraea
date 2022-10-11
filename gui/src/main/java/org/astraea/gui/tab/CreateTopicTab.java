@@ -41,7 +41,7 @@ public class CreateTopicTab {
             .input(TopicConfigs.ALL_CONFIGS)
             .buttonListener(
                 (input, logger) -> {
-                  var allConfigs = new HashMap<>(input.texts());
+                  var allConfigs = new HashMap<>(input.nonEmptyTexts());
                   var name = allConfigs.remove(TOPIC_NAME);
                   return context.submit(
                       admin ->
