@@ -195,6 +195,11 @@ public final class ServerMetrics {
       return metricName();
     }
 
+    @Override
+    public String toString() {
+      return alias();
+    }
+
     public List<Topic.Meter> fetch(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
