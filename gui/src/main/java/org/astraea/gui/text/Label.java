@@ -14,27 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.gui.text;
 
-import javafx.application.Platform;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
-public class Button extends javafx.scene.control.Button {
+public class Label extends javafx.scene.control.Label {
 
-  public static Button of(String name) {
-    return new Button(name);
+  public static Label of(String content) {
+    return new Label(content, content);
   }
 
-  private Button(String topic) {
-    super(topic);
+  public static Label highlight(String content) {
+    var label = new Label(content, content + "*");
+    label.setFont(Font.font("Verdana", FontWeight.EXTRA_BOLD, 12));
+    return label;
   }
 
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
+  private final String key;
+
+  private Label(String key, String content) {
+    super(content);
+    this.key = key;
   }
 
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
+  /** @return the key associated to this label. Noted that the key may be different from text */
+  public String key() {
+    return key;
   }
 }

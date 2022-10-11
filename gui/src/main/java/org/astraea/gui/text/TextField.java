@@ -30,17 +30,15 @@ public class TextField extends javafx.scene.control.TextField {
     return field;
   }
 
-  public static TextField copyableField(String content) {
-    var field = new TextField(content);
-    field.setEditable(false);
-    return field;
+  public static TextField of() {
+    return new TextField();
   }
 
-  public TextField() {
+  private TextField() {
     super();
   }
 
-  public TextField(String text) {
+  private TextField(String text) {
     super(text);
   }
 }

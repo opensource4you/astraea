@@ -24,7 +24,6 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.metrics.MBeanClient;
@@ -34,6 +33,7 @@ import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class MetricsTab {
 
@@ -187,8 +187,6 @@ public class MetricsTab {
                                 .collect(Collectors.toList())))
             .build();
 
-    var tab = new Tab("metrics");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("metrics", pane);
   }
 }

@@ -19,12 +19,12 @@ package org.astraea.gui.tab;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.VersionUtils;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class AboutTab {
 
@@ -96,8 +96,6 @@ public class AboutTab {
                     CompletableFuture.completedFuture(
                         input.selectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
             .build();
-    var tab = new Tab("about");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("about", pane);
   }
 }

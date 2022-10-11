@@ -21,10 +21,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class TruncateRecordTab {
 
@@ -104,8 +104,6 @@ public class TruncateRecordTab {
                                   }));
                 })
             .build();
-    var tab = new Tab("truncate record");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("truncate record", pane);
   }
 }

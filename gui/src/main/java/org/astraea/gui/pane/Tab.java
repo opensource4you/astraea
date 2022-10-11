@@ -14,27 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.gui.pane;
 
-import javafx.application.Platform;
+import javafx.scene.Node;
 
-public class Button extends javafx.scene.control.Button {
+public class Tab extends javafx.scene.control.Tab {
 
-  public static Button of(String name) {
-    return new Button(name);
+  public static Tab of(String name, Node node) {
+    var t = new Tab(name);
+    t.setContent(node);
+    return t;
   }
 
-  private Button(String topic) {
-    super(topic);
-  }
-
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
-  }
-
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
+  private Tab(String name) {
+    super(name);
   }
 }

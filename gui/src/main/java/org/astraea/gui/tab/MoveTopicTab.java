@@ -24,12 +24,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class MoveTopicTab {
 
@@ -93,8 +93,6 @@ public class MoveTopicTab {
                 })
             .build();
 
-    var tab = new Tab("move topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("move topic", pane);
   }
 }
