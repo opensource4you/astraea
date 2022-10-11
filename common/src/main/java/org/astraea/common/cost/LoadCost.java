@@ -35,9 +35,9 @@ public class LoadCost implements HasBrokerCost {
   private final Map<Integer, BrokerMetric> brokersMetric = new HashMap<>();
   private final Map<String, Double> metricNameAndWeight =
       Map.of(
-          ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(),
+          ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(),
           0.5,
-          ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(),
+          ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName(),
           0.5);
 
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
@@ -87,8 +87,8 @@ public class LoadCost implements HasBrokerCost {
         (brokerID, value) -> {
           if (!brokersMetric.containsKey(brokerID)) brokersMetric.put(brokerID, new BrokerMetric());
           value.stream()
-              .filter(hasBeanObject -> hasBeanObject instanceof ServerMetrics.Topic.Meter)
-              .map(hasBeanObject -> (ServerMetrics.Topic.Meter) hasBeanObject)
+              .filter(hasBeanObject -> hasBeanObject instanceof ServerMetrics.BrokerTopic.Meter)
+              .map(hasBeanObject -> (ServerMetrics.BrokerTopic.Meter) hasBeanObject)
               .forEach(
                   result ->
                       brokersMetric
@@ -152,8 +152,8 @@ public class LoadCost implements HasBrokerCost {
     return Optional.of(
         client ->
             List.of(
-                ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
-                ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client)));
+                ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client),
+                ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));
   }
 
   private static class BrokerMetric {

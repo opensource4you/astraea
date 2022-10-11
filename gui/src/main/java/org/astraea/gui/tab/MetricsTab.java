@@ -114,10 +114,10 @@ public class MetricsTab {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
-    TOPIC(
-        "topic",
+    BROKER_TOPIC(
+        "broker topics",
         client ->
-            Arrays.stream(ServerMetrics.Topic.values())
+            Arrays.stream(ServerMetrics.BrokerTopic.values())
                 .map(m -> tryToFetch(() -> m.fetch(client)))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -170,7 +170,7 @@ public class MetricsTab {
                                             input
                                                 .selectedRadio()
                                                 .map(o -> (MetricType) o)
-                                                .orElse(MetricType.TOPIC)
+                                                .orElse(MetricType.BROKER_TOPIC)
                                                 .fetcher
                                                 .apply(entry.getValue())))
                                 .sorted(Comparator.comparing(e -> e.getKey().id()))
