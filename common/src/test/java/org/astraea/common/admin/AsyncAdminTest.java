@@ -18,11 +18,15 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -197,6 +201,137 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                 .iterator()
                 .next()
                 .dataFolder());
+      }
+    }
+  }
+
+  @Test
+  void testCreator() throws ExecutionException, InterruptedException {
+    var topic = "testCreator";
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .configs(Map.of(TopicConfigs.COMPRESSION_TYPE_CONFIG, "lz4"))
+          .run()
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var config = admin.topics(Set.of(topic)).toCompletableFuture().get().get(0).config();
+      config.raw().keySet().forEach(key -> Assertions.assertTrue(config.value(key).isPresent()));
+      Assertions.assertTrue(config.raw().containsValue("lz4"));
+    }
+  }
+
+  @Test
+  void testPartitions() throws ExecutionException, InterruptedException {
+    var topic = "testPartitions";
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var before =
+          brokerIds().stream()
+              .mapToInt(
+                  id -> {
+                    try {
+                      return admin
+                          .topicPartitionReplicas(Set.of(id))
+                          .toCompletableFuture()
+                          .get()
+                          .size();
+                    } catch (InterruptedException | ExecutionException e) {
+                      throw new RuntimeException(e);
+                    }
+                  })
+              .sum();
+
+      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().get();
+      // wait for syncing topic creation
+      Utils.sleep(Duration.ofSeconds(5));
+      Assertions.assertTrue(admin.topicNames(true).toCompletableFuture().get().contains(topic));
+      var partitions = admin.replicas(Set.of(topic)).toCompletableFuture().get();
+      Assertions.assertEquals(10, partitions.size());
+      var logFolders =
+          logFolders().values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
+      partitions.forEach(
+          replica ->
+              Assertions.assertTrue(logFolders.stream().anyMatch(replica.dataFolder()::contains)));
+      brokerIds()
+          .forEach(
+              id -> {
+                try {
+                  Assertions.assertNotEquals(
+                      0,
+                      admin.topicPartitionReplicas(Set.of(id)).toCompletableFuture().get().size());
+                } catch (InterruptedException | ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+              });
+
+      var after =
+          brokerIds().stream()
+              .mapToInt(
+                  id -> {
+                    try {
+                      return admin
+                          .topicPartitionReplicas(Set.of(id))
+                          .toCompletableFuture()
+                          .get()
+                          .size();
+                    } catch (InterruptedException | ExecutionException e) {
+                      throw new RuntimeException(e);
+                    }
+                  })
+              .sum();
+
+      Assertions.assertEquals(before + 10, after);
+    }
+  }
+
+  @Test
+  void testConsumerGroups() throws ExecutionException, InterruptedException {
+    var topic = "testConsumerGroups-Topic";
+    var consumerGroup = "testConsumerGroups-Group";
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
+      try (var c1 =
+          Consumer.forTopics(Set.of(topic))
+              .bootstrapServers(bootstrapServers())
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, consumerGroup)
+              .build()) {
+        // wait for syncing topic creation
+        Utils.sleep(Duration.ofSeconds(5));
+        var consumerGroupMap =
+            admin.consumerGroups(Set.of(consumerGroup)).toCompletableFuture().get();
+        Assertions.assertEquals(1, consumerGroupMap.size());
+        Assertions.assertTrue(
+            consumerGroupMap.stream().anyMatch(cg -> cg.groupId().equals(consumerGroup)));
+
+        try (var c2 =
+            Consumer.forTopics(Set.of(topic))
+                .bootstrapServers(bootstrapServers())
+                .config(ConsumerConfigs.GROUP_ID_CONFIG, "abc")
+                .build()) {
+          var count =
+              admin.consumerGroupIds().toCompletableFuture().get().stream()
+                  .mapToInt(
+                      t -> {
+                        try {
+                          return admin.consumerGroups(Set.of(t)).toCompletableFuture().get().size();
+                        } catch (InterruptedException | ExecutionException e) {
+                          throw new RuntimeException(e);
+                        }
+                      })
+                  .sum();
+          Assertions.assertEquals(
+              count,
+              admin
+                  .consumerGroups(admin.consumerGroupIds().toCompletableFuture().get())
+                  .toCompletableFuture()
+                  .get()
+                  .size());
+          Assertions.assertEquals(
+              1, admin.consumerGroups(Set.of("abc")).toCompletableFuture().get().size());
+        }
       }
     }
   }
