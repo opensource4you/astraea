@@ -18,6 +18,7 @@ package org.astraea.common.admin;
 
 import java.io.Closeable;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -279,8 +280,29 @@ public interface Admin extends Closeable {
   void clearEgressReplicationThrottle(Set<Integer> brokerIds);
 
   /** Find idle topics with this admin object. See IdleTopicFinder. */
-  default IdleTopicFinder idleTopicFinder(List<IdleTopicFinder.Checker> checkers) {
-    return new IdleTopicFinder(this, checkers);
+  default Set<String> idleTopic(List<IdleChecker> checkers) {
+    if (checkers.isEmpty()) {
+      throw new RuntimeException("Can not check for idle topics because of no checkers!");
+    }
+    var checkerResults =
+        checkers.stream().map(checker -> checker.idleTopics(this)).collect(Collectors.toList());
+
+    // return sets intersection
+    var topicUnion =
+        checkerResults.stream()
+            .reduce(
+                new HashSet<>(),
+                (s1, s2) -> {
+                  s1.addAll(s2);
+                  return s1;
+                });
+    return checkerResults.stream()
+        .reduce(
+            topicUnion,
+            (s1, s2) -> {
+              s1.retainAll(s2);
+              return s1;
+            });
   }
 
   @Override

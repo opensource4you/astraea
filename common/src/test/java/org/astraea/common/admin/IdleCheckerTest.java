@@ -26,7 +26,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class IdlerTopicFinderTest extends RequireBrokerCluster {
+public class IdleCheckerTest extends RequireBrokerCluster {
   @Test
   void testLatestTimestamp() throws InterruptedException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -36,32 +36,27 @@ public class IdlerTopicFinderTest extends RequireBrokerCluster {
     }
 
     try (var admin = Admin.of(bootstrapServers())) {
-      var finder =
-          admin.idleTopicFinder(
-              List.of(IdleTopicFinder.Checker.latestTimestamp(Duration.ofSeconds(3))));
-      Assertions.assertEquals(Set.of(), finder.idleTopics());
+      var checkers = List.of(IdleChecker.latestTimestamp(Duration.ofSeconds(3)));
+      Assertions.assertEquals(Set.of(), admin.idleTopic(checkers));
       Thread.sleep(3000);
-      Assertions.assertEquals(Set.of("produce"), finder.idleTopics());
+      Assertions.assertEquals(Set.of("produce"), admin.idleTopic(checkers));
     }
   }
 
   @Test
   void testNoAssignment() throws InterruptedException {
     var consumer =
-        Consumer.forTopics(Set.of("produce"))
-            .fromBeginning()
-            .bootstrapServers(bootstrapServers())
-            .build();
+        Consumer.forTopics(Set.of("produce")).bootstrapServers(bootstrapServers()).build();
     var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
     consumerThread.start();
     try (var admin = Admin.of(bootstrapServers())) {
-      var finder = admin.idleTopicFinder(List.of(IdleTopicFinder.Checker.NO_ASSIGNMENT));
       Thread.sleep(5000);
 
-      Assertions.assertEquals(Set.of(), finder.idleTopics());
+      Assertions.assertEquals(Set.of(), admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)));
       consumerThread.join();
       consumer.close();
-      Assertions.assertEquals(Set.of("produce"), finder.idleTopics());
+      Assertions.assertEquals(
+          Set.of("produce"), admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)));
     }
   }
 }
