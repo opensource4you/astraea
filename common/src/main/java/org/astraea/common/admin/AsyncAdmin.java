@@ -49,9 +49,6 @@ public interface AsyncAdmin extends AutoCloseable {
 
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
-  /** delete topics by topic names */
-  CompletionStage<Void> deleteTopics(Set<String> topics);
-
   /**
    * @param topics target
    * @return the partitions belong to input topics
@@ -59,17 +56,19 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Set<TopicPartition>> topicPartitions(Set<String> topics);
 
   /**
-   * list all partitions belongs to input brokers
+   * list all partition replicas belongs to input brokers
    *
-   * @param brokerId to search
+   * @param brokers to search
    * @return all partition belongs to brokers
    */
-  CompletionStage<Set<TopicPartition>> topicPartitions(int brokerId);
+  CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
+  /** @return online node information */
   CompletionStage<Set<NodeInfo>> nodeInfos();
 
+  /** @return online broker information */
   CompletionStage<List<Broker>> brokers();
 
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
@@ -109,8 +108,9 @@ public interface AsyncAdmin extends AutoCloseable {
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();
 
-  /** @return a partition migrator used to move partitions to another broker or folder. */
-  ReplicaMigrator migrator();
+  CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments);
+
+  CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
@@ -133,6 +133,18 @@ public interface AsyncAdmin extends AutoCloseable {
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
   CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override);
+
+  /** delete topics by topic names */
+  CompletionStage<Void> deleteTopics(Set<String> topics);
+
+  /**
+   * Remove the records when their offsets are smaller than given offsets.
+   *
+   * @param offsets to truncate topic partition
+   * @return topic partition and low watermark (it means the minimum logStartOffset of all alive
+   *     replicas)
+   */
+  CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
 
   @Override
   void close();

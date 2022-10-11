@@ -27,9 +27,9 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
-import org.astraea.common.consumer.Isolation;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Named;
@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 public class ProducerTest extends RequireBrokerCluster {
@@ -70,7 +71,9 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
@@ -113,9 +116,12 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
-            .isolation(Isolation.READ_COMMITTED)
+            .config(
+                ConsumerConfigs.ISOLATION_LEVEL_CONFIG, ConsumerConfigs.ISOLATION_LEVEL_COMMITTED)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(10));
       Assertions.assertEquals(3, records.size());
@@ -144,9 +150,14 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
-            .isolation(
-                producer.transactional() ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED)
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .config(
+                ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                producer.transactional()
+                    ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                    : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
             .build()) {
       Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(10)).size());
     }
@@ -170,9 +181,14 @@ public class ProducerTest extends RequireBrokerCluster {
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
-            .isolation(
-                producer.transactional() ? Isolation.READ_COMMITTED : Isolation.READ_UNCOMMITTED)
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .config(
+                ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                producer.transactional()
+                    ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                    : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
             .build()) {
       Assertions.assertEquals(count, consumer.poll(count, Duration.ofSeconds(10)).size());
     }
@@ -193,7 +209,10 @@ public class ProducerTest extends RequireBrokerCluster {
   @Test
   void testSetTransactionIdManually() {
     try (var producer =
-        Producer.builder().bootstrapServers(bootstrapServers()).transactionId("chia").build()) {
+        Producer.builder()
+            .bootstrapServers(bootstrapServers())
+            .config(ProducerConfigs.TRANSACTIONAL_ID_CONFIG, "chia")
+            .build()) {
       Assertions.assertTrue(producer.transactional());
       Assertions.assertTrue(producer.transactionId().isPresent());
     }
@@ -203,8 +222,36 @@ public class ProducerTest extends RequireBrokerCluster {
   void testClientId() {
     var clientId = Utils.randomString();
     try (var producer =
-        Producer.builder().bootstrapServers(bootstrapServers()).clientId(clientId).build()) {
+        Producer.builder()
+            .bootstrapServers(bootstrapServers())
+            .config(ProducerConfigs.CLIENT_ID_CONFIG, clientId)
+            .build()) {
       Assertions.assertEquals(clientId, producer.clientId());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        ProducerConfigs.COMPRESSION_TYPE_NONE,
+        ProducerConfigs.COMPRESSION_TYPE_GZIP,
+        ProducerConfigs.COMPRESSION_TYPE_LZ4,
+        ProducerConfigs.COMPRESSION_TYPE_SNAPPY,
+        ProducerConfigs.COMPRESSION_TYPE_ZSTD
+      })
+  void testCompression(String compression) throws ExecutionException, InterruptedException {
+    try (var producer =
+        Producer.builder()
+            .bootstrapServers(bootstrapServers())
+            .config(ProducerConfigs.COMPRESSION_TYPE_NONE, compression)
+            .build()) {
+      producer
+          .sender()
+          .topic(Utils.randomString())
+          .key(new byte[10])
+          .run()
+          .toCompletableFuture()
+          .get();
     }
   }
 }

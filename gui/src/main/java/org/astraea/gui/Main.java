@@ -21,6 +21,22 @@ import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
+import org.astraea.gui.tab.AboutTab;
+import org.astraea.gui.tab.BalancerTab;
+import org.astraea.gui.tab.BrokerTab;
+import org.astraea.gui.tab.ConfigTab;
+import org.astraea.gui.tab.ConsumerTab;
+import org.astraea.gui.tab.CreateTopicTab;
+import org.astraea.gui.tab.MetricsTab;
+import org.astraea.gui.tab.MoveTopicTab;
+import org.astraea.gui.tab.MovingReplicaTab;
+import org.astraea.gui.tab.PartitionTab;
+import org.astraea.gui.tab.ProducerTab;
+import org.astraea.gui.tab.SettingTab;
+import org.astraea.gui.tab.TopicTab;
+import org.astraea.gui.tab.TransactionTab;
+import org.astraea.gui.tab.UpdateBrokerTab;
+import org.astraea.gui.tab.UpdateTopicTab;
 
 /**
  * Since the Java launcher checks if the main class extends javafx.application.Application, and in
@@ -50,17 +66,18 @@ public class Main {
               ConsumerTab.of(context),
               ProducerTab.of(context),
               TransactionTab.of(context),
-              AddingReplicaTab.of(context),
+              MovingReplicaTab.of(context),
               CreateTopicTab.of(context),
-              AddPartitionTab.of(context),
-              ReassignReplicaTab.of(context),
+              UpdateTopicTab.of(context),
+              MoveTopicTab.of(context),
+              UpdateBrokerTab.of(context),
               BalancerTab.of(context),
               AboutTab.of(context));
       rootPane.setSide(Side.BOTTOM);
       rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
       var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");
-      stage.setHeight(800);
+      stage.setHeight(1000);
       stage.setWidth(1200);
       stage.setScene(scene);
       stage.show();

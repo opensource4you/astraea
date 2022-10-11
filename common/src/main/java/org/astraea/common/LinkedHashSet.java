@@ -22,67 +22,7 @@ import java.util.stream.Collectors;
 
 public class LinkedHashSet<E> extends java.util.LinkedHashSet<E> {
 
-  //    public static <E> LinkedHashSet<E> of(E e1) {
-  //        return of(e1);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2) {
-  //        return create(e1, e2);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3) {
-  //        return create(e1, e2, e3);
-  //    }
-  //
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4) {
-  //        return create(e1, e2, e3, e4);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4, E e5) {
-  //        return create(e1, e2, e3, e4, e5);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4, E e5, E e6) {
-  //        return create(e1, e2, e3, e4, e5,
-  //                e6);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4, E e5, E e6, E e7) {
-  //        return create(e1, e2, e3, e4, e5,
-  //                e6, e7);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4, E e5, E e6, E e7, E e8) {
-  //        return create(e1, e2, e3, e4, e5,
-  //                e6, e7, e8);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4, E e5, E e6, E e7, E e8, E e9)
-  // {
-  //        return create(e1, e2, e3, e4, e5,
-  //                e6, e7, e8, e9);
-  //    }
-  //
-  //    @SuppressWarnings("unchecked")
-  //    public static <E> LinkedHashSet<E> of(E e1, E e2, E e3, E e4, E e5, E e6, E e7, E e8, E e9,
-  // E e10) {
-  //        return create(e1, e2, e3, e4, e5,
-  //                e6, e7, e8, e9, e10);
-  //    }
-
-  //    public static <E> LinkedHashSet<E> of(E... input) {
-  //        return create(input);
-  //    }
-
+  @SuppressWarnings("unchecked")
   public static <E> LinkedHashSet<E> of(E... input) {
     return new LinkedHashSet<>(Arrays.stream(input).collect(Collectors.toList()));
   }

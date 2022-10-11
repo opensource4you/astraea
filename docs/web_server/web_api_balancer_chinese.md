@@ -16,7 +16,7 @@ GET /balancer
 |---------|----------------------|--------------------------|
 | loop    | (選填) 要嘗試幾種組合         | 10000                    |
 | topics  | (選填) 只嘗試搬移指定的 topics | 無，除了內部 topics 以外的都作為候選對象 |
- | timeout | (選填) 指定產生時間          | 3s                       |
+| timeout | (選填) 指定產生時間          | 3s                       |
 
 cURL 範例
 ```shell
@@ -108,13 +108,13 @@ JSON Response 範例
 ## 執行負載平衡計劃
 
 ```shell
-POST /balancer
+PUT /balancer
 ```
 
 cURL 範例
 
 ```shell
-curl -X POST http://localhost:8001/balancer \
+curl -X PUT http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
     -d '{ "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a" }'
 ```
@@ -133,6 +133,13 @@ JSON Response 範例
 ```json
 { "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a" }
 ```
+
+> ##### 一個叢集同時間只能執行一個負載平衡計劃
+> 嘗試對一個叢集同時套用多個負載平衡計劃會導致意外的結果，因此 `PUT /balancer` 被設計為：
+> 同時間只能夠執行一個負載平衡計劃，嘗試執行多個負載平衡計劃，那只有一個請求會被接受，其他請求將會被拒絕。
+> 注意 Web Service 只能夠避免對當前執行 process 的多個執行請求做有效預防。在執行計劃前 Web Service
+> 會檢查是否有正在進行的 Partition Reassignment，如果有偵測到則意味着可能有其他負載平衡計劃正在運行。
+> Web Service 在這個情況下也會拒絕執行負載平衡計劃。
 
 ## 查詢負載平衡計劃執行進度
 
@@ -155,10 +162,26 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 
 JSON Response 範例
 
-* `done`: 描述對應的負載平衡計劃是否執行完成。
+* `id`: 此 Response 所描述的負載平衡計劃編號
+* `scheduled`: 此負載平衡計劃是否有排程執行過
+* `done`: 此負載平衡計劃是否結束執行
+* `exception`: 當負載平衡計劃在意外下結束時，其所附帶的錯誤訊息。如果執行沒有發生錯誤或還沒執行完成，此欄位會是 `null`
 
 ```json
-{ "done": true }
+{
+  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "scheduled": true,
+  "done": true
+}
+```
+
+```json
+{
+  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "scheduled": true,
+  "done": true,
+  "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient"
+}
 ```
 
 

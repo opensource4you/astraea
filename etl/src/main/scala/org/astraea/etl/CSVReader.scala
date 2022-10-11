@@ -17,6 +17,7 @@
 package org.astraea.etl
 
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.spark.sql.functions.{col, concat, concat_ws, struct, to_json}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types.StructType
@@ -77,5 +78,42 @@ object CSVReader {
       .option("topic", metaData.topicName)
       .option(ProducerConfig.ACKS_CONFIG, "all")
       .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
+  }
+
+  /** Turn the original DataFrame into a key-value table.Integrate all columns
+    * into one value->josh. If there are multiple primary keys, key will become
+    * keyA_keyB_....
+    *
+    * {{{
+    * Seq(Person("Michael","A.K", 29), Person("Andy","B.C", 30), Person("Justin","C.L", 19))
+    *
+    * Person
+    * |-- FirstName: string
+    * |-- SecondName: string
+    * |-- Age: Integer
+    *
+    * Key:FirstName,SecondName
+    *
+    * // +-----------+---------------------------------------------------+
+    * // |        key|                                              value|
+    * // +-----------+---------------------------------------------------+
+    * // |Michael,A.K|{"FirstName":"Michael","SecondName":"A.K","Age":29}|
+    * // |   Andy,B.C|{"FirstName":"Andy","SecondName":"B.C","Age":30}   |
+    * // | Justin,C.L|{"FirstName":"Justin","SecondName":"C.L","Age":19} |
+    * // +-----------+---------------------------------------------------+
+    * }}}
+    *
+    * @param dataFrame
+    *   any DataFrame
+    * @param pk
+    *   primary keys
+    * @return
+    *   json df
+    */
+  def csvToJSON(dataFrame: DataFrame, pk: Seq[String]): DataFrame = {
+    dataFrame
+      .withColumn("value", to_json(struct($conforms("*"))))
+      .withColumn("key", concat_ws(",", pk.map(col).seq: _*))
+      .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
   }
 }

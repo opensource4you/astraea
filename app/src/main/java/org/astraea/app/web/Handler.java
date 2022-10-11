@@ -39,6 +39,8 @@ interface Handler {
           return post(channel);
         case DELETE:
           return delete(channel);
+        case PUT:
+          return put(channel);
         default:
           return Response.NOT_FOUND;
       }
@@ -84,6 +86,15 @@ interface Handler {
    * @return json object to return
    */
   default Response delete(Channel channel) {
+    return Response.NOT_FOUND;
+  }
+
+  /**
+   * handle the put request.
+   *
+   * @return json object to return
+   */
+  default Response put(Channel channel) {
     return Response.NOT_FOUND;
   }
 }
