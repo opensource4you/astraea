@@ -18,12 +18,12 @@ package org.astraea.gui.pane;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -55,9 +55,10 @@ public class PaneBuilder {
 
   private List<RadioButton> radioButtons = new ArrayList<>();
 
-  private Supplier<CompletionStage<Map<String, String>>> inputInitializer =
-      () -> CompletableFuture.completedFuture(Map.of());
   private final Set<String> inputKeys = new LinkedHashSet<>();
+
+  private final Map<String, String> inputKeyDefaultValue = new HashMap<>();
+
   private final Map<String, Boolean> inputKeyPriority = new LinkedHashMap<>();
   private final Map<String, Boolean> inputKeyNumberOnly = new LinkedHashMap<>();
   private Label searchLabel = null;
@@ -93,15 +94,23 @@ public class PaneBuilder {
    * @return this builder
    */
   public PaneBuilder input(String key, boolean required, boolean numberOnly) {
+    return input(key, required, numberOnly, null);
+  }
+
+  /**
+   * add key to this builder
+   *
+   * @param key to add
+   * @param required true if key is required. The font will get highlight
+   * @param numberOnly true if the value associated to key must be number
+   * @param defaultValue to show by default
+   * @return this builder
+   */
+  public PaneBuilder input(String key, boolean required, boolean numberOnly, String defaultValue) {
     inputKeys.add(key);
     inputKeyPriority.put(key, required);
     inputKeyNumberOnly.put(key, numberOnly);
-    return this;
-  }
-
-  public PaneBuilder inputInitializer(
-      Supplier<CompletionStage<Map<String, String>>> inputInitializer) {
-    this.inputInitializer = inputInitializer;
+    if (defaultValue != null) inputKeyDefaultValue.put(key, defaultValue);
     return this;
   }
 
@@ -113,6 +122,17 @@ public class PaneBuilder {
    */
   public PaneBuilder input(Set<String> keys) {
     keys.forEach(k -> input(k, false, false));
+    return this;
+  }
+
+  /**
+   * set the keys and their default values
+   *
+   * @param keysAndValues keys and default values
+   * @return this
+   */
+  public PaneBuilder input(Map<String, String> keysAndValues) {
+    keysAndValues.forEach((k, v) -> input(k, false, false, v));
     return this;
   }
 
@@ -129,13 +149,19 @@ public class PaneBuilder {
   public PaneBuilder buttonAction(
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
-    tableView = TableView.copyable();
+    if (tableView == null) tableView = TableView.copyable();
     return this;
   }
 
   public PaneBuilder buttonListener(
       BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
     this.buttonListener = buttonListener;
+    return this;
+  }
+
+  public PaneBuilder tableView(List<Map<String, Object>> data) {
+    if (tableView == null) tableView = TableView.copyable();
+    tableView.update(data);
     return this;
   }
 
@@ -156,19 +182,13 @@ public class PaneBuilder {
                           inputKeyNumberOnly.getOrDefault(key, false)
                               ? TextField.onlyNumber()
                               : TextField.of()));
-      inputInitializer
-          .get()
-          .whenComplete(
-              (r, e) -> {
-                if (r != null)
-                  r.forEach(
-                      (key, value) ->
-                          pairs.entrySet().stream()
-                              .filter(pair -> pair.getKey().key().equals(key))
-                              .map(Map.Entry::getValue)
-                              .findFirst()
-                              .ifPresent(field -> field.text(value)));
-              });
+      inputKeyDefaultValue.forEach(
+          (key, value) ->
+              pairs.entrySet().stream()
+                  .filter(pair -> pair.getKey().key().equals(key))
+                  .map(Map.Entry::getValue)
+                  .findFirst()
+                  .ifPresent(field -> field.text(value)));
       var gridPane = pairs.size() <= 3 ? GridPane.singleColumn(pairs, 3) : GridPane.of(pairs, 3);
       nodes.add(gridPane);
       textFields =

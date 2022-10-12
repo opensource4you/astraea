@@ -92,15 +92,16 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<List<Topic>> topics(Set<String> names) {
+  public CompletionStage<List<Topic>> topics(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin
             .describeConfigs(
-                names.stream()
+                topics.stream()
                     .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
                     .collect(Collectors.toList()))
             .all())
         .thenCombine(
-            to(kafkaAdmin.describeTopics(names).all()),
+            to(kafkaAdmin.describeTopics(topics).all()),
             (configs, desc) ->
                 configs.entrySet().stream()
                     .map(
@@ -114,12 +115,14 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> deleteTopics(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(kafkaAdmin.deleteTopics(topics).all());
   }
 
   @Override
   public CompletionStage<Map<TopicPartition, Long>> deleteRecords(
       Map<TopicPartition, Long> offsets) {
+    if (offsets.isEmpty()) return CompletableFuture.completedFuture(Map.of());
     return Utils.sequence(
             kafkaAdmin
                 .deleteRecords(
@@ -146,6 +149,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Set<TopicPartition>> topicPartitions(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(Set.of());
     return to(kafkaAdmin.describeTopics(topics).all())
         .thenApply(
             r ->
@@ -159,6 +163,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers) {
+    if (brokers.isEmpty()) return CompletableFuture.completedFuture(Set.of());
     return topicNames(true)
         .thenCompose(topics -> to(kafkaAdmin.describeTopics(topics).all()))
         .thenApply(
@@ -182,6 +187,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<List<Partition>> partitions(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     var allPartitions =
         to(kafkaAdmin.describeTopics(topics).all())
             .thenApply(
@@ -351,6 +357,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<List<ConsumerGroup>> consumerGroups(Set<String> consumerGroupIds) {
+    if (consumerGroupIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin.describeConsumerGroups(consumerGroupIds).all())
         .thenCombine(
             Utils.sequence(
@@ -398,6 +405,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions) {
+    if (partitions.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin
             .describeProducers(
                 partitions.stream()
@@ -416,7 +424,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics) {
-
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return topicPartitions(topics)
         .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
         .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
@@ -483,6 +491,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<List<Transaction>> transactions(Set<String> transactionIds) {
+    if (transactionIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin.describeTransactions(transactionIds).all())
         .thenApply(
             ts ->
@@ -493,6 +502,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<List<Replica>> replicas(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     // pre-group folders by (broker -> topic partition) to speedup seek
     return logDirs()
         .thenCombine(
@@ -673,6 +683,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments) {
+    if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .alterPartitionReassignments(
@@ -686,6 +697,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments) {
+    if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .alterReplicaLogDirs(
@@ -726,6 +738,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> setConfigs(String topic, Map<String, String> override) {
+    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -743,6 +756,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
+    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -759,6 +773,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
+    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -776,6 +791,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
