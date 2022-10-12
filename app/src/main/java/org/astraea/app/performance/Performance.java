@@ -27,9 +27,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -90,6 +93,11 @@ public class Performance {
             param.producers,
             param::createProducer,
             param.interdependent);
+    var executors = Executors.newFixedThreadPool(param.consumers);
+    var latches =
+        IntStream.range(0, param.consumers)
+            .mapToObj(i -> new CountDownLatch(1))
+            .collect(Collectors.toList());
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
@@ -106,7 +114,9 @@ public class Performance {
                     .seek(latestOffsets)
                     .consumerRebalanceListener(listener)
                     .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                    .build());
+                    .build(),
+            executors,
+            latches);
 
     System.out.println("creating tracker");
     var tracker =
@@ -126,24 +136,14 @@ public class Performance {
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
-
-    var chaos =
-        param.chaosDuration == null
-            ? CompletableFuture.completedFuture(null)
-            : CompletableFuture.runAsync(
-                () -> {
-                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-                    var thread =
-                        consumerThreads.get((int) (Math.random() * consumerThreads.size()));
-                    thread.unsubscribe();
-                    Utils.sleep(param.chaosDuration);
-                    thread.resubscribe();
-                  }
-                });
+    System.out.println("creating chaos monkey");
+    var chaos = new MonkeyThread(param, consumerThreads, executors, latches);
+    chaos.start();
 
     CompletableFuture.runAsync(
         () -> {
           producerThreads.forEach(AbstractThread::waitForDone);
+          chaos.close();
           var last = 0L;
           var lastChange = System.currentTimeMillis();
           while (true) {
@@ -154,15 +154,15 @@ public class Performance {
             }
             if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
               consumerThreads.forEach(AbstractThread::close);
+              System.out.println("close all consumers");
               return;
             }
             Utils.sleep(Duration.ofSeconds(1));
           }
         });
-    consumerThreads.forEach(AbstractThread::waitForDone);
+
     tracker.waitForDone();
     fileWriterFuture.join();
-    chaos.join();
     return param.topics;
   }
 

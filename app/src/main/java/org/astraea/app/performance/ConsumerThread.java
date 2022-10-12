@@ -19,12 +19,10 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -42,23 +40,11 @@ public interface ConsumerThread extends AbstractThread {
   static List<ConsumerThread> create(
       int consumers,
       BiFunction<String, ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>>
-          consumerSupplier) {
+          consumerSupplier,
+      ExecutorService executors,
+      List<CountDownLatch> closeLatches) {
     if (consumers == 0) return List.of();
-    var closeLatches =
-        IntStream.range(0, consumers)
-            .mapToObj(ignored -> new CountDownLatch(1))
-            .collect(Collectors.toUnmodifiableList());
-    var executors = Executors.newFixedThreadPool(consumers);
-    // monitor
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            closeLatches.forEach(l -> Utils.swallowException(l::await));
-          } finally {
-            executors.shutdown();
-            Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
-          }
-        });
+
     return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
@@ -91,7 +77,6 @@ public interface ConsumerThread extends AbstractThread {
                     }
                   });
               return new ConsumerThread() {
-
                 @Override
                 public void waitForDone() {
                   Utils.swallowException(closeLatch::await);
@@ -119,7 +104,7 @@ public interface ConsumerThread extends AbstractThread {
                 }
               };
             })
-        .collect(Collectors.toUnmodifiableList());
+        .collect(Collectors.toList());
   }
 
   void resubscribe();
