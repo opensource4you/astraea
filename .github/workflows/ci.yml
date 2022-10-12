@@ -17,7 +17,7 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
-      - name: build
-        run: ./gradlew clean build -x test --no-daemon
+      - name: compile
+        run: ./gradlew clean build testClasses -x test --no-daemon
       - name: unit tests
-        run: ./gradlew clean test --no-daemon --console plain -PmaxParallelForks=3
+        run: ./gradlew clean test --no-daemon --console plain -PmaxParallelForks=3 --continue
