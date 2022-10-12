@@ -17,11 +17,13 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -88,7 +90,7 @@ class AsyncAdminImpl implements AsyncAdmin {
     return to(kafkaAdmin
             .listTopics(new ListTopicsOptions().listInternal(listInternal))
             .namesToListings())
-        .thenApply(Map::keySet);
+        .thenApply(e -> new TreeSet<>(e.keySet()));
   }
 
   @Override
@@ -110,6 +112,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                                 entry.getKey().name(),
                                 desc.get(entry.getKey().name()),
                                 entry.getValue()))
+                    .sorted(Comparator.comparing(Topic::name))
                     .collect(Collectors.toUnmodifiableList()));
   }
 
@@ -143,7 +146,7 @@ class AsyncAdminImpl implements AsyncAdmin {
             r ->
                 r.stream()
                     .collect(
-                        Collectors.toMap(
+                        Utils.toSortedMap(
                             e -> TopicPartition.from(e.getKey()), Map.Entry::getValue)));
   }
 
@@ -158,7 +161,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                         entry ->
                             entry.getValue().partitions().stream()
                                 .map(p -> TopicPartition.of(entry.getKey(), p.partition())))
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
@@ -182,7 +185,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                         p.partition(),
                                                         replica.id()))))
                     .filter(replica -> brokers.contains(replica.brokerId()))
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
@@ -272,6 +275,9 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                               Optional.ofNullable(
                                                                   maxTimestamp.get(
                                                                       entry.getKey()))))
+                                                  .sorted(
+                                                      Comparator.comparing(Partition::topic)
+                                                          .thenComparing(Partition::partition))
                                                   .collect(Collectors.toList()))));
         });
   }
@@ -280,7 +286,8 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<Set<NodeInfo>> nodeInfos() {
     return to(kafkaAdmin.describeCluster().nodes())
         .thenApply(
-            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableSet()));
+            nodes ->
+                nodes.stream().map(NodeInfo::of).collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
@@ -341,6 +348,9 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                                                 logDirs.get(
                                                                                     node.id()),
                                                                                 topics.values()))
+                                                                    .sorted(
+                                                                        Comparator.comparing(
+                                                                            NodeInfo::id))
                                                                     .collect(
                                                                         Collectors.toList()))))));
   }
@@ -352,7 +362,7 @@ class AsyncAdminImpl implements AsyncAdmin {
             gs ->
                 gs.stream()
                     .map(ConsumerGroupListing::groupId)
-                    .collect(Collectors.toUnmodifiableSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
@@ -400,6 +410,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                 member.assignment().topicPartitions().stream()
                                                     .map(TopicPartition::from)
                                                     .collect(Collectors.toSet())))))
+                    .sorted(Comparator.comparing(ConsumerGroup::groupId))
                     .collect(Collectors.toList()));
   }
 
@@ -419,6 +430,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                         e ->
                             e.getValue().activeProducers().stream()
                                 .map(s -> ProducerState.of(e.getKey(), s)))
+                    .sorted(Comparator.comparing(ProducerState::topic))
                     .collect(Collectors.toList()));
   }
 
@@ -475,6 +487,10 @@ class AsyncAdminImpl implements AsyncAdmin {
                                           entry.getValue().size(),
                                           findMaxSize.apply(
                                               TopicPartition.of(r.topic(), r.partition())))))
+                  .sorted(
+                      Comparator.comparing(AddingReplica::topic)
+                          .thenComparing(AddingReplica::partition)
+                          .thenComparing(AddingReplica::broker))
                   .collect(Collectors.toList());
             });
   }
@@ -486,7 +502,7 @@ class AsyncAdminImpl implements AsyncAdmin {
             t ->
                 t.stream()
                     .map(TransactionListing::transactionalId)
-                    .collect(Collectors.toUnmodifiableSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
@@ -497,6 +513,7 @@ class AsyncAdminImpl implements AsyncAdmin {
             ts ->
                 ts.entrySet().stream()
                     .map(e -> Transaction.of(e.getKey(), e.getValue()))
+                    .sorted(Comparator.comparing(Transaction::transactionId))
                     .collect(Collectors.toUnmodifiableList()));
   }
 
@@ -575,6 +592,10 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                                       ? null
                                                                       : pathAndReplica.getKey()));
                                                 })))
+                    .sorted(
+                        Comparator.comparing(Replica::topic)
+                            .thenComparing(Replica::partition)
+                            .thenComparing(r -> r.nodeInfo().id()))
                     .collect(Collectors.toList()));
   }
 

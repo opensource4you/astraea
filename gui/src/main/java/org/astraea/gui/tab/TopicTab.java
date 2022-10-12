@@ -50,6 +50,7 @@ public class TopicTab {
                     e -> e.getValue().stream().mapToLong(Map.Entry::getValue).sum()));
     var tps = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
     return tps.keySet().stream()
+        .sorted()
         .map(
             topic -> {
               var result = new LinkedHashMap<String, Object>();

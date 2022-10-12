@@ -18,10 +18,12 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -32,6 +34,55 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class AsyncAdminTest extends RequireBrokerCluster {
+
+  @Test
+  void testOrder() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(Utils.randomString()).run().toCompletableFuture().get();
+      admin.creator().topic(Utils.randomString()).run().toCompletableFuture().get();
+      admin.creator().topic(Utils.randomString()).run().toCompletableFuture().get();
+      admin.creator().topic(Utils.randomString()).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var topicNames = admin.topicNames(true).toCompletableFuture().get();
+      Assertions.assertInstanceOf(SortedSet.class, topicNames);
+
+      var topics = admin.topics(topicNames).toCompletableFuture().get();
+      Assertions.assertEquals(
+          topics.stream().sorted(Comparator.comparing(Topic::name)).collect(Collectors.toList()),
+          topics);
+
+      Assertions.assertInstanceOf(
+          SortedSet.class, admin.topicPartitions(topicNames).toCompletableFuture().get());
+
+      var partitions = admin.partitions(topicNames).toCompletableFuture().get();
+      Assertions.assertEquals(
+          partitions.stream()
+              .sorted(Comparator.comparing(Partition::topic).thenComparing(Partition::partition))
+              .collect(Collectors.toList()),
+          partitions);
+
+      Assertions.assertInstanceOf(
+          SortedSet.class, admin.topicPartitionReplicas(brokerIds()).toCompletableFuture().get());
+
+      Assertions.assertInstanceOf(SortedSet.class, admin.nodeInfos().toCompletableFuture().get());
+
+      var brokers = admin.brokers().toCompletableFuture().get();
+      Assertions.assertEquals(
+          brokers.stream().sorted(Comparator.comparing(Broker::id)).collect(Collectors.toList()),
+          brokers);
+
+      var replicas = admin.replicas(topicNames).toCompletableFuture().get();
+      Assertions.assertEquals(
+          replicas.stream()
+              .sorted(
+                  Comparator.comparing(Replica::topic)
+                      .thenComparing(Replica::partition)
+                      .thenComparing(r -> r.nodeInfo().id()))
+              .collect(Collectors.toList()),
+          replicas);
+    }
+  }
 
   @Test
   void testMoveLeaderBroker() throws ExecutionException, InterruptedException {
