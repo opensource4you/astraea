@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -74,7 +75,7 @@ public class ClusterIntegratedCost implements HasClusterCost {
     return UNKNOWN;
   }
 
-  private enum Costs {
+  private enum Costs implements EnumInfo {
     ReplicaSizeCost("ReplicaSizeCost"),
     ReplicaLeaderCost("ReplicaLeaderCost"),
     ReplicaDiskInCost("ReplicaDiskInCost");
@@ -86,6 +87,20 @@ public class ClusterIntegratedCost implements HasClusterCost {
 
     public String costName() {
       return costName;
+    }
+
+    public static Costs ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Costs.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return costName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
   }
 }
