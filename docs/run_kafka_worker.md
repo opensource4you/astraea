@@ -56,12 +56,9 @@ group.id: worker-SuXd9
 
 1. VERSION : 設置Kafka版本，會去下載官方已經建置好的distribution
 2. REVISION : 設置Kafka source code版本，會去下載原始碼並編譯建置可執行檔後部署
-3. HEAP_OPTS : 設置 JVM memory options
+3. HEAP_OPTS : 設置JVM memory options
+4. WORKER_PLUGIN_PATH: 設置欲掛載至Kafka worker container之connector plugins路徑，預設為`/tmp/worker-plugins`
 
 ##### 版本選擇
 
 此腳本所建置的Kafka版本是先看使用者有無設置revision版本，若無設置revision版本才會去看version版本
-
-##### Worker connector plugins 路徑
-
-所有connector plugin的jar檔案均需放置在本機端`/tmp/connectors`底下

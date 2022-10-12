@@ -27,6 +27,7 @@ declare -r WORKER_PORT=${WORKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="worker-$WORKER_PORT"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r WORKER_PROPERTIES="/tmp/worker-${WORKER_PORT}.properties"
+declare -r WORKER_PLUGIN_PATH=${WORKER_PLUGIN_PATH:-/tmp/worker-plugins}
 if [[ "$CONFLUENT_WORKER" = "true" ]]; then
     declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/confluent.connect:$CONFLUENT_VERSION"
     declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/connect-distributed"
@@ -50,6 +51,7 @@ function showHelp() {
   echo "    VERSION=3.2.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
+  echo "    WORKER_PLUGIN_PATH=/tmp/worker-plugins   set plugin path to kafka worker"
 }
 
 function rejectProperty() {
@@ -210,7 +212,7 @@ rejectProperty "config.storage.topic"
 rejectProperty "status.storage.topic"
 
 requireProperty "bootstrap.servers"
-setPropertyIfEmpty "plugin.path" "/opt/connectors"
+setPropertyIfEmpty "plugin.path" "/opt/worker-plugins"
 setPropertyIfEmpty "group.id" "$WORKER_GROUP_ID"
 # Use ByteArrayConverter as default key/value converter instead of JsonConverter since there are plenty of non kafka connect applications
 # that may use kafka topics, e.g. spark-kafka-integration only accept bytearray and string format (more info, see https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#kafka-specific-configurations)
@@ -228,14 +230,14 @@ setPropertyIfEmpty "config.storage.replication.factor" "1"
 setPropertyIfEmpty "status.storage.topic" "status-$WORKER_GROUP_ID"
 setPropertyIfEmpty "status.storage.replication.factor" "1"
 
-# /tmp/connectors directory is used to mount connector jars to worker container
-mkdir -p /tmp/connectors
+# WORKER_PLUGIN_PATH is used to mount connector jars to worker container
+mkdir -p "$WORKER_PLUGIN_PATH"
 
 docker run -d --init \
   --name "$CONTAINER_NAME" \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -v "$WORKER_PROPERTIES":/tmp/worker.properties:ro \
-  -v /tmp/connectors:/opt/connectors:ro \
+  -v "$WORKER_PLUGIN_PATH":/opt/worker-plugins:ro \
   -p "$WORKER_PORT":8083 \
   "$IMAGE_NAME" "$SCRIPT_LOCATION_IN_CONTAINER" /tmp/worker.properties
 
