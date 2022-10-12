@@ -43,6 +43,7 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.cost.ClusterIntegratedCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -69,7 +70,7 @@ class BalancerHandler implements Handler {
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
+    this(admin, new ClusterIntegratedCost(), new ReplicaSizeCost());
   }
 
   BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
