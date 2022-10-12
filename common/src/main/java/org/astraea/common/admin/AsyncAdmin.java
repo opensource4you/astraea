@@ -20,10 +20,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.common.Utils;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -111,30 +111,21 @@ public interface AsyncAdmin extends AutoCloseable {
     }
     var checkerResults =
         checkers.stream()
-            .map(checker -> checker.idleTopics(this))
+            .map(checker -> checker.idleTopics(this).toCompletableFuture())
             .collect(Collectors.toUnmodifiableList());
 
-    var union =
-        checkerResults.stream()
-            .reduce(
-                CompletableFuture.completedFuture(new HashSet<>()),
-                (s1, s2) ->
-                    s1.thenCombine(
-                        s2,
-                        (ss1, ss2) -> {
-                          ss1.addAll(ss2);
-                          return ss1;
+    // Sets intersection
+    return Utils.sequence(checkerResults)
+        .thenApply(
+            results ->
+                results.stream()
+                    .reduce(
+                        null,
+                        (s1, s2) -> {
+                          if (s1 == null) return new HashSet<>(s2);
+                          else s1.retainAll(s2);
+                          return s1;
                         }));
-    return checkerResults.stream()
-        .reduce(
-            union,
-            (s1, s2) ->
-                s1.thenCombine(
-                    s2,
-                    (ss1, ss2) -> {
-                      ss1.retainAll(ss2);
-                      return ss1;
-                    }));
   }
 
   // ---------------------------------[write]---------------------------------//
