@@ -395,6 +395,7 @@ if [[ "$SASL" == "true" ]]; then
   echo "SASL_PLAINTEXT is enabled. user config: $user_jaas_file admin config: $admin_jaas_file"
 fi
 echo "================================================="
-echo "run $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT to join kafka worker"
-echo "run env CONFLUENT_WORKER=true $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT to join confluent kafka worker"
+WORKER_GROUP_ID="worker-"$(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 5 | head -n 1)
+echo "run $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT group.id=$WORKER_GROUP_ID to join kafka worker"
+echo "run env CONFLUENT_WORKER=true $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT group.id=$WORKER_GROUP_ID to join confluent kafka worker"
 echo "================================================="

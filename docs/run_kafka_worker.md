@@ -17,7 +17,7 @@ Worker是一個基於Kafka的服務，可以更方便的創建管理數據流管
 成功部署Kafka broker後，可以利用broker腳本輸出的訊息來啟動worker
 
 ```bash
-/home/username/Documents/astraea/docker/start_worker.sh bootstrap.servers=192.168.1.101:16072
+/home/username/Documents/astraea/docker/start_worker.sh bootstrap.servers=192.168.1.101:16072 group.id=worker-uddds
 ```
 
 若成功啟動broker，腳本會印出該broker的訊息。 例如:
@@ -30,7 +30,7 @@ group.id: worker-uddds
 ```
 
 1. `worker address` : 供Client端連線使用
-2. `group.id` : 群集id，用以判斷各個worker節點是否處於同一群集。預設每次啟動此腳本都會替worker建立一隨機group.id，且只有相同的group.id才會被視作同一個worker cluster，使用者亦可透過腳本自行指定，例如group.id=connect-cluster
+2. `group.id` : 群集id，用以判斷各個worker節點是否處於同一群集。如前面範例所示可透過指令進行設定，若不指定，預設每次啟動此腳本都會替worker建立一隨機group.id，需注意只有相同的group.id才會被視作同一個worker cluster。
 
 #### Confluent版本的worker
 

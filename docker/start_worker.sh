@@ -54,7 +54,7 @@ function showHelp() {
 
 function rejectProperty() {
   local key=$1
-  if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
+  if [[ -f "$WORKER_PROPERTIES" ]] && [[ "$(cat $WORKER_PROPERTIES | grep $key)" != "" ]]; then
     echo "$key is NOT configurable"
     exit 2
   fi
@@ -242,5 +242,4 @@ docker run -d --init \
 echo "================================================="
 echo "worker address: ${ADDRESS}:$WORKER_PORT"
 echo "group.id: $WORKER_GROUP_ID"
-echo "add group.id=$WORKER_GROUP_ID argument after start_worker.sh in command line to add more workers to current cluster group."
 echo "================================================="
