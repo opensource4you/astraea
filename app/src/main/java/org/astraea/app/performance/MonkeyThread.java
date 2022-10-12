@@ -50,31 +50,31 @@ public class MonkeyThread extends Thread implements Closeable {
   }
 
   public void run() {
-      while (!closed) {
-        Utils.sleep(param.chaosDuration);
-        var type = (int) Math.round(Math.random() * 2);
-        var index = (int) (Math.random() * consumers.size());
+    while (!closed) {
+      Utils.sleep(param.chaosDuration);
+      var type = (int) Math.round(Math.random() * 2);
+      var index = (int) (Math.random() * consumers.size());
 
-        if (type == 0 && consumers.size() > 1) { // kill a consumer randomly
-          System.out.println("kill a consumer");
-          var victimConsumer = consumers.get(index);
-          consumers.remove(index);
-          closedLatches.remove(index);
-          victimConsumer.close();
-        } else if (type == 1 && consumers.size() < param.consumers) { // create a new consumer
-          System.out.println("add a consumer");
-          var consumer = createConsumer();
-          consumers.add(consumer);
-        } else if (type == 2) { // consumer unsubscribe & resubscribe
-          System.out.println("consumer unsubscribe");
-          var unsubscribeConsumer = consumers.get(index);
-          unsubscribeConsumer.unsubscribe();
-          Utils.sleep(param.chaosDuration);
-          System.out.println("consumer resubscribe");
-          unsubscribeConsumer.resubscribe();
-        }
+      if (type == 0 && consumers.size() > 1) { // kill a consumer randomly
+        System.out.println("kill a consumer");
+        var victimConsumer = consumers.get(index);
+        consumers.remove(index);
+        closedLatches.remove(index);
+        victimConsumer.close();
+      } else if (type == 1 && consumers.size() < param.consumers) { // create a new consumer
+        System.out.println("add a consumer");
+        var consumer = createConsumer();
+        consumers.add(consumer);
+      } else if (type == 2) { // consumer unsubscribe & resubscribe
+        System.out.println("consumer unsubscribe");
+        var unsubscribeConsumer = consumers.get(index);
+        unsubscribeConsumer.unsubscribe();
+        Utils.sleep(param.chaosDuration);
+        System.out.println("consumer resubscribe");
+        unsubscribeConsumer.resubscribe();
       }
-      executors.shutdown();
+    }
+    executors.shutdown();
   }
 
   private ConsumerThread createConsumer() {
@@ -92,7 +92,7 @@ public class MonkeyThread extends Thread implements Closeable {
                         param.transactionSize > 1
                             ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
                             : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                        .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
                     .build();
 
     var clientId = Utils.randomString();
