@@ -89,7 +89,11 @@ public interface ConsumerThread extends AbstractThread {
                         }
                         if (!assignments.containsAll(CLIENT_ID_PARTITIONS.get(clientId))
                             || generationId < consumer.generationId()) {
-                          // check if re-balance or not.
+                          // check whether re-balance has occurred or not.
+                          // 1. compare the assignments : if they are different, re-balance has
+                          // occurred
+                          // 2. double check re-balance via generation id : because the assignment
+                          // may be the same between re-balance
                           var nowPartitions = CLIENT_ID_PARTITIONS.get(clientId);
                           var stickyPartitions = new HashSet<>(nowPartitions);
                           stickyPartitions.retainAll(assignments);

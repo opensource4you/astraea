@@ -93,39 +93,24 @@ public class Performance {
             param::createProducer,
             param.interdependent);
     var consumerThreads =
-        param.pattern == null
-            ? ConsumerThread.create(
-                param.consumers,
-                (clientId, listener) ->
-                    Consumer.forTopics(new HashSet<>(param.topics))
-                        .configs(param.configs())
-                        .config(
-                            ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                            param.transactionSize > 1
-                                ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                        .bootstrapServers(param.bootstrapServers())
-                        .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                        .seek(latestOffsets)
-                        .consumerRebalanceListener(listener)
-                        .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                        .build())
-            : ConsumerThread.create(
-                param.consumers,
-                (clientId, listener) ->
-                    Consumer.forTopics(param.pattern)
-                        .configs(param.configs())
-                        .config(
-                            ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                            param.transactionSize > 1
-                                ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                        .bootstrapServers(param.bootstrapServers())
-                        .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                        .seek(latestOffsets)
-                        .consumerRebalanceListener(listener)
-                        .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                        .build());
+        ConsumerThread.create(
+            param.consumers,
+            (clientId, listener) ->
+                (param.pattern == null
+                        ? Consumer.forTopics(new HashSet<>(param.topics))
+                        : Consumer.forTopics(param.pattern))
+                    .configs(param.configs())
+                    .config(
+                        ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                        param.transactionSize > 1
+                            ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                            : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                    .bootstrapServers(param.bootstrapServers())
+                    .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                    .seek(latestOffsets)
+                    .consumerRebalanceListener(listener)
+                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                    .build());
 
     System.out.println("creating tracker");
     var tracker =

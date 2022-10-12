@@ -33,17 +33,17 @@ import org.astraea.common.admin.TopicPartition;
 
 public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   private final Set<String> setTopics;
-  private final Pattern topicPattern;
+  private final Pattern patternTopics;
   private ConsumerRebalanceListener listener = ignore -> {};
 
   TopicsBuilder(Set<String> setTopics) {
-    this.topicPattern = null;
+    this.patternTopics = null;
     this.setTopics = requireNonNull(setTopics);
   }
 
   TopicsBuilder(Pattern patternTopics) {
     this.setTopics = null;
-    this.topicPattern = requireNonNull(patternTopics);
+    this.patternTopics = requireNonNull(patternTopics);
   }
 
   public TopicsBuilder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
@@ -106,7 +106,14 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     if (seekStrategy != SeekStrategy.NONE) {
       // make sure this consumer is assigned before seeking
       var latch = new CountDownLatch(1);
-      subscribe(kafkaConsumer, latch);
+      if (patternTopics == null)
+        kafkaConsumer.subscribe(
+            setTopics,
+            ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
+      else
+        kafkaConsumer.subscribe(
+            patternTopics,
+            ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
 
       while (latch.getCount() != 0) {
         // the offset will be reset, so it is fine to poll data
@@ -116,29 +123,14 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
       }
     } else {
       // nothing to seek so we just subscribe topics
-      subscribe(kafkaConsumer, null);
+      if (patternTopics == null)
+        kafkaConsumer.subscribe(setTopics, ConsumerRebalanceListener.of(List.of(listener)));
+      else kafkaConsumer.subscribe(patternTopics, ConsumerRebalanceListener.of(List.of(listener)));
     }
 
     seekStrategy.apply(kafkaConsumer, seekValue);
 
-    return new SubscribedConsumerImpl<>(kafkaConsumer, setTopics, topicPattern, listener);
-  }
-
-  private void subscribe(KafkaConsumer<Key, Value> consumer, CountDownLatch latch) {
-    if (latch == null) {
-      if (setTopics == null)
-        consumer.subscribe(topicPattern, ConsumerRebalanceListener.of(List.of(listener)));
-      else consumer.subscribe(setTopics, ConsumerRebalanceListener.of(List.of(listener)));
-    } else {
-      if (setTopics == null)
-        consumer.subscribe(
-            topicPattern,
-            ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
-      else
-        consumer.subscribe(
-            setTopics,
-            ConsumerRebalanceListener.of(List.of(listener, ignored -> latch.countDown())));
-    }
+    return new SubscribedConsumerImpl<>(kafkaConsumer, setTopics, patternTopics, listener);
   }
 
   private static class SubscribedConsumerImpl<Key, Value> extends Builder.BaseConsumer<Key, Value>
