@@ -37,7 +37,7 @@ import org.astraea.gui.pane.Tab;
 
 public class MetricsTab {
 
-  private static <T> Optional<T> tryToFetch(Supplier<T> function) {
+  static <T> Optional<T> tryToFetch(Supplier<T> function) {
     try {
       return Optional.of(function.get());
     } catch (Exception e) {
@@ -57,18 +57,14 @@ public class MetricsTab {
         "controller",
         client ->
             Arrays.stream(ControllerMetrics.Controller.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
 
     CONTROLLER_STATE(
         "controller state",
         client ->
             Arrays.stream(ControllerMetrics.ControllerState.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.fiveMinuteRate()))),
     NETWORK(
         "network",
@@ -101,26 +97,20 @@ public class MetricsTab {
         "delayed operation",
         client ->
             Arrays.stream(ServerMetrics.DelayedOperationPurgatory.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
 
     REPLICA(
         "replica",
         client ->
             Arrays.stream(ServerMetrics.ReplicaManager.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
     BROKER_TOPIC(
-        "broker topics",
+        "broker topic",
         client ->
             Arrays.stream(ServerMetrics.BrokerTopic.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(
                     Collectors.toMap(
                         m -> m.metricsName(),
