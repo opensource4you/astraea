@@ -27,3 +27,9 @@
 7. [Dispatcher](docs/dispatcher/README.md): 強大且高效率的 Kafka partitioner 實作
 8. [Balancer](docs/balancer/README.md): `Kafka` 伺服器端負載平衡工具
 9. [GUI](docs/run_gui.md): 簡單好用的叢集資訊圖形化工具
+
+# 技術發表
+
+`Astraea` 鼓勵貢獻者參與研討會做技術發表，各年度的發表請見下列連結：
+
+[2022 年度](https://github.com/skiptests/astraea/issues/238)
