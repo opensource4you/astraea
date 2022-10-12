@@ -129,10 +129,22 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Void> addPartitions(String topic, int total);
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
-  CompletionStage<Void> updateConfig(String topic, Map<String, String> override);
+  CompletionStage<Void> setConfigs(String topic, Map<String, String> override);
+
+  /**
+   * unset the value associated to given keys. The unset config will become either null of default
+   * value. Normally, the default value is defined by server.properties or hardcode in source code.
+   */
+  CompletionStage<Void> unsetConfigs(String topic, Set<String> keys);
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
-  CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override);
+  CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override);
+
+  /**
+   * unset the value associated to given keys. The unset config will become either null of default
+   * value. Normally, the default value is defined by server.properties or hardcode in source code.
+   */
+  CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys);
 
   /** delete topics by topic names */
   CompletionStage<Void> deleteTopics(Set<String> topics);

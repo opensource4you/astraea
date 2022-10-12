@@ -283,6 +283,17 @@ public final class Utils {
         TreeMap::new);
   }
 
+  public static <T, K, U> Collector<T, ?, LinkedHashMap<K, U>> toLinkedHashMap(
+      Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
+    return Collectors.toMap(
+        keyMapper,
+        valueMapper,
+        (x, y) -> {
+          throw new IllegalStateException("Duplicate key");
+        },
+        LinkedHashMap::new);
+  }
+
   public static Set<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
     return Arrays.stream(clz.getFields())
         .filter(field -> variableNameFilter.test(field.getName()))

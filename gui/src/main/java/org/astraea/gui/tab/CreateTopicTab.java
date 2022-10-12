@@ -19,10 +19,10 @@ package org.astraea.gui.tab;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class CreateTopicTab {
 
@@ -41,7 +41,7 @@ public class CreateTopicTab {
             .input(TopicConfigs.ALL_CONFIGS)
             .buttonListener(
                 (input, logger) -> {
-                  var allConfigs = new HashMap<>(input.texts());
+                  var allConfigs = new HashMap<>(input.nonEmptyTexts());
                   var name = allConfigs.remove(TOPIC_NAME);
                   return context.submit(
                       admin ->
@@ -74,8 +74,6 @@ public class CreateTopicTab {
                                   }));
                 })
             .build();
-    var tab = new Tab("create topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("create topic", pane);
   }
 }

@@ -24,12 +24,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class MoveTopicTab {
 
@@ -46,14 +46,14 @@ public class MoveTopicTab {
             .input(PARTITION_ID, false, true)
             .buttonListener(
                 (input, logger) -> {
-                  var topic = input.texts().get(TOPIC_NAME);
+                  var topic = input.nonEmptyTexts().get(TOPIC_NAME);
 
                   var moveTo =
-                      Arrays.stream(input.texts().get(MOVE_TO).split(","))
+                      Arrays.stream(input.nonEmptyTexts().get(MOVE_TO).split(","))
                           .map(Integer::parseInt)
                           .collect(Collectors.toList());
                   var partitions =
-                      Optional.ofNullable(input.texts().get(PARTITION_ID))
+                      Optional.ofNullable(input.nonEmptyTexts().get(PARTITION_ID))
                           .map(Integer::parseInt)
                           .map(partition -> CompletableFuture.completedStage(List.of(partition)))
                           .orElseGet(
@@ -93,8 +93,6 @@ public class MoveTopicTab {
                 })
             .build();
 
-    var tab = new Tab("move topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("move topic", pane);
   }
 }

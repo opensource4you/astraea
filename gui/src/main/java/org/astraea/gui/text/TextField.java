@@ -16,6 +16,8 @@
  */
 package org.astraea.gui.text;
 
+import javafx.application.Platform;
+
 public class TextField extends javafx.scene.control.TextField {
   public static TextField onlyNumber() {
     var field = new TextField();
@@ -30,17 +32,24 @@ public class TextField extends javafx.scene.control.TextField {
     return field;
   }
 
-  public static TextField copyableField(String content) {
-    var field = new TextField(content);
-    field.setEditable(false);
-    return field;
+  public static TextField of() {
+    return new TextField();
   }
 
-  public TextField() {
+  public static TextField of(String content) {
+    return new TextField(content);
+  }
+
+  private TextField() {
     super();
   }
 
-  public TextField(String text) {
-    super(text);
+  private TextField(String content) {
+    super(content);
+  }
+
+  public void text(String text) {
+    if (Platform.isFxApplicationThread()) setText(text);
+    else Platform.runLater(() -> setText(text));
   }
 }

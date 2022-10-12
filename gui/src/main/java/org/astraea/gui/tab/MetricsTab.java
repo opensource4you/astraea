@@ -24,7 +24,6 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.metrics.MBeanClient;
@@ -34,10 +33,11 @@ import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class MetricsTab {
 
-  private static <T> Optional<T> tryToFetch(Supplier<T> function) {
+  static <T> Optional<T> tryToFetch(Supplier<T> function) {
     try {
       return Optional.of(function.get());
     } catch (Exception e) {
@@ -57,18 +57,14 @@ public class MetricsTab {
         "controller",
         client ->
             Arrays.stream(ControllerMetrics.Controller.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
 
     CONTROLLER_STATE(
         "controller state",
         client ->
             Arrays.stream(ControllerMetrics.ControllerState.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.fiveMinuteRate()))),
     NETWORK(
         "network",
@@ -101,26 +97,20 @@ public class MetricsTab {
         "delayed operation",
         client ->
             Arrays.stream(ServerMetrics.DelayedOperationPurgatory.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
 
     REPLICA(
         "replica",
         client ->
             Arrays.stream(ServerMetrics.ReplicaManager.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
-    TOPIC(
-        "topic",
+    BROKER_TOPIC(
+        "broker topic",
         client ->
-            Arrays.stream(ServerMetrics.Topic.values())
-                .map(m -> tryToFetch(() -> m.fetch(client)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+            Arrays.stream(ServerMetrics.BrokerTopic.values())
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(
                     Collectors.toMap(
                         m -> m.metricsName(),
@@ -170,7 +160,7 @@ public class MetricsTab {
                                             input
                                                 .selectedRadio()
                                                 .map(o -> (MetricType) o)
-                                                .orElse(MetricType.TOPIC)
+                                                .orElse(MetricType.BROKER_TOPIC)
                                                 .fetcher
                                                 .apply(entry.getValue())))
                                 .sorted(Comparator.comparing(e -> e.getKey().id()))
@@ -187,8 +177,6 @@ public class MetricsTab {
                                 .collect(Collectors.toList())))
             .build();
 
-    var tab = new Tab("metrics");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("metrics", pane);
   }
 }

@@ -25,8 +25,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 public class ServerTopicMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
-  @EnumSource(value = ServerMetrics.Topic.class)
-  void testRequestBrokerTopicMetrics(ServerMetrics.Topic metric) {
+  @EnumSource(value = ServerMetrics.BrokerTopic.class)
+  void testRequestBrokerTopicMetrics(ServerMetrics.BrokerTopic metric) {
     var meter = metric.fetch(MBeanClient.local());
     MetricsTestUtil.validate(meter);
   }

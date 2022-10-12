@@ -21,12 +21,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class ConsumerTab {
 
@@ -80,8 +80,6 @@ public class ConsumerTab {
                                 .thenCompose(admin::consumerGroups)
                                 .thenApply(cgs -> result(cgs.stream(), input))))
             .build();
-    var tab = new Tab("consumer");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("consumer", pane);
   }
 }

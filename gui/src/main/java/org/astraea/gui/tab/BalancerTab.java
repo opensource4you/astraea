@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
@@ -41,6 +40,7 @@ import org.astraea.gui.Logger;
 import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class BalancerTab {
 
@@ -174,8 +174,6 @@ public class BalancerTab {
                 (input, logger) -> context.submit(admin -> generator(admin, input, logger)))
             .build();
 
-    var tab = new Tab("balance topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("balance topic", pane);
   }
 }

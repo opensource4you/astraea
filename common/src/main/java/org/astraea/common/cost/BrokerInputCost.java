@@ -36,14 +36,14 @@ public class BrokerInputCost implements HasBrokerCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     entry ->
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC.of(entry.getValue()).stream()
-                            .mapToDouble(ServerMetrics.Topic.Meter::oneMinuteRate)
+                        ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.of(entry.getValue()).stream()
+                            .mapToDouble(ServerMetrics.BrokerTopic.Meter::oneMinuteRate)
                             .sum()));
     return () -> brokerCost;
   }
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client)));
+    return Optional.of(client -> List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client)));
   }
 }
