@@ -144,9 +144,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                     .filter(x -> x.topic().equals(log.topic()))
                     .filter(x -> x.partition() == log.partition())
                     .filter(x -> x.nodeInfo().id() == log.brokerId())
-                    .findFirst()
-                    .map(x -> x.inSync() && !x.isFuture())
-                    .orElse(false)));
+                    .allMatch(x -> x.inSync() && !x.isFuture())));
   }
 
   @Override
@@ -159,10 +157,8 @@ class RebalanceAdminImpl implements RebalanceAdmin {
                 admin.replicas(Set.of(topicPartition.topic())).stream()
                     .filter(x -> x.topic().equals(topicPartition.topic()))
                     .filter(x -> x.partition() == topicPartition.partition())
-                    .findFirst()
                     .filter(Replica::isPreferredLeader)
-                    .map(ReplicaInfo::isLeader)
-                    .orElseThrow()));
+                    .allMatch(ReplicaInfo::isLeader)));
   }
 
   private Supplier<Boolean> debounceCheck(Duration timeout, Supplier<Boolean> testDone) {

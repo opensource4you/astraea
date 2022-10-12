@@ -17,6 +17,7 @@
 package org.astraea.gui.tab;
 
 import java.util.HashMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
@@ -71,7 +72,7 @@ public class UpdateTopicTab {
                         BorderPane.dynamic(
                             topics.stream()
                                 .map(Topic::name)
-                                .collect(Collectors.toUnmodifiableSet()),
+                                .collect(Collectors.toCollection(TreeSet::new)),
                             topic ->
                                 CompletableFuture.completedFuture(
                                     topics.stream()
