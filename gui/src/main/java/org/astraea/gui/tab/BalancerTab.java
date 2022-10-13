@@ -37,14 +37,13 @@ import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
 public class BalancerTab {
 
-  private enum Cost implements RadioButtonAble {
+  private enum Cost {
     REPLICA("replica", new ReplicaNumberCost()),
     LEADER("leader", new ReplicaLeaderCost()),
     SIZE("size", new ReplicaSizeCost());
@@ -58,7 +57,7 @@ public class BalancerTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }

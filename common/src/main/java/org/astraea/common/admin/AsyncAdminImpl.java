@@ -699,14 +699,17 @@ class AsyncAdminImpl implements AsyncAdmin {
             .alterClientQuotas(
                 ipAndRate.entrySet().stream()
                     .map(
-                        entry ->
-                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
-                                new ClientQuotaEntity(
-                                    Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
-                                List.of(
-                                    new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
-                                        entry.getValue().byteRate()))))
+                        entry -> {
+                          System.out.println(
+                              "entry.getValue().byteRate(): " + entry.getValue().byteRate());
+                          return new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                              new ClientQuotaEntity(
+                                  Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
+                              List.of(
+                                  new ClientQuotaAlteration.Op(
+                                      QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
+                                      entry.getValue().byteRate())));
+                        })
                     .collect(Collectors.toList()))
             .all());
   }

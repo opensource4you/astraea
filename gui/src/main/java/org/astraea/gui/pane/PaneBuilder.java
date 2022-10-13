@@ -40,7 +40,6 @@ import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
 import org.astraea.gui.button.RadioButton;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.table.TableView;
 import org.astraea.gui.text.Label;
 import org.astraea.gui.text.TextArea;
@@ -75,11 +74,11 @@ public class PaneBuilder {
 
   private PaneBuilder() {}
 
-  public <T extends RadioButtonAble> PaneBuilder radioButtons(T[] objs) {
+  public PaneBuilder radioButtons(Object[] objs) {
     return radioButtons(Arrays.asList(objs));
   }
 
-  public <T extends RadioButtonAble> PaneBuilder radioButtons(List<T> objs) {
+  public PaneBuilder radioButtons(List<Object> objs) {
     if (objs.isEmpty()) return this;
     radioButtons = RadioButton.single(objs);
     return this;
@@ -240,7 +239,7 @@ public class PaneBuilder {
           var input =
               new Input() {
                 @Override
-                public Optional<RadioButtonAble> selectedRadio() {
+                public Optional<Object> selectedRadio() {
                   return selectedRadio;
                 }
 
