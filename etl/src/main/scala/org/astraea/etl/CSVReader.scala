@@ -16,10 +16,8 @@
  */
 package org.astraea.etl
 
-import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.functions.{col, concat, concat_ws, struct, to_json}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types.StructType
 object CSVReader {
   def createSpark(deploymentModel: String): SparkSession = {
@@ -47,37 +45,14 @@ object CSVReader {
   def readCSV(
       spark: SparkSession,
       userSchema: StructType,
-      sourcePath: String
+      sourcePath: String,
+      sinkPath: String
   ): DataFrame = {
     spark.readStream
-      .option("sep", ",")
+      .option("cleanSource", "archive")
+      .option("sourceArchiveDir", sinkPath)
       .schema(userSchema)
       .csv(sourcePath)
-  }
-
-  //TODO To Kafka test
-  def writeKafka(
-      df: DataFrame,
-      metaData: Metadata
-  ): DataStreamWriter[Row] = {
-    df.writeStream
-      .format("kafka")
-      .option(
-        ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-        metaData.kafkaBootstrapServers
-      )
-      .option(
-        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"
-      )
-      .option(
-        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"
-      )
-      //TODO check topic
-      .option("topic", metaData.topicName)
-      .option(ProducerConfig.ACKS_CONFIG, "all")
-      .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
   }
 
   /** Turn the original DataFrame into a key-value table.Integrate all columns

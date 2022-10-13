@@ -16,22 +16,22 @@
  */
 package org.astraea.etl
 
-import com.opencsv.CSVWriter
 import org.apache.spark.SparkException
-import org.apache.spark.sql.{Encoder, Row}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{Encoder, Row}
 import org.astraea.etl.CSVReader.{createSpark, csvToJSON}
 import org.astraea.etl.DataType.{IntegerType, StringType}
+import org.astraea.etl.FileCreator.{addPrefix, getCSVFile, writeCsvFile}
+import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
 
 import java.io._
 import java.nio.file.Files
-import scala.util.{Failure, Random, Try}
-import scala.collection.JavaConverters._
+import scala.util.Random
 
-class CSVReaderTest {
+class CSVReaderTest extends RequireBrokerCluster {
   @Test def createSchemaNullTest(): Unit = {
     val spark = CSVReader.createSpark("local[2]")
     val seq = Seq(
@@ -59,15 +59,27 @@ class CSVReaderTest {
   }
 
   @Test def sparkReadCSVTest(): Unit = {
-    val tempPath = System.getProperty("java.io.tmpdir")
-    val myDir = new File(tempPath + "/spark-" + Random.nextInt())
+    val tempPath =
+      System.getProperty("java.io.tmpdir") + "/sparkFile" + Random.nextInt()
+    val myDir = new File(tempPath)
     myDir.mkdir()
 
-    val file = Files.createTempFile(myDir.toPath, "local_kafka", ".csv")
+    val sourceDir = new File(myDir.getPath + "/source")
+    sourceDir.mkdir()
 
-    writeCsvFile(file.toAbsolutePath.toString, addPrefix(rows))
+    val fileCSV = new File(sourceDir.toPath + "/local_kafka.csv")
+    writeCsvFile(fileCSV.getPath, addPrefix(rows))
 
-    val spark = CSVReader.createSpark("local[2]")
+    val sinkDir = new File(tempPath + "/sink")
+    sinkDir.mkdir()
+
+    val checkoutDir = new File(tempPath + "/checkout")
+    checkoutDir.mkdir()
+
+    val dataDir = new File(tempPath + "/data")
+    dataDir.mkdir()
+
+    val spark = CSVReader.createSpark("local[5]")
 
     val structType = CSVReader.createSchema(
       Map(
@@ -82,22 +94,20 @@ class CSVReaderTest {
     )
 
     assertEquals(structType.length, 4)
-
-    val csvDF = CSVReader.readCSV(spark, structType, file.getParent.toString)
+    val csvDF =
+      CSVReader.readCSV(spark, structType, sourceDir.getPath, sinkDir.getPath)
 
     assertTrue(csvDF.isStreaming, "sessions must be a streaming Dataset")
 
     csvDF.writeStream
       .format("csv")
-      .option("path", myDir.getPath + "/data")
-      .option("checkpointLocation", myDir.getPath + "/checkpoint")
+      .option("path", dataDir.getPath)
+      .option("checkpointLocation", checkoutDir.getPath)
       .outputMode("append")
       .start()
-      .awaitTermination(3000)
+      .awaitTermination(5000)
 
-    spark.stop()
-
-    val writeFile = getCSVFile(new File(myDir.getPath + "/data"))(0)
+    val writeFile = getCSVFile(new File(dataDir.getPath))(0)
     val br = new BufferedReader(new FileReader(writeFile))
 
     assertEquals(br.readLine, "1,A1,52,fghgh")
@@ -199,7 +209,6 @@ class CSVReaderTest {
     val head = json.head()
     assertTrue(json.filter(_ != head).isEmpty)
   }
-
   def rows: List[List[String]] = {
     val columnOne: List[String] =
       List("A1", "B1", "C1", "D1")
@@ -214,42 +223,5 @@ class CSVReaderTest {
         List(a, b, c) +: acc
       }
       .reverse
-  }
-
-  def addPrefix(lls: List[List[String]]): List[List[String]] =
-    lls
-      .foldLeft((1, List.empty[List[String]])) {
-        case ((serial: Int, acc: List[List[String]]), value: List[String]) =>
-          (serial + 1, (serial.toString +: value) +: acc)
-      }
-      ._2
-      .reverse
-
-  def writeCsvFile(
-      path: String,
-      rows: List[List[String]]
-  ): Try[Unit] =
-    Try(new CSVWriter(new BufferedWriter(new FileWriter(path)))).flatMap(
-      (csvWriter: CSVWriter) =>
-        Try {
-          csvWriter.writeAll(
-            rows.map(_.toArray).asJava
-          )
-          csvWriter.close()
-        } match {
-          case f @ Failure(_) =>
-            Try(csvWriter.close()).recoverWith { case _ =>
-              f
-            }
-          case success =>
-            success
-        }
-    )
-
-  def getCSVFile(file: File): Array[File] = {
-    file
-      .listFiles()
-      .filter(!_.isDirectory)
-      .filter(t => t.toString.endsWith(".csv"))
   }
 }

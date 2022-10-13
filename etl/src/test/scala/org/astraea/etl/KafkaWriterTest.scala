@@ -22,9 +22,10 @@ import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{
   assertEquals,
   assertInstanceOf,
-  assertThrows
+  assertThrows,
+  assertTrue
 }
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{RepeatedTest, Test}
 
 import java.io.File
 import java.util.concurrent.CompletionException
@@ -35,15 +36,15 @@ import scala.concurrent.{Await, Future}
 
 class KafkaWriterTest extends RequireBrokerCluster {
 
-  @Test def TopicCreatorTest(): Unit = {
+  @RepeatedTest(100000) def TopicCreatorTest(): Unit = {
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-        assert(
-          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC),
-          true
+        assertTrue(
+          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
         )
+
         assertEquals(
           admin
             .partitions(Set(TOPIC).asJava)
