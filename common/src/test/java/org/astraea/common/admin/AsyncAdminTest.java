@@ -18,13 +18,14 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -600,6 +601,88 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                           Assertions.assertEquals(
                               admin.brokerFolders().toCompletableFuture().get().get(id).size(),
                               ds.size())));
+    }
+  }
+
+  @Test
+  void testReplicas() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(2).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(
+          2,
+          admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())))
+              .size());
+
+      var count =
+          admin
+              .replicas(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get()
+              .stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())))
+              .size();
+      Assertions.assertEquals(
+          count,
+          admin
+              .replicas(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get()
+              .stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())))
+              .size());
+    }
+  }
+
+  @Test
+  void testReplicasPreferredLeaderFlag() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    var partitionCount = 10;
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitionCount)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var expectedPreferredLeader =
+          IntStream.range(0, partitionCount)
+              .mapToObj(p -> TopicPartition.of(topic, p))
+              .collect(Collectors.toUnmodifiableMap(p -> p, p -> List.of(0)));
+
+      var currentPreferredLeader =
+          (Supplier<Map<TopicPartition, List<Integer>>>)
+              () ->
+                  Utils.packException(
+                      () ->
+                          admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
+                              .filter(Replica::isPreferredLeader)
+                              .collect(
+                                  Collectors.groupingBy(
+                                      replica ->
+                                          TopicPartition.of(replica.topic(), replica.partition()),
+                                      Collectors.mapping(
+                                          replica -> replica.nodeInfo().id(),
+                                          Collectors.toList()))));
+
+      IntStream.range(0, partitionCount)
+          .forEach(p -> admin.moveToBrokers(Map.of(TopicPartition.of(topic, p), List.of(0, 1, 2))));
+      Utils.sleep(Duration.ofSeconds(3));
+
+      Assertions.assertEquals(expectedPreferredLeader, currentPreferredLeader.get());
     }
   }
 }
