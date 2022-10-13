@@ -29,10 +29,10 @@ declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r WORKER_PROPERTIES="/tmp/worker-${WORKER_PORT}.properties"
 declare -r WORKER_PLUGIN_PATH=${WORKER_PLUGIN_PATH:-/tmp/worker-plugins}
 if [[ "$CONFLUENT_WORKER" = "true" ]]; then
-    declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/confluent.connect:$CONFLUENT_VERSION"
+    declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/confluent.worker:$CONFLUENT_VERSION"
     declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/connect-distributed"
 else
-    declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/connect:$VERSION"
+    declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/worker:$VERSION"
     declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/connect-distributed.sh"
 fi
 # cleanup the file if it is existent
@@ -46,7 +46,7 @@ function showHelp() {
   echo "    bootstrap.servers=node:22222,node:1111   set brokers connection"
   echo "ENV: "
   echo "    ACCOUNT=skiptests                        set the github account"
-  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set connect JVM memory"
+  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set worker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.2.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
