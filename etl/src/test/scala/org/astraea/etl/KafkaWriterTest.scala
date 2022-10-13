@@ -19,7 +19,12 @@ package org.astraea.etl
 import org.astraea.common.admin.AsyncAdmin
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
-import org.junit.jupiter.api.Assertions.{assertEquals, assertInstanceOf, assertThrows, assertTrue}
+import org.junit.jupiter.api.Assertions.{
+  assertEquals,
+  assertInstanceOf,
+  assertThrows,
+  assertTrue
+}
 import org.junit.jupiter.api.{RepeatedTest, Test}
 
 import java.io.File
