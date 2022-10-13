@@ -18,10 +18,12 @@ package org.astraea.common.admin;
 
 public final class QuotaConfigs {
 
+  // ---------------------------------[target key]---------------------------------//
   public static final String USER = "user";
   public static final String CLIENT_ID = "client-id";
   public static final String IP = "ip";
 
+  // ---------------------------------[limit key]---------------------------------//
   public static final String PRODUCER_BYTE_RATE_CONFIG = "producer_byte_rate";
   public static final String CONSUMER_BYTE_RATE_CONFIG = "consumer_byte_rate";
   public static final String REQUEST_PERCENTAGE_CONFIG = "request_percentage";
