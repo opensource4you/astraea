@@ -22,7 +22,8 @@ import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{
   assertEquals,
   assertInstanceOf,
-  assertThrows
+  assertThrows,
+  assertTrue
 }
 import org.junit.jupiter.api.Test
 
@@ -40,10 +41,10 @@ class KafkaWriterTest extends RequireBrokerCluster {
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-        assert(
-          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC),
-          true
+        assertTrue(
+          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
         )
+
         assertEquals(
           admin
             .partitions(Set(TOPIC).asJava)
@@ -58,6 +59,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           .toCompletableFuture
           .get()
           .forEach(partition => assertEquals(partition.replicas().size(), 2))
+
         assertEquals(
           admin
             .topics(Set(TOPIC).asJava)
