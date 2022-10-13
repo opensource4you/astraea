@@ -16,12 +16,18 @@
  */
 package org.astraea.common.admin;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.common.Utils;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -157,6 +163,65 @@ public interface AsyncAdmin extends AutoCloseable {
    *     replicas)
    */
   CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
+
+  // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the async operations to be done on server-side. You have to define the predicate to
+   * terminate loop. Or the loop get breaks when timeout is reached.
+   *
+   * @param topics to trace
+   * @param predicate to break loop
+   * @param timeout to break loop
+   * @param debounce to double-check the status. Some brokers may return out-of-date cluster state,
+   *     so you can set a positive value to keep the loop until to debounce is completed
+   * @return a background running loop
+   */
+  default CompletionStage<Boolean> waitCluster(
+      Set<String> topics,
+      Predicate<ClusterInfo<Replica>> predicate,
+      Duration timeout,
+      int debounce) {
+    return loop(
+        () ->
+            clusterInfo(topics)
+                .thenApply(predicate::test)
+                .exceptionally(
+                    e -> {
+                      System.out.println("e: " + e.getClass().getName());
+                      if (e instanceof CompletionException
+                          && e.getCause()
+                              instanceof org.apache.kafka.common.errors.RetriableException)
+                        return false;
+                      throw (RuntimeException) e;
+                    }),
+        timeout.toMillis(),
+        debounce);
+  }
+
+  static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier, long remainingMs, int debounce) {
+    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
+    var start = System.currentTimeMillis();
+    return supplier
+        .get()
+        .thenCompose(
+            match -> {
+              // everything is good!!!
+              if (match && debounce <= 0) return CompletableFuture.completedFuture(true);
+
+              // take a break before retry/debounce
+              Utils.sleep(Duration.ofMillis(300));
+
+              var remaining = remainingMs - (System.currentTimeMillis() - start);
+
+              // for debounce
+              if (match) return loop(supplier, remaining, debounce - 1);
+
+              // for retry
+              return loop(supplier, remaining, debounce);
+            });
+  }
 
   @Override
   void close();

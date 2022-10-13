@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -34,9 +34,11 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
+@Deprecated
 class RebalanceAdminImpl implements RebalanceAdmin {
 
   private final Admin admin;
+  private final AsyncAdmin asyncAdmin;
 
   /**
    * Construct an implementation of {@link RebalanceAdmin}
@@ -45,6 +47,7 @@ class RebalanceAdminImpl implements RebalanceAdmin {
    */
   public RebalanceAdminImpl(Admin admin) {
     this.admin = admin;
+    this.asyncAdmin = (AsyncAdmin) Utils.member(admin, "asyncAdmin");
   }
 
   /**
@@ -126,63 +129,39 @@ class RebalanceAdminImpl implements RebalanceAdmin {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  private long getEndTime(Duration timeout) {
-    try {
-      return Math.addExact(System.currentTimeMillis(), timeout.toMillis());
-    } catch (ArithmeticException e) {
-      return Long.MAX_VALUE;
-    }
-  }
-
   @Override
   public CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout) {
-    return CompletableFuture.supplyAsync(
-        debounceCheck(
+    return asyncAdmin
+        .waitCluster(
+            Set.of(log.topic()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> r.topic().equals(log.topic()))
+                    .filter(r -> r.partition() == log.partition())
+                    .filter(r -> r.nodeInfo().id() == log.brokerId())
+                    .allMatch(r -> r.inSync() && !r.isFuture()),
             timeout,
-            () ->
-                admin.replicas(Set.of(log.topic())).stream()
-                    .filter(x -> x.topic().equals(log.topic()))
-                    .filter(x -> x.partition() == log.partition())
-                    .filter(x -> x.nodeInfo().id() == log.brokerId())
-                    .allMatch(x -> x.inSync() && !x.isFuture())));
+            2)
+        .toCompletableFuture();
   }
 
   @Override
   public CompletableFuture<Boolean> waitPreferredLeaderSynced(
       TopicPartition topicPartition, Duration timeout) {
-    return CompletableFuture.supplyAsync(
-        debounceCheck(
-            timeout,
-            () ->
-                admin.replicas(Set.of(topicPartition.topic())).stream()
-                    .filter(x -> x.topic().equals(topicPartition.topic()))
-                    .filter(x -> x.partition() == topicPartition.partition())
+    return asyncAdmin
+        .waitCluster(
+            Set.of(topicPartition.topic()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> r.topic().equals(topicPartition.topic()))
+                    .filter(r -> r.partition() == topicPartition.partition())
                     .filter(Replica::isPreferredLeader)
-                    .allMatch(ReplicaInfo::isLeader)));
-  }
-
-  private Supplier<Boolean> debounceCheck(Duration timeout, Supplier<Boolean> testDone) {
-    var debounceInitialCount = 10;
-    return () -> {
-      // due to the state consistency issue in Kafka broker design. the cluster state returned
-      // from the API might bounce between the `old state` and the `new state` during the very
-      // beginning and accomplishment of the cluster state alteration API. to fix this we use
-      // debounce technique, to ensure the target condition is held over a few successive tries,
-      // which mean the cluster state alteration is considered stable.
-      var debounce = debounceInitialCount;
-      var endTime = getEndTime(timeout);
-      while (!Thread.currentThread().isInterrupted()) {
-        // debounce & retrial interval
-        Utils.sleep(Duration.ofMillis(100));
-        var isDone = testDone.get();
-        debounce = isDone ? (debounce - 1) : debounceInitialCount;
-        // synced
-        if (isDone && debounce <= 0) return true;
-        // timeout
-        if (System.currentTimeMillis() > endTime) return false;
-      }
-      return false;
-    };
+                    .allMatch(ReplicaInfo::isLeader),
+            timeout,
+            2)
+        .toCompletableFuture();
   }
 
   @Override
