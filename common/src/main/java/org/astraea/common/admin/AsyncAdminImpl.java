@@ -46,6 +46,11 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.quota.ClientQuotaAlteration;
+import org.apache.kafka.common.quota.ClientQuotaEntity;
+import org.apache.kafka.common.quota.ClientQuotaFilter;
+import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
+import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 
 class AsyncAdminImpl implements AsyncAdmin {
@@ -597,6 +602,131 @@ class AsyncAdminImpl implements AsyncAdmin {
                             .thenComparing(Replica::partition)
                             .thenComparing(r -> r.nodeInfo().id()))
                     .collect(Collectors.toList()));
+  }
+
+  @Override
+  public CompletionStage<List<Quota>> quotas(String targetKey) {
+    return to(kafkaAdmin
+            .describeClientQuotas(
+                ClientQuotaFilter.contains(
+                    List.of(ClientQuotaFilterComponent.ofEntityType(targetKey))))
+            .entities())
+        .thenApply(Quota::of);
+  }
+
+  @Override
+  public CompletionStage<List<Quota>> quotas() {
+    return to(kafkaAdmin.describeClientQuotas(ClientQuotaFilter.all()).entities())
+        .thenApply(Quota::of);
+  }
+
+  @Override
+  public CompletionStage<Void> setConnectionQuotas(Map<String, Integer> ipAndRate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ipAndRate.entrySet().stream()
+                    .map(
+                        entry ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, entry.getKey())),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
+                                        (double) entry.getValue()))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConnectionQuotas(Set<String> ips) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ips.stream()
+                    .map(
+                        ip ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.IP_CONNECTION_RATE_CONFIG, null))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> setConsumerQuotas(Map<String, DataRate> ipAndRate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ipAndRate.entrySet().stream()
+                    .map(
+                        entry ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG,
+                                        entry.getValue().byteRate()))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                clientIds.stream()
+                    .map(
+                        clientId ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, clientId)),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, null))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> setProducerQuotas(Map<String, DataRate> ipAndRate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ipAndRate.entrySet().stream()
+                    .map(
+                        entry ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
+                                        entry.getValue().byteRate()))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                clientIds.stream()
+                    .map(
+                        clientId ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, clientId)),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, null))))
+                    .collect(Collectors.toList()))
+            .all());
   }
 
   @Override

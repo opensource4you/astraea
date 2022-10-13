@@ -16,21 +16,17 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Arrays;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public final class QuotaConfigs {
 
-public class QuotaTest {
+  public static final String USER = "user";
+  public static final String CLIENT_ID = "client-id";
+  public static final String IP = "ip";
 
-  @Test
-  void testTarget() {
-    Arrays.stream(Quota.Target.values())
-        .forEach(t -> Assertions.assertEquals(t, Quota.target(t.nameOfKafka())));
-  }
+  public static final String PRODUCER_BYTE_RATE_CONFIG = "producer_byte_rate";
+  public static final String CONSUMER_BYTE_RATE_CONFIG = "consumer_byte_rate";
+  public static final String REQUEST_PERCENTAGE_CONFIG = "request_percentage";
+  public static final String CONTROLLER_MUTATION_RATE_CONFIG = "controller_mutation_rate";
+  public static final String IP_CONNECTION_RATE_CONFIG = "connection_creation_rate";
 
-  @Test
-  void testAction() {
-    Arrays.stream(Quota.Limit.values())
-        .forEach(t -> Assertions.assertEquals(t, Quota.limit(t.nameOfKafka())));
-  }
+  private QuotaConfigs() {}
 }

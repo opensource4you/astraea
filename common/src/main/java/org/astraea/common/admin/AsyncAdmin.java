@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.common.DataRate;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -103,7 +104,60 @@ public interface AsyncAdmin extends AutoCloseable {
     return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
   }
 
+  /**
+   * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
+   * QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targetKey to search
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(String targetKey);
+
+  CompletionStage<List<Quota>> quotas();
+
   // ---------------------------------[write]---------------------------------//
+
+  /**
+   * set the connection rate for given ip address.
+   *
+   * @param ipAndRate ip address and its connection rate
+   */
+  CompletionStage<Void> setConnectionQuotas(Map<String, Integer> ipAndRate);
+
+  /**
+   * remove the connection quotas for given ip addresses
+   *
+   * @param ips to delete connection quotas
+   */
+  CompletionStage<Void> unsetConnectionQuotas(Set<String> ips);
+
+  /**
+   * set the producer rate for given client id
+   *
+   * @param clientAndRate client id and its producer rate
+   */
+  CompletionStage<Void> setProducerQuotas(Map<String, DataRate> clientAndRate);
+
+  /**
+   * remove the producer rate quotas for given client ids
+   *
+   * @param clientIds to delete producer rate quotas
+   */
+  CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds);
+
+  /**
+   * set the consumer rate for given client id
+   *
+   * @param clientAndRate client id and its consumer rate
+   */
+  CompletionStage<Void> setConsumerQuotas(Map<String, DataRate> clientAndRate);
+
+  /**
+   * remove the consumer rate quotas for given client ids
+   *
+   * @param clientIds to delete consumer rate quotas
+   */
+  CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();

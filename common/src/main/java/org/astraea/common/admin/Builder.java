@@ -215,14 +215,14 @@ public class Builder {
     public Collection<Quota> quotas(Quota.Target target) {
       return quotas(
           ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntityType(target.nameOfKafka()))));
+              List.of(ClientQuotaFilterComponent.ofEntityType(target.alias()))));
     }
 
     @Override
     public Collection<Quota> quotas(Quota.Target target, String value) {
       return quotas(
           ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntity(target.nameOfKafka(), value))));
+              List.of(ClientQuotaFilterComponent.ofEntity(target.alias(), value))));
     }
 
     @Override
@@ -823,7 +823,7 @@ public class Builder {
                                   new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
                                   List.of(
                                       new ClientQuotaAlteration.Op(
-                                          Quota.Limit.IP_CONNECTION_RATE.nameOfKafka(),
+                                          QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
                                           (double) connectionRate)))))
                       .all()
                       .get());
@@ -855,11 +855,11 @@ public class Builder {
           if (produceRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), produceRate.byteRate()));
+                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, produceRate.byteRate()));
           if (consumeRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), consumeRate.byteRate()));
+                    QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, consumeRate.byteRate()));
           if (!q.isEmpty())
             Utils.packException(
                 () ->

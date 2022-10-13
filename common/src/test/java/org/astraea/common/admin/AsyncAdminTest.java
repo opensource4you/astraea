@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -683,6 +684,94 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       Assertions.assertEquals(expectedPreferredLeader, currentPreferredLeader.get());
+    }
+  }
+
+  @Test
+  void testConnectionQuotas() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.setConnectionQuotas(Map.of(Utils.hostname(), 100)).toCompletableFuture().get();
+
+      var quotas =
+          admin.quotas(QuotaConfigs.IP).toCompletableFuture().get().stream()
+              .filter(q -> q.targetValue().equals(Utils.hostname()))
+              .collect(Collectors.toList());
+      Assertions.assertNotEquals(0, quotas.size());
+      quotas.forEach(
+          quota -> {
+            Assertions.assertEquals(Utils.hostname(), quota.targetValue());
+            Assertions.assertEquals(QuotaConfigs.IP_CONNECTION_RATE_CONFIG, quota.limitKey());
+            Assertions.assertEquals(100D, quota.limitValue());
+          });
+
+      admin.unsetConnectionQuotas(Set.of(Utils.hostname())).toCompletableFuture().get();
+      Assertions.assertEquals(
+          0,
+          (int)
+              admin.quotas(QuotaConfigs.IP).toCompletableFuture().get().stream()
+                  .filter(q -> q.targetValue().equals(Utils.hostname()))
+                  .filter(q -> q.limitKey().equals(QuotaConfigs.IP_CONNECTION_RATE_CONFIG))
+                  .count());
+    }
+  }
+
+  @Test
+  void testProducerQuotas() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100).perSecond()))
+          .toCompletableFuture()
+          .get();
+
+      var quotas =
+          admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+              .filter(q -> q.targetValue().equals(Utils.hostname()))
+              .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
+              .collect(Collectors.toList());
+      Assertions.assertNotEquals(0, quotas.size());
+      quotas.forEach(
+          quota ->
+              Assertions.assertEquals(
+                  DataRate.Byte.of(100).perSecond().byteRate(), quota.limitValue()));
+
+      admin.unsetProducerQuotas(Set.of(Utils.hostname())).toCompletableFuture().get();
+      Assertions.assertEquals(
+          0,
+          (int)
+              admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+                  .filter(q -> q.targetValue().equals(Utils.hostname()))
+                  .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
+                  .count());
+    }
+  }
+
+  @Test
+  void testConsumerQuotas() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000).perSecond()))
+          .toCompletableFuture()
+          .get();
+
+      var quotas =
+          admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+              .filter(q -> q.targetValue().equals(Utils.hostname()))
+              .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
+              .collect(Collectors.toList());
+      Assertions.assertNotEquals(0, quotas.size());
+      quotas.forEach(
+          quota ->
+              Assertions.assertEquals(
+                  DataRate.Byte.of(1000).perSecond().byteRate(), quota.limitValue()));
+
+      admin.unsetConsumerQuotas(Set.of(Utils.hostname())).toCompletableFuture().get();
+      Assertions.assertEquals(
+          0,
+          (int)
+              admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+                  .filter(q -> q.targetValue().equals(Utils.hostname()))
+                  .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
+                  .count());
     }
   }
 }
