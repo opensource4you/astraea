@@ -196,11 +196,15 @@ public interface AsyncAdmin extends AutoCloseable {
                       throw (RuntimeException) e;
                     }),
         timeout.toMillis(),
+        debounce,
         debounce);
   }
 
   static CompletionStage<Boolean> loop(
-      Supplier<CompletionStage<Boolean>> supplier, long remainingMs, int debounce) {
+      Supplier<CompletionStage<Boolean>> supplier,
+      long remainingMs,
+      final int debounce,
+      int remainingDebounce) {
     if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
     var start = System.currentTimeMillis();
     return supplier
@@ -208,18 +212,18 @@ public interface AsyncAdmin extends AutoCloseable {
         .thenCompose(
             match -> {
               // everything is good!!!
-              if (match && debounce <= 0) return CompletableFuture.completedFuture(true);
+              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
 
               // take a break before retry/debounce
               Utils.sleep(Duration.ofMillis(300));
 
               var remaining = remainingMs - (System.currentTimeMillis() - start);
 
-              // for debounce
-              if (match) return loop(supplier, remaining, debounce - 1);
+              // keep debounce
+              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
 
-              // for retry
-              return loop(supplier, remaining, debounce);
+              // reset debounce for retry
+              return loop(supplier, remaining, debounce, debounce);
             });
   }
 
