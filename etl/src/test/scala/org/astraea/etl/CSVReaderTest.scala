@@ -114,6 +114,8 @@ class CSVReaderTest extends RequireBrokerCluster {
     assertEquals(br.readLine, "2,B1,36,gjgbn")
     assertEquals(br.readLine, "3,C1,45,fgbhjf")
     assertEquals(br.readLine, "4,D1,25,dfjf")
+
+    println(Files.exists(new File(sinkDir + "local_kafka.csv").toPath))
   }
 
   @Test def csvToJSONTest(): Unit = {
