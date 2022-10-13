@@ -25,9 +25,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -310,16 +310,16 @@ public class AsyncAdminTest extends RequireBrokerCluster {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var before =
           brokerIds().stream()
-                     .mapToInt(
-                         id ->
-                             Utils.packException(
-                                 () ->
-                                     admin
-                                         .topicPartitionReplicas(Set.of(id))
-                                         .toCompletableFuture()
-                                         .get()
-                                         .size()))
-                     .sum();
+              .mapToInt(
+                  id ->
+                      Utils.packException(
+                          () ->
+                              admin
+                                  .topicPartitionReplicas(Set.of(id))
+                                  .toCompletableFuture()
+                                  .get()
+                                  .size()))
+              .sum();
 
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().get();
       // wait for syncing topic creation
@@ -346,16 +346,16 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       var after =
           brokerIds().stream()
-                     .mapToInt(
-                         id ->
-                             Utils.packException(
-                                 () ->
-                                     admin
-                                         .topicPartitionReplicas(Set.of(id))
-                                         .toCompletableFuture()
-                                         .get()
-                                         .size()))
-                     .sum();
+              .mapToInt(
+                  id ->
+                      Utils.packException(
+                          () ->
+                              admin
+                                  .topicPartitionReplicas(Set.of(id))
+                                  .toCompletableFuture()
+                                  .get()
+                                  .size()))
+              .sum();
 
       Assertions.assertEquals(before + 10, after);
     }
@@ -368,10 +368,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
       try (var c1 =
-               Consumer.forTopics(Set.of(topic))
-                       .bootstrapServers(bootstrapServers())
-                       .config(ConsumerConfigs.GROUP_ID_CONFIG, consumerGroup)
-                       .build()) {
+          Consumer.forTopics(Set.of(topic))
+              .bootstrapServers(bootstrapServers())
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, consumerGroup)
+              .build()) {
         // wait for syncing topic creation
         Utils.sleep(Duration.ofSeconds(5));
         var consumerGroupMap =
@@ -381,22 +381,22 @@ public class AsyncAdminTest extends RequireBrokerCluster {
             consumerGroupMap.stream().anyMatch(cg -> cg.groupId().equals(consumerGroup)));
 
         try (var c2 =
-                 Consumer.forTopics(Set.of(topic))
-                         .bootstrapServers(bootstrapServers())
-                         .config(ConsumerConfigs.GROUP_ID_CONFIG, "abc")
-                         .build()) {
+            Consumer.forTopics(Set.of(topic))
+                .bootstrapServers(bootstrapServers())
+                .config(ConsumerConfigs.GROUP_ID_CONFIG, "abc")
+                .build()) {
           var count =
               admin.consumerGroupIds().toCompletableFuture().get().stream()
-                   .mapToInt(
-                       t ->
-                           Utils.packException(
-                               () ->
-                                   admin
-                                       .consumerGroups(Set.of(t))
-                                       .toCompletableFuture()
-                                       .get()
-                                       .size()))
-                   .sum();
+                  .mapToInt(
+                      t ->
+                          Utils.packException(
+                              () ->
+                                  admin
+                                      .consumerGroups(Set.of(t))
+                                      .toCompletableFuture()
+                                      .get()
+                                      .size()))
+                  .sum();
           Assertions.assertEquals(
               count,
               admin
@@ -433,25 +433,25 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       var currentBroker =
           admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
-               .filter(replica -> replica.partition() == 0)
-               .findFirst()
-               .get()
-               .nodeInfo()
-               .id();
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
       var allPath = admin.brokerFolders().toCompletableFuture().get();
       var otherPath =
           allPath.get(currentBroker).stream()
-                 .filter(
-                     i ->
-                         Utils.packException(
-                             () ->
-                                 !i.contains(
-                                     admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
-                                          .filter(replica -> replica.partition() == 0)
-                                          .findFirst()
-                                          .get()
-                                          .dataFolder())))
-                 .collect(Collectors.toSet());
+              .filter(
+                  i ->
+                      Utils.packException(
+                          () ->
+                              !i.contains(
+                                  admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
+                                      .filter(replica -> replica.partition() == 0)
+                                      .findFirst()
+                                      .get()
+                                      .dataFolder())))
+              .collect(Collectors.toSet());
 
       admin.moveToFolders(
           Map.of(TopicPartitionReplica.of(topic, 0, currentBroker), otherPath.iterator().next()));
@@ -463,9 +463,9 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                         admin.replicas(Set.of(topic)).toCompletableFuture().get();
                     return partitionReplicas.size() == 1
                         && partitionReplicas
-                        .get(0)
-                        .dataFolder()
-                        .equals(otherPath.iterator().next());
+                            .get(0)
+                            .dataFolder()
+                            .equals(otherPath.iterator().next());
                   }));
     }
   }
@@ -486,9 +486,9 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
       var currentReplica =
           admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
-               .filter(replica -> replica.partition() == topicParition.partition())
-               .findFirst()
-               .get();
+              .filter(replica -> replica.partition() == topicParition.partition())
+              .findFirst()
+              .get();
 
       var currentBroker = currentReplica.nodeInfo().id();
       var notExistReplica = (currentBroker + 1) % brokerIds().size();
@@ -525,38 +525,38 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       var anotherKey = "anotherKey";
       var value = "value";
       try (var producer =
-               Producer.builder()
-                       .keySerializer(Serializer.STRING)
-                       .valueSerializer(Serializer.STRING)
-                       .bootstrapServers(bootstrapServers())
-                       .build()) {
+          Producer.builder()
+              .keySerializer(Serializer.STRING)
+              .valueSerializer(Serializer.STRING)
+              .bootstrapServers(bootstrapServers())
+              .build()) {
         IntStream.range(0, 10)
-                 .forEach(i -> producer.sender().key(key).value(value).topic(topic).run());
+            .forEach(i -> producer.sender().key(key).value(value).topic(topic).run());
         producer.flush();
 
         Utils.sleep(Duration.ofSeconds(2));
         IntStream.range(0, 10)
-                 .forEach(i -> producer.sender().key(anotherKey).value(value).topic(topic).run());
+            .forEach(i -> producer.sender().key(anotherKey).value(value).topic(topic).run());
         producer.flush();
       }
 
       Utils.sleep(Duration.ofSeconds(3));
 
       try (var consumer =
-               Consumer.forTopics(Set.of(topic))
-                       .keyDeserializer(Deserializer.STRING)
-                       .valueDeserializer(Deserializer.STRING)
-                       .config(
-                           ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-                           ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-                       .bootstrapServers(bootstrapServers())
-                       .build()) {
+          Consumer.forTopics(Set.of(topic))
+              .keyDeserializer(Deserializer.STRING)
+              .valueDeserializer(Deserializer.STRING)
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .bootstrapServers(bootstrapServers())
+              .build()) {
 
         var records =
             IntStream.range(0, 5)
-                     .mapToObj(i -> consumer.poll(Duration.ofSeconds(1)))
-                     .flatMap(Collection::stream)
-                     .collect(Collectors.toList());
+                .mapToObj(i -> consumer.poll(Duration.ofSeconds(1)))
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
 
         Assertions.assertEquals(
             1, records.stream().filter(record -> record.key().equals(key)).count());
@@ -601,6 +601,88 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                           Assertions.assertEquals(
                               admin.brokerFolders().toCompletableFuture().get().get(id).size(),
                               ds.size())));
+    }
+  }
+
+  @Test
+  void testReplicas() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(2).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(
+          2,
+          admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())))
+              .size());
+
+      var count =
+          admin
+              .replicas(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get()
+              .stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())))
+              .size();
+      Assertions.assertEquals(
+          count,
+          admin
+              .replicas(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get()
+              .stream()
+              .collect(
+                  Collectors.groupingBy(
+                      replica -> TopicPartition.of(replica.topic(), replica.partition())))
+              .size());
+    }
+  }
+
+  @Test
+  void testReplicasPreferredLeaderFlag() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    var partitionCount = 10;
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitionCount)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var expectedPreferredLeader =
+          IntStream.range(0, partitionCount)
+              .mapToObj(p -> TopicPartition.of(topic, p))
+              .collect(Collectors.toUnmodifiableMap(p -> p, p -> List.of(0)));
+
+      var currentPreferredLeader =
+          (Supplier<Map<TopicPartition, List<Integer>>>)
+              () ->
+                  Utils.packException(
+                      () ->
+                          admin.replicas(Set.of(topic)).toCompletableFuture().get().stream()
+                              .filter(Replica::isPreferredLeader)
+                              .collect(
+                                  Collectors.groupingBy(
+                                      replica ->
+                                          TopicPartition.of(replica.topic(), replica.partition()),
+                                      Collectors.mapping(
+                                          replica -> replica.nodeInfo().id(),
+                                          Collectors.toList()))));
+
+      IntStream.range(0, partitionCount)
+          .forEach(p -> admin.moveToBrokers(Map.of(TopicPartition.of(topic, p), List.of(0, 1, 2))));
+      Utils.sleep(Duration.ofSeconds(3));
+
+      Assertions.assertEquals(expectedPreferredLeader, currentPreferredLeader.get());
     }
   }
 }
