@@ -17,7 +17,6 @@
 package org.astraea.common.balancer.executor;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +30,7 @@ import org.astraea.common.admin.TopicPartitionReplica;
  * The wrapper of {@link Admin}. Offer only the essential functionalities & some utilities to
  * perform rebalance operation.
  */
+@Deprecated
 public interface RebalanceAdmin {
 
   /**
@@ -60,7 +60,7 @@ public interface RebalanceAdmin {
 
   /** @return a {@link CompletableFuture} that indicate the specific log has become synced. */
   default CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log) {
-    return waitLogSynced(log, ChronoUnit.FOREVER.getDuration());
+    return waitLogSynced(log, Duration.ofSeconds(100));
   }
 
   /**
@@ -75,7 +75,7 @@ public interface RebalanceAdmin {
    *     preferred leader becomes the actual leader.
    */
   default CompletableFuture<Boolean> waitPreferredLeaderSynced(TopicPartition topicPartition) {
-    return waitPreferredLeaderSynced(topicPartition, ChronoUnit.FOREVER.getDuration());
+    return waitPreferredLeaderSynced(topicPartition, Duration.ofSeconds(100));
   }
 
   /**
