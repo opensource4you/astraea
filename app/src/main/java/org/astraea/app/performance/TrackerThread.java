@@ -142,7 +142,7 @@ public interface TrackerThread extends AbstractThread {
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
-        var clientId = report.clientId() == null ? "forTest" : report.clientId();
+        var clientId = report.clientId();
         var stickyNumber =
             ConsumerThread.CLIENT_ID_STICKY_PARTITIONS.getOrDefault(clientId, Set.of()).size();
         if (ms.isPresent()) {
