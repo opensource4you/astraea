@@ -22,7 +22,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Encoder, Row}
 import org.astraea.etl.CSVReader.{createSpark, csvToJSON}
 import org.astraea.etl.DataType.{IntegerType, StringType}
-import org.astraea.etl.FileCreator.{addPrefix, getCSVFile, writeCsvFile}
+import org.astraea.etl.FileCreator.{getCSVFile, mkdir}
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
@@ -60,26 +60,16 @@ class CSVReaderTest extends RequireBrokerCluster {
 
   @Test def sparkReadCSVTest(): Unit = {
     val tempPath =
-      System.getProperty("java.io.tmpdir") + "/sparkFile" + Random.nextInt()
-    val myDir = new File(tempPath)
-    myDir.mkdir()
+      System.getProperty("java.io.tmpdir") + "/sparkFile-" + Random.nextInt()
+    val myDir = mkdir(tempPath)
+    val sourceDir = mkdir(myDir.getPath + "/source")
+    val creator = new FileCreator(sourceDir, rows)
+    new Thread(creator).start()
+    val sinkDir = mkdir(tempPath + "/sink")
+    val checkoutDir = mkdir(tempPath + "/checkout")
+    val dataDir = mkdir(tempPath + "/data")
 
-    val sourceDir = new File(myDir.getPath + "/source")
-    sourceDir.mkdir()
-
-    val fileCSV = new File(sourceDir.toPath + "/local_kafka.csv")
-    writeCsvFile(fileCSV.getPath, addPrefix(rows))
-
-    val sinkDir = new File(tempPath + "/sink")
-    sinkDir.mkdir()
-
-    val checkoutDir = new File(tempPath + "/checkout")
-    checkoutDir.mkdir()
-
-    val dataDir = new File(tempPath + "/data")
-    dataDir.mkdir()
-
-    val spark = CSVReader.createSpark("local[5]")
+    val spark = CSVReader.createSpark("local[2]")
 
     val structType = CSVReader.createSchema(
       Map(
@@ -105,7 +95,7 @@ class CSVReaderTest extends RequireBrokerCluster {
       .option("checkpointLocation", checkoutDir.getPath)
       .outputMode("append")
       .start()
-      .awaitTermination(5000)
+      .awaitTermination(20000)
 
     val writeFile = getCSVFile(new File(dataDir.getPath))(0)
     val br = new BufferedReader(new FileReader(writeFile))
@@ -115,7 +105,17 @@ class CSVReaderTest extends RequireBrokerCluster {
     assertEquals(br.readLine, "3,C1,45,fgbhjf")
     assertEquals(br.readLine, "4,D1,25,dfjf")
 
-    println(Files.exists(new File(sinkDir + "local_kafka.csv").toPath))
+    Range
+      .inclusive(0, 4)
+      .foreach(i => {
+        assertTrue(
+          Files.exists(
+            new File(
+              sinkDir + sourceDir.getPath + "/local_kafka-" + i.toString + ".csv"
+            ).toPath
+          )
+        )
+      })
   }
 
   @Test def csvToJSONTest(): Unit = {

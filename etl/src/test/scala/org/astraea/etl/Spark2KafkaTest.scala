@@ -19,24 +19,24 @@ package org.astraea.etl
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.astraea.common.admin.AsyncAdmin
 import org.astraea.common.consumer.{Consumer, Deserializer}
-import org.astraea.etl.FileCreator.{addPrefix, writeCsvFile}
-import org.astraea.etl.Spark2KafkaTest.hasPerform
+import org.astraea.etl.FileCreator.mkdir
+import org.astraea.etl.Spark2KafkaTest.{hasPerform, sinkD, source, tempPath}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
 import org.junit.jupiter.api.Test
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
 import java.util
 import java.util.Properties
-import scala.util.Random
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.{
   `collection AsScalaIterable`,
   `collection asJava`
 }
 import scala.concurrent.duration.DurationInt
+import scala.util.Random
 
 class Spark2KafkaTest extends RequireBrokerCluster {
   private val COL_NAMES =
@@ -47,22 +47,19 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     hasPerform.synchronized {
       if (!hasPerform) {
         hasPerform = true
-        val tempPath = System.getProperty("java.io.tmpdir")
-        val myCSVDir = new File(tempPath + "/spark-" + Random.nextInt())
-        myCSVDir.mkdir()
-        val file = Files.createTempFile(myCSVDir.toPath, "local_kafka", ".csv")
-        writeCsvFile(file.toAbsolutePath.toString, addPrefix(rows))
+        val myDir = mkdir(tempPath)
+        val sourceDir = mkdir(tempPath + "/source")
+        val creator = new FileCreator(sourceDir, rows)
+        new Thread(creator).start()
+        val sinkDir = mkdir(sinkD)
+        val checkoutDir = mkdir(tempPath + "/checkout")
+        val dataDir = mkdir(tempPath + "/data")
+        val myPropDir =
+          Files.createFile(new File(myDir + "/prop.properties").toPath)
 
-        val myPropDir = new File(tempPath + "/prop-" + Random.nextInt())
-        myPropDir.mkdir()
-        val properties = Files.createTempFile(
-          myPropDir.toPath,
-          "spark2kafkaConfig",
-          ".properties"
-        )
-        writeProperties(properties.toFile, file.getParent.toString)
+        writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
         Spark2Kafka.executor(
-          Array(properties.toString),
+          Array(myPropDir.toString),
           new DurationInt(10).second
         )
       }
@@ -73,13 +70,6 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   def consumerDataTest(): Unit = {
     val topic = new util.HashSet[String]
     topic.add("testTopic")
-    println(
-      AsyncAdmin
-        .of(bootstrapServers())
-        .topicNames(true)
-        .toCompletableFuture
-        .get()
-    )
     val consumer =
       Consumer
         .forTopics(topic)
@@ -136,6 +126,21 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     }
   }
 
+  @Test def archive(): Unit = {
+    Thread.sleep(10000)
+    Range
+      .inclusive(0, 4)
+      .foreach(i => {
+        assertTrue(
+          Files.exists(
+            new File(
+              sinkD + source + "/local_kafka-" + i.toString + ".csv"
+            ).toPath
+          )
+        )
+      })
+  }
+
   def s2kType(rows: List[List[String]]): Map[String, String] = {
     val colNames =
       COL_NAMES.split(",").map(_.split("=")).map(elem => elem(0)).toSeq
@@ -170,7 +175,11 @@ class Spark2KafkaTest extends RequireBrokerCluster {
       .reverse
   }
 
-  def writeProperties(file: File, source_path: String): Unit = {
+  def writeProperties(
+      file: File,
+      sourcePath: String,
+      sinkPath: String
+  ): Unit = {
     val SOURCE_PATH = "source.path"
     val SINK_PATH = "sink.path"
     val COLUMN_NAME = "column.name"
@@ -184,8 +193,8 @@ class Spark2KafkaTest extends RequireBrokerCluster {
 
     Utils.Using(new FileOutputStream(file)) { fileOut =>
       val properties = new Properties();
-      properties.setProperty(SOURCE_PATH, source_path)
-      properties.setProperty(SINK_PATH, source_path)
+      properties.setProperty(SOURCE_PATH, sourcePath)
+      properties.setProperty(SINK_PATH, sinkPath)
       properties.setProperty(
         COLUMN_NAME,
         "ID=integer,FirstName=string,SecondName=string,Age=integer"
@@ -205,4 +214,8 @@ class Spark2KafkaTest extends RequireBrokerCluster {
 
 object Spark2KafkaTest {
   var hasPerform = false
+  val tempPath: String =
+    System.getProperty("java.io.tmpdir") + "/sparkFile" + Random.nextInt()
+  val source: String = tempPath + "/source"
+  val sinkD: String = tempPath + "/sink"
 }

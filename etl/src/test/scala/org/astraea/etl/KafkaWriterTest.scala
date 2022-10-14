@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Assertions.{
   assertThrows,
   assertTrue
 }
-import org.junit.jupiter.api.{RepeatedTest, Test}
+import org.junit.jupiter.api.Test
 
 import java.io.File
 import java.util.concurrent.CompletionException
@@ -59,6 +59,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           .toCompletableFuture
           .get()
           .forEach(partition => assertEquals(partition.replicas().size(), 2))
+
         assertEquals(
           admin
             .topics(Set(TOPIC).asJava)

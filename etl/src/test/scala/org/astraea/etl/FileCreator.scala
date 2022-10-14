@@ -17,25 +17,29 @@
 package org.astraea.etl
 
 import com.opencsv.CSVWriter
-import org.junit.jupiter.api.Test
+import org.astraea.etl.FileCreator.createCSV
 
-import java.io.{
-  BufferedReader,
-  BufferedWriter,
-  File,
-  FileInputStream,
-  FileNotFoundException,
-  FileOutputStream,
-  FileWriter,
-  InputStreamReader,
-  OutputStreamWriter
-}
-import java.util.Properties
-import scala.util.{Failure, Try}
+import java.io.{BufferedWriter, File, FileWriter}
+import java.nio.file.Files
 import scala.collection.JavaConverters._
-import scala.reflect.internal.util.NoFile.file
-
+import scala.util.{Failure, Try}
+class FileCreator(sourceDir: File, rows: List[List[String]]) extends Runnable {
+  override def run(): Unit = {
+    Range
+      .inclusive(0, 5)
+      .foreach(i => {
+        createCSV(sourceDir, rows, i)
+        Thread.sleep(2000)
+      })
+  }
+}
 object FileCreator {
+  def createCSV(sourceDir: File, rows: List[List[String]], int: Int): Unit = {
+    val str = sourceDir + "/local_kafka" + "-" + int.toString + ".csv"
+    val fileCSV2 = Files.createFile(new File(str).toPath)
+    writeCsvFile(fileCSV2.toAbsolutePath.toString, addPrefix(rows))
+  }
+
   def addPrefix(lls: List[List[String]]): List[List[String]] =
     lls
       .foldLeft((1, List.empty[List[String]])) {
@@ -72,5 +76,11 @@ object FileCreator {
       .listFiles()
       .filter(!_.isDirectory)
       .filter(t => t.toString.endsWith(".csv"))
+  }
+
+  def mkdir(string: String): File = {
+    val mkdirFile = new File(string)
+    mkdirFile.mkdir()
+    mkdirFile
   }
 }
