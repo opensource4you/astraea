@@ -25,7 +25,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import javafx.scene.layout.Pane;
 import org.astraea.common.DataRate;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.BorderPane;
@@ -57,7 +57,7 @@ public class UpdateQuotaTab {
     }
   }
 
-  private static Pane pane(AsyncAdmin admin, Limit limit) {
+  private static Pane pane(Context context, Limit limit) {
     return PaneBuilder.of()
         .buttonName("UPDATE")
         .input(limit == Limit.CONNECTION ? IP_LABEL_KEY : CLIENT_ID_LABEL_KEY, true, false)
@@ -71,42 +71,54 @@ public class UpdateQuotaTab {
                       Optional.ofNullable(input.nonEmptyTexts().get(RATE_KEY))
                           .map(
                               rate ->
-                                  admin.setConnectionQuotas(
-                                      Map.of(
-                                          input.nonEmptyTexts().get(IP_LABEL_KEY),
-                                          Integer.parseInt(rate))))
+                                  context
+                                      .admin()
+                                      .setConnectionQuotas(
+                                          Map.of(
+                                              input.nonEmptyTexts().get(IP_LABEL_KEY),
+                                              Integer.parseInt(rate))))
                           .orElseGet(
                               () ->
-                                  admin.unsetConnectionQuotas(
-                                      Set.of(input.nonEmptyTexts().get(IP_LABEL_KEY))));
+                                  context
+                                      .admin()
+                                      .unsetConnectionQuotas(
+                                          Set.of(input.nonEmptyTexts().get(IP_LABEL_KEY))));
                   break;
                 case PRODUCER:
                   result =
                       Optional.ofNullable(input.nonEmptyTexts().get(BYTE_RATE_KEY))
                           .map(
                               rate ->
-                                  admin.setProducerQuotas(
-                                      Map.of(
-                                          input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY),
-                                          DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                                  context
+                                      .admin()
+                                      .setProducerQuotas(
+                                          Map.of(
+                                              input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY),
+                                              DataRate.MB.of(Long.parseLong(rate)).perSecond())))
                           .orElseGet(
                               () ->
-                                  admin.unsetProducerQuotas(
-                                      Set.of(input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY))));
+                                  context
+                                      .admin()
+                                      .unsetProducerQuotas(
+                                          Set.of(input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY))));
                   break;
                 case CONSUMER:
                   result =
                       Optional.ofNullable(input.nonEmptyTexts().get(BYTE_RATE_KEY))
                           .map(
                               rate ->
-                                  admin.setConsumerQuotas(
-                                      Map.of(
-                                          input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY),
-                                          DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                                  context
+                                      .admin()
+                                      .setConsumerQuotas(
+                                          Map.of(
+                                              input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY),
+                                              DataRate.MB.of(Long.parseLong(rate)).perSecond())))
                           .orElseGet(
                               () ->
-                                  admin.unsetConsumerQuotas(
-                                      Set.of(input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY))));
+                                  context
+                                      .admin()
+                                      .unsetConsumerQuotas(
+                                          Set.of(input.nonEmptyTexts().get(CLIENT_ID_LABEL_KEY))));
                   break;
                 default:
                   result = CompletableFuture.completedFuture(null);
@@ -114,7 +126,8 @@ public class UpdateQuotaTab {
               }
               return result.thenCompose(
                   ignored ->
-                      admin
+                      context
+                          .admin()
                           .quotas(
                               limit == Limit.CONNECTION ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID)
                           .thenApply(
@@ -129,9 +142,8 @@ public class UpdateQuotaTab {
   public static Tab of(Context context) {
     return Tab.of(
         "update quota",
-        BorderPane.dynamic(
-            Arrays.stream(Limit.values()).collect(Collectors.toSet()),
-            limit ->
-                context.submit(admin -> CompletableFuture.completedFuture(pane(admin, limit)))));
+        BorderPane.selectableTop(
+            Arrays.stream(Limit.values())
+                .collect(Utils.toSortedMap(Limit::toString, limit -> pane(context, limit)))));
   }
 }

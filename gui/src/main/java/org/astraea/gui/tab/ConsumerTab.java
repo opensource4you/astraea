@@ -73,12 +73,11 @@ public class ConsumerTab {
             .searchField("group id or topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .consumerGroupIds()
-                                .thenCompose(admin::consumerGroups)
-                                .thenApply(cgs -> result(cgs.stream(), input))))
+                    context
+                        .admin()
+                        .consumerGroupIds()
+                        .thenCompose(context.admin()::consumerGroups)
+                        .thenApply(cgs -> result(cgs.stream(), input)))
             .build();
     return Tab.of("consumer", pane);
   }

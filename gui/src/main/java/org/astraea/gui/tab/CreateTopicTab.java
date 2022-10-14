@@ -43,35 +43,31 @@ public class CreateTopicTab {
                 (input, logger) -> {
                   var allConfigs = new HashMap<>(input.nonEmptyTexts());
                   var name = allConfigs.remove(TOPIC_NAME);
-                  return context.submit(
-                      admin ->
-                          admin
-                              .topicNames(true)
-                              .thenCompose(
-                                  names -> {
-                                    if (names.contains(name))
-                                      return CompletableFuture.failedFuture(
-                                          new IllegalArgumentException(
-                                              name + " is already existent"));
+                  return context
+                      .admin()
+                      .topicNames(true)
+                      .thenCompose(
+                          names -> {
+                            if (names.contains(name))
+                              return CompletableFuture.failedFuture(
+                                  new IllegalArgumentException(name + " is already existent"));
 
-                                    return admin
-                                        .creator()
-                                        .topic(name)
-                                        .numberOfPartitions(
-                                            Optional.ofNullable(
-                                                    allConfigs.remove(NUMBER_OF_PARTITIONS))
-                                                .map(Integer::parseInt)
-                                                .orElse(1))
-                                        .numberOfReplicas(
-                                            Optional.ofNullable(
-                                                    allConfigs.remove(NUMBER_OF_REPLICAS))
-                                                .map(Short::parseShort)
-                                                .orElse((short) 1))
-                                        .configs(allConfigs)
-                                        .run()
-                                        .thenAccept(
-                                            i -> logger.log("succeed to create topic:" + name));
-                                  }));
+                            return context
+                                .admin()
+                                .creator()
+                                .topic(name)
+                                .numberOfPartitions(
+                                    Optional.ofNullable(allConfigs.remove(NUMBER_OF_PARTITIONS))
+                                        .map(Integer::parseInt)
+                                        .orElse(1))
+                                .numberOfReplicas(
+                                    Optional.ofNullable(allConfigs.remove(NUMBER_OF_REPLICAS))
+                                        .map(Short::parseShort)
+                                        .orElse((short) 1))
+                                .configs(allConfigs)
+                                .run()
+                                .thenAccept(i -> logger.log("succeed to create topic:" + name));
+                          });
                 })
             .build();
     return Tab.of("create topic", pane);

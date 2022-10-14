@@ -65,17 +65,16 @@ public class PartitionTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenApply(
-                                    names ->
-                                        names.stream()
-                                            .filter(input::matchSearch)
-                                            .collect(Collectors.toSet()))
-                                .thenCompose(admin::partitions)
-                                .thenApply(PartitionTab::result)))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenApply(
+                            names ->
+                                names.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(context.admin()::partitions)
+                        .thenApply(PartitionTab::result))
             .build();
     return Tab.of("partition", pane);
   }

@@ -20,7 +20,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
@@ -53,18 +52,16 @@ public class UpdateBrokerTab {
                                                 .orElse(""))))
                         .buttonListener(
                             (input, logger) ->
-                                context.submit(
-                                    admin ->
-                                        admin
-                                            .setConfigs(broker.id(), input.nonEmptyTexts())
-                                            .thenCompose(
-                                                ignored ->
-                                                    admin.unsetConfigs(
-                                                        broker.id(), input.emptyValueKeys()))
-                                            .thenAccept(
-                                                ignored ->
-                                                    logger.log(
-                                                        "succeed to update " + broker.id()))))
+                                context
+                                    .admin()
+                                    .setConfigs(broker.id(), input.nonEmptyTexts())
+                                    .thenCompose(
+                                        ignored ->
+                                            context
+                                                .admin()
+                                                .unsetConfigs(broker.id(), input.emptyValueKeys()))
+                                    .thenAccept(
+                                        ignored -> logger.log("succeed to update " + broker.id())))
                         .build()))
         .collect(Collectors.toList());
   }
@@ -74,7 +71,8 @@ public class UpdateBrokerTab {
         "update broker",
         () ->
             context
-                .submit(AsyncAdmin::brokers)
+                .admin()
+                .brokers()
                 .thenApply(brokers -> TabPane.of(Side.TOP, brokerTabs(context, brokers))));
   }
 }

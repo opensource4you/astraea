@@ -16,34 +16,21 @@
  */
 package org.astraea.gui.pane;
 
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
+import java.util.Map;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import org.astraea.common.Utils;
 import org.astraea.gui.box.ComboBox;
 
 public class BorderPane extends javafx.scene.layout.BorderPane {
 
-  public static <T> BorderPane dynamic(
-      Set<T> selectable, Function<T, CompletionStage<Node>> centerSupplier) {
-    var map = selectable.stream().collect(Utils.toSortedMap(Object::toString, e -> e));
-    var box = ComboBox.strings(map.keySet());
+  public static BorderPane selectableTop(Map<String, Node> topAndCenter) {
+    var box = ComboBox.strings(topAndCenter.keySet());
     var pane = new BorderPane();
     BorderPane.setAlignment(box, Pos.CENTER);
     pane.setTop(box);
     box.valueProperty()
-        .addListener(
-            (observable, oldValue, newValue) ->
-                centerSupplier
-                    .apply(Objects.requireNonNull(map.get(newValue)))
-                    .whenComplete(
-                        (r, e) -> {
-                          if (r != null) pane.center(r);
-                        }));
+        .addListener((observable, oldValue, newValue) -> pane.center(topAndCenter.get(newValue)));
     return pane;
   }
 

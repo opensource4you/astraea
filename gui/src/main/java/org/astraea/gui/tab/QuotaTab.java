@@ -64,10 +64,8 @@ public class QuotaTab {
                 (input, logger) -> {
                   var target = input.selectedRadio().map(o -> (Target) o).orElse(Target.IP);
                   return context
-                      .submit(
-                          admin ->
-                              admin.quotas(
-                                  target == Target.IP ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID))
+                      .admin()
+                      .quotas(target == Target.IP ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID)
                       .thenApply(
                           quotas ->
                               quotas.stream()
