@@ -20,7 +20,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.NodeInfo;
@@ -31,8 +30,10 @@ import org.astraea.gui.pane.Tab;
 
 public class PartitionTab {
 
-  private static List<Map<String, Object>> result(Stream<Partition> ps) {
-    return ps.map(
+  static List<Map<String, Object>> result(List<Partition> ps) {
+    return ps.stream()
+        .sorted(Comparator.comparing(Partition::topic).thenComparing(Partition::partition))
+        .map(
             p ->
                 LinkedHashMap.<String, Object>of(
                     "topic",
@@ -64,23 +65,16 @@ public class PartitionTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenApply(
-                                    names ->
-                                        names.stream()
-                                            .filter(input::matchSearch)
-                                            .collect(Collectors.toSet()))
-                                .thenCompose(admin::partitions)
-                                .thenApply(
-                                    ps ->
-                                        ps.stream()
-                                            .sorted(
-                                                Comparator.comparing(Partition::topic)
-                                                    .thenComparing(Partition::partition)))
-                                .thenApply(PartitionTab::result)))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenApply(
+                            names ->
+                                names.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(context.admin()::partitions)
+                        .thenApply(PartitionTab::result))
             .build();
     return Tab.of("partition", pane);
   }

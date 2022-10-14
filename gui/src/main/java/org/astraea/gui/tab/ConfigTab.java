@@ -20,13 +20,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
 public class ConfigTab {
 
-  private enum Resource implements RadioButtonAble {
+  private enum Resource {
     BROKER("broker"),
     TOPIC("topic");
 
@@ -37,7 +36,7 @@ public class ConfigTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
@@ -51,26 +50,21 @@ public class ConfigTab {
                 (input, logger) -> {
                   var resource =
                       input.selectedRadio().map(o -> (Resource) o).orElse(Resource.TOPIC);
-                  return context
-                      .submit(
-                          admin ->
-                              resource == Resource.TOPIC
-                                  ? admin
-                                      .topicNames(true)
-                                      .thenCompose(admin::topics)
-                                      .thenApply(
-                                          topics ->
-                                              topics.stream()
-                                                  .map(t -> Map.entry(t.name(), t.config())))
-                                  : admin
-                                      .brokers()
-                                      .thenApply(
-                                          brokers ->
-                                              brokers.stream()
-                                                  .map(
-                                                      t ->
-                                                          Map.entry(
-                                                              String.valueOf(t.id()), t.config()))))
+                  return (resource == Resource.TOPIC
+                          ? context
+                              .admin()
+                              .topicNames(true)
+                              .thenCompose(context.admin()::topics)
+                              .thenApply(
+                                  topics ->
+                                      topics.stream().map(t -> Map.entry(t.name(), t.config())))
+                          : context
+                              .admin()
+                              .brokers()
+                              .thenApply(
+                                  brokers ->
+                                      brokers.stream()
+                                          .map(t -> Map.entry(String.valueOf(t.id()), t.config()))))
                       .thenApply(
                           items ->
                               items

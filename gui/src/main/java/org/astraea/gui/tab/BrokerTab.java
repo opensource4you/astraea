@@ -85,18 +85,17 @@ public class BrokerTab {
             .searchField("broker id/host")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .brokers()
-                                .thenApply(
-                                    brokers ->
-                                        brokers.stream()
-                                            .filter(
-                                                nodeInfo ->
-                                                    input.matchSearch(String.valueOf(nodeInfo.id()))
-                                                        || input.matchSearch(nodeInfo.host())))
-                                .thenApply(BrokerTab::result)))
+                    context
+                        .admin()
+                        .brokers()
+                        .thenApply(
+                            brokers ->
+                                brokers.stream()
+                                    .filter(
+                                        nodeInfo ->
+                                            input.matchSearch(String.valueOf(nodeInfo.id()))
+                                                || input.matchSearch(nodeInfo.host())))
+                        .thenApply(BrokerTab::result))
             .build();
     return Tab.of("broker", pane);
   }

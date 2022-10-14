@@ -25,7 +25,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
@@ -37,14 +36,13 @@ import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
 public class BalancerTab {
 
-  private enum Cost implements RadioButtonAble {
+  private enum Cost {
     REPLICA("replica", new ReplicaNumberCost()),
     LEADER("leader", new ReplicaLeaderCost()),
     SIZE("size", new ReplicaSizeCost());
@@ -58,7 +56,7 @@ public class BalancerTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
@@ -87,13 +85,15 @@ public class BalancerTab {
   }
 
   private static CompletionStage<List<Map<String, Object>>> generator(
-      AsyncAdmin admin, Input input, Logger logger) {
-    return admin
+      Context context, Input input, Logger logger) {
+    return context
+        .admin()
         .topicNames(true)
-        .thenCompose(admin::clusterInfo)
+        .thenCompose(context.admin()::clusterInfo)
         .thenCompose(
             clusterInfo ->
-                admin
+                context
+                    .admin()
                     .brokerFolders()
                     .thenApply(
                         brokerFolders -> {
@@ -145,7 +145,8 @@ public class BalancerTab {
               }
               logger.log("applying better assignments ... ");
               // TODO: how to migrate folder safely ???
-              return admin
+              return context
+                  .admin()
                   .moveToBrokers(
                       tpAndReplicasMap.entrySet().stream()
                           .collect(
@@ -170,8 +171,7 @@ public class BalancerTab {
             .radioButtons(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
-            .buttonAction(
-                (input, logger) -> context.submit(admin -> generator(admin, input, logger)))
+            .buttonAction((input, logger) -> generator(context, input, logger))
             .build();
 
     return Tab.of("balance topic", pane);

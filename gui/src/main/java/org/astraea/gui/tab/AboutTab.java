@@ -22,13 +22,12 @@ import java.util.concurrent.CompletableFuture;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.VersionUtils;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
 public class AboutTab {
 
-  private enum Info implements RadioButtonAble {
+  private enum Info {
     Version(
         "版本",
         List.of(
@@ -118,7 +117,7 @@ public class AboutTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }

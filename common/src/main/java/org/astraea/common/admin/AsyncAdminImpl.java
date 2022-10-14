@@ -17,11 +17,13 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -44,6 +46,11 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.quota.ClientQuotaAlteration;
+import org.apache.kafka.common.quota.ClientQuotaEntity;
+import org.apache.kafka.common.quota.ClientQuotaFilter;
+import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
+import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 
 class AsyncAdminImpl implements AsyncAdmin {
@@ -88,19 +95,20 @@ class AsyncAdminImpl implements AsyncAdmin {
     return to(kafkaAdmin
             .listTopics(new ListTopicsOptions().listInternal(listInternal))
             .namesToListings())
-        .thenApply(Map::keySet);
+        .thenApply(e -> new TreeSet<>(e.keySet()));
   }
 
   @Override
-  public CompletionStage<List<Topic>> topics(Set<String> names) {
+  public CompletionStage<List<Topic>> topics(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin
             .describeConfigs(
-                names.stream()
+                topics.stream()
                     .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
                     .collect(Collectors.toList()))
             .all())
         .thenCombine(
-            to(kafkaAdmin.describeTopics(names).all()),
+            to(kafkaAdmin.describeTopics(topics).all()),
             (configs, desc) ->
                 configs.entrySet().stream()
                     .map(
@@ -109,17 +117,20 @@ class AsyncAdminImpl implements AsyncAdmin {
                                 entry.getKey().name(),
                                 desc.get(entry.getKey().name()),
                                 entry.getValue()))
+                    .sorted(Comparator.comparing(Topic::name))
                     .collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
   public CompletionStage<Void> deleteTopics(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(kafkaAdmin.deleteTopics(topics).all());
   }
 
   @Override
   public CompletionStage<Map<TopicPartition, Long>> deleteRecords(
       Map<TopicPartition, Long> offsets) {
+    if (offsets.isEmpty()) return CompletableFuture.completedFuture(Map.of());
     return Utils.sequence(
             kafkaAdmin
                 .deleteRecords(
@@ -140,12 +151,13 @@ class AsyncAdminImpl implements AsyncAdmin {
             r ->
                 r.stream()
                     .collect(
-                        Collectors.toMap(
+                        Utils.toSortedMap(
                             e -> TopicPartition.from(e.getKey()), Map.Entry::getValue)));
   }
 
   @Override
   public CompletionStage<Set<TopicPartition>> topicPartitions(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(Set.of());
     return to(kafkaAdmin.describeTopics(topics).all())
         .thenApply(
             r ->
@@ -154,11 +166,12 @@ class AsyncAdminImpl implements AsyncAdmin {
                         entry ->
                             entry.getValue().partitions().stream()
                                 .map(p -> TopicPartition.of(entry.getKey(), p.partition())))
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
   public CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers) {
+    if (brokers.isEmpty()) return CompletableFuture.completedFuture(Set.of());
     return topicNames(true)
         .thenCompose(topics -> to(kafkaAdmin.describeTopics(topics).all()))
         .thenApply(
@@ -177,11 +190,12 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                         p.partition(),
                                                         replica.id()))))
                     .filter(replica -> brokers.contains(replica.brokerId()))
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
   public CompletionStage<List<Partition>> partitions(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     var allPartitions =
         to(kafkaAdmin.describeTopics(topics).all())
             .thenApply(
@@ -266,6 +280,9 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                               Optional.ofNullable(
                                                                   maxTimestamp.get(
                                                                       entry.getKey()))))
+                                                  .sorted(
+                                                      Comparator.comparing(Partition::topic)
+                                                          .thenComparing(Partition::partition))
                                                   .collect(Collectors.toList()))));
         });
   }
@@ -274,7 +291,8 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<Set<NodeInfo>> nodeInfos() {
     return to(kafkaAdmin.describeCluster().nodes())
         .thenApply(
-            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableSet()));
+            nodes ->
+                nodes.stream().map(NodeInfo::of).collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
@@ -335,6 +353,9 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                                                 logDirs.get(
                                                                                     node.id()),
                                                                                 topics.values()))
+                                                                    .sorted(
+                                                                        Comparator.comparing(
+                                                                            NodeInfo::id))
                                                                     .collect(
                                                                         Collectors.toList()))))));
   }
@@ -346,11 +367,12 @@ class AsyncAdminImpl implements AsyncAdmin {
             gs ->
                 gs.stream()
                     .map(ConsumerGroupListing::groupId)
-                    .collect(Collectors.toUnmodifiableSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
   public CompletionStage<List<ConsumerGroup>> consumerGroups(Set<String> consumerGroupIds) {
+    if (consumerGroupIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin.describeConsumerGroups(consumerGroupIds).all())
         .thenCombine(
             Utils.sequence(
@@ -393,11 +415,13 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                 member.assignment().topicPartitions().stream()
                                                     .map(TopicPartition::from)
                                                     .collect(Collectors.toSet())))))
+                    .sorted(Comparator.comparing(ConsumerGroup::groupId))
                     .collect(Collectors.toList()));
   }
 
   @Override
   public CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions) {
+    if (partitions.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin
             .describeProducers(
                 partitions.stream()
@@ -411,12 +435,13 @@ class AsyncAdminImpl implements AsyncAdmin {
                         e ->
                             e.getValue().activeProducers().stream()
                                 .map(s -> ProducerState.of(e.getKey(), s)))
+                    .sorted(Comparator.comparing(ProducerState::topic))
                     .collect(Collectors.toList()));
   }
 
   @Override
   public CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics) {
-
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return topicPartitions(topics)
         .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
         .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
@@ -467,6 +492,10 @@ class AsyncAdminImpl implements AsyncAdmin {
                                           entry.getValue().size(),
                                           findMaxSize.apply(
                                               TopicPartition.of(r.topic(), r.partition())))))
+                  .sorted(
+                      Comparator.comparing(AddingReplica::topic)
+                          .thenComparing(AddingReplica::partition)
+                          .thenComparing(AddingReplica::broker))
                   .collect(Collectors.toList());
             });
   }
@@ -478,21 +507,24 @@ class AsyncAdminImpl implements AsyncAdmin {
             t ->
                 t.stream()
                     .map(TransactionListing::transactionalId)
-                    .collect(Collectors.toUnmodifiableSet()));
+                    .collect(Collectors.toCollection(TreeSet::new)));
   }
 
   @Override
   public CompletionStage<List<Transaction>> transactions(Set<String> transactionIds) {
+    if (transactionIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin.describeTransactions(transactionIds).all())
         .thenApply(
             ts ->
                 ts.entrySet().stream()
                     .map(e -> Transaction.of(e.getKey(), e.getValue()))
+                    .sorted(Comparator.comparing(Transaction::transactionId))
                     .collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
   public CompletionStage<List<Replica>> replicas(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     // pre-group folders by (broker -> topic partition) to speedup seek
     return logDirs()
         .thenCombine(
@@ -565,7 +597,139 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                                       ? null
                                                                       : pathAndReplica.getKey()));
                                                 })))
+                    .sorted(
+                        Comparator.comparing(Replica::topic)
+                            .thenComparing(Replica::partition)
+                            .thenComparing(r -> r.nodeInfo().id()))
                     .collect(Collectors.toList()));
+  }
+
+  @Override
+  public CompletionStage<List<Quota>> quotas(String targetKey) {
+    return to(kafkaAdmin
+            .describeClientQuotas(
+                ClientQuotaFilter.contains(
+                    List.of(ClientQuotaFilterComponent.ofEntityType(targetKey))))
+            .entities())
+        .thenApply(Quota::of);
+  }
+
+  @Override
+  public CompletionStage<List<Quota>> quotas() {
+    return to(kafkaAdmin.describeClientQuotas(ClientQuotaFilter.all()).entities())
+        .thenApply(Quota::of);
+  }
+
+  @Override
+  public CompletionStage<Void> setConnectionQuotas(Map<String, Integer> ipAndRate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ipAndRate.entrySet().stream()
+                    .map(
+                        entry ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, entry.getKey())),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
+                                        (double) entry.getValue()))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConnectionQuotas(Set<String> ips) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ips.stream()
+                    .map(
+                        ip ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.IP_CONNECTION_RATE_CONFIG, null))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> setConsumerQuotas(Map<String, DataRate> ipAndRate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ipAndRate.entrySet().stream()
+                    .map(
+                        entry ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG,
+                                        entry.getValue().byteRate()))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                clientIds.stream()
+                    .map(
+                        clientId ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, clientId)),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, null))))
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> setProducerQuotas(Map<String, DataRate> ipAndRate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                ipAndRate.entrySet().stream()
+                    .map(
+                        entry -> {
+                          System.out.println(
+                              "entry.getValue().byteRate(): " + entry.getValue().byteRate());
+                          return new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                              new ClientQuotaEntity(
+                                  Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
+                              List.of(
+                                  new ClientQuotaAlteration.Op(
+                                      QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
+                                      entry.getValue().byteRate())));
+                        })
+                    .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                clientIds.stream()
+                    .map(
+                        clientId ->
+                            new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, clientId)),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, null))))
+                    .collect(Collectors.toList()))
+            .all());
   }
 
   @Override
@@ -673,6 +837,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments) {
+    if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .alterPartitionReassignments(
@@ -686,6 +851,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments) {
+    if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .alterReplicaLogDirs(
@@ -726,6 +892,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> setConfigs(String topic, Map<String, String> override) {
+    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -743,6 +910,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
+    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -759,6 +927,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
+    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
@@ -776,6 +945,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(

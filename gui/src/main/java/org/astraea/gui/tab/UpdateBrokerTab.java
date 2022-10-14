@@ -18,11 +18,8 @@ package org.astraea.gui.tab;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
@@ -42,39 +39,40 @@ public class UpdateBrokerTab {
                     String.valueOf(broker.id()),
                     PaneBuilder.of()
                         .buttonName("UPDATE")
-                        .input(BrokerConfigs.DYNAMICAL_CONFIGS)
-                        .inputInitializer(
-                            () ->
-                                CompletableFuture.completedFuture(
-                                    brokers.stream()
-                                        .filter(b -> b.id() == broker.id())
-                                        .findFirst()
-                                        .map(b -> b.config().raw())
-                                        .orElse(Map.of())))
+                        .input(
+                            BrokerConfigs.DYNAMICAL_CONFIGS.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        k -> k,
+                                        k ->
+                                            brokers.stream()
+                                                .filter(b -> b.id() == broker.id())
+                                                .flatMap(b -> b.config().value(k).stream())
+                                                .findFirst()
+                                                .orElse(""))))
                         .buttonListener(
                             (input, logger) ->
-                                context.submit(
-                                    admin ->
-                                        admin
-                                            .setConfigs(broker.id(), input.nonEmptyTexts())
-                                            .thenCompose(
-                                                ignored ->
-                                                    admin.unsetConfigs(
-                                                        broker.id(), input.emptyValueKeys()))
-                                            .thenAccept(
-                                                ignored ->
-                                                    logger.log(
-                                                        "succeed to update " + broker.id()))))
+                                context
+                                    .admin()
+                                    .setConfigs(broker.id(), input.nonEmptyTexts())
+                                    .thenCompose(
+                                        ignored ->
+                                            context
+                                                .admin()
+                                                .unsetConfigs(broker.id(), input.emptyValueKeys()))
+                                    .thenAccept(
+                                        ignored -> logger.log("succeed to update " + broker.id())))
                         .build()))
         .collect(Collectors.toList());
   }
 
   public static Tab of(Context context) {
-    return Tab.dynamical(
+    return Tab.dynamic(
         "update broker",
         () ->
             context
-                .submit(AsyncAdmin::brokers)
+                .admin()
+                .brokers()
                 .thenApply(brokers -> TabPane.of(Side.TOP, brokerTabs(context, brokers))));
   }
 }
