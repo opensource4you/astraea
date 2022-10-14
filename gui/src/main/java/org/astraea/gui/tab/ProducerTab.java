@@ -56,24 +56,23 @@ public class ProducerTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenApply(
-                                    names ->
-                                        names.stream()
-                                            .filter(input::matchSearch)
-                                            .collect(Collectors.toSet()))
-                                .thenCompose(admin::topicPartitions)
-                                .thenCompose(admin::producerStates)
-                                .thenApply(
-                                    ps ->
-                                        ps.stream()
-                                            .sorted(
-                                                Comparator.comparing(ProducerState::topic)
-                                                    .thenComparing(ProducerState::partition)))
-                                .thenApply(ProducerTab::result)))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenApply(
+                            names ->
+                                names.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(context.admin()::topicPartitions)
+                        .thenCompose(context.admin()::producerStates)
+                        .thenApply(
+                            ps ->
+                                ps.stream()
+                                    .sorted(
+                                        Comparator.comparing(ProducerState::topic)
+                                            .thenComparing(ProducerState::partition)))
+                        .thenApply(ProducerTab::result))
             .build();
     return Tab.of("producer", pane);
   }

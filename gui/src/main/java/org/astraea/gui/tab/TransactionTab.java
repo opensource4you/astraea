@@ -53,22 +53,19 @@ public class TransactionTab {
             .searchField("topic name or transaction id")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .transactionIds()
-                                .thenCompose(admin::transactions)
-                                .thenApply(
-                                    ts ->
-                                        ts.stream()
-                                            .filter(
-                                                transaction ->
-                                                    input.matchSearch(transaction.transactionId())
-                                                        || transaction.topicPartitions().stream()
-                                                            .anyMatch(
-                                                                tp ->
-                                                                    input.matchSearch(tp.topic()))))
-                                .thenApply(TransactionTab::result)))
+                    context
+                        .admin()
+                        .transactionIds()
+                        .thenCompose(context.admin()::transactions)
+                        .thenApply(
+                            ts ->
+                                ts.stream()
+                                    .filter(
+                                        transaction ->
+                                            input.matchSearch(transaction.transactionId())
+                                                || transaction.topicPartitions().stream()
+                                                    .anyMatch(tp -> input.matchSearch(tp.topic()))))
+                        .thenApply(TransactionTab::result))
             .build();
     return Tab.of("transaction", pane);
   }

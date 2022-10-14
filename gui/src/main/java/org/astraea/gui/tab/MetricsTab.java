@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -149,9 +150,9 @@ public class MetricsTab {
             .radioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
-                    context.metrics(
-                        bs ->
-                            bs.entrySet().stream()
+                    CompletableFuture.supplyAsync(
+                        () ->
+                            context.clients().entrySet().stream()
                                 .map(
                                     entry ->
                                         Map.entry(

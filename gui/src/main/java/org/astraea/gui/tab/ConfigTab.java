@@ -50,26 +50,21 @@ public class ConfigTab {
                 (input, logger) -> {
                   var resource =
                       input.selectedRadio().map(o -> (Resource) o).orElse(Resource.TOPIC);
-                  return context
-                      .submit(
-                          admin ->
-                              resource == Resource.TOPIC
-                                  ? admin
-                                      .topicNames(true)
-                                      .thenCompose(admin::topics)
-                                      .thenApply(
-                                          topics ->
-                                              topics.stream()
-                                                  .map(t -> Map.entry(t.name(), t.config())))
-                                  : admin
-                                      .brokers()
-                                      .thenApply(
-                                          brokers ->
-                                              brokers.stream()
-                                                  .map(
-                                                      t ->
-                                                          Map.entry(
-                                                              String.valueOf(t.id()), t.config()))))
+                  return (resource == Resource.TOPIC
+                          ? context
+                              .admin()
+                              .topicNames(true)
+                              .thenCompose(context.admin()::topics)
+                              .thenApply(
+                                  topics ->
+                                      topics.stream().map(t -> Map.entry(t.name(), t.config())))
+                          : context
+                              .admin()
+                              .brokers()
+                              .thenApply(
+                                  brokers ->
+                                      brokers.stream()
+                                          .map(t -> Map.entry(String.valueOf(t.id()), t.config()))))
                       .thenApply(
                           items ->
                               items

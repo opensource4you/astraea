@@ -61,20 +61,18 @@ public class MovingReplicaTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenCompose(admin::addingReplicas)
-                                .thenApply(
-                                    rs ->
-                                        rs.stream()
-                                            .filter(
-                                                s ->
-                                                    input.matchSearch(s.topic())
-                                                        || input.matchSearch(
-                                                            String.valueOf(s.broker()))))
-                                .thenApply(MovingReplicaTab::result)))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenCompose(context.admin()::addingReplicas)
+                        .thenApply(
+                            rs ->
+                                rs.stream()
+                                    .filter(
+                                        s ->
+                                            input.matchSearch(s.topic())
+                                                || input.matchSearch(String.valueOf(s.broker()))))
+                        .thenApply(MovingReplicaTab::result))
             .build();
 
     return Tab.of("moving replica", pane);
