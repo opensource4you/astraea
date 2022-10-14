@@ -31,7 +31,7 @@ public class Tab extends javafx.scene.control.Tab {
    * @param nodeSupplier offers the newest content
    * @return tab
    */
-  public static Tab dynamical(String name, Supplier<CompletionStage<Node>> nodeSupplier) {
+  public static Tab dynamic(String name, Supplier<CompletionStage<Node>> nodeSupplier) {
     var t = new Tab(name);
     t.setOnSelectionChanged(
         ignored -> {

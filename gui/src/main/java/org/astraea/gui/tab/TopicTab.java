@@ -50,6 +50,7 @@ public class TopicTab {
                     e -> e.getValue().stream().mapToLong(Map.Entry::getValue).sum()));
     var tps = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
     return tps.keySet().stream()
+        .sorted()
         .map(
             topic -> {
               var result = new LinkedHashMap<String, Object>();
@@ -86,10 +87,9 @@ public class TopicTab {
 
   private static CompletionStage<Map<String, Map<String, Object>>> topicMetrics(Context context) {
     if (!context.hasMetrics()) return CompletableFuture.completedFuture(Map.of());
-    return context
-        .metrics(
-            bs ->
-                bs.values().stream()
+    return CompletableFuture.supplyAsync(
+            () ->
+                context.clients().values().stream()
                     .flatMap(
                         client ->
                             Arrays.stream(ServerMetrics.Topic.values())
@@ -136,30 +136,28 @@ public class TopicTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenApply(
-                                    names ->
-                                        names.stream()
-                                            .filter(input::matchSearch)
-                                            .collect(Collectors.toSet()))
-                                .thenCompose(
-                                    names ->
-                                        admin
-                                            .partitions(names)
-                                            .thenCompose(
-                                                partitions ->
-                                                    admin
-                                                        .brokers()
-                                                        .thenCombine(
-                                                            topicMetrics(context),
-                                                            (brokers, metrics) ->
-                                                                result(
-                                                                    partitions,
-                                                                    brokers,
-                                                                    metrics))))))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenApply(
+                            names ->
+                                names.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(
+                            names ->
+                                context
+                                    .admin()
+                                    .partitions(names)
+                                    .thenCompose(
+                                        partitions ->
+                                            context
+                                                .admin()
+                                                .brokers()
+                                                .thenCombine(
+                                                    topicMetrics(context),
+                                                    (brokers, metrics) ->
+                                                        result(partitions, brokers, metrics)))))
             .build();
     return Tab.of("topic", pane);
   }

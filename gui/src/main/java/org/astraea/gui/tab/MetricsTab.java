@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -31,7 +32,6 @@ import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
@@ -46,7 +46,7 @@ public class MetricsTab {
     }
   }
 
-  private enum MetricType implements RadioButtonAble {
+  private enum MetricType {
     HOST(
         "host",
         client ->
@@ -138,7 +138,7 @@ public class MetricsTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
@@ -150,9 +150,9 @@ public class MetricsTab {
             .radioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
-                    context.metrics(
-                        bs ->
-                            bs.entrySet().stream()
+                    CompletableFuture.supplyAsync(
+                        () ->
+                            context.clients().entrySet().stream()
                                 .map(
                                     entry ->
                                         Map.entry(
