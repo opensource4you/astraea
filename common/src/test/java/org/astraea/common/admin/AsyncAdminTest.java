@@ -220,7 +220,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, newReplicas.size());
 
       var newReplica = newReplicas.get(0);
-      Assertions.assertEquals(idAndFolder.get(newReplica.nodeInfo().id()), newReplica.dataFolder());
+      Assertions.assertEquals(idAndFolder.get(newReplica.nodeInfo().id()), newReplica.path());
     }
   }
 
@@ -338,13 +338,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
         Utils.sleep(Duration.ofSeconds(2));
         Assertions.assertEquals(
             path,
-            admin
-                .replicas(Set.of(topic))
-                .toCompletableFuture()
-                .get()
-                .iterator()
-                .next()
-                .dataFolder());
+            admin.replicas(Set.of(topic)).toCompletableFuture().get().iterator().next().path());
       }
     }
   }
@@ -394,8 +388,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       var logFolders =
           logFolders().values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
       partitions.forEach(
-          replica ->
-              Assertions.assertTrue(logFolders.stream().anyMatch(replica.dataFolder()::contains)));
+          replica -> Assertions.assertTrue(logFolders.stream().anyMatch(replica.path()::contains)));
       brokerIds()
           .forEach(
               id -> {
@@ -514,7 +507,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                                       .filter(replica -> replica.partition() == 0)
                                       .findFirst()
                                       .get()
-                                      .dataFolder())))
+                                      .path())))
               .collect(Collectors.toSet());
 
       admin.moveToFolders(
@@ -526,10 +519,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                     var partitionReplicas =
                         admin.replicas(Set.of(topic)).toCompletableFuture().get();
                     return partitionReplicas.size() == 1
-                        && partitionReplicas
-                            .get(0)
-                            .dataFolder()
-                            .equals(otherPath.iterator().next());
+                        && partitionReplicas.get(0).path().equals(otherPath.iterator().next());
                   }));
     }
   }

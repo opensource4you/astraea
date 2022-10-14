@@ -49,7 +49,7 @@ public class ReplicaTab {
                   "broker",
                   replica.nodeInfo().id(),
                   "path",
-                  replica.dataFolder(),
+                  replica.path(),
                   "size",
                   DataSize.Byte.of(replica.size()),
                   "leader size",
