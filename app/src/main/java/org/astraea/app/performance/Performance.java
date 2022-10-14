@@ -21,6 +21,7 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -94,10 +94,7 @@ public class Performance {
             param::createProducer,
             param.interdependent);
     var executors = Executors.newFixedThreadPool(param.consumers);
-    var latches =
-        IntStream.range(0, param.consumers)
-            .mapToObj(i -> new CountDownLatch(1))
-            .collect(Collectors.toList());
+    var latches = new ArrayList<CountDownLatch>(param.consumers);
     var consumerThreads =
         ConsumerThread.create(
             param.consumers,
@@ -137,13 +134,61 @@ public class Performance {
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
     System.out.println("creating chaos monkey");
-    var chaos = new MonkeyThread(param, consumerThreads, executors, latches);
-    chaos.start();
+
+    var closeMonkey = new CountDownLatch(1);
+    CompletableFuture.runAsync(
+        () -> {
+          while (closeMonkey.getCount() != 0) {
+            Utils.sleep(param.chaosDuration);
+            var type = (int) Math.round(Math.random() * 2); // re-balance type
+            var victimIndex = (int) (Math.random() * consumerThreads.size()); // consumer number
+
+            if (type == 0 && consumerThreads.size() > 1) { // kill a consumer randomly
+              System.out.println("kill a consumer");
+              var victimConsumer = consumerThreads.get(victimIndex);
+              consumerThreads.remove(victimIndex);
+              latches.remove(victimIndex);
+              victimConsumer.close();
+            } else if (type == 1
+                && consumerThreads.size() < param.consumers) { // create a new consumer
+              System.out.println("add a consumer");
+              var consumer =
+                  ConsumerThread.create(
+                          1,
+                          (clientId, listener) ->
+                              Consumer.forTopics(new HashSet<>(param.topics))
+                                  .configs(param.configs())
+                                  .config(
+                                      ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                                      param.transactionSize > 1
+                                          ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                                          : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                                  .bootstrapServers(param.bootstrapServers())
+                                  .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                                  .seek(latestOffsets)
+                                  .consumerRebalanceListener(listener)
+                                  .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                                  .build(),
+                          executors,
+                          latches)
+                      .get(0);
+              consumerThreads.add(consumer);
+            } else if (type == 2) { // consumer unsubscribe & resubscribe
+              System.out.println("consumer unsubscribe");
+              var unsubscribeConsumer = consumerThreads.get(victimIndex);
+              unsubscribeConsumer.unsubscribe();
+              Utils.sleep(param.chaosDuration);
+              System.out.println("consumer resubscribe");
+              unsubscribeConsumer.resubscribe();
+            }
+          }
+          System.out.println("close chaos-monkey");
+        });
 
     CompletableFuture.runAsync(
         () -> {
           producerThreads.forEach(AbstractThread::waitForDone);
-          chaos.close();
+          closeMonkey.countDown(); // when producers finished, the chaos monkey would be closed.
           var last = 0L;
           var lastChange = System.currentTimeMillis();
           while (true) {
@@ -154,7 +199,7 @@ public class Performance {
             }
             if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
               consumerThreads.forEach(AbstractThread::close);
-              System.out.println("close all consumers");
+              executors.shutdown();
               return;
             }
             Utils.sleep(Duration.ofSeconds(1));
