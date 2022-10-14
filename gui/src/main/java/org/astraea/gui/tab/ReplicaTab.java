@@ -31,6 +31,41 @@ import org.astraea.gui.pane.TabPane;
 
 public class ReplicaTab {
 
+  private static List<Map<String, Object>> offline(List<Replica> replicas) {
+    return replicas.stream()
+        .filter(ReplicaInfo::isOffline)
+        .map(
+            replica ->
+                LinkedHashMap.<String, Object>of(
+                    "topic",
+                    replica.topic(),
+                    "partition",
+                    replica.partition(),
+                    "broker",
+                    replica.nodeInfo().id()))
+        .collect(Collectors.toList());
+  }
+
+  public static Tab offlineTab(Context context) {
+    return Tab.of(
+        "offline",
+        PaneBuilder.of()
+            .searchField("topic name")
+            .buttonAction(
+                (input, logger) ->
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenApply(
+                            topics ->
+                                topics.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(context.admin()::replicas)
+                        .thenApply(ReplicaTab::offline))
+            .build());
+  }
+
   private static List<Map<String, Object>> syncingResult(List<Replica> replicas) {
     var leaderSizes =
         replicas.stream()
@@ -38,6 +73,8 @@ public class ReplicaTab {
             .collect(Collectors.toMap(ReplicaInfo::topicPartition, Replica::size));
     return replicas.stream()
         .filter(r -> !r.inSync())
+        .filter(r -> r.path() != null)
+        .filter(ReplicaInfo::isOnline)
         .map(
             replica -> {
               var leaderSize = leaderSizes.getOrDefault(replica.topicPartition(), 0L);
@@ -49,7 +86,7 @@ public class ReplicaTab {
                   "broker",
                   replica.nodeInfo().id(),
                   "path",
-                  replica.path() == null ? "unknown" : replica.path(),
+                  replica.path(),
                   "size",
                   DataSize.Byte.of(replica.size()),
                   "leader size",
@@ -85,6 +122,7 @@ public class ReplicaTab {
   }
 
   public static Tab of(Context context) {
-    return Tab.of("replica", TabPane.of(Side.TOP, List.of(syncingTab(context))));
+    return Tab.of(
+        "replica", TabPane.of(Side.TOP, List.of(syncingTab(context), offlineTab(context))));
   }
 }
