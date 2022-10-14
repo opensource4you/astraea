@@ -29,7 +29,7 @@ public interface Replica extends ReplicaInfo {
       boolean isFuture,
       boolean offline,
       boolean isPreferredLeader,
-      String dataFolder) {
+      String path) {
     return Replica.builder()
         .topic(topic)
         .partition(partition)
@@ -41,7 +41,7 @@ public interface Replica extends ReplicaInfo {
         .isFuture(isFuture)
         .offline(offline)
         .isPreferredLeader(isPreferredLeader)
-        .dataFolder(dataFolder)
+        .path(path)
         .build();
   }
 
@@ -86,5 +86,5 @@ public interface Replica extends ReplicaInfo {
    * @return that indicates the data folder path which stored this replica on a specific Kafka node.
    *     It returns null if the host of replica is offline
    */
-  String dataFolder();
+  String path();
 }

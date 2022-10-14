@@ -30,7 +30,7 @@ public class ReplicaBuilder {
   private boolean isFuture;
   private boolean offline;
   private boolean isPreferredLeader;
-  private String dataFolder;
+  private String path;
 
   ReplicaBuilder replica(Replica replica) {
     this.topic = replica.topic();
@@ -43,7 +43,7 @@ public class ReplicaBuilder {
     this.isFuture = replica.isFuture();
     this.offline = replica.isOffline();
     this.isPreferredLeader = replica.isPreferredLeader();
-    this.dataFolder = replica.dataFolder();
+    this.path = replica.path();
 
     return this;
   }
@@ -98,8 +98,8 @@ public class ReplicaBuilder {
     return this;
   }
 
-  public ReplicaBuilder dataFolder(String dataFolder) {
-    this.dataFolder = dataFolder;
+  public ReplicaBuilder path(String path) {
+    this.path = path;
     return this;
   }
 
@@ -123,7 +123,7 @@ public class ReplicaBuilder {
             && isPreferredLeader == replica.isPreferredLeader()
             && offline == replica.isOffline()
             && Objects.equals(topic, replica.topic())
-            && Objects.equals(dataFolder, replica.dataFolder());
+            && Objects.equals(path, replica.path());
       }
 
       @Override
@@ -139,7 +139,7 @@ public class ReplicaBuilder {
             isFuture,
             isPreferredLeader,
             offline,
-            dataFolder);
+            path);
       }
 
       @Override
@@ -167,7 +167,7 @@ public class ReplicaBuilder {
             + ", offline="
             + offline
             + ", path='"
-            + dataFolder
+            + path
             + '\''
             + '}';
       }
@@ -223,8 +223,8 @@ public class ReplicaBuilder {
       }
 
       @Override
-      public String dataFolder() {
-        return dataFolder;
+      public String path() {
+        return path;
       }
     };
   }
