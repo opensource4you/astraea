@@ -22,7 +22,7 @@ import org.astraea.etl.Metadata.{
   requireNonidentical,
   requirePair
 }
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.{assertThrows, assertTrue}
 import org.junit.jupiter.api.{BeforeEach, Test}
 
 import java.io.{File, FileOutputStream}
@@ -42,9 +42,9 @@ class MetadataTest {
 
   @Test def defaultTest(): Unit = {
     val config = Metadata(Utils.requireFile(file.getAbsolutePath))
-    assert(config.sourcePath.equals(new File(file.getParent)))
-    assert(config.sinkPath.equals(new File(file.getParent)))
-    assert(
+    assertTrue(config.sourcePath.equals(new File(file.getParent)))
+    assertTrue(config.sinkPath.equals(new File(file.getParent)))
+    assertTrue(
       config.column equals Map(
         "ID" -> StringType,
         "KA" -> StringType,
@@ -52,12 +52,12 @@ class MetadataTest {
         "KC" -> StringType
       )
     )
-    assert(config.primaryKeys equals Map("ID" -> StringType))
-    assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
-    assert(config.numPartitions.equals(15))
-    assert(config.numReplicas.equals(1.toShort))
-    assert(config.topicName.nonEmpty)
-    assert(config.topicConfig.isEmpty)
+    assertTrue(config.primaryKeys equals Map("ID" -> StringType))
+    assertTrue(config.kafkaBootstrapServers.equals("0.0.0.0"))
+    assertTrue(config.numPartitions.equals(15))
+    assertTrue(config.numReplicas.equals(1.toShort))
+    assertTrue(config.topicName.nonEmpty)
+    assertTrue(config.topicConfig.isEmpty)
   }
 
   @Test def configuredTest(): Unit = {
@@ -71,9 +71,9 @@ class MetadataTest {
     prop.store(new FileOutputStream(file), null)
 
     val config = Metadata(Utils.requireFile(file.getAbsolutePath))
-    assert(config.sourcePath.equals(new File(file.getParent)))
-    assert(config.sinkPath.equals(new File(file.getParent)))
-    assert(
+    assertTrue(config.sourcePath.equals(new File(file.getParent)))
+    assertTrue(config.sinkPath.equals(new File(file.getParent)))
+    assertTrue(
       config.column equals Map(
         "ID" -> StringType,
         "KA" -> StringType,
@@ -81,12 +81,12 @@ class MetadataTest {
         "KC" -> StringType
       )
     )
-    assert(config.primaryKeys equals Map("ID" -> StringType))
-    assert(config.kafkaBootstrapServers.equals("0.0.0.0"))
-    assert(config.numPartitions.equals(30))
-    assert(config.numReplicas.equals(3.toShort))
-    assert(config.topicName.equals("spark-1"))
-    assert(config.topicConfig.equals(Map("KA" -> "VA", "KB" -> "VB")))
+    assertTrue(config.primaryKeys equals Map("ID" -> StringType))
+    assertTrue(config.kafkaBootstrapServers.equals("0.0.0.0"))
+    assertTrue(config.numPartitions.equals(30))
+    assertTrue(config.numReplicas.equals(3.toShort))
+    assertTrue(config.topicName.equals("spark-1"))
+    assertTrue(config.topicConfig.equals(Map("KA" -> "VA", "KB" -> "VB")))
   }
 
   @Test def requireNonidenticalTest(): Unit = {
