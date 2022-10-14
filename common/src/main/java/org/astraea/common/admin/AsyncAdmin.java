@@ -105,25 +105,30 @@ public interface AsyncAdmin extends AutoCloseable {
     return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
   }
 
-  default CompletionStage<Set<String>> idleTopic(List<IdleChecker> checkers) {
+  default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
     if (checkers.isEmpty()) {
       throw new RuntimeException("Can not check for idle topics because of no checkers!");
     }
+    var topicNames = topicNames(false);
     var checkerResults =
         checkers.stream()
-            .map(checker -> checker.idleTopics(this).toCompletableFuture())
+            .map(
+                checker ->
+                    topicNames
+                        .thenCompose(names -> checker.topicsInUse(this, names))
+                        .toCompletableFuture())
             .collect(Collectors.toUnmodifiableList());
 
-    // Sets intersection
+    // remove all topics obtained from checker
     return Utils.sequence(checkerResults)
-        .thenApply(
-            results ->
+        .thenCombine(
+            topicNames,
+            (results, names) ->
                 results.stream()
                     .reduce(
-                        null,
+                        new HashSet<>(names),
                         (s1, s2) -> {
-                          if (s1 == null) return new HashSet<>(s2);
-                          else s1.retainAll(s2);
+                          s1.removeAll(s2);
                           return s1;
                         }));
   }

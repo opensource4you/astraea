@@ -26,7 +26,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class IdleCheckerTest extends RequireBrokerCluster {
+public class TopicCheckerTest extends RequireBrokerCluster {
   @Test
   void testLatestTimestamp() throws InterruptedException, ExecutionException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -36,7 +36,7 @@ public class IdleCheckerTest extends RequireBrokerCluster {
     }
 
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      var checkers = List.of(IdleChecker.latestTimestamp(Duration.ofSeconds(3)));
+      var checkers = List.of(TopicChecker.latestTimestamp(Duration.ofSeconds(3)));
       Assertions.assertEquals(Set.of(), admin.idleTopic(checkers).toCompletableFuture().get());
       Thread.sleep(3000);
       Assertions.assertEquals(
@@ -54,13 +54,12 @@ public class IdleCheckerTest extends RequireBrokerCluster {
       Thread.sleep(5000);
 
       Assertions.assertEquals(
-          Set.of(),
-          admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)).toCompletableFuture().get());
+          Set.of(), admin.idleTopic(List.of(TopicChecker.ASSIGNMENT)).toCompletableFuture().get());
       consumerThread.join();
       consumer.close();
       Assertions.assertEquals(
           Set.of("produce"),
-          admin.idleTopic(List.of(IdleChecker.NO_ASSIGNMENT)).toCompletableFuture().get());
+          admin.idleTopic(List.of(TopicChecker.ASSIGNMENT)).toCompletableFuture().get());
     }
   }
 }
