@@ -14,9 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.gui.pane;
 
-public interface RadioButtonAble {
+import java.util.Map;
+import javafx.application.Platform;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import org.astraea.gui.box.ComboBox;
 
-  String display();
+public class BorderPane extends javafx.scene.layout.BorderPane {
+
+  public static BorderPane selectableTop(Map<String, Node> topAndCenter) {
+    var box = ComboBox.strings(topAndCenter.keySet());
+    var pane = new BorderPane();
+    BorderPane.setAlignment(box, Pos.CENTER);
+    pane.setTop(box);
+    box.valueProperty()
+        .addListener((observable, oldValue, newValue) -> pane.center(topAndCenter.get(newValue)));
+    return pane;
+  }
+
+  private BorderPane() {}
+
+  public void center(Node node) {
+    if (Platform.isFxApplicationThread()) setCenter(node);
+    else Platform.runLater(() -> setCenter(node));
+  }
 }

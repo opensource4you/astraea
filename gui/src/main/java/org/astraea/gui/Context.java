@@ -17,54 +17,41 @@
 package org.astraea.gui;
 
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
   private final AtomicReference<AsyncAdmin> asyncAdminReference = new AtomicReference<>();
-  private final AtomicInteger jmxPort = new AtomicInteger(-1);
+  private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
 
-  public Optional<AsyncAdmin> replace(AsyncAdmin admin) {
-    return Optional.ofNullable(asyncAdminReference.getAndSet(admin));
+  public void replace(AsyncAdmin admin) {
+    var previous = asyncAdminReference.getAndSet(admin);
+    if (previous != null) previous.close();
   }
 
-  public void replace(int jmxPort) {
-    this.jmxPort.set(jmxPort);
+  public void replace(Map<NodeInfo, MBeanClient> clients) {
+    for (var entry : clients.entrySet()) {
+      var previous = this.clients.put(entry.getKey(), entry.getValue());
+      if (previous != null) previous.close();
+    }
   }
 
-  public <T> T submit(Function<AsyncAdmin, T> executor) {
+  public AsyncAdmin admin() {
     var admin = asyncAdminReference.get();
     if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
-    return executor.apply(admin);
+    return admin;
   }
 
-  public void execute(Consumer<AsyncAdmin> executor) {
-    var admin = asyncAdminReference.get();
-    if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
-    executor.accept(admin);
+  public Map<NodeInfo, MBeanClient> clients() {
+    var copy = Map.copyOf(clients);
+    if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmxPort");
+    return copy;
   }
 
-  public <T> CompletionStage<T> metrics(Function<Map<Broker, MBeanClient>, T> executor) {
-    var jmxPort = this.jmxPort.get();
-    if (jmxPort < 0) throw new IllegalArgumentException("Please define jmxPort");
-    return submit(
-            admin ->
-                admin
-                    .brokers()
-                    .thenApply(
-                        brokers ->
-                            brokers.stream()
-                                .collect(
-                                    Collectors.toMap(
-                                        b -> b, b -> MBeanClient.jndi(b.host(), jmxPort)))))
-        .thenApply(executor);
+  public boolean hasMetrics() {
+    return !clients.isEmpty();
   }
 }

@@ -21,11 +21,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class ProducerTab {
 
@@ -56,27 +56,24 @@ public class ProducerTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenApply(
-                                    names ->
-                                        names.stream()
-                                            .filter(input::matchSearch)
-                                            .collect(Collectors.toSet()))
-                                .thenCompose(admin::topicPartitions)
-                                .thenCompose(admin::producerStates)
-                                .thenApply(
-                                    ps ->
-                                        ps.stream()
-                                            .sorted(
-                                                Comparator.comparing(ProducerState::topic)
-                                                    .thenComparing(ProducerState::partition)))
-                                .thenApply(ProducerTab::result)))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenApply(
+                            names ->
+                                names.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(context.admin()::topicPartitions)
+                        .thenCompose(context.admin()::producerStates)
+                        .thenApply(
+                            ps ->
+                                ps.stream()
+                                    .sorted(
+                                        Comparator.comparing(ProducerState::topic)
+                                            .thenComparing(ProducerState::partition)))
+                        .thenApply(ProducerTab::result))
             .build();
-    var tab = new Tab("producer");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("producer", pane);
   }
 }

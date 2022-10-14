@@ -20,12 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.scene.control.Tab;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.AddingReplica;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class MovingReplicaTab {
 
@@ -61,24 +61,20 @@ public class MovingReplicaTab {
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
-                    context.submit(
-                        admin ->
-                            admin
-                                .topicNames(true)
-                                .thenCompose(admin::addingReplicas)
-                                .thenApply(
-                                    rs ->
-                                        rs.stream()
-                                            .filter(
-                                                s ->
-                                                    input.matchSearch(s.topic())
-                                                        || input.matchSearch(
-                                                            String.valueOf(s.broker()))))
-                                .thenApply(MovingReplicaTab::result)))
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenCompose(context.admin()::addingReplicas)
+                        .thenApply(
+                            rs ->
+                                rs.stream()
+                                    .filter(
+                                        s ->
+                                            input.matchSearch(s.topic())
+                                                || input.matchSearch(String.valueOf(s.broker()))))
+                        .thenApply(MovingReplicaTab::result))
             .build();
 
-    var tab = new Tab("moving replica");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("moving replica", pane);
   }
 }

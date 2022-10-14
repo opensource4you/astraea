@@ -17,11 +17,12 @@
 package org.astraea.gui.tab;
 
 import java.util.Optional;
-import javafx.scene.control.Tab;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class SettingTab {
 
@@ -36,30 +37,26 @@ public class SettingTab {
             .buttonName("CHECK")
             .buttonListener(
                 (input, logger) -> {
-                  var bootstrapServers = input.texts().get(BOOTSTRAP_SERVERS);
+                  var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
                   var jmxPort =
-                      Optional.ofNullable(input.texts().get(JMX_PORT)).map(Integer::parseInt);
+                      Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT))
+                          .map(Integer::parseInt);
                   var newAdmin = AsyncAdmin.of(bootstrapServers);
                   return newAdmin
                       .nodeInfos()
                       .thenAccept(
                           nodeInfos -> {
-                            context
-                                .replace(newAdmin)
-                                .ifPresent(
-                                    admin ->
-                                        org.astraea.common.Utils.swallowException(admin::close));
+                            context.replace(newAdmin);
                             if (jmxPort.isEmpty()) {
                               logger.log("succeed to connect to " + bootstrapServers);
                               return;
                             }
-                            nodeInfos.forEach(
-                                n -> {
-                                  try (var client = MBeanClient.jndi(n.host(), jmxPort.get())) {
-                                    client.listDomains();
-                                  }
-                                });
-                            context.replace(jmxPort.get());
+                            context.replace(
+                                nodeInfos.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            n -> n,
+                                            n -> MBeanClient.jndi(n.host(), jmxPort.get()))));
                             logger.log(
                                 "succeed to connect to "
                                     + bootstrapServers
@@ -69,8 +66,6 @@ public class SettingTab {
                           });
                 })
             .build();
-    var tab = new Tab("setting");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("setting", pane);
   }
 }

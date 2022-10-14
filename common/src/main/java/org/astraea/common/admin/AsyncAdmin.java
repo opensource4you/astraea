@@ -16,13 +16,19 @@
  */
 package org.astraea.common.admin;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 
 public interface AsyncAdmin extends AutoCloseable {
@@ -58,12 +64,12 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Set<TopicPartition>> topicPartitions(Set<String> topics);
 
   /**
-   * list all partitions belongs to input brokers
+   * list all partition replicas belongs to input brokers
    *
-   * @param brokerId to search
+   * @param brokers to search
    * @return all partition belongs to brokers
    */
-  CompletionStage<Set<TopicPartition>> topicPartitions(int brokerId);
+  CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
@@ -132,14 +138,67 @@ public interface AsyncAdmin extends AutoCloseable {
                           return s1;
                         }));
   }
+  /**
+   * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
+   * QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targetKey to search
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(String targetKey);
+
+  CompletionStage<List<Quota>> quotas();
 
   // ---------------------------------[write]---------------------------------//
+
+  /**
+   * set the connection rate for given ip address.
+   *
+   * @param ipAndRate ip address and its connection rate
+   */
+  CompletionStage<Void> setConnectionQuotas(Map<String, Integer> ipAndRate);
+
+  /**
+   * remove the connection quotas for given ip addresses
+   *
+   * @param ips to delete connection quotas
+   */
+  CompletionStage<Void> unsetConnectionQuotas(Set<String> ips);
+
+  /**
+   * set the producer rate for given client id
+   *
+   * @param clientAndRate client id and its producer rate
+   */
+  CompletionStage<Void> setProducerQuotas(Map<String, DataRate> clientAndRate);
+
+  /**
+   * remove the producer rate quotas for given client ids
+   *
+   * @param clientIds to delete producer rate quotas
+   */
+  CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds);
+
+  /**
+   * set the consumer rate for given client id
+   *
+   * @param clientAndRate client id and its consumer rate
+   */
+  CompletionStage<Void> setConsumerQuotas(Map<String, DataRate> clientAndRate);
+
+  /**
+   * remove the consumer rate quotas for given client ids
+   *
+   * @param clientIds to delete consumer rate quotas
+   */
+  CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds);
 
   /** @return a topic creator to set all topic configs and then run the procedure. */
   TopicCreator creator();
 
-  /** @return a partition migrator used to move partitions to another broker or folder. */
-  ReplicaMigrator migrator();
+  CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments);
+
+  CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
@@ -158,10 +217,22 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Void> addPartitions(String topic, int total);
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
-  CompletionStage<Void> updateConfig(String topic, Map<String, String> override);
+  CompletionStage<Void> setConfigs(String topic, Map<String, String> override);
+
+  /**
+   * unset the value associated to given keys. The unset config will become either null of default
+   * value. Normally, the default value is defined by server.properties or hardcode in source code.
+   */
+  CompletionStage<Void> unsetConfigs(String topic, Set<String> keys);
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
-  CompletionStage<Void> updateConfig(int brokerId, Map<String, String> override);
+  CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override);
+
+  /**
+   * unset the value associated to given keys. The unset config will become either null of default
+   * value. Normally, the default value is defined by server.properties or hardcode in source code.
+   */
+  CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys);
 
   /** delete topics by topic names */
   CompletionStage<Void> deleteTopics(Set<String> topics);
@@ -174,6 +245,69 @@ public interface AsyncAdmin extends AutoCloseable {
    *     replicas)
    */
   CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
+
+  // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the async operations to be done on server-side. You have to define the predicate to
+   * terminate loop. Or the loop get breaks when timeout is reached.
+   *
+   * @param topics to trace
+   * @param predicate to break loop
+   * @param timeout to break loop
+   * @param debounce to double-check the status. Some brokers may return out-of-date cluster state,
+   *     so you can set a positive value to keep the loop until to debounce is completed
+   * @return a background running loop
+   */
+  default CompletionStage<Boolean> waitCluster(
+      Set<String> topics,
+      Predicate<ClusterInfo<Replica>> predicate,
+      Duration timeout,
+      int debounce) {
+    return loop(
+        () ->
+            clusterInfo(topics)
+                .thenApply(predicate::test)
+                .exceptionally(
+                    e -> {
+                      System.out.println("e: " + e.getClass().getName());
+                      if (e instanceof CompletionException
+                          && e.getCause()
+                              instanceof org.apache.kafka.common.errors.RetriableException)
+                        return false;
+                      throw (RuntimeException) e;
+                    }),
+        timeout.toMillis(),
+        debounce,
+        debounce);
+  }
+
+  static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier,
+      long remainingMs,
+      final int debounce,
+      int remainingDebounce) {
+    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
+    var start = System.currentTimeMillis();
+    return supplier
+        .get()
+        .thenCompose(
+            match -> {
+              // everything is good!!!
+              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
+
+              // take a break before retry/debounce
+              Utils.sleep(Duration.ofMillis(300));
+
+              var remaining = remainingMs - (System.currentTimeMillis() - start);
+
+              // keep debounce
+              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
+
+              // reset debounce for retry
+              return loop(supplier, remaining, debounce, debounce);
+            });
+  }
 
   @Override
   void close();

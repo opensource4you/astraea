@@ -17,54 +17,61 @@
 package org.astraea.gui.tab;
 
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
+import java.util.stream.Collectors;
+import javafx.scene.layout.Pane;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.BorderPane;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class UpdateTopicTab {
 
-  private static final String TOPIC_NAME = "topic";
   private static final String NUMBER_OF_PARTITIONS = "number of partitions";
 
+  private static Pane pane(Context context, Topic topic) {
+    return PaneBuilder.of()
+        .buttonName("UPDATE")
+        .input(NUMBER_OF_PARTITIONS, false, true, String.valueOf(topic.topicPartitions().size()))
+        .input(
+            TopicConfigs.DYNAMICAL_CONFIGS.stream()
+                .collect(Collectors.toMap(k -> k, k -> topic.config().value(k).orElse(""))))
+        .buttonListener(
+            (input, logger) -> {
+              var allConfigs = new HashMap<>(input.nonEmptyTexts());
+              var partitions = Integer.parseInt(allConfigs.remove(NUMBER_OF_PARTITIONS));
+              return context
+                  .admin()
+                  .setConfigs(topic.name(), allConfigs)
+                  .thenCompose(
+                      ignored -> context.admin().unsetConfigs(topic.name(), input.emptyValueKeys()))
+                  .thenCompose(
+                      ignored ->
+                          partitions == topic.topicPartitions().size()
+                              ? CompletableFuture.completedFuture(null)
+                              : context.admin().addPartitions(topic.name(), partitions))
+                  .thenAccept(ignored -> logger.log("succeed to update " + topic.name()));
+            })
+        .build();
+  }
+
   public static Tab of(Context context) {
-
-    var pane =
-        PaneBuilder.of()
-            .buttonName("UPDATE")
-            .input(TOPIC_NAME, true, false)
-            .input(NUMBER_OF_PARTITIONS, false, true)
-            .input(TopicConfigs.DYNAMICAL_CONFIGS)
-            .buttonListener(
-                (input, logger) -> {
-                  var allConfigs = new HashMap<>(input.texts());
-                  var name = allConfigs.remove(TOPIC_NAME);
-                  var partitions = allConfigs.remove(NUMBER_OF_PARTITIONS);
-                  return context.submit(
-                      admin ->
-                          admin
-                              .topicNames(true)
-                              .thenCompose(
-                                  names -> {
-                                    if (!names.contains(name))
-                                      return CompletableFuture.failedFuture(
-                                          new IllegalArgumentException(name + " is nonexistent"));
-
-                                    return Optional.ofNullable(partitions)
-                                        .map(Integer::parseInt)
-                                        .map(ps -> admin.addPartitions(name, ps))
-                                        .orElse(CompletableFuture.completedFuture(null))
-                                        .thenCompose(
-                                            ignored -> admin.updateConfig(name, allConfigs))
-                                        .thenAccept(
-                                            ignored -> logger.log("succeed to update " + name));
-                                  }));
-                })
-            .build();
-    var tab = new Tab("update topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.dynamic(
+        "update topic",
+        () ->
+            context
+                .admin()
+                .topicNames(false)
+                .thenCompose(context.admin()::topics)
+                .thenApply(
+                    topics ->
+                        BorderPane.selectableTop(
+                            topics.stream()
+                                .collect(
+                                    Utils.toSortedMap(
+                                        Topic::name, topic -> pane(context, topic))))));
   }
 }

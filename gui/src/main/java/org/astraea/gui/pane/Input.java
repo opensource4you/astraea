@@ -18,11 +18,28 @@ package org.astraea.gui.pane;
 
 import java.util.Map;
 import java.util.Optional;
-import org.astraea.gui.button.RadioButtonAble;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public interface Input {
-  Optional<RadioButtonAble> selectedRadio();
+  Optional<Object> selectedRadio();
 
+  /** @return the keys having empty/blank value. */
+  default Set<String> emptyValueKeys() {
+    return texts().entrySet().stream()
+        .filter(entry -> entry.getValue().isBlank())
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  /** @return the input key and value. The value is not empty. */
+  default Map<String, String> nonEmptyTexts() {
+    return texts().entrySet().stream()
+        .filter(entry -> !entry.getValue().isBlank())
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /** @return the input key and value. The value could be empty. */
   Map<String, String> texts();
 
   boolean matchSearch(String word);

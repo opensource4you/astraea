@@ -16,47 +16,63 @@
  */
 package org.astraea.gui.tab;
 
-import java.util.HashMap;
-import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+import javafx.geometry.Side;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
+import org.astraea.gui.pane.TabPane;
 
 public class UpdateBrokerTab {
 
-  private static final String BROKER_ID = "broker id";
+  private static List<Tab> brokerTabs(Context context, List<Broker> brokers) {
+    return brokers.stream()
+        .sorted(Comparator.comparing(NodeInfo::id))
+        .map(
+            broker ->
+                Tab.of(
+                    String.valueOf(broker.id()),
+                    PaneBuilder.of()
+                        .buttonName("UPDATE")
+                        .input(
+                            BrokerConfigs.DYNAMICAL_CONFIGS.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        k -> k,
+                                        k ->
+                                            brokers.stream()
+                                                .filter(b -> b.id() == broker.id())
+                                                .flatMap(b -> b.config().value(k).stream())
+                                                .findFirst()
+                                                .orElse(""))))
+                        .buttonListener(
+                            (input, logger) ->
+                                context
+                                    .admin()
+                                    .setConfigs(broker.id(), input.nonEmptyTexts())
+                                    .thenCompose(
+                                        ignored ->
+                                            context
+                                                .admin()
+                                                .unsetConfigs(broker.id(), input.emptyValueKeys()))
+                                    .thenAccept(
+                                        ignored -> logger.log("succeed to update " + broker.id())))
+                        .build()))
+        .collect(Collectors.toList());
+  }
 
   public static Tab of(Context context) {
-
-    var pane =
-        PaneBuilder.of()
-            .buttonName("UPDATE")
-            .input(BROKER_ID, true, true)
-            .input(BrokerConfigs.DYNAMICAL_CONFIGS)
-            .buttonListener(
-                (input, logger) -> {
-                  var allConfigs = new HashMap<>(input.texts());
-                  var id = Integer.parseInt(allConfigs.remove(BROKER_ID));
-                  return context.submit(
-                      admin ->
-                          admin
-                              .brokers()
-                              .thenCompose(
-                                  brokers -> {
-                                    if (brokers.stream().noneMatch(b -> b.id() == id))
-                                      return CompletableFuture.failedFuture(
-                                          new IllegalArgumentException(
-                                              "broker:" + id + " is nonexistent"));
-                                    return admin
-                                        .updateConfig(id, allConfigs)
-                                        .thenAccept(
-                                            ignored -> logger.log("succeed to update " + id));
-                                  }));
-                })
-            .build();
-    var tab = new Tab("update broker");
-    tab.setContent(pane);
-    return tab;
+    return Tab.dynamic(
+        "update broker",
+        () ->
+            context
+                .admin()
+                .brokers()
+                .thenApply(brokers -> TabPane.of(Side.TOP, brokerTabs(context, brokers))));
   }
 }

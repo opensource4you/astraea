@@ -644,11 +644,11 @@ public class AdminTest extends RequireBrokerCluster {
           (quotas) -> {
             Assertions.assertEquals(1, quotas.size());
             Assertions.assertEquals(
-                Set.of(Quota.Target.IP),
-                quotas.stream().map(Quota::target).collect(Collectors.toSet()));
+                Set.of(QuotaConfigs.IP),
+                quotas.stream().map(Quota::targetKey).collect(Collectors.toSet()));
             Assertions.assertEquals(
-                Set.of(Quota.Limit.IP_CONNECTION_RATE),
-                quotas.stream().map(Quota::limit).collect(Collectors.toSet()));
+                Set.of(QuotaConfigs.IP_CONNECTION_RATE_CONFIG),
+                quotas.stream().map(Quota::limitKey).collect(Collectors.toSet()));
             Assertions.assertEquals("192.168.11.11", quotas.iterator().next().targetValue());
             Assertions.assertEquals(10, quotas.iterator().next().limitValue());
           };
@@ -690,36 +690,37 @@ public class AdminTest extends RequireBrokerCluster {
           (quotas) -> {
             Assertions.assertEquals(2, quotas.size());
             Assertions.assertEquals(
-                Set.of(Quota.Target.CLIENT_ID),
-                quotas.stream().map(Quota::target).collect(Collectors.toSet()));
+                Set.of(QuotaConfigs.CLIENT_ID),
+                quotas.stream().map(Quota::targetKey).collect(Collectors.toSet()));
             Assertions.assertEquals(
-                Set.of(Quota.Limit.PRODUCER_BYTE_RATE, Quota.Limit.CONSUMER_BYTE_RATE),
-                quotas.stream().map(Quota::limit).collect(Collectors.toSet()));
+                Set.of(
+                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG),
+                quotas.stream().map(Quota::limitKey).collect(Collectors.toSet()));
             Assertions.assertEquals(
                 10,
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.PRODUCER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .limitValue());
             Assertions.assertEquals(
                 "my-id",
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.PRODUCER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .targetValue());
             Assertions.assertEquals(
                 100,
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.CONSUMER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .limitValue());
             Assertions.assertEquals(
                 "my-id",
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.CONSUMER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .targetValue());

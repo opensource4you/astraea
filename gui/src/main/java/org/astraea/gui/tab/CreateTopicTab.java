@@ -19,10 +19,10 @@ package org.astraea.gui.tab;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class CreateTopicTab {
 
@@ -41,41 +41,35 @@ public class CreateTopicTab {
             .input(TopicConfigs.ALL_CONFIGS)
             .buttonListener(
                 (input, logger) -> {
-                  var allConfigs = new HashMap<>(input.texts());
+                  var allConfigs = new HashMap<>(input.nonEmptyTexts());
                   var name = allConfigs.remove(TOPIC_NAME);
-                  return context.submit(
-                      admin ->
-                          admin
-                              .topicNames(true)
-                              .thenCompose(
-                                  names -> {
-                                    if (names.contains(name))
-                                      return CompletableFuture.failedFuture(
-                                          new IllegalArgumentException(
-                                              name + " is already existent"));
+                  return context
+                      .admin()
+                      .topicNames(true)
+                      .thenCompose(
+                          names -> {
+                            if (names.contains(name))
+                              return CompletableFuture.failedFuture(
+                                  new IllegalArgumentException(name + " is already existent"));
 
-                                    return admin
-                                        .creator()
-                                        .topic(name)
-                                        .numberOfPartitions(
-                                            Optional.ofNullable(
-                                                    allConfigs.remove(NUMBER_OF_PARTITIONS))
-                                                .map(Integer::parseInt)
-                                                .orElse(1))
-                                        .numberOfReplicas(
-                                            Optional.ofNullable(
-                                                    allConfigs.remove(NUMBER_OF_REPLICAS))
-                                                .map(Short::parseShort)
-                                                .orElse((short) 1))
-                                        .configs(allConfigs)
-                                        .run()
-                                        .thenAccept(
-                                            i -> logger.log("succeed to create topic:" + name));
-                                  }));
+                            return context
+                                .admin()
+                                .creator()
+                                .topic(name)
+                                .numberOfPartitions(
+                                    Optional.ofNullable(allConfigs.remove(NUMBER_OF_PARTITIONS))
+                                        .map(Integer::parseInt)
+                                        .orElse(1))
+                                .numberOfReplicas(
+                                    Optional.ofNullable(allConfigs.remove(NUMBER_OF_REPLICAS))
+                                        .map(Short::parseShort)
+                                        .orElse((short) 1))
+                                .configs(allConfigs)
+                                .run()
+                                .thenAccept(i -> logger.log("succeed to create topic:" + name));
+                          });
                 })
             .build();
-    var tab = new Tab("create topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("create topic", pane);
   }
 }

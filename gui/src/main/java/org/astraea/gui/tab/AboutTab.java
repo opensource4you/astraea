@@ -19,16 +19,15 @@ package org.astraea.gui.tab;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.VersionUtils;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class AboutTab {
 
-  private enum Info implements RadioButtonAble {
+  private enum Info {
     Version(
         "版本",
         List.of(
@@ -45,32 +44,68 @@ public class AboutTab {
         "維護者",
         List.of(
             LinkedHashMap.of(
-                "name", "蔡嘉平",
-                "email", "chia7712@gmail.com"),
+                "name",
+                "蔡嘉平",
+                "email",
+                "chia7712@gmail.com",
+                "個人頁面",
+                "https://github.com/chia7712"),
             LinkedHashMap.of(
-                "name", "王懿宸",
-                "email", "warren215215@gmail.com"),
+                "name",
+                "王懿宸",
+                "email",
+                "warren215215@gmail.com",
+                "個人頁面",
+                "https://github.com/wycccccc"),
             LinkedHashMap.of(
-                "name", "方竫泓",
-                "email", "fjh7777@gmail.com"),
+                "name",
+                "方竫泓",
+                "email",
+                "fjh7777@gmail.com",
+                "個人頁面",
+                "https://github.com/chinghongfang"),
             LinkedHashMap.of(
-                "name", "李政憲",
-                "email", "garyparrottt@gmail.com"),
+                "name",
+                "李政憲",
+                "email",
+                "garyparrottt@gmail.com",
+                "個人頁面",
+                "https://github.com/garyparrot"),
             LinkedHashMap.of(
-                "name", "孫祥鈞",
-                "email", "sean0651101@gmail.com"),
+                "name",
+                "孫祥鈞",
+                "email",
+                "sean0651101@gmail.com",
+                "個人頁面",
+                "https://github.com/qoo332001"),
             LinkedHashMap.of(
-                "name", "鄧智懋",
-                "email", "zhimao.teng@gmail.com"),
+                "name",
+                "鄧智懋",
+                "email",
+                "zhimao.teng@gmail.com",
+                "個人頁面",
+                "https://github.com/harryteng9527"),
             LinkedHashMap.of(
-                "name", "陳嘉晟",
-                "email", "haser1156@gmail.com"),
+                "name",
+                "陳嘉晟",
+                "email",
+                "haser1156@gmail.com",
+                "個人頁面",
+                "https://github.com/Haser0305"),
             LinkedHashMap.of(
-                "name", "李兆恆",
-                "email", "chaohengstudent@gmail.com"),
+                "name",
+                "李兆恆",
+                "email",
+                "chaohengstudent@gmail.com",
+                "個人頁面",
+                "https://github.com/chaohengstudent"),
             LinkedHashMap.of(
-                "name", "李宜桓",
-                "email", "yi.huan.max@gmail.com")));
+                "name",
+                "李宜桓",
+                "email",
+                "yi.huan.max@gmail.com",
+                "個人頁面",
+                "https://github.com/MaxwellYHL")));
 
     private final String display;
 
@@ -82,7 +117,7 @@ public class AboutTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
@@ -96,8 +131,6 @@ public class AboutTab {
                     CompletableFuture.completedFuture(
                         input.selectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
             .build();
-    var tab = new Tab("about");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("about", pane);
   }
 }

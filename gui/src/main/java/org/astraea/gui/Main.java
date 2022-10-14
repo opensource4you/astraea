@@ -16,11 +16,11 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import javafx.application.Application;
-import javafx.geometry.Side;
 import javafx.scene.Scene;
-import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
+import org.astraea.gui.pane.TabPane;
 import org.astraea.gui.tab.AboutTab;
 import org.astraea.gui.tab.BalancerTab;
 import org.astraea.gui.tab.BrokerTab;
@@ -28,14 +28,16 @@ import org.astraea.gui.tab.ConfigTab;
 import org.astraea.gui.tab.ConsumerTab;
 import org.astraea.gui.tab.CreateTopicTab;
 import org.astraea.gui.tab.MetricsTab;
-import org.astraea.gui.tab.MoveTopicTab;
 import org.astraea.gui.tab.MovingReplicaTab;
 import org.astraea.gui.tab.PartitionTab;
 import org.astraea.gui.tab.ProducerTab;
+import org.astraea.gui.tab.QuotaTab;
 import org.astraea.gui.tab.SettingTab;
 import org.astraea.gui.tab.TopicTab;
 import org.astraea.gui.tab.TransactionTab;
 import org.astraea.gui.tab.UpdateBrokerTab;
+import org.astraea.gui.tab.UpdatePartitionTab;
+import org.astraea.gui.tab.UpdateQuotaTab;
 import org.astraea.gui.tab.UpdateTopicTab;
 
 /**
@@ -55,31 +57,33 @@ public class Main {
     @Override
     public void start(Stage stage) {
       var context = new Context();
-      var rootPane =
-          new TabPane(
-              SettingTab.of(context),
-              BrokerTab.of(context),
-              MetricsTab.of(context),
-              TopicTab.of(context),
-              PartitionTab.of(context),
-              ConfigTab.of(context),
-              ConsumerTab.of(context),
-              ProducerTab.of(context),
-              TransactionTab.of(context),
-              MovingReplicaTab.of(context),
-              CreateTopicTab.of(context),
-              UpdateTopicTab.of(context),
-              MoveTopicTab.of(context),
-              UpdateBrokerTab.of(context),
-              BalancerTab.of(context),
-              AboutTab.of(context));
-      rootPane.setSide(Side.BOTTOM);
-      rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-      var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");
       stage.setHeight(1000);
-      stage.setWidth(1200);
-      stage.setScene(scene);
+      stage.setWidth(1300);
+      stage.setScene(
+          new Scene(
+              TabPane.of(
+                  List.of(
+                      SettingTab.of(context),
+                      BrokerTab.of(context),
+                      MetricsTab.of(context),
+                      TopicTab.of(context),
+                      PartitionTab.of(context),
+                      ConfigTab.of(context),
+                      ConsumerTab.of(context),
+                      ProducerTab.of(context),
+                      TransactionTab.of(context),
+                      MovingReplicaTab.of(context),
+                      QuotaTab.of(context),
+                      CreateTopicTab.of(context),
+                      UpdateBrokerTab.of(context),
+                      UpdateTopicTab.of(context),
+                      UpdatePartitionTab.of(context),
+                      UpdateQuotaTab.of(context),
+                      BalancerTab.of(context),
+                      AboutTab.of(context))),
+              300,
+              300));
       stage.show();
     }
 

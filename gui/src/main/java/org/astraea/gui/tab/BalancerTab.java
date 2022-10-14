@@ -24,9 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javafx.scene.control.Tab;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
@@ -38,13 +36,13 @@ import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.Tab;
 
 public class BalancerTab {
 
-  private enum Cost implements RadioButtonAble {
+  private enum Cost {
     REPLICA("replica", new ReplicaNumberCost()),
     LEADER("leader", new ReplicaLeaderCost()),
     SIZE("size", new ReplicaSizeCost());
@@ -58,7 +56,7 @@ public class BalancerTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
@@ -87,13 +85,15 @@ public class BalancerTab {
   }
 
   private static CompletionStage<List<Map<String, Object>>> generator(
-      AsyncAdmin admin, Input input, Logger logger) {
-    return admin
+      Context context, Input input, Logger logger) {
+    return context
+        .admin()
         .topicNames(true)
-        .thenCompose(admin::clusterInfo)
+        .thenCompose(context.admin()::clusterInfo)
         .thenCompose(
             clusterInfo ->
-                admin
+                context
+                    .admin()
                     .brokerFolders()
                     .thenApply(
                         brokerFolders -> {
@@ -145,34 +145,17 @@ public class BalancerTab {
               }
               logger.log("applying better assignments ... ");
               // TODO: how to migrate folder safely ???
-              return org.astraea.common.Utils.sequence(
+              return context
+                  .admin()
+                  .moveToBrokers(
                       tpAndReplicasMap.entrySet().stream()
-                          .map(
-                              tpAndReplicas ->
-                                  admin
-                                      .migrator()
-                                      .partition(
-                                          tpAndReplicas.getKey().topic(),
-                                          tpAndReplicas.getKey().partition())
-                                      .moveTo(
-                                          tpAndReplicas.getValue().stream()
-                                              .map(r -> r.nodeInfo().id())
-                                              .collect(Collectors.toList()))
-                                      .whenComplete(
-                                          (r, e) -> {
-                                            if (e == null)
-                                              logger.log(
-                                                  "succeed to move "
-                                                      + tpAndReplicas.getKey()
-                                                      + " to "
-                                                      + tpAndReplicas.getValue().stream()
-                                                          .map(
-                                                              n ->
-                                                                  String.valueOf(n.nodeInfo().id()))
-                                                          .collect(Collectors.joining(",")));
-                                          })
-                                      .toCompletableFuture())
-                          .collect(Collectors.toList()))
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(r -> r.nodeInfo().id())
+                                          .collect(Collectors.toList()))))
                   .thenApply(
                       ignored ->
                           entry
@@ -188,12 +171,9 @@ public class BalancerTab {
             .radioButtons(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
-            .buttonAction(
-                (input, logger) -> context.submit(admin -> generator(admin, input, logger)))
+            .buttonAction((input, logger) -> generator(context, input, logger))
             .build();
 
-    var tab = new Tab("balance topic");
-    tab.setContent(pane);
-    return tab;
+    return Tab.of("balance topic", pane);
   }
 }

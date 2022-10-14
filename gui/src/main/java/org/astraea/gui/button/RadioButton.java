@@ -23,7 +23,7 @@ import javafx.scene.control.ToggleGroup;
 
 public class RadioButton extends javafx.scene.control.RadioButton {
 
-  public static List<RadioButton> single(List<? extends RadioButtonAble> objs) {
+  public static List<RadioButton> single(List<Object> objs) {
     if (objs.isEmpty())
       throw new IllegalArgumentException("can't build radio button with no objects");
     var group = new ToggleGroup();
@@ -40,14 +40,14 @@ public class RadioButton extends javafx.scene.control.RadioButton {
     return buttons;
   }
 
-  private final RadioButtonAble obj;
+  private final Object obj;
 
-  public RadioButton(RadioButtonAble obj) {
-    super(obj.display());
+  private RadioButton(Object obj) {
+    super(obj.toString());
     this.obj = obj;
   }
 
-  public Optional<RadioButtonAble> selectedObject() {
+  public Optional<Object> selectedObject() {
     if (this.isSelected()) return Optional.ofNullable(obj);
     return Optional.empty();
   }
