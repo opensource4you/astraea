@@ -17,12 +17,19 @@
 package org.astraea.gui.pane;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 
 public class TabPane extends javafx.scene.control.TabPane {
 
-  public static TabPane of(List<Tab> tabs) {
-    return of(Side.BOTTOM, tabs);
+  public static TabPane of(Side side, Map<String, Node> nodes) {
+    return of(
+        side,
+        nodes.entrySet().stream()
+            .map(n -> Tab.of(n.getKey(), n.getValue()))
+            .collect(Collectors.toList()));
   }
 
   public static TabPane of(Side side, List<Tab> tabs) {

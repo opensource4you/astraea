@@ -41,7 +41,7 @@ public class Tab extends javafx.scene.control.Tab {
                   .get()
                   .whenComplete(
                       (r, e) -> {
-                        if (e != null) e.printStackTrace();
+                        if (e != null) t.content(TextField.of(e.getCause().getMessage()));
                         else t.content(r);
                       });
           } catch (IllegalArgumentException e) {

@@ -174,6 +174,6 @@ public class BalancerTab {
             .buttonAction((input, logger) -> generator(context, input, logger))
             .build();
 
-    return Tab.of("balance topic", pane);
+    return Tab.of("balancer", pane);
   }
 }

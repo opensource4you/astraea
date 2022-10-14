@@ -17,9 +17,7 @@
 package org.astraea.gui.tab;
 
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.metrics.MBeanClient;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
@@ -51,12 +49,7 @@ public class SettingTab {
                               logger.log("succeed to connect to " + bootstrapServers);
                               return;
                             }
-                            context.replace(
-                                nodeInfos.stream()
-                                    .collect(
-                                        Collectors.toMap(
-                                            n -> n,
-                                            n -> MBeanClient.jndi(n.host(), jmxPort.get()))));
+                            context.replace(nodeInfos, jmxPort.get());
                             logger.log(
                                 "succeed to connect to "
                                     + bootstrapServers
