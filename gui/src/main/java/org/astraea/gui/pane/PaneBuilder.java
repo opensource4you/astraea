@@ -158,7 +158,7 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder tableView(List<Map<String, Object>> data) {
+  public PaneBuilder initTableView(List<Map<String, Object>> data) {
     if (tableView == null) tableView = TableView.copyable();
     tableView.update(data);
     return this;
