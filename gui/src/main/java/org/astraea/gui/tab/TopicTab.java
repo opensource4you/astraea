@@ -349,7 +349,7 @@ public class TopicTab {
                                 .map(Partition::topic)
                                 .distinct()
                                 .collect(
-                                    Collectors.toMap(
+                                    Utils.toSortedMap(
                                         Function.identity(),
                                         topic ->
                                             PaneBuilder.of()
