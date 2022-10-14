@@ -20,10 +20,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.gui.button.RadioButtonAble;
 
 public interface Input {
-  Optional<RadioButtonAble> selectedRadio();
+  Optional<Object> selectedRadio();
 
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {

@@ -31,7 +31,6 @@ import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
@@ -46,7 +45,7 @@ public class MetricsTab {
     }
   }
 
-  private enum MetricType implements RadioButtonAble {
+  private enum MetricType {
     HOST(
         "host",
         client ->
@@ -138,7 +137,7 @@ public class MetricsTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
