@@ -18,10 +18,12 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 - [查詢 idempotent producer 資訊](#producer)
 - [查詢 transaction 狀態](#transaction)
 - [查詢正在移動的 replica 狀態](#moving-replica)
+- [查詢 quotas](#quota)
 - [建立 topic](#create-topic)
 - [更新 broker 的參數](#update-broker)
 - [更新 topic 參數或是增加 partition 數量](#update-topic)
 - [更新 partition 的節點或是截斷 offset](#update-partition)
+- [更新 quotas](#update-quota)
 - [執行負載平衡](#balancer)
 
 #### 使用 Astraea GUI
@@ -93,6 +95,12 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 
 ![moving_replica](gui/moving_replica.png)
 
+## quota
+`quota` 提供我們基於 `client id` 或是 `ip address` 來查詢對應的 `quotas`
+
+![quota_client_id](gui/quota_client_id.png)
+![quota_ip](gui/quota_ip.png)
+
 ## create topic
 `create topic` 提供我們建立 topic 的能力，除了帶有 * 記號的欄位是必填以外，其他欄位都是選填
 
@@ -117,7 +125,17 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 
 如下圖，將 partition [4, 5, 6] offset 截斷至 300
 
-![update_partition](gui/update_partition_truncate.png)
+![update_partition](gui/update_partition_truncate.png)\
+
+## update quota
+`update quota` 提供我們動態針對不同資源設下使用上限，目前支援三種資源：連線數、寫入速度和讀取速度。如下圖分別針對 `producer` 和 `consumer` 設定讀寫上限
+
+![quota_producer](gui/quota_producer.png)
+![quota_consumer](gui/quota_consumer.png)
+
+下圖則是針對指定 `ip` 限制它單位時間能建立的連線數量
+
+![quota_connection](gui/quota_connection.png)
 
 ## balancer
 `balance topic` 提供我們平衡叢集負載的能力，目前支援三種平衡策略，分別是 replica 數量、leader 數量、以及資料量。接下來以平衡 replica 數量為例：

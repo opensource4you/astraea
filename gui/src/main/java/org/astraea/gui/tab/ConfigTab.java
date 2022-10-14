@@ -20,13 +20,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.RadioButtonAble;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
 public class ConfigTab {
 
-  private enum Resource implements RadioButtonAble {
+  private enum Resource {
     BROKER("broker"),
     TOPIC("topic");
 
@@ -37,7 +36,7 @@ public class ConfigTab {
     }
 
     @Override
-    public String display() {
+    public String toString() {
       return display;
     }
   }
