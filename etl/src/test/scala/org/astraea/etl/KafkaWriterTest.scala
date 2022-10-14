@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Assertions.{
 import org.junit.jupiter.api.Test
 
 import java.io.File
-import java.util.concurrent.CompletionException
+import java.util.concurrent.{CompletionException, TimeUnit}
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
@@ -36,11 +36,12 @@ import scala.concurrent.{Await, Future}
 
 class KafkaWriterTest extends RequireBrokerCluster {
 
-  @Test def TopicCreatorTest(): Unit = {
+  @Test def topicCreatorTest(): Unit = {
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
+        TimeUnit.SECONDS.sleep(3)
         assertTrue(
           admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
         )
