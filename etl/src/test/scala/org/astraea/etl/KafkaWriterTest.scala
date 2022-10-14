@@ -36,7 +36,7 @@ import scala.concurrent.{Await, Future}
 
 class KafkaWriterTest extends RequireBrokerCluster {
 
-  @RepeatedTest(100) def TopicCreatorTest(): Unit = {
+  @Test def TopicCreatorTest(): Unit = {
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
