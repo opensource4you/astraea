@@ -71,7 +71,13 @@ public interface TopicChecker {
           .partitions(topics)
           .thenApply(
               partitions ->
+                  // Filtering the topic to get the topic that
+                  // 1. offset of each partition are not 0
+                  // 2. the max timestamp is not smaller than the given time
+                  //    or
+                  //    the topic does not support max timestamp
                   partitions.stream()
+                      .filter(p -> p.latestOffset() > 0)
                       .collect(
                           Collectors.groupingBy(
                               Partition::topic,
@@ -79,7 +85,10 @@ public interface TopicChecker {
                       .values()
                       .stream()
                       .filter(Optional::isPresent)
-                      .filter(p -> now - duration.toMillis() < p.get().maxTimestamp())
+                      .filter(
+                          p ->
+                              now - duration.toMillis() < p.get().maxTimestamp()
+                                  || p.get().maxTimestamp() == -1)
                       .map(p -> p.get().topic())
                       .collect(Collectors.toUnmodifiableSet()));
     };
