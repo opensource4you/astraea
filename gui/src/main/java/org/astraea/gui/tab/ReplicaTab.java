@@ -31,6 +31,25 @@ import org.astraea.gui.pane.TabPane;
 
 public class ReplicaTab {
 
+  private static List<Map<String, Object>> offlineResult(List<Replica> replicas) {
+    return replicas.stream()
+        .filter(ReplicaInfo::isOffline)
+        .map(
+            replica ->
+                LinkedHashMap.<String, Object>of(
+                    "topic",
+                    replica.topic(),
+                    "partition",
+                    replica.partition(),
+                    "broker",
+                    replica.nodeInfo().id(),
+                    "leader",
+                    replica.isLeader(),
+                    "isPreferredLeader",
+                    replica.isPreferredLeader()))
+        .collect(Collectors.toList());
+  }
+
   private static List<Map<String, Object>> syncingResult(List<Replica> replicas) {
     var leaderSizes =
         replicas.stream()
@@ -38,6 +57,8 @@ public class ReplicaTab {
             .collect(Collectors.toMap(ReplicaInfo::topicPartition, Replica::size));
     return replicas.stream()
         .filter(r -> !r.inSync())
+        .filter(r -> r.path() != null)
+        .filter(ReplicaInfo::isOnline)
         .map(
             replica -> {
               var leaderSize = leaderSizes.getOrDefault(replica.topicPartition(), 0L);
@@ -50,6 +71,10 @@ public class ReplicaTab {
                   replica.nodeInfo().id(),
                   "path",
                   replica.path(),
+                  "leader",
+                  replica.isLeader(),
+                  "isPreferredLeader",
+                  replica.isPreferredLeader(),
                   "size",
                   DataSize.Byte.of(replica.size()),
                   "leader size",
@@ -64,10 +89,42 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  public static Tab syncingTab(Context context) {
+  private static List<Map<String, Object>> allResult(List<Replica> replicas) {
+    return replicas.stream()
+        .map(
+            replica ->
+                LinkedHashMap.<String, Object>of(
+                    "topic",
+                    replica.topic(),
+                    "partition",
+                    replica.partition(),
+                    "broker",
+                    replica.nodeInfo().id(),
+                    "path",
+                    replica.path() == null ? "unknown" : replica.path(),
+                    "leader",
+                    replica.isLeader(),
+                    "isPreferredLeader",
+                    replica.isPreferredLeader(),
+                    "offline",
+                    replica.isOffline(),
+                    "future",
+                    replica.isFuture(),
+                    "lag",
+                    replica.lag(),
+                    "size",
+                    DataSize.Byte.of(replica.size())))
+        .collect(Collectors.toList());
+  }
+
+  public static Tab basicTab(Context context) {
+    var all = "all";
+    var syncing = "syncing";
+    var offline = "offline";
     return Tab.of(
-        "syncing",
+        "basic",
         PaneBuilder.of()
+            .radioButtons(List.of(all, syncing, offline))
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
@@ -80,11 +137,17 @@ public class ReplicaTab {
                                     .filter(input::matchSearch)
                                     .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::replicas)
-                        .thenApply(ReplicaTab::syncingResult))
+                        .thenApply(
+                            replicas -> {
+                              var selected = input.selectedRadio().map(s -> (String) s).orElse(all);
+                              if (selected.equals(syncing)) return syncingResult(replicas);
+                              if (selected.equals(offline)) return offlineResult(replicas);
+                              return allResult(replicas);
+                            }))
             .build());
   }
 
   public static Tab of(Context context) {
-    return Tab.of("replica", TabPane.of(Side.TOP, List.of(syncingTab(context))));
+    return Tab.of("replica", TabPane.of(Side.TOP, List.of(basicTab(context))));
   }
 }
