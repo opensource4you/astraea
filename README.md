@@ -27,7 +27,7 @@
 7. [Web Server](./docs/web_server/README.md): 可透過`Restful APIs`操作`Kafka`叢集 
 8. [Dispatcher](docs/dispatcher/README.md): 強大且高效率的 Kafka partitioner 實作
 9. [Balancer](docs/balancer/README.md): `Kafka` 伺服器端負載平衡工具
-10. [GUI](docs/run_gui.md): 簡單好用的叢集資訊圖形化工具
+10. [GUI](docs/gui/README.md): 簡單好用的叢集資訊圖形化工具
 
 # 技術發表
 
