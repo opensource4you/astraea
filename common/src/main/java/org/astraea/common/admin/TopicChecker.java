@@ -41,7 +41,7 @@ public interface TopicChecker {
    * @param topics names of topics this checker will check
    * @return the set of topic names that is not idle
    */
-  CompletionStage<Set<String>> topicsInUse(AsyncAdmin admin, Set<String> topics);
+  CompletionStage<Set<String>> usedTopics(AsyncAdmin admin, Set<String> topics);
 
   /** Find topics which is assigned by any consumer. */
   TopicChecker ASSIGNMENT =

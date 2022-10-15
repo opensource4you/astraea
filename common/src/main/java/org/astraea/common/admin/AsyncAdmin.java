@@ -17,7 +17,7 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -115,28 +115,26 @@ public interface AsyncAdmin extends AutoCloseable {
     if (checkers.isEmpty()) {
       throw new RuntimeException("Can not check for idle topics because of no checkers!");
     }
-    var topicNames = topicNames(false);
-    var checkerResults =
-        checkers.stream()
-            .map(
-                checker ->
-                    topicNames
-                        .thenCompose(names -> checker.topicsInUse(this, names))
-                        .toCompletableFuture())
-            .collect(Collectors.toUnmodifiableList());
 
-    // remove all topics obtained from checker
-    return Utils.sequence(checkerResults)
-        .thenCombine(
-            topicNames,
-            (results, names) ->
-                results.stream()
-                    .reduce(
-                        new HashSet<>(names),
-                        (s1, s2) -> {
-                          s1.removeAll(s2);
-                          return s1;
-                        }));
+    return topicNames(false)
+        .thenCompose(
+            topicNames ->
+                Utils.sequence(
+                        checkers.stream()
+                            .map(
+                                checker ->
+                                    checker.usedTopics(this, topicNames).toCompletableFuture())
+                            .collect(Collectors.toUnmodifiableList()))
+                    .thenApply(
+                        s ->
+                            s.stream()
+                                .flatMap(Collection::stream)
+                                .collect(Collectors.toUnmodifiableSet()))
+                    .thenApply(
+                        usedTopics ->
+                            topicNames.stream()
+                                .filter(name -> !usedTopics.contains(name))
+                                .collect(Collectors.toUnmodifiableSet())));
   }
   /**
    * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
