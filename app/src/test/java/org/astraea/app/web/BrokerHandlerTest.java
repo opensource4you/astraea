@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   @Test
   void testListBrokers() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).create();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
@@ -52,21 +52,27 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentBroker() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           NoSuchElementException.class,
-          () -> handler.get(Channel.ofTarget("99999")).toCompletableFuture().get());
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () -> handler.get(Channel.ofTarget("99999")).toCompletableFuture().get())
+              .getCause());
     }
   }
 
   @Test
   void testQueryInvalidBroker() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           NoSuchElementException.class,
-          () -> handler.get(Channel.ofTarget("abc")).toCompletableFuture().get());
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () -> handler.get(Channel.ofTarget("abc")).toCompletableFuture().get())
+              .getCause());
     }
   }
 
@@ -74,7 +80,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   void testQuerySingleBroker() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var brokerId = brokerIds().iterator().next();
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).create();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
@@ -89,15 +95,20 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testBrokers() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+  void testBrokers() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertEquals(
           Set.of(brokerIds().iterator().next()),
-          handler.brokers(Optional.of(String.valueOf(brokerIds().iterator().next()))));
-      Assertions.assertEquals(brokerIds(), handler.brokers(Optional.empty()));
+          handler
+              .brokers(Optional.of(String.valueOf(brokerIds().iterator().next())))
+              .toCompletableFuture()
+              .get());
+      Assertions.assertEquals(
+          brokerIds(), handler.brokers(Optional.empty()).toCompletableFuture().get());
       Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.brokers(Optional.of("aaa")));
+          ExecutionException.class,
+          () -> handler.brokers(Optional.of("aaa")).toCompletableFuture().get());
     }
   }
 }

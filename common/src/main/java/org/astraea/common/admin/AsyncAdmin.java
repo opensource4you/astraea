@@ -37,7 +37,7 @@ public interface AsyncAdmin extends AutoCloseable {
     return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrap));
   }
 
-  static AsyncAdmin of(Map<String, Object> configs) {
+  static AsyncAdmin of(Map<String, String> configs) {
     return new AsyncAdminImpl(configs);
   }
 

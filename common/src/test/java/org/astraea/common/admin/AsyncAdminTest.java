@@ -636,6 +636,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(3, brokers.size());
       brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.config().raw().size()));
       Assertions.assertEquals(1, brokers.stream().filter(Broker::isController).count());
+      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.topicPartitions().size()));
       brokers.forEach(
           broker -> Assertions.assertNotEquals(0, broker.topicPartitionLeaders().size()));
     }
