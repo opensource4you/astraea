@@ -56,7 +56,7 @@ public interface Broker extends NodeInfo {
                           .collect(
                               Collectors.toMap(
                                   Function.identity(),
-                                  tp -> allPartitionAndSize.getOrDefault(tp, -1L)));
+                                  tp -> allPartitionAndSize.getOrDefault(tp, 0L)));
                   var orphanPartitionSizes =
                       allPartitionAndSize.entrySet().stream()
                           .filter(

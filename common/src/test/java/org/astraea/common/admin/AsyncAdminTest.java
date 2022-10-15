@@ -831,4 +831,28 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .count());
     }
   }
+
+  @Test
+  void testSizeOfNoDataTopic() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      admin
+          .brokers()
+          .toCompletableFuture()
+          .get()
+          .forEach(
+              broker ->
+                  broker
+                      .folders()
+                      .forEach(
+                          d ->
+                              d.partitionSizes().entrySet().stream()
+                                  .filter(e -> e.getKey().topic().equals(topic))
+                                  .map(Map.Entry::getValue)
+                                  .forEach(v -> Assertions.assertEquals(0, v))));
+    }
+  }
 }
