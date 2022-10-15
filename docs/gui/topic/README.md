@@ -3,14 +3,14 @@
 `topic` 頁面提供您調閱及設定 `topic`
 
 #### 調閱
-- [topic 基本資訊 `basic`](#調閱 topic 基本資訊)
-- [topic 配置 `config`](#調閱 topic 配置)
-- [topic 指標 `metrics`](#調閱 topic 指標)
+- [topic 基本資訊](#調閱-topic-基本資訊) `basic`
+- [topic 配置](#調閱-topic-配置) `config`
+- [topic 指標](#調閱-topic-指標) `metrics`
 
 #### 設定
-- [建立 topic `create`](#建立 topic)
-- [修改 topic `alter`](#修改 topic)
-- [刪除 topic `delete`](#刪除 topic)
+- [建立 topic](#建立-topic) `create`
+- [修改 topic](#修改-topic) `alter`
+- [刪除 topic](#刪除-topic) `delete`
 
 ## 調閱 topic 基本資訊
 `basic` 提供您查詢 topic 的資訊，您可以透過搜尋欄位過濾 topic 名稱，如下圖查詢名稱中帶有 test 的 `topic`

@@ -2,8 +2,8 @@
 
 `quota` 頁面提供您調閱及設定 `quota`
 
-- [調閱 quota (`basic`)](#調閱 quota)
-- [設定 quota (`alter`)](#設定 quota)
+- [調閱 quota](#調閱-quota) `basic`
+- [設定 quota](#設定-quota) `alter`
 
 ## 調閱 quota
 
