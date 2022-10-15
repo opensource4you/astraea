@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ public class BeanHandlerTest extends RequireBrokerCluster {
   @Test
   void testBeans() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).create();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BeanHandler(admin, name -> jmxServiceURL().getPort());

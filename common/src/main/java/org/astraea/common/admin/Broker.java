@@ -33,28 +33,24 @@ public interface Broker extends NodeInfo {
       Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
     var config = Config.of(kafkaConfig);
+    var partitionsFromTopicDesc =
+        topics.stream()
+            .flatMap(
+                t ->
+                    t.partitions().stream()
+                        .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == nodeInfo.id()))
+                        .map(p -> TopicPartition.of(t.name(), p.partition())))
+            .collect(Collectors.toUnmodifiableSet());
     var folders =
         dirs.entrySet().stream()
             .map(
                 entry -> {
-                  var partitionsFromTopicDesc =
-                      topics.stream()
-                          .flatMap(
-                              t ->
-                                  t.partitions().stream()
-                                      .filter(
-                                          p ->
-                                              p.replicas().stream()
-                                                  .anyMatch(n -> n.id() == nodeInfo.id()))
-                                      .map(p -> TopicPartition.of(t.name(), p.partition())))
-                          .collect(Collectors.toSet());
                   var path = entry.getKey();
                   var allPartitionAndSize =
                       entry.getValue().replicaInfos.entrySet().stream()
                           .collect(
                               Collectors.toUnmodifiableMap(
                                   e -> TopicPartition.from(e.getKey()), e -> e.getValue().size));
-
                   var partitionSizes =
                       partitionsFromTopicDesc.stream()
                           .collect(
@@ -127,6 +123,11 @@ public interface Broker extends NodeInfo {
       }
 
       @Override
+      public Set<TopicPartition> topicPartitions() {
+        return partitionsFromTopicDesc;
+      }
+
+      @Override
       public Set<TopicPartition> topicPartitionLeaders() {
         return topicPartitionLeaders;
       }
@@ -140,6 +141,8 @@ public interface Broker extends NodeInfo {
 
   /** @return the disk folder used to stored data by this node */
   List<DataFolder> folders();
+
+  Set<TopicPartition> topicPartitions();
 
   /** @return partition leaders hosted by this broker */
   Set<TopicPartition> topicPartitionLeaders();
