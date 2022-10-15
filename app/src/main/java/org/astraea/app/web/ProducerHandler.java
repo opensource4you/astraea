@@ -20,6 +20,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -47,7 +49,7 @@ class ProducerHandler implements Handler {
   }
 
   @Override
-  public Partitions get(Channel channel) {
+  public CompletionStage<Partitions> get(Channel channel) {
     var topics =
         admin.producerStates(partitions(channel.queries())).stream()
             .collect(Collectors.groupingBy(org.astraea.common.admin.ProducerState::topicPartition))
@@ -55,7 +57,7 @@ class ProducerHandler implements Handler {
             .stream()
             .map(e -> new Partition(e.getKey(), e.getValue()))
             .collect(Collectors.toUnmodifiableList());
-    return new Partitions(topics);
+    return CompletableFuture.completedFuture(new Partitions(topics));
   }
 
   static class ProducerState implements Response {

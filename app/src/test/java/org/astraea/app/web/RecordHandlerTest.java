@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -72,7 +73,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var handler = getRecordHandler();
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[]")))),
+        () ->
+            handler
+                .post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[]"))))
+                .toCompletableFuture()
+                .get(),
         "records should contain at least one record");
     var executionRuntimeException =
         Assertions.assertThrows(
@@ -84,7 +89,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPostTimeout() {
+  void testPostTimeout() throws ExecutionException, InterruptedException {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> getRecordHandler().post(Channel.ofRequest(PostRequest.of(Map.of(TIMEOUT, "foo")))));
@@ -102,12 +107,14 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                                     RECORDS,
                                     List.of(
                                         new RecordHandler.PostRecord(
-                                            "test", null, null, null, null, null, null))))))));
+                                            "test", null, null, null, null, null, null)))))))
+            .toCompletableFuture()
+            .get());
   }
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testPost(boolean isTransaction) {
+  void testPost(boolean isTransaction) throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var currentTimestamp = System.currentTimeMillis();
     var requestParams = new HashMap<String, Object>();
@@ -125,7 +132,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
             getRecordHandler()
-                .post(Channel.ofRequest(PostRequest.of(new Gson().toJson(requestParams)))));
+                .post(Channel.ofRequest(PostRequest.of(new Gson().toJson(requestParams))))
+                .toCompletableFuture()
+                .get());
 
     Assertions.assertEquals(2, response.results.size());
 
@@ -179,31 +188,34 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPostWithAsync() {
+  void testPostWithAsync() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     var currentTimestamp = System.currentTimeMillis();
     var result =
         Assertions.assertInstanceOf(
             Response.class,
-            handler.post(
-                Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    ASYNC,
-                                    "true",
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic,
-                                            0,
-                                            "string",
-                                            "integer",
-                                            "foo",
-                                            "100",
-                                            currentTimestamp))))))));
+            handler
+                .post(
+                    Channel.ofRequest(
+                        PostRequest.of(
+                            new Gson()
+                                .toJson(
+                                    Map.of(
+                                        ASYNC,
+                                        "true",
+                                        RECORDS,
+                                        List.of(
+                                            new RecordHandler.PostRecord(
+                                                topic,
+                                                0,
+                                                "string",
+                                                "integer",
+                                                "foo",
+                                                "100",
+                                                currentTimestamp)))))))
+                .toCompletableFuture()
+                .get());
     Assertions.assertEquals(Response.ACCEPT, result);
 
     handler.producer.flush();
@@ -228,21 +240,25 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("forTestSerializer")
-  void testSerializer(String serializer, String actual, byte[] expected) {
+  void testSerializer(String serializer, String actual, byte[] expected)
+      throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
-        handler.post(
-            Channel.ofRequest(
-                PostRequest.of(
-                    new Gson()
-                        .toJson(
-                            Map.of(
-                                RECORDS,
-                                List.of(
-                                    new RecordHandler.PostRecord(
-                                        topic, null, serializer, null, actual, null, null))))))));
+        handler
+            .post(
+                Channel.ofRequest(
+                    PostRequest.of(
+                        new Gson()
+                            .toJson(
+                                Map.of(
+                                    RECORDS,
+                                    List.of(
+                                        new RecordHandler.PostRecord(
+                                            topic, null, serializer, null, actual, null, null)))))))
+            .toCompletableFuture()
+            .get());
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
@@ -284,28 +300,37 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testInvalidGet() {
+  void testInvalidGet() throws ExecutionException, InterruptedException {
     var handler = getRecordHandler();
-    Assertions.assertEquals(400, handler.get(Channel.EMPTY).code());
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.get(Channel.EMPTY).toCompletableFuture().get().code());
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
-            handler.get(
-                Channel.ofQueries(
-                    "topic", Map.of(DISTANCE_FROM_BEGINNING, "1", DISTANCE_FROM_LATEST, "1"))),
+            handler
+                .get(
+                    Channel.ofQueries(
+                        "topic", Map.of(DISTANCE_FROM_BEGINNING, "1", DISTANCE_FROM_LATEST, "1")))
+                .toCompletableFuture()
+                .get(),
         "only one seek strategy is allowed");
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
-            handler.get(
-                Channel.ofQueries(
-                    "topic",
-                    Map.of(DISTANCE_FROM_BEGINNING, "1", DISTANCE_FROM_LATEST, "1", SEEK_TO, "1"))),
+            handler
+                .get(
+                    Channel.ofQueries(
+                        "topic",
+                        Map.of(
+                            DISTANCE_FROM_BEGINNING, "1", DISTANCE_FROM_LATEST, "1", SEEK_TO, "1")))
+                .toCompletableFuture()
+                .get(),
         "only one seek strategy is allowed");
   }
 
   @Test
-  void testDistanceFromLatest() {
+  void testDistanceFromLatest() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -313,9 +338,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic, Map.of(DISTANCE_FROM_LATEST, "2", VALUE_DESERIALIZER, "integer"))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic, Map.of(DISTANCE_FROM_LATEST, "2", VALUE_DESERIALIZER, "integer")))
+                .toCompletableFuture()
+                .get());
 
     Assertions.assertEquals(2, response.records.size());
     Assertions.assertEquals(
@@ -326,7 +354,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDistanceFromBeginning() {
+  void testDistanceFromBeginning() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -334,9 +362,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic, Map.of(DISTANCE_FROM_BEGINNING, "8", VALUE_DESERIALIZER, "integer"))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic, Map.of(DISTANCE_FROM_BEGINNING, "8", VALUE_DESERIALIZER, "integer")))
+                .toCompletableFuture()
+                .get());
 
     Assertions.assertEquals(2, response.records.size());
     Assertions.assertEquals(
@@ -347,7 +378,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSeekTo() {
+  void testSeekTo() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     produceData(topic, 5);
 
@@ -355,8 +386,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(topic, Map.of(SEEK_TO, "3", VALUE_DESERIALIZER, "integer"))));
+            handler
+                .get(Channel.ofQueries(topic, Map.of(SEEK_TO, "3", VALUE_DESERIALIZER, "integer")))
+                .toCompletableFuture()
+                .get());
 
     Assertions.assertEquals(2, response.records.size());
     Assertions.assertEquals(
@@ -367,7 +400,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetRecordByPartition() {
+  void testGetRecordByPartition() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
@@ -392,8 +425,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(topic, Map.of(DISTANCE_FROM_BEGINNING, "1", PARTITION, "1"))));
+            handler
+                .get(Channel.ofQueries(topic, Map.of(DISTANCE_FROM_BEGINNING, "1", PARTITION, "1")))
+                .toCompletableFuture()
+                .get());
 
     Assertions.assertTrue(
         response.records.stream().map(r -> r.partition).filter(p -> p != 1).findAny().isEmpty());
@@ -403,7 +438,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testLimit() {
+  void testLimit() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -411,11 +446,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic,
-                    Map.of(
-                        DISTANCE_FROM_BEGINNING, "2", LIMIT, "3", VALUE_DESERIALIZER, "integer"))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic,
+                        Map.of(
+                            DISTANCE_FROM_BEGINNING,
+                            "2",
+                            LIMIT,
+                            "3",
+                            VALUE_DESERIALIZER,
+                            "integer")))
+                .toCompletableFuture()
+                .get());
 
     // limit is just a recommended size here, we might get more records than limit
     Assertions.assertEquals(8, response.records.size());
@@ -429,7 +472,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("forTestDeserializer")
-  void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue) {
+  void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue)
+      throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic(topic).value(value).run();
@@ -440,10 +484,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic,
-                    Map.of(DISTANCE_FROM_LATEST, "1", VALUE_DESERIALIZER, valueDeserializer))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic,
+                        Map.of(DISTANCE_FROM_LATEST, "1", VALUE_DESERIALIZER, valueDeserializer)))
+                .toCompletableFuture()
+                .get());
     var records = List.copyOf(response.records);
     Assertions.assertEquals(1, records.size());
 
@@ -480,7 +527,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetResponse() {
+  void testGetResponse() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -498,16 +545,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic,
-                    Map.of(
-                        DISTANCE_FROM_LATEST,
-                        "1",
-                        KEY_DESERIALIZER,
-                        "string",
-                        VALUE_DESERIALIZER,
-                        "integer"))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic,
+                        Map.of(
+                            DISTANCE_FROM_LATEST,
+                            "1",
+                            KEY_DESERIALIZER,
+                            "string",
+                            VALUE_DESERIALIZER,
+                            "integer")))
+                .toCompletableFuture()
+                .get());
     Assertions.assertEquals(1, response.records.size());
     var recordDto = response.records.iterator().next();
     Assertions.assertEquals(topic, recordDto.topic);
@@ -530,7 +580,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetJsonResponse() {
+  void testGetJsonResponse() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -548,16 +598,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic,
-                    Map.of(
-                        DISTANCE_FROM_LATEST,
-                        "1",
-                        KEY_DESERIALIZER,
-                        "bytearray",
-                        VALUE_DESERIALIZER,
-                        "integer"))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic,
+                        Map.of(
+                            DISTANCE_FROM_LATEST,
+                            "1",
+                            KEY_DESERIALIZER,
+                            "bytearray",
+                            VALUE_DESERIALIZER,
+                            "integer")))
+                .toCompletableFuture()
+                .get());
 
     Assertions.assertEquals(
         "{\"records\":[{"
@@ -603,44 +656,50 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPostAndGet() {
+  void testPostAndGet() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     var currentTimestamp = System.currentTimeMillis();
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
-        handler.post(
-            Channel.ofRequest(
-                PostRequest.of(
-                    new Gson()
-                        .toJson(
-                            Map.of(
-                                RECORDS,
-                                List.of(
-                                    new RecordHandler.PostRecord(
-                                        topic,
-                                        0,
-                                        "string",
-                                        "integer",
-                                        "foo",
-                                        "100",
-                                        currentTimestamp))))))));
+        handler
+            .post(
+                Channel.ofRequest(
+                    PostRequest.of(
+                        new Gson()
+                            .toJson(
+                                Map.of(
+                                    RECORDS,
+                                    List.of(
+                                        new RecordHandler.PostRecord(
+                                            topic,
+                                            0,
+                                            "string",
+                                            "integer",
+                                            "foo",
+                                            "100",
+                                            currentTimestamp)))))))
+            .toCompletableFuture()
+            .get());
 
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            handler.get(
-                Channel.ofQueries(
-                    topic,
-                    Map.of(
-                        DISTANCE_FROM_LATEST,
-                        "1",
-                        KEY_DESERIALIZER,
-                        "string",
-                        VALUE_DESERIALIZER,
-                        "integer",
-                        PARTITION,
-                        "0"))));
+            handler
+                .get(
+                    Channel.ofQueries(
+                        topic,
+                        Map.of(
+                            DISTANCE_FROM_LATEST,
+                            "1",
+                            KEY_DESERIALIZER,
+                            "string",
+                            VALUE_DESERIALIZER,
+                            "integer",
+                            PARTITION,
+                            "0")))
+                .toCompletableFuture()
+                .get());
     var record = response.records.iterator().next();
     Assertions.assertEquals(topic, record.topic);
     Assertions.assertEquals(0, record.partition);
@@ -658,18 +717,22 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTimeout() {
+  void testTimeout() throws ExecutionException, InterruptedException {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> getRecordHandler().get(Channel.ofQueries("test", Map.of(TIMEOUT, "foo"))));
-    var response = getRecordHandler().get(Channel.ofQueries("test", Map.of(TIMEOUT, "10s")));
+    var response =
+        getRecordHandler()
+            .get(Channel.ofQueries("test", Map.of(TIMEOUT, "10s")))
+            .toCompletableFuture()
+            .get();
     Assertions.assertInstanceOf(RecordHandler.GetResponse.class, response);
     // close consumer
     response.onComplete(null);
   }
 
   @Test
-  void testDeleteParameter() {
+  void testDeleteParameter() throws ExecutionException, InterruptedException {
     try (var admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
@@ -677,17 +740,29 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           Response.OK,
-          handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "0"))));
+          handler
+              .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "0")))
+              .toCompletableFuture()
+              .get());
       Assertions.assertEquals(
-          Response.OK, handler.delete(Channel.ofQueries(topicName, Map.of(OFFSET, "0"))));
+          Response.OK,
+          handler
+              .delete(Channel.ofQueries(topicName, Map.of(OFFSET, "0")))
+              .toCompletableFuture()
+              .get());
       Assertions.assertEquals(
-          Response.OK, handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0"))));
-      Assertions.assertEquals(Response.OK, handler.delete(Channel.ofTarget(topicName)));
+          Response.OK,
+          handler
+              .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0")))
+              .toCompletableFuture()
+              .get());
+      Assertions.assertEquals(
+          Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().get());
     }
   }
 
   @Test
-  void testDelete() {
+  void testDelete() throws ExecutionException, InterruptedException {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
@@ -703,7 +778,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.OK,
-          handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1"))));
+          handler
+              .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1")))
+              .toCompletableFuture()
+              .get());
       var partitions = admin.partitions(Set.of(topicName));
       Assertions.assertEquals(3, partitions.size());
       Assertions.assertEquals(
@@ -728,7 +806,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .get()
               .earliestOffset());
 
-      Assertions.assertEquals(Response.OK, handler.delete(Channel.ofTarget(topicName)));
+      Assertions.assertEquals(
+          Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().get());
       partitions = admin.partitions(admin.topicNames());
       Assertions.assertEquals(
           2,
@@ -755,7 +834,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDeleteOffset() {
+  void testDeleteOffset() throws ExecutionException, InterruptedException {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
@@ -770,7 +849,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       producer.flush();
 
       Assertions.assertEquals(
-          Response.OK, handler.delete(Channel.ofQueries(topicName, Map.of(OFFSET, "1"))));
+          Response.OK,
+          handler
+              .delete(Channel.ofQueries(topicName, Map.of(OFFSET, "1")))
+              .toCompletableFuture()
+              .get());
       var partitions = admin.partitions(admin.topicNames());
       Assertions.assertEquals(
           1,
@@ -797,7 +880,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDeletePartition() {
+  void testDeletePartition() throws ExecutionException, InterruptedException {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
@@ -812,7 +895,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       producer.flush();
 
       Assertions.assertEquals(
-          Response.OK, handler.delete(Channel.ofQueries(topicName, Map.of(PARTITION, "1"))));
+          Response.OK,
+          handler
+              .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "1")))
+              .toCompletableFuture()
+              .get());
       var partitions = admin.partitions(admin.topicNames());
       Assertions.assertEquals(
           0,
@@ -848,16 +935,22 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         needError ->
             Assertions.assertInstanceOf(
                 RecordHandler.GetResponse.class,
-                recordHandler.handle(
-                    Channel.builder()
-                        .type(Channel.Type.GET)
-                        .target(topic)
-                        .queries(Map.of(GROUP_ID, groupId, VALUE_DESERIALIZER, "integer"))
-                        .sender(
-                            r -> {
-                              if (needError) throw new RuntimeException();
-                            })
-                        .build()));
+                Utils.packException(
+                    () ->
+                        recordHandler
+                            .handle(
+                                Channel.builder()
+                                    .type(Channel.Type.GET)
+                                    .target(topic)
+                                    .queries(
+                                        Map.of(GROUP_ID, groupId, VALUE_DESERIALIZER, "integer"))
+                                    .sender(
+                                        r -> {
+                                          if (needError) throw new RuntimeException();
+                                        })
+                                    .build())
+                            .toCompletableFuture()
+                            .get()));
 
     // send this request to register consumer group
     Assertions.assertEquals(getRecords.apply(false).records.size(), 0);
@@ -884,13 +977,15 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("forTestGetRecordsCloseConsumer")
-  void testGetRecordsCloseConsumer(Map<String, String> args) {
+  void testGetRecordsCloseConsumer(Map<String, String> args)
+      throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
     var recordHandler = getRecordHandler();
 
     var response =
         Assertions.assertInstanceOf(
-            RecordHandler.GetResponse.class, recordHandler.handle(Channel.ofQueries(topic, args)));
+            RecordHandler.GetResponse.class,
+            recordHandler.handle(Channel.ofQueries(topic, args)).toCompletableFuture().get());
     var error =
         Assertions.assertThrows(
             IllegalStateException.class, () -> response.consumer.poll(Duration.ofSeconds(1)));
@@ -899,16 +994,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response2 =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            recordHandler.handle(
-                Channel.builder()
-                    .type(Channel.Type.GET)
-                    .target(topic)
-                    .queries(args)
-                    .sender(
-                        ignored -> {
-                          throw new RuntimeException();
-                        })
-                    .build()));
+            recordHandler
+                .handle(
+                    Channel.builder()
+                        .type(Channel.Type.GET)
+                        .target(topic)
+                        .queries(args)
+                        .sender(
+                            ignored -> {
+                              throw new RuntimeException();
+                            })
+                        .build())
+                .toCompletableFuture()
+                .get());
     var error2 =
         Assertions.assertThrows(
             IllegalStateException.class, () -> response2.consumer.poll(Duration.ofSeconds(1)));
