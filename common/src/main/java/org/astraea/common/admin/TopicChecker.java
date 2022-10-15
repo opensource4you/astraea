@@ -84,12 +84,12 @@ public interface TopicChecker {
                               Collectors.maxBy(Comparator.comparingLong(Partition::maxTimestamp))))
                       .values()
                       .stream()
-                      .filter(Optional::isPresent)
+                      .flatMap(Optional::stream)
                       .filter(
                           p ->
-                              now - duration.toMillis() < p.get().maxTimestamp()
-                                  || p.get().maxTimestamp() == -1)
-                      .map(p -> p.get().topic())
+                              now - duration.toMillis() < p.maxTimestamp()
+                                  || p.maxTimestamp() == -1)
+                      .map(Partition::topic)
                       .collect(Collectors.toUnmodifiableSet()));
     };
   }
