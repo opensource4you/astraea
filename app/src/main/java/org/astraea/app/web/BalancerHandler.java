@@ -64,7 +64,7 @@ class BalancerHandler implements Handler {
   private final RebalancePlanExecutor executor;
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
-  private final Map<String, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
+  private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
@@ -96,91 +96,110 @@ class BalancerHandler implements Handler {
 
   @Override
   public Response get(Channel channel) {
-    return channel
-        .target()
-        .map(this::lookupRebalancePlanProgress)
-        .orElseGet(() -> searchRebalancePlan(channel));
-  }
-
-  private Response searchRebalancePlan(Channel channel) {
-    var timeout =
-        Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
-            .map(DurationField::toDuration)
-            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
-    var topics =
-        Optional.ofNullable(channel.queries().get(TOPICS_KEY))
-            .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-            .orElseGet(() -> admin.topicNames(false));
-    var currentClusterInfo = admin.clusterInfo();
-    var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-    var loop =
-        Integer.parseInt(channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
-    var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
-    var bestPlan =
-        Balancer.builder()
-            .planGenerator(generator)
-            .clusterCost(clusterCostFunction)
-            .moveCost(moveCostFunction)
-            .limit(loop)
-            .limit(timeout)
-            .build()
-            .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
-    var changes =
-        bestPlan
-            .map(
-                p ->
-                    ClusterLogAllocation.findNonFulfilledAllocation(
-                            targetAllocations, p.proposal().rebalancePlan())
-                        .stream()
-                        .map(
-                            tp ->
-                                new Change(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    // only log the size from source replicas
-                                    placements(
-                                        targetAllocations.logPlacements(tp),
-                                        l ->
-                                            currentClusterInfo
-                                                .replica(
-                                                    TopicPartitionReplica.of(
-                                                        tp.topic(),
-                                                        tp.partition(),
-                                                        l.nodeInfo().id()))
-                                                .map(Replica::size)
-                                                .orElse(null)),
-                                    placements(
-                                        p.proposal().rebalancePlan().logPlacements(tp),
-                                        ignored -> null)))
-                        .collect(Collectors.toUnmodifiableList()))
-            .orElse(List.of());
-    var id = bestPlan.map(ignore -> UUID.randomUUID()).map(UUID::toString).orElse(null);
-    var report =
-        new Report(
-            id,
-            cost,
-            bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-            loop,
-            bestPlan.map(p -> p.proposal().index()).orElse(null),
-            clusterCostFunction.getClass().getSimpleName(),
-            changes,
-            bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
-    bestPlan.ifPresent(thePlan -> generatedPlans.put(id, new PlanInfo(report, thePlan)));
-    return report;
-  }
-
-  private Response lookupRebalancePlanProgress(String planId) {
-    if (!generatedPlans.containsKey(planId))
-      throw new IllegalArgumentException("This plan doesn't exists: " + planId);
+    var planId = channel.target().orElseThrow();
+    if (!generatedPlans.containsKey(planId)) return Response.NOT_FOUND;
+    boolean isGenerated =
+        generatedPlans.get(planId).isDone()
+            && !generatedPlans.get(planId).isCompletedExceptionally()
+            && !generatedPlans.get(planId).isCancelled();
     boolean isScheduled = executedPlans.containsKey(planId);
     boolean isDone = isScheduled && executedPlans.get(planId).isDone();
-    var exception =
+    var generationException =
+        generatedPlans
+            .getOrDefault(planId, CompletableFuture.completedFuture(null))
+            .handle((result, error) -> error != null ? error.toString() : null)
+            .getNow(null);
+    var executionException =
         executedPlans
             .getOrDefault(planId, CompletableFuture.completedFuture(null))
             .handle((result, error) -> error != null ? error.toString() : null)
             .getNow(null);
+    var report = isGenerated ? generatedPlans.get(planId).join().report : null;
 
-    return new PlanExecutionProgress(planId, isScheduled, isDone, exception);
+    return new PlanExecutionProgress(
+        planId,
+        isGenerated,
+        isScheduled,
+        isDone,
+        isGenerated ? executionException : generationException,
+        report);
+  }
+
+  @Override
+  public Response post(Channel channel) {
+    var newPlanId = UUID.randomUUID().toString();
+    var planGeneration =
+        CompletableFuture.supplyAsync(
+            () -> {
+              var timeout =
+                  Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
+                      .map(DurationField::toDuration)
+                      .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+              var topics =
+                  Optional.ofNullable(channel.queries().get(TOPICS_KEY))
+                      .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
+                      .orElseGet(() -> admin.topicNames(false));
+              var currentClusterInfo = admin.clusterInfo();
+              var cost =
+                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+              var loop =
+                  Integer.parseInt(
+                      channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
+              var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+              var bestPlan =
+                  Balancer.builder()
+                      .planGenerator(generator)
+                      .clusterCost(clusterCostFunction)
+                      .moveCost(moveCostFunction)
+                      .limit(loop)
+                      .limit(timeout)
+                      .build()
+                      .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+              var changes =
+                  bestPlan
+                      .map(
+                          p ->
+                              ClusterLogAllocation.findNonFulfilledAllocation(
+                                      targetAllocations, p.proposal().rebalancePlan())
+                                  .stream()
+                                  .map(
+                                      tp ->
+                                          new Change(
+                                              tp.topic(),
+                                              tp.partition(),
+                                              // only log the size from source replicas
+                                              placements(
+                                                  targetAllocations.logPlacements(tp),
+                                                  l ->
+                                                      currentClusterInfo
+                                                          .replica(
+                                                              TopicPartitionReplica.of(
+                                                                  tp.topic(),
+                                                                  tp.partition(),
+                                                                  l.nodeInfo().id()))
+                                                          .map(Replica::size)
+                                                          .orElse(null)),
+                                              placements(
+                                                  p.proposal().rebalancePlan().logPlacements(tp),
+                                                  ignored -> null)))
+                                  .collect(Collectors.toUnmodifiableList()))
+                      .orElse(List.of());
+              var report =
+                  new Report(
+                      newPlanId,
+                      cost,
+                      bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+                      loop,
+                      bestPlan.map(p -> p.proposal().index()).orElse(null),
+                      clusterCostFunction.getClass().getSimpleName(),
+                      changes,
+                      bestPlan
+                          .map(p -> List.of(new MigrationCost(p.moveCost())))
+                          .orElseGet(List::of));
+              return new PlanInfo(report, bestPlan.orElseThrow());
+            });
+    generatedPlans.put(newPlanId, planGeneration);
+    return new PostPlanResponse(newPlanId);
   }
 
   @Override
@@ -190,10 +209,12 @@ class BalancerHandler implements Handler {
             .request()
             .get("id")
             .orElseThrow(() -> new IllegalArgumentException("No rebalance plan id offered"));
-    final var thePlanInfo =
+    final var future =
         Optional.ofNullable(generatedPlans.get(thePlanId))
             .orElseThrow(
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
+    if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
+    final var thePlanInfo = future.join();
     final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
 
     synchronized (this) {
@@ -371,6 +392,14 @@ class BalancerHandler implements Handler {
     }
   }
 
+  static class PostPlanResponse implements Response {
+    final String id;
+
+    PostPlanResponse(String id) {
+      this.id = id;
+    }
+  }
+
   static class PutPlanResponse implements Response {
     final String id;
 
@@ -386,15 +415,25 @@ class BalancerHandler implements Handler {
 
   static class PlanExecutionProgress implements Response {
     final String id;
+    final boolean generated;
     final boolean scheduled;
     final boolean done;
     final String exception;
+    final Report report;
 
-    PlanExecutionProgress(String id, boolean scheduled, boolean done, String exception) {
+    PlanExecutionProgress(
+        String id,
+        boolean generated,
+        boolean scheduled,
+        boolean done,
+        String exception,
+        Report report) {
       this.id = id;
+      this.generated = generated;
       this.scheduled = scheduled;
       this.done = done;
       this.exception = exception;
+      this.report = report;
     }
   }
 }
