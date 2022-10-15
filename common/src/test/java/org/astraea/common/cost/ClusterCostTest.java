@@ -17,28 +17,18 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-@FunctionalInterface
-public interface HasClusterCost extends CostFunction {
+class ClusterCostTest {
 
-  static HasClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
-    return (clusterInfo, clusterBean) ->
-        () ->
-            costAndWeight.entrySet().stream()
-                .mapToDouble(
-                    cw -> cw.getKey().clusterCost(clusterInfo, clusterBean).value() * cw.getValue())
-                .sum();
+  @Test
+  void testMerge() {
+    HasClusterCost cost0 = (c, b) -> () -> 0.2;
+    HasClusterCost cost1 = (c, b) -> () -> 0.5;
+    HasClusterCost cost2 = (c, b) -> () -> 0.8;
+    var merged = HasClusterCost.of(Map.of(cost0, 1D, cost1, 2D, cost2, 2D));
+    var result = merged.clusterCost(null, null).value();
+    Assertions.assertEquals(2.8, result);
   }
-
-  /**
-   * score cluster for a particular metrics according to passed beans and cluster information.
-   *
-   * @param clusterInfo cluster information
-   * @param clusterBean cluster metrics
-   * @return the score of cluster.
-   */
-  ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean);
 }
