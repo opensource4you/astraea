@@ -99,7 +99,7 @@ public class PartitionTab {
         .input(partitionsKey, true, false)
         .input(moveToKey, false, false)
         .input(offsetKey, false, true)
-        .tableView(basicResult(partitions))
+        .initTableView(basicResult(partitions))
         .buttonAction(
             (input, logger) ->
                 // delay to fetch partitions
