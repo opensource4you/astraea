@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Config;
@@ -43,15 +45,16 @@ class BrokerHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var ids = brokers(channel.target());
     var brokers =
         admin.brokers().stream()
             .filter(n -> ids.contains(n.id()))
             .map(n -> new Broker(n.id(), admin.topicPartitions(n.id()), n.config()))
             .collect(Collectors.toUnmodifiableList());
-    if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
-    return new Brokers(brokers);
+    if (channel.target().isPresent() && brokers.size() == 1)
+      return CompletableFuture.completedFuture(brokers.get(0));
+    return CompletableFuture.completedFuture(new Brokers(brokers));
   }
 
   static class Topic implements Response {

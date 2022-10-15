@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
@@ -39,11 +41,11 @@ public class ThrottleHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     return get();
   }
 
-  private Response get() {
+  private CompletionStage<Response> get() {
     final var brokers =
         admin.brokers().stream()
             .map(
@@ -81,11 +83,12 @@ public class ThrottleHandler implements Handler {
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 
-    return new ThrottleSetting(brokers, simplify(leaderTargets, followerTargets));
+    return CompletableFuture.completedFuture(
+        new ThrottleSetting(brokers, simplify(leaderTargets, followerTargets)));
   }
 
   @Override
-  public Response post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     var brokerToUpdate =
         channel
             .request()
@@ -153,11 +156,11 @@ public class ThrottleHandler implements Handler {
                         affectedResources.egress().get(broker)))
             .collect(Collectors.toUnmodifiableList());
     var affectedTopics = simplify(affectedResources.leaders(), affectedResources.followers());
-    return new ThrottleSetting(affectedBrokers, affectedTopics);
+    return CompletableFuture.completedFuture(new ThrottleSetting(affectedBrokers, affectedTopics));
   }
 
   @Override
-  public Response delete(Channel channel) {
+  public CompletionStage<Response> delete(Channel channel) {
     if (channel.queries().containsKey("topic")) {
       var topic =
           new TopicThrottle(
@@ -191,7 +194,7 @@ public class ThrottleHandler implements Handler {
       else
         throw new IllegalArgumentException("The argument is not supported: " + channel.queries());
 
-      return Response.ACCEPT;
+      return CompletableFuture.completedFuture(Response.ACCEPT);
     } else if (channel.queries().containsKey("broker")) {
       var broker = Integer.parseInt(channel.queries().get("broker"));
       var bandwidth = channel.queries().get("type").split("\\+");
@@ -200,9 +203,9 @@ public class ThrottleHandler implements Handler {
         else if (target.equals("egress")) admin.clearEgressReplicationThrottle(Set.of(broker));
         else throw new IllegalArgumentException("Unknown clear target: " + target);
       }
-      return Response.ACCEPT;
+      return CompletableFuture.completedFuture(Response.ACCEPT);
     } else {
-      return Response.BAD_REQUEST;
+      return CompletableFuture.completedFuture(Response.BAD_REQUEST);
     }
   }
 

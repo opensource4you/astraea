@@ -17,6 +17,8 @@
 package org.astraea.app.web;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -35,19 +37,20 @@ public class BeanHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var builder = BeanQuery.builder().usePropertyListPattern().properties(channel.queries());
     channel.target().ifPresent(builder::domainName);
-    return new NodeBeans(
-        clients.stream()
-            .map(
-                c ->
-                    new NodeBean(
-                        c.host(),
-                        c.queryBeans(builder.build()).stream()
-                            .map(Bean::new)
-                            .collect(Collectors.toUnmodifiableList())))
-            .collect(Collectors.toUnmodifiableList()));
+    return CompletableFuture.completedFuture(
+        new NodeBeans(
+            clients.stream()
+                .map(
+                    c ->
+                        new NodeBean(
+                            c.host(),
+                            c.queryBeans(builder.build()).stream()
+                                .map(Bean::new)
+                                .collect(Collectors.toUnmodifiableList())))
+                .collect(Collectors.toUnmodifiableList())));
   }
 
   static class Property implements Response {

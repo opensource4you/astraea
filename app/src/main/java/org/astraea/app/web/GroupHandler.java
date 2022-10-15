@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
@@ -41,8 +43,8 @@ public class GroupHandler implements Handler {
   }
 
   @Override
-  public Response delete(Channel channel) {
-    if (channel.target().isEmpty()) return Response.NOT_FOUND;
+  public CompletionStage<Response> delete(Channel channel) {
+    if (channel.target().isEmpty()) return CompletableFuture.completedStage(Response.NOT_FOUND);
     var groupId = channel.target().get();
     var shouldDeleteGroup =
         Optional.ofNullable(channel.queries().get(GROUP_KEY))
@@ -51,7 +53,7 @@ public class GroupHandler implements Handler {
     if (shouldDeleteGroup) {
       admin.removeAllMembers(groupId);
       admin.removeGroup(groupId);
-      return Response.OK;
+      return CompletableFuture.completedStage(Response.OK);
     }
 
     var shouldDeleteInstance = Objects.nonNull(channel.queries().get(INSTANCE_KEY));
@@ -66,11 +68,11 @@ public class GroupHandler implements Handler {
     } else {
       admin.removeAllMembers(groupId);
     }
-    return Response.OK;
+    return CompletableFuture.completedStage(Response.OK);
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var topics =
         channel.queries().containsKey(TOPIC_KEY)
             ? Set.of(channel.queries().get(TOPIC_KEY))
@@ -125,8 +127,9 @@ public class GroupHandler implements Handler {
                             .collect(Collectors.toUnmodifiableList())))
             .collect(Collectors.toUnmodifiableList());
 
-    if (channel.target().isPresent() && groups.size() == 1) return groups.get(0);
-    return new Groups(groups);
+    if (channel.target().isPresent() && groups.size() == 1)
+      return CompletableFuture.completedFuture(groups.get(0));
+    return CompletableFuture.completedFuture(new Groups(groups));
   }
 
   static class OffsetProgress implements Response {
