@@ -8,24 +8,24 @@
 - [alter](#alter)
 
 ### basic
-`basic` 可以查詢所有或特定broker/host的基本資訊
+`basic` 可以查詢所有或特定`broker/host`的基本資訊
 
-![broker-basic 1]()
-*顯示所有broker資訊*
+![broker-basic 1](broker_basic_1.png)
+*顯示所有`broker`資訊*
 
-![broker-basic 2]()
-*指定特定broker id的資訊*
+![broker-basic 2](broker_basic_2.png)
+*指定特定`broker id`的資訊*
 
 
 ### config
 
 可以查詢`broker`內的各項`config`，搜尋部分支援正規表示法，可以進一步過濾查詢資料
 
-![broker-config 1]()
-*不指定 config key*
+![broker-config 1](broker_config_1.png)
+*不指定`config key`*
 
-![broker-config 2]()
-*指定兩個key的寫法*
+![broker-config 2](broker_config_2.png)
+*指定兩個`key`的寫法*
 
 
 ### metrics
@@ -42,12 +42,12 @@
 - replica
 - broker topic
 
-![broker-metrics 1]()
-*查看 host 的資訊*
+![broker-metrics 1](broker_metrics_1.png)
+*查看`host`的資訊*
 
 ### alter
 
 可以在此頁面檢視與修改 `broker` 的設定
 
-![broker-alter 1]()
-*快速查看 broker 資訊，並且可以透過下方按鈕變更*
+![broker-alter 1](broker_alter_1.png)
+*快速查看`broker`資訊，並且可以透過下方按鈕變更*
