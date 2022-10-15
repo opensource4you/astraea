@@ -16,7 +16,6 @@
  */
 package org.astraea.common.http;
 
-import com.google.gson.JsonSyntaxException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -168,7 +167,7 @@ public class HttpExecutorBuilder {
 
               try {
                 return jsonConverter.fromJson(x, typeRef);
-              } catch (JsonSyntaxException jsonSyntaxException) {
+              } catch (Exception jsonSyntaxException) {
                 throw new StringResponseException(innerResponse, typeRef.getType());
               }
             });
