@@ -17,9 +17,9 @@
 package org.astraea.app.web;
 
 import java.util.Map;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.Quota;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.QuotaConfigs;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -40,11 +40,10 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                           Map.of(
                               QuotaHandler.IP_KEY, ip, QuotaHandler.CONNECTION_RATE_KEY, "10")))));
       Assertions.assertEquals(1, result.quotas.size());
-      Assertions.assertEquals(
-          Quota.Target.IP.nameOfKafka(), result.quotas.iterator().next().target.name);
+      Assertions.assertEquals(QuotaConfigs.IP, result.quotas.iterator().next().target.name);
       Assertions.assertEquals(ip, result.quotas.iterator().next().target.value);
       Assertions.assertEquals(
-          Quota.Limit.IP_CONNECTION_RATE.nameOfKafka(), result.quotas.iterator().next().limit.name);
+          QuotaConfigs.IP_CONNECTION_RATE_CONFIG, result.quotas.iterator().next().limit.name);
       Assertions.assertEquals(10, result.quotas.iterator().next().limit.value);
     }
   }
@@ -79,7 +78,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           0,
           Assertions.assertInstanceOf(
                   QuotaHandler.Quotas.class,
-                  handler.get(Channel.ofQueries(Map.of(Quota.Target.IP.nameOfKafka(), "unknown"))))
+                  handler.get(Channel.ofQueries(Map.of(QuotaConfigs.IP, "unknown"))))
               .quotas
               .size());
 
@@ -87,8 +86,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           0,
           Assertions.assertInstanceOf(
                   QuotaHandler.Quotas.class,
-                  handler.get(
-                      Channel.ofQueries(Map.of(Quota.Target.CLIENT_ID.nameOfKafka(), "unknown"))))
+                  handler.get(Channel.ofQueries(Map.of(QuotaConfigs.CLIENT_ID, "unknown"))))
               .quotas
               .size());
     }

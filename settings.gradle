@@ -14,4 +14,4 @@
 // limitations under the License.
 
 rootProject.name = 'astraea'
-include('app', "etl")
+include('app', "etl", "common", "gui", "it")

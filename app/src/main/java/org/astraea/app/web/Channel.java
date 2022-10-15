@@ -27,7 +27,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.common.Utils;
+import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 
 interface Channel {
 
@@ -131,11 +132,26 @@ interface Channel {
     }
   }
 
-  enum Type {
+  enum Type implements EnumInfo {
     GET,
     DELETE,
     POST,
-    UNKNOWN
+    PUT,
+    UNKNOWN;
+
+    public static Type ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Type.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 
   static Channel of(HttpExchange exchange) {
@@ -176,6 +192,8 @@ interface Channel {
               return Type.POST;
             case "DELETE":
               return Type.DELETE;
+            case "PUT":
+              return Type.PUT;
             default:
               return Type.UNKNOWN;
           }

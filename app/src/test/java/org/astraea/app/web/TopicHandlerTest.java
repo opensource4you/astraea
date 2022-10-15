@@ -25,11 +25,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.producer.Producer;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.producer.Producer;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -106,17 +107,55 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCreateTopic() {
+  void testCreateSingleTopic() {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
-      var topicInfo =
-          Assertions.assertInstanceOf(
-              TopicHandler.TopicInfo.class,
-              handler.post(
-                  Channel.ofRequest(
-                      PostRequest.of(Map.of(TopicHandler.TOPIC_NAME_KEY, topicName)))));
-      Assertions.assertEquals(topicName, topicInfo.name);
+      var request =
+          Channel.ofRequest(
+              PostRequest.of(String.format("{\"topics\":[{\"name\":\"%s\"}]}", topicName)));
+      var topics = handler.post(request);
+      Assertions.assertEquals(1, topics.topics.size());
+      Assertions.assertEquals(topicName, topics.topics.iterator().next().name);
+    }
+  }
+
+  @Test
+  void testCreateTopics() {
+    var topicName0 = Utils.randomString(10);
+    var topicName1 = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new TopicHandler(admin);
+      var request =
+          Channel.ofRequest(
+              PostRequest.of(
+                  String.format(
+                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":1},{\"partitions\":2,\"name\":\"%s\"}]}",
+                      topicName0, topicName1)));
+      var topics = handler.post(request);
+      Assertions.assertEquals(2, topics.topics.size());
+      // the topic creation is not synced, so we have to wait the creation.
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var actualTopPartitions = admin.topicPartitions(Set.of(topicName0, topicName1));
+      Assertions.assertEquals(
+          1, actualTopPartitions.stream().filter(tp -> tp.topic().equals(topicName0)).count());
+      Assertions.assertEquals(
+          2, actualTopPartitions.stream().filter(tp -> tp.topic().equals(topicName1)).count());
+    }
+  }
+
+  @Test
+  void testDuplicateTopic() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new TopicHandler(admin);
+      var request =
+          Channel.ofRequest(
+              PostRequest.of(
+                  String.format(
+                      "{\"topics\":[{\"name\":\"%s\"},{\"name\":\"%s\"}]}", topicName, topicName)));
+      Assertions.assertThrows(IllegalArgumentException.class, () -> handler.post(request));
     }
   }
 
@@ -125,16 +164,11 @@ public class TopicHandlerTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
-      Assertions.assertInstanceOf(
-          TopicHandler.TopicInfo.class,
-          handler.post(
-              Channel.ofRequest(
-                  PostRequest.of(
-                      Map.of(
-                          TopicHandler.TOPIC_NAME_KEY,
-                          topicName,
-                          TopicHandler.NUMBER_OF_PARTITIONS_KEY,
-                          "10")))));
+      var request =
+          Channel.ofRequest(
+              PostRequest.of(
+                  String.format("{\"topics\":[{\"name\":\"%s\", \"partitions\":10}]}", topicName)));
+      handler.post(request);
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           1,
@@ -200,27 +234,25 @@ public class TopicHandlerTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
-      var topicInfo =
-          Assertions.assertInstanceOf(
-              TopicHandler.TopicInfo.class,
-              handler.post(
-                  Channel.ofRequest(
-                      PostRequest.of(
-                          Map.of(
-                              TopicHandler.TOPIC_NAME_KEY,
-                              topicName,
-                              TopicHandler.NUMBER_OF_PARTITIONS_KEY,
-                              "2",
-                              TopicHandler.NUMBER_OF_REPLICAS_KEY,
-                              "2",
-                              "segment.ms",
-                              "3000")))));
+      var request =
+          Channel.ofRequest(
+              PostRequest.of(
+                  String.format(
+                      "{\"topics\":[{\"name\":\"%s\",\"partitions\":\"%s\",\"replicas\":\"%s\", \"segment.ms\":\"3000\"}]}",
+                      topicName, "2", "2")));
+      var topics = handler.post(request);
+      Assertions.assertEquals(1, topics.topics.size());
+      var topicInfo = topics.topics.iterator().next();
       Assertions.assertEquals(topicName, topicInfo.name);
 
       // the topic creation is not synced, so we have to wait the creation.
       if (topicInfo.partitions.isEmpty()) {
         Utils.sleep(Duration.ofSeconds(2));
-        var result = admin.replicas(Set.of(topicName));
+        var result =
+            admin.replicas(Set.of(topicName)).stream()
+                .collect(
+                    Collectors.groupingBy(
+                        replica -> TopicPartition.of(replica.topic(), replica.partition())));
         Assertions.assertEquals(2, result.size());
         result.values().forEach(replicas -> Assertions.assertEquals(2, replicas.size()));
       } else {
@@ -228,7 +260,14 @@ public class TopicHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(2, topicInfo.partitions.iterator().next().replicas.size());
       }
       Assertions.assertEquals(
-          "3000", admin.topics(Set.of(topicName)).get(topicName).value("segment.ms").get());
+          "3000",
+          admin.topics(Set.of(topicName)).stream()
+              .filter(t -> t.name().equals(topicName))
+              .findFirst()
+              .get()
+              .config()
+              .value("segment.ms")
+              .get());
     }
   }
 

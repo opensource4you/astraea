@@ -23,11 +23,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.Consumer;
-import org.astraea.app.producer.Producer;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.producer.Producer;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +44,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -75,7 +76,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -97,7 +98,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -120,9 +121,11 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
       try (var consumer0 =
               Consumer.forTopics(Set.of(topicName0))
-                  .groupId(groupId0)
+                  .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId0)
                   .bootstrapServers(bootstrapServers())
-                  .fromBeginning()
+                  .config(
+                      ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                      ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                   .build();
           var consumer1 =
               Consumer.forTopics(Set.of(topicName1)).bootstrapServers(bootstrapServers()).build();
@@ -163,19 +166,21 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         Assertions.assertEquals(
             1,
-            admin
-                .consumerGroups(Set.of(consumer.groupId()))
-                .get(consumer.groupId())
-                .activeMembers()
+            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+                .filter(g -> g.groupId().equals(consumer.groupId()))
+                .findFirst()
+                .get()
+                .assignment()
                 .size());
 
         handler.delete(Channel.ofTarget(consumer.groupId()));
         Assertions.assertEquals(
             0,
-            admin
-                .consumerGroups(Set.of(consumer.groupId()))
-                .get(consumer.groupId())
-                .activeMembers()
+            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+                .filter(g -> g.groupId().equals(consumer.groupId()))
+                .findFirst()
+                .get()
+                .assignment()
                 .size());
 
         // idempotent test
@@ -186,15 +191,16 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .groupInstanceId(Utils.randomString(10))
+              .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         Assertions.assertEquals(
             1,
-            admin
-                .consumerGroups(Set.of(consumer.groupId()))
-                .get(consumer.groupId())
-                .activeMembers()
+            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+                .filter(g -> g.groupId().equals(consumer.groupId()))
+                .findFirst()
+                .get()
+                .assignment()
                 .size());
 
         handler.delete(
@@ -203,10 +209,11 @@ public class GroupHandlerTest extends RequireBrokerCluster {
                 Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get())));
         Assertions.assertEquals(
             0,
-            admin
-                .consumerGroups(Set.of(consumer.groupId()))
-                .get(consumer.groupId())
-                .activeMembers()
+            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+                .filter(g -> g.groupId().equals(consumer.groupId()))
+                .findFirst()
+                .get()
+                .assignment()
                 .size());
 
         // idempotent test
@@ -227,12 +234,12 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       var groupIds =
           IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
       groupIds.forEach(
-          x -> {
+          groupId -> {
             try (var consumer =
                 Consumer.forTopics(Set.of(topicName))
                     .bootstrapServers(bootstrapServers())
-                    .groupInstanceId(Utils.randomString(10))
-                    .groupId(x)
+                    .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
+                    .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                     .build()) {
               Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
             }
@@ -253,7 +260,12 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(2)));
 
       var group1Members =
-          admin.consumerGroups(Set.of(groupIds.get(1))).get(groupIds.get(1)).activeMembers();
+          admin.consumerGroups(Set.of(groupIds.get(1))).stream()
+              .filter(g -> g.groupId().equals(groupIds.get(1)))
+              .findFirst()
+              .get()
+              .assignment()
+              .keySet();
       handler.delete(
           Channel.ofQueries(
               groupIds.get(1),
@@ -261,7 +273,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
                   GroupHandler.GROUP_KEY,
                   "true",
                   GroupHandler.INSTANCE_KEY,
-                  group1Members.get(0).groupInstanceId().get())));
+                  group1Members.iterator().next().groupInstanceId().get())));
       Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(1)));
     }
   }

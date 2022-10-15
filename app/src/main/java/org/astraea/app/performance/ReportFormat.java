@@ -32,11 +32,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.astraea.app.common.Utils;
+import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 
-public enum ReportFormat {
+public enum ReportFormat implements EnumInfo {
   CSV("csv"),
   JSON("json");
+
+  public static ReportFormat ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(ReportFormat.class, alias);
+  }
 
   private final String name;
 
@@ -44,16 +49,18 @@ public enum ReportFormat {
     this.name = name;
   }
 
+  @Override
+  public String alias() {
+    return name;
+  }
+
   public static class ReportFormatConverter implements IStringConverter<ReportFormat> {
     @Override
     public ReportFormat convert(String value) {
-      switch (value.toLowerCase()) {
-        case "csv":
-          return ReportFormat.CSV;
-        case "json":
-          return ReportFormat.JSON;
-        default:
-          throw new ParameterException("Invalid file format. Use \"csv\" or \"json\"");
+      try {
+        return ofAlias(value);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(e);
       }
     }
   }
@@ -62,9 +69,7 @@ public enum ReportFormat {
       ReportFormat reportFormat,
       Path path,
       Supplier<Boolean> consumerDone,
-      Supplier<Boolean> producerDone,
-      Supplier<List<ProducerThread.Report>> producerReporter,
-      Supplier<List<ConsumerThread.Report>> consumerReporter)
+      Supplier<Boolean> producerDone)
       throws IOException {
     var filePath =
         FileSystems.getDefault()
@@ -75,14 +80,13 @@ public enum ReportFormat {
                     + "."
                     + reportFormat);
     var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
-    var elements = latencyAndIO(producerReporter, consumerReporter);
     switch (reportFormat) {
       case CSV:
-        initCSVFormat(writer, elements);
+        initCSVFormat(writer, latencyAndIO());
         return () -> {
           try {
             while (!(producerDone.get() && consumerDone.get())) {
-              logToCSV(writer, elements);
+              logToCSV(writer, latencyAndIO());
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
@@ -94,7 +98,7 @@ public enum ReportFormat {
         return () -> {
           try {
             while (!(producerDone.get() && consumerDone.get())) {
-              logToJSON(writer, elements);
+              logToJSON(writer, latencyAndIO());
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
@@ -155,11 +159,9 @@ public enum ReportFormat {
     }
   }
 
-  private static List<CSVContentElement> latencyAndIO(
-      Supplier<List<ProducerThread.Report>> producerReporter,
-      Supplier<List<ConsumerThread.Report>> consumerReporter) {
-    var producerReports = producerReporter.get();
-    var consumerReports = consumerReporter.get();
+  private static List<CSVContentElement> latencyAndIO() {
+    var producerReports = Report.producers();
+    var consumerReports = Report.consumers();
     var elements = new ArrayList<CSVContentElement>();
     elements.add(
         CSVContentElement.create(
@@ -172,20 +174,16 @@ public enum ReportFormat {
                     + LocalTime.now().getSecond()));
     elements.add(
         CSVContentElement.create(
-            "Publish Max latency (ms)",
-            () -> Long.toString(producerReports.stream().mapToLong(Report::max).max().orElse(0))));
+            "Max latency (ms) of producer",
+            () ->
+                Long.toString(
+                    producerReports.stream().mapToLong(Report::maxLatency).max().orElse(0))));
     elements.add(
         CSVContentElement.create(
-            "Publish min latency (ms)",
-            () -> Long.toString(producerReports.stream().mapToLong(Report::min).min().orElse(0))));
-    elements.add(
-        CSVContentElement.create(
-            "End-to-end max latency (ms)",
-            () -> Long.toString(consumerReports.stream().mapToLong(Report::max).max().orElse(0))));
-    elements.add(
-        CSVContentElement.create(
-            "End-to-end min latency (ms)",
-            () -> Long.toString(consumerReports.stream().mapToLong(Report::min).min().orElse(0))));
+            "Max latency (ms) of consumer",
+            () ->
+                Long.toString(
+                    consumerReports.stream().mapToLong(Report::maxLatency).max().orElse(0))));
     IntStream.range(0, producerReports.size())
         .forEach(
             i -> {
@@ -215,6 +213,6 @@ public enum ReportFormat {
 
   @Override
   public String toString() {
-    return name;
+    return alias();
   }
 }

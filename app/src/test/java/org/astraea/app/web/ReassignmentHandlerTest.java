@@ -16,12 +16,14 @@
  */
 package org.astraea.app.web;
 
+import static org.astraea.app.web.ReassignmentHandler.progressInPercentage;
+
 import java.time.Duration;
+import java.util.Objects;
 import java.util.Set;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.common.Utils;
-import org.astraea.app.service.RequireBrokerCluster;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -36,10 +38,10 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin
-              .replicas(Set.of(topicName))
-              .get(TopicPartition.of(topicName, 0))
-              .get(0)
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
               .nodeInfo()
               .id();
       var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
@@ -61,14 +63,14 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY);
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextBroker,
-          admin
-              .replicas(Set.of(topicName))
-              .get(TopicPartition.of(topicName, 0))
-              .get(0)
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
               .nodeInfo()
               .id());
     }
@@ -83,9 +85,13 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).get(TopicPartition.of(topicName, 0)).get(0);
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get();
+
       var currentBroker = currentReplica.nodeInfo().id();
-      var currentPath = currentReplica.dataFolder();
+      var currentPath = currentReplica.path();
       var nextPath =
           logFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
@@ -111,15 +117,109 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.ofTarget(topicName));
       // the reassignment should be completed
-      Assertions.assertEquals(0, reassignments.reassignments.size());
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextPath,
-          admin
-              .replicas(Set.of(topicName))
-              .get(TopicPartition.of(topicName, 0))
-              .get(0)
-              .dataFolder());
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .path());
+    }
+  }
+
+  @Test
+  void testExcludeSpecificBroker() {
+    var topicName = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentBroker =
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.EXCLUDE_KEY, currentBroker);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
+
+      Assertions.assertNotEquals(
+          currentBroker,
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
+      Assertions.assertEquals(0, admin.topicPartitions(currentBroker).size());
+    }
+  }
+
+  @Test
+  void testExcludeSpecificBrokerTopic() {
+    var topicName = Utils.randomString(10);
+    var targetTopic = Utils.randomString(10);
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var handler = new ReassignmentHandler(admin);
+      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      admin.creator().topic(targetTopic).numberOfPartitions(10).create();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var currentBroker =
+          admin.replicas(Set.of(topicName)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id();
+
+      var body =
+          String.format(
+              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              ReassignmentHandler.PLANS_KEY,
+              ReassignmentHandler.EXCLUDE_KEY,
+              currentBroker,
+              ReassignmentHandler.TOPIC_KEY,
+              targetTopic);
+
+      Assertions.assertEquals(
+          Response.ACCEPT, handler.post(Channel.ofRequest(PostRequest.of(body))));
+
+      Utils.sleep(Duration.ofSeconds(2));
+      var reassignments = handler.get(Channel.EMPTY);
+      // the reassignment should be completed
+      Assertions.assertEquals(0, reassignments.addingReplicas.size());
+
+      Assertions.assertNotEquals(
+          currentBroker,
+          admin.replicas(Set.of(targetTopic)).stream()
+              .filter(replica -> replica.partition() == 0)
+              .findFirst()
+              .get()
+              .nodeInfo()
+              .id());
+      Assertions.assertNotEquals(0, admin.topicPartitions(currentBroker).size());
+      Assertions.assertEquals(
+          0,
+          (int)
+              admin.topicPartitions(currentBroker).stream()
+                  .filter(tp -> Objects.equals(tp.topic(), targetTopic))
+                  .count());
     }
   }
 
@@ -135,5 +235,12 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           Response.BAD_REQUEST, handler.post(Channel.ofRequest(PostRequest.of(body))));
     }
+  }
+
+  @Test
+  void testProgressInPercentage() {
+    Assertions.assertEquals(progressInPercentage(-1.1), "0.00%");
+    Assertions.assertEquals(progressInPercentage(11.11), "100.00%");
+    Assertions.assertEquals(progressInPercentage(0.12345), "12.35%");
   }
 }

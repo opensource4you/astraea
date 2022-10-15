@@ -20,9 +20,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.admin.Admin;
-import org.astraea.app.admin.TopicPartition;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Partition;
+import org.astraea.common.admin.TopicPartition;
 
 public class GroupHandler implements Handler {
   static final String TOPIC_KEY = "topic";
@@ -56,7 +58,9 @@ public class GroupHandler implements Handler {
     if (shouldDeleteInstance) {
       var groupInstanceId = channel.queries().get(INSTANCE_KEY);
       var instanceExisted =
-          admin.consumerGroups(Set.of(groupId)).get(groupId).activeMembers().stream()
+          admin.consumerGroups(Set.of(groupId)).stream()
+              .filter(g -> g.groupId().equals(groupId))
+              .flatMap(g -> g.assignment().keySet().stream())
               .anyMatch(x -> x.groupInstanceId().filter(groupInstanceId::equals).isPresent());
       if (instanceExisted) admin.removeStaticMembers(groupId, Set.of(groupInstanceId));
     } else {
@@ -72,23 +76,25 @@ public class GroupHandler implements Handler {
             ? Set.of(channel.queries().get(TOPIC_KEY))
             : admin.topicNames();
     var consumerGroups = admin.consumerGroups(groupIds(channel.target()));
-    var offsets = admin.offsets(topics);
+    var partitions =
+        admin.partitions(topics).stream()
+            .collect(Collectors.toMap(Partition::topicPartition, Function.identity()));
 
     var groups =
-        consumerGroups.entrySet().stream()
+        consumerGroups.stream()
             // if users want to search groups for specify topic only, we remove the group having no
             // offsets related to specify topic
             .filter(
-                idAndGroup ->
+                g ->
                     !channel.queries().containsKey(TOPIC_KEY)
-                        || idAndGroup.getValue().consumeProgress().keySet().stream()
+                        || g.consumeProgress().keySet().stream()
                             .map(TopicPartition::topic)
                             .anyMatch(topics::contains))
             .map(
-                idAndGroup ->
+                group ->
                     new Group(
-                        idAndGroup.getKey(),
-                        idAndGroup.getValue().assignment().entrySet().stream()
+                        group.groupId(),
+                        group.assignment().entrySet().stream()
                             .map(
                                 entry ->
                                     new Member(
@@ -101,21 +107,17 @@ public class GroupHandler implements Handler {
                                         entry.getValue().stream()
                                             .map(
                                                 tp ->
-                                                    offsets.containsKey(tp)
-                                                            && idAndGroup
-                                                                .getValue()
+                                                    partitions.containsKey(tp)
+                                                            && group
                                                                 .consumeProgress()
                                                                 .containsKey(tp)
                                                         ? Optional.of(
                                                             new OffsetProgress(
                                                                 tp.topic(),
                                                                 tp.partition(),
-                                                                offsets.get(tp).earliest(),
-                                                                idAndGroup
-                                                                    .getValue()
-                                                                    .consumeProgress()
-                                                                    .get(tp),
-                                                                offsets.get(tp).latest()))
+                                                                partitions.get(tp).earliestOffset(),
+                                                                group.consumeProgress().get(tp),
+                                                                partitions.get(tp).latestOffset()))
                                                         : Optional.<OffsetProgress>empty())
                                             .filter(Optional::isPresent)
                                             .map(Optional::get)

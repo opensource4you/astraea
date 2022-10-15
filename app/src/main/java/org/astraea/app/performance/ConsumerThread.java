@@ -20,24 +20,29 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.errors.WakeupException;
-import org.astraea.app.admin.TopicPartition;
-import org.astraea.app.common.Utils;
-import org.astraea.app.consumer.ConsumerRebalanceListener;
-import org.astraea.app.consumer.SubscribedConsumer;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.consumer.ConsumerRebalanceListener;
+import org.astraea.common.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITIONS = new ConcurrentHashMap<>();
+
   static List<ConsumerThread> create(
       int consumers,
-      Function<ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>> consumerSupplier) {
+      BiFunction<String, ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>>
+          consumerSupplier) {
     if (consumers == 0) return List.of();
     var closeLatches =
         IntStream.range(0, consumers)
@@ -57,40 +62,32 @@ public interface ConsumerThread extends AbstractThread {
     return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
-              var report = new Report();
-              var listener = new Listener(report);
-              var closeLatch = closeLatches.get(index);
+              @SuppressWarnings("resource")
+              var clientId = Utils.randomString();
+              var consumer =
+                  consumerSupplier.apply(clientId, ps -> CLIENT_ID_PARTITIONS.put(clientId, ps));
               var closed = new AtomicBoolean(false);
+              var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
               executors.execute(
                   () -> {
-                    try (var consumer = consumerSupplier.apply(listener)) {
+                    try {
                       while (!closed.get()) {
                         if (subscribed.get()) consumer.resubscribe();
                         else {
                           consumer.unsubscribe();
-                          report.assignments(Set.of());
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        consumer
-                            .poll(Duration.ofSeconds(1))
-                            .forEach(
-                                record ->
-                                    // record ene-to-end latency, and record input byte (header and
-                                    // timestamp size excluded)
-                                    report.record(
-                                        record.topic(),
-                                        record.partition(),
-                                        record.offset(),
-                                        System.currentTimeMillis() - record.timestamp(),
-                                        record.serializedKeySize() + record.serializedValueSize()));
-                        report.assignments(consumer.assignments());
+                        consumer.poll(Duration.ofSeconds(1));
                       }
                     } catch (WakeupException ignore) {
                       // Stop polling and being ready to clean up
                     } finally {
+                      Utils.swallowException(consumer::close);
                       closeLatch.countDown();
+                      closed.set(true);
+                      CLIENT_ID_PARTITIONS.remove(clientId);
                     }
                   });
               return new ConsumerThread() {
@@ -116,11 +113,6 @@ public interface ConsumerThread extends AbstractThread {
                 }
 
                 @Override
-                public Report report() {
-                  return report;
-                }
-
-                @Override
                 public void close() {
                   closed.set(true);
                   Utils.swallowException(closeLatch::await);
@@ -133,71 +125,4 @@ public interface ConsumerThread extends AbstractThread {
   void resubscribe();
 
   void unsubscribe();
-
-  /** @return report of this thread */
-  Report report();
-
-  class Listener implements ConsumerRebalanceListener {
-    private final Report report;
-    private long previousCall = System.currentTimeMillis();
-    private long maxLatency = 0;
-    private long sumLatency = 0;
-    private long count = 0;
-
-    public Listener(Report report) {
-      this.report = report;
-    }
-
-    @Override
-    public void onPartitionAssigned(Set<TopicPartition> partitions) {
-      record();
-    }
-
-    @Override
-    public void onPartitionsRevoked(Set<TopicPartition> partitions) {
-      record();
-    }
-
-    private void record() {
-      count += 1;
-      var current = System.currentTimeMillis();
-      var diff = current - previousCall;
-      maxLatency = Math.max(maxLatency, diff);
-      sumLatency += diff;
-      previousCall = current;
-      report.maxSubscriptionLatency(maxLatency);
-      report.avgSubscriptionLatency((double) sumLatency / count);
-    }
-  }
-
-  class Report extends org.astraea.app.performance.Report.Impl {
-    private volatile long maxSubscriptionLatency = 0;
-    private volatile double avgSubscriptionLatency = 0;
-
-    private volatile Set<TopicPartition> assignments;
-
-    public long maxSubscriptionLatency() {
-      return maxSubscriptionLatency;
-    }
-
-    public void maxSubscriptionLatency(long maxSubscriptionLatency) {
-      this.maxSubscriptionLatency = maxSubscriptionLatency;
-    }
-
-    public double avgSubscriptionLatency() {
-      return avgSubscriptionLatency;
-    }
-
-    public void avgSubscriptionLatency(double avgSubscriptionLatency) {
-      this.avgSubscriptionLatency = avgSubscriptionLatency;
-    }
-
-    public void assignments(Set<TopicPartition> assignments) {
-      this.assignments = assignments;
-    }
-
-    public Set<TopicPartition> assignments() {
-      return assignments;
-    }
-  }
 }
