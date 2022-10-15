@@ -11,5 +11,7 @@ Astraea 提供簡單但實用的 Kafka GUI 工具，讓使用者方便調閱和�
 - [事前準備](./env/README.md)
 - [設定 Astraea GUI](./setting/README.md)
 - [調閱 replicas](./replica/README.md)
+- [調閱 client](./client/README.md)
 - [使用 balancer](./balancer/README.md)
 - [檢視 about](./about/README.md)
+
