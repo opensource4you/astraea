@@ -18,7 +18,6 @@ package org.astraea.gui.tab;
 
 import java.util.Optional;
 import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.metrics.MBeanClient;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
@@ -45,22 +44,12 @@ public class SettingTab {
                       .nodeInfos()
                       .thenAccept(
                           nodeInfos -> {
-                            context
-                                .replace(newAdmin)
-                                .ifPresent(
-                                    admin ->
-                                        org.astraea.common.Utils.swallowException(admin::close));
+                            context.replace(newAdmin);
                             if (jmxPort.isEmpty()) {
                               logger.log("succeed to connect to " + bootstrapServers);
                               return;
                             }
-                            nodeInfos.forEach(
-                                n -> {
-                                  try (var client = MBeanClient.jndi(n.host(), jmxPort.get())) {
-                                    client.listDomains();
-                                  }
-                                });
-                            context.replace(jmxPort.get());
+                            context.replace(nodeInfos, jmxPort.get());
                             logger.log(
                                 "succeed to connect to "
                                     + bootstrapServers

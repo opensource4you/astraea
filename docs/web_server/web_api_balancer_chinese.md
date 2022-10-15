@@ -1,13 +1,13 @@
 /balancer
 ===
 
-- [計算新的負載平衡計劃](#計算新的負載平衡計劃)
+- [排程搜尋新的負載平衡計劃](#排程搜尋新的負載平衡計劃)
 - [執行負載平衡計劃](#執行負載平衡計劃)
-- [查詢負載平衡計劃執行進度](#查詢負載平衡計劃執行進度)
+- [查詢負載平衡計劃的狀態](#查詢負載平衡計劃的狀態)
 
-## 計算新的負載平衡計劃
+## 排程搜尋新的負載平衡計劃
 ```shell
-GET /balancer
+POST /balancer
 ```
 
 參數
@@ -20,90 +20,25 @@ GET /balancer
 
 cURL 範例
 ```shell
-curl -X GET http://localhost:8001/balancer
+curl -X POST http://localhost:8001/balancer \
+    -H "Content-Type: application/json" \
+    -d '{ "timeout": "10s" }'
 ```
 
 JSON Response 範例
-- `id`: 這個負載平衡計劃的編號，後續可以透過這個編號來執行此計劃。當負載平衡計劃沒有找到時，此編號將不存在
-- `cost`: 目前叢集的成本 (越高越不好)
-- `newCost`: 評估後比較好的成本 (<= `cost`)
-- `limit`: 嘗試了幾種組合
-- `function`: 用來評估品質的方法
-- `changes`: 新的 partitions 配置
-  - `topic`: topic 名稱
-  - `partition`: partition id
-  - `before`: 原本的配置
-    - `brokerId`: 有掌管 replica 的節點 id
-    - `directory`: replica 存在資料的路徑
-    - `size`: replica 在硬碟上的資料大小
-  - `after`: 比較好的配置
-- `migrations`: 計算搬移計畫的成本
-  * `function`: 用來評估成本的演算法
-  * `totalCost`: 各個broker的成本總和
-  * `cost`: 針對各個broker計算成本的改變
-    * `brokerId`: 有掌管 replica 的節點 id
-    * `cost`: 改變的量，負值表示移出，正值表示移入
-  * `unit`: 成本的單位
+- `id`: 這個負載平衡計劃的編號，後續可以透過這個編號來查詢此計劃的狀態。
+
 ```json
 {
-  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "cost": 0.04948716593053935,
-  "newCost": 0.04948716593053935,
-  "limit": 10000,
-  "function": "ReplicaLeaderCost",
-  "changes": [
-    {
-      "topic": "__consumer_offsets",
-      "partition": 40,
-      "before": [
-        {
-          "brokerId": 1006,
-          "directory": "/tmp/log-folder-0",
-          "size": 1234
-        }
-      ],
-      "after": [
-        {
-          "brokerId": 1002,
-          "directory": "/tmp/log-folder-0"
-        }
-      ]
-    },
-    {
-      "topic": "__consumer_offsets",
-      "partition": 44,
-      "before": [
-        {
-          "brokerId": 1003,
-          "directory": "/tmp/log-folder-0",
-          "size": 12355
-        }
-      ],
-      "after": [
-        {
-          "brokerId": 1001,
-          "directory": "/tmp/log-folder-2"
-        }
-      ]
-    }
-  ]
+  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a"
 }
 ```
 
-> ##### `before` 和 `after` 陣列中的位置存在特別含義
-> `before` 和 `after` 欄位用 JSON 陣列描述一個 topic/partition 預期的 replica 分佈狀況，
-> 其中第一個欄位會被解釋成特定 topic/partition 的 preferred leader，且在負載平衡執行後，
-> 這個 preferred leader 會被內部計劃的執行邏輯變更為當前 partition 的 leader。
->
-> 從 JSON 陣列第二位開始預期都是這個 topic/partition 的 follower logs，特別注意目前內部實作
-> 不保證這個 follower logs 的順序是否會一致地反映到 Apache Kafka 內部的儲存資料結構內。
- 
-> ##### 找不到負載平衡計劃
-> 此 API 不一定總是能夠找到一個可以使叢集更好的負載平衡計劃，幾種失敗的可能包含：
-> 1. 演算法沒有找到可行的計劃。
-> 2. 針對給定的 cost functions, 目前叢集已經處於全局最佳的狀態。
-> 
-> 當找不到負載平衡計劃時，JSON response 中的 `id` 欄位將不存在。
+> ##### 搜尋負載平衡計劃需要時間
+> 透過 `POST /balancer` 發起搜尋後，由於演算法邏輯和叢集效能資訊收集因素，這個計劃可能會花上一段時間才會找到。
+> `POST /balancer` 回傳的計劃 id 能夠透過 [GET /balancer/{id}](#查詢負載平衡計劃的狀態) 查詢其搜尋狀態，
+> 如果其 response 欄位 `generated` 為 `true`，則代表此計劃已經完成搜尋，能夠被 `PUT /balancer` 執行。
+> 嘗試執行一個還沒完成搜尋的負載平衡計劃會發生錯誤。
 
 ## 執行負載平衡計劃
 
@@ -122,17 +57,18 @@ curl -X PUT http://localhost:8001/balancer \
 JSON Request 格式
 
 | 名稱  | 說明                 | 預設值 |
-|-----|--------------------| ------ |
-| id  | (必填) 欲執行的負載平衡計劃之編號 | 無     |
-
+|-----|--------------------|-----|
+| id  | (必填) 欲執行的負載平衡計劃之編號 | 無   |
 
 JSON Response 範例
 
-* `id`: 被接受的負載平衡計劃編號。後續可以用這個 id 和特定 [API](#查詢負載平衡計劃執行進度) 來查詢負載平衡計劃的執行進度。
+* `id`: 被接受的負載平衡計劃編號。
 
 ```json
 { "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a" }
 ```
+
+後續能用特定 [API](#查詢負載平衡計劃的狀態) 來查詢負載平衡計劃的執行進度。
 
 > ##### 一個叢集同時間只能執行一個負載平衡計劃
 > 嘗試對一個叢集同時套用多個負載平衡計劃會導致意外的結果，因此 `PUT /balancer` 被設計為：
@@ -141,7 +77,7 @@ JSON Response 範例
 > 會檢查是否有正在進行的 Partition Reassignment，如果有偵測到則意味着可能有其他負載平衡計劃正在運行。
 > Web Service 在這個情況下也會拒絕執行負載平衡計劃。
 
-## 查詢負載平衡計劃執行進度
+## 查詢負載平衡計劃的狀態
 
 ```shell
 GET /balancer/{id}
@@ -155,34 +91,112 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 ```
 
 | 名稱  | 說明                 | 預設值 |
-|-----|--------------------| ------ |
-| id | (必填) 欲查詢的負載平衡計劃之代號 | 無     |
+|-----|--------------------|-----|
+| id  | (必填) 欲查詢的負載平衡計劃之代號 | 無   |
 
 > 目前實作不保留 web service 程式過去啟動時所接受的負載平衡計劃進度與結果
+
+> 當查詢的 `id` 沒有對應到任何負載平衡計劃，回傳的 HTTP Status Code 會是 `404`
 
 JSON Response 範例
 
 * `id`: 此 Response 所描述的負載平衡計劃編號
+* `generated`: 此負載平衡計劃是否已經生成
 * `scheduled`: 此負載平衡計劃是否有排程執行過
 * `done`: 此負載平衡計劃是否結束執行
-* `exception`: 當負載平衡計劃在意外下結束時，其所附帶的錯誤訊息。如果執行沒有發生錯誤或還沒執行完成，此欄位會是 `null`
+* `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
+  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `generated` 會是 `false`)
+  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
+* `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
+  * `cost`: 目前叢集的成本 (越高越不好)
+  * `newCost`: 評估後比較好的成本 (<= `cost`)
+  * `limit`: 嘗試了幾種組合
+  * `function`: 用來評估品質的方法
+  * `changes`: 新的 partitions 配置
+    * `topic`: topic 名稱
+    * `partition`: partition id
+    * `before`: 原本的配置
+      * `brokerId`: 有掌管 replica 的節點 id
+      * `directory`: replica 存在資料的路徑
+      * `size`: replica 在硬碟上的資料大小
+    * `after`: 比較好的配置
+  * `migrations`: 計算搬移計畫的成本
+    * `function`: 用來評估成本的演算法
+    * `totalCost`: 各個broker的成本總和
+    * `cost`: 針對各個broker計算成本的改變
+      * `brokerId`: 有掌管 replica 的節點 id
+      * `cost`: 改變的量，負值表示移出，正值表示移入
+    * `unit`: 成本的單位
 
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "scheduled": true,
-  "done": true
-}
-```
-
-```json
-{
-  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "generated": true,
   "scheduled": true,
   "done": true,
-  "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient"
+  "info": {
+    "cost": 0.04948716593053935,
+    "newCost": 0.04948716593053935,
+    "limit": 10000,
+    "function": "ReplicaLeaderCost",
+    "changes": [
+      {
+        "topic": "__consumer_offsets",
+        "partition": 40,
+        "before": [
+          {
+            "brokerId": 1006,
+            "directory": "/tmp/log-folder-0",
+            "size": 1234
+          }
+        ],
+        "after": [
+          {
+            "brokerId": 1002,
+            "directory": "/tmp/log-folder-0"
+          }
+        ]
+      },
+      {
+        "topic": "__consumer_offsets",
+        "partition": 44,
+        "before": [
+          {
+            "brokerId": 1003,
+            "directory": "/tmp/log-folder-0",
+            "size": 12355
+          }
+        ],
+        "after": [
+          {
+            "brokerId": 1001,
+            "directory": "/tmp/log-folder-2"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+```json
+{
+  "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "generated": true,
+  "scheduled": true,
+  "done": true,
+  "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
+  "info":{ /* ... */ }
+}
+```
+
+> ##### `before` 和 `after` 陣列中的位置存在特別含義
+> `before` 和 `after` 欄位用 JSON 陣列描述一個 topic/partition 預期的 replica 分佈狀況，
+> 其中第一個欄位會被解釋成特定 topic/partition 的 preferred leader，且在負載平衡執行後，
+> 這個 preferred leader 會被內部計劃的執行邏輯變更為當前 partition 的 leader。
+>
+> 從 JSON 陣列第二位開始預期都是這個 topic/partition 的 follower logs，特別注意目前內部實作
+> 不保證這個 follower logs 的順序是否會一致地反映到 Apache Kafka 內部的儲存資料結構內。
 
 
 目前此 endpoint 僅能查詢負載平衡計劃是否完成，如想知道更細部的搬移進度，可考慮使用 [Web Service Reassignments API](web_api_reassignments_chinese.md) 查詢。

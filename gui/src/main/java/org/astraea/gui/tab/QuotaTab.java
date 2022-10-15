@@ -16,7 +16,14 @@
  */
 package org.astraea.gui.tab;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javafx.geometry.Side;
+import javafx.scene.layout.Pane;
+import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.admin.Quota;
@@ -24,26 +31,136 @@ import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
+import org.astraea.gui.pane.TabPane;
 
 public class QuotaTab {
 
-  private enum Target {
-    IP("ip"),
-    CLIENT_ID("client id");
-
-    private final String display;
-
-    Target(String display) {
-      this.display = display;
-    }
-
-    @Override
-    public String toString() {
-      return display;
-    }
+  private static Pane connectionPane(Context context) {
+    var ipLabelKey = "ip address";
+    var rateKey = "connections/second";
+    return PaneBuilder.of()
+        .buttonName("ALTER")
+        .input(ipLabelKey, true, false)
+        .input(rateKey, false, true)
+        .buttonAction(
+            (input, logger) ->
+                Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
+                    .map(
+                        rate ->
+                            context
+                                .admin()
+                                .setConnectionQuotas(
+                                    Map.of(
+                                        input.nonEmptyTexts().get(ipLabelKey),
+                                        Integer.parseInt(rate))))
+                    .orElseGet(
+                        () ->
+                            context
+                                .admin()
+                                .unsetConnectionQuotas(
+                                    Set.of(input.nonEmptyTexts().get(ipLabelKey))))
+                    .thenCompose(
+                        ignored ->
+                            context
+                                .admin()
+                                .quotas(QuotaConfigs.IP)
+                                .thenApply(
+                                    quotas ->
+                                        quotas.stream()
+                                            .map(QuotaTab::basicResult)
+                                            .collect(Collectors.toList()))))
+        .build();
   }
 
-  static LinkedHashMap<String, Object> result(Quota quota) {
+  private static Pane producerPane(Context context) {
+    var clientIdLabelKey = "kafka client id";
+    var byteRateKey = "MB/second";
+    return PaneBuilder.of()
+        .buttonName("ALTER")
+        .input(clientIdLabelKey, true, false)
+        .input(byteRateKey, false, true)
+        .buttonAction(
+            (input, logger) ->
+                Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
+                    .map(
+                        rate ->
+                            context
+                                .admin()
+                                .setProducerQuotas(
+                                    Map.of(
+                                        input.nonEmptyTexts().get(clientIdLabelKey),
+                                        DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                    .orElseGet(
+                        () ->
+                            context
+                                .admin()
+                                .unsetProducerQuotas(
+                                    Set.of(input.nonEmptyTexts().get(clientIdLabelKey))))
+                    .thenCompose(
+                        ignored ->
+                            context
+                                .admin()
+                                .quotas(QuotaConfigs.CLIENT_ID)
+                                .thenApply(
+                                    quotas ->
+                                        quotas.stream()
+                                            .map(QuotaTab::basicResult)
+                                            .collect(Collectors.toList()))))
+        .build();
+  }
+
+  private static Pane consumerPane(Context context) {
+    var clientIdLabelKey = "kafka client id";
+    var byteRateKey = "MB/second";
+    return PaneBuilder.of()
+        .buttonName("ALTER")
+        .input(clientIdLabelKey, true, false)
+        .input(byteRateKey, false, true)
+        .buttonAction(
+            (input, logger) ->
+                Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
+                    .map(
+                        rate ->
+                            context
+                                .admin()
+                                .setConsumerQuotas(
+                                    Map.of(
+                                        input.nonEmptyTexts().get(clientIdLabelKey),
+                                        DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                    .orElseGet(
+                        () ->
+                            context
+                                .admin()
+                                .unsetConsumerQuotas(
+                                    Set.of(input.nonEmptyTexts().get(clientIdLabelKey))))
+                    .thenCompose(
+                        ignored ->
+                            context
+                                .admin()
+                                .quotas(QuotaConfigs.CLIENT_ID)
+                                .thenApply(
+                                    quotas ->
+                                        quotas.stream()
+                                            .map(QuotaTab::basicResult)
+                                            .collect(Collectors.toList()))))
+        .build();
+  }
+
+  public static Tab alterTab(Context context) {
+    return Tab.of(
+        "alter",
+        TabPane.of(
+            Side.TOP,
+            Map.of(
+                "connection",
+                connectionPane(context),
+                "producer",
+                producerPane(context),
+                "consumer",
+                consumerPane(context))));
+  }
+
+  static LinkedHashMap<String, Object> basicResult(Quota quota) {
     return LinkedHashMap.of(
         quota.targetKey(),
         quota.targetValue(),
@@ -54,27 +171,31 @@ public class QuotaTab {
             : quota.limitValue());
   }
 
-  public static Tab of(Context context) {
+  private static Tab basicTab(Context context) {
+    var ipKey = "ip";
+    var clientIdKey = "client id";
     return Tab.of(
-        "quota",
+        "basic",
         PaneBuilder.of()
-            .radioButtons(Target.values())
-            .searchField("ip/client id")
+            .radioButtons(List.of(ipKey, clientIdKey))
+            .searchField(ipKey + "/" + clientIdKey)
             .buttonAction(
                 (input, logger) -> {
-                  var target = input.selectedRadio().map(o -> (Target) o).orElse(Target.IP);
+                  var target = input.selectedRadio().map(o -> (String) o).orElse(ipKey);
                   return context
-                      .submit(
-                          admin ->
-                              admin.quotas(
-                                  target == Target.IP ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID))
+                      .admin()
+                      .quotas(target.equals("ip") ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID)
                       .thenApply(
                           quotas ->
                               quotas.stream()
                                   .filter(q -> input.matchSearch(q.targetValue()))
-                                  .map(QuotaTab::result)
+                                  .map(QuotaTab::basicResult)
                                   .collect(Collectors.toList()));
                 })
             .build());
+  }
+
+  public static Tab of(Context context) {
+    return Tab.of("quota", TabPane.of(Side.TOP, List.of(basicTab(context), alterTab(context))));
   }
 }

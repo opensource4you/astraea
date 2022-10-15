@@ -25,9 +25,10 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.LinkedHashMap;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -76,23 +77,25 @@ public class BalancerTab {
                     tp.partition(),
                     "old assignments",
                     clusterInfo.replicas(tp).stream()
-                        .map(r -> String.valueOf(r.nodeInfo().id()))
+                        .map(r -> r.nodeInfo().id() + ":" + r.path())
                         .collect(Collectors.joining(",")),
                     "new assignments",
                     plan.proposal().rebalancePlan().logPlacements(tp).stream()
-                        .map(r -> String.valueOf(r.nodeInfo().id()))
+                        .map(r -> r.nodeInfo().id() + ":" + r.path())
                         .collect(Collectors.joining(","))))
         .collect(Collectors.toList());
   }
 
   private static CompletionStage<List<Map<String, Object>>> generator(
-      AsyncAdmin admin, Input input, Logger logger) {
-    return admin
+      Context context, Input input, Logger logger) {
+    return context
+        .admin()
         .topicNames(true)
-        .thenCompose(admin::clusterInfo)
+        .thenCompose(context.admin()::clusterInfo)
         .thenCompose(
             clusterInfo ->
-                admin
+                context
+                    .admin()
                     .brokerFolders()
                     .thenApply(
                         brokerFolders -> {
@@ -144,16 +147,59 @@ public class BalancerTab {
               }
               logger.log("applying better assignments ... ");
               // TODO: how to migrate folder safely ???
-              return admin
-                  .moveToBrokers(
-                      tpAndReplicasMap.entrySet().stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey,
-                                  e ->
-                                      e.getValue().stream()
-                                          .map(r -> r.nodeInfo().id())
-                                          .collect(Collectors.toList()))))
+
+              var moveBrokerRequest =
+                  tpAndReplicasMap.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey,
+                              e ->
+                                  e.getValue().stream()
+                                      .map(r -> r.nodeInfo().id())
+                                      .collect(Collectors.toList())));
+              var moveFolderRequest =
+                  tpAndReplicasMap.entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().stream()
+                                  .map(r -> Map.entry(r.topicPartitionReplica(), r.path())))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              var expectedReplicas =
+                  moveBrokerRequest.entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().stream()
+                                  .map(
+                                      id ->
+                                          TopicPartitionReplica.of(
+                                              e.getKey().topic(), e.getKey().partition(), id)))
+                      .collect(Collectors.toList());
+              return context
+                  .admin()
+                  .moveToBrokers(moveBrokerRequest)
+                  // wait assignment
+                  .thenCompose(
+                      ignored ->
+                          context
+                              .admin()
+                              .waitCluster(
+                                  moveBrokerRequest.keySet().stream()
+                                      .map(TopicPartition::topic)
+                                      .collect(Collectors.toSet()),
+                                  clusterInfo ->
+                                      expectedReplicas.stream()
+                                          .allMatch(
+                                              r ->
+                                                  clusterInfo
+                                                      .replicaStream()
+                                                      .anyMatch(
+                                                          replica ->
+                                                              replica
+                                                                  .topicPartitionReplica()
+                                                                  .equals(r))),
+                                  Duration.ofSeconds(10),
+                                  2))
+                  .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
                   .thenApply(
                       ignored ->
                           entry
@@ -169,10 +215,9 @@ public class BalancerTab {
             .radioButtons(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
-            .buttonAction(
-                (input, logger) -> context.submit(admin -> generator(admin, input, logger)))
+            .buttonAction((input, logger) -> generator(context, input, logger))
             .build();
 
-    return Tab.of("balance topic", pane);
+    return Tab.of("balancer", pane);
   }
 }

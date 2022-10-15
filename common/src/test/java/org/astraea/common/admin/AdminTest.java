@@ -168,8 +168,7 @@ public class AdminTest extends RequireBrokerCluster {
       var logFolders =
           logFolders().values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
       partitions.forEach(
-          replica ->
-              Assertions.assertTrue(logFolders.stream().anyMatch(replica.dataFolder()::contains)));
+          replica -> Assertions.assertTrue(logFolders.stream().anyMatch(replica.path()::contains)));
       brokerIds().forEach(id -> Assertions.assertNotEquals(0, admin.topicPartitions(id).size()));
       var after = brokerIds().stream().mapToInt(id -> admin.topicPartitions(id).size()).sum();
       Assertions.assertEquals(before + 10, after);
@@ -278,7 +277,7 @@ public class AdminTest extends RequireBrokerCluster {
                               .filter(replica -> replica.partition() == 0)
                               .findFirst()
                               .get()
-                              .dataFolder()))
+                              .path()))
               .collect(Collectors.toSet());
       admin
           .migrator()
@@ -288,7 +287,7 @@ public class AdminTest extends RequireBrokerCluster {
           () -> {
             var partitionReplicas = admin.replicas(Set.of(topicName));
             return partitionReplicas.size() == 1
-                && partitionReplicas.get(0).dataFolder().equals(otherPath.iterator().next());
+                && partitionReplicas.get(0).path().equals(otherPath.iterator().next());
           });
     }
   }
@@ -326,7 +325,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // assert, nothing happened until the actual movement
       Assertions.assertNotEquals(nextBroker, replicaNow.get().nodeInfo().id());
-      Assertions.assertNotEquals(nextDir, replicaNow.get().dataFolder());
+      Assertions.assertNotEquals(nextDir, replicaNow.get().path());
 
       // act, perform the actual movement
       admin.migrator().partition(topic, 0).moveTo(List.of(nextBroker));
@@ -334,7 +333,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // assert, everything on the exact broker & dir
       Assertions.assertEquals(nextBroker, replicaNow.get().nodeInfo().id());
-      Assertions.assertEquals(nextDir, replicaNow.get().dataFolder());
+      Assertions.assertEquals(nextDir, replicaNow.get().path());
     }
   }
 
@@ -1161,7 +1160,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get();
       var currentBroker = currentReplica.nodeInfo().id();
-      var currentPath = currentReplica.dataFolder();
+      var currentPath = currentReplica.path();
       var nextPath =
           logFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
@@ -1913,7 +1912,7 @@ public class AdminTest extends RequireBrokerCluster {
               Map.of(
                   replica.nodeInfo().id(),
                   logFolders().get(replica.nodeInfo().id()).stream()
-                      .filter(d -> !d.equals(replica.dataFolder()))
+                      .filter(d -> !d.equals(replica.path()))
                       .findFirst()
                       .get()));
       Utils.waitFor(

@@ -110,9 +110,9 @@ public interface ClusterLogAllocation {
   /**
    * Determine if both of the replicas can be considered as equal in terms of its placement.
    *
-   * @param sourceReplicas the source replicas. null value of {@link Replica#dataFolder()} will be
+   * @param sourceReplicas the source replicas. null value of {@link Replica#path()} will be
    *     interpreted as the actual location doesn't matter.
-   * @param targetReplicas the target replicas. null value of {@link Replica#dataFolder()} will be
+   * @param targetReplicas the target replicas. null value of {@link Replica#path()} will be
    *     interpreted as the actual location is unknown.
    * @return true if both replicas of specific topic/partitions can be considered as equal in terms
    *     of its placement.
@@ -140,7 +140,7 @@ public interface ClusterLogAllocation {
               final var target = targetIds.get(index);
               return source.isPreferredLeader() == target.isPreferredLeader()
                   && source.nodeInfo().id() == target.nodeInfo().id()
-                  && Objects.equals(source.dataFolder(), target.dataFolder());
+                  && Objects.equals(source.path(), target.path());
             });
   }
 
@@ -158,7 +158,7 @@ public interface ClusterLogAllocation {
                   .forEach(
                       log ->
                           stringBuilder.append(
-                              String.format("(%s, %s) ", log.nodeInfo().id(), log.dataFolder())));
+                              String.format("(%s, %s) ", log.nodeInfo().id(), log.path())));
 
               stringBuilder.append(System.lineSeparator());
             });
@@ -293,7 +293,7 @@ public interface ClusterLogAllocation {
           source.isFuture(),
           source.isOffline(),
           isPreferredLeader,
-          source.dataFolder());
+          source.path());
     }
   }
 
@@ -303,6 +303,6 @@ public interface ClusterLogAllocation {
   }
 
   static Replica update(Replica source, NodeInfo newBroker, String newDir) {
-    return Replica.builder(source).nodeInfo(newBroker).dataFolder(newDir).build();
+    return Replica.builder(source).nodeInfo(newBroker).path(newDir).build();
   }
 }

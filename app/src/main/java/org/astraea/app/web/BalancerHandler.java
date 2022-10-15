@@ -16,19 +16,17 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.reflect.TypeToken;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -69,7 +67,7 @@ class BalancerHandler implements Handler {
   final List<HasClusterCost> clusterCostFunctions;
   Map<String, Double> costWeights = Map.of();
   final HasMoveCost moveCostFunction;
-  private final Map<String, PlanInfo> generatedPlans = new ConcurrentHashMap<>();
+  private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
@@ -101,135 +99,144 @@ class BalancerHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
-    return channel
-        .target()
-        .map(this::lookupRebalancePlanProgress)
-        .orElseGet(() -> searchRebalancePlan(channel));
-  }
-
-  @Override
-  public Response post(Channel channel) {
-    var costWeights =
-        channel
-            .request()
-            .<Collection<CostWeight>>get(
-                "costWeights",
-                TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
-            .orElse(List.of());
-    this.costWeights =
-        costWeights.stream()
-            .map(x -> Map.entry(x.cost, x.weight))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return new WeightSetting(costWeights);
-  }
-
-  private Response searchRebalancePlan(Channel channel) {
-    var timeout =
-        Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
-            .map(DurationField::toDuration)
-            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
-    var topics =
-        Optional.ofNullable(channel.queries().get(TOPICS_KEY))
-            .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-            .orElseGet(() -> admin.topicNames(false));
-    var currentClusterInfo = admin.clusterInfo();
-    var costWeights =
-        clusterCostFunctions.stream()
-            .map(
-                cf ->
-                    Map.entry(
-                        cf, this.costWeights.getOrDefault(cf.getClass().getSimpleName(), 1.0)))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var mergedClusterCost = HasClusterCost.of(costWeights);
-    var cost = mergedClusterCost.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-    var loop =
-        Integer.parseInt(channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
-    var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
-    var bestPlan =
-        Balancer.builder()
-            .planGenerator(generator)
-            .clusterCost(mergedClusterCost)
-            .moveCost(moveCostFunction)
-            .limit(loop)
-            .limit(timeout)
-            .build()
-            .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
-    var changes =
-        bestPlan
-            .map(
-                p ->
-                    ClusterLogAllocation.findNonFulfilledAllocation(
-                            targetAllocations, p.proposal().rebalancePlan())
-                        .stream()
-                        .map(
-                            tp ->
-                                new Change(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    // only log the size from source replicas
-                                    placements(
-                                        targetAllocations.logPlacements(tp),
-                                        l ->
-                                            currentClusterInfo
-                                                .replica(
-                                                    TopicPartitionReplica.of(
-                                                        tp.topic(),
-                                                        tp.partition(),
-                                                        l.nodeInfo().id()))
-                                                .map(Replica::size)
-                                                .orElse(null)),
-                                    placements(
-                                        p.proposal().rebalancePlan().logPlacements(tp),
-                                        ignored -> null)))
-                        .collect(Collectors.toUnmodifiableList()))
-            .orElse(List.of());
-    var id = bestPlan.map(ignore -> UUID.randomUUID()).map(UUID::toString).orElse(null);
-    var report =
-        new Report(
-            id,
-            cost,
-            bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-            loop,
-            bestPlan.map(p -> p.proposal().index()).orElse(null),
-            clusterCostFunctions.getClass().getSimpleName(),
-            changes,
-            bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
-    bestPlan.ifPresent(thePlan -> generatedPlans.put(id, new PlanInfo(report, thePlan)));
-    return report;
-  }
-
-  private Response lookupRebalancePlanProgress(String planId) {
+  public CompletionStage<Response> get(Channel channel) {
+    var planId = channel.target().orElseThrow();
     if (!generatedPlans.containsKey(planId))
-      throw new IllegalArgumentException("This plan doesn't exists: " + planId);
+      return CompletableFuture.completedFuture(Response.NOT_FOUND);
+    boolean isGenerated =
+        generatedPlans.get(planId).isDone()
+            && !generatedPlans.get(planId).isCompletedExceptionally()
+            && !generatedPlans.get(planId).isCancelled();
     boolean isScheduled = executedPlans.containsKey(planId);
     boolean isDone = isScheduled && executedPlans.get(planId).isDone();
-    var exception =
+    var generationException =
+        generatedPlans
+            .getOrDefault(planId, CompletableFuture.completedFuture(null))
+            .handle((result, error) -> error != null ? error.toString() : null)
+            .getNow(null);
+    var executionException =
         executedPlans
             .getOrDefault(planId, CompletableFuture.completedFuture(null))
             .handle((result, error) -> error != null ? error.toString() : null)
             .getNow(null);
+    var report = isGenerated ? generatedPlans.get(planId).join().report : null;
 
-    return new PlanExecutionProgress(planId, isScheduled, isDone, exception);
+    return CompletableFuture.completedFuture(
+        new PlanExecutionProgress(
+            planId,
+            isGenerated,
+            isScheduled,
+            isDone,
+            isGenerated ? executionException : generationException,
+            report));
   }
 
   @Override
-  public Response put(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
+    var newPlanId = UUID.randomUUID().toString();
+    var planGeneration =
+        CompletableFuture.supplyAsync(
+            () -> {
+              var timeout =
+                  Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
+                      .map(DurationField::toDuration)
+                      .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+              var topics =
+                  Optional.ofNullable(channel.queries().get(TOPICS_KEY))
+                      .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
+                      .orElseGet(() -> admin.topicNames(false));
+              var currentClusterInfo = admin.clusterInfo();
+              var costWeights =
+                  clusterCostFunctions.stream()
+                      .map(
+                          cf ->
+                              Map.entry(
+                                  cf,
+                                  this.costWeights.getOrDefault(
+                                      cf.getClass().getSimpleName(), 1.0)))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              var mergedClusterCost = HasClusterCost.of(costWeights);
+              var cost =
+                  mergedClusterCost.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+              var loop =
+                  Integer.parseInt(
+                      channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
+              var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+              var bestPlan =
+                  Balancer.builder()
+                      .planGenerator(generator)
+                      .clusterCost(mergedClusterCost)
+                      .moveCost(moveCostFunction)
+                      .limit(loop)
+                      .limit(timeout)
+                      .build()
+                      .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+              var changes =
+                  bestPlan
+                      .map(
+                          p ->
+                              ClusterLogAllocation.findNonFulfilledAllocation(
+                                      targetAllocations, p.proposal().rebalancePlan())
+                                  .stream()
+                                  .map(
+                                      tp ->
+                                          new Change(
+                                              tp.topic(),
+                                              tp.partition(),
+                                              // only log the size from source replicas
+                                              placements(
+                                                  targetAllocations.logPlacements(tp),
+                                                  l ->
+                                                      currentClusterInfo
+                                                          .replica(
+                                                              TopicPartitionReplica.of(
+                                                                  tp.topic(),
+                                                                  tp.partition(),
+                                                                  l.nodeInfo().id()))
+                                                          .map(Replica::size)
+                                                          .orElse(null)),
+                                              placements(
+                                                  p.proposal().rebalancePlan().logPlacements(tp),
+                                                  ignored -> null)))
+                                  .collect(Collectors.toUnmodifiableList()))
+                      .orElse(List.of());
+              var report =
+                  new Report(
+                      newPlanId,
+                      cost,
+                      bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+                      loop,
+                      bestPlan.map(p -> p.proposal().index()).orElse(null),
+                      mergedClusterCost.getClass().getSimpleName(),
+                      changes,
+                      bestPlan
+                          .map(p -> List.of(new MigrationCost(p.moveCost())))
+                          .orElseGet(List::of));
+              return new PlanInfo(report, bestPlan.orElseThrow());
+            });
+    generatedPlans.put(newPlanId, planGeneration);
+    return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  @Override
+  public CompletionStage<Response> put(Channel channel) {
     final var thePlanId =
         channel
             .request()
             .get("id")
             .orElseThrow(() -> new IllegalArgumentException("No rebalance plan id offered"));
-    final var thePlanInfo =
+    final var future =
         Optional.ofNullable(generatedPlans.get(thePlanId))
             .orElseThrow(
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
+    if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
+    final var thePlanInfo = future.join();
     final var theRebalanceProposal = thePlanInfo.associatedPlan.proposal();
 
     synchronized (this) {
       if (executedPlans.containsKey(thePlanId)) {
         // already scheduled, nothing to do
-        return new PutPlanResponse(thePlanId);
+        return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       } else if (lastExecutionId.get() != null
           && !executedPlans.get(lastExecutionId.get()).isDone()) {
         throw new IllegalStateException(
@@ -245,7 +252,7 @@ class BalancerHandler implements Handler {
                 () ->
                     executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
         lastExecutionId.set(thePlanId);
-        return new PutPlanResponse(thePlanId);
+        return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       }
     }
   }
@@ -263,7 +270,7 @@ class BalancerHandler implements Handler {
                               Comparator.comparing(Replica::isPreferredLeader)
                                   .reversed()
                                   .thenComparing(x -> x.nodeInfo().id()))
-                          .map(x -> Map.entry(x.nodeInfo().id(), x.dataFolder()))
+                          .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
                           .collect(Collectors.toUnmodifiableList());
                   var expectedReplicaList =
                       Stream.concat(
@@ -311,7 +318,7 @@ class BalancerHandler implements Handler {
 
     Placement(Replica replica, Long size) {
       this.brokerId = replica.nodeInfo().id();
-      this.directory = replica.dataFolder();
+      this.directory = replica.path();
       this.size = size;
     }
   }
@@ -401,6 +408,14 @@ class BalancerHandler implements Handler {
     }
   }
 
+  static class PostPlanResponse implements Response {
+    final String id;
+
+    PostPlanResponse(String id) {
+      this.id = id;
+    }
+  }
+
   static class PutPlanResponse implements Response {
     final String id;
 
@@ -416,42 +431,25 @@ class BalancerHandler implements Handler {
 
   static class PlanExecutionProgress implements Response {
     final String id;
+    final boolean generated;
     final boolean scheduled;
     final boolean done;
     final String exception;
+    final Report report;
 
-    PlanExecutionProgress(String id, boolean scheduled, boolean done, String exception) {
+    PlanExecutionProgress(
+        String id,
+        boolean generated,
+        boolean scheduled,
+        boolean done,
+        String exception,
+        Report report) {
       this.id = id;
+      this.generated = generated;
       this.scheduled = scheduled;
       this.done = done;
       this.exception = exception;
-    }
-  }
-
-  static class WeightSetting implements Response {
-
-    final Collection<CostWeight> costWeights;
-
-    WeightSetting(Collection<CostWeight> costWeights) {
-      this.costWeights = costWeights;
-    }
-  }
-
-  static class CostWeight {
-    final String cost;
-    final double weight;
-
-    CostWeight(String cost, double weight) {
-      this.cost = cost;
-      this.weight = weight;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      CostWeight that = (CostWeight) o;
-      return Objects.equals(cost, that.cost) && weight == that.weight;
+      this.report = report;
     }
   }
 }

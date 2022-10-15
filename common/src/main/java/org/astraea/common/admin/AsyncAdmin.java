@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +37,7 @@ public interface AsyncAdmin extends AutoCloseable {
     return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrap));
   }
 
-  static AsyncAdmin of(Map<String, Object> configs) {
+  static AsyncAdmin of(Map<String, String> configs) {
     return new AsyncAdminImpl(configs);
   }
 
@@ -110,6 +111,31 @@ public interface AsyncAdmin extends AutoCloseable {
     return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
   }
 
+  default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
+    if (checkers.isEmpty()) {
+      throw new RuntimeException("Can not check for idle topics because of no checkers!");
+    }
+
+    return topicNames(false)
+        .thenCompose(
+            topicNames ->
+                Utils.sequence(
+                        checkers.stream()
+                            .map(
+                                checker ->
+                                    checker.usedTopics(this, topicNames).toCompletableFuture())
+                            .collect(Collectors.toUnmodifiableList()))
+                    .thenApply(
+                        s ->
+                            s.stream()
+                                .flatMap(Collection::stream)
+                                .collect(Collectors.toUnmodifiableSet()))
+                    .thenApply(
+                        usedTopics ->
+                            topicNames.stream()
+                                .filter(name -> !usedTopics.contains(name))
+                                .collect(Collectors.toUnmodifiableSet())));
+  }
   /**
    * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
    * QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
@@ -242,7 +268,6 @@ public interface AsyncAdmin extends AutoCloseable {
                 .thenApply(predicate::test)
                 .exceptionally(
                     e -> {
-                      System.out.println("e: " + e.getClass().getName());
                       if (e instanceof CompletionException
                           && e.getCause()
                               instanceof org.apache.kafka.common.errors.RetriableException)

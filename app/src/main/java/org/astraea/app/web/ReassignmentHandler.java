@@ -21,6 +21,8 @@ import static java.lang.Math.min;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 
@@ -39,7 +41,7 @@ public class ReassignmentHandler implements Handler {
   }
 
   @Override
-  public Response post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     var rs =
         channel.request().requests(PLANS_KEY).stream()
             .map(
@@ -85,17 +87,19 @@ public class ReassignmentHandler implements Handler {
                   return Response.BAD_REQUEST;
                 })
             .collect(Collectors.toUnmodifiableList());
-    if (!rs.isEmpty() && rs.stream().allMatch(r -> r == Response.ACCEPT)) return Response.ACCEPT;
-    return Response.BAD_REQUEST;
+    if (!rs.isEmpty() && rs.stream().allMatch(r -> r == Response.ACCEPT))
+      return CompletableFuture.completedFuture(Response.ACCEPT);
+    return CompletableFuture.completedFuture(Response.BAD_REQUEST);
   }
 
   @Override
-  public Reassignments get(Channel channel) {
+  public CompletionStage<Reassignments> get(Channel channel) {
     var topics = Handler.compare(admin.topicNames(), channel.target());
-    return new Reassignments(
-        admin.addingReplicas(topics).stream()
-            .map(AddingReplica::new)
-            .collect(Collectors.toUnmodifiableList()));
+    return CompletableFuture.completedFuture(
+        new Reassignments(
+            admin.addingReplicas(topics).stream()
+                .map(AddingReplica::new)
+                .collect(Collectors.toUnmodifiableList())));
   }
 
   static class AddingReplica implements Response {

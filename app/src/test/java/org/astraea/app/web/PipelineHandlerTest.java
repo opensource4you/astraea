@@ -59,7 +59,8 @@ public class PipelineHandlerTest extends RequireBrokerCluster {
         var handler = new PipelineHandler(admin);
         var response =
             Assertions.assertInstanceOf(
-                PipelineHandler.TopicPartitions.class, handler.get(Channel.EMPTY));
+                PipelineHandler.TopicPartitions.class,
+                handler.get(Channel.EMPTY).toCompletableFuture().get());
         Assertions.assertNotEquals(0, response.topicPartitions.size());
         Assertions.assertEquals(
             1, response.topicPartitions.stream().filter(t -> t.topic.equals(topic)).count());
