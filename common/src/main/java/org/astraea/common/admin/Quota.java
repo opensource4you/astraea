@@ -16,8 +16,7 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -26,7 +25,7 @@ import org.astraea.common.EnumInfo;
 
 public class Quota {
 
-  static Collection<Quota> of(Map<ClientQuotaEntity, Map<String, Double>> data) {
+  static List<Quota> of(Map<ClientQuotaEntity, Map<String, Double>> data) {
     return data.entrySet().stream()
         .flatMap(
             clientQuotaEntityMapEntry ->
@@ -37,112 +36,36 @@ public class Quota {
                                 .map(
                                     v ->
                                         new Quota(
-                                            target(stringStringEntry.getKey()),
+                                            stringStringEntry.getKey(),
                                             stringStringEntry.getValue(),
-                                            limit(v.getKey()),
+                                            v.getKey(),
                                             v.getValue()))))
         .collect(Collectors.toUnmodifiableList());
   }
 
-  static Target target(String value) {
-    return Arrays.stream(Target.values())
-        .filter(p -> p.nameOfKafka.equalsIgnoreCase(value))
-        .findFirst()
-        .orElseThrow(() -> new RuntimeException("unknown: " + value));
-  }
-
-  static Limit limit(String value) {
-    return Arrays.stream(Limit.values())
-        .filter(p -> p.nameOfKafka.equalsIgnoreCase(value))
-        .findFirst()
-        .orElseThrow(() -> new RuntimeException("unknown: " + value));
-  }
-
-  public enum Target implements EnumInfo {
-    USER(ClientQuotaEntity.USER),
-    CLIENT_ID(ClientQuotaEntity.CLIENT_ID),
-    IP(ClientQuotaEntity.IP);
-
-    public static Target ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(Target.class, alias);
-    }
-
-    private final String nameOfKafka;
-
-    Target(String nameOfKafka) {
-      this.nameOfKafka = nameOfKafka;
-    }
-
-    public String nameOfKafka() {
-      return nameOfKafka;
-    }
-
-    @Override
-    public String alias() {
-      return nameOfKafka;
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
-  }
-
-  public enum Limit implements EnumInfo {
-    PRODUCER_BYTE_RATE("producer_byte_rate"),
-    CONSUMER_BYTE_RATE("consumer_byte_rate"),
-    REQUEST_PERCENTAGE("request_percentage"),
-    CONTROLLER_MUTATION_RATE("controller_mutation_rate"),
-    IP_CONNECTION_RATE("connection_creation_rate");
-
-    public static Limit ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(Limit.class, alias);
-    }
-
-    private final String nameOfKafka;
-
-    Limit(String nameOfKafka) {
-      this.nameOfKafka = nameOfKafka;
-    }
-
-    public String nameOfKafka() {
-      return nameOfKafka;
-    }
-
-    @Override
-    public String alias() {
-      return nameOfKafka();
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
-  }
-
-  private final Target target;
+  private final String targetKey;
 
   private final String targetValue;
-  private final Limit limit;
+  private final String limitKey;
   private final double limitValue;
 
-  public Quota(Target target, String targetValue, Limit limit, double limitValue) {
-    this.target = target;
+  public Quota(String targetKey, String targetValue, String limitKey, double limitValue) {
+    this.targetKey = targetKey;
     this.targetValue = targetValue;
-    this.limit = limit;
+    this.limitKey = limitKey;
     this.limitValue = limitValue;
   }
 
-  public Target target() {
-    return target;
+  public String targetKey() {
+    return targetKey;
   }
 
   public String targetValue() {
     return targetValue;
   }
 
-  public Limit limit() {
-    return limit;
+  public String limitKey() {
+    return limitKey;
   }
 
   public double limitValue() {
@@ -155,28 +78,86 @@ public class Quota {
     if (o == null || getClass() != o.getClass()) return false;
     Quota quota = (Quota) o;
     return Double.compare(quota.limitValue, limitValue) == 0
-        && target == quota.target
+        && Objects.equals(targetKey, quota.targetKey)
         && Objects.equals(targetValue, quota.targetValue)
-        && limit == quota.limit;
+        && Objects.equals(limitKey, quota.limitKey);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(target, targetValue, limit, limitValue);
+    return Objects.hash(targetKey, targetValue, limitKey, limitValue);
   }
 
   @Override
   public String toString() {
     return "Quota{"
-        + "target="
-        + target
+        + "targetKey='"
+        + targetKey
+        + '\''
         + ", targetValue='"
         + targetValue
         + '\''
-        + ", limit="
-        + limit
+        + ", limitKey='"
+        + limitKey
+        + '\''
         + ", limitValue="
         + limitValue
         + '}';
+  }
+
+  @Deprecated
+  public enum Target implements EnumInfo {
+    USER(ClientQuotaEntity.USER),
+    CLIENT_ID(ClientQuotaEntity.CLIENT_ID),
+    IP(ClientQuotaEntity.IP);
+
+    public static Target ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Target.class, alias);
+    }
+
+    private final String alias;
+
+    Target(String alias) {
+      this.alias = alias;
+    }
+
+    @Override
+    public String alias() {
+      return alias;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+  }
+
+  @Deprecated
+  public enum Limit implements EnumInfo {
+    PRODUCER_BYTE_RATE(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG),
+    CONSUMER_BYTE_RATE(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG),
+    REQUEST_PERCENTAGE(QuotaConfigs.REQUEST_PERCENTAGE_CONFIG),
+    CONTROLLER_MUTATION_RATE(QuotaConfigs.CONTROLLER_MUTATION_RATE_CONFIG),
+    IP_CONNECTION_RATE(QuotaConfigs.IP_CONNECTION_RATE_CONFIG);
+
+    public static Limit ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Limit.class, alias);
+    }
+
+    private final String alias;
+
+    Limit(String alias) {
+      this.alias = alias;
+    }
+
+    @Override
+    public String alias() {
+      return alias;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 }

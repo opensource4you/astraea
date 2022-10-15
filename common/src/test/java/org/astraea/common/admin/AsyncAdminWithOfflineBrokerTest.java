@@ -108,7 +108,12 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
   void testTopicPartitions() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       Assertions.assertNotEquals(
-          0, admin.topicPartitions(CLOSED_BROKER_ID).toCompletableFuture().get().size());
+          0,
+          admin
+              .topicPartitionReplicas(Set.of(CLOSED_BROKER_ID))
+              .toCompletableFuture()
+              .get()
+              .size());
       Assertions.assertNotEquals(
           0, admin.topicPartitions(Set.of(TOPIC_NAME)).toCompletableFuture().get().size());
     }

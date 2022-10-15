@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -37,14 +38,15 @@ import org.junit.jupiter.api.Test;
 public class TopicHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListTopics() {
+  void testListTopics() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
       Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
       var response =
-          Assertions.assertInstanceOf(TopicHandler.Topics.class, handler.get(Channel.EMPTY));
+          Assertions.assertInstanceOf(
+              TopicHandler.Topics.class, handler.get(Channel.EMPTY).toCompletableFuture().get());
       Assertions.assertEquals(
           1, response.topics.stream().filter(t -> t.name.equals(topicName)).count());
       Assertions.assertNotEquals(
@@ -63,12 +65,13 @@ public class TopicHandlerTest extends RequireBrokerCluster {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
       Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.get(Channel.ofTarget(Utils.randomString())));
+          NoSuchElementException.class,
+          () -> handler.get(Channel.ofTarget(Utils.randomString())).toCompletableFuture().get());
     }
   }
 
   @Test
-  void testQuerySingleTopic() {
+  void testQuerySingleTopic() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topicName).create();
@@ -76,7 +79,8 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var handler = new TopicHandler(admin);
       var topicInfo =
           Assertions.assertInstanceOf(
-              TopicHandler.TopicInfo.class, handler.get(Channel.ofTarget(topicName)));
+              TopicHandler.TopicInfo.class,
+              handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get());
       Assertions.assertEquals(topicName, topicInfo.name);
       Assertions.assertNotEquals(0, topicInfo.configs.size());
     }
@@ -107,21 +111,21 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCreateSingleTopic() {
+  void testCreateSingleTopic() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request =
           Channel.ofRequest(
               PostRequest.of(String.format("{\"topics\":[{\"name\":\"%s\"}]}", topicName)));
-      var topics = handler.post(request);
+      var topics = handler.post(request).toCompletableFuture().get();
       Assertions.assertEquals(1, topics.topics.size());
       Assertions.assertEquals(topicName, topics.topics.iterator().next().name);
     }
   }
 
   @Test
-  void testCreateTopics() {
+  void testCreateTopics() throws ExecutionException, InterruptedException {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
@@ -132,7 +136,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
                   String.format(
                       "{\"topics\":[{\"name\":\"%s\", \"partitions\":1},{\"partitions\":2,\"name\":\"%s\"}]}",
                       topicName0, topicName1)));
-      var topics = handler.post(request);
+      var topics = handler.post(request).toCompletableFuture().get();
       Assertions.assertEquals(2, topics.topics.size());
       // the topic creation is not synced, so we have to wait the creation.
       Utils.sleep(Duration.ofSeconds(2));
@@ -155,12 +159,13 @@ public class TopicHandlerTest extends RequireBrokerCluster {
               PostRequest.of(
                   String.format(
                       "{\"topics\":[{\"name\":\"%s\"},{\"name\":\"%s\"}]}", topicName, topicName)));
-      Assertions.assertThrows(IllegalArgumentException.class, () -> handler.post(request));
+      Assertions.assertThrows(
+          IllegalArgumentException.class, () -> handler.post(request).toCompletableFuture().get());
     }
   }
 
   @Test
-  void testQueryWithPartition() {
+  void testQueryWithPartition() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
@@ -168,28 +173,31 @@ public class TopicHandlerTest extends RequireBrokerCluster {
           Channel.ofRequest(
               PostRequest.of(
                   String.format("{\"topics\":[{\"name\":\"%s\", \"partitions\":10}]}", topicName)));
-      handler.post(request);
+      handler.post(request).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           1,
           Assertions.assertInstanceOf(
                   TopicHandler.TopicInfo.class,
-                  handler.get(
-                      Channel.ofQueries(topicName, Map.of(TopicHandler.PARTITION_KEY, "0"))))
+                  handler
+                      .get(Channel.ofQueries(topicName, Map.of(TopicHandler.PARTITION_KEY, "0")))
+                      .toCompletableFuture()
+                      .get())
               .partitions
               .size());
 
       Assertions.assertEquals(
           10,
           Assertions.assertInstanceOf(
-                  TopicHandler.TopicInfo.class, handler.get(Channel.ofTarget(topicName)))
+                  TopicHandler.TopicInfo.class,
+                  handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get())
               .partitions
               .size());
     }
   }
 
   @Test
-  void testQueryWithListInternal() {
+  void testQueryWithListInternal() throws ExecutionException, InterruptedException {
     var bootstrapServers = bootstrapServers();
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers);
@@ -212,7 +220,10 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var withInternalTopics =
           Assertions.assertInstanceOf(
               TopicHandler.Topics.class,
-              handler.get(Channel.ofQueries(Map.of(TopicHandler.LIST_INTERNAL, "true"))));
+              handler
+                  .get(Channel.ofQueries(Map.of(TopicHandler.LIST_INTERNAL, "true")))
+                  .toCompletableFuture()
+                  .get());
       Assertions.assertTrue(
           withInternalTopics.topics.stream().anyMatch(t -> t.name.equals("__consumer_offsets")));
       Assertions.assertEquals(
@@ -221,7 +232,10 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var withoutInternalTopics =
           Assertions.assertInstanceOf(
               TopicHandler.Topics.class,
-              handler.get(Channel.ofQueries(Map.of(TopicHandler.LIST_INTERNAL, "false"))));
+              handler
+                  .get(Channel.ofQueries(Map.of(TopicHandler.LIST_INTERNAL, "false")))
+                  .toCompletableFuture()
+                  .get());
       Assertions.assertFalse(
           withoutInternalTopics.topics.stream().anyMatch(t -> t.name.equals("__consumer_offsets")));
       Assertions.assertEquals(
@@ -230,7 +244,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCreateTopicWithReplicas() {
+  void testCreateTopicWithReplicas() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
@@ -240,7 +254,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
                   String.format(
                       "{\"topics\":[{\"name\":\"%s\",\"partitions\":\"%s\",\"replicas\":\"%s\", \"segment.ms\":\"3000\"}]}",
                       topicName, "2", "2")));
-      var topics = handler.post(request);
+      var topics = handler.post(request).toCompletableFuture().get();
       Assertions.assertEquals(1, topics.topics.size());
       var topicInfo = topics.topics.iterator().next();
       Assertions.assertEquals(topicName, topicInfo.name);
@@ -294,7 +308,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDeleteTopic() {
+  void testDeleteTopic() throws ExecutionException, InterruptedException {
     var topicNames =
         IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
     try (Admin admin = Admin.of(bootstrapServers())) {
@@ -303,7 +317,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
           x -> admin.creator().topic(x).numberOfPartitions(3).numberOfReplicas((short) 3).create());
       Utils.sleep(Duration.ofSeconds(2));
 
-      handler.delete(Channel.ofTarget(topicNames.get(0)));
+      handler.delete(Channel.ofTarget(topicNames.get(0))).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
 
       var latestTopicNames = admin.topicNames();
@@ -311,7 +325,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(2)));
 
-      handler.delete(Channel.ofTarget(topicNames.get(2)));
+      handler.delete(Channel.ofTarget(topicNames.get(2))).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
 
       latestTopicNames = admin.topicNames();

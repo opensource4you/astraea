@@ -170,6 +170,83 @@ public final class ServerMetrics {
   }
 
   public enum Topic implements EnumInfo {
+    BYTES_IN_PER_SEC("BytesInPerSec"),
+    BYTES_OUT_PER_SEC("BytesOutPerSec"),
+    MESSAGES_IN_PER_SEC("MessagesInPerSec"),
+    TOTAL_FETCH_REQUESTS_PER_SEC("TotalFetchRequestsPerSec"),
+    TOTAL_PRODUCE_REQUESTS_PER_SEC("TotalProduceRequestsPerSec");
+
+    public static Topic ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Topic.class, alias);
+    }
+
+    private final String metricName;
+
+    Topic(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public List<Topic.Meter> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "BrokerTopicMetrics")
+                  .property("topic", "*")
+                  .property("name", this.metricName())
+                  .build())
+          .stream()
+          .map(Topic.Meter::new)
+          .collect(Collectors.toList());
+    }
+
+    public static class Meter implements HasMeter {
+
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public String topic() {
+        return beanObject().properties().get("topic");
+      }
+
+      public Topic type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
+  public enum BrokerTopic implements EnumInfo {
     /** Message validation failure rate due to non-continuous offset or sequence number in batch */
     INVALID_OFFSET_OR_SEQUENCE_RECORDS_PER_SEC("InvalidOffsetOrSequenceRecordsPerSec"),
 
@@ -217,13 +294,13 @@ public final class ServerMetrics {
     /** Byte out rate to clients. */
     BYTES_OUT_PER_SEC("BytesOutPerSec");
 
-    public static Topic ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(Topic.class, alias);
+    public static BrokerTopic ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(BrokerTopic.class, alias);
     }
 
     private final String metricName;
 
-    Topic(String name) {
+    BrokerTopic(String name) {
       this.metricName = name;
     }
 
@@ -278,7 +355,7 @@ public final class ServerMetrics {
         return beanObject().properties().get("name");
       }
 
-      public Topic type() {
+      public BrokerTopic type() {
         return ofAlias(metricsName());
       }
 

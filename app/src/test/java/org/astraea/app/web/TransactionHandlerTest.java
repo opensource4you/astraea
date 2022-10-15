@@ -41,7 +41,9 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
           () -> {
             var result =
                 Assertions.assertInstanceOf(
-                    TransactionHandler.Transactions.class, handler.get(Channel.EMPTY));
+                    TransactionHandler.Transactions.class,
+                    Utils.packException(
+                        () -> handler.get(Channel.EMPTY).toCompletableFuture().get()));
             var transaction =
                 result.transactions.stream()
                     .filter(t -> t.id.equals(producer.transactionId().get()))
@@ -67,7 +69,12 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
             var transaction =
                 Assertions.assertInstanceOf(
                     TransactionHandler.Transaction.class,
-                    handler.get(Channel.ofTarget(producer.transactionId().get())));
+                    Utils.packException(
+                        () ->
+                            handler
+                                .get(Channel.ofTarget(producer.transactionId().get()))
+                                .toCompletableFuture()
+                                .get()));
             return transaction.topicPartitions.isEmpty();
           });
     }

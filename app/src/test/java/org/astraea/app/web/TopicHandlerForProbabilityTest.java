@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -26,7 +27,7 @@ import org.junit.jupiter.api.RepeatedTest;
 
 public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
   @RepeatedTest(2)
-  void testCreateTopicByProbability() {
+  void testCreateTopicByProbability() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
@@ -36,14 +37,23 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
                   String.format(
                       "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
                       topicName)));
-      var topics = handler.post(request);
+      var topics = handler.post(request).toCompletableFuture().get();
       Assertions.assertEquals(1, topics.topics.size());
       Utils.waitFor(
           () ->
-              ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName))).partitions.size()
+              Utils.packException(
+                          () ->
+                              (TopicHandler.TopicInfo)
+                                  handler
+                                      .get(Channel.ofTarget(topicName))
+                                      .toCompletableFuture()
+                                      .get())
+                      .partitions
+                      .size()
                   == 30);
       var groupByBroker =
-          ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName)))
+          ((TopicHandler.TopicInfo)
+                  handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get())
               .partitions.stream()
                   .flatMap(p -> p.replicas.stream())
                   .collect(Collectors.groupingBy(r -> r.broker));

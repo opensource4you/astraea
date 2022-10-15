@@ -211,7 +211,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
             .filter(replica -> replica.nodeInfo().id() == 9999)
             .findFirst()
             .orElseThrow()
-            .dataFolder());
+            .path());
   }
 
   @ParameterizedTest
@@ -505,13 +505,13 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
             "/tmp/default/dir");
 
     Assertions.assertEquals(
-        "/other", ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").dataFolder());
+        "/other", ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").path());
     Assertions.assertEquals(
         nodeInfo, ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").nodeInfo());
     Assertions.assertEquals(
         5566, ClusterLogAllocation.update(replica, 5566, "/other").nodeInfo().id());
     Assertions.assertEquals(
-        "/other", ClusterLogAllocation.update(replica, newNodeInfo, "/other").dataFolder());
+        "/other", ClusterLogAllocation.update(replica, newNodeInfo, "/other").path());
     Assertions.assertEquals(
         newNodeInfo, ClusterLogAllocation.update(replica, newNodeInfo, "/other").nodeInfo());
     Assertions.assertEquals(

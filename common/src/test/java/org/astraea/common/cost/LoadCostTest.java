@@ -47,12 +47,16 @@ public class LoadCostTest {
   }
 
   private ClusterBean clusterBean() {
-    var BytesInPerSec1 = mockResult(ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(), 50000L);
-    var BytesInPerSec2 = mockResult(ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(), 100000L);
-    var BytesInPerSec3 = mockResult(ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName(), 200000L);
-    var BytesOutPerSec1 = mockResult(ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(), 210L);
-    var BytesOutPerSec2 = mockResult(ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(), 20L);
-    var BytesOutPerSec3 = mockResult(ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName(), 10L);
+    var BytesInPerSec1 =
+        mockResult(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(), 50000L);
+    var BytesInPerSec2 =
+        mockResult(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(), 100000L);
+    var BytesInPerSec3 =
+        mockResult(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(), 200000L);
+    var BytesOutPerSec1 =
+        mockResult(ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName(), 210L);
+    var BytesOutPerSec2 = mockResult(ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName(), 20L);
+    var BytesOutPerSec3 = mockResult(ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName(), 10L);
 
     Collection<HasBeanObject> broker1 = List.of(BytesInPerSec1, BytesOutPerSec1);
     Collection<HasBeanObject> broker2 = List.of(BytesInPerSec2, BytesOutPerSec2);
@@ -60,8 +64,8 @@ public class LoadCostTest {
     return ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
   }
 
-  private ServerMetrics.Topic.Meter mockResult(String name, long count) {
-    var result = Mockito.mock(ServerMetrics.Topic.Meter.class);
+  private ServerMetrics.BrokerTopic.Meter mockResult(String name, long count) {
+    var result = Mockito.mock(ServerMetrics.BrokerTopic.Meter.class);
     var bean = Mockito.mock(BeanObject.class);
     Mockito.when(result.beanObject()).thenReturn(bean);
     Mockito.when(bean.properties()).thenReturn(Map.of("name", name));

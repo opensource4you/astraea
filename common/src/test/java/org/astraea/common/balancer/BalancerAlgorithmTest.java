@@ -36,6 +36,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
           .forEach(
               ignored ->
                   admin.creator().topic(Utils.randomString()).numberOfPartitions(10).create());
+      Utils.sleep(Duration.ofSeconds(2));
       admin
           .topicNames()
           .forEach(tp -> admin.migrator().topic(tp).moveTo(List.of(brokerIds().iterator().next())));

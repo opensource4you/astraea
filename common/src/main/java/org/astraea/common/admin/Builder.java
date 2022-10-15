@@ -34,7 +34,6 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
@@ -185,7 +184,16 @@ public class Builder {
     @Override
     public Set<TopicPartition> topicPartitions(int broker) {
       return Utils.packException(
-          () -> asyncAdmin.topicPartitions(broker).toCompletableFuture().get());
+          () ->
+              asyncAdmin
+                  .topicPartitionReplicas(Set.of(broker))
+                  .thenApply(
+                      rs ->
+                          rs.stream()
+                              .map(TopicPartitionReplica::topicPartition)
+                              .collect(Collectors.toSet()))
+                  .toCompletableFuture()
+                  .get());
     }
 
     @Override
@@ -207,14 +215,14 @@ public class Builder {
     public Collection<Quota> quotas(Quota.Target target) {
       return quotas(
           ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntityType(target.nameOfKafka()))));
+              List.of(ClientQuotaFilterComponent.ofEntityType(target.alias()))));
     }
 
     @Override
     public Collection<Quota> quotas(Quota.Target target, String value) {
       return quotas(
           ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntity(target.nameOfKafka(), value))));
+              List.of(ClientQuotaFilterComponent.ofEntity(target.alias(), value))));
     }
 
     @Override
@@ -287,19 +295,9 @@ public class Builder {
     }
 
     @Override
-    public Map<TopicPartition, DeletedRecord> deleteRecords(
-        Map<TopicPartition, Long> recordsToDelete) {
-      var kafkaRecordsToDelete =
-          recordsToDelete.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      x -> TopicPartition.to(x.getKey()),
-                      x -> RecordsToDelete.beforeOffset(x.getValue())));
-      return admin.deleteRecords(kafkaRecordsToDelete).lowWatermarks().entrySet().stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  x -> TopicPartition.from(x.getKey()),
-                  x -> DeletedRecord.from(Utils.packException(() -> x.getValue().get()))));
+    public Map<TopicPartition, Long> deleteRecords(Map<TopicPartition, Long> recordsToDelete) {
+      return Utils.packException(
+          () -> asyncAdmin.deleteRecords(recordsToDelete).toCompletableFuture().get());
     }
 
     @Override
@@ -825,7 +823,7 @@ public class Builder {
                                   new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
                                   List.of(
                                       new ClientQuotaAlteration.Op(
-                                          Quota.Limit.IP_CONNECTION_RATE.nameOfKafka(),
+                                          QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
                                           (double) connectionRate)))))
                       .all()
                       .get());
@@ -857,11 +855,11 @@ public class Builder {
           if (produceRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka(), produceRate.byteRate()));
+                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, produceRate.byteRate()));
           if (consumeRate != null)
             q.add(
                 new ClientQuotaAlteration.Op(
-                    Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka(), consumeRate.byteRate()));
+                    QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, consumeRate.byteRate()));
           if (!q.isEmpty())
             Utils.packException(
                 () ->

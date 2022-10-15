@@ -16,18 +16,18 @@
  */
 package org.astraea.etl
 
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.{assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
 
 class DeployModeTest {
   @Test def deployModePatternTest(): Unit = {
-    assert(!DeployMode.deployMatch(""))
-    assert(!DeployMode.deployMatch("123"))
-    assert(DeployMode.deployMatch("local[2]"))
+    assertTrue(!DeployMode.deployMatch(""))
+    assertTrue(!DeployMode.deployMatch("123"))
+    assertTrue(DeployMode.deployMatch("local[2]"))
 
-    assert(!DeployMode.deployMatch(""))
-    assert(!DeployMode.deployMatch("abc"))
-    assert(!DeployMode.deployMatch("spark://0.0.0.0"))
+    assertTrue(!DeployMode.deployMatch(""))
+    assertTrue(!DeployMode.deployMatch("abc"))
+    assertTrue(!DeployMode.deployMatch("spark://0.0.0.0"))
   }
 
   @Test def ofTest(): Unit = {

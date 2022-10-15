@@ -26,7 +26,7 @@ interface Response {
   Response BAD_REQUEST = new ResponseImpl(400);
   Response NOT_FOUND = new ResponseImpl(404);
 
-  static Response of(Exception exception) {
+  static Response of(Throwable exception) {
     return new ResponseImpl(code(exception), exception.getMessage());
   }
 
@@ -38,7 +38,7 @@ interface Response {
     return new ResponseImpl(500, message);
   }
 
-  private static int code(Exception exception) {
+  private static int code(Throwable exception) {
     if (exception instanceof IllegalArgumentException) return 400;
     if (exception instanceof NoSuchElementException) return 404;
     return 400;

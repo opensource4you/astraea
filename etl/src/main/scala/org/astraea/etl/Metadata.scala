@@ -55,7 +55,7 @@ case class Metadata(
     kafkaBootstrapServers: String,
     topicName: String,
     numPartitions: Int,
-    numReplicas: Int,
+    numReplicas: Short,
     topicConfig: Map[String, String],
     deploymentModel: String
 )
@@ -113,6 +113,7 @@ object Metadata {
       .get(TOPIC_REPLICAS)
       .map(_.toInt)
       .getOrElse(DEFAULT_REPLICAS)
+      .toShort
     val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, null))
 
     val deploymentModel = requireDeployMode(DEPLOYMENT_MODEL, properties)

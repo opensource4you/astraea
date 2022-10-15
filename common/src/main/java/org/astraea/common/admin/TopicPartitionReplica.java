@@ -20,6 +20,11 @@ import java.util.Objects;
 
 public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> {
 
+  public static org.apache.kafka.common.TopicPartitionReplica to(TopicPartitionReplica replica) {
+    return new org.apache.kafka.common.TopicPartitionReplica(
+        replica.topic, replica.partition, replica.brokerId);
+  }
+
   public static TopicPartitionReplica of(String topic, int partition, int brokerId) {
     return new TopicPartitionReplica(topic, partition, brokerId);
   }
@@ -41,6 +46,10 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
     var t = topic.compareTo(o.topic);
     if (t != 0) return t;
     return Integer.compare(partition, o.partition);
+  }
+
+  public TopicPartition topicPartition() {
+    return TopicPartition.of(topic, partition);
   }
 
   public int brokerId() {

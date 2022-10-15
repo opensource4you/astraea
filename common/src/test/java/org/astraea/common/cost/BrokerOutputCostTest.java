@@ -68,24 +68,24 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
           receiver.current().stream()
               .allMatch(
                   o ->
-                      (o instanceof ServerMetrics.Topic.Meter)
-                          && (ServerMetrics.Topic.BYTES_OUT_PER_SEC
+                      (o instanceof ServerMetrics.BrokerTopic.Meter)
+                          && (ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC
                               .metricName()
                               .equals(o.beanObject().properties().get("name")))));
 
       // Test the fetched object's value.
       Assertions.assertTrue(
           receiver.current().stream()
-              .map(o -> (ServerMetrics.Topic.Meter) o)
+              .map(o -> (ServerMetrics.BrokerTopic.Meter) o)
               .allMatch(result -> result.count() == 0));
     }
   }
 
-  private static ServerMetrics.Topic.Meter meter(double value) {
-    return new ServerMetrics.Topic.Meter(
+  private static ServerMetrics.BrokerTopic.Meter meter(double value) {
+    return new ServerMetrics.BrokerTopic.Meter(
         new BeanObject(
             "object",
-            Map.of("name", ServerMetrics.Topic.BYTES_OUT_PER_SEC.metricName()),
+            Map.of("name", ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName()),
             Map.of("OneMinuteRate", value)));
   }
 }

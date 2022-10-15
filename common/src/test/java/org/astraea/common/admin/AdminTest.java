@@ -168,8 +168,7 @@ public class AdminTest extends RequireBrokerCluster {
       var logFolders =
           logFolders().values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
       partitions.forEach(
-          replica ->
-              Assertions.assertTrue(logFolders.stream().anyMatch(replica.dataFolder()::contains)));
+          replica -> Assertions.assertTrue(logFolders.stream().anyMatch(replica.path()::contains)));
       brokerIds().forEach(id -> Assertions.assertNotEquals(0, admin.topicPartitions(id).size()));
       var after = brokerIds().stream().mapToInt(id -> admin.topicPartitions(id).size()).sum();
       Assertions.assertEquals(before + 10, after);
@@ -278,7 +277,7 @@ public class AdminTest extends RequireBrokerCluster {
                               .filter(replica -> replica.partition() == 0)
                               .findFirst()
                               .get()
-                              .dataFolder()))
+                              .path()))
               .collect(Collectors.toSet());
       admin
           .migrator()
@@ -288,7 +287,7 @@ public class AdminTest extends RequireBrokerCluster {
           () -> {
             var partitionReplicas = admin.replicas(Set.of(topicName));
             return partitionReplicas.size() == 1
-                && partitionReplicas.get(0).dataFolder().equals(otherPath.iterator().next());
+                && partitionReplicas.get(0).path().equals(otherPath.iterator().next());
           });
     }
   }
@@ -326,7 +325,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // assert, nothing happened until the actual movement
       Assertions.assertNotEquals(nextBroker, replicaNow.get().nodeInfo().id());
-      Assertions.assertNotEquals(nextDir, replicaNow.get().dataFolder());
+      Assertions.assertNotEquals(nextDir, replicaNow.get().path());
 
       // act, perform the actual movement
       admin.migrator().partition(topic, 0).moveTo(List.of(nextBroker));
@@ -334,7 +333,7 @@ public class AdminTest extends RequireBrokerCluster {
 
       // assert, everything on the exact broker & dir
       Assertions.assertEquals(nextBroker, replicaNow.get().nodeInfo().id());
-      Assertions.assertEquals(nextDir, replicaNow.get().dataFolder());
+      Assertions.assertEquals(nextDir, replicaNow.get().path());
     }
   }
 
@@ -644,11 +643,11 @@ public class AdminTest extends RequireBrokerCluster {
           (quotas) -> {
             Assertions.assertEquals(1, quotas.size());
             Assertions.assertEquals(
-                Set.of(Quota.Target.IP),
-                quotas.stream().map(Quota::target).collect(Collectors.toSet()));
+                Set.of(QuotaConfigs.IP),
+                quotas.stream().map(Quota::targetKey).collect(Collectors.toSet()));
             Assertions.assertEquals(
-                Set.of(Quota.Limit.IP_CONNECTION_RATE),
-                quotas.stream().map(Quota::limit).collect(Collectors.toSet()));
+                Set.of(QuotaConfigs.IP_CONNECTION_RATE_CONFIG),
+                quotas.stream().map(Quota::limitKey).collect(Collectors.toSet()));
             Assertions.assertEquals("192.168.11.11", quotas.iterator().next().targetValue());
             Assertions.assertEquals(10, quotas.iterator().next().limitValue());
           };
@@ -690,36 +689,37 @@ public class AdminTest extends RequireBrokerCluster {
           (quotas) -> {
             Assertions.assertEquals(2, quotas.size());
             Assertions.assertEquals(
-                Set.of(Quota.Target.CLIENT_ID),
-                quotas.stream().map(Quota::target).collect(Collectors.toSet()));
+                Set.of(QuotaConfigs.CLIENT_ID),
+                quotas.stream().map(Quota::targetKey).collect(Collectors.toSet()));
             Assertions.assertEquals(
-                Set.of(Quota.Limit.PRODUCER_BYTE_RATE, Quota.Limit.CONSUMER_BYTE_RATE),
-                quotas.stream().map(Quota::limit).collect(Collectors.toSet()));
+                Set.of(
+                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG),
+                quotas.stream().map(Quota::limitKey).collect(Collectors.toSet()));
             Assertions.assertEquals(
                 10,
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.PRODUCER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .limitValue());
             Assertions.assertEquals(
                 "my-id",
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.PRODUCER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .targetValue());
             Assertions.assertEquals(
                 100,
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.CONSUMER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .limitValue());
             Assertions.assertEquals(
                 "my-id",
                 quotas.stream()
-                    .filter(q -> q.limit() == Quota.Limit.CONSUMER_BYTE_RATE)
+                    .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
                     .findFirst()
                     .get()
                     .targetValue());
@@ -1160,7 +1160,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get();
       var currentBroker = currentReplica.nodeInfo().id();
-      var currentPath = currentReplica.dataFolder();
+      var currentPath = currentReplica.path();
       var nextPath =
           logFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
@@ -1251,7 +1251,7 @@ public class AdminTest extends RequireBrokerCluster {
       var deleteRecords = admin.deleteRecords(Map.of(TopicPartition.of(topicName, 0), 0L));
 
       Assertions.assertEquals(1, deleteRecords.size());
-      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get().lowWatermark());
+      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get());
 
       try (var producer = Producer.of(bootstrapServers())) {
         var senders =
@@ -1266,8 +1266,8 @@ public class AdminTest extends RequireBrokerCluster {
           admin.deleteRecords(
               Map.of(TopicPartition.of(topicName, 0), 2L, TopicPartition.of(topicName, 1), 1L));
       Assertions.assertEquals(2, deleteRecords.size());
-      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)).lowWatermark());
-      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)).lowWatermark());
+      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topicName, 0)));
+      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topicName, 1)));
 
       var partitions = admin.partitions(Set.of(topicName));
       Assertions.assertEquals(3, partitions.size());
@@ -1912,7 +1912,7 @@ public class AdminTest extends RequireBrokerCluster {
               Map.of(
                   replica.nodeInfo().id(),
                   logFolders().get(replica.nodeInfo().id()).stream()
-                      .filter(d -> !d.equals(replica.dataFolder()))
+                      .filter(d -> !d.equals(replica.path()))
                       .findFirst()
                       .get()));
       Utils.waitFor(
