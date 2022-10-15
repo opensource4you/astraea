@@ -1154,7 +1154,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       Assertions.assertEquals(0, admin.pendingRequests());
-      for (int i = 0; i < 10; i++) {
+      for (int i = 0; i < 1000; i++) {
         admin.deleteTopics(Set.of(topic));
       }
       Assertions.assertTrue(admin.pendingRequests() > 0);
