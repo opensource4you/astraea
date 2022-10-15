@@ -14,9 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.gui.pane;
 
-public interface RadioButtonAble {
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import javafx.geometry.Side;
+import javafx.scene.Node;
 
-  String display();
+public class TabPane extends javafx.scene.control.TabPane {
+
+  public static TabPane of(Side side, Map<String, Node> nodes) {
+    return of(
+        side,
+        nodes.entrySet().stream()
+            .map(n -> Tab.of(n.getKey(), n.getValue()))
+            .collect(Collectors.toList()));
+  }
+
+  public static TabPane of(Side side, List<Tab> tabs) {
+    var pane = new TabPane();
+    pane.getTabs().setAll(tabs);
+    pane.setSide(side);
+    pane.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
+    return pane;
+  }
+
+  private TabPane() {
+    super();
+  }
 }

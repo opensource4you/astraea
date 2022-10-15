@@ -79,9 +79,9 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           List.of(0, 1, 2),
           replicas.stream().map(Replica::nodeInfo).map(NodeInfo::id).collect(Collectors.toList()));
-      Assertions.assertEquals(logFolder0, replicas.get(0).dataFolder());
-      Assertions.assertEquals(logFolder1, replicas.get(1).dataFolder());
-      Assertions.assertEquals(logFolder2, replicas.get(2).dataFolder());
+      Assertions.assertEquals(logFolder0, replicas.get(0).path());
+      Assertions.assertEquals(logFolder1, replicas.get(1).path());
+      Assertions.assertEquals(logFolder2, replicas.get(2).path());
     }
   }
 
@@ -122,7 +122,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var originalReplica = replicaNow.get();
       var nextDir =
           logFolders().get(originalReplica.nodeInfo().id()).stream()
-              .filter(name -> !name.equals(originalReplica.dataFolder()))
+              .filter(name -> !name.equals(originalReplica.path()))
               .findAny()
               .orElseThrow();
 
@@ -170,7 +170,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
               .get();
       var otherDataDir =
           admin.brokerFolders().get(beginReplica.nodeInfo().id()).stream()
-              .filter(dir -> !dir.equals(beginReplica.dataFolder()))
+              .filter(dir -> !dir.equals(beginReplica.path()))
               .findAny()
               .orElseThrow();
       prepareData(topic, 0, DataSize.MiB.of(32));

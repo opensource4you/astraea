@@ -69,7 +69,7 @@ public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
                           false,
                           false,
                           true,
-                          replica.dataFolder()))));
+                          replica.path()))));
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
       Assertions.assertEquals(clusterInfo.topics().size(), merged.topics().size());

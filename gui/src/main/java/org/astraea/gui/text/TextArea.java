@@ -21,13 +21,12 @@ import org.astraea.common.Utils;
 
 public class TextArea extends javafx.scene.control.TextArea {
 
-  public TextArea() {
-    this("");
+  public static TextArea of() {
+    return new TextArea();
   }
 
-  public TextArea(String text) {
-    super(text);
-    this.setEditable(false);
+  private TextArea() {
+    super();
   }
 
   public void text(String text, Throwable e) {

@@ -220,7 +220,7 @@ class TopicHandler implements Handler {
           replica.isLeader(),
           replica.inSync(),
           replica.isFuture(),
-          replica.dataFolder());
+          replica.path());
     }
 
     Replica(

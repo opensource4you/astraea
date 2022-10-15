@@ -233,7 +233,7 @@ class BalancerHandler implements Handler {
                               Comparator.comparing(Replica::isPreferredLeader)
                                   .reversed()
                                   .thenComparing(x -> x.nodeInfo().id()))
-                          .map(x -> Map.entry(x.nodeInfo().id(), x.dataFolder()))
+                          .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
                           .collect(Collectors.toUnmodifiableList());
                   var expectedReplicaList =
                       Stream.concat(
@@ -281,7 +281,7 @@ class BalancerHandler implements Handler {
 
     Placement(Replica replica, Long size) {
       this.brokerId = replica.nodeInfo().id();
-      this.directory = replica.dataFolder();
+      this.directory = replica.path();
       this.size = size;
     }
   }

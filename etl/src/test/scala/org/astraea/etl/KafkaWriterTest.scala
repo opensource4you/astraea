@@ -36,11 +36,12 @@ import scala.concurrent.{Await, Future}
 
 class KafkaWriterTest extends RequireBrokerCluster {
 
-  @Test def TopicCreatorTest(): Unit = {
+  @Test def topicCreatorTest(): Unit = {
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
+
         assertTrue(
           admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
         )

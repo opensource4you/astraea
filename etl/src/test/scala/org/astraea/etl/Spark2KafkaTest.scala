@@ -19,7 +19,7 @@ package org.astraea.etl
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.astraea.common.admin.AsyncAdmin
 import org.astraea.common.consumer.{Consumer, Deserializer}
-import org.astraea.etl.FileCreator.mkdir
+import org.astraea.etl.FileCreator.{createCSV, generateCSVF, mkdir}
 import org.astraea.etl.Spark2KafkaTest.{hasPerform, sinkD, source, tempPath}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
@@ -30,12 +30,13 @@ import java.io.{File, FileOutputStream}
 import java.nio.file.Files
 import java.util
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.{
   `collection AsScalaIterable`,
   `collection asJava`
 }
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.Random
 
 class Spark2KafkaTest extends RequireBrokerCluster {
@@ -49,8 +50,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         hasPerform = true
         val myDir = mkdir(tempPath)
         val sourceDir = mkdir(tempPath + "/source")
-        val creator = new FileCreator(sourceDir, rows)
-        new Thread(creator).start()
+        generateCSVF(sourceDir, rows)
         val sinkDir = mkdir(sinkD)
         val checkoutDir = mkdir(tempPath + "/checkout")
         val dataDir = mkdir(tempPath + "/data")
@@ -60,7 +60,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
         Spark2Kafka.executor(
           Array(myPropDir.toString),
-          new DurationInt(10).second
+          Duration(10, TimeUnit.SECONDS)
         )
       }
     }

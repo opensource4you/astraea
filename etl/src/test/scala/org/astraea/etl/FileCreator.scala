@@ -17,24 +17,40 @@
 package org.astraea.etl
 
 import com.opencsv.CSVWriter
-import org.astraea.etl.FileCreator.createCSV
+import org.astraea.etl.FileCreator.{createCSV, generateCSV}
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Files
+import java.util.concurrent.{Executor, Executors, TimeUnit}
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
-class FileCreator(sourceDir: File, rows: List[List[String]]) extends Runnable {
-  override def run(): Unit = {
+object FileCreator {
+  def generateCSVF(
+      sourceDir: File,
+      rows: List[List[String]]
+  ): Future[Boolean] = {
+    val singleThread: Executor = Executors.newSingleThreadExecutor()
+    implicit val singleThreadExecutionContext: ExecutionContext =
+      ExecutionContext.fromExecutor(singleThread)
+    Future { generateCSV(sourceDir, rows) }
+  }
+  def generateCSV(sourceDir: File, rows: List[List[String]]): Boolean = {
     Range
       .inclusive(0, 5)
       .foreach(i => {
         createCSV(sourceDir, rows, i)
-        Thread.sleep(2000)
+        Thread.sleep(Duration(2, TimeUnit.SECONDS).toMillis)
       })
+    true
   }
-}
-object FileCreator {
-  def createCSV(sourceDir: File, rows: List[List[String]], int: Int): Unit = {
+
+  def createCSV(
+      sourceDir: File,
+      rows: List[List[String]],
+      int: Int
+  ): Try[Unit] = {
     val str = sourceDir + "/local_kafka" + "-" + int.toString + ".csv"
     val fileCSV2 = Files.createFile(new File(str).toPath)
     writeCsvFile(fileCSV2.toAbsolutePath.toString, addPrefix(rows))

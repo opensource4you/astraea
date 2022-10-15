@@ -34,19 +34,7 @@ public class VBox extends javafx.scene.layout.VBox {
     return pane;
   }
 
-  public VBox() {
-    super();
-  }
-
-  public VBox(double spacing) {
+  private VBox(double spacing) {
     super(spacing);
-  }
-
-  public VBox(Node... children) {
-    super(children);
-  }
-
-  public VBox(double spacing, Node... children) {
-    super(spacing, children);
   }
 }

@@ -22,7 +22,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Encoder, Row}
 import org.astraea.etl.CSVReader.{createSpark, csvToJSON}
 import org.astraea.etl.DataType.{IntegerType, StringType}
-import org.astraea.etl.FileCreator.{getCSVFile, mkdir}
+import org.astraea.etl.FileCreator.{generateCSVF, getCSVFile, mkdir}
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
@@ -63,8 +63,7 @@ class CSVReaderTest extends RequireBrokerCluster {
       System.getProperty("java.io.tmpdir") + "/sparkFile-" + Random.nextInt()
     val myDir = mkdir(tempPath)
     val sourceDir = mkdir(myDir.getPath + "/source")
-    val creator = new FileCreator(sourceDir, rows)
-    new Thread(creator).start()
+    generateCSVF(sourceDir, rows)
     val sinkDir = mkdir(tempPath + "/sink")
     val checkoutDir = mkdir(tempPath + "/checkout")
     val dataDir = mkdir(tempPath + "/data")

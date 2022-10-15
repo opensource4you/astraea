@@ -14,23 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.gui.pane;
 
-import java.util.Arrays;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.Map;
+import javafx.application.Platform;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import org.astraea.gui.box.ComboBox;
 
-public class QuotaTest {
+public class BorderPane extends javafx.scene.layout.BorderPane {
 
-  @Test
-  void testTarget() {
-    Arrays.stream(Quota.Target.values())
-        .forEach(t -> Assertions.assertEquals(t, Quota.target(t.nameOfKafka())));
+  public static BorderPane selectableTop(Map<String, Node> topAndCenter) {
+    var box = ComboBox.strings(topAndCenter.keySet());
+    var pane = new BorderPane();
+    BorderPane.setAlignment(box, Pos.CENTER);
+    pane.setTop(box);
+    box.valueProperty()
+        .addListener((observable, oldValue, newValue) -> pane.center(topAndCenter.get(newValue)));
+    return pane;
   }
 
-  @Test
-  void testAction() {
-    Arrays.stream(Quota.Limit.values())
-        .forEach(t -> Assertions.assertEquals(t, Quota.limit(t.nameOfKafka())));
+  private BorderPane() {}
+
+  public void center(Node node) {
+    if (Platform.isFxApplicationThread()) setCenter(node);
+    else Platform.runLater(() -> setCenter(node));
   }
 }

@@ -58,11 +58,11 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '"plans":[{
+    -d '{"plans":[{
     "topic": "chia", 
     "partition": 0,
     "to": [1003]
-    }]' 
+    }]}' 
 ```
 
 ## 變更 replica 的資料路徑
@@ -85,12 +85,12 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '"plans":[{
+    -d '{"plans":[{
     "topic": "chia", 
     "partition": 0,
-    "broker": 1003
+    "broker": 1003,
     "to": "/tmp/data"
-    }]' 
+    }]}' 
 ```
 
 ## 排除指定節點的 replicas

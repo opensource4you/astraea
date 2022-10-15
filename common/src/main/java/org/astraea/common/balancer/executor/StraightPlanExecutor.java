@@ -50,7 +50,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                         .collect(
                             Collectors.toMap(
                                 e -> e.nodeInfo().id(),
-                                Replica::dataFolder,
+                                Replica::path,
                                 (e1, e2) -> e1,
                                 LinkedHashMap::new)));
 

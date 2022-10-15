@@ -21,17 +21,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.QuotaConfigs;
 
 public class QuotaHandler implements Handler {
 
-  static final String IP_KEY = org.astraea.common.admin.Quota.Target.IP.nameOfKafka();
-  static final String CLIENT_ID_KEY = org.astraea.common.admin.Quota.Target.CLIENT_ID.nameOfKafka();
-  static final String CONNECTION_RATE_KEY =
-      org.astraea.common.admin.Quota.Limit.IP_CONNECTION_RATE.nameOfKafka();
-  static final String PRODUCE_RATE_KEY =
-      org.astraea.common.admin.Quota.Limit.PRODUCER_BYTE_RATE.nameOfKafka();
-  static final String CONSUME_RATE_KEY =
-      org.astraea.common.admin.Quota.Limit.CONSUMER_BYTE_RATE.nameOfKafka();
+  static final String IP_KEY = QuotaConfigs.IP;
+  static final String CLIENT_ID_KEY = QuotaConfigs.CLIENT_ID;
+  static final String CONNECTION_RATE_KEY = QuotaConfigs.IP_CONNECTION_RATE_CONFIG;
+  static final String PRODUCE_RATE_KEY = QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG;
+  static final String CONSUME_RATE_KEY = QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG;
 
   private final Admin admin;
 
@@ -117,11 +115,7 @@ public class QuotaHandler implements Handler {
     final Limit limit;
 
     public Quota(org.astraea.common.admin.Quota quota) {
-      this(
-          quota.target().nameOfKafka(),
-          quota.targetValue(),
-          quota.limit().nameOfKafka(),
-          quota.limitValue());
+      this(quota.targetKey(), quota.targetValue(), quota.limitKey(), quota.limitValue());
     }
 
     public Quota(String target, String targetValue, String limit, double limitValue) {

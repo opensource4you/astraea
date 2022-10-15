@@ -27,20 +27,21 @@ object Spark2Kafka {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
       val eventualBoolean = KafkaWriter.createTopic(admin, metaData)
-      val spark = CSVReader.createSpark(metaData.deploymentModel)
-      val userSchema =
-        CSVReader.createSchema(metaData.column, metaData.primaryKeys)
-      val csvDF =
-        CSVReader.readCSV(
-          spark,
-          userSchema,
-          metaData.sourcePath.getPath,
-          metaData.sinkPath.getPath
-        )
-      val JSON = CSVReader.csvToJSON(csvDF, metaData.primaryKeys.keys.toSeq)
+
       eventualBoolean.onComplete {
         case Success(completion) =>
-          val value = KafkaWriter.writeToKafka(JSON, metaData)
+          val value = KafkaWriter.writeToKafka(
+            CSVReader.csvToJSON(
+              CSVReader.readCSV(
+                CSVReader.createSpark(metaData.deploymentModel),
+                CSVReader.createSchema(metaData.column, metaData.primaryKeys),
+                metaData.sourcePath.getPath,
+                metaData.sinkPath.getPath
+              ),
+              metaData.primaryKeys.keys.toSeq
+            ),
+            metaData
+          )
           value.start().awaitTermination(duration.toMillis)
 
         case Failure(exception) => throw exception

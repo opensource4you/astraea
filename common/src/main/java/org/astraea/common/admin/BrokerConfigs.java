@@ -57,8 +57,6 @@ public final class BrokerConfigs {
   public static final String LOG_FLUSH_INTERVAL_MS_CONFIG = "log.flush.interval.ms";
   public static final String LOG_RETENTION_BYTES_CONFIG = "log.retention.bytes";
   public static final String LOG_RETENTION_TIME_MILLIS_CONFIG = "log.retention.ms";
-  public static final String LOG_FLUSH_SCHEDULER_INTERVAL_MS_CONFIG =
-      "log.flush.scheduler.interval.ms";
   public static final String LOG_INDEX_INTERVAL_BYTES_CONFIG = "log.index.interval.bytes";
   public static final String LOG_CLEANER_DELETE_RETENTION_MS_CONFIG =
       "log.cleaner.delete.retention.ms";

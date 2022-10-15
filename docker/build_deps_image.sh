@@ -45,7 +45,9 @@ RUN unzip gradle-5.6.4-bin.zip
 WORKDIR /astraea
 RUN git clone https://github.com/skiptests/astraea.git /astraea
 RUN ./gradlew clean build -x test
-# trigger download of database
+# download test dependencies
+RUN ./gradlew clean compileTestJava
+# download database
 RUN ./gradlew cleanTest it:test --tests DatabaseTest
 
 WORKDIR /root

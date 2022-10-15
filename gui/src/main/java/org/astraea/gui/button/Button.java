@@ -20,7 +20,11 @@ import javafx.application.Platform;
 
 public class Button extends javafx.scene.control.Button {
 
-  public Button(String topic) {
+  public static Button of(String name) {
+    return new Button(name);
+  }
+
+  private Button(String topic) {
     super(topic);
   }
 

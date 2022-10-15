@@ -34,19 +34,7 @@ public class HBox extends javafx.scene.layout.HBox {
     return pane;
   }
 
-  public HBox() {
-    super();
-  }
-
-  public HBox(double spacing) {
+  private HBox(double spacing) {
     super(spacing);
-  }
-
-  public HBox(Node... children) {
-    super(children);
-  }
-
-  public HBox(double spacing, Node... children) {
-    super(spacing, children);
   }
 }

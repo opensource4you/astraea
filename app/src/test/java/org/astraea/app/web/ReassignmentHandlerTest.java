@@ -91,7 +91,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .get();
 
       var currentBroker = currentReplica.nodeInfo().id();
-      var currentPath = currentReplica.dataFolder();
+      var currentPath = currentReplica.path();
       var nextPath =
           logFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
@@ -125,7 +125,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .dataFolder());
+              .path());
     }
   }
 
