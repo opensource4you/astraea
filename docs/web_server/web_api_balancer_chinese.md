@@ -96,6 +96,8 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 
 > 目前實作不保留 web service 程式過去啟動時所接受的負載平衡計劃進度與結果
 
+> 當查詢的 `id` 沒有對應到任何負載平衡計劃，回傳的 HTTP Status Code 會是 `404`
+
 JSON Response 範例
 
 * `id`: 此 Response 所描述的負載平衡計劃編號
