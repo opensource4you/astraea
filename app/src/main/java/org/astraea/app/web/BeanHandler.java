@@ -26,34 +26,39 @@ import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
 public class BeanHandler implements Handler {
-  private final CompletionStage<List<MBeanClient>> clientsFuture;
+  private final AsyncAdmin admin;
+  private final Function<String, Integer> jmxPorts;
 
   BeanHandler(AsyncAdmin admin, Function<String, Integer> jmxPorts) {
-    clientsFuture =
-        admin
-            .brokers()
-            .thenApply(
-                brokers ->
-                    brokers.stream()
-                        .map(b -> MBeanClient.jndi(b.host(), jmxPorts.apply(b.host())))
-                        .collect(Collectors.toList()));
+    this.admin = admin;
+    this.jmxPorts = jmxPorts;
   }
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
     var builder = BeanQuery.builder().usePropertyListPattern().properties(channel.queries());
-    return clientsFuture.thenApplyAsync(
-        clients ->
-            new NodeBeans(
-                clients.stream()
-                    .map(
-                        c ->
-                            new NodeBean(
-                                c.host(),
-                                c.queryBeans(builder.build()).stream()
-                                    .map(Bean::new)
-                                    .collect(Collectors.toUnmodifiableList())))
-                    .collect(Collectors.toUnmodifiableList())));
+    return admin
+        .brokers()
+        .thenApply(
+            brokers ->
+                brokers.stream()
+                    .map(b -> MBeanClient.jndi(b.host(), jmxPorts.apply(b.host())))
+                    .collect(Collectors.toList()))
+        .thenApply(
+            clients ->
+                new NodeBeans(
+                    clients.stream()
+                        .map(
+                            c -> {
+                              try (c) {
+                                return new NodeBean(
+                                    c.host(),
+                                    c.queryBeans(builder.build()).stream()
+                                        .map(Bean::new)
+                                        .collect(Collectors.toUnmodifiableList()));
+                              }
+                            })
+                        .collect(Collectors.toUnmodifiableList())));
   }
 
   static class Property implements Response {
