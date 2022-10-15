@@ -268,7 +268,6 @@ public interface AsyncAdmin extends AutoCloseable {
                 .thenApply(predicate::test)
                 .exceptionally(
                     e -> {
-                      System.out.println("e: " + e.getClass().getName());
                       if (e instanceof CompletionException
                           && e.getCause()
                               instanceof org.apache.kafka.common.errors.RetriableException)
