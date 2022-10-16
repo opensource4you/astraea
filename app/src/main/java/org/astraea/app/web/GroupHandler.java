@@ -18,6 +18,7 @@ package org.astraea.app.web;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -67,10 +68,24 @@ public class GroupHandler implements Handler {
         .orElseGet(() -> admin.topicNames(true))
         .thenCompose(
             topics ->
-                channel
-                    .target()
-                    .map(group -> CompletableFuture.completedStage(Set.of(group)))
-                    .orElseGet(admin::consumerGroupIds)
+                admin
+                    .consumerGroupIds()
+                    .thenApply(
+                        groupIds -> {
+                          var availableIds =
+                              channel
+                                  .target()
+                                  .map(
+                                      r ->
+                                          groupIds.stream()
+                                              .filter(id -> id.equals(r))
+                                              .collect(Collectors.toSet()))
+                                  .orElse(groupIds);
+                          if (availableIds.isEmpty() && channel.target().isPresent())
+                            throw new NoSuchElementException(
+                                "group: " + channel.target().get() + " is nonexistent");
+                          return availableIds;
+                        })
                     .thenCompose(admin::consumerGroups)
                     .thenCombine(
                         admin
@@ -84,8 +99,7 @@ public class GroupHandler implements Handler {
                         (groups, partitions) ->
                             groups.stream()
                                 // if users want to search groups for specify topic only, we remove
-                                // the group having no
-                                // offsets related to specify topic
+                                // the group having no offsets related to specify topic
                                 .filter(
                                     g ->
                                         !channel.queries().containsKey(TOPIC_KEY)

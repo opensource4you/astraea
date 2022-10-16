@@ -60,12 +60,16 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQueryNonexistentGroup() {
+  void testQueryNonexistentGroup() throws ExecutionException, InterruptedException {
+    var group = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           NoSuchElementException.class,
-          () -> handler.get(Channel.ofTarget("unknown")).toCompletableFuture().get());
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () -> handler.get(Channel.ofTarget(group)).toCompletableFuture().get())
+              .getCause());
     }
   }
 
@@ -175,7 +179,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
                 .assignment()
                 .size());
 
-        handler.delete(Channel.ofTarget(consumer.groupId()));
+        handler.delete(Channel.ofTarget(consumer.groupId())).toCompletableFuture().get();
         Assertions.assertEquals(
             0,
             admin.consumerGroups(Set.of(consumer.groupId())).toCompletableFuture().get().stream()
@@ -252,15 +256,21 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       Assertions.assertTrue(currentGroupIds.contains(groupIds.get(1)));
       Assertions.assertTrue(currentGroupIds.contains(groupIds.get(2)));
 
-      handler.delete(Channel.ofTarget(groupIds.get(2)));
+      handler.delete(Channel.ofTarget(groupIds.get(2))).toCompletableFuture().get();
       Assertions.assertTrue(
           admin.consumerGroupIds().toCompletableFuture().get().contains(groupIds.get(2)));
 
-      handler.delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false")));
+      handler
+          .delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false")))
+          .toCompletableFuture()
+          .get();
       Assertions.assertTrue(
           admin.consumerGroupIds().toCompletableFuture().get().contains(groupIds.get(2)));
 
-      handler.delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true")));
+      handler
+          .delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true")))
+          .toCompletableFuture()
+          .get();
       Assertions.assertFalse(
           admin.consumerGroupIds().toCompletableFuture().get().contains(groupIds.get(2)));
 
@@ -271,14 +281,17 @@ public class GroupHandlerTest extends RequireBrokerCluster {
               .get()
               .assignment()
               .keySet();
-      handler.delete(
-          Channel.ofQueries(
-              groupIds.get(1),
-              Map.of(
-                  GroupHandler.GROUP_KEY,
-                  "true",
-                  GroupHandler.INSTANCE_KEY,
-                  group1Members.iterator().next().groupInstanceId().get())));
+      handler
+          .delete(
+              Channel.ofQueries(
+                  groupIds.get(1),
+                  Map.of(
+                      GroupHandler.GROUP_KEY,
+                      "true",
+                      GroupHandler.INSTANCE_KEY,
+                      group1Members.iterator().next().groupInstanceId().get())))
+          .toCompletableFuture()
+          .get();
       Assertions.assertFalse(
           admin.consumerGroupIds().toCompletableFuture().get().contains(groupIds.get(1)));
     }

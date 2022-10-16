@@ -1281,4 +1281,15 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       }
     }
   }
+
+  @Test
+  void testQueryNonexistentGroup() throws ExecutionException, InterruptedException {
+    var group = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var groups = admin.consumerGroups(Set.of(group)).toCompletableFuture().get();
+      Assertions.assertEquals(1, groups.size());
+      Assertions.assertEquals(0, groups.get(0).assignment().size());
+      Assertions.assertEquals(0, groups.get(0).consumeProgress().size());
+    }
+  }
 }
