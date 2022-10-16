@@ -1185,4 +1185,100 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertTrue(admin.pendingRequests() > 0);
     }
   }
+
+  @Test
+  void testDeleteMembers() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer.sender().topic(topic).key(new byte[10]).run().toCompletableFuture().get();
+      }
+      String groupId = null;
+      try (var consumer =
+          Consumer.forTopics(Set.of(topic))
+              .bootstrapServers(bootstrapServers())
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .build()) {
+        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+        admin.deleteMembers(Set.of(consumer.groupId())).toCompletableFuture().get();
+        groupId = consumer.groupId();
+      }
+      admin.deleteMembers(Set.of(groupId)).toCompletableFuture().get();
+
+      var gs = admin.consumerGroups(Set.of(groupId)).toCompletableFuture().get();
+      Assertions.assertEquals(1, gs.size());
+      Assertions.assertEquals(0, gs.get(0).assignment().size());
+    }
+  }
+
+  @Test
+  void testDeleteGroups() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer.sender().topic(topic).key(new byte[10]).run().toCompletableFuture().get();
+      }
+      String groupId = null;
+      try (var consumer =
+          Consumer.forTopics(Set.of(topic))
+              .bootstrapServers(bootstrapServers())
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .build()) {
+        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+        groupId = consumer.groupId();
+      }
+      admin.deleteGroups(Set.of(groupId)).toCompletableFuture().get();
+      Assertions.assertFalse(
+          admin.consumerGroupIds().toCompletableFuture().get().contains(groupId));
+    }
+  }
+
+  @Test
+  void testRemoveStaticMembers() throws ExecutionException, InterruptedException {
+    var groupId = Utils.randomString(10);
+    var topicName = Utils.randomString(10);
+    var staticMember = Utils.randomString(10);
+    try (var consumer =
+        Consumer.forTopics(Set.of(topicName))
+            .bootstrapServers(bootstrapServers())
+            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
+            .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, staticMember)
+            .build()) {
+      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+      try (var admin = AsyncAdmin.of(bootstrapServers())) {
+        Assertions.assertEquals(
+            1,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .toCompletableFuture()
+                .get()
+                .get(0)
+                .assignment()
+                .keySet()
+                .stream()
+                .filter(m -> m.groupInstanceId().map(id -> id.equals(staticMember)).isPresent())
+                .count());
+        admin
+            .deleteInstanceMembers(Map.of(groupId, Set.of(staticMember)))
+            .toCompletableFuture()
+            .get();
+        Assertions.assertEquals(
+            0,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .toCompletableFuture()
+                .get()
+                .get(0)
+                .assignment()
+                .keySet()
+                .stream()
+                .filter(m -> m.groupInstanceId().map(id -> id.equals(staticMember)).isPresent())
+                .count());
+      }
+    }
+  }
 }

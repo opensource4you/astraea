@@ -255,6 +255,26 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
 
+  /**
+   * delete all members from given groups.
+   *
+   * @param groupAndInstanceIds to delete instance id from group (key)
+   */
+  CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds);
+
+  /**
+   * delete all members from given groups.
+   *
+   * @param consumerGroups to delete members
+   */
+  CompletionStage<Void> deleteMembers(Set<String> consumerGroups);
+
+  /**
+   * delete given groups. all members in those groups get deleted also.
+   *
+   * @param consumerGroups to be deleted
+   */
+  CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
   // ---------------------------------[wait]---------------------------------//
 
   /**

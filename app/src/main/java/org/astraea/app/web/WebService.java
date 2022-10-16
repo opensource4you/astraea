@@ -39,7 +39,7 @@ public class WebService {
   private static void execute(Argument arg) throws IOException {
     var server = HttpServer.create(new InetSocketAddress(arg.port), 0);
     server.createContext("/topics", to(new TopicHandler(Admin.of(arg.configs()))));
-    server.createContext("/groups", to(new GroupHandler(Admin.of(arg.configs()))));
+    server.createContext("/groups", to(new GroupHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/brokers", to(new BrokerHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/producers", to(new ProducerHandler(Admin.of(arg.configs()))));
     server.createContext("/quotas", to(new QuotaHandler(AsyncAdmin.of(arg.configs()))));

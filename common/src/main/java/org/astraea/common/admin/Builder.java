@@ -32,9 +32,7 @@ import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
-import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
@@ -211,48 +209,6 @@ public class Builder {
     public List<Transaction> transactions(Set<String> transactionIds) {
       return Utils.packException(
           () -> asyncAdmin.transactions(transactionIds).toCompletableFuture().get());
-    }
-
-    @Override
-    public void removeGroup(String groupId) {
-      Utils.packException(() -> admin.deleteConsumerGroups(Set.of(groupId)).all().get());
-    }
-
-    @Override
-    public void removeAllMembers(String groupId) {
-      try {
-        Utils.packException(
-            () -> {
-              admin
-                  .removeMembersFromConsumerGroup(
-                      groupId, new RemoveMembersFromConsumerGroupOptions())
-                  .all()
-                  .get();
-            });
-      } catch (ExecutionRuntimeException executionRuntimeException) {
-        var rootCause = executionRuntimeException.getRootCause();
-        if (IllegalArgumentException.class == rootCause.getClass()
-            && ERROR_MSG_MEMBER_IS_EMPTY.equals(rootCause.getMessage())) {
-          // Deleting all members can't work when there is no members already.
-          return;
-        }
-        throw executionRuntimeException;
-      }
-    }
-
-    @Override
-    public void removeStaticMembers(String groupId, Set<String> members) {
-      Utils.packException(
-          () ->
-              admin
-                  .removeMembersFromConsumerGroup(
-                      groupId,
-                      new RemoveMembersFromConsumerGroupOptions(
-                          members.stream()
-                              .map(MemberToRemove::new)
-                              .collect(Collectors.toUnmodifiableList())))
-                  .all()
-                  .get());
     }
 
     @Override
