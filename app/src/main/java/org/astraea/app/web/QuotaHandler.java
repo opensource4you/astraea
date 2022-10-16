@@ -18,6 +18,8 @@ package org.astraea.app.web;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.Admin;
@@ -38,28 +40,33 @@ public class QuotaHandler implements Handler {
   }
 
   @Override
-  public Quotas get(Channel channel) {
+  public CompletionStage<Quotas> get(Channel channel) {
     if (channel.queries().containsKey(IP_KEY))
-      return new Quotas(
-          admin.quotas(org.astraea.common.admin.Quota.Target.IP, channel.queries().get(IP_KEY)));
+      return CompletableFuture.completedFuture(
+          new Quotas(
+              admin.quotas(
+                  org.astraea.common.admin.Quota.Target.IP, channel.queries().get(IP_KEY))));
     if (channel.queries().containsKey(CLIENT_ID_KEY))
-      return new Quotas(
-          admin.quotas(
-              org.astraea.common.admin.Quota.Target.CLIENT_ID,
-              channel.queries().get(CLIENT_ID_KEY)));
-    return new Quotas(admin.quotas());
+      return CompletableFuture.completedFuture(
+          new Quotas(
+              admin.quotas(
+                  org.astraea.common.admin.Quota.Target.CLIENT_ID,
+                  channel.queries().get(CLIENT_ID_KEY))));
+    return CompletableFuture.completedFuture(new Quotas(admin.quotas()));
   }
 
   @Override
-  public Response post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     if (channel.request().get(IP_KEY).isPresent()) {
       admin
           .quotaCreator()
           .ip(channel.request().value(IP_KEY))
           .connectionRate(channel.request().getInt(CONNECTION_RATE_KEY).orElse(Integer.MAX_VALUE))
           .create();
-      return new Quotas(
-          admin.quotas(org.astraea.common.admin.Quota.Target.IP, channel.request().value(IP_KEY)));
+      return CompletableFuture.completedFuture(
+          new Quotas(
+              admin.quotas(
+                  org.astraea.common.admin.Quota.Target.IP, channel.request().value(IP_KEY))));
     }
     if (channel.request().get(CLIENT_ID_KEY).isPresent()) {
       admin
@@ -82,12 +89,13 @@ public class QuotaHandler implements Handler {
                   .map(v -> DataRate.Byte.of(v).perSecond())
                   .orElse(null))
           .create();
-      return new Quotas(
-          admin.quotas(
-              org.astraea.common.admin.Quota.Target.CLIENT_ID,
-              channel.request().value(CLIENT_ID_KEY)));
+      return CompletableFuture.completedFuture(
+          new Quotas(
+              admin.quotas(
+                  org.astraea.common.admin.Quota.Target.CLIENT_ID,
+                  channel.request().value(CLIENT_ID_KEY))));
     }
-    return Response.NOT_FOUND;
+    return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 
   static class Target implements Response {

@@ -99,15 +99,13 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
-    if (channel.target().isEmpty())
-      return Response.of(new IllegalArgumentException("topic must be set"));
+  public CompletionStage<Response> get(Channel channel) {
+    if (channel.target().isEmpty()) throw new IllegalArgumentException("topic must be set");
 
     var topic = channel.target().get();
     var seekStrategies = Set.of(DISTANCE_FROM_LATEST, DISTANCE_FROM_BEGINNING, SEEK_TO);
-    if (channel.queries().keySet().stream().filter(seekStrategies::contains).count() > 1) {
+    if (channel.queries().keySet().stream().filter(seekStrategies::contains).count() > 1)
       throw new IllegalArgumentException("only one seek strategy is allowed");
-    }
 
     var limit = Integer.parseInt(channel.queries().getOrDefault(LIMIT, "1"));
     var timeout =
@@ -167,7 +165,7 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
 
-    return get(consumerBuilder.build(), limit, timeout);
+    return CompletableFuture.completedFuture(get(consumerBuilder.build(), limit, timeout));
   }
 
   // visible for testing
@@ -182,14 +180,13 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public Response post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     var async = channel.request().getBoolean(ASYNC).orElse(false);
     var timeout =
         channel.request().get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
     var records = channel.request().values(RECORDS, PostRecord.class);
-    if (records.isEmpty()) {
+    if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");
-    }
 
     var producer =
         channel
@@ -229,14 +226,15 @@ public class RecordHandler implements Handler {
                             .map(CompletionStage::toCompletableFuture)
                             .collect(toList())));
 
-    if (async) return Response.ACCEPT;
-    return Utils.packException(
-        () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+    if (async) return CompletableFuture.completedFuture(Response.ACCEPT);
+    return CompletableFuture.completedFuture(
+        Utils.packException(
+            () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS))));
   }
 
   @Override
-  public Response delete(Channel channel) {
-    if (channel.target().isEmpty()) return Response.NOT_FOUND;
+  public CompletionStage<Response> delete(Channel channel) {
+    if (channel.target().isEmpty()) return CompletableFuture.completedFuture(Response.NOT_FOUND);
     var topic = channel.target().get();
     var partitions =
         Optional.ofNullable(channel.queries().get(PARTITION))
@@ -261,7 +259,7 @@ public class RecordHandler implements Handler {
                               Function.identity(), x -> currentPartitions.get(x).latestOffset()));
                 });
     admin.deleteRecords(deletedOffsets);
-    return Response.OK;
+    return CompletableFuture.completedFuture(Response.OK);
   }
 
   enum SerDe implements EnumInfo {

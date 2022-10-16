@@ -21,7 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
@@ -331,6 +333,46 @@ public class TopicTab {
             .build());
   }
 
+  private static Tab deleteTab(Context context) {
+    return Tab.dynamic(
+        "delete",
+        () ->
+            context
+                .admin()
+                .topicNames(false)
+                .thenCompose(names -> context.admin().partitions(names))
+                .thenCombine(
+                    context.admin().brokers(),
+                    (partitions, brokers) ->
+                        BorderPane.selectableTop(
+                            partitions.stream()
+                                .map(Partition::topic)
+                                .distinct()
+                                .collect(
+                                    Utils.toSortedMap(
+                                        Function.identity(),
+                                        topic ->
+                                            PaneBuilder.of()
+                                                .buttonName("DELETE")
+                                                .initTableView(
+                                                    basicResult(
+                                                        partitions.stream()
+                                                            .filter(p -> p.topic().equals(topic))
+                                                            .collect(Collectors.toList()),
+                                                        brokers))
+                                                .buttonListener(
+                                                    (input, logger) ->
+                                                        context
+                                                            .admin()
+                                                            .deleteTopics(Set.of(topic))
+                                                            .thenAccept(
+                                                                ignored ->
+                                                                    logger.log(
+                                                                        "succeed to delete "
+                                                                            + topic)))
+                                                .build())))));
+  }
+
   public static Tab of(Context context) {
     return Tab.of(
         "topic",
@@ -341,6 +383,7 @@ public class TopicTab {
                 configTab(context),
                 metricsTab(context),
                 createTab(context),
-                alterTab(context))));
+                alterTab(context),
+                deleteTab(context))));
   }
 }

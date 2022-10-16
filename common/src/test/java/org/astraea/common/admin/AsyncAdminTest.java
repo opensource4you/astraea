@@ -808,6 +808,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(3, brokers.size());
       brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.config().raw().size()));
       Assertions.assertEquals(1, brokers.stream().filter(Broker::isController).count());
+      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.topicPartitions().size()));
       brokers.forEach(
           broker -> Assertions.assertNotEquals(0, broker.topicPartitionLeaders().size()));
     }
@@ -1021,6 +1022,30 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .filter(q -> q.targetValue().equals(Utils.hostname()))
                   .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
                   .count());
+    }
+  }
+
+  @Test
+  void testSizeOfNoDataTopic() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      admin
+          .brokers()
+          .toCompletableFuture()
+          .get()
+          .forEach(
+              broker ->
+                  broker
+                      .folders()
+                      .forEach(
+                          d ->
+                              d.partitionSizes().entrySet().stream()
+                                  .filter(e -> e.getKey().topic().equals(topic))
+                                  .map(Map.Entry::getValue)
+                                  .forEach(v -> Assertions.assertEquals(0, v))));
     }
   }
 
