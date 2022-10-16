@@ -184,6 +184,7 @@ public class TopicTab {
                                                     numberOfPartitions,
                                                     false,
                                                     true,
+                                                    false,
                                                     String.valueOf(topic.topicPartitions().size()))
                                                 .input(
                                                     TopicConfigs.DYNAMICAL_CONFIGS.stream()

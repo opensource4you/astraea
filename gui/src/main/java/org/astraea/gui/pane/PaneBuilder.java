@@ -56,7 +56,8 @@ public class PaneBuilder {
 
   private final Set<String> inputKeys = new LinkedHashSet<>();
 
-  private final Map<String, String> inputKeyDefaultValue = new HashMap<>();
+  private final Map<String, Boolean> inputKeyPlaceholder = new HashMap<>();
+  private final Map<String, String> inputKeyValue = new HashMap<>();
 
   private final Map<String, Boolean> inputKeyPriority = new LinkedHashMap<>();
   private final Map<String, Boolean> inputKeyNumberOnly = new LinkedHashMap<>();
@@ -93,7 +94,7 @@ public class PaneBuilder {
    * @return this builder
    */
   public PaneBuilder input(String key, boolean required, boolean numberOnly) {
-    return input(key, required, numberOnly, null);
+    return input(key, required, numberOnly, false, null);
   }
 
   /**
@@ -102,14 +103,24 @@ public class PaneBuilder {
    * @param key to add
    * @param required true if key is required. The font will get highlight
    * @param numberOnly true if the value associated to key must be number
+   * @param usePlaceholder true if the default value is treated as placeholder
    * @param defaultValue to show by default
    * @return this builder
    */
-  public PaneBuilder input(String key, boolean required, boolean numberOnly, String defaultValue) {
+  public PaneBuilder input(
+      String key,
+      boolean required,
+      boolean numberOnly,
+      boolean usePlaceholder,
+      String defaultValue) {
     inputKeys.add(key);
     inputKeyPriority.put(key, required);
     inputKeyNumberOnly.put(key, numberOnly);
-    if (defaultValue != null) inputKeyDefaultValue.put(key, defaultValue);
+    inputKeyPlaceholder.put(key, usePlaceholder);
+    if (defaultValue != null)
+      inputKeyValue.put(
+          key, numberOnly ? String.valueOf(Long.parseLong(defaultValue)) : defaultValue);
+
     return this;
   }
 
@@ -131,7 +142,7 @@ public class PaneBuilder {
    * @return this
    */
   public PaneBuilder input(Map<String, String> keysAndValues) {
-    keysAndValues.forEach((k, v) -> input(k, false, false, v));
+    keysAndValues.forEach((k, v) -> input(k, false, false, false, v));
     return this;
   }
 
@@ -177,17 +188,20 @@ public class PaneBuilder {
                           inputKeyPriority.getOrDefault(key, false)
                               ? Label.highlight(key)
                               : Label.of(key),
-                      key ->
-                          inputKeyNumberOnly.getOrDefault(key, false)
-                              ? TextField.onlyNumber()
-                              : TextField.of()));
-      inputKeyDefaultValue.forEach(
-          (key, value) ->
-              pairs.entrySet().stream()
-                  .filter(pair -> pair.getKey().key().equals(key))
-                  .map(Map.Entry::getValue)
-                  .findFirst()
-                  .ifPresent(field -> field.text(value)));
+                      key -> {
+                        var builder = TextField.builder();
+                        if (inputKeyNumberOnly.getOrDefault(key, false))
+                          builder = builder.onlyNumber();
+                        String value = inputKeyValue.get(key);
+                        if (value != null) {
+                          if (inputKeyPlaceholder.getOrDefault(key, false))
+                            builder = builder.placeholder(value);
+                          else builder = builder.defaultValue(value);
+                        }
+                        if (inputKeyNumberOnly.getOrDefault(key, false))
+                          builder = builder.onlyNumber();
+                        return builder.build();
+                      }));
       var gridPane = pairs.size() <= 3 ? GridPane.singleColumn(pairs, 3) : GridPane.of(pairs, 3);
       nodes.add(gridPane);
       textFields =
