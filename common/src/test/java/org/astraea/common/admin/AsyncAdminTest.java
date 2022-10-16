@@ -29,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
@@ -363,6 +365,78 @@ public class AsyncAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testCreateTopicRepeatedly() {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      Runnable createTopic =
+          () ->
+              Utils.packException(
+                  () ->
+                      admin
+                          .creator()
+                          .configs(Map.of(TopicConfigs.COMPRESSION_TYPE_CONFIG, "lz4"))
+                          .numberOfReplicas((short) 1)
+                          .numberOfPartitions(3)
+                          .topic(topic)
+                          .run()
+                          .toCompletableFuture()
+                          .get());
+
+      createTopic.run();
+      Utils.waitFor(
+          () ->
+              Utils.packException(
+                  () -> admin.topicNames(true).toCompletableFuture().get().contains(topic)));
+      IntStream.range(0, 10).forEach(i -> createTopic.run());
+
+      // changing number of partitions can producer error
+      Assertions.assertInstanceOf(
+          IllegalArgumentException.class,
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .creator()
+                          .numberOfPartitions(1)
+                          .topic(topic)
+                          .run()
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
+
+      // changing number of replicas can producer error
+      Assertions.assertInstanceOf(
+          IllegalArgumentException.class,
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .creator()
+                          .numberOfReplicas((short) 2)
+                          .topic(topic)
+                          .run()
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
+
+      // changing config can producer error
+      Assertions.assertInstanceOf(
+          IllegalArgumentException.class,
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .creator()
+                          .configs(Map.of(TopicConfig.COMPRESSION_TYPE_CONFIG, "gzip"))
+                          .topic(topic)
+                          .run()
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
+    }
+  }
+
+  @Test
   void testPartitions() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
@@ -415,6 +489,43 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .sum();
 
       Assertions.assertEquals(before + 10, after);
+    }
+  }
+
+  @Test
+  void testOffsets() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+      var partitions = admin.partitions(Set.of(topic)).toCompletableFuture().get();
+      Assertions.assertEquals(3, partitions.size());
+      partitions.forEach(
+          p -> {
+            Assertions.assertEquals(0, p.earliestOffset());
+            Assertions.assertEquals(0, p.latestOffset());
+          });
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer.sender().topic(topic).key(new byte[100]).partition(0).run();
+        producer.sender().topic(topic).key(new byte[55]).partition(1).run();
+        producer.sender().topic(topic).key(new byte[33]).partition(2).run();
+      }
+
+      admin
+          .partitions(Set.of(topic))
+          .toCompletableFuture()
+          .get()
+          .forEach(p -> Assertions.assertEquals(0, p.earliestOffset()));
+      admin
+          .partitions(Set.of(topic))
+          .toCompletableFuture()
+          .get()
+          .forEach(p -> Assertions.assertEquals(1, p.latestOffset()));
+      admin
+          .partitions(Set.of(topic))
+          .toCompletableFuture()
+          .get()
+          .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
     }
   }
 
@@ -555,6 +666,67 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .moveToFolders(Map.of(TopicPartitionReplica.of(topic, 0, currentBroker), nextDir))
                   .toCompletableFuture()
                   .get());
+    }
+  }
+
+  @Test
+  void testMigrateAllPartitions() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
+
+      Utils.sleep(Duration.ofSeconds(5));
+      var broker = brokerIds().iterator().next();
+      admin
+          .partitions(Set.of(topic))
+          .toCompletableFuture()
+          .get()
+          .forEach(p -> admin.moveToBrokers(Map.of(p.topicPartition(), List.of(broker))));
+      Utils.waitFor(
+          () ->
+              Utils.packException(
+                  () -> {
+                    var replicas = admin.replicas(Set.of(topic)).toCompletableFuture().get();
+                    return replicas.stream().allMatch(r -> r.nodeInfo().id() == broker);
+                  }));
+    }
+  }
+
+  @Test
+  void testReplicaSize() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers());
+        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+      producer.sender().topic(topic).key(new byte[100]).run().toCompletableFuture().get();
+      var originSize =
+          admin
+              .replicas(Set.of(topic))
+              .thenApply(
+                  replicas ->
+                      replicas.stream()
+                          .filter(replica -> replica.partition() == 0)
+                          .findFirst()
+                          .get()
+                          .size())
+              .toCompletableFuture()
+              .get();
+
+      // add data again
+      producer.sender().topic(topic).key(new byte[100]).run().toCompletableFuture().get();
+
+      var newSize =
+          admin
+              .replicas(Set.of(topic))
+              .thenApply(
+                  replicas ->
+                      replicas.stream()
+                          .filter(replica -> replica.partition() == 0)
+                          .findFirst()
+                          .get()
+                          .size())
+              .toCompletableFuture()
+              .get();
+      Assertions.assertTrue(newSize > originSize);
     }
   }
 
@@ -742,12 +914,33 @@ public class AsyncAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testProducerStates() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var producer = Producer.of(bootstrapServers());
+        var admin = AsyncAdmin.of(bootstrapServers())) {
+      producer.sender().topic(topic).value(new byte[1]).run().toCompletableFuture().get();
+
+      var states =
+          admin
+              .producerStates(admin.topicPartitions(Set.of(topic)).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get();
+      Assertions.assertNotEquals(0, states.size());
+      var producerState =
+          states.stream()
+              .filter(s -> s.topic().equals(topic))
+              .collect(Collectors.toUnmodifiableList());
+      Assertions.assertEquals(1, producerState.size());
+    }
+  }
+
+  @Test
   void testConnectionQuotas() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.setConnectionQuotas(Map.of(Utils.hostname(), 100)).toCompletableFuture().get();
 
       var quotas =
-          admin.quotas(QuotaConfigs.IP).toCompletableFuture().get().stream()
+          admin.quotas(Set.of(QuotaConfigs.IP)).toCompletableFuture().get().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
@@ -779,7 +972,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .get();
 
       var quotas =
-          admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+          admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().get().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
               .collect(Collectors.toList());
@@ -810,7 +1003,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .get();
 
       var quotas =
-          admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+          admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().get().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
               .collect(Collectors.toList());
@@ -853,6 +1046,143 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                                   .filter(e -> e.getKey().topic().equals(topic))
                                   .map(Map.Entry::getValue)
                                   .forEach(v -> Assertions.assertEquals(0, v))));
+    }
+  }
+
+  @Test
+  void testDeleteRecord() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      var deleteRecords =
+          admin.deleteRecords(Map.of(TopicPartition.of(topic, 0), 0L)).toCompletableFuture().get();
+
+      Assertions.assertEquals(1, deleteRecords.size());
+      Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get());
+
+      try (var producer = Producer.of(bootstrapServers())) {
+        var senders =
+            Stream.of(0, 0, 0, 1, 1)
+                .map(x -> producer.sender().topic(topic).partition(x).value(new byte[100]))
+                .collect(Collectors.toList());
+        producer.send(senders);
+        producer.flush();
+      }
+
+      deleteRecords =
+          admin
+              .deleteRecords(
+                  Map.of(TopicPartition.of(topic, 0), 2L, TopicPartition.of(topic, 1), 1L))
+              .toCompletableFuture()
+              .get();
+      Assertions.assertEquals(2, deleteRecords.size());
+      Assertions.assertEquals(2, deleteRecords.get(TopicPartition.of(topic, 0)));
+      Assertions.assertEquals(1, deleteRecords.get(TopicPartition.of(topic, 1)));
+
+      var partitions = admin.partitions(Set.of(topic)).toCompletableFuture().get();
+      Assertions.assertEquals(3, partitions.size());
+      Assertions.assertEquals(
+          2,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topic) && p.partition() == 0)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          1,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topic) && p.partition() == 1)
+              .findFirst()
+              .get()
+              .earliestOffset());
+      Assertions.assertEquals(
+          0,
+          partitions.stream()
+              .filter(p -> p.topic().equals(topic) && p.partition() == 2)
+              .findFirst()
+              .get()
+              .earliestOffset());
+    }
+  }
+
+  @Test
+  void testDeleteTopic() throws ExecutionException, InterruptedException {
+    var topic =
+        IntStream.range(0, 4).mapToObj(x -> Utils.randomString()).collect(Collectors.toList());
+
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      topic.forEach(
+          x ->
+              Utils.packException(
+                  () ->
+                      admin
+                          .creator()
+                          .topic(x)
+                          .numberOfPartitions(3)
+                          .numberOfReplicas((short) 3)
+                          .run()
+                          .toCompletableFuture()
+                          .get()));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      admin.deleteTopics(Set.of(topic.get(0), topic.get(1)));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var latestTopicNames = admin.topicNames(true).toCompletableFuture().get();
+      Assertions.assertFalse(latestTopicNames.contains(topic.get(0)));
+      Assertions.assertFalse(latestTopicNames.contains(topic.get(1)));
+      Assertions.assertTrue(latestTopicNames.contains(topic.get(2)));
+      Assertions.assertTrue(latestTopicNames.contains(topic.get(3)));
+
+      admin.deleteTopics(Set.of(topic.get(3)));
+      Utils.sleep(Duration.ofSeconds(2));
+
+      latestTopicNames = admin.topicNames(true).toCompletableFuture().get();
+      Assertions.assertFalse(latestTopicNames.contains(topic.get(3)));
+      Assertions.assertTrue(latestTopicNames.contains(topic.get(2)));
+    }
+  }
+
+  @Test
+  void testListPartitions() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(2)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      var partitions = admin.partitions(Set.of(topic)).toCompletableFuture().get();
+      Assertions.assertEquals(2, partitions.size());
+      partitions.forEach(
+          p -> {
+            Assertions.assertEquals(3, p.replicas().size());
+            Assertions.assertEquals(3, p.isr().size());
+          });
+    }
+  }
+
+  @Test
+  void testPendingRequest() {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      Assertions.assertEquals(0, admin.pendingRequests());
+      for (int i = 0; i < 1000; i++) {
+        admin.deleteTopics(Set.of(topic));
+      }
+      Assertions.assertTrue(admin.pendingRequests() > 0);
     }
   }
 }

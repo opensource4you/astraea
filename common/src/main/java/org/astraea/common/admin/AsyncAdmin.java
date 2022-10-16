@@ -136,14 +136,25 @@ public interface AsyncAdmin extends AutoCloseable {
                                 .filter(name -> !usedTopics.contains(name))
                                 .collect(Collectors.toUnmodifiableSet())));
   }
+
   /**
-   * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
-   * QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   * get the quotas associated to given target keys and target values. The available target types
+   * include {@link QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
    *
-   * @param targetKey to search
+   * @param targets target type and associated value. For example: Map.of({@link QuotaConfigs#IP},
+   *     Set.of(10.1.1.2, 10..2.2.2))
    * @return quotas matched to given target
    */
-  CompletionStage<List<Quota>> quotas(String targetKey);
+  CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets);
+
+  /**
+   * get the quotas associated to given target keys. The available target types include {@link
+   * QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targetKeys target keys
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(Set<String> targetKeys);
 
   CompletionStage<List<Quota>> quotas();
 
