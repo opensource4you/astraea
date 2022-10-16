@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorTest {
@@ -89,6 +90,34 @@ class HttpExecutorTest {
                           () ->
                               httpExecutor
                                   .get(getUrl(x, "/NotFound"), TestResponse.class)
+                                  .httpResponse());
+                  assertEquals(
+                      StringResponseException.class, executionException.getCause().getClass());
+                }));
+  }
+
+  @Test
+  void testGetByTypeRef() {
+    var httpExecutor = HttpExecutor.builder().build();
+    HttpTestUtil.testWithServer(
+        httpServer ->
+            httpServer.createContext(
+                "/test", HttpTestUtil.createTextHandler(List.of("GET"), "['v1','v2']")),
+        x ->
+            Utils.packException(
+                () -> {
+                  var responseHttpResponse =
+                      httpExecutor
+                          .get(getUrl(x, "/test"), new TypeRef<List<String>>() {})
+                          .httpResponse();
+                  assertEquals(List.of("v1", "v2"), responseHttpResponse.body());
+
+                  var executionException =
+                      assertThrows(
+                          ExecutionException.class,
+                          () ->
+                              httpExecutor
+                                  .get(getUrl(x, "/NotFound"), new TypeRef<List<String>>() {})
                                   .httpResponse());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
