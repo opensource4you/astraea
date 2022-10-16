@@ -50,8 +50,8 @@ public class Main {
     public void start(Stage stage) {
       var context = new Context();
       stage.setTitle("Astraea");
-      stage.setHeight(1000);
-      stage.setWidth(1300);
+      stage.setHeight(600);
+      stage.setWidth(700);
       stage.setScene(
           new Scene(
               TabPane.of(
