@@ -62,7 +62,7 @@ public class QuotaHandler implements Handler {
               ignored ->
                   admin
                       .quotas(
-                          Map.of(QuotaConfigs.IP, Set.of(channel.queries().get(QuotaConfigs.IP))))
+                          Map.of(QuotaConfigs.IP, Set.of(channel.request().value(QuotaConfigs.IP))))
                       .thenApply(Quotas::new));
 
     // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
@@ -96,7 +96,7 @@ public class QuotaHandler implements Handler {
                       .quotas(
                           Map.of(
                               QuotaConfigs.CLIENT_ID,
-                              Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
+                              Set.of(channel.request().value(QuotaConfigs.CLIENT_ID))))
                       .thenApply(Quotas::new));
 
     if (channel.request().has(QuotaConfigs.CLIENT_ID, QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
@@ -113,7 +113,7 @@ public class QuotaHandler implements Handler {
                       .quotas(
                           Map.of(
                               QuotaConfigs.CLIENT_ID,
-                              Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
+                              Set.of(channel.request().value(QuotaConfigs.CLIENT_ID))))
                       .thenApply(Quotas::new));
 
     if (channel.request().has(QuotaConfigs.CLIENT_ID, QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
@@ -130,7 +130,7 @@ public class QuotaHandler implements Handler {
                       .quotas(
                           Map.of(
                               QuotaConfigs.CLIENT_ID,
-                              Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
+                              Set.of(channel.request().value(QuotaConfigs.CLIENT_ID))))
                       .thenApply(Quotas::new));
 
     return CompletableFuture.completedFuture(Response.NOT_FOUND);
