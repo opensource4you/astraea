@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -39,23 +40,12 @@ public class QuotaHandler implements Handler {
   public CompletionStage<Quotas> get(Channel channel) {
     if (channel.queries().containsKey(QuotaConfigs.IP))
       return admin
-          .quotas(QuotaConfigs.IP)
-          .thenApply(
-              quotas ->
-                  quotas.stream()
-                      .filter(q -> q.targetValue().equals(channel.queries().get(QuotaConfigs.IP)))
-                      .collect(Collectors.toList()))
+          .quotas(Map.of(QuotaConfigs.IP, Set.of(channel.queries().get(QuotaConfigs.IP))))
           .thenApply(Quotas::new);
     if (channel.queries().containsKey(QuotaConfigs.CLIENT_ID))
       return admin
-          .quotas(QuotaConfigs.CLIENT_ID)
-          .thenApply(
-              quotas ->
-                  quotas.stream()
-                      .filter(
-                          q ->
-                              q.targetValue().equals(channel.queries().get(QuotaConfigs.CLIENT_ID)))
-                      .collect(Collectors.toList()))
+          .quotas(
+              Map.of(QuotaConfigs.CLIENT_ID, Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
           .thenApply(Quotas::new);
     return admin.quotas().thenApply(Quotas::new);
   }
@@ -71,15 +61,8 @@ public class QuotaHandler implements Handler {
           .thenCompose(
               ignored ->
                   admin
-                      .quotas(QuotaConfigs.IP)
-                      .thenApply(
-                          quotas ->
-                              quotas.stream()
-                                  .filter(
-                                      q ->
-                                          q.targetValue()
-                                              .equals(channel.request().value(QuotaConfigs.IP)))
-                                  .collect(Collectors.toList()))
+                      .quotas(
+                          Map.of(QuotaConfigs.IP, Set.of(channel.queries().get(QuotaConfigs.IP))))
                       .thenApply(Quotas::new));
 
     // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
@@ -110,16 +93,10 @@ public class QuotaHandler implements Handler {
           .thenCompose(
               ignored ->
                   admin
-                      .quotas(QuotaConfigs.CLIENT_ID)
-                      .thenApply(
-                          quotas ->
-                              quotas.stream()
-                                  .filter(
-                                      q ->
-                                          q.targetValue()
-                                              .equals(
-                                                  channel.request().value(QuotaConfigs.CLIENT_ID)))
-                                  .collect(Collectors.toList()))
+                      .quotas(
+                          Map.of(
+                              QuotaConfigs.CLIENT_ID,
+                              Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
                       .thenApply(Quotas::new));
 
     if (channel.request().has(QuotaConfigs.CLIENT_ID, QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
@@ -133,16 +110,10 @@ public class QuotaHandler implements Handler {
           .thenCompose(
               ignored ->
                   admin
-                      .quotas(QuotaConfigs.CLIENT_ID)
-                      .thenApply(
-                          quotas ->
-                              quotas.stream()
-                                  .filter(
-                                      q ->
-                                          q.targetValue()
-                                              .equals(
-                                                  channel.request().value(QuotaConfigs.CLIENT_ID)))
-                                  .collect(Collectors.toList()))
+                      .quotas(
+                          Map.of(
+                              QuotaConfigs.CLIENT_ID,
+                              Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
                       .thenApply(Quotas::new));
 
     if (channel.request().has(QuotaConfigs.CLIENT_ID, QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
@@ -156,16 +127,10 @@ public class QuotaHandler implements Handler {
           .thenCompose(
               ignored ->
                   admin
-                      .quotas(QuotaConfigs.CLIENT_ID)
-                      .thenApply(
-                          quotas ->
-                              quotas.stream()
-                                  .filter(
-                                      q ->
-                                          q.targetValue()
-                                              .equals(
-                                                  channel.request().value(QuotaConfigs.CLIENT_ID)))
-                                  .collect(Collectors.toList()))
+                      .quotas(
+                          Map.of(
+                              QuotaConfigs.CLIENT_ID,
+                              Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
                       .thenApply(Quotas::new));
 
     return CompletableFuture.completedFuture(Response.NOT_FOUND);

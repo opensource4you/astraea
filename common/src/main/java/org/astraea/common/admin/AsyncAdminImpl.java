@@ -608,11 +608,28 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<List<Quota>> quotas(String targetKey) {
+  public CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets) {
     return to(kafkaAdmin
             .describeClientQuotas(
                 ClientQuotaFilter.contains(
-                    List.of(ClientQuotaFilterComponent.ofEntityType(targetKey))))
+                    targets.entrySet().stream()
+                        .flatMap(
+                            t ->
+                                t.getValue().stream()
+                                    .map(v -> ClientQuotaFilterComponent.ofEntity(t.getKey(), v)))
+                        .collect(Collectors.toList())))
+            .entities())
+        .thenApply(Quota::of);
+  }
+
+  @Override
+  public CompletionStage<List<Quota>> quotas(Set<String> targetKeys) {
+    return to(kafkaAdmin
+            .describeClientQuotas(
+                ClientQuotaFilter.contains(
+                        targetKeys.stream()
+                        .map(ClientQuotaFilterComponent::ofEntityType)
+                        .collect(Collectors.toList())))
             .entities())
         .thenApply(Quota::of);
   }

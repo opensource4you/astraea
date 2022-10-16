@@ -747,7 +747,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       admin.setConnectionQuotas(Map.of(Utils.hostname(), 100)).toCompletableFuture().get();
 
       var quotas =
-          admin.quotas(QuotaConfigs.IP).toCompletableFuture().get().stream()
+          admin.quotas(Set.of(QuotaConfigs.IP)).toCompletableFuture().get().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
@@ -779,7 +779,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .get();
 
       var quotas =
-          admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+          admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().get().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
               .collect(Collectors.toList());
@@ -810,7 +810,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .get();
 
       var quotas =
-          admin.quotas(QuotaConfigs.CLIENT_ID).toCompletableFuture().get().stream()
+          admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().get().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
               .collect(Collectors.toList());
