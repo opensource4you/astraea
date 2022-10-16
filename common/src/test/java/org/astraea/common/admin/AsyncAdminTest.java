@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
@@ -41,6 +42,7 @@ import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class AsyncAdminTest extends RequireBrokerCluster {
 
@@ -1174,15 +1176,17 @@ public class AsyncAdminTest extends RequireBrokerCluster {
     }
   }
 
+  @Timeout(5)
   @Test
-  void testPendingRequest() {
-    var topic = Utils.randomString();
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      Assertions.assertEquals(0, admin.pendingRequests());
-      for (int i = 0; i < 1000; i++) {
-        admin.deleteTopics(Set.of(topic));
-      }
-      Assertions.assertTrue(admin.pendingRequests() > 0);
+  void testRunningRequests() throws ExecutionException, InterruptedException {
+    try (AsyncAdminImpl admin = (AsyncAdminImpl) AsyncAdmin.of(bootstrapServers())) {
+      Assertions.assertEquals(0, admin.runningRequests());
+      var f0 = new KafkaFutureImpl<Integer>();
+      var f1 = admin.to(f0);
+      Assertions.assertEquals(1, admin.runningRequests());
+      f0.complete(10);
+      Assertions.assertEquals(0, admin.runningRequests());
+      Assertions.assertEquals(10, f1.toCompletableFuture().get());
     }
   }
 }
