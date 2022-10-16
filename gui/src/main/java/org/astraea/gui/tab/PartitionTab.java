@@ -91,9 +91,9 @@ public class PartitionTab {
   }
 
   private static Pane alterPane(Context context, String topic, List<Partition> partitions) {
-    var partitionsKey = "partitions (0,1,2 or leave it blank to move all partitions)";
-    var moveToKey = "move to (1002,1004)";
-    var offsetKey = "truncate offset";
+    var partitionsKey = "partition ids (all partitions by default)";
+    var moveToKey = "move to brokers";
+    var offsetKey = "truncate to offset";
     return PaneBuilder.of()
         .buttonName("ALTER")
         .input(partitionsKey, false, false)

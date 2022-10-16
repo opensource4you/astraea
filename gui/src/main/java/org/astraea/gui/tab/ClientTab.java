@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.tab;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,40 +36,39 @@ import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
 
 public class ClientTab {
-  private static List<Map<String, Object>> consumerResult(Stream<ConsumerGroup> cgs, Input input) {
-    return cgs.flatMap(
+  private static List<Map<String, Object>> consumerResult(List<ConsumerGroup> cgs, Input input) {
+    return cgs.stream()
+        .flatMap(
             cg ->
-                cg.assignment().entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry.getValue().stream()
-                                .filter(
-                                    tp ->
-                                        input.matchSearch(tp.topic())
-                                            || input.matchSearch(entry.getKey().groupId()))
-                                .map(
-                                    tp ->
-                                        LinkedHashMap.<String, Object>of(
-                                            "group",
-                                            entry.getKey().groupId(),
-                                            "coordinator",
-                                            cg.coordinator().id(),
-                                            "topic",
-                                            tp.topic(),
-                                            "partition",
-                                            tp.partition(),
-                                            "offset",
-                                            Optional.ofNullable(cg.consumeProgress().get(tp))
-                                                .map(String::valueOf)
-                                                .orElse("unknown"),
-                                            "client host",
-                                            entry.getKey().host(),
-                                            "client id",
-                                            entry.getKey().clientId(),
-                                            "member id",
-                                            entry.getKey().memberId(),
-                                            "instance id",
-                                            entry.getKey().groupInstanceId().orElse("")))))
+                Stream.concat(
+                        cg.consumeProgress().keySet().stream(),
+                        cg.assignment().values().stream().flatMap(Collection::stream))
+                    .filter(tp -> input.matchSearch(tp.topic()) || input.matchSearch(cg.groupId()))
+                    .map(
+                        tp -> {
+                          var base = new LinkedHashMap<String, Object>();
+                          base.put("group", cg.groupId());
+                          base.put("coordinator", cg.coordinator().id());
+                          base.put("topic", tp.topic());
+                          base.put("partition", tp.partition());
+                          Optional.ofNullable(cg.consumeProgress().get(tp))
+                              .ifPresent(offset -> base.put("offset", offset));
+                          cg.assignment().entrySet().stream()
+                              .filter(e -> e.getValue().contains(tp))
+                              .findFirst()
+                              .map(Map.Entry::getKey)
+                              .ifPresent(
+                                  member -> {
+                                    base.put("client host", member.host());
+                                    base.put("client id", member.clientId());
+                                    base.put("member id", member.memberId());
+                                    member
+                                        .groupInstanceId()
+                                        .ifPresent(
+                                            instanceId -> base.put("instance id", instanceId));
+                                  });
+                          return base;
+                        }))
         .collect(Collectors.toList());
   }
 
@@ -83,7 +83,7 @@ public class ClientTab {
                         .admin()
                         .consumerGroupIds()
                         .thenCompose(context.admin()::consumerGroups)
-                        .thenApply(cgs -> consumerResult(cgs.stream(), input)))
+                        .thenApply(cgs -> consumerResult(cgs, input)))
             .build());
   }
 
