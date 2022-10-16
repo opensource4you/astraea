@@ -627,7 +627,7 @@ class AsyncAdminImpl implements AsyncAdmin {
     return to(kafkaAdmin
             .describeClientQuotas(
                 ClientQuotaFilter.contains(
-                        targetKeys.stream()
+                    targetKeys.stream()
                         .map(ClientQuotaFilterComponent::ofEntityType)
                         .collect(Collectors.toList())))
             .entities())
