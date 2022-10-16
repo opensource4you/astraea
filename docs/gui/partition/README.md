@@ -1,6 +1,6 @@
 ### partition
 
-可以在此頁面取得各`topic`的`partition`資訊，並搬移特定`partition`
+可以在此頁面取得各`topic`的`partition`資訊，並搬移`partition`至指定`broker`
 
 
 ![](partition_partition_1.png)
@@ -15,7 +15,7 @@
 ![](partition_alter_1.png)
 
 選定要搬移的`partition`與其搬移`broker`跟`truncate`數，點擊`ALTER`後即可看到
-此工具執行搬移後的結果
+此工具執行搬移後的結果，如果`partition`為空，則會把所有的`partition`搬移
 
 ![](partition_alter_2.png)
-*把`partition 2`移至`id`為 1002的`broker`，並且更新其`earliest offset`為100*
+*把所有`partition`移至`id`為 1001的`broker`，並且更新其`earliest offset`為100*
