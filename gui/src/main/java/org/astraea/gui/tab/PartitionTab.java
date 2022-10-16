@@ -91,12 +91,12 @@ public class PartitionTab {
   }
 
   private static Pane alterPane(Context context, String topic, List<Partition> partitions) {
-    var partitionsKey = "partitions (e.g 0,1,2)";
-    var moveToKey = "move to (e.g 1002,1004)";
-    var offsetKey = "truncate to";
+    var partitionsKey = "partitions (0,1,2 or leave it blank to move all partitions)";
+    var moveToKey = "move to (1002,1004)";
+    var offsetKey = "truncate offset";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(partitionsKey, true, false)
+        .input(partitionsKey, false, false)
         .input(moveToKey, false, false)
         .input(offsetKey, false, true)
         .initTableView(basicResult(partitions))
@@ -108,41 +108,60 @@ public class PartitionTab {
                     .thenApply(PartitionTab::basicResult))
         .buttonListener(
             (input, logger) -> {
-              var topicPartitions =
-                  Arrays.stream(input.nonEmptyTexts().get(partitionsKey).split(","))
-                      .map(Integer::parseInt)
-                      .map(id -> TopicPartition.of(topic, id))
-                      .collect(Collectors.toUnmodifiableSet());
-              var offsetToDelete =
-                  Optional.ofNullable(input.nonEmptyTexts().get(offsetKey))
-                      .map(Long::parseLong)
-                      .map(
-                          offset ->
-                              topicPartitions.stream()
-                                  .collect(
-                                      Collectors.toMap(Function.identity(), ignored -> offset)))
-                      .orElse(Map.of());
-              var moveTo =
-                  Optional.ofNullable(input.nonEmptyTexts().get(moveToKey))
-                      .map(
-                          s ->
-                              Arrays.stream(s.split(","))
-                                  .map(Integer::parseInt)
-                                  .collect(Collectors.toList()))
-                      .map(
-                          m ->
-                              topicPartitions.stream()
-                                  .collect(Collectors.toMap(Function.identity(), ignored -> m)))
-                      .orElse(Map.of());
-              if (offsetToDelete.isEmpty() && moveTo.isEmpty()) {
+              if (!input.nonEmptyTexts().containsKey(moveToKey)
+                  && !input.nonEmptyTexts().containsKey(moveToKey)) {
                 logger.log("Please define either \"move to\" or \"offset\"");
                 return CompletableFuture.completedFuture(null);
               }
-              return context
-                  .admin()
-                  .deleteRecords(offsetToDelete)
-                  .thenCompose(ignored -> context.admin().moveToBrokers(moveTo))
-                  .thenAccept(ignored -> logger.log("succeed to alter " + topicPartitions));
+
+              return Optional.ofNullable(input.nonEmptyTexts().get(partitionsKey))
+                  .map(
+                      tpString ->
+                          CompletableFuture.completedStage(
+                              Arrays.stream(tpString.split(","))
+                                  .map(Integer::parseInt)
+                                  .map(id -> TopicPartition.of(topic, id))
+                                  .collect(Collectors.toUnmodifiableSet())))
+                  .orElseGet(() -> context.admin().topicPartitions(Set.of(topic)))
+                  .thenApply(
+                      tps ->
+                          Map.entry(
+                              Optional.ofNullable(input.nonEmptyTexts().get(offsetKey))
+                                  .map(Long::parseLong)
+                                  .map(
+                                      offset ->
+                                          tps.stream()
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      Function.identity(), ignored -> offset)))
+                                  .orElse(Map.of()),
+                              Optional.ofNullable(input.nonEmptyTexts().get(moveToKey))
+                                  .map(
+                                      s ->
+                                          Arrays.stream(s.split(","))
+                                              .map(Integer::parseInt)
+                                              .collect(Collectors.toList()))
+                                  .map(
+                                      m ->
+                                          tps.stream()
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      Function.identity(), ignored -> m)))
+                                  .orElse(Map.of())))
+                  .thenCompose(
+                      entry ->
+                          context
+                              .admin()
+                              .deleteRecords(entry.getKey())
+                              .thenCompose(
+                                  ignored -> context.admin().moveToBrokers(entry.getValue()))
+                              .thenAccept(
+                                  ignored ->
+                                      logger.log(
+                                          "succeed to alter "
+                                              + (entry.getKey().keySet().isEmpty()
+                                                  ? entry.getValue().keySet()
+                                                  : entry.getKey().keySet()))));
             })
         .build();
   }

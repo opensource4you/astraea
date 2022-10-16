@@ -132,7 +132,7 @@ class BalancerTest extends RequireBrokerCluster {
               .rebalancePlan();
 
       var currentCluster = admin.clusterInfo();
-      var newCluster = BalancerUtils.update(currentCluster, newAllocation);
+      var newCluster = ClusterInfo.update(currentCluster, newAllocation::logPlacements);
 
       Assertions.assertTrue(
           ClusterInfo.diff(currentCluster, newCluster).stream()

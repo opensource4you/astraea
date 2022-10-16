@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost;
+package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import org.apache.kafka.common.Cluster;
-import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

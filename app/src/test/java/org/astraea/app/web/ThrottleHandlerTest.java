@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.Test;
 public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testThrottleBandwidth() {
+  void testThrottleBandwidth() throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var dataRate = DataRate.MiB.of(500).perSecond();
@@ -62,7 +63,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .apply();
       Utils.sleep(Duration.ofSeconds(1));
 
-      var jsonString = handler.get(Channel.EMPTY).json();
+      var jsonString = handler.get(Channel.EMPTY).toCompletableFuture().get().json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
       Function<Integer, JsonObject> findByBrokerId =
@@ -88,7 +89,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testThrottleSomeLogs() {
+  void testThrottleSomeLogs() throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicName = Utils.randomString();
@@ -102,7 +103,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())));
 
-      var jsonString = handler.get(Channel.EMPTY).json();
+      var jsonString = handler.get(Channel.EMPTY).toCompletableFuture().get().json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
       for (int partition = 0; partition < 3; partition++) {
@@ -126,7 +127,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testThrottleEveryLog() {
+  void testThrottleEveryLog() throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicName = Utils.randomString();
@@ -146,7 +147,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .apply();
       Utils.sleep(Duration.ofSeconds(1));
 
-      var jsonString = handler.get(Channel.EMPTY).json();
+      var jsonString = handler.get(Channel.EMPTY).toCompletableFuture().get().json();
       var json = new Gson().fromJson(jsonString, JsonObject.class);
 
       for (int partition = 0; partition < 3; partition++) {
@@ -228,7 +229,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPost() {
+  void testPost() throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicA = Utils.randomString();
@@ -308,7 +309,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               TopicPartitionReplica.of(topicC, 3, 0),
               TopicPartitionReplica.of(topicD, 4, 1));
 
-      var post = handler.post(Channel.ofRequest(PostRequest.of(rawJson)));
+      var post =
+          handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().get();
       var deserialized = new Gson().fromJson(post.json(), ThrottleHandler.ThrottleSetting.class);
       Utils.sleep(Duration.ofSeconds(1));
 
@@ -408,7 +410,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDelete() {
+  void testDelete() throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topic = Utils.randomString();
@@ -472,7 +474,12 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
       // delete topic
       setThrottle.run();
-      int code0 = handler.delete(Channel.ofQueries(Map.of("topic", topic))).code();
+      int code0 =
+          handler
+              .delete(Channel.ofQueries(Map.of("topic", topic)))
+              .toCompletableFuture()
+              .get()
+              .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code0);
       Assertions.assertEquals("", leaderConfig.get());
@@ -481,7 +488,11 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       // delete topic/partition
       setThrottle.run();
       int code1 =
-          handler.delete(Channel.ofQueries(Map.of("topic", topic, "partition", "0"))).code();
+          handler
+              .delete(Channel.ofQueries(Map.of("topic", topic, "partition", "0")))
+              .toCompletableFuture()
+              .get()
+              .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code1);
       Assertions.assertFalse(leaderConfig.get().matches("0:[0-9]+"));
@@ -497,6 +508,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "topic", topic,
                           "partition", "0",
                           "replica", "0")))
+              .toCompletableFuture()
+              .get()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code2);
@@ -514,6 +527,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "partition", "0",
                           "replica", "0",
                           "type", "leader")))
+              .toCompletableFuture()
+              .get()
               .code();
       int code4 =
           handler
@@ -524,6 +539,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "partition", "0",
                           "replica", "1",
                           "type", "follower")))
+              .toCompletableFuture()
+              .get()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code3);
@@ -540,6 +557,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                       Map.of(
                           "broker", "0",
                           "type", "ingress")))
+              .toCompletableFuture()
+              .get()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code5);
@@ -555,6 +574,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                       Map.of(
                           "broker", "0",
                           "type", "egress")))
+              .toCompletableFuture()
+              .get()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code6);
@@ -570,6 +591,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                       Map.of(
                           "broker", "0",
                           "type", "ingress+egress")))
+              .toCompletableFuture()
+              .get()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code7);
@@ -579,50 +602,64 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testBadDelete() {
+  void testBadDelete() throws ExecutionException, InterruptedException {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
 
       // empty
       Assertions.assertEquals(
-          Response.BAD_REQUEST.code(), handler.delete(Channel.ofQueries(Map.of())).code());
+          Response.BAD_REQUEST.code(),
+          handler.delete(Channel.ofQueries(Map.of())).toCompletableFuture().get().code());
 
       // no key "topic" specified
       Assertions.assertEquals(
           Response.BAD_REQUEST.code(),
-          handler.delete(Channel.ofQueries(Map.of("partition", "0"))).code());
+          handler
+              .delete(Channel.ofQueries(Map.of("partition", "0")))
+              .toCompletableFuture()
+              .get()
+              .code());
 
       // this key combination is not supported
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              handler.delete(
-                  Channel.ofQueries(
-                      Map.of(
-                          "topic", "MyTopic",
-                          "replica", "0"))));
+              handler
+                  .delete(
+                      Channel.ofQueries(
+                          Map.of(
+                              "topic", "MyTopic",
+                              "replica", "0")))
+                  .toCompletableFuture()
+                  .get());
 
       // illegal type value
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              handler.delete(
-                  Channel.ofQueries(
-                      Map.of(
-                          "topic", "MyTopic",
-                          "partition", "0",
-                          "replica", "0",
-                          "type", "owo?"))));
+              handler
+                  .delete(
+                      Channel.ofQueries(
+                          Map.of(
+                              "topic", "MyTopic",
+                              "partition", "0",
+                              "replica", "0",
+                              "type", "owo?")))
+                  .toCompletableFuture()
+                  .get());
 
       // illegal clear target
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              handler.delete(
-                  Channel.ofQueries(
-                      Map.of(
-                          "broker", "0",
-                          "type", "ingress+egress+everyTopic"))));
+              handler
+                  .delete(
+                      Channel.ofQueries(
+                          Map.of(
+                              "broker", "0",
+                              "type", "ingress+egress+everyTopic")))
+                  .toCompletableFuture()
+                  .get());
     }
   }
 }

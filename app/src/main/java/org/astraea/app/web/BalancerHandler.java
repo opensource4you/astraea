@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -95,9 +96,10 @@ class BalancerHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var planId = channel.target().orElseThrow();
-    if (!generatedPlans.containsKey(planId)) return Response.NOT_FOUND;
+    if (!generatedPlans.containsKey(planId))
+      return CompletableFuture.completedFuture(Response.NOT_FOUND);
     boolean isGenerated =
         generatedPlans.get(planId).isDone()
             && !generatedPlans.get(planId).isCompletedExceptionally()
@@ -116,17 +118,18 @@ class BalancerHandler implements Handler {
             .getNow(null);
     var report = isGenerated ? generatedPlans.get(planId).join().report : null;
 
-    return new PlanExecutionProgress(
-        planId,
-        isGenerated,
-        isScheduled,
-        isDone,
-        isGenerated ? executionException : generationException,
-        report);
+    return CompletableFuture.completedFuture(
+        new PlanExecutionProgress(
+            planId,
+            isGenerated,
+            isScheduled,
+            isDone,
+            isGenerated ? executionException : generationException,
+            report));
   }
 
   @Override
-  public Response post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
     var planGeneration =
         CompletableFuture.supplyAsync(
@@ -199,11 +202,11 @@ class BalancerHandler implements Handler {
               return new PlanInfo(report, bestPlan.orElseThrow());
             });
     generatedPlans.put(newPlanId, planGeneration);
-    return new PostPlanResponse(newPlanId);
+    return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
   @Override
-  public Response put(Channel channel) {
+  public CompletionStage<Response> put(Channel channel) {
     final var thePlanId =
         channel
             .request()
@@ -220,7 +223,7 @@ class BalancerHandler implements Handler {
     synchronized (this) {
       if (executedPlans.containsKey(thePlanId)) {
         // already scheduled, nothing to do
-        return new PutPlanResponse(thePlanId);
+        return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       } else if (lastExecutionId.get() != null
           && !executedPlans.get(lastExecutionId.get()).isDone()) {
         throw new IllegalStateException(
@@ -236,7 +239,7 @@ class BalancerHandler implements Handler {
                 () ->
                     executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
         lastExecutionId.set(thePlanId);
-        return new PutPlanResponse(thePlanId);
+        return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       }
     }
   }

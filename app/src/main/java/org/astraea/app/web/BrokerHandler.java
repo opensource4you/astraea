@@ -21,37 +21,57 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.Config;
+import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 
 class BrokerHandler implements Handler {
 
-  private final Admin admin;
+  private final AsyncAdmin admin;
 
-  BrokerHandler(Admin admin) {
+  BrokerHandler(AsyncAdmin admin) {
     this.admin = admin;
   }
 
-  Set<Integer> brokers(Optional<String> target) {
+  CompletionStage<Set<Integer>> brokers(Optional<String> target) {
+
     try {
-      return Handler.compare(admin.brokerIds(), target.map(Integer::valueOf));
+      return target
+          .map(id -> CompletableFuture.completedStage(Set.of(Integer.parseInt(id))))
+          .orElseGet(
+              () ->
+                  admin
+                      .nodeInfos()
+                      .thenApply(ns -> ns.stream().map(NodeInfo::id).collect(Collectors.toSet())));
     } catch (NumberFormatException e) {
-      throw new NoSuchElementException("the broker id must be number");
+      return CompletableFuture.failedFuture(
+          new NoSuchElementException("the broker id must be number"));
     }
   }
 
   @Override
-  public Response get(Channel channel) {
-    var ids = brokers(channel.target());
-    var brokers =
-        admin.brokers().stream()
-            .filter(n -> ids.contains(n.id()))
-            .map(n -> new Broker(n.id(), admin.topicPartitions(n.id()), n.config()))
-            .collect(Collectors.toUnmodifiableList());
-    if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
-    return new Brokers(brokers);
+  public CompletionStage<Response> get(Channel channel) {
+    return brokers(channel.target())
+        .thenCompose(
+            ids ->
+                admin
+                    .brokers()
+                    .thenApply(
+                        brokers ->
+                            brokers.stream()
+                                .filter(b -> ids.contains(b.id()))
+                                .map(Broker::new)
+                                .collect(Collectors.toList())))
+        .thenApply(
+            brokers -> {
+              if (brokers.isEmpty()) throw new NoSuchElementException("no brokers are found");
+              if (channel.target().isPresent() && brokers.size() == 1) return brokers.get(0);
+              return new Brokers(brokers);
+            });
   }
 
   static class Topic implements Response {
@@ -69,16 +89,16 @@ class BrokerHandler implements Handler {
     final List<Topic> topics;
     final Map<String, String> configs;
 
-    Broker(int id, Set<TopicPartition> topicPartitions, Config configs) {
-      this.id = id;
+    Broker(org.astraea.common.admin.Broker broker) {
+      this.id = broker.id();
       this.topics =
-          topicPartitions.stream()
+          broker.topicPartitions().stream()
               .collect(Collectors.groupingBy(TopicPartition::topic))
               .entrySet()
               .stream()
               .map(e -> new Topic(e.getKey(), e.getValue().size()))
               .collect(Collectors.toUnmodifiableList());
-      this.configs = configs.raw();
+      this.configs = broker.config().raw();
     }
   }
 

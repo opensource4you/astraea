@@ -30,14 +30,21 @@ import org.junit.jupiter.api.Timeout;
 public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   private static final String TOPIC_NAME = Utils.randomString();
+  private static final int PARTITIONS = 10;
   private static final int CLOSED_BROKER_ID = brokerIds().iterator().next();
 
   @BeforeAll
   static void closeOneBroker() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(TOPIC_NAME).numberOfPartitions(10).run().toCompletableFuture().get();
+      admin
+          .creator()
+          .topic(TOPIC_NAME)
+          .numberOfPartitions(PARTITIONS)
+          .run()
+          .toCompletableFuture()
+          .get();
       var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().get();
-      Assertions.assertEquals(10, allPs.size());
+      Assertions.assertEquals(PARTITIONS, allPs.size());
       Utils.sleep(Duration.ofSeconds(2));
     }
     closeBroker(CLOSED_BROKER_ID);
@@ -75,7 +82,7 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
   void testPartitions() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().get();
-      Assertions.assertEquals(10, partitions.size());
+      Assertions.assertEquals(PARTITIONS, partitions.size());
       var offlinePartitions =
           partitions.stream().filter(p -> p.leader().isEmpty()).collect(Collectors.toList());
       offlinePartitions.forEach(
@@ -95,11 +102,18 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
   void testReplicas() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var replicas = admin.replicas(Set.of(TOPIC_NAME)).toCompletableFuture().get();
-      Assertions.assertEquals(10, replicas.size());
+      Assertions.assertEquals(PARTITIONS, replicas.size());
       var offlineReplicas =
           replicas.stream().filter(ReplicaInfo::isOffline).collect(Collectors.toList());
+      Assertions.assertNotEquals(PARTITIONS, offlineReplicas.size());
       offlineReplicas.forEach(r -> Assertions.assertTrue(r.nodeInfo().offline()));
-      Assertions.assertNotEquals(0, offlineReplicas.size());
+      offlineReplicas.forEach(r -> Assertions.assertNull(r.path()));
+      offlineReplicas.forEach(r -> Assertions.assertEquals(-1, r.size()));
+      offlineReplicas.forEach(r -> Assertions.assertEquals(-1, r.lag()));
+      offlineReplicas.forEach(r -> Assertions.assertFalse(r.isFuture()));
+      offlineReplicas.forEach(r -> Assertions.assertTrue(r.isPreferredLeader()));
+      offlineReplicas.forEach(r -> Assertions.assertFalse(r.isLeader()));
+      offlineReplicas.forEach(r -> Assertions.assertTrue(r.inSync()));
     }
   }
 
