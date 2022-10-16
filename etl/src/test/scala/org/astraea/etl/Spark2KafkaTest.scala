@@ -50,17 +50,17 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         hasPerform = true
         val myDir = mkdir(tempPath)
         val sourceDir = mkdir(tempPath + "/source")
-        generateCSVF(sourceDir, rows)
         val sinkDir = mkdir(sinkD)
         val checkoutDir = mkdir(tempPath + "/checkout")
         val dataDir = mkdir(tempPath + "/data")
         val myPropDir =
           Files.createFile(new File(myDir + "/prop.properties").toPath)
+        generateCSVF(sourceDir, rows)
 
         writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
         Spark2Kafka.executor(
           Array(myPropDir.toString),
-          Duration(10, TimeUnit.SECONDS)
+          Duration(20, TimeUnit.SECONDS)
         )
       }
     }
@@ -70,6 +70,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   def consumerDataTest(): Unit = {
     val topic = new util.HashSet[String]
     topic.add("testTopic")
+
     val consumer =
       Consumer
         .forTopics(topic)
@@ -127,7 +128,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   }
 
   @Test def archive(): Unit = {
-    Thread.sleep(10000)
+    Thread.sleep(Duration(10, TimeUnit.SECONDS).toMillis)
     Range
       .inclusive(0, 4)
       .foreach(i => {
