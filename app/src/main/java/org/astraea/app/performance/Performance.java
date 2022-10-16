@@ -22,15 +22,18 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
@@ -135,60 +138,97 @@ public class Performance {
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
     System.out.println("creating chaos monkey");
 
-    var closeMonkey = new CountDownLatch(1);
-    CompletableFuture.runAsync(
-        () -> {
-          while (closeMonkey.getCount() != 0) {
-            Utils.sleep(param.chaosDuration);
-            var type = (int) Math.round(Math.random() * 2); // re-balance type
-            var victimIndex = (int) (Math.random() * consumerThreads.size()); // consumer number
+    var monkeyLock = new AtomicBoolean(false);
 
-            if (type == 0 && consumerThreads.size() > 1) { // kill a consumer randomly
-              System.out.println("kill a consumer");
-              var victimConsumer = consumerThreads.get(victimIndex);
-              consumerThreads.remove(victimIndex);
-              latches.remove(victimIndex);
-              victimConsumer.close();
-            } else if (type == 1
-                && consumerThreads.size() < param.consumers) { // create a new consumer
-              System.out.println("add a consumer");
-              var consumer =
-                  ConsumerThread.create(
-                          1,
-                          (clientId, listener) ->
-                              Consumer.forTopics(new HashSet<>(param.topics))
-                                  .configs(param.configs())
-                                  .config(
-                                      ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                                      param.transactionSize > 1
-                                          ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                          : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                                  .bootstrapServers(param.bootstrapServers())
-                                  .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                                  .seek(latestOffsets)
-                                  .consumerRebalanceListener(listener)
-                                  .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                                  .build(),
-                          executors,
-                          latches)
-                      .get(0);
-              consumerThreads.add(consumer);
-            } else if (type == 2) { // consumer unsubscribe & resubscribe
-              System.out.println("consumer unsubscribe");
-              var unsubscribeConsumer = consumerThreads.get(victimIndex);
-              unsubscribeConsumer.unsubscribe();
-              Utils.sleep(param.chaosDuration);
-              System.out.println("consumer resubscribe");
-              unsubscribeConsumer.resubscribe();
-            }
-          }
-          System.out.println("close chaos-monkey");
-        });
+    var killMonkey =
+        param.chaosDuration == null
+            ? CompletableFuture.completedFuture(null)
+            : CompletableFuture.runAsync(
+                () -> {
+                  Utils.sleep(param.chaosDuration);
+                  try {
+                    while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                      if (consumerThreads.size() > 1 && monkeyLock.compareAndSet(false, true)) {
+                        System.out.println("kill a consumer");
+                        var index = (int) (Math.random() * consumerThreads.size());
+                        consumerThreads.get(index).close();
+                        consumerThreads.remove(index);
+                        latches.remove(index);
+                        Utils.sleep(param.chaosDuration);
+                        monkeyLock.set(false);
+                      }
+                    }
+                  } catch (CompletionException | ConcurrentModificationException e) {
+                    // swallow
+                  }
+                });
+    var addMonkey =
+        param.chaosDuration == null
+            ? CompletableFuture.completedFuture(null)
+            : CompletableFuture.runAsync(
+                () -> {
+                  Utils.sleep(param.chaosDuration);
+                  try {
+                    while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                      if (consumerThreads.size() < param.consumers
+                          && monkeyLock.compareAndSet(false, true)) {
+                        System.out.println("add a consumer");
+                        consumerThreads.add(
+                            ConsumerThread.create(
+                                    1,
+                                    (clientId, listener) ->
+                                        Consumer.forTopics(new HashSet<>(param.topics))
+                                            .configs(param.configs())
+                                            .config(
+                                                ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                                                param.transactionSize > 1
+                                                    ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                                                    : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                                            .bootstrapServers(param.bootstrapServers())
+                                            .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                                            .seek(param.lastOffsets())
+                                            .consumerRebalanceListener(listener)
+                                            .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                                            .build(),
+                                    executors,
+                                    latches)
+                                .get(0));
+                        Utils.sleep(param.chaosDuration);
+                        monkeyLock.set(false);
+                      }
+                    }
+                  } catch (CompletionException | ConcurrentModificationException e) {
+                    // swallow
+                  }
+                });
+    var subscribeMonkey =
+        param.chaosDuration == null
+            ? CompletableFuture.completedFuture(null)
+            : CompletableFuture.runAsync(
+                () -> {
+                  Utils.sleep(param.chaosDuration);
+                  try {
+                    while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                      if (monkeyLock.compareAndSet(false, true)
+                          && !consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                        System.out.println("unsubscribe consumer");
+                        var thread =
+                            consumerThreads.get((int) (Math.random() * consumerThreads.size()));
+
+                        thread.unsubscribe();
+                        Utils.sleep(param.chaosDuration);
+                        thread.resubscribe();
+                        monkeyLock.set(false);
+                      }
+                    }
+                  } catch (CompletionException | ConcurrentModificationException e) {
+                    // swallow
+                  }
+                });
 
     CompletableFuture.runAsync(
         () -> {
           producerThreads.forEach(AbstractThread::waitForDone);
-          closeMonkey.countDown(); // when producers finished, the chaos monkey would be closed.
           var last = 0L;
           var lastChange = System.currentTimeMillis();
           while (true) {
@@ -199,15 +239,22 @@ public class Performance {
             }
             if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
               consumerThreads.forEach(AbstractThread::close);
-              executors.shutdown();
               return;
             }
             Utils.sleep(Duration.ofSeconds(1));
           }
         });
-
+    try {
+      consumerThreads.forEach(AbstractThread::waitForDone);
+    } catch (ConcurrentModificationException e) {
+      // swallow
+    }
     tracker.waitForDone();
     fileWriterFuture.join();
+    addMonkey.join();
+    killMonkey.join();
+    subscribeMonkey.join();
+    executors.shutdown();
     return param.topics;
   }
 
