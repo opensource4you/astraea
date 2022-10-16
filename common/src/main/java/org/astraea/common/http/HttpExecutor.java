@@ -16,8 +16,6 @@
  */
 package org.astraea.common.http;
 
-import java.net.http.HttpResponse;
-import java.util.concurrent.CompletableFuture;
 import org.astraea.common.json.TypeRef;
 
 /** Send json http request. */
@@ -27,15 +25,15 @@ public interface HttpExecutor {
     return new HttpExecutorBuilder();
   }
 
-  <T> CompletableFuture<HttpResponse<T>> get(String url, Class<T> respCls);
+  <T> AstraeaHttpResponse<T> get(String url, Class<T> respCls);
 
-  <T> CompletableFuture<HttpResponse<T>> get(String url, Object param, Class<T> respCls);
+  <T> AstraeaHttpResponse<T> get(String url, Object param, Class<T> respCls);
 
-  <T> CompletableFuture<HttpResponse<T>> get(String url, TypeRef<T> typeRef);
+  <T> AstraeaHttpResponse<T> get(String url, TypeRef<T> typeRef);
 
-  <T> CompletableFuture<HttpResponse<T>> post(String url, Object body, Class<T> respCls);
+  <T> AstraeaHttpResponse<T> post(String url, Object body, Class<T> respCls);
 
-  <T> CompletableFuture<HttpResponse<T>> put(String url, Object body, Class<T> respCls);
+  <T> AstraeaHttpResponse<T> put(String url, Object body, Class<T> respCls);
 
-  CompletableFuture<HttpResponse<Void>> delete(String url);
+  AstraeaHttpResponse<Void> delete(String url);
 }

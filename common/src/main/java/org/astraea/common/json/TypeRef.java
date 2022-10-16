@@ -17,5 +17,16 @@
 package org.astraea.common.json;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import java.lang.reflect.Type;
 
-public abstract class TypeRef<T> extends TypeReference<T> {}
+public abstract class TypeRef<T> extends TypeReference<T> {
+
+  public static <T> TypeRef<T> of(Type type) {
+    return new TypeRef<>() {
+      @Override
+      public Type getType() {
+        return type;
+      }
+    };
+  }
+}

@@ -16,14 +16,18 @@
  */
 package org.astraea.common.http;
 
-import java.lang.reflect.Type;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
@@ -47,77 +51,72 @@ public class HttpExecutorBuilder {
 
     return new HttpExecutor() {
       @Override
-      public <T> CompletableFuture<HttpResponse<T>> get(String url, Class<T> respCls) {
+      public <T> AstraeaHttpResponse<T> get(String url, Class<T> respCls) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().GET().uri(new URI(url)).build();
-              return toGsonHttpResponse(
+              return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
             });
       }
 
       @Override
-      public <T> CompletableFuture<HttpResponse<T>> get(
-          String url, Object param, Class<T> respCls) {
+      public <T> AstraeaHttpResponse<T> get(String url, Object param, Class<T> respCls) {
         return Utils.packException(
             () -> {
               HttpRequest request =
-                  HttpRequest.newBuilder()
-                      .GET()
-                      .uri(Utils.getQueryUri(url, object2Map(param)))
-                      .build();
+                  HttpRequest.newBuilder().GET().uri(getQueryUri(url, object2Map(param))).build();
 
-              return toGsonHttpResponse(
+              return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
             });
       }
 
       @Override
-      public <T> CompletableFuture<HttpResponse<T>> get(String url, TypeRef<T> typeRef) {
+      public <T> AstraeaHttpResponse<T> get(String url, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().GET().uri(new URI(url)).build();
 
-              return toGsonHttpResponse(
+              return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
             });
       }
 
       @Override
-      public <T> CompletableFuture<HttpResponse<T>> post(
-          String url, Object body, Class<T> respCls) {
+      public <T> AstraeaHttpResponse<T> post(String url, Object body, Class<T> respCls) {
         return Utils.packException(
             () -> {
               HttpRequest request =
                   HttpRequest.newBuilder()
-                      .POST(gsonRequestHandler(body))
+                      .POST(jsonRequestHandler(body))
                       .header("Content-type", "application/json")
                       .uri(new URI(url))
                       .build();
 
-              return toGsonHttpResponse(
+              return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
             });
       }
 
       @Override
-      public <T> CompletableFuture<HttpResponse<T>> put(String url, Object body, Class<T> respCls) {
+      public <T> AstraeaHttpResponse<T> put(String url, Object body, Class<T> respCls) {
         return Utils.packException(
             () -> {
               HttpRequest request =
                   HttpRequest.newBuilder()
-                      .PUT(gsonRequestHandler(body))
+                      .PUT(jsonRequestHandler(body))
                       .header("Content-type", "application/json")
                       .uri(new URI(url))
                       .build();
 
-              return toGsonHttpResponse(
+              return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
             });
       }
 
       @Override
-      public CompletableFuture<HttpResponse<Void>> delete(String url) {
+      public AstraeaHttpResponse<Void> delete(String url) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().DELETE().uri(new URI(url)).build();
@@ -130,44 +129,31 @@ public class HttpExecutorBuilder {
        * if return value is Json , then we can convert it to Object. Or we just simply handle
        * exception by {@link #withException(CompletableFuture)}
        */
-      private <T> CompletableFuture<HttpResponse<T>> toGsonHttpResponse(
+      private <T> AstraeaHttpResponse<T> toJsonHttpResponse(
           CompletableFuture<HttpResponse<String>> asyncResponse, TypeRef<T> typeRef)
           throws StringResponseException {
-        return asyncResponse.thenApply(x -> toGsonHttpResponse(x, typeRef));
+        return AstraeaHttpResponse.of(asyncResponse.thenApply(x -> toJsonHttpResponse(x, typeRef)));
       }
 
       /**
        * if return value is Json , then we can convert it to Object. Or we just simply handle
        * exception by {@link #withException(CompletableFuture)}
        */
-      private <T> CompletableFuture<HttpResponse<T>> toGsonHttpResponse(
+      private <T> AstraeaHttpResponse<T> toJsonHttpResponse(
           CompletableFuture<HttpResponse<String>> asyncResponse, Class<T> tClass)
           throws StringResponseException {
-        return asyncResponse.thenApply(
-            x ->
-                toGsonHttpResponse(
-                    x,
-                    new TypeRef<>() {
-                      @Override
-                      public Type getType() {
-                        return tClass;
-                      }
-                    }));
+        return toJsonHttpResponse(asyncResponse, TypeRef.of(tClass));
       }
 
-      private <T> HttpResponse<T> toGsonHttpResponse(
+      private <T> HttpResponse<T> toJsonHttpResponse(
           HttpResponse<String> response, TypeRef<T> typeRef) throws StringResponseException {
         var innerResponse = withException(response);
         return new MappedHttpResponse<>(
             innerResponse,
             x -> {
-              if (Objects.requireNonNull(x).isBlank()) {
-                throw new StringResponseException(innerResponse, typeRef.getType());
-              }
-
               try {
                 return jsonConverter.fromJson(x, typeRef);
-              } catch (Exception jsonSyntaxException) {
+              } catch (Exception e) {
                 throw new StringResponseException(innerResponse, typeRef.getType());
               }
             });
@@ -175,11 +161,11 @@ public class HttpExecutorBuilder {
 
       /**
        * Handle exception with non json type response . If return value is json , we can use {@link
-       * #toGsonHttpResponse(CompletableFuture, TypeRef)}
+       * #toJsonHttpResponse(CompletableFuture, TypeRef)}
        */
-      private <T> CompletableFuture<HttpResponse<T>> withException(
+      private <T> AstraeaHttpResponse<T> withException(
           CompletableFuture<HttpResponse<T>> response) {
-        return response.thenApply(this::withException);
+        return AstraeaHttpResponse.of(response.thenApply(this::withException));
       }
 
       private <T> HttpResponse<T> withException(HttpResponse<T> response) {
@@ -212,9 +198,40 @@ public class HttpExecutorBuilder {
         return jsonConverter.fromJson(jsonConverter.toJson(obj), new TypeRef<>() {});
       }
 
-      private <T> HttpRequest.BodyPublisher gsonRequestHandler(Object t) {
+      private HttpRequest.BodyPublisher jsonRequestHandler(Object t) {
         return HttpRequest.BodyPublishers.ofString(jsonConverter.toJson(t));
       }
     };
+  }
+
+  /**
+   * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
+   * Map("key","value1,value2") => key=value1,value2
+   *
+   * @param url URL object without any query parameter
+   */
+  static URI getQueryUri(String url, Map<String, String> parameters) throws URISyntaxException {
+    var uri = new URI(url);
+    var queryString =
+        parameters.entrySet().stream()
+            .map(
+                x -> {
+                  var key = x.getKey();
+                  return key + "=" + getQueryValue(x.getValue());
+                })
+            .collect(Collectors.joining("&"));
+
+    return new URI(
+        uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
+  }
+
+  private static String getQueryValue(String value) {
+    if (value.contains(",")) {
+      var values = value.split(",");
+      return Arrays.stream(values)
+          .map(x -> URLEncoder.encode(x, StandardCharsets.UTF_8))
+          .collect(Collectors.joining(","));
+    }
+    return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 }

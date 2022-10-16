@@ -19,17 +19,12 @@ package org.astraea.common;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
@@ -321,38 +316,6 @@ public final class Utils {
       return format.format(new Date(timestamp));
     }
     return "unknown";
-  }
-
-  /**
-   * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
-   * Map("key","value1,value2") => key=value1,value2
-   *
-   * @param url URL object without any query parameter
-   */
-  public static URI getQueryUri(String url, Map<String, String> parameters)
-      throws URISyntaxException {
-    var uri = new URI(url);
-    var queryString =
-        parameters.entrySet().stream()
-            .map(
-                x -> {
-                  var key = x.getKey();
-                  return key + "=" + getQueryValue(x.getValue());
-                })
-            .collect(Collectors.joining("&"));
-
-    return new URI(
-        uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
-  }
-
-  private static String getQueryValue(String value) {
-    if (value.contains(",")) {
-      var values = value.split(",");
-      return Arrays.stream(values)
-          .map(x -> URLEncoder.encode(x, StandardCharsets.UTF_8))
-          .collect(Collectors.joining(","));
-    }
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 
   private Utils() {}

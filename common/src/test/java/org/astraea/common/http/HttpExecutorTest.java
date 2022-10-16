@@ -42,13 +42,16 @@ class HttpExecutorTest {
             Utils.packException(
                 () -> {
                   var responseHttpResponse =
-                      httpExecutor.get(getUrl(x, "/test"), TestResponse.class).get();
+                      httpExecutor.get(getUrl(x, "/test"), TestResponse.class).httpResponse();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
                       assertThrows(
                           ExecutionException.class,
-                          () -> httpExecutor.get(getUrl(x, "/NotFound"), TestResponse.class).get());
+                          () ->
+                              httpExecutor
+                                  .get(getUrl(x, "/NotFound"), TestResponse.class)
+                                  .httpResponse());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -71,19 +74,22 @@ class HttpExecutorTest {
                   var responseHttpResponse =
                       httpExecutor
                           .get(getUrl(x, "/test"), Map.of("k1", "v1"), TestResponse.class)
-                          .get();
+                          .httpResponse();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   responseHttpResponse =
                       httpExecutor
                           .get(getUrl(x, "/test"), new TestParam("v1"), TestResponse.class)
-                          .get();
+                          .httpResponse();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
                       assertThrows(
                           ExecutionException.class,
-                          () -> httpExecutor.get(getUrl(x, "/NotFound"), TestResponse.class).get());
+                          () ->
+                              httpExecutor
+                                  .get(getUrl(x, "/NotFound"), TestResponse.class)
+                                  .httpResponse());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -109,7 +115,9 @@ class HttpExecutorTest {
                   var request = new TestRequest();
                   request.setRequestValue("testRequestValue");
                   var responseHttpResponse =
-                      httpExecutor.post(getUrl(x, "/test"), request, TestResponse.class).get();
+                      httpExecutor
+                          .post(getUrl(x, "/test"), request, TestResponse.class)
+                          .httpResponse();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   // response body can't convert to testResponse
@@ -119,7 +127,7 @@ class HttpExecutorTest {
                           () ->
                               httpExecutor
                                   .post(getUrl(x, "/NotFound"), request, TestResponse.class)
-                                  .get());
+                                  .httpResponse());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -145,7 +153,9 @@ class HttpExecutorTest {
                   var request = new TestRequest();
                   request.setRequestValue("testRequestValue");
                   var responseHttpResponse =
-                      httpExecutor.put(getUrl(x, "/test"), request, TestResponse.class).get();
+                      httpExecutor
+                          .put(getUrl(x, "/test"), request, TestResponse.class)
+                          .httpResponse();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -154,7 +164,7 @@ class HttpExecutorTest {
                           () ->
                               httpExecutor
                                   .put(getUrl(x, "/NotFound"), request, TestResponse.class)
-                                  .get());
+                                  .httpResponse());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -173,7 +183,7 @@ class HttpExecutorTest {
           var executionException =
               assertThrows(
                   ExecutionException.class,
-                  () -> httpExecutor.delete(getUrl(x, "/NotFound")).get());
+                  () -> httpExecutor.delete(getUrl(x, "/NotFound")).httpResponse());
           assertEquals(StringResponseException.class, executionException.getCause().getClass());
         });
   }

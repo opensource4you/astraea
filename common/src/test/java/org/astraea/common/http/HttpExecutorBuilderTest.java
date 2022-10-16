@@ -18,8 +18,11 @@ package org.astraea.common.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.net.URISyntaxException;
+import java.util.Map;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorBuilderTest {
@@ -31,6 +34,22 @@ class HttpExecutorBuilderTest {
 
     builder = HttpExecutor.builder().jsonConverter(new TestJsonConverter());
     assertEquals(TestJsonConverter.class, builder.jsonConverter.getClass());
+  }
+
+  @Test
+  void testGetQueryUrl() throws URISyntaxException {
+    var url = "http://localhost:8989/test";
+    var newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "value1"));
+    Assertions.assertEquals("key1=value1", newURL.getQuery());
+
+    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "value1,value2"));
+    Assertions.assertEquals("key1=value1,value2", newURL.getQuery());
+
+    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "/redirectKey"));
+    Assertions.assertEquals("key1=%2FredirectKey", newURL.getQuery());
+
+    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "/redirectKey,/redirectKey2"));
+    Assertions.assertEquals("key1=%2FredirectKey,%2FredirectKey2", newURL.getQuery());
   }
 
   private static class TestJsonConverter implements JsonConverter {
