@@ -273,12 +273,6 @@ public class HttpExecutorBuilder {
     }
   }
 
-  /**
-   * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
-   * Map("key","value1,value2") => key=value1,value2
-   *
-   * @param url URL object without any query parameter
-   */
   static URI getQueryUri(String url, Map<String, List<String>> parameters)
       throws URISyntaxException {
     var uri = new URI(url);
