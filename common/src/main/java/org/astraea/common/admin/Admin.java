@@ -17,7 +17,6 @@
 package org.astraea.common.admin;
 
 import java.io.Closeable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -149,25 +148,6 @@ public interface Admin extends Closeable {
    * @return producer states of input topic partitions
    */
   List<ProducerState> producerStates(Set<TopicPartition> partitions);
-
-  /** @return a progress to set quota */
-  QuotaCreator quotaCreator();
-
-  /**
-   * @param target to search
-   * @return quotas
-   */
-  Collection<Quota> quotas(Quota.Target target);
-
-  /**
-   * @param target to search
-   * @param value assoicated to target
-   * @return quotas
-   */
-  Collection<Quota> quotas(Quota.Target target, String value);
-
-  /** @return all quotas */
-  Collection<Quota> quotas();
 
   /** @return a snapshot object of cluster state at the moment */
   default ClusterInfo<Replica> clusterInfo() {

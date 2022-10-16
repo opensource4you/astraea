@@ -63,7 +63,7 @@ public class QuotaTab {
                         ignored ->
                             context
                                 .admin()
-                                .quotas(QuotaConfigs.IP)
+                                .quotas(Set.of(QuotaConfigs.IP))
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
@@ -100,7 +100,7 @@ public class QuotaTab {
                         ignored ->
                             context
                                 .admin()
-                                .quotas(QuotaConfigs.CLIENT_ID)
+                                .quotas(Set.of(QuotaConfigs.CLIENT_ID))
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
@@ -137,7 +137,7 @@ public class QuotaTab {
                         ignored ->
                             context
                                 .admin()
-                                .quotas(QuotaConfigs.CLIENT_ID)
+                                .quotas(Set.of(QuotaConfigs.CLIENT_ID))
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
@@ -184,7 +184,8 @@ public class QuotaTab {
                   var target = input.selectedRadio().map(o -> (String) o).orElse(ipKey);
                   return context
                       .admin()
-                      .quotas(target.equals("ip") ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID)
+                      .quotas(
+                          Set.of(target.equals("ip") ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID))
                       .thenApply(
                           quotas ->
                               quotas.stream()

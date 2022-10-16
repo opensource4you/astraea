@@ -39,10 +39,6 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.errors.ReplicaNotAvailableException;
-import org.apache.kafka.common.quota.ClientQuotaAlteration;
-import org.apache.kafka.common.quota.ClientQuotaEntity;
-import org.apache.kafka.common.quota.ClientQuotaFilter;
-import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.common.DataRate;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
@@ -204,35 +200,6 @@ public class Builder {
     @Override
     public TopicCreator creator() {
       return asyncAdmin.creator();
-    }
-
-    @Override
-    public QuotaCreator quotaCreator() {
-      return new QuotaImpl(admin);
-    }
-
-    @Override
-    public Collection<Quota> quotas(Quota.Target target) {
-      return quotas(
-          ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntityType(target.alias()))));
-    }
-
-    @Override
-    public Collection<Quota> quotas(Quota.Target target, String value) {
-      return quotas(
-          ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntity(target.alias(), value))));
-    }
-
-    @Override
-    public Collection<Quota> quotas() {
-      return quotas(ClientQuotaFilter.all());
-    }
-
-    private Collection<Quota> quotas(ClientQuotaFilter filter) {
-      return Quota.of(
-          Utils.packException(() -> admin.describeClientQuotas(filter).entities().get()));
     }
 
     @Override
@@ -790,89 +757,6 @@ public class Builder {
                                   ignore -> Optional.of(new NewPartitionReassignment(brokers)))))
                   .all()
                   .get());
-    }
-  }
-
-  private static class QuotaImpl implements QuotaCreator {
-    private final org.apache.kafka.clients.admin.Admin admin;
-
-    QuotaImpl(org.apache.kafka.clients.admin.Admin admin) {
-      this.admin = admin;
-    }
-
-    @Override
-    public Ip ip(String ip) {
-      return new Ip() {
-        private int connectionRate = Integer.MAX_VALUE;
-
-        @Override
-        public Ip connectionRate(int value) {
-          this.connectionRate = value;
-          return this;
-        }
-
-        @Override
-        public void create() {
-          if (connectionRate == Integer.MAX_VALUE) return;
-          Utils.packException(
-              () ->
-                  admin
-                      .alterClientQuotas(
-                          List.of(
-                              new ClientQuotaAlteration(
-                                  new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
-                                  List.of(
-                                      new ClientQuotaAlteration.Op(
-                                          QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
-                                          (double) connectionRate)))))
-                      .all()
-                      .get());
-        }
-      };
-    }
-
-    @Override
-    public Client clientId(String id) {
-      return new Client() {
-        private DataRate produceRate = null;
-        private DataRate consumeRate = null;
-
-        @Override
-        public Client produceRate(DataRate value) {
-          this.produceRate = value;
-          return this;
-        }
-
-        @Override
-        public Client consumeRate(DataRate value) {
-          this.consumeRate = value;
-          return this;
-        }
-
-        @Override
-        public void create() {
-          var q = new ArrayList<ClientQuotaAlteration.Op>();
-          if (produceRate != null)
-            q.add(
-                new ClientQuotaAlteration.Op(
-                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, produceRate.byteRate()));
-          if (consumeRate != null)
-            q.add(
-                new ClientQuotaAlteration.Op(
-                    QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, consumeRate.byteRate()));
-          if (!q.isEmpty())
-            Utils.packException(
-                () ->
-                    admin
-                        .alterClientQuotas(
-                            List.of(
-                                new ClientQuotaAlteration(
-                                    new ClientQuotaEntity(Map.of(ClientQuotaEntity.CLIENT_ID, id)),
-                                    q)))
-                        .all()
-                        .get());
-        }
-      };
     }
   }
 }
