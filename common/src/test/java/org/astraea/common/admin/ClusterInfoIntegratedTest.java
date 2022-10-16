@@ -14,24 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer;
+package org.astraea.common.admin;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
+public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
 
   @Test
   void testUpdate() {
@@ -54,22 +49,24 @@ public class BalancerUtilsIntegratedTest extends RequireBrokerCluster {
 
       var randomSizeValue = ThreadLocalRandom.current().nextInt();
       var merged =
-          BalancerUtils.update(
+          ClusterInfo.update(
               clusterInfo,
-              ClusterLogAllocation.of(
-                  List.of(
-                      Replica.of(
-                          topicName,
-                          0,
-                          NodeInfo.of(newBrokerId, "", -1),
-                          0,
-                          randomSizeValue,
-                          true,
-                          true,
-                          false,
-                          false,
-                          true,
-                          replica.path()))));
+              tp ->
+                  tp.equals(TopicPartition.of(topicName, 0))
+                      ? Set.of(
+                          Replica.of(
+                              topicName,
+                              0,
+                              NodeInfo.of(newBrokerId, "", -1),
+                              0,
+                              randomSizeValue,
+                              true,
+                              true,
+                              false,
+                              false,
+                              true,
+                              replica.path()))
+                      : Set.of());
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
       Assertions.assertEquals(clusterInfo.topics().size(), merged.topics().size());
