@@ -18,6 +18,8 @@ package org.astraea.app.web;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 
@@ -30,13 +32,14 @@ class TransactionHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var transactions =
         admin.transactions(Handler.compare(admin.transactionIds(), channel.target())).stream()
             .map(t -> new Transaction(t.transactionId(), t))
             .collect(Collectors.toUnmodifiableList());
-    if (channel.target().isPresent() && transactions.size() == 1) return transactions.get(0);
-    return new Transactions(transactions);
+    if (channel.target().isPresent() && transactions.size() == 1)
+      return CompletableFuture.completedFuture(transactions.get(0));
+    return CompletableFuture.completedFuture(new Transactions(transactions));
   }
 
   static class TopicPartition implements Response {

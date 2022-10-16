@@ -43,6 +43,7 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
     Function<EventObject, Map.Entry<Object, Object>> fetcher =
         event -> {
           var pos = tableView.getFocusModel().getFocusedCell();
+          if (pos.getRow() < 0) return null;
           var item = tableView.getItems().get(pos.getRow());
           var value = pos.getTableColumn().getCellObservableValue(item).getValue();
           return Map.entry(item, value);
@@ -55,7 +56,7 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
     tableView.setOnKeyPressed(
         event -> {
           var result = fetcher.apply(event);
-          if (keyForWindows.match(event) || keyForMacos.match(event)) {
+          if (result != null && (keyForWindows.match(event) || keyForMacos.match(event))) {
             if (event.getSource() instanceof TableView) {
               var clipboardContent = new ClipboardContent();
               clipboardContent.putString(result.getValue().toString());

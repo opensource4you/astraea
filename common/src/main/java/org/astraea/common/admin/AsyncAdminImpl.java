@@ -59,8 +59,11 @@ class AsyncAdminImpl implements AsyncAdmin {
   private final String clientId;
   private final List<?> pendingRequests;
 
-  AsyncAdminImpl(Map<String, Object> props) {
-    this(KafkaAdminClient.create(props));
+  AsyncAdminImpl(Map<String, String> props) {
+    this(
+        KafkaAdminClient.create(
+            props.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
 
   AsyncAdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {

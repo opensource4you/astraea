@@ -58,7 +58,7 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
                 Assertions.assertTrue(replica.isOffline());
                 Assertions.assertEquals(-1, replica.size());
                 Assertions.assertEquals(-1, replica.lag());
-                Assertions.assertNull(replica.dataFolder());
+                Assertions.assertNull(replica.path());
               });
     }
   }

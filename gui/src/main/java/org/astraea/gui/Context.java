@@ -17,14 +17,18 @@
 package org.astraea.gui;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
   private final AtomicReference<AsyncAdmin> asyncAdminReference = new AtomicReference<>();
+
+  private volatile int jmxPort = -1;
   private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
 
   public void replace(AsyncAdmin admin) {
@@ -32,11 +36,38 @@ public class Context {
     if (previous != null) previous.close();
   }
 
-  public void replace(Map<NodeInfo, MBeanClient> clients) {
-    for (var entry : clients.entrySet()) {
-      var previous = this.clients.put(entry.getKey(), entry.getValue());
-      if (previous != null) previous.close();
-    }
+  public void replace(AsyncAdmin admin, int jmxPort) {
+
+    this.jmxPort = jmxPort;
+  }
+
+  public void replace(Set<NodeInfo> nodes, int jmxPort) {
+    var copy = Map.copyOf(this.clients);
+    this.jmxPort = jmxPort;
+    this.clients.clear();
+    this.clients.putAll(
+        nodes.stream().collect(Collectors.toMap(n -> n, n -> MBeanClient.jndi(n.host(), jmxPort))));
+    copy.values().forEach(MBeanClient::close);
+  }
+
+  public Map<NodeInfo, MBeanClient> clients(Set<NodeInfo> nodeInfos) {
+    if (jmxPort < 0) throw new IllegalArgumentException("Please define jmxPort");
+    clients.keySet().stream()
+        .filter(n -> !nodeInfos.contains(n))
+        .collect(Collectors.toList())
+        .forEach(
+            n -> {
+              var previous = clients.remove(n);
+              if (previous != null) previous.close();
+            });
+    nodeInfos.stream()
+        .filter(n -> !clients.containsKey(n))
+        .forEach(
+            n -> {
+              var previous = clients.put(n, MBeanClient.jndi(n.host(), jmxPort));
+              if (previous != null) previous.close();
+            });
+    return Map.copyOf(clients);
   }
 
   public AsyncAdmin admin() {
@@ -47,11 +78,7 @@ public class Context {
 
   public Map<NodeInfo, MBeanClient> clients() {
     var copy = Map.copyOf(clients);
-    if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmxPort");
+    if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmx port");
     return copy;
-  }
-
-  public boolean hasMetrics() {
-    return !clients.isEmpty();
   }
 }

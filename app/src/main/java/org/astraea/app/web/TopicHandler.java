@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
@@ -51,7 +53,7 @@ class TopicHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var topicNames =
         topicNames(
             channel.target(),
@@ -64,8 +66,8 @@ class TopicHandler implements Handler {
             partition ->
                 !channel.queries().containsKey(PARTITION_KEY)
                     || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY)));
-    if (topicNames.size() == 1) return topics.topics.get(0);
-    return topics;
+    if (topicNames.size() == 1) return CompletableFuture.completedFuture(topics.topics.get(0));
+    return CompletableFuture.completedFuture(topics);
   }
 
   private Topics get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
@@ -108,7 +110,7 @@ class TopicHandler implements Handler {
   }
 
   @Override
-  public Topics post(Channel channel) {
+  public CompletionStage<Topics> post(Channel channel) {
     var requests = channel.request().requests(TOPICS_KEY);
     var topicNames =
         requests.stream().map(r -> r.value(TOPIC_NAME_KEY)).collect(Collectors.toSet());
@@ -137,32 +139,37 @@ class TopicHandler implements Handler {
           }
         });
 
+    Topics r;
     try {
       // if the topic creation is synced, we return the details.
-      return get(topicNames, ignored -> true);
+      r = get(topicNames, ignored -> true);
     } catch (ExecutionRuntimeException executionRuntimeException) {
       if (UnknownTopicOrPartitionException.class
           != executionRuntimeException.getRootCause().getClass()) {
         throw executionRuntimeException;
+      } else {
+        // Otherwise, return only name
+        r =
+            new Topics(
+                topicNames.stream()
+                    .map(t -> new TopicInfo(t, List.of(), Map.of()))
+                    .collect(Collectors.toUnmodifiableList()));
       }
     }
-    // Otherwise, return only name
-    return new Topics(
-        topicNames.stream()
-            .map(t -> new TopicInfo(t, List.of(), Map.of()))
-            .collect(Collectors.toUnmodifiableList()));
+    return CompletableFuture.completedFuture(r);
   }
 
   @Override
-  public Response delete(Channel channel) {
-    return channel
-        .target()
-        .map(
-            topic -> {
-              admin.deleteTopics(Set.of(topic));
-              return Response.OK;
-            })
-        .orElse(Response.NOT_FOUND);
+  public CompletionStage<Response> delete(Channel channel) {
+    return CompletableFuture.completedFuture(
+        channel
+            .target()
+            .map(
+                topic -> {
+                  admin.deleteTopics(Set.of(topic));
+                  return Response.OK;
+                })
+            .orElse(Response.NOT_FOUND));
   }
 
   static class Topics implements Response {
@@ -220,7 +227,7 @@ class TopicHandler implements Handler {
           replica.isLeader(),
           replica.inSync(),
           replica.isFuture(),
-          replica.dataFolder());
+          replica.path());
     }
 
     Replica(
