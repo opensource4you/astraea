@@ -16,6 +16,7 @@
  */
 package org.astraea.common.http;
 
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -24,7 +25,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -65,7 +69,7 @@ public class HttpExecutorBuilder {
         return Utils.packException(
             () -> {
               HttpRequest request =
-                  HttpRequest.newBuilder().GET().uri(getQueryUri(url, object2Map(param))).build();
+                  HttpRequest.newBuilder().GET().uri(getParameterURI(url, param)).build();
 
               return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
@@ -194,8 +198,9 @@ public class HttpExecutorBuilder {
         throw new StringResponseException(stringHttpResponse);
       }
 
-      private Map<String, String> object2Map(Object obj) {
-        return jsonConverter.fromJson(jsonConverter.toJson(obj), new TypeRef<>() {});
+      private URI getParameterURI(String url, Object parameter) throws URISyntaxException {
+        var paramMap = convert2Parameter(parameter);
+        return getQueryUri(url, paramMap);
       }
 
       private HttpRequest.BodyPublisher jsonRequestHandler(Object t) {
@@ -204,13 +209,78 @@ public class HttpExecutorBuilder {
     };
   }
 
+  /** convert POJO to parameter. */
+  static Map<String, List<String>> convert2Parameter(Object obj) {
+    if (Objects.isNull(obj)) {
+      return Map.of();
+    } else {
+      if (Map.class.isAssignableFrom(obj.getClass())) {
+        Map<?, ?> map = (Map<?, ?>) obj;
+
+        if (map.size() == 0) {
+          return Map.of();
+        } else {
+          var valueClassOpt = map.values().stream().filter(Objects::nonNull).findAny();
+          var mapStream = map.entrySet().stream().filter(Objects::nonNull);
+          if (valueClassOpt.filter(x -> List.class.isAssignableFrom(x.getClass())).isPresent()) {
+            return mapStream.collect(
+                Collectors.toMap(
+                    x -> x.getKey().toString(),
+                    x ->
+                        ((List<?>) x.getValue())
+                            .stream().map(Object::toString).collect(Collectors.toList())));
+          } else {
+            return mapStream.collect(
+                Collectors.toMap(
+                    x -> x.getKey().toString(), x -> List.of(x.getValue().toString())));
+          }
+        }
+      }
+
+      var fields =
+          Arrays.stream(obj.getClass().getDeclaredFields())
+              .filter(x -> !x.isSynthetic())
+              .collect(Collectors.toList());
+      fields.forEach(x -> x.setAccessible(true));
+      var map =
+          fields.stream()
+              .collect(
+                  Collectors.toMap(
+                      Field::getName, x -> Utils.packException(() -> getFieldParameter(obj, x))));
+
+      return map.entrySet().stream()
+          .filter(x -> x.getValue().size() > 0)
+          .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+    }
+  }
+
+  private static List<String> getFieldParameter(Object obj, Field field)
+      throws IllegalAccessException {
+    var fieldClass = field.getType();
+    var fieldObj = field.get(obj);
+    if (fieldObj == null) {
+      return List.of();
+    }
+    if (fieldClass == String.class) {
+      return List.of((String) fieldObj);
+    } else if (fieldClass.isPrimitive()) {
+      return List.of(String.valueOf(fieldObj));
+    } else if (Collection.class.isAssignableFrom(fieldClass)) {
+      Collection<?> collection = (Collection<?>) fieldObj;
+      return collection.stream().map(Object::toString).collect(Collectors.toList());
+    } else {
+      return List.of(fieldObj.toString());
+    }
+  }
+
   /**
    * The syntax `,` is a value splitter. So we don't treat it as a value. Example:
    * Map("key","value1,value2") => key=value1,value2
    *
    * @param url URL object without any query parameter
    */
-  static URI getQueryUri(String url, Map<String, String> parameters) throws URISyntaxException {
+  static URI getQueryUri(String url, Map<String, List<String>> parameters)
+      throws URISyntaxException {
     var uri = new URI(url);
     var queryString =
         parameters.entrySet().stream()
@@ -225,13 +295,9 @@ public class HttpExecutorBuilder {
         uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
   }
 
-  private static String getQueryValue(String value) {
-    if (value.contains(",")) {
-      var values = value.split(",");
-      return Arrays.stream(values)
-          .map(x -> URLEncoder.encode(x, StandardCharsets.UTF_8))
-          .collect(Collectors.joining(","));
-    }
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  private static String getQueryValue(List<String> values) {
+    return values.stream()
+        .map(x -> URLEncoder.encode(x, StandardCharsets.UTF_8))
+        .collect(Collectors.joining(","));
   }
 }

@@ -19,6 +19,7 @@ package org.astraea.common.http;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
@@ -39,17 +40,68 @@ class HttpExecutorBuilderTest {
   @Test
   void testGetQueryUrl() throws URISyntaxException {
     var url = "http://localhost:8989/test";
-    var newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "value1"));
+    var newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", List.of("value1")));
     Assertions.assertEquals("key1=value1", newURL.getQuery());
 
-    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "value1,value2"));
+    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", List.of("value1", "value2")));
     Assertions.assertEquals("key1=value1,value2", newURL.getQuery());
 
-    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "/redirectKey"));
+    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", List.of("/redirectKey")));
     Assertions.assertEquals("key1=%2FredirectKey", newURL.getQuery());
 
-    newURL = HttpExecutorBuilder.getQueryUri(url, Map.of("key1", "/redirectKey,/redirectKey2"));
+    newURL =
+        HttpExecutorBuilder.getQueryUri(
+            url, Map.of("key1", List.of("/redirectKey", "/redirectKey2")));
     Assertions.assertEquals("key1=%2FredirectKey,%2FredirectKey2", newURL.getQuery());
+  }
+
+  @Test
+  void testConvertPojo2Parameter() {
+    var testObj = new TestParameter();
+    Map<String, List<String>> map = HttpExecutorBuilder.convert2Parameter(testObj);
+    assertEquals(0, map.size());
+
+    testObj = new TestParameter();
+    testObj.doubleValue = 1.6;
+    map = HttpExecutorBuilder.convert2Parameter(testObj);
+    assertEquals(1, map.size());
+    assertEquals("1.6", map.get("doubleValue").get(0));
+
+    testObj = new TestParameter();
+    testObj.doubleValue = 1.6;
+    testObj.intValue = 5;
+    testObj.stringValue = "hello";
+    testObj.listStringValue = List.of("v1", "v2", "v3");
+    testObj.listIntValue = List.of(50, 46, 12);
+    map = HttpExecutorBuilder.convert2Parameter(testObj);
+    assertEquals(5, map.size());
+    assertEquals("1.6", map.get("doubleValue").get(0));
+    assertEquals("5", map.get("intValue").get(0));
+    assertEquals("hello", map.get("stringValue").get(0));
+    assertEquals(List.of("v1", "v2", "v3"), map.get("listStringValue"));
+    assertEquals(List.of("50", "46", "12"), map.get("listIntValue"));
+  }
+
+  @Test
+  void testConvertMap2Parameter() {
+    Map<String, List<String>> map = HttpExecutorBuilder.convert2Parameter(Map.of());
+    assertEquals(0, map.size());
+
+    map = HttpExecutorBuilder.convert2Parameter(Map.of("key", "value"));
+    assertEquals(1, map.size());
+    assertEquals("value", map.get("key").get(0));
+
+    map = HttpExecutorBuilder.convert2Parameter(Map.of("key", List.of("v1", "v2")));
+    assertEquals(1, map.size());
+    assertEquals(List.of("v1", "v2"), map.get("key"));
+  }
+
+  static class TestParameter {
+    private Integer intValue;
+    private Double doubleValue;
+    private String stringValue;
+    private List<String> listStringValue;
+    private List<Integer> listIntValue;
   }
 
   private static class TestJsonConverter implements JsonConverter {

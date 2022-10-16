@@ -17,6 +17,7 @@
 package org.astraea.common.json;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -95,25 +96,31 @@ class JsonConverterTest {
     var testFieldClass = new TestOptionalClass();
     testFieldClass.optValue = Optional.ofNullable("hello");
     testFieldClass.nestedOpt = Optional.ofNullable(List.of("hello"));
+    testFieldClass.nonInitOpt = Optional.ofNullable("hello");
 
     var json = jsonConverter.toJson(testFieldClass);
-    assertEquals("{\"nestedOpt\":[\"hello\"],\"optValue\":\"hello\"}", json);
+    assertEquals(
+        "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}", json);
 
     testFieldClass.optValue = Optional.empty();
     testFieldClass.nestedOpt = Optional.empty();
+    testFieldClass.nonInitOpt = Optional.empty();
     json = jsonConverter.toJson(testFieldClass);
     assertEquals("{}", json);
 
     var convertedTestFieldClass =
         jsonConverter.fromJson(
-            "{\"nestedOpt\":[\"hello\"],\"optValue\":\"hello\"}", TestOptionalClass.class);
+            "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}",
+            TestOptionalClass.class);
     assertEquals("hello", convertedTestFieldClass.optValue.get());
     assertEquals(List.of("hello"), convertedTestFieldClass.nestedOpt.get());
+    assertEquals("hello", convertedTestFieldClass.nonInitOpt.get());
 
     convertedTestFieldClass =
         jsonConverter.fromJson("{\"optValue\":null}", TestOptionalClass.class);
     assertTrue(convertedTestFieldClass.optValue.isEmpty());
     assertTrue(convertedTestFieldClass.nestedOpt.isEmpty());
+    assertNull(convertedTestFieldClass.nonInitOpt);
   }
 
   @Test
@@ -201,6 +208,12 @@ class JsonConverterTest {
 
     private Optional<String> optValue = Optional.empty();
     private Optional<List<String>> nestedOpt = Optional.empty();
+
+    /**
+     * if opt is not initialized with Optional.empty(), nonInitOpt will be null when nonInitOpt is
+     * not in json fields.
+     */
+    private Optional<String> nonInitOpt;
   }
 
   private static class TestNestedObjectClass {
