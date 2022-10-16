@@ -17,20 +17,41 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.collector.Fetcher;
 
 @FunctionalInterface
 public interface HasClusterCost extends CostFunction {
 
   static HasClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
-    return (clusterInfo, clusterBean) ->
-        () ->
+    var fetcher =
+        Fetcher.of(
+            costAndWeight.keySet().stream()
+                .map(CostFunction::fetcher)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toUnmodifiableList()),
+            Throwable::printStackTrace);
+    return new HasClusterCost() {
+      @Override
+      public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+        var cost =
             costAndWeight.entrySet().stream()
                 .mapToDouble(
                     cw -> cw.getKey().clusterCost(clusterInfo, clusterBean).value() * cw.getValue())
                 .sum();
+        return () -> cost;
+      }
+
+      @Override
+      public Optional<Fetcher> fetcher() {
+        return fetcher;
+      }
+    };
   }
 
   /**

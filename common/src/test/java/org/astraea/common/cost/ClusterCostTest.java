@@ -29,6 +29,6 @@ class ClusterCostTest {
     HasClusterCost cost2 = (c, b) -> () -> 0.8;
     var merged = HasClusterCost.of(Map.of(cost0, 1D, cost1, 2D, cost2, 2D));
     var result = merged.clusterCost(null, null).value();
-    Assertions.assertEquals(2.8, result);
+    Assertions.assertEquals(2.8, Math.round(result * 100.0) / 100.0);
   }
 }
