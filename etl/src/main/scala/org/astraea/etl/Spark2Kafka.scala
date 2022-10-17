@@ -16,8 +16,9 @@
  */
 package org.astraea.etl
 
+import org.apache.spark.sql.functions.{col, concat_ws, struct, to_json}
 import org.astraea.common.admin.AsyncAdmin
-import org.astraea.etl.CSVReader.{createSchema, createSpark, csvToJSON, readCSV}
+import org.astraea.etl.Reader.createSchema
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -29,23 +30,31 @@ object Spark2Kafka {
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
       val eventualBoolean = KafkaWriter.createTopic(admin, metaData)
 
-      val csvDF = readCSV(
-        createSpark(metaData.deploymentModel),
-        createSchema(metaData.column, metaData.primaryKeys),
-        metaData.sourcePath.getPath,
-        metaData.sinkPath.getPath
-      )
+      val df = ReaderBuilder()
+        .spark(metaData.deploymentModel)
+        .schema(createSchema(metaData.column, metaData.primaryKeys))
+        .sourcePath(metaData.sourcePath.getPath)
+        .sinkPath(metaData.sinkPath.getPath)
+        .build()
+        .read()
+//        .csvToJSON(metaData.primaryKeys.keys.toSeq)
+        .dataFrame()
+        .withColumn("value", to_json(struct($conforms("*"))))
+        .withColumn(
+          "key",
+          concat_ws(",", metaData.primaryKeys.keys.toSeq.map(col).seq: _*)
+        )
+        .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
 
       eventualBoolean.onComplete {
-        case Success(completion) =>
-          val value = KafkaWriter.writeToKafka(
-            csvToJSON(
-              csvDF,
-              metaData.primaryKeys.keys.toSeq
-            ),
-            metaData
-          )
-          value.start().awaitTermination(duration.toMillis)
+        case Success(_) =>
+          KafkaWriter
+            .writeToKafka(
+              df,
+              metaData
+            )
+            .start()
+            .awaitTermination(duration.toMillis)
 
         case Failure(exception) => throw exception
       }

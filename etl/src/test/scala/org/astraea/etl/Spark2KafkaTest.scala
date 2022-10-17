@@ -19,8 +19,8 @@ package org.astraea.etl
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.astraea.common.admin.AsyncAdmin
 import org.astraea.common.consumer.{Consumer, Deserializer}
-import org.astraea.etl.FileCreator.{createCSV, generateCSVF, mkdir}
-import org.astraea.etl.Spark2KafkaTest.{hasPerform, sinkD, source, tempPath}
+import org.astraea.etl.FileCreator.{generateCSVF, mkdir}
+import org.astraea.etl.Spark2KafkaTest._
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
@@ -36,16 +36,14 @@ import scala.collection.convert.ImplicitConversions.{
   `collection AsScalaIterable`,
   `collection asJava`
 }
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class Spark2KafkaTest extends RequireBrokerCluster {
-  private val COL_NAMES =
-    "ID=integer,FirstName=string,SecondName=string,Age=integer"
   setup()
 
   def setup(): Unit = {
-    hasPerform.synchronized {
+    synchronized {
       if (!hasPerform) {
         hasPerform = true
         val myDir = mkdir(tempPath)
@@ -62,6 +60,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
           Array(myPropDir.toString),
           Duration(20, TimeUnit.SECONDS)
         )
+        Thread.sleep(Duration(10, TimeUnit.SECONDS).toMillis)
       }
     }
   }
@@ -86,12 +85,12 @@ class Spark2KafkaTest extends RequireBrokerCluster {
       Range
         .inclusive(0, 5)
         .flatMap(_ => consumer.poll(java.time.Duration.ofSeconds(1)).asScala)
+        .map(record => (record.key(), record.value()))
+        .toMap
 
     val rowData = s2kType(rows)
 
-    records.forEach(record =>
-      assertEquals(rowData(record.key()), record.value())
-    )
+    rowData.forEach(record => assertEquals(records(record._1), record._2))
   }
 
   @Test
@@ -214,9 +213,11 @@ class Spark2KafkaTest extends RequireBrokerCluster {
 }
 
 object Spark2KafkaTest {
-  var hasPerform = false
-  val tempPath: String =
+  private var hasPerform = false
+  private val tempPath: String =
     System.getProperty("java.io.tmpdir") + "/sparkFile" + Random.nextInt()
-  val source: String = tempPath + "/source"
-  val sinkD: String = tempPath + "/sink"
+  private val source: String = tempPath + "/source"
+  private val sinkD: String = tempPath + "/sink"
+  private val COL_NAMES =
+    "ID=integer,FirstName=string,SecondName=string,Age=integer"
 }

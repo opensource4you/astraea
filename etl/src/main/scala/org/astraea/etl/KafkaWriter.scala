@@ -53,6 +53,7 @@ object KafkaWriter {
           ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
         metaData.kafkaBootstrapServers
       )
+      //Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
       .option(
         ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringSerializer"

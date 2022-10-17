@@ -20,9 +20,9 @@ import org.apache.spark.SparkException
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Encoder, Row}
-import org.astraea.etl.CSVReader.{createSpark, csvToJSON}
 import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.astraea.etl.FileCreator.{generateCSVF, getCSVFile, mkdir}
+import org.astraea.etl.Reader.createSpark
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
@@ -31,9 +31,9 @@ import java.io._
 import java.nio.file.Files
 import scala.util.Random
 
-class CSVReaderTest extends RequireBrokerCluster {
+class ReaderTest extends RequireBrokerCluster {
   @Test def createSchemaNullTest(): Unit = {
-    val spark = CSVReader.createSpark("local[2]")
+    val spark = Reader.createSpark("local[2]")
     val seq = Seq(
       Row(1, "A1", 52, "fghgh"),
       Row(2, "B2", 42, "affrgg"),
@@ -41,7 +41,7 @@ class CSVReaderTest extends RequireBrokerCluster {
       Row(null, "D4", 59, "rehrth")
     )
 
-    val structType = CSVReader.createSchema(
+    val structType = Reader.createSchema(
       Map(
         "SerialNumber" -> IntegerType,
         "RecordNumber" -> StringType,
@@ -68,9 +68,9 @@ class CSVReaderTest extends RequireBrokerCluster {
     val checkoutDir = mkdir(tempPath + "/checkout")
     val dataDir = mkdir(tempPath + "/data")
 
-    val spark = CSVReader.createSpark("local[2]")
+    val spark = Reader.createSpark("local[2]")
 
-    val structType = CSVReader.createSchema(
+    val structType = Reader.createSchema(
       Map(
         "SerialNumber" -> IntegerType,
         "RecordNumber" -> StringType,
@@ -84,7 +84,7 @@ class CSVReaderTest extends RequireBrokerCluster {
 
     assertEquals(structType.length, 4)
     val csvDF =
-      CSVReader.readCSV(spark, structType, sourceDir.getPath, sinkDir.getPath)
+      Reader.read(spark, structType, sourceDir.getPath, sinkDir.getPath)
 
     assertTrue(csvDF.isStreaming, "sessions must be a streaming Dataset")
 
@@ -126,12 +126,13 @@ class CSVReaderTest extends RequireBrokerCluster {
       Seq(Person("Michael", 29), Person("Andy", 30), Person("Justin", 19))
     implicit val make: Encoder[Person] =
       org.apache.spark.sql.Encoders.kryo[Person]
-    val df =
-      spark.createDataset(data).map(x => (x.name, x.age)).toDF("name", "age")
 
-    val json = csvToJSON(df, Seq("name"))
+    val json = new DataFrameOp(
+      spark.createDataset(data).map(x => (x.name, x.age)).toDF("name", "age")
+    ).csvToJSON(Seq("name"))
     val iterator = (0 to 2).iterator
     json
+      .dataFrame()
       .collectAsList()
       .forEach(row => {
         val i = iterator.next()
@@ -156,16 +157,14 @@ class CSVReaderTest extends RequireBrokerCluster {
       )
     implicit val make: Encoder[Person] =
       org.apache.spark.sql.Encoders.kryo[Person]
-    val df =
+
+    val json = new DataFrameOp(
       spark
         .createDataset(data)
         .map(x => (x.firstName, x.secondName, x.age))
         .toDF("firstName", "secondName", "age")
+    ).csvToJSON(Seq("firstName", "secondName")).dataFrame()
 
-    val json = csvToJSON(
-      df,
-      Seq("firstName", "secondName")
-    )
     val iterator = (0 to 2).iterator
     json
       .collectAsList()
@@ -201,10 +200,10 @@ class CSVReaderTest extends RequireBrokerCluster {
       .add("f", "string")
       .add("fInt", "integer")
 
-    val df =
+    val json = new DataFrameOp(
       spark.createDataFrame(spark.sparkContext.parallelize(data), structType)
-
-    val json = csvToJSON(df, Seq("ID"))
+    ).csvToJSON(Seq("ID"))
+      .dataFrame()
       .withColumn("byte", col("value").cast("Byte"))
       .selectExpr("CAST(byte AS BYTE)")
     val head = json.head()
