@@ -64,22 +64,23 @@ class BalancerHandler implements Handler {
   private final Admin admin;
   private final RebalancePlanGenerator generator;
   private final RebalancePlanExecutor executor;
-  final List<HasClusterCost> clusterCostFunctions;
-  Map<String, Double> costWeights = Map.of();
+  final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(admin, List.of(new ReplicaSizeCost(), new ReplicaLeaderCost()), new ReplicaSizeCost());
-  }
-
-  BalancerHandler(
-      Admin admin, List<HasClusterCost> clusterCostFunctions, HasMoveCost moveCostFunction) {
     this(
         admin,
-        clusterCostFunctions,
+        HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)),
+        new ReplicaSizeCost());
+  }
+
+  BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
+    this(
+        admin,
+        clusterCostFunction,
         moveCostFunction,
         RebalancePlanGenerator.random(30),
         new StraightPlanExecutor());
@@ -87,12 +88,12 @@ class BalancerHandler implements Handler {
 
   BalancerHandler(
       Admin admin,
-      List<HasClusterCost> clusterCostFunctions,
+      HasClusterCost clusterCostFunction,
       HasMoveCost moveCostFunction,
       RebalancePlanGenerator generator,
       RebalancePlanExecutor executor) {
     this.admin = admin;
-    this.clusterCostFunctions = clusterCostFunctions;
+    this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
     this.generator = generator;
     this.executor = executor;
@@ -146,18 +147,8 @@ class BalancerHandler implements Handler {
                       .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
                       .orElseGet(() -> admin.topicNames(false));
               var currentClusterInfo = admin.clusterInfo();
-              var costWeights =
-                  clusterCostFunctions.stream()
-                      .map(
-                          cf ->
-                              Map.entry(
-                                  cf,
-                                  this.costWeights.getOrDefault(
-                                      cf.getClass().getSimpleName(), 1.0)))
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-              var mergedClusterCost = HasClusterCost.of(costWeights);
               var cost =
-                  mergedClusterCost.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
               var loop =
                   Integer.parseInt(
                       channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
@@ -165,7 +156,7 @@ class BalancerHandler implements Handler {
               var bestPlan =
                   Balancer.builder()
                       .planGenerator(generator)
-                      .clusterCost(mergedClusterCost)
+                      .clusterCost(clusterCostFunction)
                       .moveCost(moveCostFunction)
                       .limit(loop)
                       .limit(timeout)
@@ -207,7 +198,7 @@ class BalancerHandler implements Handler {
                       bestPlan.map(p -> p.clusterCost().value()).orElse(null),
                       loop,
                       bestPlan.map(p -> p.proposal().index()).orElse(null),
-                      mergedClusterCost.getClass().getSimpleName(),
+                      clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
                           .map(p -> List.of(new MigrationCost(p.moveCost())))

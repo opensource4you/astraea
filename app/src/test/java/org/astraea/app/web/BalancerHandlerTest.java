@@ -60,8 +60,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(
-              admin, List.of(MultiplicationCost.decreasing()), new ReplicaSizeCost());
+          new BalancerHandler(admin, MultiplicationCost.decreasing(), new ReplicaSizeCost());
       var report =
           submitPlanGeneration(handler, Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "3000")))
               .report;
@@ -91,8 +90,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(
-              admin, List.of(MultiplicationCost.decreasing()), new ReplicaSizeCost());
+          new BalancerHandler(admin, MultiplicationCost.decreasing(), new ReplicaSizeCost());
       var report =
           submitPlanGeneration(
                   handler,
@@ -147,8 +145,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler =
-          new BalancerHandler(
-              admin, List.of(MultiplicationCost.decreasing()), new ReplicaSizeCost());
+          new BalancerHandler(admin, MultiplicationCost.decreasing(), new ReplicaSizeCost());
       var report =
           submitPlanGeneration(
                   handler,
@@ -247,8 +244,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               MoveCost.builder().totalCost(100).build();
 
       var balancerHandler =
-          new BalancerHandler(
-              admin, List.of(MultiplicationCost.decreasing()), new ReplicaSizeCost());
+          new BalancerHandler(admin, MultiplicationCost.decreasing(), new ReplicaSizeCost());
       var Best =
           Balancer.builder()
               .planGenerator(RebalancePlanGenerator.random(30))
@@ -307,8 +303,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       Utils.sleep(Duration.ofSeconds(1));
       var handler =
-          new BalancerHandler(
-              admin, List.of(MultiplicationCost.increasing()), new ReplicaSizeCost());
+          new BalancerHandler(admin, MultiplicationCost.increasing(), new ReplicaSizeCost());
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -337,7 +332,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
@@ -369,7 +364,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               new NoOpExecutor());
@@ -399,7 +394,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
@@ -452,7 +447,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
@@ -491,7 +486,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               new NoOpExecutor());
@@ -529,7 +524,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
@@ -572,7 +567,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
@@ -643,7 +638,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
@@ -696,7 +691,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               new NoOpExecutor());
@@ -723,7 +718,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin,
-              List.of(MultiplicationCost.decreasing()),
+              MultiplicationCost.decreasing(),
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               new StraightPlanExecutor());
