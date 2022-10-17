@@ -22,18 +22,14 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.ConcurrentModificationException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
@@ -96,27 +92,26 @@ public class Performance {
             param.producers,
             param::createProducer,
             param.interdependent);
-    var executors = Executors.newFixedThreadPool(param.consumers);
-    var latches = new ArrayList<CountDownLatch>(param.consumers);
+
     var consumerThreads =
-        ConsumerThread.create(
-            param.consumers,
-            (clientId, listener) ->
-                Consumer.forTopics(new HashSet<>(param.topics))
-                    .configs(param.configs())
-                    .config(
-                        ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                        param.transactionSize > 1
-                            ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                            : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                    .bootstrapServers(param.bootstrapServers())
-                    .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                    .seek(latestOffsets)
-                    .consumerRebalanceListener(listener)
-                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                    .build(),
-            executors,
-            latches);
+        Collections.synchronizedList(
+            new ArrayList<>(
+                ConsumerThread.create(
+                    param.consumers,
+                    (clientId, listener) ->
+                        Consumer.forTopics(new HashSet<>(param.topics))
+                            .configs(param.configs())
+                            .config(
+                                ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                                param.transactionSize > 1
+                                    ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                                    : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                            .bootstrapServers(param.bootstrapServers())
+                            .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                            .seek(latestOffsets)
+                            .consumerRebalanceListener(listener)
+                            .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                            .build())));
 
     System.out.println("creating tracker");
     var tracker =
@@ -136,93 +131,72 @@ public class Performance {
 
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
-    System.out.println("creating chaos monkey");
-
-    var monkeyLock = new AtomicBoolean(false);
 
     var killMonkey =
-        param.chaosDuration == null
+        param.killDuration == null
             ? CompletableFuture.completedFuture(null)
             : CompletableFuture.runAsync(
                 () -> {
-                  Utils.sleep(param.chaosDuration);
-                  try {
-                    while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-                      if (consumerThreads.size() > 1 && monkeyLock.compareAndSet(false, true)) {
-                        System.out.println("kill a consumer");
-                        var index = (int) (Math.random() * consumerThreads.size());
-                        consumerThreads.get(index).close();
-                        consumerThreads.remove(index);
-                        latches.remove(index);
-                        Utils.sleep(param.chaosDuration);
-                        monkeyLock.set(false);
-                      }
+                  System.out.println("create a monkey killer");
+                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                    if (consumerThreads.size() > 1) {
+                      System.out.println("kill a consumer");
+                      var consumer =
+                          consumerThreads.remove((int) (Math.random() * consumerThreads.size()));
+                      consumer.close();
+                      consumer.waitForDone();
+                      Utils.sleep(param.killDuration);
                     }
-                  } catch (CompletionException | ConcurrentModificationException e) {
-                    // swallow
                   }
                 });
+
     var addMonkey =
-        param.chaosDuration == null
+        param.addDuration == null
             ? CompletableFuture.completedFuture(null)
             : CompletableFuture.runAsync(
                 () -> {
-                  Utils.sleep(param.chaosDuration);
-                  try {
-                    while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-                      if (consumerThreads.size() < param.consumers
-                          && monkeyLock.compareAndSet(false, true)) {
-                        System.out.println("add a consumer");
-                        consumerThreads.add(
-                            ConsumerThread.create(
-                                    1,
-                                    (clientId, listener) ->
-                                        Consumer.forTopics(new HashSet<>(param.topics))
-                                            .configs(param.configs())
-                                            .config(
-                                                ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                                                param.transactionSize > 1
-                                                    ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                                    : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                                            .bootstrapServers(param.bootstrapServers())
-                                            .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                                            .seek(param.lastOffsets())
-                                            .consumerRebalanceListener(listener)
-                                            .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                                            .build(),
-                                    executors,
-                                    latches)
-                                .get(0));
-                        Utils.sleep(param.chaosDuration);
-                        monkeyLock.set(false);
-                      }
+                  System.out.println("create an adding monkey");
+                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                    if (consumerThreads.size() < param.consumers) {
+                      System.out.println("add a consumer");
+                      var consumer =
+                          ConsumerThread.create(
+                                  1,
+                                  (clientId, listener) ->
+                                      Consumer.forTopics(new HashSet<>(param.topics))
+                                          .configs(param.configs())
+                                          .config(
+                                              ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                                              param.transactionSize > 1
+                                                  ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                                                  : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                                          .bootstrapServers(param.bootstrapServers())
+                                          .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                                          .seek(param.lastOffsets())
+                                          .consumerRebalanceListener(listener)
+                                          .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                                          .build())
+                              .get(0);
+                      consumerThreads.add(consumer);
+                      Utils.sleep(param.addDuration);
                     }
-                  } catch (CompletionException | ConcurrentModificationException e) {
-                    // swallow
                   }
                 });
     var subscribeMonkey =
-        param.chaosDuration == null
+        param.subscribeDuration == null
             ? CompletableFuture.completedFuture(null)
             : CompletableFuture.runAsync(
                 () -> {
-                  Utils.sleep(param.chaosDuration);
-                  try {
-                    while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-                      if (monkeyLock.compareAndSet(false, true)
-                          && !consumerThreads.stream().allMatch(AbstractThread::closed)) {
-                        System.out.println("unsubscribe consumer");
-                        var thread =
-                            consumerThreads.get((int) (Math.random() * consumerThreads.size()));
+                  System.out.println("create a subscribed monkey");
+                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
+                    var thread =
+                        consumerThreads.get((int) (Math.random() * consumerThreads.size()));
 
-                        thread.unsubscribe();
-                        Utils.sleep(param.chaosDuration);
-                        thread.resubscribe();
-                        monkeyLock.set(false);
-                      }
-                    }
-                  } catch (CompletionException | ConcurrentModificationException e) {
-                    // swallow
+                    System.out.println("unsubscribe consumer");
+                    thread.unsubscribe();
+                    Utils.sleep(param.subscribeDuration);
+                    System.out.println("resubscribe consumer");
+                    thread.resubscribe();
                   }
                 });
 
@@ -244,17 +218,13 @@ public class Performance {
             Utils.sleep(Duration.ofSeconds(1));
           }
         });
-    try {
-      consumerThreads.forEach(AbstractThread::waitForDone);
-    } catch (ConcurrentModificationException e) {
-      // swallow
-    }
+
     tracker.waitForDone();
     fileWriterFuture.join();
+    consumerThreads.forEach(AbstractThread::waitForDone);
     addMonkey.join();
     killMonkey.join();
     subscribeMonkey.join();
-    executors.shutdown();
     return param.topics;
   }
 
@@ -493,12 +463,28 @@ public class Performance {
     ReportFormat reportFormat = ReportFormat.CSV;
 
     @Parameter(
-        names = {"--chaos.frequency"},
+        names = {"--subscribe.frequency"},
         description =
-            "time to run the chaos monkey. It will kill consumer arbitrarily. There is no monkey by default",
+            "time to run the chaos monkey that unsubscribe & resubscribe a consumer. It will unsubscribe & resubscribe a consumer arbitrarily. There is no monkey by default",
         validateWith = DurationField.class,
         converter = DurationField.class)
-    Duration chaosDuration = null;
+    Duration subscribeDuration = null;
+
+    @Parameter(
+        names = {"--kill.frequency"},
+        description =
+            "time to run the chaos monkey that kill a consumer. It will kill a consumer arbitrarily. There is no monkey by default.",
+        validateWith = DurationField.class,
+        converter = DurationField.class)
+    Duration killDuration = null;
+
+    @Parameter(
+        names = {"--add.frequency"},
+        description =
+            "time to run the chaos monkey that create a consumer. There is no monkey by default.",
+        validateWith = DurationField.class,
+        converter = DurationField.class)
+    Duration addDuration = null;
 
     @Parameter(
         names = {"--group.id"},
