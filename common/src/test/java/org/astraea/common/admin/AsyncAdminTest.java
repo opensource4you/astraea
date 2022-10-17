@@ -74,7 +74,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void waitPreferredLeaderSynced() throws ExecutionException, InterruptedException {
+  void testWaitPreferredLeaderSynced() throws ExecutionException, InterruptedException {
     var partitions = 10;
     var topic = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
@@ -91,6 +91,15 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .moveToBrokers(
               topicPartitions.stream()
                   .collect(Collectors.toMap(tp -> tp, ignored -> List.of(broker))))
+          .toCompletableFuture()
+          .get();
+
+      admin
+          .waitReplicasSynced(
+              topicPartitions.stream()
+                  .map(tp -> TopicPartitionReplica.of(tp.topic(), tp.partition(), broker))
+                  .collect(Collectors.toSet()),
+              Duration.ofSeconds(3))
           .toCompletableFuture()
           .get();
 
