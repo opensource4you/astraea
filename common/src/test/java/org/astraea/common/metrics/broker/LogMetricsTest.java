@@ -19,10 +19,12 @@ package org.astraea.common.metrics.broker;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
@@ -36,11 +38,35 @@ import org.mockito.Mockito;
 public class LogMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
-  @EnumSource(LogMetrics.Log.class)
-  void testMetrics(LogMetrics.Log log) {
+  @EnumSource(LogMetrics.LogCleanerManager.class)
+  void testLogCleanerManager(LogMetrics.LogCleanerManager log) {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(2).create();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var beans =
+          log.fetch(MBeanClient.local()).stream()
+              .collect(Collectors.groupingBy(LogMetrics.LogCleanerManager.Gauge::path));
+      Assertions.assertEquals(
+          dataFolders().values().stream().flatMap(Collection::stream).distinct().count(),
+          beans.size());
+      dataFolders().values().stream()
+          .flatMap(Collection::stream)
+          .distinct()
+          .forEach(
+              d ->
+                  Assertions.assertTrue(
+                      beans.containsKey(d), "beans: " + beans.keySet() + " d:" + d));
+      //      dataFolders().values().forEach(ds ->
+      // Assertions.assertTrue(beans.keySet().containsAll(ds), "beans: " + beans.keySet() + " ds: "
+      // + ds));
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(LogMetrics.Log.class)
+  void testMetrics(LogMetrics.Log log) throws ExecutionException, InterruptedException {
+    var topicName = Utils.randomString(10);
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
       var beans =
           log.fetch(MBeanClient.local()).stream()
@@ -79,10 +105,17 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest()
   @EnumSource(value = LogMetrics.Log.class)
-  void testTopicPartitionMetrics(LogMetrics.Log request) {
-    try (var admin = Admin.of(bootstrapServers())) {
+  void testTopicPartitionMetrics(LogMetrics.Log request)
+      throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
-      admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();
+      admin
+          .creator()
+          .topic(Utils.randomString(5))
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .get();
     }
 
     // wait for topic creation

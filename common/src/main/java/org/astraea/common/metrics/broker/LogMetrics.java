@@ -27,6 +27,77 @@ import org.astraea.common.metrics.MBeanClient;
 
 public final class LogMetrics {
 
+  public enum LogCleanerManager implements EnumInfo {
+    UNCLEANABLE_BYTES("uncleanable-bytes"),
+    UNCLEANABLE_PARTITIONS_COUNT("uncleanable-partitions-count");
+
+    public static LogCleanerManager ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(LogCleanerManager.class, alias);
+    }
+
+    private final String metricName;
+
+    LogCleanerManager(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public List<Gauge> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.log")
+                  .property("type", "LogCleanerManager")
+                  .property("logDirectory", "*")
+                  .property("name", metricName)
+                  .build())
+          .stream()
+          .map(Gauge::new)
+          .collect(Collectors.toUnmodifiableList());
+    }
+
+    public static class Gauge implements HasGauge<Long> {
+      private final BeanObject beanObject;
+
+      public Gauge(BeanObject beanObject) {
+        this.beanObject = beanObject;
+      }
+
+      public String path() {
+        var path = beanObject().properties().get("logDirectory");
+        if (path.startsWith("\"")) path = path.substring(1);
+        if (path.endsWith("\"")) path = path.substring(0, path.length() - 1);
+        return path;
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public LogCleanerManager type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
   public enum Log implements EnumInfo {
     LOG_END_OFFSET("LogEndOffset"),
     LOG_START_OFFSET("LogStartOffset"),
