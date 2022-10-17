@@ -64,10 +64,6 @@ class ReaderBuilder[PassedStep <: BuildStep] private (
   }
 
   def build()(implicit ev: PassedStep =:= FullReader): Reader = {
-    println(deploymentModel)
-    println(userSchema)
-    println(sourcePath)
-    println(sinkPath)
     Reader(deploymentModel, userSchema, sourcePath, sinkPath)
   }
 
