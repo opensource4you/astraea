@@ -109,12 +109,12 @@ public class PerformanceTest extends RequireBrokerCluster {
             new String[] {
               "--bootstrap.servers",
               "localhost:9092",
-              "--subscribe.frequency",
+              "--unsubscribe.frequency",
               "10s",
               "--topics",
               initTopic()
             });
-    Assertions.assertEquals(Duration.ofSeconds(10), args.subscribeDuration);
+    Assertions.assertEquals(Duration.ofSeconds(10), args.unsubscribeDuration);
   }
 
   @Test

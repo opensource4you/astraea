@@ -182,8 +182,8 @@ public class Performance {
                     }
                   }
                 });
-    var subscribeMonkey =
-        param.subscribeDuration == null
+    var unsubscribeMonkey =
+        param.unsubscribeDuration == null
             ? CompletableFuture.completedFuture(null)
             : CompletableFuture.runAsync(
                 () -> {
@@ -194,7 +194,7 @@ public class Performance {
 
                     System.out.println("unsubscribe consumer");
                     thread.unsubscribe();
-                    Utils.sleep(param.subscribeDuration);
+                    Utils.sleep(param.unsubscribeDuration);
                     System.out.println("resubscribe consumer");
                     thread.resubscribe();
                   }
@@ -224,7 +224,7 @@ public class Performance {
     consumerThreads.forEach(AbstractThread::waitForDone);
     addMonkey.join();
     killMonkey.join();
-    subscribeMonkey.join();
+    unsubscribeMonkey.join();
     return param.topics;
   }
 
@@ -463,12 +463,12 @@ public class Performance {
     ReportFormat reportFormat = ReportFormat.CSV;
 
     @Parameter(
-        names = {"--subscribe.frequency"},
+        names = {"--unsubscribe.frequency"},
         description =
             "time to run the chaos monkey that unsubscribe & resubscribe a consumer. It will unsubscribe & resubscribe a consumer arbitrarily. There is no monkey by default",
         validateWith = DurationField.class,
         converter = DurationField.class)
-    Duration subscribeDuration = null;
+    Duration unsubscribeDuration = null;
 
     @Parameter(
         names = {"--kill.frequency"},

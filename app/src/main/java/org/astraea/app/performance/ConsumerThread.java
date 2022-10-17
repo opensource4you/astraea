@@ -59,7 +59,6 @@ public interface ConsumerThread extends AbstractThread {
             Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
           }
         });
-
     return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
