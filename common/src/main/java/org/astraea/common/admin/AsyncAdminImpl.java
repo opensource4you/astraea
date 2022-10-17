@@ -16,7 +16,6 @@
  */
 package org.astraea.common.admin;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +26,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AlterConfigOp;
@@ -57,7 +57,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   private final org.apache.kafka.clients.admin.Admin kafkaAdmin;
   private final String clientId;
-  private final List<?> pendingRequests;
+  private final AtomicInteger runningRequests = new AtomicInteger(0);
 
   AsyncAdminImpl(Map<String, String> props) {
     this(
@@ -69,14 +69,14 @@ class AsyncAdminImpl implements AsyncAdmin {
   AsyncAdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     this.kafkaAdmin = kafkaAdmin;
     this.clientId = (String) Utils.member(kafkaAdmin, "clientId");
-    this.pendingRequests =
-        (ArrayList<?>) Utils.member(Utils.member(kafkaAdmin, "runnable"), "pendingCalls");
   }
 
-  private static <T> CompletionStage<T> to(org.apache.kafka.common.KafkaFuture<T> kafkaFuture) {
+  <T> CompletionStage<T> to(org.apache.kafka.common.KafkaFuture<T> kafkaFuture) {
+    runningRequests.incrementAndGet();
     var f = new CompletableFuture<T>();
     kafkaFuture.whenComplete(
         (r, e) -> {
+          runningRequests.decrementAndGet();
           if (e != null) f.completeExceptionally(e);
           else f.completeAsync(() -> r);
         });
@@ -89,8 +89,8 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public int pendingRequests() {
-    return pendingRequests.size();
+  public int runningRequests() {
+    return runningRequests.get();
   }
 
   @Override

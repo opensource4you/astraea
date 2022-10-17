@@ -45,7 +45,7 @@ public interface AsyncAdmin extends AutoCloseable {
   String clientId();
 
   /** @return the number of pending requests. */
-  int pendingRequests();
+  int runningRequests();
 
   // ---------------------------------[readonly]---------------------------------//
 
