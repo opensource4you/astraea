@@ -24,12 +24,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
@@ -43,8 +46,25 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class AsyncAdminTest extends RequireBrokerCluster {
+
+  @CsvSource(value = {"1", "10", "100"})
+  @ParameterizedTest
+  void testWaitPartitionLeaderSynced(int partitions)
+      throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(partitions).run();
+      Assertions.assertTrue(
+          admin
+              .waitPartitionLeaderSynced(Map.of(topic, partitions), Duration.ofSeconds(5))
+              .toCompletableFuture()
+              .get());
+    }
+  }
 
   @Test
   void testWaitReplicasSynced() throws ExecutionException, InterruptedException {
@@ -109,6 +129,26 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .waitPreferredLeaderSynced(topicPartitions, Duration.ofSeconds(5))
           .toCompletableFuture()
           .get();
+    }
+  }
+
+  @Test
+  void testWaitClusterWithException() throws ExecutionException, InterruptedException {
+
+    try (var admin =
+        new AsyncAdminImpl(
+            Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers())) {
+          @Override
+          public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+            return CompletableFuture.failedFuture(
+                new org.apache.kafka.common.errors.UnknownTopicOrPartitionException());
+          }
+        }) {
+      Assertions.assertFalse(
+          admin
+              .waitCluster(Set.of(), ignored -> true, Duration.ofSeconds(3), 2)
+              .toCompletableFuture()
+              .get());
     }
   }
 
