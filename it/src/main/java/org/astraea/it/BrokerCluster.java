@@ -25,7 +25,7 @@ public interface BrokerCluster extends AutoCloseable {
   String bootstrapServers();
 
   /** @return the log folders used by each broker */
-  Map<Integer, Set<String>> logFolders();
+  Map<Integer, Set<String>> dataFolders();
 
   /** @param brokerID the broker id want to close */
   void close(int brokerID);
