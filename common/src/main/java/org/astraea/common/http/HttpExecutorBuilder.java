@@ -65,7 +65,7 @@ public class HttpExecutorBuilder {
       }
 
       @Override
-      public <T> AstraeaHttpResponse<T> get(String url, Object param, Class<T> respCls) {
+      public <T> AstraeaHttpResponse<T> get(String url, Map<String,String>  param, Class<T> respCls) {
         return Utils.packException(
             () -> {
               HttpRequest request =
@@ -198,60 +198,14 @@ public class HttpExecutorBuilder {
         throw new StringResponseException(stringHttpResponse);
       }
 
-      private URI getParameterURI(String url, Object parameter) throws URISyntaxException {
-        var paramMap = convert2Parameter(parameter);
-        return getQueryUri(url, paramMap);
+      private URI getParameterURI(String url, Map<String,String> parameter) throws URISyntaxException {
+        return getQueryUri(url, parameter);
       }
 
       private HttpRequest.BodyPublisher jsonRequestHandler(Object t) {
         return HttpRequest.BodyPublishers.ofString(jsonConverter.toJson(t));
       }
     };
-  }
-
-  /** convert POJO to parameter. */
-  static Map<String, List<String>> convert2Parameter(Object obj) {
-    if (Objects.isNull(obj)) {
-      return Map.of();
-    } else {
-      if (Map.class.isAssignableFrom(obj.getClass())) {
-        Map<?, ?> map = (Map<?, ?>) obj;
-
-        if (map.size() == 0) {
-          return Map.of();
-        } else {
-          var valueClassOpt = map.values().stream().filter(Objects::nonNull).findAny();
-          var mapStream = map.entrySet().stream().filter(Objects::nonNull);
-          if (valueClassOpt.filter(x -> List.class.isAssignableFrom(x.getClass())).isPresent()) {
-            return mapStream.collect(
-                Collectors.toMap(
-                    x -> x.getKey().toString(),
-                    x ->
-                        ((List<?>) x.getValue())
-                            .stream().map(Object::toString).collect(Collectors.toList())));
-          } else {
-            return mapStream.collect(
-                Collectors.toMap(
-                    x -> x.getKey().toString(), x -> List.of(x.getValue().toString())));
-          }
-        }
-      }
-
-      var fields =
-          Arrays.stream(obj.getClass().getDeclaredFields())
-              .filter(x -> !x.isSynthetic())
-              .collect(Collectors.toList());
-      fields.forEach(x -> x.setAccessible(true));
-      var map =
-          fields.stream()
-              .collect(
-                  Collectors.toMap(
-                      Field::getName, x -> Utils.packException(() -> getFieldParameter(obj, x))));
-
-      return map.entrySet().stream()
-          .filter(x -> x.getValue().size() > 0)
-          .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-    }
   }
 
   private static List<String> getFieldParameter(Object obj, Field field)
@@ -273,7 +227,7 @@ public class HttpExecutorBuilder {
     }
   }
 
-  static URI getQueryUri(String url, Map<String, List<String>> parameters)
+  static URI getQueryUri(String url, Map<String, String> parameters)
       throws URISyntaxException {
     var uri = new URI(url);
     var queryString =
@@ -281,17 +235,11 @@ public class HttpExecutorBuilder {
             .map(
                 x -> {
                   var key = x.getKey();
-                  return key + "=" + getQueryValue(x.getValue());
+                  return key + "=" + URLEncoder.encode(x.getValue(), StandardCharsets.UTF_8);
                 })
             .collect(Collectors.joining("&"));
 
     return new URI(
         uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
-  }
-
-  private static String getQueryValue(List<String> values) {
-    return values.stream()
-        .map(x -> URLEncoder.encode(x, StandardCharsets.UTF_8))
-        .collect(Collectors.joining(","));
   }
 }

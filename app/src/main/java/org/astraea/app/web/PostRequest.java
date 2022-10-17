@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -27,6 +26,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 public interface PostRequest {
 
@@ -34,7 +35,8 @@ public interface PostRequest {
 
   @SuppressWarnings("unchecked")
   static PostRequest of(String json) {
-    return of((Map<String, Object>) new Gson().fromJson(json, Map.class));
+    return of(JsonConverter.defaultConverter().<Map<String, Object>>fromJson(json,
+        new TypeRef<>() {}));
   }
 
   static String handle(Object obj) {
@@ -72,11 +74,11 @@ public interface PostRequest {
   }
 
   default <T> Optional<T> get(String key, Class<T> clz) {
-    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, clz));
+    return Optional.ofNullable(raw().get(key)).map(v -> JsonConverter.defaultConverter().fromJson(v, clz));
   }
 
-  default <T> Optional<T> get(String key, Type type) {
-    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, type));
+  default <T> Optional<T> get(String key, TypeRef<T> typeRef) {
+    return Optional.ofNullable(raw().get(key)).map(v -> JsonConverter.defaultConverter().fromJson(v, typeRef));
   }
 
   default <T> T value(String key, Class<T> clz) {

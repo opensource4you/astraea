@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 class JsonConverterTest {
 
   private JsonConverter getConverter() {
-    return JsonConverter.jackson();
+    return JsonConverter.gson();
   }
 
   @Test
@@ -192,6 +192,29 @@ class JsonConverterTest {
             + "\"dog\":{\"intValue\":0}"
             + "}",
         json);
+  }
+
+  /**
+   * String Equal as same as Bytes Equal
+   */
+  @Test
+  void testJsonStringEquals() {
+    var jsonConverter = getConverter();
+    var v0=new V0();
+    var v1=new V1();
+    assertEquals("{\"a\":123,\"b\":345}",jsonConverter.toJson(v0));
+    assertEquals("{\"a\":123,\"b\":345}",jsonConverter.toJson(v1));
+    assertEquals(jsonConverter.toJson(v0),jsonConverter.toJson(v1));
+  }
+
+  private static class V0 {
+    int a=123;
+    int b=345;
+  }
+
+  private static class V1 {
+    int b=345;
+    int a=123;
   }
 
   /** order should be actor, apple, banana, beta, dog */

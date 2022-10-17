@@ -16,17 +16,29 @@
  */
 package org.astraea.common.json;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
-public abstract class TypeRef<T> extends TypeReference<T> {
+/**
+ * ParentType didn't erase , use reflection to get that type
+ */
+public abstract class TypeRef<T>{
 
-  public static <T> TypeRef<T> of(Type type) {
+  public static <T> TypeRef<T> of(Type _type) {
     return new TypeRef<>() {
       @Override
       public Type getType() {
-        return type;
+        return _type;
       }
     };
   }
+
+  protected final Type type;
+
+  protected TypeRef()
+  {
+    type = ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+  }
+
+  public Type getType() { return type; }
 }

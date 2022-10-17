@@ -78,12 +78,6 @@ class HttpExecutorTest {
                           .httpResponse();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
-                  responseHttpResponse =
-                      httpExecutor
-                          .get(getUrl(x, "/test"), new TestParam("v1"), TestResponse.class)
-                          .httpResponse();
-                  assertEquals("testValue", responseHttpResponse.body().responseValue());
-
                   var executionException =
                       assertThrows(
                           ExecutionException.class,

@@ -16,6 +16,7 @@
  */
 package org.astraea.common.http;
 
+import java.util.Map;
 import org.astraea.common.json.TypeRef;
 
 /** Send json http request. */
@@ -27,7 +28,7 @@ public interface HttpExecutor {
 
   <T> AstraeaHttpResponse<T> get(String url, Class<T> respCls);
 
-  <T> AstraeaHttpResponse<T> get(String url, Object param, Class<T> respCls);
+  <T> AstraeaHttpResponse<T> get(String url, Map<String,String> param, Class<T> respCls);
 
   <T> AstraeaHttpResponse<T> get(String url, TypeRef<T> typeRef);
 

@@ -32,6 +32,7 @@ import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.json.TypeRef;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;
@@ -93,15 +94,13 @@ public class ThrottleHandler implements Handler {
         channel
             .request()
             .<Collection<BrokerThrottle>>get(
-                "brokers",
-                TypeToken.getParameterized(Collection.class, BrokerThrottle.class).getType())
+                "brokers", new TypeRef<>() {})
             .orElse(List.of());
     var topics =
         channel
             .request()
             .<Collection<TopicThrottle>>get(
-                "topics",
-                TypeToken.getParameterized(Collection.class, TopicThrottle.class).getType())
+                "topics", new TypeRef<>() {})
             .orElse(List.of());
 
     final var throttler = admin.replicationThrottler();
