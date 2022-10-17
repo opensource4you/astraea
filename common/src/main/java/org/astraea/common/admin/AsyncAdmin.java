@@ -210,6 +210,16 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
+   * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
+   * preferred leader) in the partition replica list becomes the leader of its corresponding
+   * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
+   * Otherwise, an exception might be raised.
+   *
+   * @param topicPartitions to perform preferred leader election
+   */
+  CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> topicPartitions);
+
+  /**
    * @param total the final number of partitions. Noted that reducing number of partitions is
    *     illegal
    */
@@ -265,20 +275,6 @@ public interface AsyncAdmin extends AutoCloseable {
    * @param consumerGroups to be deleted
    */
   CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
-
-  /**
-   * Elect a replica as leader for given topic partitions. If the given topic partitions has
-   * preferred leader already, there is nothing to change. Otherwise, the leader elections are
-   * invoked by servers. The preferred leader is the first node of replica assignments. see {@link
-   * AsyncAdmin#moveToBrokers(Map)}. Noted that the first replica(the preferred leader) must be
-   * in-sync state. Otherwise, an exception might be raised.
-   *
-   * @param partitions to change leader to preferred nodes.
-   * @return a collection for given partitions and their error. The partitions having successful
-   *     election are not in the returned collection.
-   */
-  CompletionStage<Map<TopicPartition, Throwable>> preferredLeaderElection(
-      Set<TopicPartition> partitions);
 
   // ---------------------------------[wait]---------------------------------//
 

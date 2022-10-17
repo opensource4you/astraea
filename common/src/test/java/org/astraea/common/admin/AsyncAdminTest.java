@@ -1368,12 +1368,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(2));
-      var result =
-          admin
-              .preferredLeaderElection(Set.of(TopicPartition.of(topic, 0)))
-              .toCompletableFuture()
-              .get();
-      Assertions.assertEquals(0, result.size(), "message: " + result);
+      admin
+          .preferredLeaderElection(Set.of(TopicPartition.of(topic, 0)))
+          .toCompletableFuture()
+          .get();
     }
   }
 }

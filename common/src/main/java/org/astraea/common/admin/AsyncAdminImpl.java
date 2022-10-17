@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,6 +47,7 @@ import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -207,36 +209,6 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<Void> deleteGroups(Set<String> consumerGroups) {
     return deleteMembers(consumerGroups)
         .thenCompose(ignored -> to(kafkaAdmin.deleteConsumerGroups(consumerGroups).all()));
-  }
-
-  @Override
-  public CompletionStage<Map<TopicPartition, Throwable>> preferredLeaderElection(
-      Set<TopicPartition> partitions) {
-    return to(kafkaAdmin
-            .electLeaders(
-                ElectionType.PREFERRED,
-                partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-            .partitions())
-        .thenApply(
-            ps ->
-                ps.entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry
-                                .getValue()
-                                .map(e -> Map.entry(TopicPartition.from(entry.getKey()), e))
-                                // This error occurred if the preferred leader of the given
-                                // topic/partition is already the leader. It is ok to swallow the
-                                // exception since the preferred
-                                // leader be the actual leader. That is what the caller wants to be.
-                                .filter(
-                                    e ->
-                                        !(e.getValue()
-                                            instanceof
-                                            org.apache.kafka.common.errors
-                                                .ElectionNotNeededException))
-                                .stream())
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   @Override
@@ -961,6 +933,28 @@ class AsyncAdminImpl implements AsyncAdmin {
                         Collectors.toMap(
                             e -> TopicPartitionReplica.to(e.getKey()), Map.Entry::getValue)))
             .all());
+  }
+
+  @Override
+  public CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> partitions) {
+    var f = new CompletableFuture<Void>();
+    to(kafkaAdmin
+            .electLeaders(
+                ElectionType.PREFERRED,
+                partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
+            .all())
+        .whenComplete(
+            (ignored, e) -> {
+              if (e == null) f.complete(null);
+              // This error occurred if the preferred leader of the given topic/partition is already
+              // the leader. It is ok to swallow the exception since the preferred leader be the
+              // actual leader. That is what the caller wants to be.
+              else if (e instanceof ExecutionException
+                  && e.getCause() instanceof ElectionNotNeededException) f.complete(null);
+              else if (e instanceof ElectionNotNeededException) f.complete(null);
+              else f.completeExceptionally(e);
+            });
+    return f;
   }
 
   @Override
