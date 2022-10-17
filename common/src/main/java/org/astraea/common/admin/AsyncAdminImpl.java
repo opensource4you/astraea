@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -937,24 +936,20 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> partitions) {
-    var f = new CompletableFuture<Void>();
-    to(kafkaAdmin
+    return to(kafkaAdmin
             .electLeaders(
                 ElectionType.PREFERRED,
                 partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
             .all())
-        .whenComplete(
-            (ignored, e) -> {
-              if (e == null) f.complete(null);
+        .exceptionally(
+            e -> {
               // This error occurred if the preferred leader of the given topic/partition is already
               // the leader. It is ok to swallow the exception since the preferred leader be the
               // actual leader. That is what the caller wants to be.
-              else if (e instanceof ExecutionException
-                  && e.getCause() instanceof ElectionNotNeededException) f.complete(null);
-              else if (e instanceof ElectionNotNeededException) f.complete(null);
-              else f.completeExceptionally(e);
+              if (e instanceof ElectionNotNeededException) return null;
+              if (e instanceof RuntimeException) throw (RuntimeException) e;
+              throw new RuntimeException(e);
             });
-    return f;
   }
 
   @Override
