@@ -47,6 +47,72 @@ import org.junit.jupiter.api.Timeout;
 public class AsyncAdminTest extends RequireBrokerCluster {
 
   @Test
+  void testWaitReplicasSynced() throws ExecutionException, InterruptedException {
+    var partitions = 10;
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(partitions).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var broker = brokerIds().iterator().next();
+      admin
+          .moveToBrokers(
+              IntStream.range(0, partitions)
+                  .mapToObj(id -> TopicPartition.of(topic, id))
+                  .collect(Collectors.toMap(tp -> tp, ignored -> List.of(broker))))
+          .toCompletableFuture()
+          .get();
+      admin
+          .waitReplicasSynced(
+              IntStream.range(0, partitions)
+                  .mapToObj(id -> TopicPartitionReplica.of(topic, id, broker))
+                  .collect(Collectors.toSet()),
+              Duration.ofSeconds(5))
+          .toCompletableFuture()
+          .get();
+    }
+  }
+
+  @Test
+  void testWaitPreferredLeaderSynced() throws ExecutionException, InterruptedException {
+    var partitions = 10;
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(partitions).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var broker = brokerIds().iterator().next();
+      var topicPartitions =
+          IntStream.range(0, partitions)
+              .mapToObj(id -> TopicPartition.of(topic, id))
+              .collect(Collectors.toSet());
+
+      admin
+          .moveToBrokers(
+              topicPartitions.stream()
+                  .collect(Collectors.toMap(tp -> tp, ignored -> List.of(broker))))
+          .toCompletableFuture()
+          .get();
+
+      admin
+          .waitReplicasSynced(
+              topicPartitions.stream()
+                  .map(tp -> TopicPartitionReplica.of(tp.topic(), tp.partition(), broker))
+                  .collect(Collectors.toSet()),
+              Duration.ofSeconds(3))
+          .toCompletableFuture()
+          .get();
+
+      admin.preferredLeaderElection(topicPartitions).toCompletableFuture().get();
+
+      admin
+          .waitPreferredLeaderSynced(topicPartitions, Duration.ofSeconds(5))
+          .toCompletableFuture()
+          .get();
+    }
+  }
+
+  @Test
   void testWaitCluster() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin.creator().topic(Utils.randomString()).run().toCompletableFuture().get();
@@ -186,7 +252,8 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertNotEquals(ids.get(0), newPartition.leader().get().id());
 
       admin
-          .preferredLeaderElection(TopicPartition.of(partition.topic(), partition.partition()))
+          .preferredLeaderElection(
+              Set.of(TopicPartition.of(partition.topic(), partition.partition())))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1294,6 +1361,26 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, groups.size());
       Assertions.assertEquals(0, groups.get(0).assignment().size());
       Assertions.assertEquals(0, groups.get(0).consumeProgress().size());
+    }
+  }
+
+  @Test
+  void testPreferredLeaders() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+      Utils.sleep(Duration.ofSeconds(2));
+      admin
+          .preferredLeaderElection(Set.of(TopicPartition.of(topic, 0)))
+          .toCompletableFuture()
+          .get();
     }
   }
 }

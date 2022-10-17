@@ -215,9 +215,9 @@ public interface AsyncAdmin extends AutoCloseable {
    * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
    * Otherwise, an exception might be raised.
    *
-   * @param topicPartition to perform preferred leader election
+   * @param topicPartitions to perform preferred leader election
    */
-  CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
+  CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> topicPartitions);
 
   /**
    * @param total the final number of partitions. Noted that reducing number of partitions is
@@ -275,7 +275,51 @@ public interface AsyncAdmin extends AutoCloseable {
    * @param consumerGroups to be deleted
    */
   CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
+
   // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the leader of partition get elected.
+   *
+   * @param topicPartitions to check leader election
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletableFuture<Boolean> waitPreferredLeaderSynced(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return waitCluster(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> topicPartitions.contains(r.topicPartition()))
+                    .filter(Replica::isPreferredLeader)
+                    .allMatch(ReplicaInfo::isLeader),
+            timeout,
+            2)
+        .toCompletableFuture();
+  }
+
+  /**
+   * wait the given replicas to be allocated correctly
+   *
+   * @param replicas the expected replica allocations
+   * @param timeout to wait
+   * @return a background thread used to check replica allocations
+   */
+  default CompletableFuture<Boolean> waitReplicasSynced(
+      Set<TopicPartitionReplica> replicas, Duration timeout) {
+    return waitCluster(
+            replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> replicas.contains(r.topicPartitionReplica()))
+                    .allMatch(r -> r.inSync() && !r.isFuture()),
+            timeout,
+            2)
+        .toCompletableFuture();
+  }
 
   /**
    * wait the async operations to be done on server-side. You have to define the predicate to
