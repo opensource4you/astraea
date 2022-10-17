@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
@@ -31,33 +31,36 @@ class ProducerHandler implements Handler {
   static final String TOPIC_KEY = "topic";
   static final String PARTITION_KEY = "partition";
 
-  private final Admin admin;
+  private final AsyncAdmin admin;
 
-  ProducerHandler(Admin admin) {
+  ProducerHandler(AsyncAdmin admin) {
     this.admin = admin;
   }
 
-  Set<TopicPartition> partitions(Map<String, String> queries) {
+  CompletionStage<Set<TopicPartition>> partitions(Map<String, String> queries) {
     if (queries.containsKey(TOPIC_KEY) && queries.containsKey(PARTITION_KEY))
-      return Set.of(TopicPartition.of(queries.get(TOPIC_KEY), queries.get(PARTITION_KEY)));
-    var partitions = admin.topicPartitions();
+      return CompletableFuture.completedStage(
+          Set.of(TopicPartition.of(queries.get(TOPIC_KEY), queries.get(PARTITION_KEY))));
     if (queries.containsKey(TOPIC_KEY))
-      return partitions.stream()
-          .filter(p -> p.topic().equals(queries.get(TOPIC_KEY)))
-          .collect(Collectors.toSet());
-    return partitions;
+      return admin.topicPartitions(Set.of(queries.get(TOPIC_KEY)));
+    return admin.topicNames(false).thenCompose(admin::topicPartitions);
   }
 
   @Override
   public CompletionStage<Partitions> get(Channel channel) {
-    var topics =
-        admin.producerStates(partitions(channel.queries())).stream()
-            .collect(Collectors.groupingBy(org.astraea.common.admin.ProducerState::topicPartition))
-            .entrySet()
-            .stream()
-            .map(e -> new Partition(e.getKey(), e.getValue()))
-            .collect(Collectors.toUnmodifiableList());
-    return CompletableFuture.completedFuture(new Partitions(topics));
+    return partitions(channel.queries())
+        .thenCompose(admin::producerStates)
+        .thenApply(
+            producerStates ->
+                new Partitions(
+                    producerStates.stream()
+                        .collect(
+                            Collectors.groupingBy(
+                                org.astraea.common.admin.ProducerState::topicPartition))
+                        .entrySet()
+                        .stream()
+                        .map(e -> new Partition(e.getKey(), e.getValue()))
+                        .collect(Collectors.toUnmodifiableList())));
   }
 
   static class ProducerState implements Response {

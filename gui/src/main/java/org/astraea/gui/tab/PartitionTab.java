@@ -91,12 +91,13 @@ public class PartitionTab {
   }
 
   private static Pane alterPane(Context context, String topic, List<Partition> partitions) {
-    var partitionsKey = "partitions (0,1,2 or leave it blank to move all partitions)";
-    var moveToKey = "move to (1002,1004)";
-    var offsetKey = "truncate offset";
+    var partitionsKey = "partition ids";
+    var all = "all";
+    var moveToKey = "move to brokers";
+    var offsetKey = "truncate to offset";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(partitionsKey, false, false)
+        .input(partitionsKey, false, false, true, all)
         .input(moveToKey, false, false)
         .input(offsetKey, false, true)
         .initTableView(basicResult(partitions))
@@ -115,6 +116,7 @@ public class PartitionTab {
               }
 
               return Optional.ofNullable(input.nonEmptyTexts().get(partitionsKey))
+                  .filter(tpString -> !tpString.equals(all))
                   .map(
                       tpString ->
                           CompletableFuture.completedStage(

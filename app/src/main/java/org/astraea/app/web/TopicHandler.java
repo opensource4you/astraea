@@ -27,7 +27,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.astraea.common.ExecutionRuntimeException;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Config;
 import org.astraea.common.scenario.Scenario;
 
@@ -43,9 +45,11 @@ class TopicHandler implements Handler {
   static final String PROBABILITY_INTERNAL = "probability";
 
   private final Admin admin;
+  private final AsyncAdmin asyncAdmin;
 
   TopicHandler(Admin admin) {
     this.admin = admin;
+    this.asyncAdmin = (AsyncAdmin) Utils.member(admin, "asyncAdmin");
   }
 
   Set<String> topicNames(Optional<String> target, boolean listInternal) {
@@ -122,12 +126,16 @@ class TopicHandler implements Handler {
           var numberOfPartitions = request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1);
           var numberOfReplicas = request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1);
           if (request.has(PROBABILITY_INTERNAL)) {
-            Scenario.build(request.doubleValue(PROBABILITY_INTERNAL))
-                .topicName(topicName)
-                .numberOfPartitions(numberOfPartitions)
-                .numberOfReplicas(numberOfReplicas)
-                .build()
-                .apply(admin);
+            Utils.packException(
+                () ->
+                    Scenario.build(request.doubleValue(PROBABILITY_INTERNAL))
+                        .topicName(topicName)
+                        .numberOfPartitions(numberOfPartitions)
+                        .numberOfReplicas(numberOfReplicas)
+                        .build()
+                        .apply(asyncAdmin)
+                        .toCompletableFuture()
+                        .get());
           } else {
             admin
                 .creator()

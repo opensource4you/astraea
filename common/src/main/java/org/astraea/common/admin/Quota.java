@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
-import org.astraea.common.EnumInfo;
 
 public class Quota {
 
@@ -103,61 +102,5 @@ public class Quota {
         + ", limitValue="
         + limitValue
         + '}';
-  }
-
-  @Deprecated
-  public enum Target implements EnumInfo {
-    USER(ClientQuotaEntity.USER),
-    CLIENT_ID(ClientQuotaEntity.CLIENT_ID),
-    IP(ClientQuotaEntity.IP);
-
-    public static Target ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(Target.class, alias);
-    }
-
-    private final String alias;
-
-    Target(String alias) {
-      this.alias = alias;
-    }
-
-    @Override
-    public String alias() {
-      return alias;
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
-  }
-
-  @Deprecated
-  public enum Limit implements EnumInfo {
-    PRODUCER_BYTE_RATE(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG),
-    CONSUMER_BYTE_RATE(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG),
-    REQUEST_PERCENTAGE(QuotaConfigs.REQUEST_PERCENTAGE_CONFIG),
-    CONTROLLER_MUTATION_RATE(QuotaConfigs.CONTROLLER_MUTATION_RATE_CONFIG),
-    IP_CONNECTION_RATE(QuotaConfigs.IP_CONNECTION_RATE_CONFIG);
-
-    public static Limit ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(Limit.class, alias);
-    }
-
-    private final String alias;
-
-    Limit(String alias) {
-      this.alias = alias;
-    }
-
-    @Override
-    public String alias() {
-      return alias;
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
   }
 }

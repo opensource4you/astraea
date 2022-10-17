@@ -45,7 +45,7 @@ public interface AsyncAdmin extends AutoCloseable {
   String clientId();
 
   /** @return the number of pending requests. */
-  int pendingRequests();
+  int runningRequests();
 
   // ---------------------------------[readonly]---------------------------------//
 
@@ -136,14 +136,25 @@ public interface AsyncAdmin extends AutoCloseable {
                                 .filter(name -> !usedTopics.contains(name))
                                 .collect(Collectors.toUnmodifiableSet())));
   }
+
   /**
-   * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
-   * QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   * get the quotas associated to given target keys and target values. The available target types
+   * include {@link QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
    *
-   * @param targetKey to search
+   * @param targets target type and associated value. For example: Map.of({@link QuotaConfigs#IP},
+   *     Set.of(10.1.1.2, 10..2.2.2))
    * @return quotas matched to given target
    */
-  CompletionStage<List<Quota>> quotas(String targetKey);
+  CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets);
+
+  /**
+   * get the quotas associated to given target keys. The available target types include {@link
+   * QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targetKeys target keys
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(Set<String> targetKeys);
 
   CompletionStage<List<Quota>> quotas();
 
@@ -204,9 +215,9 @@ public interface AsyncAdmin extends AutoCloseable {
    * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
    * Otherwise, an exception might be raised.
    *
-   * @param topicPartition to perform preferred leader election
+   * @param topicPartitions to perform preferred leader election
    */
-  CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
+  CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> topicPartitions);
 
   /**
    * @param total the final number of partitions. Noted that reducing number of partitions is
@@ -244,7 +255,71 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
 
+  /**
+   * delete all members from given groups.
+   *
+   * @param groupAndInstanceIds to delete instance id from group (key)
+   */
+  CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds);
+
+  /**
+   * delete all members from given groups.
+   *
+   * @param consumerGroups to delete members
+   */
+  CompletionStage<Void> deleteMembers(Set<String> consumerGroups);
+
+  /**
+   * delete given groups. all members in those groups get deleted also.
+   *
+   * @param consumerGroups to be deleted
+   */
+  CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
+
   // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the leader of partition get elected.
+   *
+   * @param topicPartitions to check leader election
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletableFuture<Boolean> waitPreferredLeaderSynced(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return waitCluster(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> topicPartitions.contains(r.topicPartition()))
+                    .filter(Replica::isPreferredLeader)
+                    .allMatch(ReplicaInfo::isLeader),
+            timeout,
+            2)
+        .toCompletableFuture();
+  }
+
+  /**
+   * wait the given replicas to be allocated correctly
+   *
+   * @param replicas the expected replica allocations
+   * @param timeout to wait
+   * @return a background thread used to check replica allocations
+   */
+  default CompletableFuture<Boolean> waitReplicasSynced(
+      Set<TopicPartitionReplica> replicas, Duration timeout) {
+    return waitCluster(
+            replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> replicas.contains(r.topicPartitionReplica()))
+                    .allMatch(r -> r.inSync() && !r.isFuture()),
+            timeout,
+            2)
+        .toCompletableFuture();
+  }
 
   /**
    * wait the async operations to be done on server-side. You have to define the predicate to
