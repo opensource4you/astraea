@@ -138,17 +138,6 @@ public interface Admin extends Closeable {
    */
   void preferredLeaderElection(TopicPartition topicPartition);
 
-  /** @return producer states of all topic partitions */
-  default List<ProducerState> producerStates() {
-    return producerStates(topicPartitions());
-  }
-
-  /**
-   * @param partitions to search
-   * @return producer states of input topic partitions
-   */
-  List<ProducerState> producerStates(Set<TopicPartition> partitions);
-
   /** @return a snapshot object of cluster state at the moment */
   default ClusterInfo<Replica> clusterInfo() {
     return clusterInfo(topicNames());
