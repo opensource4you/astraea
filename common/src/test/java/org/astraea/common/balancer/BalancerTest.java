@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -44,8 +45,9 @@ class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testLeaderCountRebalance(boolean greedy) {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+  void testLeaderCountRebalance(boolean greedy) throws ExecutionException, InterruptedException {
+    try (var admin = Admin.of(bootstrapServers());
+        var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
@@ -68,7 +70,9 @@ class BalancerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .binomialProbability(0.1)
           .build()
-          .apply(admin);
+          .apply(asyncAdmin)
+          .toCompletableFuture()
+          .get();
       var imbalanceFactor0 = currentImbalanceFactor.get();
       Assertions.assertNotEquals(
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");

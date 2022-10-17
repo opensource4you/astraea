@@ -17,8 +17,9 @@
 package org.astraea.common.scenario;
 
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 
 /** The subclass of this class should contain the logic to fulfill a scenario. */
 public interface Scenario {
@@ -64,7 +65,7 @@ public interface Scenario {
   }
 
   /** Apply this scenario to the Kafka cluster */
-  Result apply(Admin admin);
+  CompletionStage<Result> apply(AsyncAdmin admin);
 
   class Result {
 

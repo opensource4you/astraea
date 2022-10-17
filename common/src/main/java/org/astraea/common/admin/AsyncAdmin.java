@@ -210,16 +210,6 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
-   * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
-   * preferred leader) in the partition replica list becomes the leader of its corresponding
-   * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
-   * Otherwise, an exception might be raised.
-   *
-   * @param topicPartition to perform preferred leader election
-   */
-  CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
-
-  /**
    * @param total the final number of partitions. Noted that reducing number of partitions is
    *     illegal
    */
@@ -275,7 +265,65 @@ public interface AsyncAdmin extends AutoCloseable {
    * @param consumerGroups to be deleted
    */
   CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
+
+  /**
+   * Elect a replica as leader for given topic partitions. If the given topic partitions has
+   * preferred leader already, there is nothing to change. Otherwise, the leader elections are
+   * invoked by servers. The preferred leader is the first node of replica assignments. see {@link
+   * AsyncAdmin#moveToBrokers(Map)}. Noted that the first replica(the preferred leader) must be
+   * in-sync state. Otherwise, an exception might be raised.
+   *
+   * @param partitions to change leader to preferred nodes.
+   * @return a collection for given partitions and their error. The partitions having successful
+   *     election are not in the returned collection.
+   */
+  CompletionStage<Map<TopicPartition, Throwable>> preferredLeaderElection(
+      Set<TopicPartition> partitions);
+
   // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the leader of partition get elected.
+   *
+   * @param topicPartitions to check leader election
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletableFuture<Boolean> waitPreferredLeaderSynced(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return waitCluster(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> topicPartitions.contains(r.topicPartition()))
+                    .filter(Replica::isPreferredLeader)
+                    .allMatch(ReplicaInfo::isLeader),
+            timeout,
+            2)
+        .toCompletableFuture();
+  }
+
+  /**
+   * wait the given replicas to be allocated correctly
+   *
+   * @param replicas the expected replica allocations
+   * @param timeout to wait
+   * @return a background thread used to check replica allocations
+   */
+  default CompletableFuture<Boolean> waitReplicasSynced(
+      Set<TopicPartitionReplica> replicas, Duration timeout) {
+    return waitCluster(
+            replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
+            clusterInfo ->
+                clusterInfo
+                    .replicaStream()
+                    .filter(r -> replicas.contains(r.topicPartitionReplica()))
+                    .allMatch(r -> r.inSync() && !r.isFuture()),
+            timeout,
+            2)
+        .toCompletableFuture();
+  }
 
   /**
    * wait the async operations to be done on server-side. You have to define the predicate to
