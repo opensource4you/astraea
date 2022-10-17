@@ -35,11 +35,13 @@ import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
+import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
+import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
@@ -156,6 +158,57 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .collect(
                         Utils.toSortedMap(
                             e -> TopicPartition.from(e.getKey()), Map.Entry::getValue)));
+  }
+
+  @Override
+  public CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds) {
+    return Utils.sequence(
+            groupAndInstanceIds.entrySet().stream()
+                .map(
+                    entry ->
+                        to(kafkaAdmin
+                                .removeMembersFromConsumerGroup(
+                                    entry.getKey(),
+                                    new RemoveMembersFromConsumerGroupOptions(
+                                        entry.getValue().stream()
+                                            .map(MemberToRemove::new)
+                                            .collect(Collectors.toList())))
+                                .all())
+                            .toCompletableFuture())
+                .collect(Collectors.toList()))
+        .thenApply(ignored -> null);
+  }
+
+  @Override
+  public CompletionStage<Void> deleteMembers(Set<String> consumerGroups) {
+    // kafka APIs disallow to remove all members when there are no members ...
+    // Hence, we have to filter the non-empty groups first.
+    return to(kafkaAdmin.describeConsumerGroups(consumerGroups).all())
+        .thenApply(
+            groups ->
+                groups.entrySet().stream()
+                    .filter(g -> !g.getValue().members().isEmpty())
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet()))
+        .thenCompose(
+            groups ->
+                Utils.sequence(
+                    groups.stream()
+                        .map(
+                            group ->
+                                to(kafkaAdmin
+                                        .removeMembersFromConsumerGroup(
+                                            group, new RemoveMembersFromConsumerGroupOptions())
+                                        .all())
+                                    .toCompletableFuture())
+                        .collect(Collectors.toList())))
+        .thenApply(ignored -> null);
+  }
+
+  @Override
+  public CompletionStage<Void> deleteGroups(Set<String> consumerGroups) {
+    return deleteMembers(consumerGroups)
+        .thenCompose(ignored -> to(kafkaAdmin.deleteConsumerGroups(consumerGroups).all()));
   }
 
   @Override

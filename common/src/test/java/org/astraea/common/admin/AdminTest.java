@@ -43,10 +43,8 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
-import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
-import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -839,148 +837,6 @@ public class AdminTest extends RequireBrokerCluster {
                   .get()
                   .topicPartitions()
                   .isEmpty());
-    }
-  }
-
-  @Test
-  void testRemoveAllMembers() {
-    var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
-        var consumer =
-            Consumer.forTopics(Set.of(topicName))
-                .bootstrapServers(bootstrapServers())
-                .config(
-                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-                .build()) {
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
-
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      admin.removeAllMembers(consumer.groupId());
-      Assertions.assertEquals(
-          0,
-          admin.consumerGroups(Set.of(consumer.groupId())).stream()
-              .filter(g -> g.groupId().equals(consumer.groupId()))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-    }
-  }
-
-  @Test
-  void testRemoveEmptyMember() {
-    var topicName = Utils.randomString(10);
-    var groupId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      try (var consumer =
-          Consumer.forTopics(Set.of(topicName))
-              .bootstrapServers(bootstrapServers())
-              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-              .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
-              .build()) {
-        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-      }
-      Assertions.assertEquals(
-          1,
-          admin.consumerGroups(Set.of(groupId)).stream()
-              .filter(g -> g.groupId().equals(groupId))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-      admin.removeAllMembers(groupId);
-      Assertions.assertEquals(
-          0,
-          admin.consumerGroups(Set.of(groupId)).stream()
-              .filter(g -> g.groupId().equals(groupId))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-      admin.removeAllMembers(groupId);
-    }
-  }
-
-  @Test
-  void testRemoveStaticMembers() {
-    var topicName = Utils.randomString(10);
-    var staticId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
-        var consumer =
-            Consumer.forTopics(Set.of(topicName))
-                .bootstrapServers(bootstrapServers())
-                .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, staticId)
-                .config(
-                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-                .build()) {
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
-
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      admin.removeStaticMembers(consumer.groupId(), Set.of(consumer.groupInstanceId().get()));
-      Assertions.assertEquals(
-          0,
-          admin.consumerGroups(Set.of(consumer.groupId())).stream()
-              .filter(g -> g.groupId().equals(consumer.groupId()))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-    }
-  }
-
-  @Test
-  void testRemoveGroupWithDynamicMembers() {
-    var groupId = Utils.randomString(10);
-    var topicName = Utils.randomString(10);
-    try (var consumer =
-        Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
-            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-            .build()) {
-      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-    }
-    try (var admin = Admin.of(bootstrapServers())) {
-      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
-      admin.removeGroup(groupId);
-      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
-    }
-  }
-
-  @Test
-  void testRemoveGroupWithStaticMembers() {
-    var groupId = Utils.randomString(10);
-    var topicName = Utils.randomString(10);
-    try (var consumer =
-        Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
-            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-            .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
-            .build()) {
-      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-    }
-
-    try (var admin = Admin.of(bootstrapServers())) {
-      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
-      // the static member is existent
-      var astraeaExecutionRuntimeException =
-          Assertions.assertThrows(
-              ExecutionRuntimeException.class, () -> admin.removeGroup(groupId));
-      Assertions.assertEquals(
-          GroupNotEmptyException.class, astraeaExecutionRuntimeException.getRootCause().getClass());
-      // cleanup members
-      admin.removeAllMembers(groupId);
-      admin.removeGroup(groupId);
-      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
     }
   }
 
