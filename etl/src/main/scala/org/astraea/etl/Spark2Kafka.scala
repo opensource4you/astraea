@@ -37,14 +37,8 @@ object Spark2Kafka {
         .sinkPath(metaData.sinkPath.getPath)
         .build()
         .read()
-//        .csvToJSON(metaData.primaryKeys.keys.toSeq)
+        .csvToJSON(metaData.primaryKeys.keys.toSeq)
         .dataFrame()
-        .withColumn("value", to_json(struct($conforms("*"))))
-        .withColumn(
-          "key",
-          concat_ws(",", metaData.primaryKeys.keys.toSeq.map(col).seq: _*)
-        )
-        .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
 
       eventualBoolean.onComplete {
         case Success(_) =>

@@ -60,7 +60,6 @@ class Spark2KafkaTest extends RequireBrokerCluster {
           Array(myPropDir.toString),
           Duration(20, TimeUnit.SECONDS)
         )
-        Thread.sleep(Duration(10, TimeUnit.SECONDS).toMillis)
       }
     }
   }
