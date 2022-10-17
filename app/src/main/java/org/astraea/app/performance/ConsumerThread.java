@@ -119,7 +119,7 @@ public interface ConsumerThread extends AbstractThread {
                 }
               };
             })
-        .collect(Collectors.toList());
+        .collect(Collectors.toUnmodifiableList());
   }
 
   void resubscribe();
