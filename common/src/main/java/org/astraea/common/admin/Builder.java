@@ -112,12 +112,6 @@ public class Builder {
     }
 
     @Override
-    public List<ProducerState> producerStates(Set<TopicPartition> partitions) {
-      return Utils.packException(
-          () -> asyncAdmin.producerStates(partitions).toCompletableFuture().get());
-    }
-
-    @Override
     public Set<String> consumerGroupIds() {
       return Utils.packException(() -> asyncAdmin.consumerGroupIds().toCompletableFuture().get());
     }
