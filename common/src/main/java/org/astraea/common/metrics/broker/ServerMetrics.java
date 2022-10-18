@@ -73,8 +73,12 @@ public final class ServerMetrics {
         this.beanObject = beanObject;
       }
 
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
       public ZooKeeperClientMetrics type() {
-        return ofAlias(beanObject.properties().get("name"));
+        return ofAlias(metricsName());
       }
 
       @Override
