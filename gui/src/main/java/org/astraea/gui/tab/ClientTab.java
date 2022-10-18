@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
 import org.astraea.common.LinkedHashMap;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
@@ -144,7 +145,7 @@ public class ClientTab {
                     "last sequence",
                     state.lastSequence(),
                     "last timestamp",
-                    state.lastTimestamp()))
+                    Utils.format(state.lastTimestamp())))
         .collect(Collectors.toList());
   }
 
