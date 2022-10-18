@@ -44,6 +44,7 @@ public class BalancerBuilder {
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
+  private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
 
   private boolean greedy = false;
 
@@ -145,6 +146,20 @@ public class BalancerBuilder {
   }
 
   /**
+   * Specify the source of bean metrics. The default supplier return {@link ClusterBean#EMPTY} only,
+   * which means any cost function that interacts with metrics won't work. To use a cost function
+   * with metrics requirement, one must specify the concrete bean metric source by invoking this
+   * method.
+   *
+   * @param metricSource a {@link Supplier} offers the newest {@link ClusterBean} of target cluster
+   * @return this
+   */
+  public BalancerBuilder metricSource(Supplier<ClusterBean> metricSource) {
+    this.metricSource = metricSource;
+    return this;
+  }
+
+  /**
    * @return a {@link Balancer} that will offer rebalance plan based on the implementation detail
    *     you specified.
    */
@@ -161,7 +176,7 @@ public class BalancerBuilder {
 
   private Balancer buildNormal() {
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
-      final var currentClusterBean = ClusterBean.EMPTY;
+      final var currentClusterBean = metricSource.get();
       final var currentCost =
           clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
       final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
@@ -191,6 +206,7 @@ public class BalancerBuilder {
 
   private Balancer buildGreedy() {
     return (originClusterInfo, topicFilter, brokerFolders) -> {
+      final var metrics = metricSource.get();
       final var loop = new AtomicInteger(searchLimit);
       final var start = System.currentTimeMillis();
       Supplier<Boolean> moreRoom =
@@ -210,14 +226,13 @@ public class BalancerBuilder {
                                 tp -> proposal.rebalancePlan().logPlacements(tp));
                         return new Balancer.Plan(
                             proposal,
-                            clusterCostFunction.clusterCost(newClusterInfo, ClusterBean.EMPTY),
-                            moveCostFunction.moveCost(
-                                originClusterInfo, newClusterInfo, ClusterBean.EMPTY));
+                            clusterCostFunction.clusterCost(newClusterInfo, metrics),
+                            moveCostFunction.moveCost(originClusterInfo, newClusterInfo, metrics));
                       })
                   .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
                   .filter(plan -> movementConstraint.test(plan.moveCost))
                   .findFirst();
-      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, ClusterBean.EMPTY);
+      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, metrics);
       var currentAllocation =
           ClusterLogAllocation.of(ClusterInfo.masked(originClusterInfo, topicFilter));
       var currentPlan = Optional.<Balancer.Plan>empty();

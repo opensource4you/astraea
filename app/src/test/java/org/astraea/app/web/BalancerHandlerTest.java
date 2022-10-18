@@ -68,8 +68,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
-      Assertions.assertEquals(
-          handler.clusterCostFunction.getClass().getSimpleName(), report.function);
       // "before" should record size
       report.changes.stream()
           .flatMap(c -> c.before.stream())
