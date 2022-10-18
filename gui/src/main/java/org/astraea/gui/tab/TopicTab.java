@@ -23,13 +23,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Topic;
@@ -136,54 +139,6 @@ public class TopicTab {
             .build());
   }
 
-  private static List<Map<String, Object>> basicResult(
-      List<Partition> partitions, List<Broker> brokers) {
-    var topicSize =
-        brokers.stream()
-            .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
-            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).sum()));
-    var tps = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
-    return tps.keySet().stream()
-        .sorted()
-        .map(
-            topic -> {
-              var result = new LinkedHashMap<String, Object>();
-              result.put("topic", topic);
-              result.put("number of partitions", tps.get(topic).size());
-              result.put(
-                  "number of replicas",
-                  tps.get(topic).stream().mapToInt(p -> p.replicas().size()).sum());
-              result.put(
-                  "size",
-                  Optional.ofNullable(topicSize.get(topic))
-                      .map(DataSize.Byte::of)
-                      .orElse(DataSize.Byte.of(0)));
-              result.put(
-                  "max timestamp",
-                  Utils.format(
-                      tps.get(topic).stream()
-                          .mapToLong(Partition::maxTimestamp)
-                          .max()
-                          .orElse(-1L)));
-              tps.get(topic).stream()
-                  .flatMap(p -> p.replicas().stream())
-                  .collect(Collectors.groupingBy(NodeInfo::id))
-                  .entrySet()
-                  .stream()
-                  .sorted(Map.Entry.comparingByKey())
-                  .forEach(
-                      entry -> result.put("broker:" + entry.getKey(), entry.getValue().size()));
-              return result;
-            })
-        .collect(Collectors.toList());
-  }
-
   private static Tab basicTab(Context context) {
     return Tab.of(
         "basic",
@@ -195,22 +150,14 @@ public class TopicTab {
                         .admin()
                         .topicNames(true)
                         .thenApply(
-                            names ->
-                                names.stream()
+                            topics ->
+                                topics.stream()
                                     .filter(input::matchSearch)
                                     .collect(Collectors.toSet()))
                         .thenCompose(
-                            names ->
-                                context
-                                    .admin()
-                                    .partitions(names)
-                                    .thenCompose(
-                                        partitions ->
-                                            context
-                                                .admin()
-                                                .brokers()
-                                                .thenApply(
-                                                    brokers -> basicResult(partitions, brokers)))))
+                            topics ->
+                                tuple(context, topics)
+                                    .thenApply(tuple -> basicResult(tuple, ignored -> true))))
             .build());
   }
 
@@ -237,6 +184,7 @@ public class TopicTab {
                                                     numberOfPartitions,
                                                     false,
                                                     true,
+                                                    false,
                                                     String.valueOf(topic.topicPartitions().size()))
                                                 .input(
                                                     TopicConfigs.DYNAMICAL_CONFIGS.stream()
@@ -340,37 +288,32 @@ public class TopicTab {
             context
                 .admin()
                 .topicNames(false)
-                .thenCompose(names -> context.admin().partitions(names))
-                .thenCombine(
-                    context.admin().brokers(),
-                    (partitions, brokers) ->
-                        BorderPane.selectableTop(
-                            partitions.stream()
-                                .map(Partition::topic)
-                                .distinct()
-                                .collect(
-                                    Utils.toSortedMap(
-                                        Function.identity(),
-                                        topic ->
-                                            PaneBuilder.of()
-                                                .buttonName("DELETE")
-                                                .initTableView(
-                                                    basicResult(
-                                                        partitions.stream()
-                                                            .filter(p -> p.topic().equals(topic))
-                                                            .collect(Collectors.toList()),
-                                                        brokers))
-                                                .buttonListener(
-                                                    (input, logger) ->
-                                                        context
-                                                            .admin()
-                                                            .deleteTopics(Set.of(topic))
-                                                            .thenAccept(
-                                                                ignored ->
-                                                                    logger.log(
-                                                                        "succeed to delete "
-                                                                            + topic)))
-                                                .build())))));
+                .thenCompose(
+                    topics ->
+                        tuple(context, topics)
+                            .thenApply(
+                                tuple ->
+                                    BorderPane.selectableTop(
+                                        topics.stream()
+                                            .collect(
+                                                Utils.toSortedMap(
+                                                    Function.identity(),
+                                                    topic ->
+                                                        PaneBuilder.of()
+                                                            .buttonName("DELETE")
+                                                            .initTableView(
+                                                                basicResult(tuple, topic::equals))
+                                                            .buttonListener(
+                                                                (input, logger) ->
+                                                                    context
+                                                                        .admin()
+                                                                        .deleteTopics(Set.of(topic))
+                                                                        .thenAccept(
+                                                                            ignored ->
+                                                                                logger.log(
+                                                                                    "succeed to delete "
+                                                                                        + topic)))
+                                                            .build()))))));
   }
 
   public static Tab of(Context context) {
@@ -385,5 +328,105 @@ public class TopicTab {
                 createTab(context),
                 alterTab(context),
                 deleteTab(context))));
+  }
+
+  private static List<Map<String, Object>> basicResult(Tuple tuple, Predicate<String> topicFilter) {
+    var topicSize =
+        tuple.brokers.stream()
+            .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
+            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).sum()));
+    var topicPartitions =
+        tuple.partitions.stream().collect(Collectors.groupingBy(Partition::topic));
+    var topicGroups =
+        tuple.groups.stream()
+            .flatMap(
+                g ->
+                    g.consumeProgress().keySet().stream()
+                        .map(tp -> Map.entry(tp.topic(), g.groupId())))
+            .collect(Collectors.groupingBy(Map.Entry::getKey))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        e.getValue().stream()
+                            .map(Map.Entry::getValue)
+                            .collect(Collectors.toSet())));
+    return topicPartitions.keySet().stream()
+        .filter(topicFilter)
+        .sorted()
+        .map(
+            topic -> {
+              var result = new LinkedHashMap<String, Object>();
+              result.put("topic", topic);
+              result.put(
+                  "number of partitions", topicPartitions.getOrDefault(topic, List.of()).size());
+              result.put(
+                  "number of replicas",
+                  topicPartitions.getOrDefault(topic, List.of()).stream()
+                      .mapToInt(p -> p.replicas().size())
+                      .sum());
+              result.put("size", DataSize.Byte.of(topicSize.getOrDefault(topic, 0L)));
+              result.put(
+                  "max timestamp",
+                  Utils.format(
+                      topicPartitions.getOrDefault(topic, List.of()).stream()
+                          .mapToLong(Partition::maxTimestamp)
+                          .max()
+                          .orElse(-1L)));
+              result.put(
+                  "number of consumer groups", topicGroups.getOrDefault(topic, Set.of()).size());
+              topicPartitions.getOrDefault(topic, List.of()).stream()
+                  .flatMap(p -> p.replicas().stream())
+                  .collect(Collectors.groupingBy(NodeInfo::id))
+                  .entrySet()
+                  .stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .forEach(
+                      entry -> result.put("broker:" + entry.getKey(), entry.getValue().size()));
+              return result;
+            })
+        .collect(Collectors.toList());
+  }
+
+  private static CompletionStage<Tuple> tuple(Context context, Set<String> topics) {
+    return context
+        .admin()
+        .brokers()
+        .thenCompose(
+            brokers ->
+                context
+                    .admin()
+                    .partitions(topics)
+                    .thenCompose(
+                        partitions ->
+                            context
+                                .admin()
+                                .consumerGroupIds()
+                                .thenCompose(
+                                    ids -> {
+                                      System.out.println("ids: " + ids);
+                                      return context.admin().consumerGroups(ids);
+                                    })
+                                .thenApply(groups -> new Tuple(partitions, brokers, groups))));
+  }
+
+  private static class Tuple {
+    private final List<Partition> partitions;
+    private final List<Broker> brokers;
+    private final List<ConsumerGroup> groups;
+
+    private Tuple(List<Partition> partitions, List<Broker> brokers, List<ConsumerGroup> groups) {
+      this.partitions = partitions;
+      this.brokers = brokers;
+      this.groups = groups;
+    }
   }
 }

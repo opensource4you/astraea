@@ -211,7 +211,7 @@ public final class Services {
       }
 
       @Override
-      public Map<Integer, Set<String>> logFolders() {
+      public Map<Integer, Set<String>> dataFolders() {
         return IntStream.range(0, numberOfBrokers)
             .boxed()
             .filter(tempFolders::containsKey)

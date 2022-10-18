@@ -16,14 +16,17 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
   ClusterInfo<ReplicaInfo> EMPTY =
@@ -77,7 +80,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             .replicaStream()
             .filter(replica -> topicFilter.test(replica.topic()))
             .collect(Collectors.toList());
-    return new ClusterInfo<T>() {
+    return new ClusterInfo<>() {
       @Override
       public Set<NodeInfo> nodes() {
         return nodes;
@@ -88,6 +91,39 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         return replicas.stream();
       }
     };
+  }
+
+  /**
+   * Update the replicas of ClusterInfo according to the given ClusterLogAllocation. The returned
+   * {@link ClusterInfo} will have some of its replicas replaced by the replicas inside the given
+   * {@link ClusterLogAllocation}. Since {@link ClusterLogAllocation} might only cover a subset of
+   * topic/partition in the associated cluster. Only the replicas related to the covered
+   * topic/partition get updated.
+   *
+   * <p>This method intended to offer a way to describe a cluster with some of its state modified
+   * manually.
+   *
+   * @param clusterInfo to get updated
+   * @param replacement offers new host and data folder
+   * @return new cluster info
+   */
+  static ClusterInfo<Replica> update(
+      ClusterInfo<Replica> clusterInfo, Function<TopicPartition, Set<Replica>> replacement) {
+    var newReplicas =
+        clusterInfo.replicas().stream()
+            .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+            .entrySet()
+            .stream()
+            .map(
+                entry -> {
+                  var replaced = replacement.apply(entry.getKey());
+                  if (replaced.isEmpty()) return entry.getValue();
+                  return replaced;
+                })
+            .flatMap(Collection::stream)
+            .collect(Collectors.toUnmodifiableList());
+
+    return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
   }
 
   @SuppressWarnings("unchecked")

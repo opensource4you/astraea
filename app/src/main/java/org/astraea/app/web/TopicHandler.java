@@ -19,15 +19,15 @@ package org.astraea.app.web;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.astraea.common.ExecutionRuntimeException;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Config;
 import org.astraea.common.scenario.Scenario;
 
@@ -42,60 +42,82 @@ class TopicHandler implements Handler {
   static final String LIST_INTERNAL = "listInternal";
   static final String PROBABILITY_INTERNAL = "probability";
 
-  private final Admin admin;
+  private final AsyncAdmin admin;
 
-  TopicHandler(Admin admin) {
+  TopicHandler(AsyncAdmin admin) {
     this.admin = admin;
-  }
-
-  Set<String> topicNames(Optional<String> target, boolean listInternal) {
-    return Handler.compare(admin.topicNames(listInternal), target);
   }
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
-    var topicNames =
-        topicNames(
-            channel.target(),
+    return admin
+        .topicNames(
             Optional.ofNullable(channel.queries().get(LIST_INTERNAL))
                 .map(Boolean::parseBoolean)
-                .orElse(true));
-    var topics =
-        get(
-            topicNames,
-            partition ->
-                !channel.queries().containsKey(PARTITION_KEY)
-                    || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY)));
-    if (topicNames.size() == 1) return CompletableFuture.completedFuture(topics.topics.get(0));
-    return CompletableFuture.completedFuture(topics);
+                .orElse(true))
+        .thenApply(
+            topics -> {
+              var availableTopics =
+                  channel.target().map(Set::of).orElse(topics).stream()
+                      .filter(topics::contains)
+                      .collect(Collectors.toSet());
+              if (availableTopics.isEmpty() && channel.target().isPresent())
+                throw new NoSuchElementException(
+                    "topic: " + channel.target().get() + " is nonexistent");
+              return availableTopics;
+            })
+        .thenCompose(
+            topics ->
+                get(
+                    topics,
+                    partition ->
+                        !channel.queries().containsKey(PARTITION_KEY)
+                            || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY))))
+        .thenApply(topics -> topics.topics.size() == 1 ? topics.topics.get(0) : topics);
   }
 
-  private Topics get(Set<String> topicNames, Predicate<Integer> partitionPredicate) {
-    var replicas = admin.replicas(topicNames);
-    var partitions =
-        admin.partitions(topicNames).stream()
-            .filter(p -> partitionPredicate.test(p.partition()))
-            .collect(
-                Collectors.groupingBy(
-                    org.astraea.common.admin.Partition::topic,
-                    Collectors.mapping(
-                        p ->
-                            new Partition(
-                                p.partition(),
-                                p.earliestOffset(),
-                                p.latestOffset(),
-                                replicas.stream()
-                                    .filter(replica -> replica.topic().equals(p.topic()))
-                                    .filter(replica -> replica.partition() == p.partition())
-                                    .map(Replica::new)
-                                    .collect(Collectors.toUnmodifiableList())),
-                        Collectors.toList())));
-
-    var topicInfos =
-        admin.topics(topicNames).stream()
-            .map(topic -> new TopicInfo(topic.name(), partitions.get(topic.name()), topic.config()))
-            .collect(Collectors.toUnmodifiableList());
-    return new Topics(topicInfos);
+  private CompletionStage<Topics> get(
+      Set<String> topicNames, Predicate<Integer> partitionPredicate) {
+    return admin
+        .replicas(topicNames)
+        .thenCompose(
+            replicas ->
+                admin
+                    .partitions(topicNames)
+                    .thenApply(
+                        partitions ->
+                            partitions.stream()
+                                .filter(p -> partitionPredicate.test(p.partition()))
+                                .collect(
+                                    Collectors.groupingBy(
+                                        org.astraea.common.admin.Partition::topic,
+                                        Collectors.mapping(
+                                            p ->
+                                                new Partition(
+                                                    p.partition(),
+                                                    p.earliestOffset(),
+                                                    p.latestOffset(),
+                                                    replicas.stream()
+                                                        .filter(
+                                                            replica ->
+                                                                replica.topic().equals(p.topic()))
+                                                        .filter(
+                                                            replica ->
+                                                                replica.partition()
+                                                                    == p.partition())
+                                                        .map(Replica::new)
+                                                        .collect(Collectors.toUnmodifiableList())),
+                                            Collectors.toList())))))
+        .thenCombine(
+            admin.topics(topicNames),
+            (partitions, topicInfos) ->
+                new Topics(
+                    topicInfos.stream()
+                        .map(
+                            topic ->
+                                new TopicInfo(
+                                    topic.name(), partitions.get(topic.name()), topic.config()))
+                        .collect(Collectors.toUnmodifiableList())));
   }
 
   static Map<String, String> remainingConfigs(PostRequest request) {
@@ -116,60 +138,50 @@ class TopicHandler implements Handler {
         requests.stream().map(r -> r.value(TOPIC_NAME_KEY)).collect(Collectors.toSet());
     if (topicNames.size() != requests.size())
       throw new IllegalArgumentException("duplicate topic name: " + topicNames);
-    requests.forEach(
-        request -> {
-          var topicName = request.value(TOPIC_NAME_KEY);
-          var numberOfPartitions = request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1);
-          var numberOfReplicas = request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1);
-          if (request.has(PROBABILITY_INTERNAL)) {
-            Scenario.build(request.doubleValue(PROBABILITY_INTERNAL))
-                .topicName(topicName)
-                .numberOfPartitions(numberOfPartitions)
-                .numberOfReplicas(numberOfReplicas)
-                .build()
-                .apply(admin);
-          } else {
-            admin
-                .creator()
-                .topic(request.value(TOPIC_NAME_KEY))
-                .numberOfPartitions(request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1))
-                .numberOfReplicas(request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1))
-                .configs(remainingConfigs(request))
-                .create();
-          }
-        });
-
-    Topics r;
-    try {
-      // if the topic creation is synced, we return the details.
-      r = get(topicNames, ignored -> true);
-    } catch (ExecutionRuntimeException executionRuntimeException) {
-      if (UnknownTopicOrPartitionException.class
-          != executionRuntimeException.getRootCause().getClass()) {
-        throw executionRuntimeException;
-      } else {
-        // Otherwise, return only name
-        r =
-            new Topics(
-                topicNames.stream()
-                    .map(t -> new TopicInfo(t, List.of(), Map.of()))
-                    .collect(Collectors.toUnmodifiableList()));
-      }
-    }
-    return CompletableFuture.completedFuture(r);
+    return Utils.sequence(
+            requests.stream()
+                .map(
+                    request -> {
+                      var topicName = request.value(TOPIC_NAME_KEY);
+                      var numberOfPartitions = request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1);
+                      var numberOfReplicas =
+                          request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1);
+                      if (request.has(PROBABILITY_INTERNAL))
+                        return Scenario.build(request.doubleValue(PROBABILITY_INTERNAL))
+                            .topicName(topicName)
+                            .numberOfPartitions(numberOfPartitions)
+                            .numberOfReplicas(numberOfReplicas)
+                            .build()
+                            .apply(admin)
+                            .thenApply(ignored -> null)
+                            .toCompletableFuture();
+                      return admin
+                          .creator()
+                          .topic(request.value(TOPIC_NAME_KEY))
+                          .numberOfPartitions(request.getInt(NUMBER_OF_PARTITIONS_KEY).orElse(1))
+                          .numberOfReplicas(
+                              request.getShort(NUMBER_OF_REPLICAS_KEY).orElse((short) 1))
+                          .configs(remainingConfigs(request))
+                          .run()
+                          .thenApply(ignored -> null)
+                          .toCompletableFuture();
+                    })
+                .collect(Collectors.toList()))
+        .thenCompose(ignored -> get(topicNames, id -> true))
+        .exceptionally(
+            ignored ->
+                new Topics(
+                    topicNames.stream()
+                        .map(t -> new TopicInfo(t, List.of(), Map.of()))
+                        .collect(Collectors.toUnmodifiableList())));
   }
 
   @Override
   public CompletionStage<Response> delete(Channel channel) {
-    return CompletableFuture.completedFuture(
-        channel
-            .target()
-            .map(
-                topic -> {
-                  admin.deleteTopics(Set.of(topic));
-                  return Response.OK;
-                })
-            .orElse(Response.NOT_FOUND));
+    return channel
+        .target()
+        .map(topic -> admin.deleteTopics(Set.of(topic)).thenApply(ignored -> Response.OK))
+        .orElse(CompletableFuture.completedStage(Response.NOT_FOUND));
   }
 
   static class Topics implements Response {

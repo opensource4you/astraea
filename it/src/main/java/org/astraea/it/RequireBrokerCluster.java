@@ -35,7 +35,7 @@ public abstract class RequireBrokerCluster extends RequireJmxServer {
   }
 
   protected static Map<Integer, Set<String>> logFolders() {
-    return BROKER_CLUSTER.logFolders();
+    return BROKER_CLUSTER.dataFolders();
   }
 
   protected static void closeBroker(int brokerID) {

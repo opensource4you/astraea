@@ -17,14 +17,19 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -34,18 +39,22 @@ import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.scenario.Scenario;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testLeaderCountRebalance(boolean greedy) {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+  void testLeaderCountRebalance(boolean greedy) throws ExecutionException, InterruptedException {
+    try (var admin = Admin.of(bootstrapServers());
+        var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
@@ -68,7 +77,9 @@ class BalancerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .binomialProbability(0.1)
           .build()
-          .apply(admin);
+          .apply(asyncAdmin)
+          .toCompletableFuture()
+          .get();
       var imbalanceFactor0 = currentImbalanceFactor.get();
       Assertions.assertNotEquals(
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
@@ -132,7 +143,7 @@ class BalancerTest extends RequireBrokerCluster {
               .rebalancePlan();
 
       var currentCluster = admin.clusterInfo();
-      var newCluster = BalancerUtils.update(currentCluster, newAllocation);
+      var newCluster = ClusterInfo.update(currentCluster, newAllocation::logPlacements);
 
       Assertions.assertTrue(
           ClusterInfo.diff(currentCluster, newCluster).stream()
@@ -174,5 +185,61 @@ class BalancerTest extends RequireBrokerCluster {
       Assertions.assertFalse(future.isCompletedExceptionally());
       Assertions.assertNotNull(future.get());
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testWithMetrics(boolean greedy) {
+    var counter = new AtomicLong();
+    Supplier<ClusterBean> metricSource =
+        () -> {
+          // increment the counter as the bean updated
+          final var value = counter.getAndIncrement();
+          final var mock = Mockito.mock(HasBeanObject.class);
+          Mockito.when(mock.createdTimestamp()).thenReturn(value);
+          Mockito.when(mock.beanObject()).thenReturn(new BeanObject("", Map.of(), Map.of()));
+          return ClusterBean.of(Map.of(0, List.of(mock)));
+        };
+    Consumer<Long> test =
+        (expected) -> {
+          var called = new AtomicBoolean();
+          var theCostFunction =
+              new HasClusterCost() {
+                @Override
+                public ClusterCost clusterCost(
+                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+                  Assertions.assertEquals(1, clusterBean.all().get(0).size());
+                  Assertions.assertEquals(
+                      expected,
+                      clusterBean.all().get(0).stream()
+                          .findFirst()
+                          .orElseThrow()
+                          .createdTimestamp(),
+                      "The metric counter increased");
+                  called.set(true);
+                  return () -> 0;
+                }
+              };
+          Balancer.builder()
+              .planGenerator(new ShufflePlanGenerator(50, 100))
+              .clusterCost(theCostFunction)
+              .metricSource(metricSource)
+              .limit(500)
+              .greedy(greedy)
+              .build()
+              .offer(ClusterInfo.empty(), Map.of());
+          Assertions.assertTrue(called.get(), "The cost function has been invoked");
+        };
+
+    test.accept(0L);
+    test.accept(1L);
+    test.accept(2L);
+    test.accept(3L);
+    test.accept(4L);
+    test.accept(5L);
+    test.accept(6L);
+    test.accept(7L);
+    test.accept(8L);
+    test.accept(9L);
   }
 }

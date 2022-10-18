@@ -27,7 +27,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
@@ -45,6 +44,7 @@ public class BalancerBuilder {
   private Predicate<MoveCost> movementConstraint = ignore -> true;
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
+  private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
 
   private boolean greedy = false;
 
@@ -146,6 +146,20 @@ public class BalancerBuilder {
   }
 
   /**
+   * Specify the source of bean metrics. The default supplier return {@link ClusterBean#EMPTY} only,
+   * which means any cost function that interacts with metrics won't work. To use a cost function
+   * with metrics requirement, one must specify the concrete bean metric source by invoking this
+   * method.
+   *
+   * @param metricSource a {@link Supplier} offers the newest {@link ClusterBean} of target cluster
+   * @return this
+   */
+  public BalancerBuilder metricSource(Supplier<ClusterBean> metricSource) {
+    this.metricSource = metricSource;
+    return this;
+  }
+
+  /**
    * @return a {@link Balancer} that will offer rebalance plan based on the implementation detail
    *     you specified.
    */
@@ -162,7 +176,7 @@ public class BalancerBuilder {
 
   private Balancer buildNormal() {
     return (currentClusterInfo, topicFilter, brokerFolders) -> {
-      final var currentClusterBean = ClusterBean.EMPTY;
+      final var currentClusterBean = metricSource.get();
       final var currentCost =
           clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
       final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
@@ -176,7 +190,8 @@ public class BalancerBuilder {
           .map(
               proposal -> {
                 var newClusterInfo =
-                    BalancerUtils.update(currentClusterInfo, proposal.rebalancePlan());
+                    ClusterInfo.update(
+                        currentClusterInfo, tp -> proposal.rebalancePlan().logPlacements(tp));
                 return new Balancer.Plan(
                     proposal,
                     clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
@@ -191,43 +206,42 @@ public class BalancerBuilder {
 
   private Balancer buildGreedy() {
     return (originClusterInfo, topicFilter, brokerFolders) -> {
+      final var metrics = metricSource.get();
       final var loop = new AtomicInteger(searchLimit);
       final var start = System.currentTimeMillis();
       Supplier<Boolean> moreRoom =
           () ->
               System.currentTimeMillis() - start < executionTime.toMillis()
                   && loop.getAndDecrement() > 0;
-      BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Balancer.Plan>> next =
-          (currentClusterInfo, currentCost) ->
+      BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
+          (currentAllocation, currentCost) ->
               planGenerator
-                  .generate(brokerFolders, ClusterLogAllocation.of(currentClusterInfo))
+                  .generate(brokerFolders, currentAllocation)
                   .takeWhile(ignored -> moreRoom.get())
                   .map(
                       proposal -> {
                         var newClusterInfo =
-                            BalancerUtils.update(currentClusterInfo, proposal.rebalancePlan());
+                            ClusterInfo.update(
+                                originClusterInfo,
+                                tp -> proposal.rebalancePlan().logPlacements(tp));
                         return new Balancer.Plan(
                             proposal,
-                            clusterCostFunction.clusterCost(newClusterInfo, ClusterBean.EMPTY),
-                            moveCostFunction.moveCost(
-                                currentClusterInfo, newClusterInfo, ClusterBean.EMPTY));
+                            clusterCostFunction.clusterCost(newClusterInfo, metrics),
+                            moveCostFunction.moveCost(originClusterInfo, newClusterInfo, metrics));
                       })
                   .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
                   .filter(plan -> movementConstraint.test(plan.moveCost))
                   .findFirst();
-      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, ClusterBean.EMPTY);
-      var currentClusterInfo = ClusterInfo.masked(originClusterInfo, topicFilter);
+      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, metrics);
+      var currentAllocation =
+          ClusterLogAllocation.of(ClusterInfo.masked(originClusterInfo, topicFilter));
       var currentPlan = Optional.<Balancer.Plan>empty();
       while (true) {
-        var newPlan = next.apply(currentClusterInfo, currentCost);
+        var newPlan = next.apply(currentAllocation, currentCost);
         if (newPlan.isEmpty()) break;
         currentPlan = newPlan;
         currentCost = currentPlan.get().clusterCost;
-        currentClusterInfo =
-            ClusterInfo.masked(
-                BalancerUtils.update(
-                    originClusterInfo, currentPlan.get().proposal().rebalancePlan()),
-                topicFilter);
+        currentAllocation = currentPlan.get().proposal().rebalancePlan();
       }
       return currentPlan;
     };

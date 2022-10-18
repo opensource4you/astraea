@@ -16,7 +16,6 @@
  */
 package org.astraea.common.admin;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +25,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AlterConfigOp;
@@ -35,11 +34,13 @@ import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
+import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
+import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
@@ -57,23 +58,26 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   private final org.apache.kafka.clients.admin.Admin kafkaAdmin;
   private final String clientId;
-  private final List<?> pendingRequests;
+  private final AtomicInteger runningRequests = new AtomicInteger(0);
 
-  AsyncAdminImpl(Map<String, Object> props) {
-    this(KafkaAdminClient.create(props));
+  AsyncAdminImpl(Map<String, String> props) {
+    this(
+        KafkaAdminClient.create(
+            props.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
 
   AsyncAdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     this.kafkaAdmin = kafkaAdmin;
     this.clientId = (String) Utils.member(kafkaAdmin, "clientId");
-    this.pendingRequests =
-        (ArrayList<?>) Utils.member(Utils.member(kafkaAdmin, "runnable"), "pendingCalls");
   }
 
-  private static <T> CompletionStage<T> to(org.apache.kafka.common.KafkaFuture<T> kafkaFuture) {
+  <T> CompletionStage<T> to(org.apache.kafka.common.KafkaFuture<T> kafkaFuture) {
+    runningRequests.incrementAndGet();
     var f = new CompletableFuture<T>();
     kafkaFuture.whenComplete(
         (r, e) -> {
+          runningRequests.decrementAndGet();
           if (e != null) f.completeExceptionally(e);
           else f.completeAsync(() -> r);
         });
@@ -86,8 +90,8 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public int pendingRequests() {
-    return pendingRequests.size();
+  public int runningRequests() {
+    return runningRequests.get();
   }
 
   @Override
@@ -153,6 +157,57 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .collect(
                         Utils.toSortedMap(
                             e -> TopicPartition.from(e.getKey()), Map.Entry::getValue)));
+  }
+
+  @Override
+  public CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds) {
+    return Utils.sequence(
+            groupAndInstanceIds.entrySet().stream()
+                .map(
+                    entry ->
+                        to(kafkaAdmin
+                                .removeMembersFromConsumerGroup(
+                                    entry.getKey(),
+                                    new RemoveMembersFromConsumerGroupOptions(
+                                        entry.getValue().stream()
+                                            .map(MemberToRemove::new)
+                                            .collect(Collectors.toList())))
+                                .all())
+                            .toCompletableFuture())
+                .collect(Collectors.toList()))
+        .thenApply(ignored -> null);
+  }
+
+  @Override
+  public CompletionStage<Void> deleteMembers(Set<String> consumerGroups) {
+    // kafka APIs disallow to remove all members when there are no members ...
+    // Hence, we have to filter the non-empty groups first.
+    return to(kafkaAdmin.describeConsumerGroups(consumerGroups).all())
+        .thenApply(
+            groups ->
+                groups.entrySet().stream()
+                    .filter(g -> !g.getValue().members().isEmpty())
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet()))
+        .thenCompose(
+            groups ->
+                Utils.sequence(
+                    groups.stream()
+                        .map(
+                            group ->
+                                to(kafkaAdmin
+                                        .removeMembersFromConsumerGroup(
+                                            group, new RemoveMembersFromConsumerGroupOptions())
+                                        .all())
+                                    .toCompletableFuture())
+                        .collect(Collectors.toList())))
+        .thenApply(ignored -> null);
+  }
+
+  @Override
+  public CompletionStage<Void> deleteGroups(Set<String> consumerGroups) {
+    return deleteMembers(consumerGroups)
+        .thenCompose(ignored -> to(kafkaAdmin.deleteConsumerGroups(consumerGroups).all()));
   }
 
   @Override
@@ -605,11 +660,28 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<List<Quota>> quotas(String targetKey) {
+  public CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets) {
     return to(kafkaAdmin
             .describeClientQuotas(
                 ClientQuotaFilter.contains(
-                    List.of(ClientQuotaFilterComponent.ofEntityType(targetKey))))
+                    targets.entrySet().stream()
+                        .flatMap(
+                            t ->
+                                t.getValue().stream()
+                                    .map(v -> ClientQuotaFilterComponent.ofEntity(t.getKey(), v)))
+                        .collect(Collectors.toList())))
+            .entities())
+        .thenApply(Quota::of);
+  }
+
+  @Override
+  public CompletionStage<List<Quota>> quotas(Set<String> targetKeys) {
+    return to(kafkaAdmin
+            .describeClientQuotas(
+                ClientQuotaFilter.contains(
+                    targetKeys.stream()
+                        .map(ClientQuotaFilterComponent::ofEntityType)
+                        .collect(Collectors.toList())))
             .entities())
         .thenApply(Quota::of);
   }
@@ -863,26 +935,21 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition) {
-    var f = new CompletableFuture<Void>();
-
-    to(kafkaAdmin
-            .electLeaders(ElectionType.PREFERRED, Set.of(TopicPartition.to(topicPartition)))
+  public CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> partitions) {
+    return to(kafkaAdmin
+            .electLeaders(
+                ElectionType.PREFERRED,
+                partitions.stream().map(TopicPartition::to).collect(Collectors.toSet()))
             .all())
-        .whenComplete(
-            (ignored, e) -> {
-              if (e == null) f.complete(null);
-              // Swallow the ElectionNotNeededException.
+        .exceptionally(
+            e -> {
               // This error occurred if the preferred leader of the given topic/partition is already
-              // the
-              // leader. It is ok to swallow the exception since the preferred leader be the actual
-              // leader. That is what the caller wants to be.
-              else if (e instanceof ExecutionException
-                  && e.getCause() instanceof ElectionNotNeededException) f.complete(null);
-              else if (e instanceof ElectionNotNeededException) f.complete(null);
-              else f.completeExceptionally(e);
+              // the leader. It is ok to swallow the exception since the preferred leader be the
+              // actual leader. That is what the caller wants to be.
+              if (e instanceof ElectionNotNeededException) return null;
+              if (e instanceof RuntimeException) throw (RuntimeException) e;
+              throw new RuntimeException(e);
             });
-    return f;
   }
 
   @Override

@@ -17,7 +17,6 @@
 package org.astraea.common.admin;
 
 import java.io.Closeable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -139,36 +138,6 @@ public interface Admin extends Closeable {
    */
   void preferredLeaderElection(TopicPartition topicPartition);
 
-  /** @return producer states of all topic partitions */
-  default List<ProducerState> producerStates() {
-    return producerStates(topicPartitions());
-  }
-
-  /**
-   * @param partitions to search
-   * @return producer states of input topic partitions
-   */
-  List<ProducerState> producerStates(Set<TopicPartition> partitions);
-
-  /** @return a progress to set quota */
-  QuotaCreator quotaCreator();
-
-  /**
-   * @param target to search
-   * @return quotas
-   */
-  Collection<Quota> quotas(Quota.Target target);
-
-  /**
-   * @param target to search
-   * @param value assoicated to target
-   * @return quotas
-   */
-  Collection<Quota> quotas(Quota.Target target, String value);
-
-  /** @return all quotas */
-  Collection<Quota> quotas();
-
   /** @return a snapshot object of cluster state at the moment */
   default ClusterInfo<Replica> clusterInfo() {
     return clusterInfo(topicNames());
@@ -205,22 +174,6 @@ public interface Admin extends Closeable {
    * @return transaction states
    */
   List<Transaction> transactions(Set<String> transactionIds);
-
-  /**
-   * remove an empty group. It causes error if the group has memebrs.
-   *
-   * @param groupId to remove
-   */
-  void removeGroup(String groupId);
-
-  /** @param groupId to remove all (dynamic and static) members */
-  void removeAllMembers(String groupId);
-
-  /**
-   * @param groupId to remove static members
-   * @param members group instance id (static member)
-   */
-  void removeStaticMembers(String groupId, Set<String> members);
 
   List<AddingReplica> addingReplicas(Set<String> topics);
 
