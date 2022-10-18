@@ -937,6 +937,18 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                           Assertions.assertEquals(
                               admin.brokerFolders().toCompletableFuture().get().get(id).size(),
                               ds.size())));
+
+      admin
+          .brokers()
+          .toCompletableFuture()
+          .get()
+          .forEach(
+              broker ->
+                  Assertions.assertEquals(
+                      broker.topicPartitions().size(),
+                      broker.dataFolders().stream()
+                          .mapToInt(e -> e.partitionSizes().size())
+                          .sum()));
     }
   }
 
@@ -1148,7 +1160,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .forEach(
               broker ->
                   broker
-                      .folders()
+                      .dataFolders()
                       .forEach(
                           d ->
                               d.partitionSizes().entrySet().stream()

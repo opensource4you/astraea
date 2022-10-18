@@ -333,7 +333,8 @@ public class TopicTab {
   private static List<Map<String, Object>> basicResult(Tuple tuple, Predicate<String> topicFilter) {
     var topicSize =
         tuple.brokers.stream()
-            .flatMap(n -> n.folders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
+            .flatMap(
+                n -> n.dataFolders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
             .collect(Collectors.groupingBy(e -> e.getKey().topic()))
             .entrySet()
             .stream()
