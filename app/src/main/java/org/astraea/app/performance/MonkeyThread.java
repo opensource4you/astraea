@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -69,8 +68,7 @@ public class MonkeyThread {
       }
 
       @Override
-      public void waitForDone() {
-      }
+      public void waitForDone() {}
 
       @Override
       public boolean closed() {
@@ -122,8 +120,7 @@ public class MonkeyThread {
       }
 
       @Override
-      public void waitForDone() {
-      }
+      public void waitForDone() {}
 
       @Override
       public boolean closed() {
@@ -159,8 +156,7 @@ public class MonkeyThread {
       }
 
       @Override
-      public void waitForDone() {
-      }
+      public void waitForDone() {}
 
       @Override
       public boolean closed() {
