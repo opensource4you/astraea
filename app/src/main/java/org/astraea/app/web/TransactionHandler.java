@@ -17,29 +17,47 @@
 package org.astraea.app.web;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 
 class TransactionHandler implements Handler {
 
-  private final Admin admin;
+  private final AsyncAdmin admin;
 
-  TransactionHandler(Admin admin) {
+  TransactionHandler(AsyncAdmin admin) {
     this.admin = admin;
   }
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
-    var transactions =
-        admin.transactions(Handler.compare(admin.transactionIds(), channel.target())).stream()
-            .map(t -> new Transaction(t.transactionId(), t))
-            .collect(Collectors.toUnmodifiableList());
-    if (channel.target().isPresent() && transactions.size() == 1)
-      return CompletableFuture.completedFuture(transactions.get(0));
-    return CompletableFuture.completedFuture(new Transactions(transactions));
+    return admin
+        .transactionIds()
+        .thenApply(
+            ids -> {
+              var availableIds =
+                  channel.target().map(Set::of).orElse(ids).stream()
+                      .filter(ids::contains)
+                      .collect(Collectors.toSet());
+              if (availableIds.isEmpty() && channel.target().isPresent())
+                throw new NoSuchElementException(
+                    "transaction id: " + channel.target().get() + " is nonexistent");
+              return availableIds;
+            })
+        .thenCompose(admin::transactions)
+        .thenApply(
+            transactions ->
+                transactions.stream()
+                    .map(t -> new Transaction(t.transactionId(), t))
+                    .collect(Collectors.toUnmodifiableList()))
+        .thenApply(
+            transactions -> {
+              if (channel.target().isPresent() && transactions.size() == 1)
+                return transactions.get(0);
+              return new Transactions(transactions);
+            });
   }
 
   static class TopicPartition implements Response {
