@@ -480,7 +480,7 @@ public class Performance {
     @Parameter(
         names = {"--monkeys"},
         description =
-            "Set the frequency of chaos monkey. Here are offering three monkeys - kill, add, unsubscribe",
+            "Set the frequency of chaos monkeys. Here are offering three monkeys - kill, add, unsubscribe. There is no monkey by default.",
         converter = DurationMapField.class,
         validateWith = DurationMapField.class)
     Map<String, Duration> monkeys = null;
