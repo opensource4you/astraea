@@ -164,7 +164,7 @@ class BalancerHandler implements Handler {
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
             .orElseGet(() -> admin.topicNames(false));
-    generatedPlans.put(newPlanId, searchRebalancePlan(timeout, loop, topics));
+    generatedPlans.put(newPlanId, launchSearchTask(newPlanId, timeout, loop, topics));
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
@@ -207,62 +207,85 @@ class BalancerHandler implements Handler {
     }
   }
 
-  private CompletableFuture<PlanInfo> searchRebalancePlan(
-      Duration timeout, int loop, Set<String> topics) {
+  private CompletableFuture<PlanInfo> launchSearchTask(
+      String planId, Duration timeout, int loop, Set<String> topics) {
     return CompletableFuture.supplyAsync(
         () -> {
-          var currentClusterInfo = admin.clusterInfo();
-          var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-          var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
-          var bestPlan =
-              Balancer.builder()
-                  .planGenerator(generator)
-                  .clusterCost(clusterCostFunction)
-                  .moveCost(moveCostFunction)
-                  .limit(loop)
-                  .limit(timeout)
-                  .build()
-                  .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
-          var changes =
-              bestPlan
-                  .map(
-                      p ->
-                          ClusterLogAllocation.findNonFulfilledAllocation(
-                                  targetAllocations, p.proposal().rebalancePlan())
-                              .stream()
-                              .map(
-                                  tp ->
-                                      new Change(
-                                          tp.topic(),
-                                          tp.partition(),
-                                          // only log the size from source replicas
-                                          placements(
-                                              targetAllocations.logPlacements(tp),
-                                              l ->
-                                                  currentClusterInfo
-                                                      .replica(
-                                                          TopicPartitionReplica.of(
-                                                              tp.topic(),
-                                                              tp.partition(),
-                                                              l.nodeInfo().id()))
-                                                      .map(Replica::size)
-                                                      .orElse(null)),
-                                          placements(
-                                              p.proposal().rebalancePlan().logPlacements(tp),
-                                              ignored -> null)))
-                              .collect(Collectors.toUnmodifiableList()))
-                  .orElse(List.of());
-          var report =
-              new Report(
-                  cost,
-                  bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                  loop,
-                  bestPlan.map(p -> p.proposal().index()).orElse(null),
-                  clusterCostFunction.getClass().getSimpleName(),
-                  changes,
-                  bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
-          return new PlanInfo(report, bestPlan.orElseThrow());
+          var lastError = (Exception) null;
+          var errorCounter = 0;
+          var deadline = System.currentTimeMillis() + timeout.toMillis();
+          while (System.currentTimeMillis() < deadline) {
+            try {
+              var newTimeout = Duration.ofMillis(deadline - System.currentTimeMillis());
+              return searchRebalancePlan(newTimeout, loop, topics);
+            } catch (Exception e) {
+              // this exception might be caused by insufficient metrics, retry later
+              lastError = e;
+              errorCounter++;
+            }
+          }
+          throw new RuntimeException(
+              "Timeout on searching usable rebalance plan for "
+                  + planId
+                  + ". Failed after "
+                  + errorCounter
+                  + " trials.",
+              lastError);
         });
+  }
+
+  private PlanInfo searchRebalancePlan(Duration timeout, int loop, Set<String> topics) {
+    var currentClusterInfo = admin.clusterInfo();
+    var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+    var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+    var bestPlan =
+        Balancer.builder()
+            .planGenerator(generator)
+            .clusterCost(clusterCostFunction)
+            .moveCost(moveCostFunction)
+            .limit(loop)
+            .limit(timeout)
+            .build()
+            .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+    var changes =
+        bestPlan
+            .map(
+                p ->
+                    ClusterLogAllocation.findNonFulfilledAllocation(
+                            targetAllocations, p.proposal().rebalancePlan())
+                        .stream()
+                        .map(
+                            tp ->
+                                new Change(
+                                    tp.topic(),
+                                    tp.partition(),
+                                    // only log the size from source replicas
+                                    placements(
+                                        targetAllocations.logPlacements(tp),
+                                        l ->
+                                            currentClusterInfo
+                                                .replica(
+                                                    TopicPartitionReplica.of(
+                                                        tp.topic(),
+                                                        tp.partition(),
+                                                        l.nodeInfo().id()))
+                                                .map(Replica::size)
+                                                .orElse(null)),
+                                    placements(
+                                        p.proposal().rebalancePlan().logPlacements(tp),
+                                        ignored -> null)))
+                        .collect(Collectors.toUnmodifiableList()))
+            .orElse(List.of());
+    var report =
+        new Report(
+            cost,
+            bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+            loop,
+            bestPlan.map(p -> p.proposal().index()).orElse(null),
+            clusterCostFunction.getClass().getSimpleName(),
+            changes,
+            bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
+    return new PlanInfo(report, bestPlan.orElseThrow());
   }
 
   private void sanityCheck(PlanInfo thePlanInfo) {
