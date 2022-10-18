@@ -105,11 +105,13 @@ public class BalancerTab {
                               Balancer.builder()
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
-                                      input
-                                          .selectedRadio()
-                                          .map(o -> (Cost) o)
-                                          .orElse(Cost.REPLICA)
-                                          .costFunction)
+                                      HasClusterCost.of(
+                                          input.selectedCheckBox().stream()
+                                              .map(o -> (Cost) o)
+                                              .map(cost -> Map.entry(cost.costFunction, 1.0))
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      Map.Entry::getKey, Map.Entry::getValue))))
                                   .limit(Duration.ofSeconds(10))
                                   .limit(10000)
                                   .greedy(true)
@@ -212,7 +214,7 @@ public class BalancerTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(Cost.values())
+            .checkBoxes(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
             .buttonAction((input, logger) -> generator(context, input, logger))

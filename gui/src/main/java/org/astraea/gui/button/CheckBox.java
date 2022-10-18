@@ -14,36 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.gui.button;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
-public interface Input {
-  Optional<Object> selectedRadio();
+public class CheckBox extends javafx.scene.control.CheckBox {
 
-  List<Object> selectedCheckBox();
-
-  /** @return the keys having empty/blank value. */
-  default Set<String> emptyValueKeys() {
-    return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isBlank())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toUnmodifiableSet());
+  public static List<CheckBox> single(List<Object> objs) {
+    if (objs.isEmpty()) throw new IllegalArgumentException("can't build check box with no objects");
+    var buttons = objs.stream().map(CheckBox::new).collect(Collectors.toList());
+    buttons.iterator().next().setSelected(true);
+    return buttons;
   }
 
-  /** @return the input key and value. The value is not empty. */
-  default Map<String, String> nonEmptyTexts() {
-    return texts().entrySet().stream()
-        .filter(entry -> !entry.getValue().isBlank())
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  private final Object obj;
+
+  private CheckBox(Object obj) {
+    super(obj.toString());
+    this.obj = obj;
   }
 
-  /** @return the input key and value. The value could be empty. */
-  Map<String, String> texts();
-
-  boolean matchSearch(String word);
+  public Optional<Object> selectedObject() {
+    if (this.isSelected()) return Optional.ofNullable(obj);
+    return Optional.empty();
+  }
 }
