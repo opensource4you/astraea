@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
@@ -79,9 +79,9 @@ public class RecordHandler implements Handler {
   final Producer<byte[], byte[]> producer;
   private final Cache<String, Producer<byte[], byte[]>> transactionalProducerCache;
 
-  final Admin admin;
+  final AsyncAdmin admin;
 
-  RecordHandler(Admin admin, String bootstrapServers) {
+  RecordHandler(AsyncAdmin admin, String bootstrapServers) {
     this.admin = admin;
     this.bootstrapServers = requireNonNull(bootstrapServers);
     this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();
@@ -239,7 +239,7 @@ public class RecordHandler implements Handler {
     var partitions =
         Optional.ofNullable(channel.queries().get(PARTITION))
             .map(x -> Set.of(TopicPartition.of(topic, x)))
-            .orElseGet(() -> admin.topicPartitions(Set.of(topic)));
+            .orElseGet(() -> admin.topicPartitions(Set.of(topic)).toCompletableFuture().join());
 
     var deletedOffsets =
         Optional.ofNullable(channel.queries().get(OFFSET))
@@ -250,9 +250,16 @@ public class RecordHandler implements Handler {
             .orElseGet(
                 () -> {
                   var currentPartitions =
-                      admin.partitions(Set.of(topic)).stream()
-                          .collect(
-                              Collectors.toMap(Partition::topicPartition, Function.identity()));
+                      admin
+                          .partitions(Set.of(topic))
+                          .thenApply(
+                              p ->
+                                  p.stream()
+                                      .collect(
+                                          Collectors.toMap(
+                                              Partition::topicPartition, Function.identity())))
+                          .toCompletableFuture()
+                          .join();
                   return partitions.stream()
                       .collect(
                           Collectors.toMap(
