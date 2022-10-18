@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -35,7 +36,7 @@ public class BeanHandlerTest extends RequireBrokerCluster {
     arg.jmxPort = 1000;
     Assertions.assertTrue(arg.needJmx());
     arg.jmxPort = -1;
-    arg.jmxPorts = Map.of("a", "100");
+    arg.brokerJmxMap = Map.of(1, InetSocketAddress.createUnresolved("a", 100));
     Assertions.assertTrue(arg.needJmx());
     Assertions.assertEquals(100, arg.jmxPorts().apply("a"));
     Assertions.assertThrows(NoSuchElementException.class, () -> arg.jmxPorts().apply("b"));

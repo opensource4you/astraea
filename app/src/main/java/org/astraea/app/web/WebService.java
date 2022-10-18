@@ -21,14 +21,16 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.argument.Field;
 import org.astraea.common.argument.NonNegativeIntegerField;
-import org.astraea.common.argument.StringMapField;
 
 public class WebService {
 
@@ -50,7 +52,8 @@ public class WebService {
     server.createContext(
         "/records", to(new RecordHandler(Admin.of(arg.configs()), arg.bootstrapServers())));
     server.createContext("/reassignments", to(new ReassignmentHandler(Admin.of(arg.configs()))));
-    server.createContext("/balancer", to(new BalancerHandler(Admin.of(arg.configs()))));
+    server.createContext(
+        "/balancer", to(new BalancerHandler(Admin.of(arg.configs()), arg.brokerJmxMap)));
     server.createContext("/throttles", to(new ThrottleHandler(Admin.of(arg.configs()))));
     server.start();
   }
@@ -75,22 +78,42 @@ public class WebService {
     int jmxPort = -1;
 
     @Parameter(
-        names = {"--jmx.ports"},
-        description = "Map: the jmx port for each node. For example: 192.168.50.2=19999",
-        validateWith = StringMapField.class,
-        converter = StringMapField.class)
-    Map<String, String> jmxPorts = Map.of();
+        names = {"--broker.jmx"},
+        description =
+            "Map: the jmx socket address for each node. For example: 1024=192.168.50.2:9875",
+        converter = BrokerJmxConverter.class)
+    Map<Integer, InetSocketAddress> brokerJmxMap = Map.of();
 
     boolean needJmx() {
-      return jmxPort > 0 || !jmxPorts.isEmpty();
+      return jmxPort > 0 || !brokerJmxMap.isEmpty();
     }
 
     Function<String, Integer> jmxPorts() {
       return name ->
-          Optional.of(jmxPorts.getOrDefault(name, String.valueOf(jmxPort)))
-              .map(Integer::valueOf)
+          Optional.of(
+                  brokerJmxMap.values().stream()
+                      .filter(x -> x.getHostName().equals(name))
+                      .map(InetSocketAddress::getPort)
+                      .findFirst()
+                      .orElse(jmxPort))
               .filter(i -> i > 0)
               .orElseThrow(() -> new NoSuchElementException(name + " has no jmx port"));
+    }
+
+    private static class BrokerJmxConverter extends Field<Map<Integer, InetSocketAddress>> {
+
+      private InetSocketAddress asSocketAddress(String string) {
+        String[] split = string.split(":");
+        return InetSocketAddress.createUnresolved(split[0], Integer.parseInt(split[1]));
+      }
+
+      @Override
+      public Map<Integer, InetSocketAddress> convert(String value) {
+        return Arrays.stream(value.split(","))
+            .map(x -> x.split("="))
+            .map(x -> Map.entry(Integer.parseInt(x[0]), asSocketAddress(x[1])))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+      }
     }
   }
 }
