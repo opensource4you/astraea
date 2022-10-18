@@ -20,15 +20,24 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 
-public class MonkeyThread {
+public class MonkeyThread implements AbstractThread {
 
-  static List<Monkey> play(List<ConsumerThread> consumerThreads, Performance.Argument param) {
+  private final CountDownLatch closeLatch;
+  private final AtomicBoolean close;
+
+  MonkeyThread(AtomicBoolean close) {
+    this.close = close;
+    this.closeLatch = new CountDownLatch(1);
+  }
+
+  static List<MonkeyThread> play(List<ConsumerThread> consumerThreads, Performance.Argument param) {
     if (param.monkeys == null) return List.of();
     System.out.println("create chaos monkey");
     return param.monkeys.entrySet().stream()
@@ -46,7 +55,7 @@ public class MonkeyThread {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  private static Monkey killMonkey(List<ConsumerThread> consumerThreads, Duration frequency) {
+  private static MonkeyThread killMonkey(List<ConsumerThread> consumerThreads, Duration frequency) {
     var close = new AtomicBoolean(false);
     CompletableFuture.runAsync(
         () -> {
@@ -60,29 +69,10 @@ public class MonkeyThread {
             }
           }
         });
-    return new Monkey() {
-
-      @Override
-      public String name() {
-        return "kill";
-      }
-
-      @Override
-      public void waitForDone() {}
-
-      @Override
-      public boolean closed() {
-        return close.get();
-      }
-
-      @Override
-      public void close() {
-        close.set(true);
-      }
-    };
+    return new MonkeyThread(close);
   }
 
-  private static Monkey addMonkey(
+  private static MonkeyThread addMonkey(
       List<ConsumerThread> consumerThreads, Duration frequency, Performance.Argument param) {
     var close = new AtomicBoolean(false);
     CompletableFuture.runAsync(
@@ -113,28 +103,10 @@ public class MonkeyThread {
             }
           }
         });
-    return new Monkey() {
-      @Override
-      public String name() {
-        return "add";
-      }
-
-      @Override
-      public void waitForDone() {}
-
-      @Override
-      public boolean closed() {
-        return close.get();
-      }
-
-      @Override
-      public void close() {
-        close.set(true);
-      }
-    };
+    return new MonkeyThread(close);
   }
 
-  private static Monkey unsubscribeMonkey(
+  private static MonkeyThread unsubscribeMonkey(
       List<ConsumerThread> consumerThreads, Duration frequency) {
     var close = new AtomicBoolean(false);
     CompletableFuture.runAsync(
@@ -149,24 +121,22 @@ public class MonkeyThread {
             thread.resubscribe();
           }
         });
-    return new Monkey() {
-      @Override
-      public String name() {
-        return "unsubscribe";
-      }
+    return new MonkeyThread(close);
+  }
 
-      @Override
-      public void waitForDone() {}
+  @Override
+  public void waitForDone() {
+    Utils.swallowException(closeLatch::await);
+  }
 
-      @Override
-      public boolean closed() {
-        return close.get();
-      }
+  @Override
+  public boolean closed() {
+    return closeLatch.getCount() == 0;
+  }
 
-      @Override
-      public void close() {
-        close.set(true);
-      }
-    };
+  @Override
+  public void close() {
+    close.set(true);
+    closeLatch.countDown();
   }
 }

@@ -95,25 +95,9 @@ public class Performance {
             param.interdependent);
 
     var consumerThreads =
-        Collections.synchronizedList(
-            new ArrayList<>(
-                ConsumerThread.create(
-                    param.consumers,
-                    (clientId, listener) ->
-                        Consumer.forTopics(new HashSet<>(param.topics))
-                            .configs(param.configs())
-                            .config(
-                                ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                                param.transactionSize > 1
-                                    ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                    : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                            .bootstrapServers(param.bootstrapServers())
-                            .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                            .seek(latestOffsets)
-                            .consumerRebalanceListener(listener)
-                            .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                            .build())));
-
+        param.monkeys != null
+            ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
+            : consumers(param, latestOffsets);
     System.out.println("creating tracker");
     var tracker =
         TrackerThread.create(
@@ -154,11 +138,31 @@ public class Performance {
             Utils.sleep(Duration.ofSeconds(1));
           }
         });
-
+    monkeys.forEach(AbstractThread::waitForDone);
+    consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     fileWriterFuture.join();
-    consumerThreads.forEach(AbstractThread::waitForDone);
     return param.topics;
+  }
+
+  private static List<ConsumerThread> consumers(
+      Argument param, Map<TopicPartition, Long> latestOffsets) {
+    return ConsumerThread.create(
+        param.consumers,
+        (clientId, listener) ->
+            Consumer.forTopics(new HashSet<>(param.topics))
+                .configs(param.configs())
+                .config(
+                    ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                    param.transactionSize > 1
+                        ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                        : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                .bootstrapServers(param.bootstrapServers())
+                .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                .seek(latestOffsets)
+                .consumerRebalanceListener(listener)
+                .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                .build());
   }
 
   public static class Argument extends org.astraea.common.argument.Argument {
