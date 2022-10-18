@@ -24,11 +24,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -65,7 +63,8 @@ public class HttpExecutorBuilder {
       }
 
       @Override
-      public <T> AstraeaHttpResponse<T> get(String url, Map<String,String>  param, Class<T> respCls) {
+      public <T> AstraeaHttpResponse<T> get(
+          String url, Map<String, String> param, Class<T> respCls) {
         return Utils.packException(
             () -> {
               HttpRequest request =
@@ -198,7 +197,8 @@ public class HttpExecutorBuilder {
         throw new StringResponseException(stringHttpResponse);
       }
 
-      private URI getParameterURI(String url, Map<String,String> parameter) throws URISyntaxException {
+      private URI getParameterURI(String url, Map<String, String> parameter)
+          throws URISyntaxException {
         return getQueryUri(url, parameter);
       }
 
@@ -227,8 +227,7 @@ public class HttpExecutorBuilder {
     }
   }
 
-  static URI getQueryUri(String url, Map<String, String> parameters)
-      throws URISyntaxException {
+  static URI getQueryUri(String url, Map<String, String> parameters) throws URISyntaxException {
     var uri = new URI(url);
     var queryString =
         parameters.entrySet().stream()

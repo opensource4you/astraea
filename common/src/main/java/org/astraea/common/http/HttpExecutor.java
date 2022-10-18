@@ -28,7 +28,7 @@ public interface HttpExecutor {
 
   <T> AstraeaHttpResponse<T> get(String url, Class<T> respCls);
 
-  <T> AstraeaHttpResponse<T> get(String url, Map<String,String> param, Class<T> respCls);
+  <T> AstraeaHttpResponse<T> get(String url, Map<String, String> param, Class<T> respCls);
 
   <T> AstraeaHttpResponse<T> get(String url, TypeRef<T> typeRef);
 

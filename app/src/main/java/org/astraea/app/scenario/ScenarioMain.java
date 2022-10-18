@@ -17,12 +17,12 @@
 package org.astraea.app.scenario;
 
 import com.beust.jcommander.Parameter;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
 import org.astraea.common.cost.Configuration;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.scenario.Scenario;
 
 public class ScenarioMain extends Argument {
@@ -32,7 +32,8 @@ public class ScenarioMain extends Argument {
       required = true)
   String scenarioClass;
 
-  private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+  private static final JsonConverter jsonConverter =
+      JsonConverter.gson(GsonBuilder::setPrettyPrinting);
 
   public void execute() {
     var theClass = Utils.packException(() -> Class.forName(scenarioClass));
@@ -48,7 +49,7 @@ public class ScenarioMain extends Argument {
   public void execute(Scenario scenario) {
     System.out.println("Accept scenario: " + scenario.getClass().getName());
     try (Admin admin = Admin.of(bootstrapServers())) {
-      System.out.println(gson.toJson(scenario.apply(admin)));
+      System.out.println(jsonConverter.toJson(scenario.apply(admin)));
     }
   }
 

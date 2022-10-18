@@ -81,7 +81,9 @@ interface Response {
 
     @Override
     public String json() {
-      return message == null || message.isEmpty() ? "" : JsonConverter.defaultConverter().toJson(this);
+      return message == null || message.isEmpty()
+          ? ""
+          : JsonConverter.defaultConverter().toJson(this);
     }
   }
 }

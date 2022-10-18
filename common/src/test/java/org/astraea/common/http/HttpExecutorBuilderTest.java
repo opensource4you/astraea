@@ -19,7 +19,6 @@ package org.astraea.common.http;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.Map;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;

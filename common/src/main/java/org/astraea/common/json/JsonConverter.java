@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker.Std;
@@ -34,6 +33,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.google.gson.TypeAdapter;
@@ -45,8 +45,10 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Base64;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Consumer;
 import org.astraea.common.Utils;
 
 public interface JsonConverter {
@@ -66,7 +68,7 @@ public interface JsonConverter {
     var objectMapper =
         JsonMapper.builder()
             .addModule(new Jdk8Module())
-//            .constructorDetector(ConstructorDetector.USE_DELEGATING)
+            //            .constructorDetector(ConstructorDetector.USE_DELEGATING)
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
             .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
             .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
@@ -86,40 +88,60 @@ public interface JsonConverter {
 
       @Override
       public <T> T fromJson(String json, TypeRef<T> typeRef) {
-        return Utils.packException(() -> objectMapper.readValue(json, new TypeReference<>() {
-          @Override
-          public Type getType() {
-            return typeRef.getType();
-          }
-        }));
+        return Utils.packException(
+            () ->
+                objectMapper.readValue(
+                    json,
+                    new TypeReference<>() {
+                      @Override
+                      public Type getType() {
+                        return typeRef.getType();
+                      }
+                    }));
       }
     };
   }
 
   static JsonConverter gson() {
-    var gson = new GsonBuilder()
-//        .registerTypeAdapter(Optional.class,new GsonOptionalDeserializer<>())
-        .registerTypeAdapterFactory(OptionalTypeAdapter.FACTORY)
-        .create();
+    return gson((builder) -> {});
+  }
+
+  static JsonConverter gson(Consumer<GsonBuilder> builderConsumer) {
+    var gsonBuilder =
+        new GsonBuilder()
+            //        .registerTypeAdapter(Optional.class,new GsonOptionalDeserializer<>())
+
+            .disableHtmlEscaping()
+            .registerTypeAdapterFactory(OptionalTypeAdapter.FACTORY)
+            .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter());
+
+    builderConsumer.accept(gsonBuilder);
+    var gson = gsonBuilder.create();
+
     return new JsonConverter() {
       @Override
       public String toJson(Object src) {
-        var jsonElement=gson.toJsonTree(src);
+        var jsonElement = gson.toJsonTree(src);
         return gson.toJson(getOrderedObject(jsonElement));
       }
 
-      private JsonElement getOrderedObject(JsonElement jsonElement){
-        if(jsonElement.isJsonObject()){
+      /**
+       * Gson does not support name strategy, but the field order of serialization is the order in
+       * JsonElement.
+       */
+      private JsonElement getOrderedObject(JsonElement jsonElement) {
+        if (jsonElement.isJsonObject()) {
           return getOrderedObject(jsonElement.getAsJsonObject());
-        }else{
+        } else {
           return jsonElement;
         }
       }
 
-      private JsonObject getOrderedObject(JsonObject jsonObject){
-        var newJsonObject=new JsonObject();
-        jsonObject.entrySet().stream().sorted(Entry.comparingByKey())
-            .forEach(x->newJsonObject.add(x.getKey(),getOrderedObject(x.getValue())));
+      private JsonObject getOrderedObject(JsonObject jsonObject) {
+        var newJsonObject = new JsonObject();
+        jsonObject.entrySet().stream()
+            .sorted(Entry.comparingByKey())
+            .forEach(x -> newJsonObject.add(x.getKey(), getOrderedObject(x.getValue())));
         return newJsonObject;
       }
 
@@ -135,21 +157,42 @@ public interface JsonConverter {
     };
   }
 
+  class ByteArrayToBase64TypeAdapter implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
+    public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)
+        throws JsonParseException {
+      return Base64.getDecoder().decode(json.getAsString());
+    }
+
+    public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
+      return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
+    }
+  }
+
+  /**
+   * Gson use ReflectiveTypeAdapterFactory to serde the Object class. When the field key is not in
+   * json, ReflectiveTypeAdapterFactory didn't pass it forward to OptionalTypeAdapter. So we should
+   * init Optional by Optional opt=Optional.empty() in Object. This didn't work when no default
+   * constructor to init Optional to empty()
+   *
+   * <p>OptionalTypeAdapter also can't be replaced by `JsonDeserializer`, because JsonDeserializer
+   * didn't get value when value is null in json.
+   */
   class OptionalTypeAdapter<E> extends TypeAdapter<Optional<E>> {
 
-    public static final TypeAdapterFactory FACTORY = new TypeAdapterFactory() {
-      @Override
-      public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
-        Class<T> rawType = (Class<T>) type.getRawType();
-        if (rawType != Optional.class) {
-          return null;
-        }
-        final ParameterizedType parameterizedType = (ParameterizedType) type.getType();
-        final Type actualType = parameterizedType.getActualTypeArguments()[0];
-        final TypeAdapter<?> adapter = gson.getAdapter(TypeToken.get(actualType));
-        return new OptionalTypeAdapter(adapter);
-      }
-    };
+    public static final TypeAdapterFactory FACTORY =
+        new TypeAdapterFactory() {
+          @Override
+          public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
+            Class<T> rawType = (Class<T>) type.getRawType();
+            if (rawType != Optional.class) {
+              return null;
+            }
+            final ParameterizedType parameterizedType = (ParameterizedType) type.getType();
+            final Type actualType = parameterizedType.getActualTypeArguments()[0];
+            final TypeAdapter<?> adapter = gson.getAdapter(TypeToken.get(actualType));
+            return new OptionalTypeAdapter(adapter);
+          }
+        };
     private final TypeAdapter<E> adapter;
 
     public OptionalTypeAdapter(TypeAdapter<E> adapter) {
@@ -159,7 +202,7 @@ public interface JsonConverter {
 
     @Override
     public void write(JsonWriter out, Optional<E> value) throws IOException {
-      if(value.isPresent()){
+      if (value.isPresent()) {
         adapter.write(out, value.get());
       } else {
         out.nullValue();
@@ -169,26 +212,25 @@ public interface JsonConverter {
     @Override
     public Optional<E> read(JsonReader in) throws IOException {
       final JsonToken peek = in.peek();
-      if(peek != JsonToken.NULL){
+      if (peek != JsonToken.NULL) {
         return Optional.ofNullable(adapter.read(in));
       }
 
       in.nextNull();
       return Optional.empty();
     }
-
   }
 
   class GsonOptionalDeserializer<T>
       implements JsonSerializer<Optional<T>>, JsonDeserializer<Optional<T>> {
 
     @Override
-    public Optional<T> deserialize(JsonElement json, Type typeOfT,
-        JsonDeserializationContext context)
+    public Optional<T> deserialize(
+        JsonElement json, Type typeOfT, JsonDeserializationContext context)
         throws JsonParseException {
       if (!json.isJsonNull()) {
-        final T value = context.deserialize(json,
-            ((ParameterizedType) typeOfT).getActualTypeArguments()[0]);
+        final T value =
+            context.deserialize(json, ((ParameterizedType) typeOfT).getActualTypeArguments()[0]);
         return Optional.ofNullable(value);
       } else {
         return Optional.empty();
@@ -196,8 +238,8 @@ public interface JsonConverter {
     }
 
     @Override
-    public JsonElement serialize(Optional<T> src, Type typeOfSrc,
-        JsonSerializationContext context) {
+    public JsonElement serialize(
+        Optional<T> src, Type typeOfSrc, JsonSerializationContext context) {
       if (src.isPresent()) {
         return context.serialize(src.get());
       } else {
@@ -205,5 +247,4 @@ public interface JsonConverter {
       }
     }
   }
-
 }

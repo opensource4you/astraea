@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.reflect.TypeToken;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -93,14 +92,12 @@ public class ThrottleHandler implements Handler {
     var brokerToUpdate =
         channel
             .request()
-            .<Collection<BrokerThrottle>>get(
-                "brokers", new TypeRef<>() {})
+            .<Collection<BrokerThrottle>>get("brokers", new TypeRef<>() {})
             .orElse(List.of());
     var topics =
         channel
             .request()
-            .<Collection<TopicThrottle>>get(
-                "topics", new TypeRef<>() {})
+            .<Collection<TopicThrottle>>get("topics", new TypeRef<>() {})
             .orElse(List.of());
 
     final var throttler = admin.replicationThrottler();

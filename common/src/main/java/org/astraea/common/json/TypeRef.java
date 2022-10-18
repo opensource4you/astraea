@@ -19,10 +19,8 @@ package org.astraea.common.json;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
-/**
- * ParentType didn't erase , use reflection to get that type
- */
-public abstract class TypeRef<T>{
+/** ParentType didn't erase , use reflection to get that type */
+public abstract class TypeRef<T> {
 
   public static <T> TypeRef<T> of(Type _type) {
     return new TypeRef<>() {
@@ -35,10 +33,11 @@ public abstract class TypeRef<T>{
 
   protected final Type type;
 
-  protected TypeRef()
-  {
+  protected TypeRef() {
     type = ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
   }
 
-  public Type getType() { return type; }
+  public Type getType() {
+    return type;
+  }
 }

@@ -33,8 +33,6 @@ import static org.astraea.app.web.RecordHandler.TRANSACTION_ID;
 import static org.astraea.app.web.RecordHandler.VALUE_DESERIALIZER;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Base64;
@@ -47,7 +45,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
@@ -56,6 +53,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -99,7 +97,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             .post(
                 Channel.ofRequest(
                     PostRequest.of(
-                        new Gson()
+                        JsonConverter.defaultConverter()
                             .toJson(
                                 Map.of(
                                     TIMEOUT,
@@ -132,7 +130,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
             getRecordHandler()
-                .post(Channel.ofRequest(PostRequest.of(new Gson().toJson(requestParams))))
+                .post(
+                    Channel.ofRequest(
+                        PostRequest.of(JsonConverter.defaultConverter().toJson(requestParams))))
                 .toCompletableFuture()
                 .get());
 
@@ -199,7 +199,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 .post(
                     Channel.ofRequest(
                         PostRequest.of(
-                            new Gson()
+                            JsonConverter.defaultConverter()
                                 .toJson(
                                     Map.of(
                                         ASYNC,
@@ -250,7 +250,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             .post(
                 Channel.ofRequest(
                     PostRequest.of(
-                        new Gson()
+                        JsonConverter.defaultConverter()
                             .toJson(
                                 Map.of(
                                     RECORDS,
@@ -640,11 +640,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testByteArrayToBase64TypeAdapter() {
     var foo = new Foo("test".getBytes());
-    var gson =
-        new GsonBuilder()
-            .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
-            .create();
-    Assertions.assertArrayEquals(foo.bar, gson.fromJson(gson.toJson(foo), Foo.class).bar);
+    var jsonConverter = JsonConverter.defaultConverter();
+    Assertions.assertArrayEquals(
+        foo.bar, jsonConverter.fromJson(jsonConverter.toJson(foo), Foo.class).bar);
   }
 
   private static class Foo {
@@ -666,7 +664,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             .post(
                 Channel.ofRequest(
                     PostRequest.of(
-                        new Gson()
+                        JsonConverter.defaultConverter()
                             .toJson(
                                 Map.of(
                                     RECORDS,
