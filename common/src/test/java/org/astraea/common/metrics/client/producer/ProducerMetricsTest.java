@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -29,6 +30,15 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ProducerMetricsTest extends RequireBrokerCluster {
+
+  @Test
+  void testAppInfo() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var producer = Producer.of(bootstrapServers())) {
+      producer.sender().topic(topic).run().toCompletableFuture().get();
+      ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    }
+  }
 
   @Test
   void testMetrics() throws ExecutionException, InterruptedException {
