@@ -133,10 +133,7 @@ public class Performance {
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
 
-    var monkeys =
-        param.monkeys == null
-            ? List.of(CompletableFuture.completedFuture(null))
-            : monkeys(param, consumerThreads);
+    var monkeys = MonkeyThread.play(consumerThreads, param);
 
     CompletableFuture.runAsync(
         () -> {
@@ -151,6 +148,7 @@ public class Performance {
             }
             if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
               consumerThreads.forEach(AbstractThread::close);
+              monkeys.forEach(AbstractThread::close);
               return;
             }
             Utils.sleep(Duration.ofSeconds(1));
@@ -160,87 +158,7 @@ public class Performance {
     tracker.waitForDone();
     fileWriterFuture.join();
     consumerThreads.forEach(AbstractThread::waitForDone);
-    monkeys.forEach(CompletableFuture::join);
     return param.topics;
-  }
-
-  static List<CompletableFuture<?>> monkeys(Argument param, List<ConsumerThread> consumerThreads) {
-    System.out.println("create chaos monkey(s)");
-    var l = new ArrayList<CompletableFuture<?>>();
-    param.monkeys.forEach(
-        (monkey, duration) -> {
-          if (monkey.equals("kill")) {
-            l.add(killMonkey(consumerThreads, duration));
-          } else if (monkey.equals("add")) {
-            l.add(addMonkey(consumerThreads, duration, param));
-          } else if (monkey.equals("unsubscribe")) {
-            l.add(unsubscribeMonkey(consumerThreads, duration));
-          }
-        });
-    return l;
-  }
-
-  static CompletableFuture<?> killMonkey(List<ConsumerThread> consumerThreads, Duration frequency) {
-    return CompletableFuture.runAsync(
-        () -> {
-          while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-            if (consumerThreads.size() > 1) {
-              System.out.println("kill a consumer");
-              var consumer = consumerThreads.remove((int) (Math.random() * consumerThreads.size()));
-              consumer.close();
-              consumer.waitForDone();
-              Utils.sleep(frequency);
-            }
-          }
-        });
-  }
-
-  static CompletableFuture<?> addMonkey(
-      List<ConsumerThread> consumerThreads, Duration frequency, Argument param) {
-    return CompletableFuture.runAsync(
-        () -> {
-          while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-            if (consumerThreads.size() < param.consumers) {
-              System.out.println("add a consumer");
-              var consumer =
-                  ConsumerThread.create(
-                          1,
-                          (clientId, listener) ->
-                              Consumer.forTopics(new HashSet<>(param.topics))
-                                  .configs(param.configs())
-                                  .config(
-                                      ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                                      param.transactionSize > 1
-                                          ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                          : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                                  .bootstrapServers(param.bootstrapServers())
-                                  .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                                  .seek(param.lastOffsets())
-                                  .consumerRebalanceListener(listener)
-                                  .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                                  .build())
-                      .get(0);
-              consumerThreads.add(consumer);
-              Utils.sleep(frequency);
-            }
-          }
-        });
-  }
-
-  static CompletableFuture<?> unsubscribeMonkey(
-      List<ConsumerThread> consumerThreads, Duration frequency) {
-    return CompletableFuture.runAsync(
-        () -> {
-          while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-            var thread = consumerThreads.get((int) (Math.random() * consumerThreads.size()));
-
-            System.out.println("unsubscribe consumer");
-            thread.unsubscribe();
-            Utils.sleep(frequency);
-            System.out.println("resubscribe consumer");
-            thread.resubscribe();
-          }
-        });
   }
 
   public static class Argument extends org.astraea.common.argument.Argument {
