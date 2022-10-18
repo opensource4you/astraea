@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -49,6 +50,7 @@ import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.metrics.collector.BeanCollector;
 
 class BalancerHandler implements Handler {
 
@@ -69,17 +71,30 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
+  private final Duration metricSampleInterval = Duration.ofSeconds(1);
+  private final BeanCollector beanCollector;
+  private final Map<Integer, InetSocketAddress> brokerJmxAddresses;
 
   BalancerHandler(Admin admin) {
+    this(admin, Map.of());
+  }
+
+  BalancerHandler(Admin admin, Map<Integer, InetSocketAddress> brokerJmxAddresses) {
     this(
         admin,
+        brokerJmxAddresses,
         HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)),
         new ReplicaSizeCost());
   }
 
-  BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
+  BalancerHandler(
+      Admin admin,
+      Map<Integer, InetSocketAddress> brokerJmxAddresses,
+      HasClusterCost clusterCostFunction,
+      HasMoveCost moveCostFunction) {
     this(
         admin,
+        brokerJmxAddresses,
         clusterCostFunction,
         moveCostFunction,
         RebalancePlanGenerator.random(30),
@@ -88,15 +103,19 @@ class BalancerHandler implements Handler {
 
   BalancerHandler(
       Admin admin,
+      Map<Integer, InetSocketAddress> brokerJmxAddresses,
       HasClusterCost clusterCostFunction,
       HasMoveCost moveCostFunction,
       RebalancePlanGenerator generator,
       RebalancePlanExecutor executor) {
     this.admin = admin;
+    this.brokerJmxAddresses = brokerJmxAddresses;
     this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
     this.generator = generator;
     this.executor = executor;
+    this.beanCollector =
+        BeanCollector.builder().numberOfObjectsPerNode(2000).interval(metricSampleInterval).build();
   }
 
   @Override
@@ -135,77 +154,17 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
-    var planGeneration =
-        CompletableFuture.supplyAsync(
-            () -> {
-              var timeout =
-                  Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
-                      .map(DurationField::toDuration)
-                      .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
-              var topics =
-                  Optional.ofNullable(channel.queries().get(TOPICS_KEY))
-                      .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-                      .orElseGet(() -> admin.topicNames(false));
-              var currentClusterInfo = admin.clusterInfo();
-              var cost =
-                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-              var loop =
-                  Integer.parseInt(
-                      channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
-              var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
-              var bestPlan =
-                  Balancer.builder()
-                      .planGenerator(generator)
-                      .clusterCost(clusterCostFunction)
-                      .moveCost(moveCostFunction)
-                      .limit(loop)
-                      .limit(timeout)
-                      .build()
-                      .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
-              var changes =
-                  bestPlan
-                      .map(
-                          p ->
-                              ClusterLogAllocation.findNonFulfilledAllocation(
-                                      targetAllocations, p.proposal().rebalancePlan())
-                                  .stream()
-                                  .map(
-                                      tp ->
-                                          new Change(
-                                              tp.topic(),
-                                              tp.partition(),
-                                              // only log the size from source replicas
-                                              placements(
-                                                  targetAllocations.logPlacements(tp),
-                                                  l ->
-                                                      currentClusterInfo
-                                                          .replica(
-                                                              TopicPartitionReplica.of(
-                                                                  tp.topic(),
-                                                                  tp.partition(),
-                                                                  l.nodeInfo().id()))
-                                                          .map(Replica::size)
-                                                          .orElse(null)),
-                                              placements(
-                                                  p.proposal().rebalancePlan().logPlacements(tp),
-                                                  ignored -> null)))
-                                  .collect(Collectors.toUnmodifiableList()))
-                      .orElse(List.of());
-              var report =
-                  new Report(
-                      newPlanId,
-                      cost,
-                      bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                      loop,
-                      bestPlan.map(p -> p.proposal().index()).orElse(null),
-                      clusterCostFunction.getClass().getSimpleName(),
-                      changes,
-                      bestPlan
-                          .map(p -> List.of(new MigrationCost(p.moveCost())))
-                          .orElseGet(List::of));
-              return new PlanInfo(report, bestPlan.orElseThrow());
-            });
-    generatedPlans.put(newPlanId, planGeneration);
+    var timeout =
+        Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
+            .map(DurationField::toDuration)
+            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+    var loop =
+        Integer.parseInt(channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
+    var topics =
+        Optional.ofNullable(channel.queries().get(TOPICS_KEY))
+            .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
+            .orElseGet(() -> admin.topicNames(false));
+    generatedPlans.put(newPlanId, searchRebalancePlan(timeout, loop, topics));
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
@@ -246,6 +205,64 @@ class BalancerHandler implements Handler {
         return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       }
     }
+  }
+
+  private CompletableFuture<PlanInfo> searchRebalancePlan(
+      Duration timeout, int loop, Set<String> topics) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          var currentClusterInfo = admin.clusterInfo();
+          var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+          var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+          var bestPlan =
+              Balancer.builder()
+                  .planGenerator(generator)
+                  .clusterCost(clusterCostFunction)
+                  .moveCost(moveCostFunction)
+                  .limit(loop)
+                  .limit(timeout)
+                  .build()
+                  .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+          var changes =
+              bestPlan
+                  .map(
+                      p ->
+                          ClusterLogAllocation.findNonFulfilledAllocation(
+                                  targetAllocations, p.proposal().rebalancePlan())
+                              .stream()
+                              .map(
+                                  tp ->
+                                      new Change(
+                                          tp.topic(),
+                                          tp.partition(),
+                                          // only log the size from source replicas
+                                          placements(
+                                              targetAllocations.logPlacements(tp),
+                                              l ->
+                                                  currentClusterInfo
+                                                      .replica(
+                                                          TopicPartitionReplica.of(
+                                                              tp.topic(),
+                                                              tp.partition(),
+                                                              l.nodeInfo().id()))
+                                                      .map(Replica::size)
+                                                      .orElse(null)),
+                                          placements(
+                                              p.proposal().rebalancePlan().logPlacements(tp),
+                                              ignored -> null)))
+                              .collect(Collectors.toUnmodifiableList()))
+                  .orElse(List.of());
+          var report =
+              new Report(
+                  cost,
+                  bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+                  loop,
+                  bestPlan.map(p -> p.proposal().index()).orElse(null),
+                  clusterCostFunction.getClass().getSimpleName(),
+                  changes,
+                  bestPlan.map(p -> List.of(new MigrationCost(p.moveCost()))).orElseGet(List::of));
+          return new PlanInfo(report, bestPlan.orElseThrow());
+        });
   }
 
   private void sanityCheck(PlanInfo thePlanInfo) {
@@ -356,7 +373,6 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    final String id;
     final double cost;
 
     // don't generate new cost if there is no best plan
@@ -370,7 +386,6 @@ class BalancerHandler implements Handler {
     final List<MigrationCost> migrationCosts;
 
     Report(
-        String id,
         double cost,
         Double newCost,
         int limit,
@@ -378,7 +393,6 @@ class BalancerHandler implements Handler {
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
-      this.id = id;
       this.cost = cost;
       this.newCost = newCost;
       this.limit = limit;
