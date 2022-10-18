@@ -43,7 +43,12 @@ public final class ServerMetrics {
 
     @Override
     public String alias() {
-      return metricName;
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
 
     public static ZooKeeperClientMetrics ofAlias(String alias) {
@@ -105,6 +110,11 @@ public final class ServerMetrics {
     @Override
     public String alias() {
       return metricName;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
 
     public Meter fetch(MBeanClient mBeanClient) {
