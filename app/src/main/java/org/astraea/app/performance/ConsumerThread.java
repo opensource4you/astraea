@@ -91,6 +91,7 @@ public interface ConsumerThread extends AbstractThread {
                     }
                   });
               return new ConsumerThread() {
+
                 @Override
                 public void waitForDone() {
                   Utils.swallowException(closeLatch::await);

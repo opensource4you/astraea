@@ -109,12 +109,12 @@ public class PerformanceTest extends RequireBrokerCluster {
             new String[] {
               "--bootstrap.servers",
               "localhost:9092",
-              "--unsubscribe.frequency",
-              "10s",
+              "--monkeys",
+              "unsubscribe:10s",
               "--topics",
               initTopic()
             });
-    Assertions.assertEquals(Duration.ofSeconds(10), args.unsubscribeDuration);
+    Assertions.assertEquals(Duration.ofSeconds(10), args.monkeys.get("unsubscribe"));
   }
 
   @Test
@@ -125,12 +125,12 @@ public class PerformanceTest extends RequireBrokerCluster {
             new String[] {
               "--bootstrap.servers",
               "localhost:9092",
-              "--add.frequency",
-              "10s",
+              "--monkeys",
+              "add:10s",
               "--topics",
               initTopic()
             });
-    Assertions.assertEquals(Duration.ofSeconds(10), args.addDuration);
+    Assertions.assertEquals(Duration.ofSeconds(10), args.monkeys.get("add"));
   }
 
   @Test
@@ -141,12 +141,12 @@ public class PerformanceTest extends RequireBrokerCluster {
             new String[] {
               "--bootstrap.servers",
               "localhost:9092",
-              "--kill.frequency",
-              "10s",
+              "--monkeys",
+              "kill:10s",
               "--topics",
               initTopic()
             });
-    Assertions.assertEquals(Duration.ofSeconds(10), args.killDuration);
+    Assertions.assertEquals(Duration.ofSeconds(10), args.monkeys.get("kill"));
   }
 
   @Test
