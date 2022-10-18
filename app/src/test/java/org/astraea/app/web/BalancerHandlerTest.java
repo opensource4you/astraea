@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -47,6 +48,9 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.platform.HostMetrics;
+import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -62,10 +66,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var handler =
           new BalancerHandler(
               admin, Map.of(), MultiplicationCost.decreasing(), new ReplicaSizeCost());
-      var report =
-          submitPlanGeneration(handler, Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "3000")))
-              .report;
-      Assertions.assertNotNull(report.id);
+      var progress =
+          submitPlanGeneration(
+              handler, Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "3000")));
+      var report = progress.report;
       Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
@@ -539,10 +543,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               new ReplicaSizeCost(),
               RebalancePlanGenerator.random(30),
               theExecutor);
-      var theReport =
+      var progress =
           submitPlanGeneration(
-                  handler, Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, topic)))
-              .report;
+              handler, Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, topic)));
+      var theReport = progress.report;
 
       // pick a partition and alter its placement
       var theChange = theReport.changes.stream().findAny().orElseThrow();
@@ -554,7 +558,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           IllegalStateException.class,
           () ->
               handler
-                  .put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id))))
+                  .put(Channel.ofRequest(PostRequest.of(Map.of("id", progress.id))))
                   .toCompletableFuture()
                   .get(),
           "The cluster state has changed, prevent the plan from execution");
@@ -769,6 +773,103 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
+  @Test
+  void testCostFunctionWithFetcher() {
+    createAndProduceTopic(5);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var cost =
+          new HasClusterCost() {
+            double value = 1;
+
+            @Override
+            public synchronized ClusterCost clusterCost(
+                ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+              if (clusterBean.all().get(0).size() < 10)
+                throw new IllegalStateException("Insufficient metrics");
+              clusterBean
+                  .all()
+                  .get(0)
+                  .forEach(bean -> Assertions.assertInstanceOf(JvmMemory.class, bean));
+              clusterBean
+                  .all()
+                  .get(1)
+                  .forEach(bean -> Assertions.assertInstanceOf(JvmMemory.class, bean));
+              clusterBean
+                  .all()
+                  .get(2)
+                  .forEach(bean -> Assertions.assertInstanceOf(JvmMemory.class, bean));
+              double theValue = value;
+              value *= 0.998;
+              return () -> theValue;
+            }
+
+            @Override
+            public Optional<Fetcher> fetcher() {
+              return Optional.of(m -> List.of(HostMetrics.jvmMemory(m)));
+            }
+          };
+      var sock =
+          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort());
+      var jmx = Map.of(0, sock, 1, sock, 2, sock);
+      var handler = new BalancerHandler(admin, jmx, cost, new NoMoveCost());
+      var channel = Channel.ofQueries(Map.of(BalancerHandler.TIMEOUT_KEY, "60"));
+      var post =
+          (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
+      var planId = post.id;
+      var start = System.currentTimeMillis();
+      Utils.waitFor(
+          () -> {
+            var progress =
+                (BalancerHandler.PlanExecutionProgress)
+                    handler.get(Channel.ofTarget(planId)).toCompletableFuture().join();
+            System.out.println(progress.exception);
+            return progress.generated;
+          },
+          Duration.ofSeconds(70));
+      var end = System.currentTimeMillis();
+
+      var interval = (end - start) / 1000;
+      Assertions.assertTrue(
+          10 < interval && interval < 20,
+          "The generation should takes at least 10 second. Actual: " + interval);
+    }
+  }
+
+  @Test
+  void testTimeout() {
+    createAndProduceTopic(5);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var cost =
+          new HasClusterCost() {
+            @Override
+            public synchronized ClusterCost clusterCost(
+                ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+              throw new IllegalStateException("insufficient metrics");
+            }
+
+            @Override
+            public Optional<Fetcher> fetcher() {
+              return Optional.of(m -> List.of(HostMetrics.jvmMemory(m)));
+            }
+          };
+      var sock =
+          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort());
+      var jmx = Map.of(0, sock, 1, sock, 2, sock);
+      var handler = new BalancerHandler(admin, jmx, cost, new NoMoveCost());
+      var channel = Channel.ofQueries(Map.of(BalancerHandler.TIMEOUT_KEY, "10"));
+      var post =
+          (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(11));
+
+      var progress =
+          (BalancerHandler.PlanExecutionProgress)
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
+      Assertions.assertFalse(progress.generated, "The plan won't generate");
+      Assertions.assertNotNull(
+          progress.exception, "The generation timeout and failed with some reason");
+    }
+  }
+
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, Channel channel) throws ExecutionException, InterruptedException {
@@ -795,6 +896,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
     int count() {
       return executionCounter.intValue();
+    }
+  }
+
+  private static class NoMoveCost implements HasMoveCost {
+    @Override
+    public MoveCost moveCost(
+        ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+      return MoveCost.builder().build();
     }
   }
 }

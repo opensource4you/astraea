@@ -250,8 +250,9 @@ class BalancerHandler implements Handler {
 
   private PlanInfo searchRebalancePlan(
       Supplier<ClusterBean> supplier, Duration timeout, int loop, Set<String> topics) {
+    var metrics = supplier.get();
     var currentClusterInfo = admin.clusterInfo();
-    var cost = clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+    var cost = clusterCostFunction.clusterCost(currentClusterInfo, metrics).value();
     var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
     var bestPlan =
         Balancer.builder()
