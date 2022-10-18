@@ -52,6 +52,18 @@ public class BrokerTab {
   }
 
   private enum MetricType {
+    ZOOKEEPER_REQUEST(
+        "zookeeper request",
+        client ->
+            Arrays.stream(ServerMetrics.ZooKeeperClientMetrics.values())
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
+                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.percentile50()))),
+    ZOOKEEPER_SESSION(
+        "zookeeper session",
+        client ->
+            Arrays.stream(ServerMetrics.SessionExpireListener.values())
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
+                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.fiveMinuteRate()))),
     HOST(
         "host",
         client ->

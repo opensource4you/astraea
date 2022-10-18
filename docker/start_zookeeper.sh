@@ -22,10 +22,17 @@ declare -r VERSION=${VERSION:-3.7.1}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-"$(getRandomPort)"}
+declare -r ZOOKEEPER_JMX_PORT="${ZOOKEEPER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r DOCKERFILE=$DOCKER_FOLDER/zookeeper.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER="/tmp/zookeeper-dir"
 declare -r CONTAINER_NAME="zookeeper-$ZOOKEEPER_PORT"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx1G -Xms256m"}"
+declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
+  -Dcom.sun.management.jmxremote.authenticate=false \
+  -Dcom.sun.management.jmxremote.ssl=false \
+  -Dcom.sun.management.jmxremote.port=$ZOOKEEPER_JMX_PORT \
+  -Dcom.sun.management.jmxremote.rmi.port=$ZOOKEEPER_JMX_PORT \
+  -Djava.rmi.server.hostname=$ADDRESS"
 
 # ===================================[functions]===================================
 
@@ -105,13 +112,18 @@ if [[ -n "$DATA_FOLDER" ]]; then
     -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
     "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 else
+  # TODO: zookeeper does not support java.rmi.server.hostname so we have to disable the default settings of jmx from zookeeper
+  # and then add our custom settings. see https://issues.apache.org/jira/browse/ZOOKEEPER-3606
   docker run -d --init \
-    -e JVMFLAGS="$HEAP_OPTS" \
+    -e JMXDISABLE="true" \
+    -e JVMFLAGS="$HEAP_OPTS $JMX_OPTS" \
+    -p $ZOOKEEPER_JMX_PORT:$ZOOKEEPER_JMX_PORT \
     -p $ZOOKEEPER_PORT:2181 \
     "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 fi
 
 echo "================================================="
+echo "jmx address: ${ADDRESS}:$ZOOKEEPER_JMX_PORT"
 echo "run $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join kafka broker"
 echo "run env CONFLUENT_BROKER=true $DOCKER_FOLDER/start_broker.sh zookeeper.connect=$ADDRESS:$ZOOKEEPER_PORT to join confluent kafka broker"
 echo "================================================="
