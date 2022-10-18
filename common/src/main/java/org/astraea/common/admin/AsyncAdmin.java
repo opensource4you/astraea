@@ -87,7 +87,7 @@ public interface AsyncAdmin extends AutoCloseable {
                         Collectors.toMap(
                             NodeInfo::id,
                             n ->
-                                n.folders().stream()
+                                n.dataFolders().stream()
                                     .map(Broker.DataFolder::path)
                                     .collect(Collectors.toSet()))));
   }
