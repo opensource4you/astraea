@@ -44,6 +44,22 @@ import org.junit.jupiter.params.provider.EnumSource;
 public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.ZooKeeperClientMetrics.class)
+  void testSessionExpireListener(ServerMetrics.ZooKeeperClientMetrics request) {
+    var m = request.fetch(MBeanClient.local());
+    Assertions.assertDoesNotThrow(m::type);
+    MetricsTestUtil.validate(m);
+  }
+
+  @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.SessionExpireListener.class)
+  void testSessionExpireListener(ServerMetrics.SessionExpireListener request) {
+    var m = request.fetch(MBeanClient.local());
+    Assertions.assertDoesNotThrow(m::type);
+    MetricsTestUtil.validate(m);
+  }
+
+  @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
     var m = request.fetch(MBeanClient.local());

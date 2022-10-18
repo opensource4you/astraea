@@ -51,7 +51,7 @@ import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
@@ -402,10 +402,16 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testGetRecordByPartition() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var partitionNum = 2;
-      admin.creator().topic(topic).numberOfPartitions(partitionNum).create();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitionNum)
+          .run()
+          .toCompletableFuture()
+          .get();
       Utils.sleep(Duration.ofSeconds(2));
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
@@ -733,10 +739,17 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteParameter() throws ExecutionException, InterruptedException {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
-      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           Response.OK,
@@ -763,11 +776,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDelete() throws ExecutionException, InterruptedException {
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
-      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
 
       var senders =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
@@ -782,7 +802,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1")))
               .toCompletableFuture()
               .get());
-      var partitions = admin.partitions(Set.of(topicName));
+      var partitions = admin.partitions(Set.of(topicName)).toCompletableFuture().get();
       Assertions.assertEquals(3, partitions.size());
       Assertions.assertEquals(
           1,
@@ -808,7 +828,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().get());
-      partitions = admin.partitions(admin.topicNames());
+      partitions =
+          admin
+              .partitions(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get();
       Assertions.assertEquals(
           2,
           partitions.stream()
@@ -835,11 +859,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteOffset() throws ExecutionException, InterruptedException {
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
-      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
 
       var senders =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
@@ -854,7 +885,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .delete(Channel.ofQueries(topicName, Map.of(OFFSET, "1")))
               .toCompletableFuture()
               .get());
-      var partitions = admin.partitions(admin.topicNames());
+      var partitions =
+          admin
+              .partitions(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get();
       Assertions.assertEquals(
           1,
           partitions.stream()
@@ -881,11 +916,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeletePartition() throws ExecutionException, InterruptedException {
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
-      admin.creator().topic(topicName).numberOfPartitions(3).numberOfReplicas((short) 3).create();
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
 
       var senders =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
@@ -900,7 +942,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "1")))
               .toCompletableFuture()
               .get());
-      var partitions = admin.partitions(admin.topicNames());
+      var partitions =
+          admin
+              .partitions(admin.topicNames(true).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get();
       Assertions.assertEquals(
           0,
           partitions.stream()
@@ -1014,7 +1060,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   private RecordHandler getRecordHandler() {
-    return new RecordHandler(Admin.of(bootstrapServers()), bootstrapServers());
+    return new RecordHandler(AsyncAdmin.of(bootstrapServers()), bootstrapServers());
   }
 
   @Test

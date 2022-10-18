@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -279,25 +278,51 @@ public interface AsyncAdmin extends AutoCloseable {
   // ---------------------------------[wait]---------------------------------//
 
   /**
-   * wait the leader of partition get elected.
+   * wait the leader of partition get allocated. The topic creation needs time to be synced by all
+   * brokers. This method is used to check whether "most" of brokers get the topic creation.
+   *
+   * @param topicAndNumberOfPartitions to check leader allocation
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletionStage<Boolean> waitPartitionLeaderSynced(
+      Map<String, Integer> topicAndNumberOfPartitions, Duration timeout) {
+    return waitCluster(
+        topicAndNumberOfPartitions.keySet(),
+        clusterInfo -> {
+          var current =
+              clusterInfo
+                  .replicaStream()
+                  .filter(ReplicaInfo::isLeader)
+                  .collect(Collectors.groupingBy(ReplicaInfo::topic));
+          return topicAndNumberOfPartitions.entrySet().stream()
+              .allMatch(
+                  entry ->
+                      current.getOrDefault(entry.getKey(), List.of()).size() == entry.getValue());
+        },
+        timeout,
+        2);
+  }
+
+  /**
+   * wait the preferred leader of partition get elected.
    *
    * @param topicPartitions to check leader election
    * @param timeout to wait
    * @return a background thread used to check leader election.
    */
-  default CompletableFuture<Boolean> waitPreferredLeaderSynced(
+  default CompletionStage<Boolean> waitPreferredLeaderSynced(
       Set<TopicPartition> topicPartitions, Duration timeout) {
     return waitCluster(
-            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
-            clusterInfo ->
-                clusterInfo
-                    .replicaStream()
-                    .filter(r -> topicPartitions.contains(r.topicPartition()))
-                    .filter(Replica::isPreferredLeader)
-                    .allMatch(ReplicaInfo::isLeader),
-            timeout,
-            2)
-        .toCompletableFuture();
+        topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
+        clusterInfo ->
+            clusterInfo
+                .replicaStream()
+                .filter(r -> topicPartitions.contains(r.topicPartition()))
+                .filter(Replica::isPreferredLeader)
+                .allMatch(ReplicaInfo::isLeader),
+        timeout,
+        2);
   }
 
   /**
@@ -307,18 +332,17 @@ public interface AsyncAdmin extends AutoCloseable {
    * @param timeout to wait
    * @return a background thread used to check replica allocations
    */
-  default CompletableFuture<Boolean> waitReplicasSynced(
+  default CompletionStage<Boolean> waitReplicasSynced(
       Set<TopicPartitionReplica> replicas, Duration timeout) {
     return waitCluster(
-            replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
-            clusterInfo ->
-                clusterInfo
-                    .replicaStream()
-                    .filter(r -> replicas.contains(r.topicPartitionReplica()))
-                    .allMatch(r -> r.inSync() && !r.isFuture()),
-            timeout,
-            2)
-        .toCompletableFuture();
+        replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
+        clusterInfo ->
+            clusterInfo
+                .replicaStream()
+                .filter(r -> replicas.contains(r.topicPartitionReplica()))
+                .allMatch(r -> r.inSync() && !r.isFuture()),
+        timeout,
+        2);
   }
 
   /**
@@ -343,11 +367,15 @@ public interface AsyncAdmin extends AutoCloseable {
                 .thenApply(predicate::test)
                 .exceptionally(
                     e -> {
-                      if (e instanceof CompletionException
-                          && e.getCause()
-                              instanceof org.apache.kafka.common.errors.RetriableException)
+                      if (e
+                              instanceof
+                              org.apache.kafka.common.errors.UnknownTopicOrPartitionException
+                          || e.getCause()
+                              instanceof
+                              org.apache.kafka.common.errors.UnknownTopicOrPartitionException)
                         return false;
-                      throw (RuntimeException) e;
+                      if (e instanceof RuntimeException) throw (RuntimeException) e;
+                      throw new RuntimeException(e);
                     }),
         timeout.toMillis(),
         debounce,
