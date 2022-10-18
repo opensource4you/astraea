@@ -130,13 +130,15 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
   @Override
   public CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout) {
-    return asyncAdmin.waitReplicasSynced(Set.of(log), timeout);
+    return asyncAdmin.waitReplicasSynced(Set.of(log), timeout).toCompletableFuture();
   }
 
   @Override
   public CompletableFuture<Boolean> waitPreferredLeaderSynced(
       TopicPartition topicPartition, Duration timeout) {
-    return asyncAdmin.waitPreferredLeaderSynced(Set.of(topicPartition), timeout);
+    return asyncAdmin
+        .waitPreferredLeaderSynced(Set.of(topicPartition), timeout)
+        .toCompletableFuture();
   }
 
   @Override
