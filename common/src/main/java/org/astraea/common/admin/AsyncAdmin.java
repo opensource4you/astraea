@@ -29,6 +29,9 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Builder;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Record;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -74,6 +77,48 @@ public interface AsyncAdmin extends AutoCloseable {
 
   CompletionStage<Map<TopicPartition, Long>> latestOffsets(Set<TopicPartition> topicPartitions);
 
+  /**
+   * find the timestamp of the latest record for given partitions
+   *
+   * @param topicPartitions to search timestamp of the latest record
+   * @return partition and timestamp of the latest record
+   */
+  default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
+      Set<TopicPartition> topicPartitions) {
+    return brokers()
+        .thenApply(
+            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
+        .thenApply(
+            bootstrap -> {
+              try (var consumer =
+                  Consumer.forPartitions(topicPartitions)
+                      .bootstrapServers(bootstrap)
+                      .seek(Builder.SeekStrategy.DISTANCE_FROM_LATEST, 1)
+                      .build()) {
+                // TODO: how many records we should take ?
+                return consumer.poll(topicPartitions.size(), Duration.ofSeconds(5)).stream()
+                    .collect(
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+                    .entrySet()
+                    .stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                e.getValue().stream()
+                                    .mapToLong(Record::timestamp)
+                                    .max()
+                                    .orElse(-1L)));
+              }
+            });
+  }
+
+  /**
+   * find the max timestamp of existent records for given partitions
+   *
+   * @param topicPartitions to search max timestamp
+   * @return partition and max timestamp
+   */
   CompletionStage<Map<TopicPartition, Long>> maxTimestamps(Set<TopicPartition> topicPartitions);
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);

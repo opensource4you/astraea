@@ -18,9 +18,8 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -61,36 +60,65 @@ public interface TopicChecker {
                     .collect(Collectors.toUnmodifiableSet()));
       };
 
-  /** Find topics whose latest record timestamp is not older than the given duration. */
-  // TODO: Timestamp may custom by producer, maybe check the time by idempotent state. See:
-  // https://github.com/skiptests/astraea/issues/739#issuecomment-1254838359
+  /**
+   * Find topics whose max(the latest record timestamp, producer timestamp, max timestamp of
+   * records) is not older than the given duration.
+   */
   static TopicChecker latestTimestamp(Duration duration) {
     return (admin, topics) -> {
-      long now = System.currentTimeMillis();
-      return admin
-          .partitions(topics)
-          .thenApply(
-              partitions ->
-                  // Filtering the topic to get the topic that
-                  // 1. offset of each partition are not 0
-                  // 2. the max timestamp is not smaller than the given time
-                  //    or
-                  //    the topic does not support max timestamp
-                  partitions.stream()
-                      .filter(p -> p.latestOffset() > 0)
-                      .collect(
-                          Collectors.groupingBy(
-                              Partition::topic,
-                              Collectors.maxBy(Comparator.comparingLong(Partition::maxTimestamp))))
-                      .values()
-                      .stream()
-                      .flatMap(Optional::stream)
-                      .filter(
-                          p ->
-                              now - duration.toMillis() < p.maxTimestamp()
-                                  || p.maxTimestamp() == -1)
-                      .map(Partition::topic)
-                      .collect(Collectors.toUnmodifiableSet()));
+      long end = System.currentTimeMillis() - duration.toMillis();
+      var partitionTimestamp =
+          admin
+              .topicPartitions(topics)
+              .thenCompose(
+                  tps ->
+                      admin
+                          .timestampOfLatestRecords(tps)
+                          .thenCompose(
+                              timestampOfLatestRecords ->
+                                  admin
+                                      .producerStates(tps)
+                                      .thenCombine(
+                                          admin.maxTimestamps(tps),
+                                          ((producerStates, maxTimestamps) -> {
+                                            var tpTimeFromState =
+                                                producerStates.stream()
+                                                    .collect(
+                                                        Collectors.groupingBy(
+                                                            ProducerState::topicPartition))
+                                                    .entrySet()
+                                                    .stream()
+                                                    .collect(
+                                                        Collectors.toMap(
+                                                            Map.Entry::getKey,
+                                                            e ->
+                                                                e.getValue().stream()
+                                                                    .mapToLong(
+                                                                        ProducerState
+                                                                            ::lastTimestamp)
+                                                                    .max()
+                                                                    .orElse(-1)));
+                                            return tps.stream()
+                                                .collect(
+                                                    Collectors.toMap(
+                                                        tp -> tp,
+                                                        tp ->
+                                                            Math.max(
+                                                                timestampOfLatestRecords
+                                                                    .getOrDefault(tp, -1L),
+                                                                Math.max(
+                                                                    tpTimeFromState.getOrDefault(
+                                                                        tp, -1L),
+                                                                    maxTimestamps.getOrDefault(
+                                                                        tp, -1L)))));
+                                          }))));
+
+      return partitionTimestamp.thenApply(
+          ts ->
+              ts.entrySet().stream()
+                  .filter(e -> e.getValue() >= end)
+                  .map(e -> e.getKey().topic())
+                  .collect(Collectors.toSet()));
     };
   }
 }

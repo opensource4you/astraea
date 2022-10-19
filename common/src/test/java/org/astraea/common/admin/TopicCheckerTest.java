@@ -31,8 +31,6 @@ public class TopicCheckerTest extends RequireBrokerCluster {
   void testLatestTimestamp() throws InterruptedException, ExecutionException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic("produce").value("1".getBytes()).run().toCompletableFuture().get();
-    } catch (ExecutionException e) {
-      e.printStackTrace();
     }
 
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
