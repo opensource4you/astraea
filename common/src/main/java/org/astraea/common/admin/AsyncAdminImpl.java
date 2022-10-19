@@ -248,6 +248,124 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .collect(Collectors.toCollection(TreeSet::new)));
   }
 
+  /**
+   * Some requests get blocked when there are offline brokers. In order to avoid blocking, this
+   * method returns the fetchable partitions.
+   */
+  private CompletionStage<Set<TopicPartition>> updatableTopicPartitions(Set<String> topics) {
+    if (topics.isEmpty()) return CompletableFuture.completedFuture(Set.of());
+    return to(kafkaAdmin.describeTopics(topics).all())
+        .thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    // kafka update metadata based on topic, so it may get blocked if there is one
+                    // offline partition
+                    .filter(
+                        e ->
+                            e.getValue().partitions().stream()
+                                .allMatch(tp -> tp.leader() != null && !tp.leader().isEmpty()))
+                    .flatMap(
+                        e ->
+                            e.getValue().partitions().stream()
+                                .map(tp -> TopicPartition.of(e.getKey(), tp.partition())))
+                    .collect(Collectors.toSet()));
+  }
+
+  @Override
+  public CompletionStage<Map<TopicPartition, Long>> earliestOffsets(
+      Set<TopicPartition> topicPartitions) {
+    if (topicPartitions.isEmpty()) return CompletableFuture.completedFuture(Map.of());
+    return updatableTopicPartitions(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
+        .thenCompose(
+            ps ->
+                to(kafkaAdmin
+                        .listOffsets(
+                            ps.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        TopicPartition::to,
+                                        ignored -> new OffsetSpec.EarliestSpec())))
+                        .all())
+                    .thenApply(
+                        result ->
+                            ps.stream()
+                                .collect(
+                                    Utils.toSortedMap(
+                                        tp -> tp,
+                                        tp ->
+                                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
+                                                .map(
+                                                    ListOffsetsResult.ListOffsetsResultInfo::offset)
+                                                .orElse(-1L)))));
+  }
+
+  @Override
+  public CompletionStage<Map<TopicPartition, Long>> latestOffsets(
+      Set<TopicPartition> topicPartitions) {
+    if (topicPartitions.isEmpty()) return CompletableFuture.completedFuture(Map.of());
+    return updatableTopicPartitions(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
+        .thenCompose(
+            ps ->
+                to(kafkaAdmin
+                        .listOffsets(
+                            ps.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        TopicPartition::to,
+                                        ignored -> new OffsetSpec.LatestSpec())))
+                        .all())
+                    .thenApply(
+                        result ->
+                            ps.stream()
+                                .collect(
+                                    Utils.toSortedMap(
+                                        tp -> tp,
+                                        tp ->
+                                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
+                                                .map(
+                                                    ListOffsetsResult.ListOffsetsResultInfo::offset)
+                                                .orElse(-1L)))));
+  }
+
+  @Override
+  public CompletionStage<Map<TopicPartition, Long>> maxTimestamps(
+      Set<TopicPartition> topicPartitions) {
+    if (topicPartitions.isEmpty()) return CompletableFuture.completedFuture(Map.of());
+    return updatableTopicPartitions(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
+        .thenApply(
+            ps -> {
+              System.out.println("ps:" + ps.size());
+              return ps;
+            })
+        .thenCompose(
+            ps ->
+                to(kafkaAdmin
+                        .listOffsets(
+                            ps.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        TopicPartition::to,
+                                        ignored -> new OffsetSpec.MaxTimestampSpec())))
+                        .all())
+                    // the old kafka does not support to fetch max timestamp
+                    .exceptionally(e -> Map.of())
+                    .thenApply(
+                        result ->
+                            ps.stream()
+                                .collect(
+                                    Utils.toSortedMap(
+                                        tp -> tp,
+                                        tp ->
+                                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
+                                                .map(
+                                                    ListOffsetsResult.ListOffsetsResultInfo
+                                                        ::timestamp)
+                                                .orElse(-1L)))));
+  }
+
   @Override
   public CompletionStage<List<Partition>> partitions(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
@@ -262,84 +380,65 @@ class AsyncAdminImpl implements AsyncAdmin {
                                     .map(
                                         tp ->
                                             Map.entry(
-                                                new org.apache.kafka.common.TopicPartition(
-                                                    e.getKey(), tp.partition()),
-                                                tp)))
+                                                TopicPartition.of(e.getKey(), tp.partition()), tp)))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-    return allPartitions.thenCompose(
-        partitionInfos -> {
-          // kafka admin update metadata based on topic, so we skip topics hosted by offline node
-          var availablePartitions =
-              partitionInfos.entrySet().stream()
-                  .collect(Collectors.groupingBy(e -> e.getKey().topic()))
-                  .entrySet()
-                  .stream()
-                  .filter(
-                      e ->
-                          e.getValue().stream()
-                              .allMatch(
-                                  e2 ->
-                                      e2.getValue().leader() != null
-                                          && !e2.getValue().leader().isEmpty()))
-                  .flatMap(e -> e.getValue().stream())
-                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-          return to(kafkaAdmin
-                  .listOffsets(
-                      availablePartitions.keySet().stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Function.identity(), e -> new OffsetSpec.EarliestSpec())))
-                  .all())
-              .thenCompose(
-                  earliest ->
-                      to(kafkaAdmin
-                              .listOffsets(
-                                  availablePartitions.keySet().stream()
-                                      .collect(
-                                          Collectors.toMap(
-                                              Function.identity(),
-                                              e -> new OffsetSpec.LatestSpec())))
-                              .all())
-                          .thenCompose(
-                              latest ->
-                                  to(kafkaAdmin
-                                          .listOffsets(
-                                              availablePartitions.keySet().stream()
-                                                  .collect(
-                                                      Collectors.toMap(
-                                                          Function.identity(),
-                                                          e -> new OffsetSpec.MaxTimestampSpec())))
-                                          .all())
-                                      // the old kafka does not support to fetch max timestamp
-                                      .handle(
-                                          (r, e) ->
-                                              e == null
-                                                  ? r
-                                                  : Map
-                                                      .<String,
-                                                          ListOffsetsResult.ListOffsetsResultInfo>
-                                                          of())
-                                      .thenApply(
-                                          maxTimestamp ->
-                                              partitionInfos.entrySet().stream()
-                                                  .map(
-                                                      entry ->
-                                                          Partition.of(
-                                                              entry.getKey().topic(),
-                                                              entry.getValue(),
-                                                              Optional.ofNullable(
-                                                                  earliest.get(entry.getKey())),
-                                                              Optional.ofNullable(
-                                                                  latest.get(entry.getKey())),
-                                                              Optional.ofNullable(
-                                                                  maxTimestamp.get(
-                                                                      entry.getKey()))))
-                                                  .sorted(
-                                                      Comparator.comparing(Partition::topic)
-                                                          .thenComparing(Partition::partition))
-                                                  .collect(Collectors.toList()))));
-        });
+    return updatableTopicPartitions(topics)
+        .thenCompose(
+            tps ->
+                earliestOffsets(tps)
+                    .thenCompose(
+                        earliestOffsets ->
+                            latestOffsets(tps)
+                                .thenCompose(
+                                    latestOffsets ->
+                                        maxTimestamps(tps)
+                                            .thenCombine(
+                                                allPartitions,
+                                                (maxTimestamps, tpInfos) ->
+                                                    tpInfos.keySet().stream()
+                                                        .map(
+                                                            tp -> {
+                                                              var earliest =
+                                                                  earliestOffsets.getOrDefault(
+                                                                      tp, -1L);
+                                                              var latest =
+                                                                  latestOffsets.getOrDefault(
+                                                                      tp, -1L);
+                                                              var maxTimestamp =
+                                                                  maxTimestamps.getOrDefault(
+                                                                      tp, -1L);
+                                                              var tpInfo = tpInfos.get(tp);
+                                                              var leader =
+                                                                  tpInfo.leader() == null
+                                                                          || tpInfo
+                                                                              .leader()
+                                                                              .isEmpty()
+                                                                      ? null
+                                                                      : NodeInfo.of(
+                                                                          tpInfo.leader());
+                                                              var replicas =
+                                                                  tpInfo.replicas().stream()
+                                                                      .map(NodeInfo::of)
+                                                                      .collect(Collectors.toList());
+                                                              var isr =
+                                                                  tpInfo.isr().stream()
+                                                                      .map(NodeInfo::of)
+                                                                      .collect(Collectors.toList());
+                                                              return Partition.of(
+                                                                  tp.topic(),
+                                                                  tp.partition(),
+                                                                  leader,
+                                                                  replicas,
+                                                                  isr,
+                                                                  earliest,
+                                                                  latest,
+                                                                  maxTimestamp);
+                                                            })
+                                                        .sorted(
+                                                            Comparator.comparing(
+                                                                Partition::topicPartition))
+                                                        .collect(Collectors.toList())))));
   }
 
   @Override
