@@ -18,6 +18,7 @@ package org.astraea.common.metrics;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.astraea.common.metrics.stats.Stat;
 
 public class Sensor<V> {
@@ -33,6 +34,12 @@ public class Sensor<V> {
 
   public V measure(String metricName) {
     return stats.get(metricName).measure();
+  }
+
+  public Map<String, V> measures() {
+    return stats.entrySet().stream()
+        .map(e -> Map.entry(e.getKey(), e.getValue().measure()))
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public Map<String, Stat<V>> metrics() {
