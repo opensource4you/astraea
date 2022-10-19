@@ -91,8 +91,8 @@ public interface JsonConverter {
         return Utils.packException(
             () ->
                 objectMapper.readValue(
-                    json,
-                    new TypeReference<>() {
+                    json, // diamond not work , it's like JDK bug for open-jdk on github ci
+                    new TypeReference<T>() {
                       @Override
                       public Type getType() {
                         return typeRef.getType();
