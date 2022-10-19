@@ -70,6 +70,12 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
 
+  CompletionStage<Map<TopicPartition, Long>> earliestOffsets(Set<TopicPartition> topicPartitions);
+
+  CompletionStage<Map<TopicPartition, Long>> latestOffsets(Set<TopicPartition> topicPartitions);
+
+  CompletionStage<Map<TopicPartition, Long>> maxTimestamps(Set<TopicPartition> topicPartitions);
+
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
   /** @return online node information */
