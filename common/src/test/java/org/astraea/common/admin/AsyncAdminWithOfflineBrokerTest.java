@@ -70,7 +70,7 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
       Assertions.assertEquals(2, brokers.size());
       brokers.forEach(
           b ->
-              b.folders()
+              b.dataFolders()
                   .forEach(d -> Assertions.assertEquals(0, d.orphanPartitionSizes().size())));
       var offlineBrokers = brokers.stream().filter(NodeInfo::offline).collect(Collectors.toList());
       Assertions.assertEquals(0, offlineBrokers.size());

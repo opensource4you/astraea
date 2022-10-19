@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -56,6 +57,10 @@ public class SkewedPartitionScenario implements Scenario {
         .numberOfPartitions(partitions)
         .numberOfReplicas(replicas)
         .run()
+        .thenCompose(
+            ignored ->
+                admin.waitPartitionLeaderSynced(
+                    Map.of(topicName, partitions), Duration.ofSeconds(4)))
         .thenCompose(ignored -> admin.brokers())
         .thenApply(
             brokers -> brokers.stream().map(NodeInfo::id).sorted().collect(Collectors.toList()))

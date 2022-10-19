@@ -38,12 +38,12 @@ public class WebService {
 
   private static void execute(Argument arg) throws IOException {
     var server = HttpServer.create(new InetSocketAddress(arg.port), 0);
-    server.createContext("/topics", to(new TopicHandler(Admin.of(arg.configs()))));
+    server.createContext("/topics", to(new TopicHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/groups", to(new GroupHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/brokers", to(new BrokerHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/producers", to(new ProducerHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/quotas", to(new QuotaHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/transactions", to(new TransactionHandler(Admin.of(arg.configs()))));
+    server.createContext("/transactions", to(new TransactionHandler(AsyncAdmin.of(arg.configs()))));
     if (arg.needJmx())
       server.createContext(
           "/beans", to(new BeanHandler(AsyncAdmin.of(arg.configs()), arg.jmxPorts())));

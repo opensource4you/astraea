@@ -47,6 +47,7 @@ import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
@@ -70,7 +71,10 @@ class BalancerHandler implements Handler {
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaSizeCost(), new ReplicaSizeCost());
+    this(
+        admin,
+        HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)),
+        new ReplicaSizeCost());
   }
 
   BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {

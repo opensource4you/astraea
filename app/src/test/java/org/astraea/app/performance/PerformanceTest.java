@@ -102,19 +102,51 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testChaosFrequency() {
+  void testSubscribeFrequency() {
     var args =
         Argument.parse(
             new Performance.Argument(),
             new String[] {
               "--bootstrap.servers",
               "localhost:9092",
-              "--chaos.frequency",
-              "10s",
+              "--monkeys",
+              "unsubscribe:10s",
               "--topics",
               initTopic()
             });
-    Assertions.assertEquals(Duration.ofSeconds(10), args.chaosDuration);
+    Assertions.assertEquals(Duration.ofSeconds(10), args.monkeys.get("unsubscribe"));
+  }
+
+  @Test
+  void testAddFrequency() {
+    var args =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {
+              "--bootstrap.servers",
+              "localhost:9092",
+              "--monkeys",
+              "add:10s",
+              "--topics",
+              initTopic()
+            });
+    Assertions.assertEquals(Duration.ofSeconds(10), args.monkeys.get("add"));
+  }
+
+  @Test
+  void testKillFrequency() {
+    var args =
+        Argument.parse(
+            new Performance.Argument(),
+            new String[] {
+              "--bootstrap.servers",
+              "localhost:9092",
+              "--monkeys",
+              "kill:10s",
+              "--topics",
+              initTopic()
+            });
+    Assertions.assertEquals(Duration.ofSeconds(10), args.monkeys.get("kill"));
   }
 
   @Test

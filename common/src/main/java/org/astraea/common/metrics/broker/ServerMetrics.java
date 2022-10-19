@@ -21,12 +21,188 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public final class ServerMetrics {
+
+  public static List<AppInfo> appInfo(MBeanClient client) {
+    return client
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.server")
+                .property("type", "app-info")
+                .property("id", "*")
+                .build())
+        .stream()
+        .map(
+            obj ->
+                new AppInfo() {
+                  @Override
+                  public String id() {
+                    return beanObject().properties().get("id");
+                  }
+
+                  @Override
+                  public String commitId() {
+                    return (String) beanObject().attributes().get("CommitId");
+                  }
+
+                  @Override
+                  public long startTimeMs() {
+                    return (long) beanObject().attributes().get("StartTimeMs");
+                  }
+
+                  @Override
+                  public String version() {
+                    return (String) beanObject().attributes().get("Version");
+                  }
+
+                  @Override
+                  public BeanObject beanObject() {
+                    return obj;
+                  }
+                })
+        .collect(Collectors.toList());
+  }
+
+  public enum ZooKeeperClientMetrics implements EnumInfo {
+    ZOOKEEPER_REQUEST_LATENCY_MS("ZooKeeperRequestLatencyMs");
+
+    private final String metricName;
+
+    ZooKeeperClientMetrics(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public static ZooKeeperClientMetrics ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(ZooKeeperClientMetrics.class, alias);
+    }
+
+    public Histogram fetch(MBeanClient mBeanClient) {
+      return new Histogram(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "ZooKeeperClientMetrics")
+                  .property("name", metricName)
+                  .build()));
+    }
+
+    public static class Histogram implements HasHistogram {
+
+      private final BeanObject beanObject;
+
+      public Histogram(BeanObject beanObject) {
+        this.beanObject = beanObject;
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public ZooKeeperClientMetrics type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
+  public enum SessionExpireListener implements EnumInfo {
+    ZOOKEEPER_DISCONNECTS_PER_SEC("ZooKeeperDisconnectsPerSec"),
+    ZOOKEEPER_AUTH_FAILURES_PER_SEC("ZooKeeperAuthFailuresPerSec"),
+    ZOOKEEPER_EXPIRES_PER_SEC("ZooKeeperExpiresPerSec"),
+    ZOOKEEPER_READ_ONLY_CONNECTS_PER_SEC("ZooKeeperReadOnlyConnectsPerSec"),
+    ZOOKEEPER_SASL_AUTHENTICATIONS_PER_SEC("ZooKeeperSaslAuthenticationsPerSec"),
+    ZOOKEEPER_SYNC_CONNECTS_PER_SEC("ZooKeeperSyncConnectsPerSec");
+
+    private final String metricName;
+
+    SessionExpireListener(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public Meter fetch(MBeanClient mBeanClient) {
+      return new Meter(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "SessionExpireListener")
+                  .property("name", metricName)
+                  .build()));
+    }
+
+    public static SessionExpireListener ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(SessionExpireListener.class, alias);
+    }
+
+    public static class Meter implements HasMeter {
+
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public SessionExpireListener type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
 
   public enum KafkaServer implements EnumInfo {
     YAMMER_METRICS_COUNT("yammer-metrics-count"),
