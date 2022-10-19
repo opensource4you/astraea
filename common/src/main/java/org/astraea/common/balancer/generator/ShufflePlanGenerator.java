@@ -114,7 +114,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     return currentAllocation -> {
       final var selectedPartition =
           currentAllocation.topicPartitions().stream()
-              .filter(tp -> eligiblePartition().test(currentAllocation.logPlacements(tp)))
+              .filter(tp -> eligiblePartition((currentAllocation.logPlacements(tp))))
               .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
               .min(Map.Entry.comparingByValue())
               .map(Map.Entry::getKey)
@@ -183,13 +183,12 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
         .orElseThrow();
   }
 
-  private static Predicate<Set<Replica>> eligiblePartition() {
-    return Predicate.not(
-        Stream.<Predicate<Set<Replica>>>of(
-                // only one replica and it is offline
-                r -> r.size() == 1 && r.stream().findFirst().orElseThrow().isOffline(),
-                // no leader
-                r -> r.stream().noneMatch(ReplicaInfo::isLeader))
-            .reduce((ignore) -> false, Predicate::or));
+  private static boolean eligiblePartition(Set<Replica> replicas) {
+    return Stream.<Predicate<Set<Replica>>>of(
+            // only one replica and it is offline
+            r -> r.size() == 1 && r.stream().findFirst().orElseThrow().isOffline(),
+            // no leader
+            r -> r.stream().noneMatch(ReplicaInfo::isLeader))
+        .noneMatch(p -> p.test(replicas));
   }
 }

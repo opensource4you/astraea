@@ -234,7 +234,7 @@ class ShufflePlanGeneratorTest {
   }
 
   @Test
-  void testBlocklist() {
+  void testEligiblePartition() {
     var shufflePlanGenerator = new ShufflePlanGenerator(() -> 100);
     var dataDir =
         Map.of(
