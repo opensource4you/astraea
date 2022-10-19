@@ -30,7 +30,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonPrimitive;
@@ -68,7 +67,6 @@ public interface JsonConverter {
     var objectMapper =
         JsonMapper.builder()
             .addModule(new Jdk8Module())
-            //            .constructorDetector(ConstructorDetector.USE_DELEGATING)
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
             .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
             .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
@@ -91,8 +89,8 @@ public interface JsonConverter {
         return Utils.packException(
             () ->
                 objectMapper.readValue(
-                    json, // diamond not work , it's like JDK bug for open-jdk on github ci
-                    new TypeReference<T>() {
+                    json,
+                    new TypeReference<>() {
                       @Override
                       public Type getType() {
                         return typeRef.getType();
@@ -109,8 +107,6 @@ public interface JsonConverter {
   static JsonConverter gson(Consumer<GsonBuilder> builderConsumer) {
     var gsonBuilder =
         new GsonBuilder()
-            //        .registerTypeAdapter(Optional.class,new GsonOptionalDeserializer<>())
-
             .disableHtmlEscaping()
             .registerTypeAdapterFactory(OptionalTypeAdapter.FACTORY)
             .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter());
@@ -218,33 +214,6 @@ public interface JsonConverter {
 
       in.nextNull();
       return Optional.empty();
-    }
-  }
-
-  class GsonOptionalDeserializer<T>
-      implements JsonSerializer<Optional<T>>, JsonDeserializer<Optional<T>> {
-
-    @Override
-    public Optional<T> deserialize(
-        JsonElement json, Type typeOfT, JsonDeserializationContext context)
-        throws JsonParseException {
-      if (!json.isJsonNull()) {
-        final T value =
-            context.deserialize(json, ((ParameterizedType) typeOfT).getActualTypeArguments()[0]);
-        return Optional.ofNullable(value);
-      } else {
-        return Optional.empty();
-      }
-    }
-
-    @Override
-    public JsonElement serialize(
-        Optional<T> src, Type typeOfSrc, JsonSerializationContext context) {
-      if (src.isPresent()) {
-        return context.serialize(src.get());
-      } else {
-        return JsonNull.INSTANCE;
-      }
     }
   }
 }

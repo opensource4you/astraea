@@ -93,30 +93,30 @@ class JsonConverterTest {
   @Test
   void testOptional() {
     var jsonConverter = getConverter();
-    //    var testFieldClass = new TestOptionalClass();
-    //    testFieldClass.optValue = Optional.ofNullable("hello");
-    //    testFieldClass.nestedOpt = Optional.ofNullable(List.of("hello"));
-    //    testFieldClass.nonInitOpt = Optional.ofNullable("hello");
-    //
-    //    var json = jsonConverter.toJson(testFieldClass);
-    //    assertEquals(
-    //        "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}", json);
-    //
-    //    testFieldClass.optValue = Optional.empty();
-    //    testFieldClass.nestedOpt = Optional.empty();
-    //    testFieldClass.nonInitOpt = Optional.empty();
-    //    json = jsonConverter.toJson(testFieldClass);
-    //    assertEquals("{}", json);
-    //
-    //    var convertedTestFieldClass =
-    //        jsonConverter.fromJson(
-    //            "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}",
-    //            TestOptionalClass.class);
-    //    assertEquals("hello", convertedTestFieldClass.optValue.get());
-    //    assertEquals(List.of("hello"), convertedTestFieldClass.nestedOpt.get());
-    //    assertEquals("hello", convertedTestFieldClass.nonInitOpt.get());
+    var testFieldClass = new TestOptionalClass();
+    testFieldClass.optValue = Optional.ofNullable("hello");
+    testFieldClass.nestedOpt = Optional.ofNullable(List.of("hello"));
+    testFieldClass.nonInitOpt = Optional.ofNullable("hello");
+
+    var json = jsonConverter.toJson(testFieldClass);
+    assertEquals(
+        "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}", json);
+
+    testFieldClass.optValue = Optional.empty();
+    testFieldClass.nestedOpt = Optional.empty();
+    testFieldClass.nonInitOpt = Optional.empty();
+    json = jsonConverter.toJson(testFieldClass);
+    assertEquals("{}", json);
 
     var convertedTestFieldClass =
+        jsonConverter.fromJson(
+            "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}",
+            TestOptionalClass.class);
+    assertEquals("hello", convertedTestFieldClass.optValue.get());
+    assertEquals(List.of("hello"), convertedTestFieldClass.nestedOpt.get());
+    assertEquals("hello", convertedTestFieldClass.nonInitOpt.get());
+
+    convertedTestFieldClass =
         jsonConverter.fromJson("{\"optValue\":null}", TestOptionalClass.class);
     assertTrue(convertedTestFieldClass.optValue.isEmpty());
     assertTrue(convertedTestFieldClass.nestedOpt.isEmpty());

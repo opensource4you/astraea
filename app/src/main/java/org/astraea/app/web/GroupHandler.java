@@ -115,8 +115,6 @@ public class GroupHandler implements Handler {
                                                     entry ->
                                                         new Member(
                                                             entry.getKey().memberId(),
-                                                            // gson does not support Optional see
-                                                            // https://github.com/google/gson/issues/1102
                                                             entry.getKey().groupInstanceId(),
                                                             entry.getKey().clientId(),
                                                             entry.getKey().host(),

@@ -30,11 +30,9 @@ dependencies {
 
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
-    // we don't use slf4j actually, and it is used by kafka so we swallow the log.
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${versions["jackson"]}"
-    implementation 'com.fasterxml.jackson.module:jackson-module-parameter-names:2.13.4'
     implementation "com.google.code.gson:gson:${versions["gson"]}"
-
+    // we don't use slf4j actually, and it is used by kafka so we swallow the log.
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
     implementation "org.apache.commons:commons-math3:${versions["math3"]}"
 
