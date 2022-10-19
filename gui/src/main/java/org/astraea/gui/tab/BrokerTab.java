@@ -445,7 +445,7 @@ public class BrokerTab {
                                                 .input(
                                                     BrokerConfigs.DYNAMICAL_CONFIGS.stream()
                                                         .collect(
-                                                            Collectors.toMap(
+                                                            Utils.toSortedMap(
                                                                 k -> k,
                                                                 k ->
                                                                     broker
