@@ -114,7 +114,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     return currentAllocation -> {
       final var selectedPartition =
           currentAllocation.topicPartitions().stream()
-              .filter(tp -> blocklist().test(currentAllocation.logPlacements(tp)))
+              .filter(tp -> eligiblePartition().test(currentAllocation.logPlacements(tp)))
               .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
               .min(Map.Entry.comparingByValue())
               .map(Map.Entry::getKey)
@@ -183,7 +183,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
         .orElseThrow();
   }
 
-  private static Predicate<Set<Replica>> blocklist() {
+  private static Predicate<Set<Replica>> eligiblePartition() {
     return Predicate.not(
         Stream.<Predicate<Set<Replica>>>of(
                 // only one replica and it is offline
