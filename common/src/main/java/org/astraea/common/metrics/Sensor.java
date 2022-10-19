@@ -20,11 +20,17 @@ import java.util.Map;
 import org.astraea.common.metrics.stats.Stat;
 
 public interface Sensor<V> {
+
+  /** Record the new get data */
   void record(V value);
 
+  /**
+   * Get the statistic by the given `metricName`.
+   *
+   * @param metricName key to get the measurement
+   * @return the value calculated by the corresponding `Stat`
+   */
   V measure(String metricName);
-
-  Map<String, V> measures();
 
   Map<String, Stat<V>> metrics();
 }

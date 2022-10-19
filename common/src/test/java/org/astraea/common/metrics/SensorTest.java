@@ -16,7 +16,6 @@
  */
 package org.astraea.common.metrics;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.common.metrics.stats.Stat;
 import org.junit.jupiter.api.Assertions;
@@ -54,23 +53,6 @@ public class SensorTest {
 
     Assertions.assertEquals(1.0, sensor.measure("t1"));
     Assertions.assertEquals(2.0, sensor.measure("t2"));
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  void testMeasures() {
-
-    var stat1 = Mockito.mock(Stat.class);
-    var stat2 = Mockito.mock(Stat.class);
-    var sensor =
-        new SensorBuilder<Double>()
-            .addStat("return 1.0", stat1)
-            .addStat("return 2.0", stat2)
-            .build();
-    Mockito.when(stat1.measure()).thenReturn(1.0);
-    Mockito.when(stat2.measure()).thenReturn(2.0);
-
-    Assertions.assertEquals(Map.of("return 1.0", 1.0, "return 2.0", 2.0), sensor.measures());
   }
 
   private Stat<Double> countRecord(AtomicInteger counter) {
