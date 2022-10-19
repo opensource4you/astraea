@@ -238,35 +238,39 @@ public class RecordHandler implements Handler {
     var topic = channel.target().get();
     var partitions =
         Optional.ofNullable(channel.queries().get(PARTITION))
-            .map(x -> Set.of(TopicPartition.of(topic, x)))
-            .orElseGet(() -> admin.topicPartitions(Set.of(topic)).toCompletableFuture().join());
+            .map(x -> CompletableFuture.completedStage(Set.of(TopicPartition.of(topic, x))))
+            .orElseGet(() -> admin.topicPartitions(Set.of(topic)));
 
-    var deletedOffsets =
-        Optional.ofNullable(channel.queries().get(OFFSET))
-            .map(Long::parseLong)
-            .map(
-                offset ->
-                    partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
-            .orElseGet(
-                () -> {
-                  var currentPartitions =
-                      admin
-                          .partitions(Set.of(topic))
-                          .thenApply(
-                              p ->
-                                  p.stream()
-                                      .collect(
-                                          Collectors.toMap(
-                                              Partition::topicPartition, Function.identity())))
-                          .toCompletableFuture()
-                          .join();
-                  return partitions.stream()
-                      .collect(
-                          Collectors.toMap(
-                              Function.identity(), x -> currentPartitions.get(x).latestOffset()));
-                });
-    admin.deleteRecords(deletedOffsets);
-    return CompletableFuture.completedFuture(Response.OK);
+    return Optional.ofNullable(channel.queries().get(OFFSET))
+        .map(Long::parseLong)
+        .map(
+            offset ->
+                partitions.thenApply(
+                    p -> p.stream().collect(Collectors.toMap(Function.identity(), x -> offset))))
+        .orElseGet(
+            () ->
+                admin
+                    .partitions(Set.of(topic))
+                    .thenApply(
+                        p ->
+                            p.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        Partition::topicPartition, Function.identity())))
+                    .thenCompose(
+                        topicPartitionPartitionMap ->
+                            partitions.thenApply(
+                                p ->
+                                    p.stream()
+                                        .collect(
+                                            Collectors.toMap(
+                                                Function.identity(),
+                                                x ->
+                                                    topicPartitionPartitionMap
+                                                        .get(x)
+                                                        .latestOffset())))))
+        .thenCompose(admin::deleteRecords)
+        .thenApply(records -> Response.OK);
   }
 
   enum SerDe implements EnumInfo {
