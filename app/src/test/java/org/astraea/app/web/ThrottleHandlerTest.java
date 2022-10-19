@@ -36,6 +36,8 @@ import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.it.RequireBrokerCluster;
@@ -330,7 +332,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           .findFirst()
                           .get()
                           .config()
-                          .value("leader.replication.throttled.replicas")
+                          .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                           .orElse("")
                           .contains(log.partition() + ":" + log.brokerId())));
       Assertions.assertTrue(
@@ -342,7 +344,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           .findFirst()
                           .get()
                           .config()
-                          .value("follower.replication.throttled.replicas")
+                          .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                           .orElse("")
                           .contains(log.partition() + ":" + log.brokerId())));
       final var brokerConfigs =
@@ -352,7 +354,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           brokerConfigs
               .get(0)
               .config()
-              .value("leader.replication.throttled.rate")
+              .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
               .map(Long::parseLong)
               .orElse(0L));
       Assertions.assertEquals(
@@ -360,7 +362,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           brokerConfigs
               .get(0)
               .config()
-              .value("follower.replication.throttled.rate")
+              .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
               .map(Long::parseLong)
               .orElse(0L));
       Assertions.assertEquals(
@@ -368,7 +370,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           brokerConfigs
               .get(1)
               .config()
-              .value("follower.replication.throttled.rate")
+              .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
               .map(Long::parseLong)
               .orElse(0L));
     }
@@ -431,7 +433,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .topics(Set.of(topic))
                   .get(0)
                   .config()
-                  .value("leader.replication.throttled.replicas")
+                  .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                   .orElse("");
       Supplier<String> followerConfig =
           () ->
@@ -439,7 +441,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .topics(Set.of(topic))
                   .get(0)
                   .config()
-                  .value("follower.replication.throttled.replicas")
+                  .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                   .orElse("");
       Function<Integer, Long> egressRate =
           (id) ->
@@ -448,7 +450,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .findFirst()
                   .get()
                   .config()
-                  .value("leader.replication.throttled.rate")
+                  .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                   .map(Long::parseLong)
                   .orElse(-1L);
       Function<Integer, Long> ingressRate =
@@ -458,7 +460,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .findFirst()
                   .get()
                   .config()
-                  .value("follower.replication.throttled.rate")
+                  .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                   .map(Long::parseLong)
                   .orElse(-1L);
       Runnable setThrottle =
