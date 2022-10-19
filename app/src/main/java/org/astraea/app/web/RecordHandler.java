@@ -269,7 +269,7 @@ public class RecordHandler implements Handler {
                                                     topicPartitionPartitionMap
                                                         .get(x)
                                                         .latestOffset())))))
-        .thenApply(admin::deleteRecords)
+        .thenCompose(admin::deleteRecords)
         .thenApply(records -> Response.OK);
   }
 
