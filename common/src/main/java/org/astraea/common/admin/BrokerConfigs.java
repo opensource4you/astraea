@@ -83,10 +83,6 @@ public final class BrokerConfigs {
       "follower.replication.throttled.rate";
   public static final String REPLICA_ALTER_LOG_DIRS_IO_MAX_BYTES_PER_SECOND_CONFIG =
       "replica.alter.log.dirs.io.max.bytes.per.second";
-  public static final String LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
-      "leader.replication.throttled.replicas";
-  public static final String FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
-      "follower.replication.throttled.replicas";
   public static final Set<String> DYNAMICAL_CONFIGS =
       Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"));
   // ---------------------------------[values]---------------------------------//

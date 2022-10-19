@@ -1059,7 +1059,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("leader.replication.throttled.rate")
+                        .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
                 var followerValue =
                     admin.brokers().stream()
@@ -1067,7 +1067,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("follower.replication.throttled.rate")
+                        .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
 
                 Assertions.assertEquals(
@@ -1101,7 +1101,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("leader.replication.throttled.rate")
+                        .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
                 var followerValue =
                     admin.brokers().stream()
@@ -1109,7 +1109,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("follower.replication.throttled.rate")
+                        .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
 
                 Assertions.assertEquals(
@@ -1301,8 +1301,10 @@ public class AdminTest extends RequireBrokerCluster {
         admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
         Utils.sleep(Duration.ofSeconds(1));
 
-        var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", "*");
-        var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", "*");
+        var configEntry0 =
+            new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*");
+        var configEntry1 =
+            new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*");
         var alter0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SET);
         var alter1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SET);
         var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
@@ -1346,11 +1348,13 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   private Set<TopicPartitionReplica> fetchLeaderThrottle(String topicName) {
-    return fetchLogThrottleConfig("leader.replication.throttled.replicas", topicName);
+    return fetchLogThrottleConfig(
+        TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, topicName);
   }
 
   private Set<TopicPartitionReplica> fetchFollowerThrottle(String topicName) {
-    return fetchLogThrottleConfig("follower.replication.throttled.replicas", topicName);
+    return fetchLogThrottleConfig(
+        TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, topicName);
   }
 
   @Test
@@ -1425,7 +1429,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("follower.replication.throttled.rate");
+              .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertEquals((long) dataRate.byteRate(), Long.valueOf(value0.orElseThrow()));
 
       // clear throttle
@@ -1439,7 +1443,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("follower.replication.throttled.rate");
+              .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertTrue(value1.isEmpty());
     }
   }
@@ -1459,7 +1463,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("leader.replication.throttled.rate");
+              .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertEquals((long) dataRate.byteRate(), Long.valueOf(value0.orElseThrow()));
 
       // clear throttle
@@ -1473,7 +1477,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("leader.replication.throttled.rate");
+              .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertTrue(value1.isEmpty());
     }
   }
@@ -1524,7 +1528,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("leader.replication.throttled.replicas")
+              .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
 
       admin.clearLeaderReplicationThrottle(log);
@@ -1535,7 +1539,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("leader.replication.throttled.replicas")
+              .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
     }
   }
@@ -1555,7 +1559,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("follower.replication.throttled.replicas")
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
 
       admin.clearFollowerReplicationThrottle(log);
@@ -1566,7 +1570,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("follower.replication.throttled.replicas")
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
     }
   }
