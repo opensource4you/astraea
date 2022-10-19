@@ -44,6 +44,7 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.cost.BadMetricsException;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -786,7 +787,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             public synchronized ClusterCost clusterCost(
                 ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
               if (clusterBean.all().get(0).size() < 10)
-                throw new IllegalStateException("Insufficient metrics");
+                throw new BadMetricsException("Insufficient metrics");
               clusterBean
                   .all()
                   .get(0)
@@ -823,7 +824,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             var progress =
                 (BalancerHandler.PlanExecutionProgress)
                     handler.get(Channel.ofTarget(planId)).toCompletableFuture().join();
-            System.out.println(progress.exception);
             return progress.generated;
           },
           Duration.ofSeconds(70));

@@ -148,7 +148,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
                       .findFirst()
                       .orElseThrow(
                           () ->
-                              new IllegalStateException(
+                              new BadMetricsException(
                                   "No sufficient info to determine data rate, try later."));
               var dataRate =
                   ((double) (latestSize.value() - windowSize.value()))

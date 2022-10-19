@@ -51,6 +51,7 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.cost.BadMetricsException;
 import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -223,7 +224,7 @@ class BalancerHandler implements Handler {
           // metrics sampling logic
           try (var metricSampler = new MetricSampler(aggregatedFetcher().orElse(null))) {
             // error tracking variables
-            var lastError = (Exception) null;
+            var lastError = (BadMetricsException) null;
             var errorCounter = 0;
             var deadline = System.currentTimeMillis() + timeout.toMillis();
             // main loop
@@ -231,10 +232,12 @@ class BalancerHandler implements Handler {
               try {
                 var newTimeout = Duration.ofMillis(deadline - System.currentTimeMillis());
                 return searchRebalancePlan(metricSampler::offer, newTimeout, loop, topics);
-              } catch (Exception e) {
+              } catch (BadMetricsException e) {
                 // this exception might be caused by insufficient metrics, retry later
                 lastError = e;
                 errorCounter++;
+                // sleep until the new metrics are available
+                Utils.sleep(metricSampleInterval);
               }
             }
             throw new RuntimeException(
