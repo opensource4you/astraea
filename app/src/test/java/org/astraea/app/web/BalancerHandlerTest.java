@@ -814,7 +814,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort());
       var jmx = Map.of(0, sock, 1, sock, 2, sock);
       var handler = new BalancerHandler(admin, jmx, cost, new NoMoveCost());
-      var channel = Channel.ofQueries(Map.of(BalancerHandler.TIMEOUT_KEY, "60"));
+      var channel =
+          Channel.ofQueries(
+              Map.of(
+                  BalancerHandler.TIMEOUT_KEY, "60",
+                  BalancerHandler.LOOP_KEY, "100"));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
       var planId = post.id;
@@ -831,7 +835,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       var interval = (end - start) / 1000;
       Assertions.assertTrue(
-          10 < interval && interval < 20,
+          10 <= interval && interval < 20,
           "The generation should takes at least 10 second. Actual: " + interval);
     }
   }
