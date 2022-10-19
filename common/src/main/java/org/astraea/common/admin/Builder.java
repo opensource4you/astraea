@@ -413,7 +413,8 @@ public class Builder {
                 () ->
                     admin
                         .incrementalAlterConfigs(
-                            toKafkaConfigs.apply(leaders, "leader.replication.throttled.replicas"))
+                            toKafkaConfigs.apply(
+                                leaders, TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
                         .all()
                         .get());
 
@@ -423,7 +424,8 @@ public class Builder {
                     admin
                         .incrementalAlterConfigs(
                             toKafkaConfigs.apply(
-                                followers, "follower.replication.throttled.replicas"))
+                                followers,
+                                TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
                         .all()
                         .get());
         }
@@ -451,7 +453,8 @@ public class Builder {
                 () ->
                     admin
                         .incrementalAlterConfigs(
-                            toKafkaConfigs.apply(egress, "leader.replication.throttled.rate"))
+                            toKafkaConfigs.apply(
+                                egress, BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG))
                         .all()
                         .get());
 
@@ -460,7 +463,8 @@ public class Builder {
                 () ->
                     admin
                         .incrementalAlterConfigs(
-                            toKafkaConfigs.apply(ingress, "follower.replication.throttled.rate"))
+                            toKafkaConfigs.apply(
+                                ingress, BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))
                         .all()
                         .get());
         }
@@ -469,9 +473,11 @@ public class Builder {
 
     @Override
     public void clearReplicationThrottle(String topic) {
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", "");
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "");
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.DELETE);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", "");
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "");
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.DELETE);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
 
@@ -488,8 +494,10 @@ public class Builder {
               .filter(replica -> replica.partition() == topicPartition.partition())
               .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topicPartition.topic());
@@ -505,8 +513,10 @@ public class Builder {
       // We have to submit all the changes in one API request.
       // see https://github.com/skiptests/astraea/issues/649
       var configValue = log.partition() + ":" + log.brokerId();
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
           () ->
@@ -521,7 +531,8 @@ public class Builder {
     @Override
     public void clearLeaderReplicationThrottle(TopicPartitionReplica log) {
       var configValue = log.partition() + ":" + log.brokerId();
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
@@ -531,7 +542,8 @@ public class Builder {
     @Override
     public void clearFollowerReplicationThrottle(TopicPartitionReplica log) {
       var configValue = log.partition() + ":" + log.brokerId();
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
@@ -544,7 +556,8 @@ public class Builder {
           brokerIds.stream()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      id -> id, id -> Set.of("follower.replication.throttled.rate"))));
+                      id -> id,
+                      id -> Set.of(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))));
     }
 
     @Override
@@ -553,7 +566,8 @@ public class Builder {
           brokerIds.stream()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      id -> id, id -> Set.of("leader.replication.throttled.rate"))));
+                      id -> id,
+                      id -> Set.of(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG))));
     }
 
     private void deleteBrokerConfigs(Map<Integer, Set<String>> brokerAndConfigKeys) {
