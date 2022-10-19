@@ -17,11 +17,18 @@
 package org.astraea.common.balancer.generator;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.FakeClusterInfo;
+import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -224,5 +231,55 @@ class ShufflePlanGeneratorTest {
     reportThread.start();
     reportThread.join();
     forkJoinPool.shutdownNow();
+  }
+
+  @Test
+  void testBlocklist() {
+    var shufflePlanGenerator = new ShufflePlanGenerator(() -> 100);
+    var dataDir =
+        Map.of(
+            0, Set.of("/a", "/b", "c"),
+            1, Set.of("/a", "/b", "c"),
+            2, Set.of("/a", "/b", "c"));
+    var nodeA = NodeInfo.of(0, "", -1);
+    var nodeB = NodeInfo.of(1, "", -1);
+    var nodeC = NodeInfo.of(2, "", -1);
+    var base = Replica.of("topic", 0, nodeA, 0, 0, false, true, false, false, false, "/a");
+    var allocation =
+        ClusterLogAllocation.of(
+            List.of(
+                Replica.builder(base)
+                    .topic("normal-topic")
+                    .leader(true)
+                    .isPreferredLeader(true)
+                    .build(),
+                Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
+                Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
+                Replica.builder(base)
+                    .topic("offline-single")
+                    .isPreferredLeader(true)
+                    .offline(true)
+                    .build(),
+                Replica.builder(base)
+                    .topic("no-leader")
+                    .isPreferredLeader(true)
+                    .nodeInfo(nodeA)
+                    .build(),
+                Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
+                Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build()));
+    shufflePlanGenerator
+        .generate(dataDir, allocation)
+        .limit(30)
+        .map(RebalancePlanProposal::rebalancePlan)
+        .forEach(
+            newAllocation -> {
+              var notFulfilled =
+                  ClusterLogAllocation.findNonFulfilledAllocation(allocation, newAllocation);
+              Assertions.assertTrue(
+                  notFulfilled.stream()
+                      .map(TopicPartition::topic)
+                      .allMatch(x -> x.equals("normal-topic")),
+                  "only normal-topic get altered. Actual: " + notFulfilled);
+            });
   }
 }
