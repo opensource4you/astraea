@@ -24,13 +24,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class SensorTest {
+
+  // Check if every `Stat#record` has been called when sensor called `Sensor#record`
   @Test
   void testRecord() {
     var counter1 = new AtomicInteger(0);
     var counter2 = new AtomicInteger(0);
-    var sensor = new Sensor<Double>();
-    sensor.add("t1", countRecord(counter1));
-    sensor.add("t2", countRecord(counter2));
+    var sensor =
+        new SensorBuilder<Double>()
+            .addStat("t1", countRecord(counter1))
+            .addStat("t2", countRecord(counter2))
+            .build();
 
     sensor.record(10.0);
     sensor.record(2.0);
@@ -38,31 +42,33 @@ public class SensorTest {
     Assertions.assertEquals(counter2.get(), 2);
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   void testMeasure() {
-    var sensor = new Sensor<Double>();
     var stat1 = Mockito.mock(Stat.class);
     var stat2 = Mockito.mock(Stat.class);
+    var sensor = new SensorBuilder<Double>().addStat("t1", stat1).addStat("t2", stat2).build();
+
     Mockito.when(stat1.measure()).thenReturn(1.0);
     Mockito.when(stat2.measure()).thenReturn(2.0);
-
-    sensor.add("t1", stat1);
-    sensor.add("t2", stat2);
 
     Assertions.assertEquals(1.0, sensor.measure("t1"));
     Assertions.assertEquals(2.0, sensor.measure("t2"));
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   void testMeasures() {
-    var sensor = new Sensor<Double>();
+
     var stat1 = Mockito.mock(Stat.class);
     var stat2 = Mockito.mock(Stat.class);
+    var sensor =
+        new SensorBuilder<Double>()
+            .addStat("return 1.0", stat1)
+            .addStat("return 2.0", stat2)
+            .build();
     Mockito.when(stat1.measure()).thenReturn(1.0);
     Mockito.when(stat2.measure()).thenReturn(2.0);
-
-    sensor.add("return 1.0", stat1);
-    sensor.add("return 2.0", stat2);
 
     Assertions.assertEquals(Map.of("return 1.0", 1.0, "return 2.0", 2.0), sensor.measures());
   }

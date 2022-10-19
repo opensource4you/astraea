@@ -16,33 +16,15 @@
  */
 package org.astraea.common.metrics;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.astraea.common.metrics.stats.Stat;
 
-public class Sensor<V> {
-  private final Map<String, Stat<V>> stats = new HashMap<>();
+public interface Sensor<V> {
+  void record(V value);
 
-  public void record(V value) {
-    stats.values().forEach(stat -> stat.record(value));
-  }
+  V measure(String metricName);
 
-  public void add(String metricName, Stat<V> stat) {
-    stats.put(metricName, stat);
-  }
+  Map<String, V> measures();
 
-  public V measure(String metricName) {
-    return stats.get(metricName).measure();
-  }
-
-  public Map<String, V> measures() {
-    return stats.entrySet().stream()
-        .map(e -> Map.entry(e.getKey(), e.getValue().measure()))
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  public Map<String, Stat<V>> metrics() {
-    return stats;
-  }
+  Map<String, Stat<V>> metrics();
 }
