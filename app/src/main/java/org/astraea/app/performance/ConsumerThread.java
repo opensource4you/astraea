@@ -37,7 +37,10 @@ import org.astraea.common.consumer.SubscribedConsumer;
 
 public interface ConsumerThread extends AbstractThread {
 
-  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITIONS = new ConcurrentHashMap<>();
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_ASSIGNED_PARTITIONS =
+      new ConcurrentHashMap<>();
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_REVOKED_PARTITIONS =
+      new ConcurrentHashMap<>();
 
   static List<ConsumerThread> create(
       int consumers,
@@ -64,8 +67,7 @@ public interface ConsumerThread extends AbstractThread {
             index -> {
               @SuppressWarnings("resource")
               var clientId = Utils.randomString();
-              var consumer =
-                  consumerSupplier.apply(clientId, ps -> CLIENT_ID_PARTITIONS.put(clientId, ps));
+              var consumer = consumerSupplier.apply(clientId, new PartitionRatioListener(clientId));
               var closed = new AtomicBoolean(false);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
@@ -87,7 +89,8 @@ public interface ConsumerThread extends AbstractThread {
                       Utils.swallowException(consumer::close);
                       closeLatch.countDown();
                       closed.set(true);
-                      CLIENT_ID_PARTITIONS.remove(clientId);
+                      CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);
+                      CLIENT_ID_REVOKED_PARTITIONS.remove(clientId);
                     }
                   });
               return new ConsumerThread() {

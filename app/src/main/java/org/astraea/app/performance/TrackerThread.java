@@ -19,6 +19,7 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,10 +141,17 @@ public interface TrackerThread extends AbstractThread {
           .ifPresent(i -> System.out.printf("  rebalance average latency: %.3f ms%n", i));
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
+        var clientId = report.clientId();
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
         if (ms.isPresent()) {
           System.out.printf(
-              "  consumer[%d] has %d partitions%n", i, (int) ms.get().assignedPartitions());
+              "  consumer[%d] has %d partitions and its partition assign difference is %d %n",
+              i,
+              (int) ms.get().assignedPartitions(),
+              (ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).size()
+                  - ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS
+                      .getOrDefault(clientId, Set.of())
+                      .size()));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
