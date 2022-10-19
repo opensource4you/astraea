@@ -18,9 +18,9 @@ package org.astraea.etl
 
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.astraea.etl.Reader.createSpark
+import org.astraea.etl.CSVReader.createSpark
 
-case class Reader(
+case class CSVReader(
     deploymentModel: String,
     userSchema: StructType,
     sourcePath: String,
@@ -37,7 +37,7 @@ case class Reader(
   }
 }
 
-object Reader {
+object CSVReader {
 
   def createSpark(deploymentModel: String): SparkSession = {
     SparkSession

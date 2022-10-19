@@ -62,3 +62,9 @@ class DataFrameOp(dataFrame: DataFrame) {
     dataFrame
   }
 }
+
+object DataFrameOp {
+  def empty(): DataFrameOp = {
+    null
+  }
+}

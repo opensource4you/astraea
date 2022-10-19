@@ -16,9 +16,8 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.functions.{col, concat_ws, struct, to_json}
 import org.astraea.common.admin.AsyncAdmin
-import org.astraea.etl.Reader.createSchema
+import org.astraea.etl.CSVReader.createSchema
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -30,7 +29,8 @@ object Spark2Kafka {
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
       val eventualBoolean = KafkaWriter.createTopic(admin, metaData)
 
-      val df = ReaderBuilder()
+      val df = CSVReaderBuilder
+        .builder()
         .spark(metaData.deploymentModel)
         .schema(createSchema(metaData.column, metaData.primaryKeys))
         .sourcePath(metaData.sourcePath.getPath)
@@ -38,18 +38,19 @@ object Spark2Kafka {
         .build()
         .read()
         .csvToJSON(metaData.primaryKeys.keys.toSeq)
-        .dataFrame()
 
       eventualBoolean.onComplete {
         case Success(_) =>
-          KafkaWriter
-            .writeToKafka(
-              df,
-              metaData
-            )
+          KafkaWriterBuilder
+            .builder()
+            .dataFrameOp(df)
+            .bootstrapServer(metaData.kafkaBootstrapServers)
+            .topic(metaData.topicName)
+            .checkpoint(metaData.sinkPath + "/checkpoint")
+            .build()
+            .writeToKafka()
             .start()
             .awaitTermination(duration.toMillis)
-
         case Failure(exception) => throw exception
       }
     }

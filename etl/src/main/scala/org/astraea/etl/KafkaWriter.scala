@@ -23,6 +23,39 @@ import org.astraea.common.admin.AsyncAdmin
 
 import scala.concurrent.Future
 import scala.collection.JavaConverters._
+case class KafkaWriter(
+    dataFrameOp: DataFrameOp,
+    bootstrap: String,
+    topic: String,
+    checkpoint: String
+) {
+  def writeToKafka(): DataStreamWriter[Row] = {
+    dataFrameOp
+      .dataFrame()
+      .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
+      .writeStream
+      .outputMode(OutputMode.Append())
+      .format("kafka")
+      .option(
+        "kafka." +
+          ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+        bootstrap
+      )
+      //Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
+      .option(
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer"
+      )
+      .option(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer"
+      )
+      .option("topic", topic)
+      .option(ProducerConfig.ACKS_CONFIG, "all")
+      .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
+      .option("checkpointLocation", checkpoint)
+  }
+}
 
 object KafkaWriter {
   def createTopic(
@@ -40,31 +73,4 @@ object KafkaWriter {
     )
   }
 
-  def writeToKafka(
-      df: DataFrame,
-      metaData: Metadata
-  ): DataStreamWriter[Row] = {
-    df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
-      .writeStream
-      .outputMode(OutputMode.Append())
-      .format("kafka")
-      .option(
-        "kafka." +
-          ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-        metaData.kafkaBootstrapServers
-      )
-      //Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
-      .option(
-        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"
-      )
-      .option(
-        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"
-      )
-      .option("topic", metaData.topicName)
-      .option(ProducerConfig.ACKS_CONFIG, "all")
-      .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
-      .option("checkpointLocation", metaData.sinkPath + "/checkpoint")
-  }
 }

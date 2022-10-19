@@ -22,7 +22,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Encoder, Row}
 import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.astraea.etl.FileCreator.{generateCSVF, getCSVFile, mkdir}
-import org.astraea.etl.Reader.createSpark
+import org.astraea.etl.CSVReader.createSpark
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.Test
@@ -31,9 +31,9 @@ import java.io._
 import java.nio.file.Files
 import scala.util.Random
 
-class ReaderTest extends RequireBrokerCluster {
+class CSVReaderTest extends RequireBrokerCluster {
   @Test def createSchemaNullTest(): Unit = {
-    val spark = Reader.createSpark("local[2]")
+    val spark = CSVReader.createSpark("local[2]")
     val seq = Seq(
       Row(1, "A1", 52, "fghgh"),
       Row(2, "B2", 42, "affrgg"),
@@ -41,7 +41,7 @@ class ReaderTest extends RequireBrokerCluster {
       Row(null, "D4", 59, "rehrth")
     )
 
-    val structType = Reader.createSchema(
+    val structType = CSVReader.createSchema(
       Map(
         "SerialNumber" -> IntegerType,
         "RecordNumber" -> StringType,
@@ -68,9 +68,9 @@ class ReaderTest extends RequireBrokerCluster {
     val checkoutDir = mkdir(tempPath + "/checkout")
     val dataDir = mkdir(tempPath + "/data")
 
-    val spark = Reader.createSpark("local[2]")
+    val spark = CSVReader.createSpark("local[2]")
 
-    val structType = Reader.createSchema(
+    val structType = CSVReader.createSchema(
       Map(
         "SerialNumber" -> IntegerType,
         "RecordNumber" -> StringType,
@@ -84,7 +84,7 @@ class ReaderTest extends RequireBrokerCluster {
 
     assertEquals(structType.length, 4)
     val csvDF =
-      Reader.read(spark, structType, sourceDir.getPath, sinkDir.getPath)
+      CSVReader.read(spark, structType, sourceDir.getPath, sinkDir.getPath)
 
     assertTrue(csvDF.isStreaming, "sessions must be a streaming Dataset")
 

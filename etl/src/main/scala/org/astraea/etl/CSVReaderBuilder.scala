@@ -18,8 +18,8 @@ package org.astraea.etl
 
 import org.apache.spark.sql.types.StructType
 import org.astraea.etl.DataType.StringType
-import org.astraea.etl.ReaderBuilder._
-class ReaderBuilder[PassedStep <: BuildStep] private (
+import org.astraea.etl.CSVReaderBuilder._
+class CSVReaderBuilder[PassedStep <: BuildStep] private (
     var deploymentModel: String,
     var userSchema: StructType,
     var sourcePath: String,
@@ -27,12 +27,13 @@ class ReaderBuilder[PassedStep <: BuildStep] private (
 ) {
   protected def this() = this(
     "deploymentModel",
-    Reader.createSchema(Map("Type" -> StringType), Map("Type" -> StringType)),
+    CSVReader
+      .createSchema(Map("Type" -> StringType), Map("Type" -> StringType)),
     "sourcePath",
     "sinkPath"
   )
 
-  protected def this(pb: ReaderBuilder[_]) = this(
+  protected def this(pb: CSVReaderBuilder[_]) = this(
     pb.deploymentModel,
     pb.userSchema,
     pb.sourcePath,
@@ -41,35 +42,37 @@ class ReaderBuilder[PassedStep <: BuildStep] private (
 
   def spark(
       deploymentModel: String
-  ): ReaderBuilder[PassedStep with SparkStep] = {
+  ): CSVReaderBuilder[PassedStep with SparkStep] = {
     this.deploymentModel = deploymentModel
-    new ReaderBuilder[PassedStep with SparkStep](this)
+    new CSVReaderBuilder[PassedStep with SparkStep](this)
   }
 
   def schema(
       userSchema: StructType
-  ): ReaderBuilder[PassedStep with SchemaStep] = {
+  ): CSVReaderBuilder[PassedStep with SchemaStep] = {
     this.userSchema = userSchema
-    new ReaderBuilder[PassedStep with SchemaStep](this)
+    new CSVReaderBuilder[PassedStep with SchemaStep](this)
   }
 
-  def sourcePath(source: String): ReaderBuilder[PassedStep with SourceStep] = {
+  def sourcePath(
+      source: String
+  ): CSVReaderBuilder[PassedStep with SourceStep] = {
     this.sourcePath = source
-    new ReaderBuilder[PassedStep with SourceStep](this)
+    new CSVReaderBuilder[PassedStep with SourceStep](this)
   }
 
-  def sinkPath(sink: String): ReaderBuilder[PassedStep with SinkStep] = {
+  def sinkPath(sink: String): CSVReaderBuilder[PassedStep with SinkStep] = {
     this.sinkPath = sink
-    new ReaderBuilder[PassedStep with SinkStep](this)
+    new CSVReaderBuilder[PassedStep with SinkStep](this)
   }
 
-  def build()(implicit ev: PassedStep =:= FullReader): Reader = {
-    Reader(deploymentModel, userSchema, sourcePath, sinkPath)
+  def build()(implicit ev: PassedStep =:= FullReader): CSVReader = {
+    CSVReader(deploymentModel, userSchema, sourcePath, sinkPath)
   }
 
 }
 
-object ReaderBuilder {
+object CSVReaderBuilder {
   sealed trait BuildStep
   sealed trait SparkStep extends BuildStep
   sealed trait SchemaStep extends BuildStep
@@ -77,6 +80,5 @@ object ReaderBuilder {
   sealed trait SinkStep extends BuildStep
 
   type FullReader = SparkStep with SchemaStep with SourceStep with SinkStep
-
-  def apply() = new ReaderBuilder[BuildStep]()
+  def builder() = new CSVReaderBuilder[BuildStep]()
 }
