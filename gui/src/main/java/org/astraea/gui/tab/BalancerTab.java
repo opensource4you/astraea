@@ -106,7 +106,7 @@ public class BalancerTab {
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
                                       HasClusterCost.of(
-                                          input.selectedCheckBox().stream()
+                                          input.multiSelectedRadios().stream()
                                               .map(o -> (Cost) o)
                                               .map(cost -> Map.entry(cost.costFunction, 1.0))
                                               .collect(
@@ -214,7 +214,7 @@ public class BalancerTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .checkBoxes(Cost.values())
+            .multiRadioButtons(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
             .buttonAction((input, logger) -> generator(context, input, logger))

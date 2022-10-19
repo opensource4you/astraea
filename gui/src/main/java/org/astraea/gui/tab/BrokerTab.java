@@ -185,7 +185,7 @@ public class BrokerTab {
         "metrics",
         PaneBuilder.of()
             .searchField("config key")
-            .radioButtons(MetricType.values())
+            .singleRadioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
                     context
@@ -199,7 +199,7 @@ public class BrokerTab {
                                             Map.entry(
                                                 entry.getKey(),
                                                 input
-                                                    .selectedRadio()
+                                                    .singleSelectedRadio()
                                                     .map(o -> (MetricType) o)
                                                     .orElse(MetricType.BROKER_TOPIC)
                                                     .fetcher
@@ -363,7 +363,7 @@ public class BrokerTab {
                 .thenApply(
                     brokers ->
                         PaneBuilder.of()
-                            .radioButtons(
+                            .singleRadioButtons(
                                 brokers.stream().map(NodeInfo::id).collect(Collectors.toList()))
                             .buttonAction(
                                 (input, logger) ->
@@ -371,7 +371,7 @@ public class BrokerTab {
                                         () -> {
                                           int id =
                                               input
-                                                  .selectedRadio()
+                                                  .singleSelectedRadio()
                                                   .map(b -> (int) b)
                                                   .orElse(brokers.get(0).id());
                                           return brokers.stream()

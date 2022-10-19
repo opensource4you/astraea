@@ -51,7 +51,7 @@ public class TopicTab {
     return Tab.of(
         "metrics",
         PaneBuilder.of()
-            .radioButtons(ServerMetrics.Topic.values())
+            .singleRadioButtons(ServerMetrics.Topic.values())
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
@@ -59,7 +59,7 @@ public class TopicTab {
                         () -> {
                           var metric =
                               input
-                                  .selectedRadio()
+                                  .singleSelectedRadio()
                                   .map(o -> (ServerMetrics.Topic) o)
                                   .orElse(ServerMetrics.Topic.BYTES_IN_PER_SEC);
                           var nodeMeters =

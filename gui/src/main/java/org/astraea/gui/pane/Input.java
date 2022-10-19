@@ -23,9 +23,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Input {
-  Optional<Object> selectedRadio();
+  Optional<Object> singleSelectedRadio();
 
-  List<Object> selectedCheckBox();
+  List<Object> multiSelectedRadios();
 
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {

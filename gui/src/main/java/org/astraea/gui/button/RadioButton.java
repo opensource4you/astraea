@@ -40,6 +40,14 @@ public class RadioButton extends javafx.scene.control.RadioButton {
     return buttons;
   }
 
+  public static List<RadioButton> multi(List<Object> objs) {
+    if (objs.isEmpty())
+      throw new IllegalArgumentException("can't build radio button with no objects");
+    var buttons = objs.stream().map(RadioButton::new).collect(Collectors.toList());
+    buttons.get(0).setSelected(true);
+    return buttons;
+  }
+
   private final Object obj;
 
   private RadioButton(Object obj) {

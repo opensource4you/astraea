@@ -125,11 +125,11 @@ public class AboutTab {
   public static Tab of(Context ignored) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(Info.values())
+            .singleRadioButtons(Info.values())
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.completedFuture(
-                        input.selectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
+                        input.singleSelectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
             .build();
     return Tab.of("about", pane);
   }

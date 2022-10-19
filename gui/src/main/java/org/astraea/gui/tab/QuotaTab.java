@@ -177,11 +177,11 @@ public class QuotaTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .radioButtons(List.of(ipKey, clientIdKey))
+            .singleRadioButtons(List.of(ipKey, clientIdKey))
             .searchField(ipKey + "/" + clientIdKey)
             .buttonAction(
                 (input, logger) -> {
-                  var target = input.selectedRadio().map(o -> (String) o).orElse(ipKey);
+                  var target = input.singleSelectedRadio().map(o -> (String) o).orElse(ipKey);
                   return context
                       .admin()
                       .quotas(

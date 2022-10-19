@@ -39,7 +39,6 @@ import org.astraea.gui.Logger;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
-import org.astraea.gui.button.CheckBox;
 import org.astraea.gui.button.RadioButton;
 import org.astraea.gui.table.TableView;
 import org.astraea.gui.text.Label;
@@ -54,7 +53,6 @@ public class PaneBuilder {
   }
 
   private List<RadioButton> radioButtons = new ArrayList<>();
-  private List<CheckBox> checkBoxes = new ArrayList<>();
 
   private final Set<String> inputKeys = new LinkedHashSet<>();
 
@@ -77,23 +75,23 @@ public class PaneBuilder {
 
   private PaneBuilder() {}
 
-  public PaneBuilder radioButtons(Object[] objs) {
-    return radioButtons(Arrays.asList(objs));
+  public PaneBuilder singleRadioButtons(Object[] objs) {
+    return singleRadioButtons(Arrays.asList(objs));
   }
 
-  public PaneBuilder radioButtons(List<Object> objs) {
+  public PaneBuilder singleRadioButtons(List<Object> objs) {
     if (objs.isEmpty()) return this;
     radioButtons = RadioButton.single(objs);
     return this;
   }
 
-  public PaneBuilder checkBoxes(Object[] objs) {
-    return checkBoxes(Arrays.asList(objs));
+  public PaneBuilder multiRadioButtons(Object[] objs) {
+    return multiRadioButtons(Arrays.asList(objs));
   }
 
-  public PaneBuilder checkBoxes(List<Object> objs) {
+  public PaneBuilder multiRadioButtons(List<Object> objs) {
     if (objs.isEmpty()) return this;
-    checkBoxes = CheckBox.single(objs);
+    radioButtons = RadioButton.multi(objs);
     return this;
   }
 
@@ -190,7 +188,6 @@ public class PaneBuilder {
   public Pane build() {
     var nodes = new ArrayList<Node>();
     if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
-    if (!checkBoxes.isEmpty()) nodes.add(HBox.of(Pos.CENTER, checkBoxes.toArray(Node[]::new)));
     Map<String, Supplier<String>> textFields;
     if (!inputKeys.isEmpty()) {
       var pairs =
@@ -229,14 +226,14 @@ public class PaneBuilder {
 
     Runnable handler =
         () -> {
-          var selectedRadio =
+          var singleSelectedRadio =
               radioButtons.stream()
                   .filter(RadioButton::isSelected)
                   .flatMap(r -> r.selectedObject().stream())
                   .findFirst();
-          var selectedCheckBox =
-              checkBoxes.stream()
-                  .filter(CheckBox::isSelected)
+          var multiSelectedRadio =
+              radioButtons.stream()
+                  .filter(RadioButton::isSelected)
                   .flatMap(r -> r.selectedObject().stream())
                   .collect(Collectors.toList());
           var rawTexts =
@@ -271,13 +268,13 @@ public class PaneBuilder {
           var input =
               new Input() {
                 @Override
-                public Optional<Object> selectedRadio() {
-                  return selectedRadio;
+                public Optional<Object> singleSelectedRadio() {
+                  return singleSelectedRadio;
                 }
 
                 @Override
-                public List<Object> selectedCheckBox() {
-                  return selectedCheckBox;
+                public List<Object> multiSelectedRadios() {
+                  return multiSelectedRadio;
                 }
 
                 @Override
