@@ -29,6 +29,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
@@ -398,25 +399,11 @@ public class TopicTab {
   }
 
   private static CompletionStage<Tuple> tuple(Context context, Set<String> topics) {
-    return context
-        .admin()
-        .brokers()
-        .thenCompose(
-            brokers ->
-                context
-                    .admin()
-                    .partitions(topics)
-                    .thenCompose(
-                        partitions ->
-                            context
-                                .admin()
-                                .consumerGroupIds()
-                                .thenCompose(
-                                    ids -> {
-                                      System.out.println("ids: " + ids);
-                                      return context.admin().consumerGroups(ids);
-                                    })
-                                .thenApply(groups -> new Tuple(partitions, brokers, groups))));
+    return FutureUtils.combine(
+        context.admin().brokers(),
+        context.admin().partitions(topics),
+        context.admin().consumerGroupIds().thenCompose(ids -> context.admin().consumerGroups(ids)),
+        Tuple::new);
   }
 
   private static class Tuple {
@@ -424,7 +411,7 @@ public class TopicTab {
     private final List<Broker> brokers;
     private final List<ConsumerGroup> groups;
 
-    private Tuple(List<Partition> partitions, List<Broker> brokers, List<ConsumerGroup> groups) {
+    private Tuple(List<Broker> brokers, List<Partition> partitions, List<ConsumerGroup> groups) {
       this.partitions = partitions;
       this.brokers = brokers;
       this.groups = groups;

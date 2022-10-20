@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.astraea.common.FutureUtils;
 
 /**
  * Argument for {@link AsyncAdmin#idleTopic(List)}. This interface will check for the given set of
@@ -67,58 +68,43 @@ public interface TopicChecker {
   static TopicChecker latestTimestamp(Duration duration) {
     return (admin, topics) -> {
       long end = System.currentTimeMillis() - duration.toMillis();
-      var partitionTimestamp =
-          admin
-              .topicPartitions(topics)
-              .thenCompose(
-                  tps ->
-                      admin
-                          .timestampOfLatestRecords(tps)
-                          .thenCompose(
-                              timestampOfLatestRecords ->
-                                  admin
-                                      .producerStates(tps)
-                                      .thenCombine(
-                                          admin.maxTimestamps(tps),
-                                          ((producerStates, maxTimestamps) -> {
-                                            var tpTimeFromState =
-                                                producerStates.stream()
-                                                    .collect(
-                                                        Collectors.groupingBy(
-                                                            ProducerState::topicPartition))
-                                                    .entrySet()
-                                                    .stream()
-                                                    .collect(
-                                                        Collectors.toMap(
-                                                            Map.Entry::getKey,
-                                                            e ->
-                                                                e.getValue().stream()
-                                                                    .mapToLong(
-                                                                        ProducerState
-                                                                            ::lastTimestamp)
-                                                                    .max()
-                                                                    .orElse(-1)));
-                                            return tps.stream()
-                                                .collect(
-                                                    Collectors.toMap(
-                                                        tp -> tp,
-                                                        tp ->
-                                                            Math.max(
-                                                                timestampOfLatestRecords
-                                                                    .getOrDefault(tp, -1L),
-                                                                Math.max(
-                                                                    tpTimeFromState.getOrDefault(
-                                                                        tp, -1L),
-                                                                    maxTimestamps.getOrDefault(
-                                                                        tp, -1L)))));
-                                          }))));
-
-      return partitionTimestamp.thenApply(
-          ts ->
-              ts.entrySet().stream()
-                  .filter(e -> e.getValue() >= end)
-                  .map(e -> e.getKey().topic())
-                  .collect(Collectors.toSet()));
+      var tpsFuture = admin.topicPartitions(topics);
+      return FutureUtils.combine(
+              tpsFuture,
+              tpsFuture.thenCompose(admin::timestampOfLatestRecords),
+              tpsFuture.thenCompose(admin::producerStates),
+              tpsFuture.thenCompose(admin::maxTimestamps),
+              (tps, timestampOfLatestRecords, producerStates, maxTimestamps) -> {
+                var tpTimeFromState =
+                    producerStates.stream()
+                        .collect(Collectors.groupingBy(ProducerState::topicPartition))
+                        .entrySet()
+                        .stream()
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    e.getValue().stream()
+                                        .mapToLong(ProducerState::lastTimestamp)
+                                        .max()
+                                        .orElse(-1)));
+                return tps.stream()
+                    .collect(
+                        Collectors.toMap(
+                            tp -> tp,
+                            tp ->
+                                Math.max(
+                                    timestampOfLatestRecords.getOrDefault(tp, -1L),
+                                    Math.max(
+                                        tpTimeFromState.getOrDefault(tp, -1L),
+                                        maxTimestamps.getOrDefault(tp, -1L)))));
+              })
+          .thenApply(
+              ts ->
+                  ts.entrySet().stream()
+                      .filter(e -> e.getValue() >= end)
+                      .map(e -> e.getKey().topic())
+                      .collect(Collectors.toSet()));
     };
   }
 }
