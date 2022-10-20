@@ -144,12 +144,13 @@ public class TopicTab {
   }
 
   private static Tab basicTab(Context context) {
-    var includeTimestampOfRecord = "include record timestamp";
+    var includeTimestampOfRecord = "record timestamp";
+    var includeInternal = "internal";
     return Tab.of(
         "basic",
         PaneBuilder.of()
             .searchField("topic name")
-            .multiRadioButtons(List.of(includeTimestampOfRecord))
+            .multiRadioButtons(List.of(includeInternal, includeTimestampOfRecord))
             .tableViewAction(
                 Map.of(),
                 "DELETE",
@@ -191,7 +192,8 @@ public class TopicTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(true)
+                        .topicNames(
+                            input.multiSelectedRadios(List.<String>of()).contains(includeInternal))
                         .thenApply(
                             topics ->
                                 topics.stream()
@@ -206,10 +208,10 @@ public class TopicTab {
                                         .admin()
                                         .consumerGroupIds()
                                         .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                    input.multiSelectedRadios(List.<String>of()).isEmpty()
-                                        ? CompletableFuture.completedFuture(
-                                            Map.<TopicPartition, Long>of())
-                                        : context
+                                    input
+                                            .multiSelectedRadios(List.<String>of())
+                                            .contains(includeTimestampOfRecord)
+                                        ? context
                                             .admin()
                                             .topicPartitions(topics)
                                             .thenCompose(
@@ -217,7 +219,9 @@ public class TopicTab {
                                                     context
                                                         .admin()
                                                         .timestampOfLatestRecords(
-                                                            tps, Duration.ofSeconds(1))),
+                                                            tps, Duration.ofSeconds(1)))
+                                        : CompletableFuture.completedFuture(
+                                            Map.<TopicPartition, Long>of()),
                                     TopicTab::basicResult)))
             .build());
   }

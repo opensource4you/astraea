@@ -86,10 +86,6 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder multiRadioButtons(Object[] objs) {
-    return multiRadioButtons(Arrays.asList(objs));
-  }
-
   public PaneBuilder multiRadioButtons(List<Object> objs) {
     if (objs.isEmpty()) return this;
     radioButtons = RadioButton.multi(objs);
