@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.text;
 
+import java.util.concurrent.CompletionException;
 import javafx.application.Platform;
 import org.astraea.common.Utils;
 
@@ -29,12 +30,16 @@ public class TextArea extends javafx.scene.control.TextArea {
     super();
   }
 
-  public void text(String text, Throwable e) {
-    if (e != null) text(e);
-    else text(text);
-  }
-
   public void text(Throwable e) {
+    if (e instanceof IllegalArgumentException) {
+      // expected error so we just print message
+      append(e.getMessage());
+      return;
+    }
+    if (e instanceof CompletionException) {
+      text(e.getCause());
+      return;
+    }
     if (e != null) text(Utils.toString(e));
   }
 
@@ -57,10 +62,6 @@ public class TextArea extends javafx.scene.control.TextArea {
 
   public void append(String text) {
     text(text, true);
-  }
-
-  public void append(Throwable e) {
-    if (e != null) text(Utils.toString(e), true);
   }
 
   public void cleanup() {

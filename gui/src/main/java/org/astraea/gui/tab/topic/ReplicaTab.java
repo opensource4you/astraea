@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.tab;
+package org.astraea.gui.tab.topic;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javafx.geometry.Side;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
@@ -27,11 +26,10 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.pane.TabPane;
 
 public class ReplicaTab {
 
-  private static List<Map<String, Object>> offlineResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> offlineReplicaResult(List<Replica> replicas) {
     return replicas.stream()
         .filter(ReplicaInfo::isOffline)
         .map(
@@ -50,7 +48,7 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  private static List<Map<String, Object>> syncingResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> syncingReplicaResult(List<Replica> replicas) {
     var leaderSizes =
         replicas.stream()
             .filter(ReplicaInfo::isLeader)
@@ -89,7 +87,7 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  private static List<Map<String, Object>> allResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> allReplicaResult(List<Replica> replicas) {
     return replicas.stream()
         .map(
             replica ->
@@ -117,12 +115,12 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  public static Tab basicTab(Context context) {
+  static Tab tab(Context context) {
     var all = "all";
     var syncing = "syncing";
     var offline = "offline";
     return Tab.of(
-        "basic",
+        "replica",
         PaneBuilder.of()
             .singleRadioButtons(List.of(all, syncing, offline))
             .searchField("topic name")
@@ -140,14 +138,10 @@ public class ReplicaTab {
                         .thenApply(
                             replicas -> {
                               var selected = input.singleSelectedRadio(all);
-                              if (selected.equals(syncing)) return syncingResult(replicas);
-                              if (selected.equals(offline)) return offlineResult(replicas);
-                              return allResult(replicas);
+                              if (selected.equals(syncing)) return syncingReplicaResult(replicas);
+                              if (selected.equals(offline)) return offlineReplicaResult(replicas);
+                              return allReplicaResult(replicas);
                             }))
             .build());
-  }
-
-  public static Tab of(Context context) {
-    return Tab.of("replica", TabPane.of(Side.TOP, List.of(basicTab(context))));
   }
 }

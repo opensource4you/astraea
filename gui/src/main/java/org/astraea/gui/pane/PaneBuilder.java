@@ -18,23 +18,20 @@ package org.astraea.gui.pane;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
-import org.astraea.common.MapUtils;
+import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
@@ -52,15 +49,12 @@ public class PaneBuilder {
     return new PaneBuilder();
   }
 
+  // ---------------------------------[first control]---------------------------------//
+
   private List<RadioButton> radioButtons = new ArrayList<>();
 
-  private final Set<String> inputKeys = new LinkedHashSet<>();
+  private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
 
-  private final Map<String, Boolean> inputKeyPlaceholder = new HashMap<>();
-  private final Map<String, String> inputKeyValue = new HashMap<>();
-
-  private final Map<String, Boolean> inputKeyPriority = new LinkedHashMap<>();
-  private final Map<String, Boolean> inputKeyNumberOnly = new LinkedHashMap<>();
   private Label searchLabel = null;
   private final TextField searchField = TextField.of();
 
@@ -68,10 +62,17 @@ public class PaneBuilder {
 
   private TableView tableView = null;
 
-  private final TextArea console = TextArea.of();
-
   private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
   private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
+
+  // ---------------------------------[second control]---------------------------------//
+
+  private final Map<Label, TextField> secondInputKeyAndFields = new LinkedHashMap<>();
+
+  private Button tableViewActionButton = Button.disabled("EXECUTE");
+
+  private Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
+      tableViewAction = null;
 
   private PaneBuilder() {}
 
@@ -95,64 +96,13 @@ public class PaneBuilder {
     return this;
   }
 
-  /**
-   * add key to this builder
-   *
-   * @param key to add
-   * @param required true if key is required. The font will get highlight
-   * @param numberOnly true if the value associated to key must be number
-   * @return this builder
-   */
-  public PaneBuilder input(String key, boolean required, boolean numberOnly) {
-    return input(key, required, numberOnly, false, null);
-  }
-
-  /**
-   * add key to this builder
-   *
-   * @param key to add
-   * @param required true if key is required. The font will get highlight
-   * @param numberOnly true if the value associated to key must be number
-   * @param usePlaceholder true if the default value is treated as placeholder
-   * @param defaultValue to show by default
-   * @return this builder
-   */
-  public PaneBuilder input(
-      String key,
-      boolean required,
-      boolean numberOnly,
-      boolean usePlaceholder,
-      String defaultValue) {
-    inputKeys.add(key);
-    inputKeyPriority.put(key, required);
-    inputKeyNumberOnly.put(key, numberOnly);
-    inputKeyPlaceholder.put(key, usePlaceholder);
-    if (defaultValue != null)
-      inputKeyValue.put(
-          key, numberOnly ? String.valueOf(Long.parseLong(defaultValue)) : defaultValue);
-
+  public PaneBuilder input(Label key, TextField value) {
+    inputKeyAndFields.put(key, value);
     return this;
   }
 
-  /**
-   * add optional keys to this builder.
-   *
-   * @param keys optional keys
-   * @return this builder
-   */
-  public PaneBuilder input(Set<String> keys) {
-    keys.forEach(k -> input(k, false, false));
-    return this;
-  }
-
-  /**
-   * set the keys and their default values
-   *
-   * @param keysAndValues keys and default values
-   * @return this
-   */
-  public PaneBuilder input(Map<String, String> keysAndValues) {
-    keysAndValues.forEach((k, v) -> input(k, false, false, false, v));
+  public PaneBuilder input(Map<Label, TextField> inputs) {
+    inputKeyAndFields.putAll(inputs);
     return this;
   }
 
@@ -185,74 +135,92 @@ public class PaneBuilder {
     return this;
   }
 
+  public PaneBuilder tableViewAction(
+      Map<Label, TextField> inputs,
+      String buttonName,
+      Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
+          action) {
+    secondInputKeyAndFields.putAll(inputs);
+    tableViewActionButton = Button.disabled(buttonName);
+    tableViewAction = action;
+    return this;
+  }
+
   public Pane build() {
+    // step.1 layout
     var nodes = new ArrayList<Node>();
     if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
-    Map<String, Supplier<String>> textFields;
-    if (!inputKeys.isEmpty()) {
-      var pairs =
-          inputKeys.stream()
-              .collect(
-                  MapUtils.toLinkedHashMap(
-                      key ->
-                          inputKeyPriority.getOrDefault(key, false)
-                              ? Label.highlight(key)
-                              : Label.of(key),
-                      key -> {
-                        var builder = TextField.builder();
-                        if (inputKeyNumberOnly.getOrDefault(key, false))
-                          builder = builder.onlyNumber();
-                        String value = inputKeyValue.get(key);
-                        if (value != null) {
-                          if (inputKeyPlaceholder.getOrDefault(key, false))
-                            builder = builder.placeholder(value);
-                          else builder = builder.defaultValue(value);
-                        }
-                        if (inputKeyNumberOnly.getOrDefault(key, false))
-                          builder = builder.onlyNumber();
-                        return builder.build();
-                      }));
-      var gridPane = pairs.size() <= 3 ? GridPane.singleColumn(pairs, 3) : GridPane.of(pairs, 3);
+    if (!inputKeyAndFields.isEmpty()) {
+      var gridPane =
+          inputKeyAndFields.size() <= 3
+              ? GridPane.singleColumn(inputKeyAndFields)
+              : GridPane.of(inputKeyAndFields, 3);
       nodes.add(gridPane);
-      textFields =
-          pairs.entrySet().stream()
-              .collect(
-                  MapUtils.toLinkedHashMap(
-                      e -> e.getKey().key(), e -> () -> e.getValue().getText()));
-    } else textFields = Map.of();
+    }
     if (searchLabel != null) nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
     else nodes.add(actionButton);
+    var console = TextArea.of();
+    Logger logger = console::append;
     if (tableView != null) nodes.add(tableView);
+
+    // ---------------------------------[second control layout]---------------------------------//
+    if (tableView != null && tableViewAction != null) {
+      var checkbox = new CheckBox("enable");
+      checkbox
+          .selectedProperty()
+          .addListener(
+              (observable, oldValue, newValue) -> {
+                if (checkbox.isSelected()) {
+                  tableViewActionButton.enable();
+                  secondInputKeyAndFields.values().forEach(TextField::enable);
+                } else {
+                  tableViewActionButton.disable();
+                  secondInputKeyAndFields.values().forEach(TextField::disable);
+                }
+              });
+      tableViewActionButton.setOnAction(
+          event -> {
+            var items = tableView.items();
+            var input =
+                secondInputKeyAndFields.entrySet().stream()
+                    .flatMap(e -> e.getValue().text().stream().map(v -> Map.entry(e.getKey(), v)))
+                    .collect(Collectors.toMap(e -> e.getKey().key(), Map.Entry::getValue));
+            try {
+              checkbox.setSelected(false);
+              tableViewAction
+                  .apply(items, input, logger)
+                  .whenComplete(
+                      (data, e) -> {
+                        console.text(e);
+                      });
+            } catch (Exception e) {
+              console.text(e);
+            }
+          });
+
+      nodes.add(
+          VBox.of(
+              Pos.CENTER,
+              checkbox,
+              GridPane.singleColumn(secondInputKeyAndFields),
+              tableViewActionButton));
+    }
+
     nodes.add(console);
 
+    // step.2 event
     Runnable handler =
         () -> {
-          var singleSelectedRadio =
-              radioButtons.stream()
-                  .filter(RadioButton::isSelected)
-                  .flatMap(r -> r.selectedObject().stream())
-                  .findFirst();
           var multiSelectedRadio =
               radioButtons.stream()
                   .filter(RadioButton::isSelected)
                   .flatMap(r -> r.selectedObject().stream())
                   .collect(Collectors.toList());
-          var rawTexts =
-              textFields.entrySet().stream()
-                  .flatMap(
-                      entry ->
-                          Optional.ofNullable(entry.getValue().get())
-                              .map(v -> Map.entry(entry.getKey(), v))
-                              .stream())
-                  .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
           var requiredNonexistentKeys =
-              inputKeyPriority.entrySet().stream()
-                  .filter(
-                      entry ->
-                          entry.getValue()
-                              && (!rawTexts.containsKey(entry.getKey())
-                                  || rawTexts.get(entry.getKey()).isBlank()))
-                  .map(Map.Entry::getKey)
+              inputKeyAndFields.entrySet().stream()
+                  .filter(entry -> entry.getKey().highlight())
+                  .filter(entry -> entry.getValue().text().isEmpty())
+                  .map(e -> e.getKey().key())
                   .collect(Collectors.toSet());
           if (!requiredNonexistentKeys.isEmpty()) {
             console.text("Please define required fields: " + requiredNonexistentKeys);
@@ -264,23 +232,19 @@ public class PaneBuilder {
                   .filter(s -> !s.isBlank())
                   .map(PaneBuilder::wildcardToPattern)
                   .collect(Collectors.toList());
-          Logger logger = console::append;
+          var rawTexts =
+              inputKeyAndFields.entrySet().stream()
+                  .collect(Collectors.toMap(e -> e.getKey().key(), e -> e.getValue().text()));
           var input =
               new Input() {
                 @Override
                 @SuppressWarnings("unchecked")
-                public <T> T singleSelectedRadio(T defalutObj) {
-                  return (T) singleSelectedRadio.orElse(defalutObj);
+                public <T> List<T> multiSelectedRadios(List<T> defaultObjs) {
+                  return multiSelectedRadio.isEmpty() ? defaultObjs : (List<T>) multiSelectedRadio;
                 }
 
                 @Override
-                @SuppressWarnings("unchecked")
-                public <T> List<T> multiSelectedRadios(List<T> df) {
-                  return multiSelectedRadio.isEmpty() ? df : (List<T>) multiSelectedRadio;
-                }
-
-                @Override
-                public Map<String, String> texts() {
+                public Map<String, Optional<String>> texts() {
                   return rawTexts;
                 }
 
@@ -321,18 +285,15 @@ public class PaneBuilder {
                         }
                       });
 
-          } catch (IllegalArgumentException e) {
-            console.append(e.getMessage());
-            actionButton.enable();
           } catch (Exception e) {
-            console.append(e);
+            console.text(e);
             actionButton.enable();
           }
         };
 
     actionButton.setOnAction(ignored -> handler.run());
     // there is only one text field, so we register the ENTER event.
-    if (textFields.isEmpty())
+    if (inputKeyAndFields.isEmpty())
       searchField.setOnKeyPressed(
           event -> {
             if (event.getCode().equals(KeyCode.ENTER)) handler.run();
