@@ -368,8 +368,8 @@ public class TopicTab {
         tuple.groups.stream()
             .flatMap(
                 g ->
-                    g.consumeProgress().keySet().stream()
-                        .map(tp -> Map.entry(tp.topic(), g.groupId())))
+                    g.assignment().values().stream()
+                        .flatMap(tps -> tps.stream().map(tp -> Map.entry(tp.topic(), g.groupId()))))
             .collect(Collectors.groupingBy(Map.Entry::getKey))
             .entrySet()
             .stream()
@@ -414,7 +414,7 @@ public class TopicTab {
               Optional.ofNullable(topicTimestampOfLatestRecords.get(topic))
                   .ifPresent(t -> result.put("timestamp of latest record", Utils.format(t)));
               result.put(
-                  "number of consumer groups", topicGroups.getOrDefault(topic, Set.of()).size());
+                  "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
               topicPartitions.getOrDefault(topic, List.of()).stream()
                   .flatMap(p -> p.replicas().stream())
                   .collect(Collectors.groupingBy(NodeInfo::id))
