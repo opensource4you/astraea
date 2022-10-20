@@ -34,7 +34,8 @@ public class TopicCheckerTest extends RequireBrokerCluster {
     }
 
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      var checkers = List.of(TopicChecker.latestTimestamp(Duration.ofSeconds(3)));
+      var checkers =
+          List.of(TopicChecker.latestTimestamp(Duration.ofSeconds(3), Duration.ofSeconds(3)));
       Assertions.assertEquals(Set.of(), admin.idleTopic(checkers).toCompletableFuture().get());
       Thread.sleep(3000);
       Assertions.assertEquals(

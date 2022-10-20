@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.tab;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,7 +39,10 @@ import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Topic;
+import org.astraea.common.admin.TopicChecker;
 import org.astraea.common.admin.TopicConfigs;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
@@ -141,6 +145,35 @@ public class TopicTab {
             .build());
   }
 
+  private static Tab idleTab(Context context) {
+    var expiredDays = "expired (<number><unit>)";
+    return Tab.of(
+        "no write",
+        PaneBuilder.of()
+            .input(expiredDays, false, false)
+            .searchField("topic name")
+            .buttonAction(
+                (input, logger) ->
+                    context
+                        .admin()
+                        .idleTopic(
+                            List.of(
+                                TopicChecker.latestTimestamp(
+                                    DurationField.toDuration(
+                                        input.nonEmptyTexts().getOrDefault(expiredDays, "30day")),
+                                    Duration.ofSeconds(1))))
+                        .thenApply(
+                            topics ->
+                                topics.stream()
+                                    .filter(input::matchSearch)
+                                    .collect(Collectors.toSet()))
+                        .thenCompose(
+                            topics ->
+                                tuple(context, topics, true)
+                                    .thenApply(tuple -> basicResult(tuple, ignored -> true))))
+            .build());
+  }
+
   private static Tab basicTab(Context context) {
     return Tab.of(
         "basic",
@@ -158,13 +191,64 @@ public class TopicTab {
                                     .collect(Collectors.toSet()))
                         .thenCompose(
                             topics ->
-                                tuple(context, topics)
+                                tuple(context, topics, false)
                                     .thenApply(tuple -> basicResult(tuple, ignored -> true))))
             .build());
   }
 
   public static Tab alterTab(Context context) {
     var numberOfPartitions = "number of partitions";
+    Function<List<Topic>, BorderPane> toPane =
+        topics ->
+            BorderPane.selectableTop(
+                topics.stream()
+                    .collect(
+                        MapUtils.toSortedMap(
+                            Topic::name,
+                            topic ->
+                                PaneBuilder.of()
+                                    .buttonName("ALTER")
+                                    .input(
+                                        numberOfPartitions,
+                                        false,
+                                        true,
+                                        false,
+                                        String.valueOf(topic.topicPartitions().size()))
+                                    .input(
+                                        TopicConfigs.DYNAMICAL_CONFIGS.stream()
+                                            .collect(
+                                                Collectors.toMap(
+                                                    k -> k,
+                                                    k -> topic.config().value(k).orElse(""))))
+                                    .buttonListener(
+                                        (input, logger) -> {
+                                          var allConfigs = new HashMap<>(input.nonEmptyTexts());
+                                          var partitions =
+                                              Integer.parseInt(
+                                                  allConfigs.remove(numberOfPartitions));
+                                          return context
+                                              .admin()
+                                              .setConfigs(topic.name(), allConfigs)
+                                              .thenCompose(
+                                                  ignored ->
+                                                      context
+                                                          .admin()
+                                                          .unsetConfigs(
+                                                              topic.name(), input.emptyValueKeys()))
+                                              .thenCompose(
+                                                  ignored ->
+                                                      partitions == topic.topicPartitions().size()
+                                                          ? CompletableFuture.completedFuture(null)
+                                                          : context
+                                                              .admin()
+                                                              .addPartitions(
+                                                                  topic.name(), partitions))
+                                              .thenAccept(
+                                                  ignored ->
+                                                      logger.log(
+                                                          "succeed to alter " + topic.name()));
+                                        })
+                                    .build())));
     return Tab.dynamic(
         "alter",
         () ->
@@ -172,70 +256,7 @@ public class TopicTab {
                 .admin()
                 .topicNames(false)
                 .thenCompose(context.admin()::topics)
-                .thenApply(
-                    topics ->
-                        BorderPane.selectableTop(
-                            topics.stream()
-                                .collect(
-                                    MapUtils.toSortedMap(
-                                        Topic::name,
-                                        topic ->
-                                            PaneBuilder.of()
-                                                .buttonName("ALTER")
-                                                .input(
-                                                    numberOfPartitions,
-                                                    false,
-                                                    true,
-                                                    false,
-                                                    String.valueOf(topic.topicPartitions().size()))
-                                                .input(
-                                                    TopicConfigs.DYNAMICAL_CONFIGS.stream()
-                                                        .collect(
-                                                            Collectors.toMap(
-                                                                k -> k,
-                                                                k ->
-                                                                    topic
-                                                                        .config()
-                                                                        .value(k)
-                                                                        .orElse(""))))
-                                                .buttonListener(
-                                                    (input, logger) -> {
-                                                      var allConfigs =
-                                                          new HashMap<>(input.nonEmptyTexts());
-                                                      var partitions =
-                                                          Integer.parseInt(
-                                                              allConfigs.remove(
-                                                                  numberOfPartitions));
-                                                      return context
-                                                          .admin()
-                                                          .setConfigs(topic.name(), allConfigs)
-                                                          .thenCompose(
-                                                              ignored ->
-                                                                  context
-                                                                      .admin()
-                                                                      .unsetConfigs(
-                                                                          topic.name(),
-                                                                          input.emptyValueKeys()))
-                                                          .thenCompose(
-                                                              ignored ->
-                                                                  partitions
-                                                                          == topic
-                                                                              .topicPartitions()
-                                                                              .size()
-                                                                      ? CompletableFuture
-                                                                          .completedFuture(null)
-                                                                      : context
-                                                                          .admin()
-                                                                          .addPartitions(
-                                                                              topic.name(),
-                                                                              partitions))
-                                                          .thenAccept(
-                                                              ignored ->
-                                                                  logger.log(
-                                                                      "succeed to alter "
-                                                                          + topic.name()));
-                                                    })
-                                                .build())))));
+                .thenApply(toPane));
   }
 
   public static Tab createTab(Context context) {
@@ -286,36 +307,32 @@ public class TopicTab {
   private static Tab deleteTab(Context context) {
     return Tab.dynamic(
         "delete",
-        () ->
-            context
-                .admin()
-                .topicNames(false)
-                .thenCompose(
-                    topics ->
-                        tuple(context, topics)
-                            .thenApply(
-                                tuple ->
-                                    BorderPane.selectableTop(
-                                        topics.stream()
-                                            .collect(
-                                                MapUtils.toSortedMap(
-                                                    Function.identity(),
-                                                    topic ->
-                                                        PaneBuilder.of()
-                                                            .buttonName("DELETE")
-                                                            .initTableView(
-                                                                basicResult(tuple, topic::equals))
-                                                            .buttonListener(
-                                                                (input, logger) ->
-                                                                    context
-                                                                        .admin()
-                                                                        .deleteTopics(Set.of(topic))
-                                                                        .thenAccept(
-                                                                            ignored ->
-                                                                                logger.log(
-                                                                                    "succeed to delete "
-                                                                                        + topic)))
-                                                            .build()))))));
+        () -> {
+          var topicsFuture = context.admin().topicNames(false);
+          return FutureUtils.combine(
+              topicsFuture,
+              topicsFuture.thenCompose(topics -> tuple(context, topics, false)),
+              (topics, tuple) ->
+                  BorderPane.selectableTop(
+                      topics.stream()
+                          .collect(
+                              MapUtils.toSortedMap(
+                                  Function.identity(),
+                                  topic ->
+                                      PaneBuilder.of()
+                                          .buttonName("DELETE")
+                                          .initTableView(basicResult(tuple, topic::equals))
+                                          .buttonListener(
+                                              (input, logger) ->
+                                                  context
+                                                      .admin()
+                                                      .deleteTopics(Set.of(topic))
+                                                      .thenAccept(
+                                                          ignored ->
+                                                              logger.log(
+                                                                  "succeed to delete " + topic)))
+                                          .build()))));
+        });
   }
 
   public static Tab of(Context context) {
@@ -329,6 +346,7 @@ public class TopicTab {
                 metricsTab(context),
                 createTab(context),
                 alterTab(context),
+                idleTab(context),
                 deleteTab(context))));
   }
 
@@ -362,6 +380,15 @@ public class TopicTab {
                         e.getValue().stream()
                             .map(Map.Entry::getValue)
                             .collect(Collectors.toSet())));
+    var topicTimestampOfLatestRecords =
+        tuple.timestampOfLatestRecord.entrySet().stream()
+            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
+            .entrySet()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).max().orElse(-1L)));
     return topicPartitions.keySet().stream()
         .filter(topicFilter)
         .sorted()
@@ -377,13 +404,15 @@ public class TopicTab {
                       .mapToInt(p -> p.replicas().size())
                       .sum());
               result.put("size", DataSize.Byte.of(topicSize.getOrDefault(topic, 0L)));
-              result.put(
-                  "max timestamp",
-                  Utils.format(
-                      topicPartitions.getOrDefault(topic, List.of()).stream()
-                          .mapToLong(Partition::maxTimestamp)
-                          .max()
-                          .orElse(-1L)));
+              topicPartitions.getOrDefault(topic, List.of()).stream()
+                  .mapToLong(Partition::maxTimestamp)
+                  .max()
+                  .stream()
+                  .mapToObj(Utils::format)
+                  .findFirst()
+                  .ifPresent(t -> result.put("max timestamp", t));
+              Optional.ofNullable(topicTimestampOfLatestRecords.get(topic))
+                  .ifPresent(t -> result.put("timestamp of latest record", Utils.format(t)));
               result.put(
                   "number of consumer groups", topicGroups.getOrDefault(topic, Set.of()).size());
               topicPartitions.getOrDefault(topic, List.of()).stream()
@@ -399,11 +428,19 @@ public class TopicTab {
         .collect(Collectors.toList());
   }
 
-  private static CompletionStage<Tuple> tuple(Context context, Set<String> topics) {
+  private static CompletionStage<Tuple> tuple(
+      Context context, Set<String> topics, boolean needPollRecords) {
     return FutureUtils.combine(
         context.admin().brokers(),
         context.admin().partitions(topics),
         context.admin().consumerGroupIds().thenCompose(ids -> context.admin().consumerGroups(ids)),
+        needPollRecords
+            ? context
+                .admin()
+                .topicPartitions(topics)
+                .thenCompose(
+                    tps -> context.admin().timestampOfLatestRecords(tps, Duration.ofSeconds(1)))
+            : CompletableFuture.completedFuture(Map.of()),
         Tuple::new);
   }
 
@@ -412,10 +449,17 @@ public class TopicTab {
     private final List<Broker> brokers;
     private final List<ConsumerGroup> groups;
 
-    private Tuple(List<Broker> brokers, List<Partition> partitions, List<ConsumerGroup> groups) {
+    private final Map<TopicPartition, Long> timestampOfLatestRecord;
+
+    private Tuple(
+        List<Broker> brokers,
+        List<Partition> partitions,
+        List<ConsumerGroup> groups,
+        Map<TopicPartition, Long> timestampOfLatestRecord) {
       this.partitions = partitions;
       this.brokers = brokers;
       this.groups = groups;
+      this.timestampOfLatestRecord = timestampOfLatestRecord;
     }
   }
 }

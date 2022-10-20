@@ -82,10 +82,11 @@ public interface AsyncAdmin extends AutoCloseable {
    * find the timestamp of the latest record for given partitions
    *
    * @param topicPartitions to search timestamp of the latest record
+   * @param timeout to wait the latest record
    * @return partition and timestamp of the latest record
    */
   default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
-      Set<TopicPartition> topicPartitions) {
+      Set<TopicPartition> topicPartitions, Duration timeout) {
     return brokers()
         .thenApply(
             bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
@@ -97,7 +98,7 @@ public interface AsyncAdmin extends AutoCloseable {
                       .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
                       .build()) {
                 // TODO: how many records we should take ?
-                return consumer.poll(topicPartitions.size(), Duration.ofSeconds(5)).stream()
+                return consumer.poll(topicPartitions.size(), timeout).stream()
                     .collect(
                         Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
                     .entrySet()

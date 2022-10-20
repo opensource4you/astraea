@@ -1445,7 +1445,12 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var ps = admin.topicPartitions(Set.of(topic)).toCompletableFuture().get();
       Assertions.assertEquals(
-          0, admin.timestampOfLatestRecords(ps).toCompletableFuture().get().size());
+          0,
+          admin
+              .timestampOfLatestRecords(ps, Duration.ofSeconds(3))
+              .toCompletableFuture()
+              .get()
+              .size());
 
       var t = System.currentTimeMillis();
       try (var producer = Producer.of(bootstrapServers())) {
@@ -1479,7 +1484,8 @@ public class AsyncAdminTest extends RequireBrokerCluster {
             .run();
         producer.flush();
       }
-      var ts = admin.timestampOfLatestRecords(ps).toCompletableFuture().get();
+      var ts =
+          admin.timestampOfLatestRecords(ps, Duration.ofSeconds(3)).toCompletableFuture().get();
       Assertions.assertEquals(4, ts.size());
       Assertions.assertEquals(t, ts.get(TopicPartition.of(topic, 0)));
       Assertions.assertEquals(t + 1, ts.get(TopicPartition.of(topic, 1)));
