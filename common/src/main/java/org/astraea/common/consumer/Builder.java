@@ -25,8 +25,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
-import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
@@ -159,71 +157,5 @@ public abstract class Builder<Key, Value> {
     }
 
     protected abstract void doResubscribe();
-  }
-
-  public enum SeekStrategy implements EnumInfo {
-    NONE((consumer, seekValue) -> {}),
-    DISTANCE_FROM_LATEST(
-        (kafkaConsumer, distanceFromLatest) -> {
-          // this mode is not supported by kafka, so we have to calculate the offset first
-          var partitions = kafkaConsumer.assignment();
-          // 1) get the end offsets from all subscribed partitions
-          var endOffsets = kafkaConsumer.endOffsets(partitions);
-          // 2) calculate and then seek to the correct offset (end offset - recent offset)
-          endOffsets.forEach(
-              (tp, latest) ->
-                  kafkaConsumer.seek(tp, Math.max(0, latest - (long) distanceFromLatest)));
-        }),
-    DISTANCE_FROM_BEGINNING(
-        (kafkaConsumer, distanceFromBeginning) -> {
-          var partitions = kafkaConsumer.assignment();
-          var beginningOffsets = kafkaConsumer.beginningOffsets(partitions);
-          beginningOffsets.forEach(
-              (tp, beginning) -> kafkaConsumer.seek(tp, beginning + (long) distanceFromBeginning));
-        }),
-    @SuppressWarnings("unchecked")
-    SEEK_TO(
-        (kafkaConsumer, seekTo) -> {
-          if (seekTo instanceof Long) {
-            var partitions = kafkaConsumer.assignment();
-            partitions.forEach(tp -> kafkaConsumer.seek(tp, (long) seekTo));
-            return;
-          }
-          if (seekTo instanceof Map) {
-            var partitions = kafkaConsumer.assignment();
-            ((Map<TopicPartition, Long>) seekTo)
-                .entrySet().stream()
-                    // don't seek the partition which is not belonged to this consumer
-                    .filter(e -> partitions.contains(TopicPartition.to(e.getKey())))
-                    .forEach(e -> kafkaConsumer.seek(TopicPartition.to(e.getKey()), e.getValue()));
-            return;
-          }
-          throw new IllegalArgumentException(
-              seekTo.getClass().getSimpleName() + " is not correct type");
-        });
-
-    public static SeekStrategy ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(SeekStrategy.class, alias);
-    }
-
-    @Override
-    public String alias() {
-      return name();
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
-
-    private final BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function;
-
-    SeekStrategy(BiConsumer<org.apache.kafka.clients.consumer.Consumer<?, ?>, Object> function) {
-      this.function = requireNonNull(function);
-    }
-
-    void apply(org.apache.kafka.clients.consumer.Consumer<?, ?> kafkaConsumer, Object seekValue) {
-      if (seekValue != null) function.accept(kafkaConsumer, seekValue);
-    }
   }
 }
