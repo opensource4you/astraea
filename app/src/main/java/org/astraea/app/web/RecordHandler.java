@@ -42,6 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Partition;
@@ -211,7 +212,7 @@ public class RecordHandler implements Handler {
                 })
             .thenCompose(
                 senderFutures ->
-                    Utils.sequence(
+                    FutureUtils.sequence(
                         senderFutures.stream()
                             .map(
                                 s ->

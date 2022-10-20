@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
@@ -158,7 +159,7 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<List<Replica>> replicas(Set<String> topics);
 
   default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
+    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
   }
 
   default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
@@ -169,7 +170,7 @@ public interface AsyncAdmin extends AutoCloseable {
     return topicNames(false)
         .thenCompose(
             topicNames ->
-                Utils.sequence(
+                FutureUtils.sequence(
                         checkers.stream()
                             .map(
                                 checker ->

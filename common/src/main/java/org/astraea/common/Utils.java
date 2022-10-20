@@ -22,19 +22,14 @@ import java.net.InetAddress;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -229,18 +224,6 @@ public final class Utils {
     return java.util.UUID.randomUUID().toString().replaceAll("-", "");
   }
 
-  public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
-    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
-        .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
-  }
-
-  public static <T, U, V> CompletionStage<V> thenCombine(
-      CompletionStage<? extends T> from,
-      CompletionStage<? extends U> other,
-      BiFunction<? super T, ? super U, ? extends CompletionStage<V>> fn) {
-    return from.thenCompose(l -> other.thenCompose(r -> fn.apply(l, r)));
-  }
-
   public static Object staticMember(Class<?> clz, String attribute) {
     return reflectionAttribute(clz, null, attribute);
   }
@@ -273,7 +256,7 @@ public final class Utils {
   }
 
   public static <T, K, U> Collector<T, ?, SortedMap<K, U>> toSortedMap(
-      Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
+      Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper) {
     return Collectors.toMap(
         keyMapper,
         valueMapper,

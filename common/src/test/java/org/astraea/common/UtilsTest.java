@@ -82,7 +82,7 @@ public class UtilsTest {
     var future1 = CompletableFuture.supplyAsync(() -> 1);
     var future2 = CompletableFuture.supplyAsync(() -> 2);
 
-    Assertions.assertEquals(Utils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
+    Assertions.assertEquals(FutureUtils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
   }
 
   @Test
@@ -153,7 +153,7 @@ public class UtilsTest {
 
   @Test
   void testEmptySequence() throws ExecutionException, InterruptedException {
-    var f = Utils.sequence(List.of()).thenApply(ignored -> "yes");
+    var f = FutureUtils.sequence(List.of()).thenApply(ignored -> "yes");
     Assertions.assertEquals("yes", f.get());
   }
 

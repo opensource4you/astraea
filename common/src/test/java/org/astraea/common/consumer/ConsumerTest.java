@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -424,7 +425,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var log = new ConcurrentHashMap<Integer, Integer>();
     var closed = new AtomicBoolean(false);
     var fs =
-        Utils.sequence(
+        FutureUtils.sequence(
             IntStream.range(0, consumers)
                 .mapToObj(
                     index ->

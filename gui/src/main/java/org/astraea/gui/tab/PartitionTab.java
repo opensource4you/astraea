@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.layout.Pane;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.LinkedHashMap;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.NodeInfo;
@@ -152,18 +153,17 @@ public class PartitionTab {
                                   .orElse(Map.of())))
                   .thenCompose(
                       entry ->
-                          context
-                              .admin()
-                              .deleteRecords(entry.getKey())
-                              .thenCompose(
-                                  ignored -> context.admin().moveToBrokers(entry.getValue()))
-                              .thenAccept(
-                                  ignored ->
-                                      logger.log(
-                                          "succeed to alter "
-                                              + (entry.getKey().keySet().isEmpty()
-                                                  ? entry.getValue().keySet()
-                                                  : entry.getKey().keySet()))));
+                          FutureUtils.combine(
+                              context.admin().deleteRecords(entry.getKey()),
+                              context.admin().moveToBrokers(entry.getValue()),
+                              (i, j) -> {
+                                logger.log(
+                                    "succeed to alter "
+                                        + (entry.getKey().keySet().isEmpty()
+                                            ? entry.getValue().keySet()
+                                            : entry.getKey().keySet()));
+                                return null;
+                              }));
             })
         .build();
   }

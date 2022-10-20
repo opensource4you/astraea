@@ -52,6 +52,7 @@ import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.common.DataRate;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 
 class AsyncAdminImpl implements AsyncAdmin {
@@ -105,24 +106,25 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<List<Topic>> topics(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
-    return to(kafkaAdmin
-            .describeConfigs(
-                topics.stream()
-                    .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
-                    .collect(Collectors.toList()))
-            .all())
-        .thenCombine(
-            to(kafkaAdmin.describeTopics(topics).all()),
-            (configs, desc) ->
-                configs.entrySet().stream()
-                    .map(
-                        entry ->
-                            Topic.of(
-                                entry.getKey().name(),
-                                desc.get(entry.getKey().name()),
-                                entry.getValue()))
-                    .sorted(Comparator.comparing(Topic::name))
-                    .collect(Collectors.toUnmodifiableList()));
+    return FutureUtils.combine(
+        to(
+            kafkaAdmin
+                .describeConfigs(
+                    topics.stream()
+                        .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
+                        .collect(Collectors.toList()))
+                .all()),
+        to(kafkaAdmin.describeTopics(topics).all()),
+        (configs, desc) ->
+            configs.entrySet().stream()
+                .map(
+                    entry ->
+                        Topic.of(
+                            entry.getKey().name(),
+                            desc.get(entry.getKey().name()),
+                            entry.getValue()))
+                .sorted(Comparator.comparing(Topic::name))
+                .collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
@@ -135,7 +137,7 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<Map<TopicPartition, Long>> deleteRecords(
       Map<TopicPartition, Long> offsets) {
     if (offsets.isEmpty()) return CompletableFuture.completedFuture(Map.of());
-    return Utils.sequence(
+    return FutureUtils.sequence(
             kafkaAdmin
                 .deleteRecords(
                     offsets.entrySet().stream()
@@ -161,7 +163,7 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds) {
-    return Utils.sequence(
+    return FutureUtils.sequence(
             groupAndInstanceIds.entrySet().stream()
                 .map(
                     entry ->
@@ -191,7 +193,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .collect(Collectors.toSet()))
         .thenCompose(
             groups ->
-                Utils.sequence(
+                FutureUtils.sequence(
                     groups.stream()
                         .map(
                             group ->
@@ -275,101 +277,103 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<Map<TopicPartition, Long>> earliestOffsets(
       Set<TopicPartition> topicPartitions) {
     if (topicPartitions.isEmpty()) return CompletableFuture.completedFuture(Map.of());
-    return updatableTopicPartitions(
-            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
-        .thenCompose(
+    var updatableTopicPartitions =
+        updatableTopicPartitions(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()));
+    return FutureUtils.combine(
+        updatableTopicPartitions,
+        updatableTopicPartitions.thenCompose(
             ps ->
-                to(kafkaAdmin
+                to(
+                    kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.EarliestSpec())))
-                        .all())
-                    .thenApply(
-                        result ->
-                            ps.stream()
-                                .collect(
-                                    Utils.toSortedMap(
-                                        tp -> tp,
-                                        tp ->
-                                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
-                                                .map(
-                                                    ListOffsetsResult.ListOffsetsResultInfo::offset)
-                                                .orElse(-1L)))));
+                        .all())),
+        (ps, result) ->
+            ps.stream()
+                .collect(
+                    Collectors.toMap(
+                        tp -> tp,
+                        tp ->
+                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
+                                .map(ListOffsetsResult.ListOffsetsResultInfo::offset)
+                                .orElse(-1L))));
   }
 
   @Override
   public CompletionStage<Map<TopicPartition, Long>> latestOffsets(
       Set<TopicPartition> topicPartitions) {
     if (topicPartitions.isEmpty()) return CompletableFuture.completedFuture(Map.of());
-    return updatableTopicPartitions(
-            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
-        .thenCompose(
+    var updatableTopicPartitions =
+        updatableTopicPartitions(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()));
+    return FutureUtils.combine(
+        updatableTopicPartitions,
+        updatableTopicPartitions.thenCompose(
             ps ->
-                to(kafkaAdmin
+                to(
+                    kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.LatestSpec())))
-                        .all())
-                    .thenApply(
-                        result ->
-                            ps.stream()
-                                .collect(
-                                    Utils.toSortedMap(
-                                        tp -> tp,
-                                        tp ->
-                                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
-                                                .map(
-                                                    ListOffsetsResult.ListOffsetsResultInfo::offset)
-                                                .orElse(-1L)))));
+                        .all())),
+        (ps, result) ->
+            ps.stream()
+                .collect(
+                    Collectors.toMap(
+                        tp -> tp,
+                        tp ->
+                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
+                                .map(ListOffsetsResult.ListOffsetsResultInfo::offset)
+                                .orElse(-1L))));
   }
 
   @Override
   public CompletionStage<Map<TopicPartition, Long>> maxTimestamps(
       Set<TopicPartition> topicPartitions) {
     if (topicPartitions.isEmpty()) return CompletableFuture.completedFuture(Map.of());
-    return updatableTopicPartitions(
-            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
-        .thenApply(
-            ps -> {
-              System.out.println("ps:" + ps.size());
-              return ps;
-            })
-        .thenCompose(
+    var updatableTopicPartitions =
+        updatableTopicPartitions(
+            topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()));
+    return FutureUtils.combine(
+        updatableTopicPartitions,
+        updatableTopicPartitions.thenCompose(
             ps ->
-                to(kafkaAdmin
+                to(
+                    kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.MaxTimestampSpec())))
-                        .all())
-                    // the old kafka does not support to fetch max timestamp
-                    .exceptionally(e -> Map.of())
-                    .thenApply(
-                        result ->
-                            ps.stream()
-                                .collect(
-                                    Utils.toSortedMap(
-                                        tp -> tp,
-                                        tp ->
-                                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
-                                                .map(
-                                                    ListOffsetsResult.ListOffsetsResultInfo
-                                                        ::timestamp)
-                                                .orElse(-1L)))));
+                        .all())),
+        (ps, result) ->
+            ps.stream()
+                .collect(
+                    Collectors.toMap(
+                        tp -> tp,
+                        tp ->
+                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
+                                .map(ListOffsetsResult.ListOffsetsResultInfo::timestamp)
+                                .orElse(-1L))));
   }
 
   @Override
   public CompletionStage<List<Partition>> partitions(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
-    var allPartitions =
+    var updatableTopicPartitions = updatableTopicPartitions(topics);
+    return FutureUtils.combine(
+        updatableTopicPartitions.thenCompose(this::earliestOffsets),
+        updatableTopicPartitions.thenCompose(this::latestOffsets),
+        updatableTopicPartitions.thenCompose(this::maxTimestamps),
         to(kafkaAdmin.describeTopics(topics).all())
             .thenApply(
                 ts ->
@@ -381,64 +385,35 @@ class AsyncAdminImpl implements AsyncAdmin {
                                         tp ->
                                             Map.entry(
                                                 TopicPartition.of(e.getKey(), tp.partition()), tp)))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-
-    return updatableTopicPartitions(topics)
-        .thenCompose(
-            tps ->
-                earliestOffsets(tps)
-                    .thenCompose(
-                        earliestOffsets ->
-                            latestOffsets(tps)
-                                .thenCompose(
-                                    latestOffsets ->
-                                        maxTimestamps(tps)
-                                            .thenCombine(
-                                                allPartitions,
-                                                (maxTimestamps, tpInfos) ->
-                                                    tpInfos.keySet().stream()
-                                                        .map(
-                                                            tp -> {
-                                                              var earliest =
-                                                                  earliestOffsets.getOrDefault(
-                                                                      tp, -1L);
-                                                              var latest =
-                                                                  latestOffsets.getOrDefault(
-                                                                      tp, -1L);
-                                                              var maxTimestamp =
-                                                                  maxTimestamps.getOrDefault(
-                                                                      tp, -1L);
-                                                              var tpInfo = tpInfos.get(tp);
-                                                              var leader =
-                                                                  tpInfo.leader() == null
-                                                                          || tpInfo
-                                                                              .leader()
-                                                                              .isEmpty()
-                                                                      ? null
-                                                                      : NodeInfo.of(
-                                                                          tpInfo.leader());
-                                                              var replicas =
-                                                                  tpInfo.replicas().stream()
-                                                                      .map(NodeInfo::of)
-                                                                      .collect(Collectors.toList());
-                                                              var isr =
-                                                                  tpInfo.isr().stream()
-                                                                      .map(NodeInfo::of)
-                                                                      .collect(Collectors.toList());
-                                                              return Partition.of(
-                                                                  tp.topic(),
-                                                                  tp.partition(),
-                                                                  leader,
-                                                                  replicas,
-                                                                  isr,
-                                                                  earliest,
-                                                                  latest,
-                                                                  maxTimestamp);
-                                                            })
-                                                        .sorted(
-                                                            Comparator.comparing(
-                                                                Partition::topicPartition))
-                                                        .collect(Collectors.toList())))));
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
+        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos) ->
+            tpInfos.keySet().stream()
+                .map(
+                    tp -> {
+                      var earliest = earliestOffsets.getOrDefault(tp, -1L);
+                      var latest = latestOffsets.getOrDefault(tp, -1L);
+                      var maxTimestamp = maxTimestamps.getOrDefault(tp, -1L);
+                      var tpInfo = tpInfos.get(tp);
+                      var leader =
+                          tpInfo.leader() == null || tpInfo.leader().isEmpty()
+                              ? null
+                              : NodeInfo.of(tpInfo.leader());
+                      var replicas =
+                          tpInfo.replicas().stream().map(NodeInfo::of).collect(Collectors.toList());
+                      var isr =
+                          tpInfo.isr().stream().map(NodeInfo::of).collect(Collectors.toList());
+                      return Partition.of(
+                          tp.topic(),
+                          tp.partition(),
+                          leader,
+                          replicas,
+                          isr,
+                          earliest,
+                          latest,
+                          maxTimestamp);
+                    })
+                .sorted(Comparator.comparing(Partition::topicPartition))
+                .collect(Collectors.toList()));
   }
 
   @Override
@@ -452,66 +427,48 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<List<Broker>> brokers() {
     var cluster = kafkaAdmin.describeCluster();
-    return to(cluster.controller())
-        .thenCompose(
-            controller ->
-                to(cluster.nodes())
-                    .thenCompose(
-                        nodes ->
-                            to(kafkaAdmin
-                                    .describeLogDirs(
-                                        nodes.stream().map(Node::id).collect(Collectors.toList()))
-                                    .all())
-                                .thenCompose(
-                                    logDirs ->
-                                        to(kafkaAdmin
-                                                .describeConfigs(
-                                                    nodes.stream()
-                                                        .map(
-                                                            n ->
-                                                                new ConfigResource(
-                                                                    ConfigResource.Type.BROKER,
-                                                                    String.valueOf(n.id())))
-                                                        .collect(Collectors.toList()))
-                                                .all())
-                                            .thenApply(
-                                                configs ->
-                                                    configs.entrySet().stream()
-                                                        .collect(
-                                                            Collectors.toMap(
-                                                                e ->
-                                                                    Integer.valueOf(
-                                                                        e.getKey().name()),
-                                                                Map.Entry::getValue)))
-                                            .thenCompose(
-                                                configs ->
-                                                    topicNames(true)
-                                                        .thenCompose(
-                                                            names ->
-                                                                to(
-                                                                    kafkaAdmin
-                                                                        .describeTopics(names)
-                                                                        .all()))
-                                                        .thenApply(
-                                                            topics ->
-                                                                nodes.stream()
-                                                                    .map(
-                                                                        node ->
-                                                                            Broker.of(
-                                                                                node.id()
-                                                                                    == controller
-                                                                                        .id(),
-                                                                                node,
-                                                                                configs.get(
-                                                                                    node.id()),
-                                                                                logDirs.get(
-                                                                                    node.id()),
-                                                                                topics.values()))
-                                                                    .sorted(
-                                                                        Comparator.comparing(
-                                                                            NodeInfo::id))
-                                                                    .collect(
-                                                                        Collectors.toList()))))));
+    var nodeFuture = to(cluster.nodes());
+    return FutureUtils.combine(
+        to(cluster.controller()),
+        topicNames(true).thenCompose(names -> to(kafkaAdmin.describeTopics(names).all())),
+        nodeFuture.thenCompose(
+            nodes ->
+                to(
+                    kafkaAdmin
+                        .describeLogDirs(nodes.stream().map(Node::id).collect(Collectors.toList()))
+                        .all())),
+        nodeFuture
+            .thenCompose(
+                nodes ->
+                    to(
+                        kafkaAdmin
+                            .describeConfigs(
+                                nodes.stream()
+                                    .map(
+                                        n ->
+                                            new ConfigResource(
+                                                ConfigResource.Type.BROKER, String.valueOf(n.id())))
+                                    .collect(Collectors.toList()))
+                            .all()))
+            .thenApply(
+                configs ->
+                    configs.entrySet().stream()
+                        .collect(
+                            Collectors.toMap(
+                                e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue))),
+        nodeFuture,
+        (controller, topics, logDirs, configs, nodes) ->
+            nodes.stream()
+                .map(
+                    node ->
+                        Broker.of(
+                            node.id() == controller.id(),
+                            node,
+                            configs.get(node.id()),
+                            logDirs.get(node.id()),
+                            topics.values()))
+                .sorted(Comparator.comparing(NodeInfo::id))
+                .collect(Collectors.toList()));
   }
 
   @Override
@@ -527,50 +484,48 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<List<ConsumerGroup>> consumerGroups(Set<String> consumerGroupIds) {
     if (consumerGroupIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
-    return to(kafkaAdmin.describeConsumerGroups(consumerGroupIds).all())
-        .thenCombine(
-            Utils.sequence(
-                    consumerGroupIds.stream()
-                        .map(
-                            id ->
-                                kafkaAdmin
-                                    .listConsumerGroupOffsets(id)
-                                    .partitionsToOffsetAndMetadata()
-                                    .thenApply(of -> Map.entry(id, of)))
-                        .map(f -> to(f).toCompletableFuture())
-                        .collect(Collectors.toUnmodifiableList()))
-                .thenApply(
-                    s ->
-                        s.stream()
-                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
-            (consumerGroupDescriptions, consumerGroupMetadata) ->
+    return FutureUtils.combine(
+        to(kafkaAdmin.describeConsumerGroups(consumerGroupIds).all()),
+        FutureUtils.sequence(
                 consumerGroupIds.stream()
                     .map(
-                        groupId ->
-                            new ConsumerGroup(
-                                groupId,
-                                NodeInfo.of(consumerGroupDescriptions.get(groupId).coordinator()),
-                                consumerGroupMetadata.get(groupId).entrySet().stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            tp -> TopicPartition.from(tp.getKey()),
-                                            offset -> offset.getValue().offset())),
-                                consumerGroupDescriptions.get(groupId).members().stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            member ->
-                                                new Member(
-                                                    groupId,
-                                                    member.consumerId(),
-                                                    member.groupInstanceId(),
-                                                    member.clientId(),
-                                                    member.host()),
-                                            member ->
-                                                member.assignment().topicPartitions().stream()
-                                                    .map(TopicPartition::from)
-                                                    .collect(Collectors.toSet())))))
-                    .sorted(Comparator.comparing(ConsumerGroup::groupId))
-                    .collect(Collectors.toList()));
+                        id ->
+                            kafkaAdmin
+                                .listConsumerGroupOffsets(id)
+                                .partitionsToOffsetAndMetadata()
+                                .thenApply(of -> Map.entry(id, of)))
+                    .map(f -> to(f).toCompletableFuture())
+                    .collect(Collectors.toUnmodifiableList()))
+            .thenApply(
+                s -> s.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
+        (consumerGroupDescriptions, consumerGroupMetadata) ->
+            consumerGroupIds.stream()
+                .map(
+                    groupId ->
+                        new ConsumerGroup(
+                            groupId,
+                            NodeInfo.of(consumerGroupDescriptions.get(groupId).coordinator()),
+                            consumerGroupMetadata.get(groupId).entrySet().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        tp -> TopicPartition.from(tp.getKey()),
+                                        offset -> offset.getValue().offset())),
+                            consumerGroupDescriptions.get(groupId).members().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        member ->
+                                            new Member(
+                                                groupId,
+                                                member.consumerId(),
+                                                member.groupInstanceId(),
+                                                member.clientId(),
+                                                member.host()),
+                                        member ->
+                                            member.assignment().topicPartitions().stream()
+                                                .map(TopicPartition::from)
+                                                .collect(Collectors.toSet())))))
+                .sorted(Comparator.comparing(ConsumerGroup::groupId))
+                .collect(Collectors.toList()));
   }
 
   @Override
@@ -596,62 +551,62 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
-    return topicPartitions(topics)
-        .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-        .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
-        .thenApply(
-            pr ->
-                pr.entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry.getValue().addingReplicas().stream()
-                                .map(
-                                    id ->
-                                        new org.apache.kafka.common.TopicPartitionReplica(
-                                            entry.getKey().topic(),
-                                            entry.getKey().partition(),
-                                            id)))
-                    .collect(Collectors.toList()))
-        .thenCombine(
-            logDirs(),
-            (adding, dirs) -> {
-              Function<TopicPartition, Long> findMaxSize =
-                  tp ->
-                      dirs.values().stream()
-                          .flatMap(e -> e.entrySet().stream())
-                          .filter(e -> e.getKey().equals(tp))
-                          .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
-                          .mapToLong(v -> v)
-                          .max()
-                          .orElse(0);
-              return adding.stream()
-                  .filter(
-                      r ->
-                          dirs.getOrDefault(r.brokerId(), Map.of())
-                              .containsKey(TopicPartition.of(r.topic(), r.partition())))
-                  .flatMap(
-                      r ->
-                          dirs
-                              .get(r.brokerId())
-                              .get(TopicPartition.of(r.topic(), r.partition()))
-                              .entrySet()
-                              .stream()
-                              .map(
-                                  entry ->
-                                      AddingReplica.of(
-                                          r.topic(),
-                                          r.partition(),
-                                          r.brokerId(),
-                                          entry.getKey(),
-                                          entry.getValue().size(),
-                                          findMaxSize.apply(
-                                              TopicPartition.of(r.topic(), r.partition())))))
-                  .sorted(
-                      Comparator.comparing(AddingReplica::topic)
-                          .thenComparing(AddingReplica::partition)
-                          .thenComparing(AddingReplica::broker))
-                  .collect(Collectors.toList());
-            });
+    return FutureUtils.combine(
+        topicPartitions(topics)
+            .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
+            .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
+            .thenApply(
+                pr ->
+                    pr.entrySet().stream()
+                        .flatMap(
+                            entry ->
+                                entry.getValue().addingReplicas().stream()
+                                    .map(
+                                        id ->
+                                            new org.apache.kafka.common.TopicPartitionReplica(
+                                                entry.getKey().topic(),
+                                                entry.getKey().partition(),
+                                                id)))
+                        .collect(Collectors.toList())),
+        logDirs(),
+        (adding, dirs) -> {
+          Function<TopicPartition, Long> findMaxSize =
+              tp ->
+                  dirs.values().stream()
+                      .flatMap(e -> e.entrySet().stream())
+                      .filter(e -> e.getKey().equals(tp))
+                      .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
+                      .mapToLong(v -> v)
+                      .max()
+                      .orElse(0);
+          return adding.stream()
+              .filter(
+                  r ->
+                      dirs.getOrDefault(r.brokerId(), Map.of())
+                          .containsKey(TopicPartition.of(r.topic(), r.partition())))
+              .flatMap(
+                  r ->
+                      dirs
+                          .get(r.brokerId())
+                          .get(TopicPartition.of(r.topic(), r.partition()))
+                          .entrySet()
+                          .stream()
+                          .map(
+                              entry ->
+                                  AddingReplica.of(
+                                      r.topic(),
+                                      r.partition(),
+                                      r.brokerId(),
+                                      entry.getKey(),
+                                      entry.getValue().size(),
+                                      findMaxSize.apply(
+                                          TopicPartition.of(r.topic(), r.partition())))))
+              .sorted(
+                  Comparator.comparing(AddingReplica::topic)
+                      .thenComparing(AddingReplica::partition)
+                      .thenComparing(AddingReplica::broker))
+              .collect(Collectors.toList());
+        });
   }
 
   @Override
@@ -680,82 +635,74 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<List<Replica>> replicas(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     // pre-group folders by (broker -> topic partition) to speedup seek
-    return logDirs()
-        .thenCombine(
-            to(kafkaAdmin.describeTopics(topics).allTopicNames()),
-            (logDirs, topicDesc) ->
-                topicDesc.entrySet().stream()
-                    .flatMap(
-                        topicDes ->
-                            topicDes.getValue().partitions().stream()
-                                .flatMap(
-                                    tpInfo ->
-                                        tpInfo.replicas().stream()
-                                            .flatMap(
-                                                node -> {
-                                                  // kafka admin#describeLogDirs does not return
-                                                  // offline
-                                                  // node,when the node is not online,all
-                                                  // TopicPartition
-                                                  // return an empty dataFolder and a
-                                                  // fake replicaInfo, and determine whether the
-                                                  // node is
-                                                  // online by whether the dataFolder is "".
-                                                  var pathAndReplicas =
-                                                      logDirs
-                                                          .getOrDefault(node.id(), Map.of())
-                                                          .getOrDefault(
-                                                              TopicPartition.of(
-                                                                  topicDes.getKey(),
-                                                                  tpInfo.partition()),
-                                                              Map.of(
-                                                                  "",
-                                                                  new org.apache.kafka.clients.admin
-                                                                      .ReplicaInfo(
-                                                                      -1L, -1L, false)));
-                                                  return pathAndReplicas.entrySet().stream()
-                                                      .map(
-                                                          pathAndReplica ->
-                                                              Replica.of(
-                                                                  topicDes.getKey(),
-                                                                  tpInfo.partition(),
-                                                                  NodeInfo.of(node),
-                                                                  pathAndReplica
-                                                                      .getValue()
-                                                                      .offsetLag(),
-                                                                  pathAndReplica.getValue().size(),
-                                                                  tpInfo.leader() != null
-                                                                      && !tpInfo.leader().isEmpty()
-                                                                      && tpInfo.leader().id()
-                                                                          == node.id(),
-                                                                  tpInfo.isr().contains(node),
-                                                                  pathAndReplica
-                                                                      .getValue()
-                                                                      .isFuture(),
-                                                                  node.isEmpty()
-                                                                      || pathAndReplica
-                                                                          .getKey()
-                                                                          .equals(""),
-                                                                  // The first replica in the return
-                                                                  // result is the preferred leader.
-                                                                  // This only works with Kafka
-                                                                  // broker version after
-                                                                  // 0.11. Version before 0.11
-                                                                  // returns the replicas in
-                                                                  // unspecified order.
-                                                                  tpInfo.replicas().get(0).id()
+    return FutureUtils.combine(
+        logDirs(),
+        to(kafkaAdmin.describeTopics(topics).allTopicNames()),
+        (logDirs, topicDesc) ->
+            topicDesc.entrySet().stream()
+                .flatMap(
+                    topicDes ->
+                        topicDes.getValue().partitions().stream()
+                            .flatMap(
+                                tpInfo ->
+                                    tpInfo.replicas().stream()
+                                        .flatMap(
+                                            node -> {
+                                              // kafka admin#describeLogDirs does not return
+                                              // offline node,when the node is not online,all
+                                              // TopicPartition return an empty dataFolder and a
+                                              // fake replicaInfo, and determine whether the
+                                              // node is online by whether the dataFolder is "".
+                                              var pathAndReplicas =
+                                                  logDirs
+                                                      .getOrDefault(node.id(), Map.of())
+                                                      .getOrDefault(
+                                                          TopicPartition.of(
+                                                              topicDes.getKey(),
+                                                              tpInfo.partition()),
+                                                          Map.of(
+                                                              "",
+                                                              new org.apache.kafka.clients.admin
+                                                                  .ReplicaInfo(-1L, -1L, false)));
+                                              return pathAndReplicas.entrySet().stream()
+                                                  .map(
+                                                      pathAndReplica ->
+                                                          Replica.of(
+                                                              topicDes.getKey(),
+                                                              tpInfo.partition(),
+                                                              NodeInfo.of(node),
+                                                              pathAndReplica.getValue().offsetLag(),
+                                                              pathAndReplica.getValue().size(),
+                                                              tpInfo.leader() != null
+                                                                  && !tpInfo.leader().isEmpty()
+                                                                  && tpInfo.leader().id()
                                                                       == node.id(),
-                                                                  // empty data folder means this
-                                                                  // replica is offline
-                                                                  pathAndReplica.getKey().isEmpty()
-                                                                      ? null
-                                                                      : pathAndReplica.getKey()));
-                                                })))
-                    .sorted(
-                        Comparator.comparing(Replica::topic)
-                            .thenComparing(Replica::partition)
-                            .thenComparing(r -> r.nodeInfo().id()))
-                    .collect(Collectors.toList()));
+                                                              tpInfo.isr().contains(node),
+                                                              pathAndReplica.getValue().isFuture(),
+                                                              node.isEmpty()
+                                                                  || pathAndReplica
+                                                                      .getKey()
+                                                                      .equals(""),
+                                                              // The first replica in the return
+                                                              // result is the preferred leader.
+                                                              // This only works with Kafka
+                                                              // broker version after
+                                                              // 0.11. Version before 0.11
+                                                              // returns the replicas in
+                                                              // unspecified order.
+                                                              tpInfo.replicas().get(0).id()
+                                                                  == node.id(),
+                                                              // empty data folder means this
+                                                              // replica is offline
+                                                              pathAndReplica.getKey().isEmpty()
+                                                                  ? null
+                                                                  : pathAndReplica.getKey()));
+                                            })))
+                .sorted(
+                    Comparator.comparing(Replica::topic)
+                        .thenComparing(Replica::partition)
+                        .thenComparing(r -> r.nodeInfo().id()))
+                .collect(Collectors.toList()));
   }
 
   @Override
@@ -953,54 +900,54 @@ class AsyncAdminImpl implements AsyncAdmin {
                                         .configs(configs)))
                             .all())
                         .thenApply(r -> true);
-                  return topics(Set.of(topic))
-                      .thenCombine(
-                          partitions(Set.of(topic)),
-                          (ts, partitions) -> {
-                            if (partitions.size() != numberOfPartitions)
-                              throw new IllegalArgumentException(
-                                  topic
-                                      + " is existent but its partitions: "
-                                      + partitions.size()
-                                      + " is not equal to expected: "
-                                      + numberOfPartitions);
-                            partitions.forEach(
-                                p -> {
-                                  if (p.replicas().size() != numberOfReplicas)
-                                    throw new IllegalArgumentException(
-                                        topic
-                                            + " is existent but its replicas: "
-                                            + p.replicas().size()
-                                            + " is not equal to expected: "
-                                            + numberOfReplicas);
-                                });
+                  return FutureUtils.combine(
+                      topics(Set.of(topic)),
+                      partitions(Set.of(topic)),
+                      (ts, partitions) -> {
+                        if (partitions.size() != numberOfPartitions)
+                          throw new IllegalArgumentException(
+                              topic
+                                  + " is existent but its partitions: "
+                                  + partitions.size()
+                                  + " is not equal to expected: "
+                                  + numberOfPartitions);
+                        partitions.forEach(
+                            p -> {
+                              if (p.replicas().size() != numberOfReplicas)
+                                throw new IllegalArgumentException(
+                                    topic
+                                        + " is existent but its replicas: "
+                                        + p.replicas().size()
+                                        + " is not equal to expected: "
+                                        + numberOfReplicas);
+                            });
 
-                            ts.stream()
-                                .filter(t -> t.name().equals(topic))
-                                .map(Topic::config)
-                                .forEach(
-                                    existentConfigs ->
-                                        configs.forEach(
-                                            (k, v) -> {
-                                              if (existentConfigs
-                                                  .value(k)
-                                                  .filter(actual -> actual.equals(v))
-                                                  .isEmpty())
-                                                throw new IllegalArgumentException(
-                                                    topic
-                                                        + " is existent but its config: <"
-                                                        + k
-                                                        + ", "
-                                                        + existentConfigs.value(k)
-                                                        + "> is not equal to expected: "
-                                                        + k
-                                                        + ", "
-                                                        + v);
-                                            }));
+                        ts.stream()
+                            .filter(t -> t.name().equals(topic))
+                            .map(Topic::config)
+                            .forEach(
+                                existentConfigs ->
+                                    configs.forEach(
+                                        (k, v) -> {
+                                          if (existentConfigs
+                                              .value(k)
+                                              .filter(actual -> actual.equals(v))
+                                              .isEmpty())
+                                            throw new IllegalArgumentException(
+                                                topic
+                                                    + " is existent but its config: <"
+                                                    + k
+                                                    + ", "
+                                                    + existentConfigs.value(k)
+                                                    + "> is not equal to expected: "
+                                                    + k
+                                                    + ", "
+                                                    + v);
+                                        }));
 
-                            // there is equal topic
-                            return false;
-                          });
+                        // there is equal topic
+                        return false;
+                      });
                 });
       }
     };
