@@ -69,11 +69,8 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
           }
 
           if (copyAllForWindows.match(event) || copyAllForMacos.match(event)) {
-            var items = List.copyOf(tableView.getItems());
-            var keys =
-                tableView.getColumns().stream()
-                    .map(TableColumnBase::getText)
-                    .collect(Collectors.toList());
+            var items = tableView.items();
+            var keys = tableView.keys();
             var stringBuilder = new StringBuilder();
             stringBuilder.append(String.join(",", keys)).append("\n");
             items.forEach(
@@ -96,6 +93,16 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
 
   private TableView() {
     super();
+  }
+
+  public List<Map<String, Object>> items() {
+    return List.copyOf(getItems());
+  }
+
+  public List<String> keys() {
+    return getColumns().stream()
+        .map(TableColumnBase::getText)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   public void update(List<Map<String, Object>> data) {

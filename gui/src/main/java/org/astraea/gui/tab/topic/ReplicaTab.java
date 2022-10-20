@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.tab;
+package org.astraea.gui.tab.topic;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javafx.geometry.Side;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
@@ -27,7 +26,6 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.pane.TabPane;
 
 public class ReplicaTab {
 
@@ -117,12 +115,12 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  public static Tab basicTab(Context context) {
+  static Tab tab(Context context) {
     var all = "all";
     var syncing = "syncing";
     var offline = "offline";
     return Tab.of(
-        "basic",
+        "replica",
         PaneBuilder.of()
             .singleRadioButtons(List.of(all, syncing, offline))
             .searchField("topic name")
@@ -145,9 +143,5 @@ public class ReplicaTab {
                               return allResult(replicas);
                             }))
             .build());
-  }
-
-  public static Tab of(Context context) {
-    return Tab.of("replica", TabPane.of(Side.TOP, List.of(basicTab(context))));
   }
 }

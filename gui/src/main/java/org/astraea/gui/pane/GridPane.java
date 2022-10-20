@@ -16,11 +16,17 @@
  */
 package org.astraea.gui.pane;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.IntStream;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Labeled;
+import javafx.scene.control.TextInputControl;
+import org.astraea.common.MapUtils;
 
 public class GridPane extends javafx.scene.layout.GridPane {
 
@@ -47,13 +53,10 @@ public class GridPane extends javafx.scene.layout.GridPane {
     return pane;
   }
 
-  public static GridPane singleColumn(
-      Map<? extends Node, ? extends Node> nodePair, int maxPairOneLine) {
+  public static GridPane singleColumn(Map<? extends Node, ? extends Node> nodePair) {
     var pane = new GridPane();
     pane.setAlignment(Pos.CENTER);
     var row = 0;
-    var column = 0;
-    var count = 0;
     for (var pair : nodePair.entrySet()) {
       GridPane.setHalignment(pair.getKey(), HPos.RIGHT);
       GridPane.setMargin(pair.getKey(), new Insets(10, 5, 10, 15));
@@ -68,4 +71,30 @@ public class GridPane extends javafx.scene.layout.GridPane {
   }
 
   private GridPane() {}
+
+  public Map<String, String> contents() {
+    var elements = List.copyOf(getChildren());
+    if (elements.isEmpty()) return Map.of();
+    if (elements.size() % 2 != 0)
+      throw new IllegalArgumentException(
+          "the number of elements in GridPane must be 2n, but current is " + elements.size());
+    return IntStream.range(0, elements.size() / 2)
+        .mapToObj(
+            index -> {
+              var key = tryText(elements.get(2 * index));
+              var value = tryText(elements.get(2 * index + 1));
+              if (key.isPresent() && value.isPresent())
+                return Optional.of(Map.entry(key.get(), value.get()));
+              return Optional.<Map.Entry<String, String>>empty();
+            })
+        .flatMap(Optional::stream)
+        .collect(MapUtils.toLinkedHashMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private static Optional<String> tryText(Node node) {
+    if (node instanceof TextInputControl)
+      return Optional.ofNullable(((TextInputControl) node).getText());
+    if (node instanceof Labeled) return Optional.ofNullable(((Labeled) node).getText());
+    return Optional.empty();
+  }
 }

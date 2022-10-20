@@ -48,6 +48,8 @@ import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class BrokerTab {
 
@@ -441,12 +443,15 @@ public class BrokerTab {
                                                     BrokerConfigs.DYNAMICAL_CONFIGS.stream()
                                                         .collect(
                                                             MapUtils.toSortedMap(
-                                                                k -> k,
+                                                                Label::of,
                                                                 k ->
-                                                                    broker
-                                                                        .config()
-                                                                        .value(k)
-                                                                        .orElse(""))))
+                                                                    TextField.builder()
+                                                                        .defaultValue(
+                                                                            broker
+                                                                                .config()
+                                                                                .value(k)
+                                                                                .orElse(""))
+                                                                        .build())))
                                                 .buttonListener(
                                                     (input, logger) ->
                                                         context

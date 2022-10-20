@@ -21,6 +21,8 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class SettingTab {
 
@@ -30,8 +32,8 @@ public class SettingTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .input(BOOTSTRAP_SERVERS, true, false)
-            .input(JMX_PORT, false, true)
+            .input(Label.highlight(BOOTSTRAP_SERVERS), TextField.of())
+            .input(Label.of(JMX_PORT), TextField.builder().onlyNumber().build())
             .buttonName("CHECK")
             .buttonListener(
                 (input, logger) -> {

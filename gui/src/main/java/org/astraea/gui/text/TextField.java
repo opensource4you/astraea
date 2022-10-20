@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.text;
 
+import java.util.Optional;
 import javafx.application.Platform;
 
 public class TextField extends javafx.scene.control.TextField {
@@ -47,7 +48,7 @@ public class TextField extends javafx.scene.control.TextField {
           .textProperty()
           .addListener(
               (observable, oldValue, newValue) -> {
-                if (!newValue.matches("\\d*")) {
+                if (newValue != null && !newValue.matches("\\d*")) {
                   field.setText(newValue.replaceAll("\\D", ""));
                 }
               });
@@ -56,6 +57,11 @@ public class TextField extends javafx.scene.control.TextField {
 
     public Builder defaultValue(String defaultValue) {
       field.text(defaultValue);
+      return this;
+    }
+
+    public Builder disable() {
+      field.disable();
       return this;
     }
 
@@ -83,5 +89,19 @@ public class TextField extends javafx.scene.control.TextField {
   public void text(String text) {
     if (Platform.isFxApplicationThread()) setText(text);
     else Platform.runLater(() -> setText(text));
+  }
+
+  public Optional<String> text() {
+    return Optional.ofNullable(getText()).filter(r -> !r.isBlank());
+  }
+
+  public void disable() {
+    if (Platform.isFxApplicationThread()) setDisable(true);
+    else Platform.runLater(() -> setDisable(true));
+  }
+
+  public void enable() {
+    if (Platform.isFxApplicationThread()) setDisable(false);
+    else Platform.runLater(() -> setDisable(false));
   }
 }
