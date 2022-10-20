@@ -400,7 +400,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                     tp -> {
                       var earliest = earliestOffsets.getOrDefault(tp, -1L);
                       var latest = latestOffsets.getOrDefault(tp, -1L);
-                      var maxTimestamp = maxTimestamps.getOrDefault(tp, -1L);
+                      var maxTimestamp = Optional.ofNullable(maxTimestamps.get(tp));
                       var tpInfo = tpInfos.get(tp);
                       var leader =
                           tpInfo.leader() == null || tpInfo.leader().isEmpty()

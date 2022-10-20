@@ -405,7 +405,8 @@ public class TopicTab {
                       .sum());
               result.put("size", DataSize.Byte.of(topicSize.getOrDefault(topic, 0L)));
               topicPartitions.getOrDefault(topic, List.of()).stream()
-                  .mapToLong(Partition::maxTimestamp)
+                  .flatMap(p -> p.maxTimestamp().stream())
+                  .mapToLong(t -> t)
                   .max()
                   .stream()
                   .mapToObj(Utils::format)
