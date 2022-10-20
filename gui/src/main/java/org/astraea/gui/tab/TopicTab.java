@@ -198,6 +198,57 @@ public class TopicTab {
 
   public static Tab alterTab(Context context) {
     var numberOfPartitions = "number of partitions";
+    Function<List<Topic>, BorderPane> toPane =
+        topics ->
+            BorderPane.selectableTop(
+                topics.stream()
+                    .collect(
+                        MapUtils.toSortedMap(
+                            Topic::name,
+                            topic ->
+                                PaneBuilder.of()
+                                    .buttonName("ALTER")
+                                    .input(
+                                        numberOfPartitions,
+                                        false,
+                                        true,
+                                        false,
+                                        String.valueOf(topic.topicPartitions().size()))
+                                    .input(
+                                        TopicConfigs.DYNAMICAL_CONFIGS.stream()
+                                            .collect(
+                                                Collectors.toMap(
+                                                    k -> k,
+                                                    k -> topic.config().value(k).orElse(""))))
+                                    .buttonListener(
+                                        (input, logger) -> {
+                                          var allConfigs = new HashMap<>(input.nonEmptyTexts());
+                                          var partitions =
+                                              Integer.parseInt(
+                                                  allConfigs.remove(numberOfPartitions));
+                                          return context
+                                              .admin()
+                                              .setConfigs(topic.name(), allConfigs)
+                                              .thenCompose(
+                                                  ignored ->
+                                                      context
+                                                          .admin()
+                                                          .unsetConfigs(
+                                                              topic.name(), input.emptyValueKeys()))
+                                              .thenCompose(
+                                                  ignored ->
+                                                      partitions == topic.topicPartitions().size()
+                                                          ? CompletableFuture.completedFuture(null)
+                                                          : context
+                                                              .admin()
+                                                              .addPartitions(
+                                                                  topic.name(), partitions))
+                                              .thenAccept(
+                                                  ignored ->
+                                                      logger.log(
+                                                          "succeed to alter " + topic.name()));
+                                        })
+                                    .build())));
     return Tab.dynamic(
         "alter",
         () ->
@@ -205,70 +256,7 @@ public class TopicTab {
                 .admin()
                 .topicNames(false)
                 .thenCompose(context.admin()::topics)
-                .thenApply(
-                    topics ->
-                        BorderPane.selectableTop(
-                            topics.stream()
-                                .collect(
-                                    MapUtils.toSortedMap(
-                                        Topic::name,
-                                        topic ->
-                                            PaneBuilder.of()
-                                                .buttonName("ALTER")
-                                                .input(
-                                                    numberOfPartitions,
-                                                    false,
-                                                    true,
-                                                    false,
-                                                    String.valueOf(topic.topicPartitions().size()))
-                                                .input(
-                                                    TopicConfigs.DYNAMICAL_CONFIGS.stream()
-                                                        .collect(
-                                                            Collectors.toMap(
-                                                                k -> k,
-                                                                k ->
-                                                                    topic
-                                                                        .config()
-                                                                        .value(k)
-                                                                        .orElse(""))))
-                                                .buttonListener(
-                                                    (input, logger) -> {
-                                                      var allConfigs =
-                                                          new HashMap<>(input.nonEmptyTexts());
-                                                      var partitions =
-                                                          Integer.parseInt(
-                                                              allConfigs.remove(
-                                                                  numberOfPartitions));
-                                                      return context
-                                                          .admin()
-                                                          .setConfigs(topic.name(), allConfigs)
-                                                          .thenCompose(
-                                                              ignored ->
-                                                                  context
-                                                                      .admin()
-                                                                      .unsetConfigs(
-                                                                          topic.name(),
-                                                                          input.emptyValueKeys()))
-                                                          .thenCompose(
-                                                              ignored ->
-                                                                  partitions
-                                                                          == topic
-                                                                              .topicPartitions()
-                                                                              .size()
-                                                                      ? CompletableFuture
-                                                                          .completedFuture(null)
-                                                                      : context
-                                                                          .admin()
-                                                                          .addPartitions(
-                                                                              topic.name(),
-                                                                              partitions))
-                                                          .thenAccept(
-                                                              ignored ->
-                                                                  logger.log(
-                                                                      "succeed to alter "
-                                                                          + topic.name()));
-                                                    })
-                                                .build())))));
+                .thenApply(toPane));
   }
 
   public static Tab createTab(Context context) {
