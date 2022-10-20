@@ -19,6 +19,7 @@ package org.astraea.gui.tab;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +32,6 @@ import javafx.scene.layout.Pane;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
@@ -46,28 +46,26 @@ public class PartitionTab {
     return ps.stream()
         .sorted(Comparator.comparing(Partition::topic).thenComparing(Partition::partition))
         .map(
-            p ->
-                MapUtils.<String, Object>of(
-                    "topic",
-                    p.topic(),
-                    "partition",
-                    p.partition(),
-                    "leader",
-                    p.leader().map(NodeInfo::id).orElse(-1),
-                    "replicas",
-                    p.replicas().stream()
-                        .map(n -> String.valueOf(n.id()))
-                        .collect(Collectors.joining(",")),
-                    "isr",
-                    p.isr().stream()
-                        .map(n -> String.valueOf(n.id()))
-                        .collect(Collectors.joining(",")),
-                    "earliest offset",
-                    p.earliestOffset(),
-                    "latest offset",
-                    p.latestOffset(),
-                    "max timestamp",
-                    Utils.format(p.maxTimestamp())))
+            p -> {
+              var result = new LinkedHashMap<String, Object>();
+              result.put("topic", p.topic());
+              result.put("partition", p.partition());
+              p.leader().ifPresent(l -> result.put("leader", l.id()));
+              result.put(
+                  "replicas",
+                  p.replicas().stream()
+                      .map(n -> String.valueOf(n.id()))
+                      .collect(Collectors.joining(",")));
+              result.put(
+                  "isr",
+                  p.isr().stream()
+                      .map(n -> String.valueOf(n.id()))
+                      .collect(Collectors.joining(",")));
+              result.put("earliest offset", p.earliestOffset());
+              result.put("latest offset", p.latestOffset());
+              p.maxTimestamp().ifPresent(t -> result.put("max timestamp", t));
+              return result;
+            })
         .collect(Collectors.toList());
   }
 
