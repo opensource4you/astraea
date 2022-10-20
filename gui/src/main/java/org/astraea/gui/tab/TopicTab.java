@@ -57,17 +57,15 @@ public class TopicTab {
     return Tab.of(
         "metrics",
         PaneBuilder.of()
-            .radioButtons(ServerMetrics.Topic.values())
+            .singleRadioButtons(ServerMetrics.Topic.values())
             .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
                         () -> {
                           var metric =
-                              input
-                                  .selectedRadio()
-                                  .map(o -> (ServerMetrics.Topic) o)
-                                  .orElse(ServerMetrics.Topic.BYTES_IN_PER_SEC);
+                              input.singleSelectedRadio(ServerMetrics.Topic.BYTES_IN_PER_SEC);
+
                           var nodeMeters =
                               context.clients().entrySet().stream()
                                   .collect(

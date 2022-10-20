@@ -16,13 +16,15 @@
  */
 package org.astraea.gui.pane;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Input {
-  Optional<Object> selectedRadio();
+  <T> T singleSelectedRadio(T defalutObj);
+
+  <T> List<T> multiSelectedRadios(List<T> defalutObj);
 
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {

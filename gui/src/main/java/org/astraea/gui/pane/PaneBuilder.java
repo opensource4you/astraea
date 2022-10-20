@@ -75,13 +75,23 @@ public class PaneBuilder {
 
   private PaneBuilder() {}
 
-  public PaneBuilder radioButtons(Object[] objs) {
-    return radioButtons(Arrays.asList(objs));
+  public PaneBuilder singleRadioButtons(Object[] objs) {
+    return singleRadioButtons(Arrays.asList(objs));
   }
 
-  public PaneBuilder radioButtons(List<Object> objs) {
+  public PaneBuilder singleRadioButtons(List<Object> objs) {
     if (objs.isEmpty()) return this;
     radioButtons = RadioButton.single(objs);
+    return this;
+  }
+
+  public PaneBuilder multiRadioButtons(Object[] objs) {
+    return multiRadioButtons(Arrays.asList(objs));
+  }
+
+  public PaneBuilder multiRadioButtons(List<Object> objs) {
+    if (objs.isEmpty()) return this;
+    radioButtons = RadioButton.multi(objs);
     return this;
   }
 
@@ -217,11 +227,16 @@ public class PaneBuilder {
 
     Runnable handler =
         () -> {
-          var selectedRadio =
+          var singleSelectedRadio =
               radioButtons.stream()
                   .filter(RadioButton::isSelected)
                   .flatMap(r -> r.selectedObject().stream())
                   .findFirst();
+          var multiSelectedRadio =
+              radioButtons.stream()
+                  .filter(RadioButton::isSelected)
+                  .flatMap(r -> r.selectedObject().stream())
+                  .collect(Collectors.toList());
           var rawTexts =
               textFields.entrySet().stream()
                   .flatMap(
@@ -253,8 +268,15 @@ public class PaneBuilder {
           var input =
               new Input() {
                 @Override
-                public Optional<Object> selectedRadio() {
-                  return selectedRadio;
+                @SuppressWarnings("unchecked")
+                public <T> T singleSelectedRadio(T defalutObj) {
+                  return (T) singleSelectedRadio.orElse(defalutObj);
+                }
+
+                @Override
+                @SuppressWarnings("unchecked")
+                public <T> List<T> multiSelectedRadios(List<T> df) {
+                  return multiSelectedRadio.isEmpty() ? df : (List<T>) multiSelectedRadio;
                 }
 
                 @Override

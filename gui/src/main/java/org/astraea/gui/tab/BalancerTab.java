@@ -17,6 +17,7 @@
 package org.astraea.gui.tab;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -105,11 +106,14 @@ public class BalancerTab {
                               Balancer.builder()
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
-                                      input
-                                          .selectedRadio()
-                                          .map(o -> (Cost) o)
-                                          .orElse(Cost.REPLICA)
-                                          .costFunction)
+                                      HasClusterCost.of(
+                                          input
+                                              .multiSelectedRadios(Arrays.asList(Cost.values()))
+                                              .stream()
+                                              .map(cost -> Map.entry(cost.costFunction, 1.0))
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      Map.Entry::getKey, Map.Entry::getValue))))
                                   .limit(Duration.ofSeconds(10))
                                   .limit(10000)
                                   .greedy(true)
@@ -212,7 +216,7 @@ public class BalancerTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(Cost.values())
+            .multiRadioButtons(Cost.values())
             .buttonName("EXECUTE")
             .searchField("topic name")
             .buttonAction((input, logger) -> generator(context, input, logger))

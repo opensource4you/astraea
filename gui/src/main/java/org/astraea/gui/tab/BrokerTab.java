@@ -186,7 +186,7 @@ public class BrokerTab {
         "metrics",
         PaneBuilder.of()
             .searchField("config key")
-            .radioButtons(MetricType.values())
+            .singleRadioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
                     context
@@ -200,9 +200,7 @@ public class BrokerTab {
                                             Map.entry(
                                                 entry.getKey(),
                                                 input
-                                                    .selectedRadio()
-                                                    .map(o -> (MetricType) o)
-                                                    .orElse(MetricType.BROKER_TOPIC)
+                                                    .singleSelectedRadio(MetricType.BROKER_TOPIC)
                                                     .fetcher
                                                     .apply(entry.getValue())))
                                     .sorted(Comparator.comparing(e -> e.getKey().id()))
@@ -364,17 +362,13 @@ public class BrokerTab {
                 .thenApply(
                     brokers ->
                         PaneBuilder.of()
-                            .radioButtons(
+                            .singleRadioButtons(
                                 brokers.stream().map(NodeInfo::id).collect(Collectors.toList()))
                             .buttonAction(
                                 (input, logger) ->
                                     CompletableFuture.supplyAsync(
                                         () -> {
-                                          int id =
-                                              input
-                                                  .selectedRadio()
-                                                  .map(b -> (int) b)
-                                                  .orElse(brokers.get(0).id());
+                                          int id = input.singleSelectedRadio(brokers.get(0).id());
                                           return brokers.stream()
                                               .filter(b -> b.id() == id)
                                               .findFirst()
