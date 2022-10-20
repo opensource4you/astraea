@@ -16,28 +16,68 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.astraea.etl.CSVReader.createSpark
-
-case class CSVReader(
-    deploymentModel: String,
-    userSchema: StructType,
-    sourcePath: String,
-    sinkPath: String
+import org.apache.spark.sql.types.StructType
+import org.astraea.etl.DataType.StringType
+import org.astraea.etl.Reader._
+class Reader[PassedStep <: BuildStep] private (
+    var deploymentModel: String,
+    var userSchema: StructType,
+    var sinkPath: String
 ) {
-  def read(): DataFrameOp = {
+  protected def this() = this(
+    "deploymentModel",
+    Reader
+      .createSchema(Map("Type" -> StringType), Map("Type" -> StringType)),
+    "sinkPath"
+  )
+
+  protected def this(pb: Reader[_]) = this(
+    pb.deploymentModel,
+    pb.userSchema,
+    pb.sinkPath
+  )
+
+  def spark(
+      deploymentModel: String
+  ): Reader[PassedStep with SparkStep] = {
+    this.deploymentModel = deploymentModel
+    new Reader[PassedStep with SparkStep](this)
+  }
+
+  def schema(
+      userSchema: StructType
+  ): Reader[PassedStep with SchemaStep] = {
+    this.userSchema = userSchema
+    new Reader[PassedStep with SchemaStep](this)
+  }
+
+  def readFromCSV(
+      source: String
+  )(implicit ev: PassedStep =:= FullReader) = {
     new DataFrameOp(
       createSpark(deploymentModel).readStream
         .option("cleanSource", "archive")
         .option("sourceArchiveDir", sinkPath)
         .schema(userSchema)
-        .csv(sourcePath)
+        .csv(source)
     )
+  }
+
+  def sinkPath(sink: String): Reader[PassedStep with SinkStep] = {
+    this.sinkPath = sink
+    new Reader[PassedStep with SinkStep](this)
   }
 }
 
-object CSVReader {
+object Reader {
+  sealed trait BuildStep
+  sealed trait SparkStep extends BuildStep
+  sealed trait SchemaStep extends BuildStep
+  sealed trait SinkStep extends BuildStep
+
+  type FullReader = SparkStep with SchemaStep with SinkStep
+  def of() = new Reader[BuildStep]()
 
   def createSpark(deploymentModel: String): SparkSession = {
     SparkSession

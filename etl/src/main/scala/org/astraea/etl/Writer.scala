@@ -17,19 +17,44 @@
 package org.astraea.etl
 
 import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
 import org.astraea.common.admin.AsyncAdmin
+import org.astraea.etl.Writer.{
+  BuildStep,
+  CheckpointStep,
+  DFStep,
+  FullWriter,
+  TargetStep
+}
 
-import scala.concurrent.Future
 import scala.collection.JavaConverters._
-case class KafkaWriter(
-    dataFrameOp: DataFrameOp,
-    bootstrap: String,
-    topic: String,
-    checkpoint: String
+import scala.concurrent.Future
+
+class Writer[PassedStep <: BuildStep] private (
+    var dataFrameOp: DataFrameOp,
+    var target: String,
+    var checkpoint: String
 ) {
-  def writeToKafka(): DataStreamWriter[Row] = {
+  protected def this() =
+    this(DataFrameOp.empty(), "topic", "checkPoint")
+
+  protected def this(pb: Writer[_]) = this(
+    pb.dataFrameOp,
+    pb.target,
+    pb.checkpoint
+  )
+
+  def dataFrameOp(
+      dataFrameOp: DataFrameOp
+  ): Writer[PassedStep with DFStep] = {
+    this.dataFrameOp = dataFrameOp
+    new Writer[PassedStep with DFStep](this)
+  }
+
+  def writeToKafka(
+      bootstrap: String
+  )(implicit ev: PassedStep =:= FullWriter): DataStreamWriter[Row] = {
     dataFrameOp
       .dataFrame()
       .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
@@ -50,14 +75,43 @@ case class KafkaWriter(
         ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringSerializer"
       )
-      .option("topic", topic)
+      .option("topic", target)
       .option(ProducerConfig.ACKS_CONFIG, "all")
       .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
       .option("checkpointLocation", checkpoint)
   }
+
+  /** Target represents the destination of the data, for Kafka it represents the
+    * topic, for other targets it can represent the data path.
+    *
+    * @param target
+    *   destination of the data
+    * @return
+    *   Writer
+    */
+  def target(target: String): Writer[PassedStep with TargetStep] = {
+    this.target = target
+    new Writer[PassedStep with TargetStep](this)
+  }
+
+  def checkpoint(
+      checkpoint: String
+  ): Writer[PassedStep with CheckpointStep] = {
+    this.checkpoint = checkpoint
+    new Writer[PassedStep with CheckpointStep](this)
+  }
 }
 
-object KafkaWriter {
+object Writer {
+  sealed trait BuildStep
+  sealed trait DFStep extends BuildStep
+  sealed trait TargetStep extends BuildStep
+  sealed trait CheckpointStep extends BuildStep
+
+  type FullWriter = DFStep with TargetStep with CheckpointStep
+
+  def of() = new Writer[BuildStep]()
+
   def createTopic(
       admin: AsyncAdmin,
       metadata: Metadata
@@ -72,5 +126,4 @@ object KafkaWriter {
         .run()
     )
   }
-
 }

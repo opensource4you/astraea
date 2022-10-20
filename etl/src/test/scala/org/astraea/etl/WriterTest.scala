@@ -34,7 +34,7 @@ import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-class KafkaWriterTest extends RequireBrokerCluster {
+class WriterTest extends RequireBrokerCluster {
 
   @Test def topicCreatorTest(): Unit = {
     val TOPIC = "test-topicA"
@@ -102,7 +102,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, partition),
+                Writer.createTopic(admin, partition),
                 Duration.Inf
               )
           ).getCause
@@ -127,7 +127,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, replica),
+                Writer.createTopic(admin, replica),
                 Duration.Inf
               )
           ).getCause
@@ -152,7 +152,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, config),
+                Writer.createTopic(admin, config),
                 Duration.Inf
               )
           ).getCause
@@ -178,6 +178,6 @@ class KafkaWriterTest extends RequireBrokerCluster {
       config,
       "local[2]"
     )
-    KafkaWriter.createTopic(asyncAdmin, metadata)
+    Writer.createTopic(asyncAdmin, metadata)
   }
 }

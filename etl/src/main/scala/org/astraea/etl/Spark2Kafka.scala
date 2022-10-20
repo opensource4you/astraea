@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import org.astraea.common.admin.AsyncAdmin
-import org.astraea.etl.CSVReader.createSchema
+import org.astraea.etl.Reader.createSchema
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -27,28 +27,24 @@ object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
-      val eventualBoolean = KafkaWriter.createTopic(admin, metaData)
+      val eventualBoolean = Writer.createTopic(admin, metaData)
 
-      val df = CSVReaderBuilder
-        .builder()
+      val df = Reader
+        .of()
         .spark(metaData.deploymentModel)
         .schema(createSchema(metaData.column, metaData.primaryKeys))
-        .sourcePath(metaData.sourcePath.getPath)
         .sinkPath(metaData.sinkPath.getPath)
-        .build()
-        .read()
+        .readFromCSV(metaData.sourcePath.getPath)
         .csvToJSON(metaData.primaryKeys.keys.toSeq)
 
       eventualBoolean.onComplete {
         case Success(_) =>
-          KafkaWriterBuilder
-            .builder()
+          Writer
+            .of()
             .dataFrameOp(df)
-            .bootstrapServer(metaData.kafkaBootstrapServers)
-            .topic(metaData.topicName)
+            .target(metaData.topicName)
             .checkpoint(metaData.sinkPath + "/checkpoint")
-            .build()
-            .writeToKafka()
+            .writeToKafka(metaData.kafkaBootstrapServers)
             .start()
             .awaitTermination(duration.toMillis)
         case Failure(exception) => throw exception
