@@ -802,6 +802,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1")))
               .toCompletableFuture()
               .get());
+      Utils.sleep(Duration.ofSeconds(2));
       var partitions = admin.partitions(Set.of(topicName)).toCompletableFuture().get();
       Assertions.assertEquals(3, partitions.size());
       Assertions.assertEquals(

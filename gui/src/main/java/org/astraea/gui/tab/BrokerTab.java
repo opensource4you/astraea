@@ -18,6 +18,7 @@ package org.astraea.gui.tab;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,7 +33,7 @@ import java.util.stream.Stream;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
@@ -126,7 +127,7 @@ public class BrokerTab {
                                                             (long) (double) o.getValue())
                                                         : o.getValue())))
                             .collect(
-                                org.astraea.common.Utils.toSortedMap(
+                                org.astraea.common.MapUtils.toSortedMap(
                                     Map.Entry::getKey, Map.Entry::getValue)))
                 .orElse(new TreeMap<>())),
 
@@ -223,7 +224,7 @@ public class BrokerTab {
     return brokers.stream()
         .map(
             broker ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "broker id",
                     broker.id(),
                     "hostname",
@@ -445,7 +446,7 @@ public class BrokerTab {
                                                 .input(
                                                     BrokerConfigs.DYNAMICAL_CONFIGS.stream()
                                                         .collect(
-                                                            Utils.toSortedMap(
+                                                            MapUtils.toSortedMap(
                                                                 k -> k,
                                                                 k ->
                                                                     broker

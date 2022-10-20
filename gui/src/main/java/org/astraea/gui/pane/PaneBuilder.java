@@ -19,6 +19,7 @@ package org.astraea.gui.pane;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +34,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
-import org.astraea.common.LinkedHashMap;
-import org.astraea.common.Utils;
+import org.astraea.common.MapUtils;
 import org.astraea.gui.Logger;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
@@ -183,7 +183,7 @@ public class PaneBuilder {
       var pairs =
           inputKeys.stream()
               .collect(
-                  Utils.toLinkedHashMap(
+                  MapUtils.toLinkedHashMap(
                       key ->
                           inputKeyPriority.getOrDefault(key, false)
                               ? Label.highlight(key)
@@ -207,7 +207,8 @@ public class PaneBuilder {
       textFields =
           pairs.entrySet().stream()
               .collect(
-                  Utils.toLinkedHashMap(e -> e.getKey().key(), e -> () -> e.getValue().getText()));
+                  MapUtils.toLinkedHashMap(
+                      e -> e.getKey().key(), e -> () -> e.getValue().getText()));
     } else textFields = Map.of();
     if (searchLabel != null) nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
     else nodes.add(actionButton);

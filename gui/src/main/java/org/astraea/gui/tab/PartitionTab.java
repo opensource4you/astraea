@@ -28,7 +28,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.layout.Pane;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.FutureUtils;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
@@ -46,7 +47,7 @@ public class PartitionTab {
         .sorted(Comparator.comparing(Partition::topic).thenComparing(Partition::partition))
         .map(
             p ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "topic",
                     p.topic(),
                     "partition",
@@ -152,18 +153,17 @@ public class PartitionTab {
                                   .orElse(Map.of())))
                   .thenCompose(
                       entry ->
-                          context
-                              .admin()
-                              .deleteRecords(entry.getKey())
-                              .thenCompose(
-                                  ignored -> context.admin().moveToBrokers(entry.getValue()))
-                              .thenAccept(
-                                  ignored ->
-                                      logger.log(
-                                          "succeed to alter "
-                                              + (entry.getKey().keySet().isEmpty()
-                                                  ? entry.getValue().keySet()
-                                                  : entry.getKey().keySet()))));
+                          FutureUtils.combine(
+                              context.admin().deleteRecords(entry.getKey()),
+                              context.admin().moveToBrokers(entry.getValue()),
+                              (i, j) -> {
+                                logger.log(
+                                    "succeed to alter "
+                                        + (entry.getKey().keySet().isEmpty()
+                                            ? entry.getValue().keySet()
+                                            : entry.getKey().keySet()));
+                                return null;
+                              }));
             })
         .build();
   }
@@ -184,7 +184,7 @@ public class PartitionTab {
                         BorderPane.selectableTop(
                             topicAndPartitions.entrySet().stream()
                                 .collect(
-                                    Utils.toSortedMap(
+                                    MapUtils.toSortedMap(
                                         Map.Entry::getKey,
                                         e -> alterPane(context, e.getKey(), e.getValue()))))));
   }

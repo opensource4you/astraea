@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Config;
 import org.astraea.common.scenario.Scenario;
@@ -78,46 +78,34 @@ class TopicHandler implements Handler {
 
   private CompletionStage<Topics> get(
       Set<String> topicNames, Predicate<Integer> partitionPredicate) {
-    return admin
-        .replicas(topicNames)
-        .thenCompose(
-            replicas ->
-                admin
-                    .partitions(topicNames)
-                    .thenApply(
-                        partitions ->
-                            partitions.stream()
-                                .filter(p -> partitionPredicate.test(p.partition()))
-                                .collect(
-                                    Collectors.groupingBy(
-                                        org.astraea.common.admin.Partition::topic,
-                                        Collectors.mapping(
-                                            p ->
-                                                new Partition(
-                                                    p.partition(),
-                                                    p.earliestOffset(),
-                                                    p.latestOffset(),
-                                                    replicas.stream()
-                                                        .filter(
-                                                            replica ->
-                                                                replica.topic().equals(p.topic()))
-                                                        .filter(
-                                                            replica ->
-                                                                replica.partition()
-                                                                    == p.partition())
-                                                        .map(Replica::new)
-                                                        .collect(Collectors.toUnmodifiableList())),
-                                            Collectors.toList())))))
-        .thenCombine(
-            admin.topics(topicNames),
-            (partitions, topicInfos) ->
-                new Topics(
-                    topicInfos.stream()
-                        .map(
-                            topic ->
-                                new TopicInfo(
-                                    topic.name(), partitions.get(topic.name()), topic.config()))
-                        .collect(Collectors.toUnmodifiableList())));
+    return FutureUtils.combine(
+        admin.replicas(topicNames),
+        admin.partitions(topicNames),
+        admin.topics(topicNames),
+        (replicas, partitions, topics) -> {
+          var ps =
+              partitions.stream()
+                  .filter(p -> partitionPredicate.test(p.partition()))
+                  .collect(
+                      Collectors.groupingBy(
+                          org.astraea.common.admin.Partition::topic,
+                          Collectors.mapping(
+                              p ->
+                                  new Partition(
+                                      p.partition(),
+                                      p.earliestOffset(),
+                                      p.latestOffset(),
+                                      replicas.stream()
+                                          .filter(replica -> replica.topic().equals(p.topic()))
+                                          .filter(replica -> replica.partition() == p.partition())
+                                          .map(Replica::new)
+                                          .collect(Collectors.toUnmodifiableList())),
+                              Collectors.toList())));
+          return new Topics(
+              topics.stream()
+                  .map(topic -> new TopicInfo(topic.name(), ps.get(topic.name()), topic.config()))
+                  .collect(Collectors.toUnmodifiableList()));
+        });
   }
 
   static Map<String, String> remainingConfigs(PostRequest request) {
@@ -138,7 +126,7 @@ class TopicHandler implements Handler {
         requests.stream().map(r -> r.value(TOPIC_NAME_KEY)).collect(Collectors.toSet());
     if (topicNames.size() != requests.size())
       throw new IllegalArgumentException("duplicate topic name: " + topicNames);
-    return Utils.sequence(
+    return FutureUtils.sequence(
             requests.stream()
                 .map(
                     request -> {

@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.tab;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,7 +26,7 @@ import javafx.geometry.Side;
 import javafx.scene.layout.Pane;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
@@ -161,7 +162,7 @@ public class QuotaTab {
   }
 
   static LinkedHashMap<String, Object> basicResult(Quota quota) {
-    return LinkedHashMap.of(
+    return MapUtils.of(
         quota.targetKey(),
         quota.targetValue(),
         quota.limitKey(),

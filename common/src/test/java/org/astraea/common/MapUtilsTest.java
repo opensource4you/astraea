@@ -19,18 +19,18 @@ package org.astraea.common;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class LinkedHashMapTest {
+public class MapUtilsTest {
 
   @Test
   void testOf1() {
-    var map = LinkedHashMap.of("a", 0);
+    var map = MapUtils.of("a", 0);
     Assertions.assertEquals(1, map.size());
     Assertions.assertEquals(0, map.get("a"));
   }
 
   @Test
   void testOf2() {
-    var map = LinkedHashMap.of("a", 0, "b", 1);
+    var map = MapUtils.of("a", 0, "b", 1);
     Assertions.assertEquals(2, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -38,7 +38,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf3() {
-    var map = LinkedHashMap.of("a", 0, "b", 1, "c", 2);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2);
     Assertions.assertEquals(3, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -47,7 +47,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf4() {
-    var map = LinkedHashMap.of("a", 0, "b", 1, "c", 2, "d", 3);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3);
     Assertions.assertEquals(4, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -57,7 +57,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf5() {
-    var map = LinkedHashMap.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4);
     Assertions.assertEquals(5, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -68,7 +68,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf6() {
-    var map = LinkedHashMap.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5);
     Assertions.assertEquals(6, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -80,7 +80,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf7() {
-    var map = LinkedHashMap.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6);
     Assertions.assertEquals(7, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -93,7 +93,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf8() {
-    var map = LinkedHashMap.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6, "h", 7);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6, "h", 7);
     Assertions.assertEquals(8, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -107,8 +107,7 @@ public class LinkedHashMapTest {
 
   @Test
   void testOf9() {
-    var map =
-        LinkedHashMap.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6, "h", 7, "i", 8);
+    var map = MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6, "h", 7, "i", 8);
     Assertions.assertEquals(9, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
@@ -124,8 +123,7 @@ public class LinkedHashMapTest {
   @Test
   void testOf10() {
     var map =
-        LinkedHashMap.of(
-            "a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6, "h", 7, "i", 8, "j", 9);
+        MapUtils.of("a", 0, "b", 1, "c", 2, "d", 3, "e", 4, "f", 5, "g", 6, "h", 7, "i", 8, "j", 9);
     Assertions.assertEquals(10, map.size());
     Assertions.assertEquals(0, map.get("a"));
     Assertions.assertEquals(1, map.get("b"));
