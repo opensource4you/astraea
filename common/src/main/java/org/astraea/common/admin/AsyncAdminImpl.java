@@ -347,15 +347,16 @@ class AsyncAdminImpl implements AsyncAdmin {
         updatableTopicPartitions,
         updatableTopicPartitions.thenCompose(
             ps ->
-                to(
-                    kafkaAdmin
+                to(kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.MaxTimestampSpec())))
-                        .all())),
+                        .all())
+                    // the old kafka does not support to fetch max timestamp
+                    .exceptionally(e -> Map.of())),
         (ps, result) ->
             ps.stream()
                 .collect(
@@ -538,6 +539,8 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .map(TopicPartition::to)
                     .collect(Collectors.toUnmodifiableList()))
             .all())
+        // the old kafka does not support to fetch producer states
+        .exceptionally(e -> Map.of())
         .thenApply(
             ps ->
                 ps.entrySet().stream()
