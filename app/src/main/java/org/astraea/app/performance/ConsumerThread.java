@@ -128,4 +128,22 @@ public interface ConsumerThread extends AbstractThread {
   void resubscribe();
 
   void unsubscribe();
+
+  class PartitionRatioListener implements ConsumerRebalanceListener {
+    private final String clientId;
+
+    PartitionRatioListener(String clientId) {
+      this.clientId = clientId;
+    }
+
+    @Override
+    public void onPartitionAssigned(Set<TopicPartition> partitions) {
+      CLIENT_ID_ASSIGNED_PARTITIONS.put(clientId, partitions);
+    }
+
+    @Override
+    public void onPartitionsRevoked(Set<TopicPartition> partitions) {
+      CLIENT_ID_REVOKED_PARTITIONS.put(clientId, partitions);
+    }
+  }
 }

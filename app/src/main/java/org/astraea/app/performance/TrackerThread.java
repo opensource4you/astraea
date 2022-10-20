@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
+import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
@@ -143,11 +144,20 @@ public interface TrackerThread extends AbstractThread {
         var report = reports.get(i);
         var clientId = report.clientId();
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
+        var nonStickyPartitions =
+            ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).stream()
+                .filter(
+                    tp ->
+                        !ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS
+                            .getOrDefault(clientId, Set.of())
+                            .contains(tp))
+                .collect(Collectors.toSet());
         if (ms.isPresent()) {
           System.out.printf(
-              "  consumer[%d] has %d partitions and its partition assign difference is %d %n",
+              "  consumer[%d] has %d partitions, %d non-sticky partitions and was assigned more than %d partitions after re-balance%n",
               i,
               (int) ms.get().assignedPartitions(),
+              nonStickyPartitions.size(),
               (ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).size()
                   - ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS
                       .getOrDefault(clientId, Set.of())
