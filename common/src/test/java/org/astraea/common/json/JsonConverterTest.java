@@ -75,11 +75,11 @@ class JsonConverterTest {
     testFieldClass.stringValue = "hello";
 
     var json = jsonConverter.toJson(testFieldClass);
-    assertEquals("{\"doublueValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}", json);
+    assertEquals("{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}", json);
 
     var convertedTestFieldClass =
         jsonConverter.fromJson(
-            "{\"doublueValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}",
+            "{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}",
             TestPrimitiveClass.class);
     assertEquals(456d, convertedTestFieldClass.doubleValue);
     assertEquals(12, convertedTestFieldClass.intValue);
@@ -146,8 +146,8 @@ class JsonConverterTest {
   @Test
   void testToObjectIgnoreOrder() {
     var jsonConverter = getConverter();
-    var json = "{\"doublueValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}";
-    var sameJsonDiffOrder = "{\"stringValue\":\"hello\",\"doublueValue\":456.0,\"intValue\":12}";
+    var json = "{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}";
+    var sameJsonDiffOrder = "{\"stringValue\":\"hello\",\"doubleValue\":456.0,\"intValue\":12}";
 
     var convertedTestFieldClass = jsonConverter.fromJson(json, TestPrimitiveClass.class);
     assertEquals(456d, convertedTestFieldClass.doubleValue);
