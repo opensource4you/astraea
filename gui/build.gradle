@@ -10,6 +10,7 @@ repositories {
 
 def versions = [
         junit: project.properties['junit.version'] ?: "5.8.2",
+        jcommander  : project.properties['jcommander.version'] ?: "1.82",
 ]
 
 java {
@@ -32,6 +33,7 @@ mainClassName = 'org.astraea.gui.Main'
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     implementation project(':common')
+    implementation "com.beust:jcommander:${versions["jcommander"]}"
 }
 
 publishing {

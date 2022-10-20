@@ -64,14 +64,17 @@ public interface TopicChecker {
   /**
    * Find topics whose max(the latest record timestamp, producer timestamp, max timestamp of
    * records) is not older than the given duration.
+   *
+   * @param expired to search expired topics
+   * @param timeout to wait the latest record
    */
-  static TopicChecker latestTimestamp(Duration duration) {
+  static TopicChecker latestTimestamp(Duration expired, Duration timeout) {
     return (admin, topics) -> {
-      long end = System.currentTimeMillis() - duration.toMillis();
+      long end = System.currentTimeMillis() - expired.toMillis();
       var tpsFuture = admin.topicPartitions(topics);
       return FutureUtils.combine(
               tpsFuture,
-              tpsFuture.thenCompose(admin::timestampOfLatestRecords),
+              tpsFuture.thenCompose(tps -> admin.timestampOfLatestRecords(tps, timeout)),
               tpsFuture.thenCompose(admin::producerStates),
               tpsFuture.thenCompose(admin::maxTimestamps),
               (tps, timestampOfLatestRecords, producerStates, maxTimestamps) -> {
