@@ -58,10 +58,8 @@ public class TopicTab {
                     CompletableFuture.supplyAsync(
                         () -> {
                           var metric =
-                              input
-                                  .singleSelectedRadio()
-                                  .map(o -> (ServerMetrics.Topic) o)
-                                  .orElse(ServerMetrics.Topic.BYTES_IN_PER_SEC);
+                              input.singleSelectedRadio(ServerMetrics.Topic.BYTES_IN_PER_SEC);
+
                           var nodeMeters =
                               context.clients().entrySet().stream()
                                   .collect(

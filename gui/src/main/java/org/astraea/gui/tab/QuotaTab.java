@@ -181,7 +181,7 @@ public class QuotaTab {
             .searchField(ipKey + "/" + clientIdKey)
             .buttonAction(
                 (input, logger) -> {
-                  var target = input.singleSelectedRadio().map(o -> (String) o).orElse(ipKey);
+                  var target = input.singleSelectedRadio(ipKey);
                   return context
                       .admin()
                       .quotas(

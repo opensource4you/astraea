@@ -17,6 +17,7 @@
 package org.astraea.gui.tab;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -106,8 +107,9 @@ public class BalancerTab {
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
                                       HasClusterCost.of(
-                                          input.multiSelectedRadios().stream()
-                                              .map(o -> (Cost) o)
+                                          input
+                                              .multiSelectedRadios(Arrays.asList(Cost.values()))
+                                              .stream()
                                               .map(cost -> Map.entry(cost.costFunction, 1.0))
                                               .collect(
                                                   Collectors.toMap(

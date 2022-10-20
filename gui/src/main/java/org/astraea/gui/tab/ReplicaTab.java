@@ -139,8 +139,7 @@ public class ReplicaTab {
                         .thenCompose(context.admin()::replicas)
                         .thenApply(
                             replicas -> {
-                              var selected =
-                                  input.singleSelectedRadio().map(s -> (String) s).orElse(all);
+                              var selected = input.singleSelectedRadio(all);
                               if (selected.equals(syncing)) return syncingResult(replicas);
                               if (selected.equals(offline)) return offlineResult(replicas);
                               return allResult(replicas);

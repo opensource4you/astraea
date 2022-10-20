@@ -199,9 +199,7 @@ public class BrokerTab {
                                             Map.entry(
                                                 entry.getKey(),
                                                 input
-                                                    .singleSelectedRadio()
-                                                    .map(o -> (MetricType) o)
-                                                    .orElse(MetricType.BROKER_TOPIC)
+                                                    .singleSelectedRadio(MetricType.BROKER_TOPIC)
                                                     .fetcher
                                                     .apply(entry.getValue())))
                                     .sorted(Comparator.comparing(e -> e.getKey().id()))
@@ -369,11 +367,7 @@ public class BrokerTab {
                                 (input, logger) ->
                                     CompletableFuture.supplyAsync(
                                         () -> {
-                                          int id =
-                                              input
-                                                  .singleSelectedRadio()
-                                                  .map(b -> (int) b)
-                                                  .orElse(brokers.get(0).id());
+                                          int id = input.singleSelectedRadio(brokers.get(0).id());
                                           return brokers.stream()
                                               .filter(b -> b.id() == id)
                                               .findFirst()

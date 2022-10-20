@@ -129,7 +129,7 @@ public class AboutTab {
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.completedFuture(
-                        input.singleSelectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
+                        input.singleSelectedRadio(Info.Version).tables))
             .build();
     return Tab.of("about", pane);
   }

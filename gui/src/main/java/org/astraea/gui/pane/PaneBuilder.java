@@ -268,13 +268,15 @@ public class PaneBuilder {
           var input =
               new Input() {
                 @Override
-                public Optional<Object> singleSelectedRadio() {
-                  return singleSelectedRadio;
+                @SuppressWarnings("unchecked")
+                public <T> T singleSelectedRadio(T defalutObj) {
+                  return (T) singleSelectedRadio.orElse(defalutObj);
                 }
 
                 @Override
-                public List<Object> multiSelectedRadios() {
-                  return multiSelectedRadio;
+                @SuppressWarnings("unchecked")
+                public <T> List<T> multiSelectedRadios(List<T> df) {
+                  return multiSelectedRadio.isEmpty() ? df : (List<T>) multiSelectedRadio;
                 }
 
                 @Override
