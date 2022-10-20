@@ -18,6 +18,7 @@ package org.astraea.gui.tab;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,7 +30,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
@@ -65,7 +66,7 @@ public class TopicTab {
                           var nodeMeters =
                               context.clients().entrySet().stream()
                                   .collect(
-                                      Utils.toSortedMap(
+                                      MapUtils.toSortedMap(
                                           Map.Entry::getKey,
                                           entry ->
                                               metric.fetch(entry.getValue()).stream()
@@ -175,7 +176,7 @@ public class TopicTab {
                         BorderPane.selectableTop(
                             topics.stream()
                                 .collect(
-                                    Utils.toSortedMap(
+                                    MapUtils.toSortedMap(
                                         Topic::name,
                                         topic ->
                                             PaneBuilder.of()
@@ -296,7 +297,7 @@ public class TopicTab {
                                     BorderPane.selectableTop(
                                         topics.stream()
                                             .collect(
-                                                Utils.toSortedMap(
+                                                MapUtils.toSortedMap(
                                                     Function.identity(),
                                                     topic ->
                                                         PaneBuilder.of()
