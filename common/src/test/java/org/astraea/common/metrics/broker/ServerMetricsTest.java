@@ -42,6 +42,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 public class ServerMetricsTest extends RequireSingleBrokerCluster {
+  @Test
+  void testAppInfo() {
+    ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+  }
 
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.ZooKeeperClientMetrics.class)

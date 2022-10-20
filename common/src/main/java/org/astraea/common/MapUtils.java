@@ -16,10 +16,41 @@
  */
 package org.astraea.common;
 
-import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Objects;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
-public class LinkedHashMap<K, V> extends java.util.LinkedHashMap<K, V> {
+public final class MapUtils {
+
+  // ---------------------------------[sorted]---------------------------------//
+
+  public static <T, K, U> Collector<T, ?, SortedMap<K, U>> toSortedMap(
+      Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper) {
+    return Collectors.toMap(
+        keyMapper,
+        valueMapper,
+        (x, y) -> {
+          throw new IllegalStateException("Duplicate key");
+        },
+        TreeMap::new);
+  }
+
+  // ---------------------------------[linked]---------------------------------//
+
+  public static <T, K, U> Collector<T, ?, LinkedHashMap<K, U>> toLinkedHashMap(
+      Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper) {
+    return Collectors.toMap(
+        keyMapper,
+        valueMapper,
+        (x, y) -> {
+          throw new IllegalStateException("Duplicate key");
+        },
+        LinkedHashMap::new);
+  }
 
   public static <K, V> LinkedHashMap<K, V> of(K k1, V v1) {
     return create(k1, v1);
@@ -127,23 +158,5 @@ public class LinkedHashMap<K, V> extends java.util.LinkedHashMap<K, V> {
     return map;
   }
 
-  public LinkedHashMap(int initialCapacity, float loadFactor) {
-    super(initialCapacity, loadFactor);
-  }
-
-  public LinkedHashMap(int initialCapacity) {
-    super(initialCapacity);
-  }
-
-  /**
-   * Constructs an empty insertion-ordered {@code LinkedHashMap} instance with the default initial
-   * capacity (16) and load factor (0.75).
-   */
-  public LinkedHashMap() {
-    super();
-  }
-
-  public LinkedHashMap(Map<? extends K, ? extends V> m) {
-    super(m);
-  }
+  private MapUtils() {}
 }

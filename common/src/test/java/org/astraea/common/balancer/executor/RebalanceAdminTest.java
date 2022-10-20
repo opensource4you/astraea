@@ -18,6 +18,7 @@ package org.astraea.common.balancer.executor;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
@@ -65,7 +66,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var tasks =
           rebalanceAdmin.alterReplicaPlacements(
               TopicPartition.of(topic, 0),
-              LinkedHashMap.of(0, logFolder0, 1, logFolder1, 2, logFolder2));
+              MapUtils.of(0, logFolder0, 1, logFolder1, 2, logFolder2));
       tasks.forEach(
           task -> Utils.packException(() -> task.completableFuture().get(5, TimeUnit.SECONDS)));
 
@@ -130,7 +131,7 @@ class RebalanceAdminTest extends RequireBrokerCluster {
       var task =
           rebalanceAdmin
               .alterReplicaPlacements(
-                  topicPartition, LinkedHashMap.of(originalReplica.nodeInfo().id(), nextDir))
+                  topicPartition, MapUtils.of(originalReplica.nodeInfo().id(), nextDir))
               .get(0);
 
       // assert

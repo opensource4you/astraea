@@ -14,32 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common;
+package org.astraea.common.function;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.stream.Collectors;
-
-public class LinkedHashSet<E> extends java.util.LinkedHashSet<E> {
-
-  @SuppressWarnings("unchecked")
-  public static <E> LinkedHashSet<E> of(E... input) {
-    return new LinkedHashSet<>(Arrays.stream(input).collect(Collectors.toList()));
-  }
-
-  public LinkedHashSet(int initialCapacity, float loadFactor) {
-    super(initialCapacity, loadFactor);
-  }
-
-  public LinkedHashSet(int initialCapacity) {
-    super(initialCapacity);
-  }
-
-  public LinkedHashSet() {
-    super();
-  }
-
-  public LinkedHashSet(Collection<? extends E> c) {
-    super(c);
-  }
+@FunctionalInterface
+public interface Bi4Function<A, B, C, D, R> {
+  R apply(A a, B b, C c, D d);
 }

@@ -21,12 +21,53 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public final class ServerMetrics {
+
+  public static List<AppInfo> appInfo(MBeanClient client) {
+    return client
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.server")
+                .property("type", "app-info")
+                .property("id", "*")
+                .build())
+        .stream()
+        .map(
+            obj ->
+                new AppInfo() {
+                  @Override
+                  public String id() {
+                    return beanObject().properties().get("id");
+                  }
+
+                  @Override
+                  public String commitId() {
+                    return (String) beanObject().attributes().get("CommitId");
+                  }
+
+                  @Override
+                  public long startTimeMs() {
+                    return (long) beanObject().attributes().get("StartTimeMs");
+                  }
+
+                  @Override
+                  public String version() {
+                    return (String) beanObject().attributes().get("Version");
+                  }
+
+                  @Override
+                  public BeanObject beanObject() {
+                    return obj;
+                  }
+                })
+        .collect(Collectors.toList());
+  }
 
   public enum ZooKeeperClientMetrics implements EnumInfo {
     ZOOKEEPER_REQUEST_LATENCY_MS("ZooKeeperRequestLatencyMs");
@@ -73,8 +114,12 @@ public final class ServerMetrics {
         this.beanObject = beanObject;
       }
 
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
       public ZooKeeperClientMetrics type() {
-        return ofAlias(beanObject.properties().get("name"));
+        return ofAlias(metricsName());
       }
 
       @Override

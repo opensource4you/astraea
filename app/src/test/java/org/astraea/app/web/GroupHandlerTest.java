@@ -209,10 +209,13 @@ public class GroupHandlerTest extends RequireBrokerCluster {
                 .assignment()
                 .size());
 
-        handler.delete(
-            Channel.ofQueries(
-                consumer.groupId(),
-                Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get())));
+        handler
+            .delete(
+                Channel.ofQueries(
+                    consumer.groupId(),
+                    Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get())))
+            .toCompletableFuture()
+            .get();
         Assertions.assertEquals(
             0,
             admin.consumerGroups(Set.of(consumer.groupId())).toCompletableFuture().get().stream()

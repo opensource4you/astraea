@@ -68,13 +68,13 @@ public class UtilsTest {
   void testCollectToTreeMap() {
     Assertions.assertInstanceOf(
         SortedMap.class,
-        IntStream.range(0, 100).boxed().collect(Utils.toSortedMap(i -> i, i -> i)));
+        IntStream.range(0, 100).boxed().collect(MapUtils.toSortedMap(i -> i, i -> i)));
     //noinspection ResultOfMethodCallIgnored
     Assertions.assertThrows(
         IllegalStateException.class,
         () ->
             Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
-                .collect(Utils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(MapUtils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   @Test
@@ -82,7 +82,7 @@ public class UtilsTest {
     var future1 = CompletableFuture.supplyAsync(() -> 1);
     var future2 = CompletableFuture.supplyAsync(() -> 2);
 
-    Assertions.assertEquals(Utils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
+    Assertions.assertEquals(FutureUtils.sequence(List.of(future1, future2)).join(), List.of(1, 2));
   }
 
   @Test
@@ -153,7 +153,7 @@ public class UtilsTest {
 
   @Test
   void testEmptySequence() throws ExecutionException, InterruptedException {
-    var f = Utils.sequence(List.of()).thenApply(ignored -> "yes");
+    var f = FutureUtils.sequence(List.of()).thenApply(ignored -> "yes");
     Assertions.assertEquals("yes", f.get());
   }
 
