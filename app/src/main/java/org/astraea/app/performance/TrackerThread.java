@@ -154,7 +154,7 @@ public interface TrackerThread extends AbstractThread {
                 .collect(Collectors.toSet());
         if (ms.isPresent()) {
           System.out.printf(
-              "  consumer[%d] has %d partitions, %d non-sticky partitions and was assigned more than %d partitions after re-balance%n",
+              "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
               i,
               (int) ms.get().assignedPartitions(),
               nonStickyPartitions.size(),
