@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
@@ -150,7 +151,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
 
-    Utils.sequence(
+    FutureUtils.sequence(
             IntStream.range(0, 10)
                 .mapToObj(
                     ignored ->

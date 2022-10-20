@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
@@ -180,7 +181,7 @@ public class BeanCollectorTest {
         receivers.stream()
             .map(r -> CompletableFuture.runAsync(r::current))
             .collect(Collectors.toUnmodifiableList());
-    Utils.swallowException(() -> Utils.sequence(fs).get());
+    Utils.swallowException(() -> FutureUtils.sequence(fs).get());
     receivers.forEach(r -> Assertions.assertEquals(1, r.current().size()));
   }
 
