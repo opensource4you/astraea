@@ -18,13 +18,14 @@ package org.astraea.gui.tab;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.ProducerState;
@@ -92,7 +93,7 @@ public class ClientTab {
     return transactions
         .map(
             transaction ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "transaction id", transaction.transactionId(),
                     "coordinator id", transaction.coordinatorId(),
                     "state", transaction.state().alias(),
@@ -133,7 +134,7 @@ public class ClientTab {
     return states
         .map(
             state ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "topic",
                     state.topic(),
                     "partition",

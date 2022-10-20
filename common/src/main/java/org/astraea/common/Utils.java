@@ -25,15 +25,11 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.astraea.common.cost.Configuration;
 
@@ -253,28 +249,6 @@ public final class Utils {
       }
     } while (clz != null);
     throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
-  }
-
-  public static <T, K, U> Collector<T, ?, SortedMap<K, U>> toSortedMap(
-      Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper) {
-    return Collectors.toMap(
-        keyMapper,
-        valueMapper,
-        (x, y) -> {
-          throw new IllegalStateException("Duplicate key");
-        },
-        TreeMap::new);
-  }
-
-  public static <T, K, U> Collector<T, ?, LinkedHashMap<K, U>> toLinkedHashMap(
-      Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
-    return Collectors.toMap(
-        keyMapper,
-        valueMapper,
-        (x, y) -> {
-          throw new IllegalStateException("Duplicate key");
-        },
-        LinkedHashMap::new);
   }
 
   public static Set<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {

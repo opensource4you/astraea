@@ -53,6 +53,7 @@ import org.apache.kafka.common.quota.ClientQuotaFilter;
 import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 
 class AsyncAdminImpl implements AsyncAdmin {
@@ -157,7 +158,7 @@ class AsyncAdminImpl implements AsyncAdmin {
             r ->
                 r.stream()
                     .collect(
-                        Utils.toSortedMap(
+                        MapUtils.toSortedMap(
                             e -> TopicPartition.from(e.getKey()), Map.Entry::getValue)));
   }
 

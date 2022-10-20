@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -70,7 +70,7 @@ public class BalancerTab {
         .stream()
         .map(
             tp ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "topic",
                     tp.topic(),
                     "partition",

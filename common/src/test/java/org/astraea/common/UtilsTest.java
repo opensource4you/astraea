@@ -68,13 +68,13 @@ public class UtilsTest {
   void testCollectToTreeMap() {
     Assertions.assertInstanceOf(
         SortedMap.class,
-        IntStream.range(0, 100).boxed().collect(Utils.toSortedMap(i -> i, i -> i)));
+        IntStream.range(0, 100).boxed().collect(MapUtils.toSortedMap(i -> i, i -> i)));
     //noinspection ResultOfMethodCallIgnored
     Assertions.assertThrows(
         IllegalStateException.class,
         () ->
             Stream.of(Map.entry(1, "hello"), Map.entry(1, "world"))
-                .collect(Utils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(MapUtils.toSortedMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   @Test

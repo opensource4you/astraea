@@ -45,6 +45,7 @@ import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -701,13 +702,13 @@ public class AdminTest extends RequireBrokerCluster {
                   admin.replicas(Set.of(topic)).stream()
                       .filter(Replica::isLeader)
                       .collect(
-                          Utils.toSortedMap(
+                          MapUtils.toSortedMap(
                               replica -> TopicPartition.of(replica.topic(), replica.partition()),
                               replica -> replica.nodeInfo().id()));
       var expectedReplicaList =
           currentLeaderMap.get().entrySet().stream()
               .collect(
-                  Utils.toSortedMap(
+                  MapUtils.toSortedMap(
                       Map.Entry::getKey,
                       entry -> {
                         int leaderBroker = entry.getValue();
@@ -722,7 +723,7 @@ public class AdminTest extends RequireBrokerCluster {
               () ->
                   expectedReplicaList.entrySet().stream()
                       .collect(
-                          Utils.toSortedMap(
+                          MapUtils.toSortedMap(
                               Map.Entry::getKey,
                               e -> e.getValue().stream().findFirst().orElseThrow()));
 

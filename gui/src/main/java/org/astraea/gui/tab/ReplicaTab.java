@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.gui.Context;
@@ -36,7 +36,7 @@ public class ReplicaTab {
         .filter(ReplicaInfo::isOffline)
         .map(
             replica ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "topic",
                     replica.topic(),
                     "partition",
@@ -62,7 +62,7 @@ public class ReplicaTab {
         .map(
             replica -> {
               var leaderSize = leaderSizes.getOrDefault(replica.topicPartition(), 0L);
-              return LinkedHashMap.<String, Object>of(
+              return MapUtils.<String, Object>of(
                   "topic",
                   replica.topic(),
                   "partition",
@@ -93,7 +93,7 @@ public class ReplicaTab {
     return replicas.stream()
         .map(
             replica ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "topic",
                     replica.topic(),
                     "partition",
