@@ -47,6 +47,7 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.UnsupportedVersionException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -356,7 +357,12 @@ class AsyncAdminImpl implements AsyncAdmin {
                                         ignored -> new OffsetSpec.MaxTimestampSpec())))
                         .all())
                     // the old kafka does not support to fetch max timestamp
-                    .exceptionally(e -> Map.of())),
+                    .exceptionally(
+                        e -> {
+                          if (e instanceof UnsupportedVersionException) return Map.of();
+                          if (e instanceof RuntimeException) throw (RuntimeException) e;
+                          throw new RuntimeException(e);
+                        })),
         (ps, result) ->
             ps.stream()
                 .collect(
@@ -540,7 +546,12 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .collect(Collectors.toUnmodifiableList()))
             .all())
         // the old kafka does not support to fetch producer states
-        .exceptionally(e -> Map.of())
+        .exceptionally(
+            e -> {
+              if (e instanceof UnsupportedVersionException) return Map.of();
+              if (e instanceof RuntimeException) throw (RuntimeException) e;
+              throw new RuntimeException(e);
+            })
         .thenApply(
             ps ->
                 ps.entrySet().stream()
