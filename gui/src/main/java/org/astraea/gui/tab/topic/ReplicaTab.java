@@ -29,7 +29,7 @@ import org.astraea.gui.pane.Tab;
 
 public class ReplicaTab {
 
-  private static List<Map<String, Object>> offlineReplicaResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> offlineResult(List<Replica> replicas) {
     return replicas.stream()
         .filter(ReplicaInfo::isOffline)
         .map(
@@ -48,7 +48,7 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  private static List<Map<String, Object>> syncingReplicaResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> syncingResult(List<Replica> replicas) {
     var leaderSizes =
         replicas.stream()
             .filter(ReplicaInfo::isLeader)
@@ -87,7 +87,7 @@ public class ReplicaTab {
         .collect(Collectors.toList());
   }
 
-  private static List<Map<String, Object>> allReplicaResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> allResult(List<Replica> replicas) {
     return replicas.stream()
         .map(
             replica ->
@@ -138,9 +138,9 @@ public class ReplicaTab {
                         .thenApply(
                             replicas -> {
                               var selected = input.singleSelectedRadio(all);
-                              if (selected.equals(syncing)) return syncingReplicaResult(replicas);
-                              if (selected.equals(offline)) return offlineReplicaResult(replicas);
-                              return allReplicaResult(replicas);
+                              if (selected.equals(syncing)) return syncingResult(replicas);
+                              if (selected.equals(offline)) return offlineResult(replicas);
+                              return allResult(replicas);
                             }))
             .build());
   }
