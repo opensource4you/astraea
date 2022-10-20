@@ -244,12 +244,11 @@ public class PaneBuilder {
             return;
           }
 
-          var searchPattern =
-              searchLabel == null
-                  ? Optional.<Pattern>empty()
-                  : Optional.ofNullable(searchField.getText())
-                      .filter(s -> !s.isBlank())
-                      .map(PaneBuilder::wildcardToPattern);
+          var searchPatterns =
+              Arrays.stream(searchField.getText().split(","))
+                  .filter(s -> !s.isBlank())
+                  .map(PaneBuilder::wildcardToPattern)
+                  .collect(Collectors.toList());
           Logger logger = console::append;
           var input =
               new Input() {
@@ -265,7 +264,8 @@ public class PaneBuilder {
 
                 @Override
                 public boolean matchSearch(String word) {
-                  return searchPattern.map(p -> p.matcher(word).matches()).orElse(true);
+                  return searchPatterns.isEmpty()
+                      || searchPatterns.stream().anyMatch(p -> p.matcher(word).matches());
                 }
               };
 
