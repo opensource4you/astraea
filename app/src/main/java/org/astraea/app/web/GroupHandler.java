@@ -178,7 +178,7 @@ public class GroupHandler implements Handler {
     final String host;
     final List<OffsetProgress> offsetProgress;
 
-    public Member() {
+    private Member() {
       memberId = null;
       groupInstanceId = Optional.empty();
       clientId = null;
