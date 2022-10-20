@@ -52,6 +52,7 @@ import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
@@ -152,19 +153,17 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(
             distanceFromLatest ->
-                consumerBuilder.seek(
-                    Builder.SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
+                consumerBuilder.seek(SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
 
     Optional.ofNullable(channel.queries().get(DISTANCE_FROM_BEGINNING))
         .map(Long::parseLong)
         .ifPresent(
             distanceFromBeginning ->
-                consumerBuilder.seek(
-                    Builder.SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
+                consumerBuilder.seek(SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
 
     Optional.ofNullable(channel.queries().get(SEEK_TO))
         .map(Long::parseLong)
-        .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
+        .ifPresent(seekTo -> consumerBuilder.seek(SeekStrategy.SEEK_TO, seekTo));
 
     return CompletableFuture.completedFuture(get(consumerBuilder.build(), limit, timeout));
   }

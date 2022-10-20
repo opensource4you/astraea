@@ -30,9 +30,9 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.consumer.SeekStrategy;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -94,7 +94,7 @@ public interface AsyncAdmin extends AutoCloseable {
               try (var consumer =
                   Consumer.forPartitions(topicPartitions)
                       .bootstrapServers(bootstrap)
-                      .seek(Builder.SeekStrategy.DISTANCE_FROM_LATEST, 1)
+                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
                       .build()) {
                 // TODO: how many records we should take ?
                 return consumer.poll(topicPartitions.size(), Duration.ofSeconds(5)).stream()

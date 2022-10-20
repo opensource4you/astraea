@@ -18,9 +18,9 @@ package org.astraea.common.consumer;
 
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.common.consumer.Builder.SeekStrategy.DISTANCE_FROM_BEGINNING;
-import static org.astraea.common.consumer.Builder.SeekStrategy.DISTANCE_FROM_LATEST;
-import static org.astraea.common.consumer.Builder.SeekStrategy.SEEK_TO;
+import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_BEGINNING;
+import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_LATEST;
+import static org.astraea.common.consumer.SeekStrategy.SEEK_TO;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
