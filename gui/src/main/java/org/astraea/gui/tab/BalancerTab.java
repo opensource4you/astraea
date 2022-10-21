@@ -24,6 +24,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.MapUtils;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -40,6 +41,8 @@ import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class BalancerTab {
 
@@ -102,6 +105,16 @@ public class BalancerTab {
                     .brokerFolders()
                     .thenApply(
                         brokerFolders -> {
+                          var patterns =
+                              input
+                                  .texts()
+                                  .get(TOPIC_NAME_KEY)
+                                  .map(
+                                      ss ->
+                                          Arrays.stream(ss.split(","))
+                                              .map(Utils::wildcardToPattern)
+                                              .collect(Collectors.toList()))
+                                  .orElse(List.of());
                           logger.log("searching better assignments ... ");
                           return Map.entry(
                               clusterInfo,
@@ -120,7 +133,13 @@ public class BalancerTab {
                                   .limit(10000)
                                   .greedy(true)
                                   .build()
-                                  .offer(clusterInfo, input::matchSearch, brokerFolders));
+                                  .offer(
+                                      clusterInfo,
+                                      topic ->
+                                          patterns.isEmpty()
+                                              || patterns.stream()
+                                                  .anyMatch(p -> p.matcher(topic).matches()),
+                                      brokerFolders));
                         }))
         .thenApply(
             entry -> {
@@ -139,7 +158,7 @@ public class BalancerTab {
         PaneBuilder.of()
             .multiRadioButtons(Arrays.stream(Cost.values()).collect(Collectors.toList()))
             .buttonName("PLAN")
-            .searchField("topic name", "topic-*,*abc*")
+            .input(Label.of(TOPIC_NAME_KEY), TextField.builder().hint("topic-*,*abc*").build())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",

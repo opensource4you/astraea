@@ -192,7 +192,6 @@ public class BrokerTab {
     return Tab.of(
         "metrics",
         PaneBuilder.of()
-            .searchField("config key", "*thread*")
             .singleRadioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
@@ -216,9 +215,7 @@ public class BrokerTab {
                                           var result = new LinkedHashMap<String, Object>();
                                           result.put("broker id", entry.getKey().id());
                                           result.put("host", entry.getKey().host());
-                                          entry.getValue().entrySet().stream()
-                                              .filter(m -> input.matchSearch(m.getKey()))
-                                              .forEach(m -> result.put(m.getKey(), m.getValue()));
+                                          result.putAll(new TreeMap<>(entry.getValue()));
                                           return result;
                                         })
                                     .collect(Collectors.toList())))
@@ -278,21 +275,8 @@ public class BrokerTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .searchField("broker id or host", "100*,192.168.*")
             .buttonAction(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .brokers()
-                        .thenApply(
-                            brokers ->
-                                brokers.stream()
-                                    .filter(
-                                        nodeInfo ->
-                                            input.matchSearch(String.valueOf(nodeInfo.id()))
-                                                || input.matchSearch(nodeInfo.host()))
-                                    .collect(Collectors.toList()))
-                        .thenApply(BrokerTab::basicResult))
+                (input, logger) -> context.admin().brokers().thenApply(BrokerTab::basicResult))
             .build());
   }
 
@@ -300,7 +284,6 @@ public class BrokerTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .searchField("config key", "*thread*")
             .buttonAction(
                 (input, logger) ->
                     context
@@ -317,12 +300,7 @@ public class BrokerTab {
                                         e -> {
                                           var map = new LinkedHashMap<String, Object>();
                                           map.put("broker id", e.getKey());
-                                          e.getValue().raw().entrySet().stream()
-                                              .filter(entry -> input.matchSearch(entry.getKey()))
-                                              .sorted(Map.Entry.comparingByKey())
-                                              .forEach(
-                                                  entry ->
-                                                      map.put(entry.getKey(), entry.getValue()));
+                                          map.putAll(new TreeMap<>(e.getValue().raw()));
                                           return map;
                                         })
                                     .collect(Collectors.toList())))

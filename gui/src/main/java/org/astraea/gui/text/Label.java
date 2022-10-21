@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.text;
 
+import javafx.application.Platform;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -52,5 +53,10 @@ public class Label extends javafx.scene.control.Label implements Comparable<Labe
   @Override
   public int compareTo(Label o) {
     return key.compareTo(o.key);
+  }
+
+  public void text(String text) {
+    if (Platform.isFxApplicationThread()) setText(text);
+    else Platform.runLater(() -> setText(text));
   }
 }

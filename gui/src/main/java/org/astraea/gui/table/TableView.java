@@ -91,6 +91,9 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
     return tableView;
   }
 
+  private volatile List<Map<String, Object>> lastSetData = null;
+  private volatile List<Map<String, Object>> currentData = null;
+
   private TableView() {
     super();
   }
@@ -105,7 +108,35 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public void update(List<Map<String, Object>> data) {
+  public int size() {
+    var data = currentData;
+    if (data == null) return 0;
+    return data.size();
+  }
+
+  /**
+   * convert the current data to another view.
+   *
+   * @param converter used to convert current data
+   */
+  public void convert(Function<Map<String, Object>, Map<String, Object>> converter) {
+    var data = lastSetData;
+    if (data != null)
+      refresh(data.stream().map(converter).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
+  }
+
+  /**
+   * set the current view. The converted data will get deleted
+   *
+   * @param data to set
+   */
+  public void set(List<Map<String, Object>> data) {
+    this.lastSetData = data;
+    refresh(data);
+  }
+
+  private void refresh(List<Map<String, Object>> data) {
+    currentData = data;
     var columns =
         data.stream()
             .map(Map::keySet)

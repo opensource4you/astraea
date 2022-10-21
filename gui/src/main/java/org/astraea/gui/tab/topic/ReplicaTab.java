@@ -123,17 +123,11 @@ public class ReplicaTab {
         "replica",
         PaneBuilder.of()
             .singleRadioButtons(List.of(all, syncing, offline))
-            .searchField("topic name", "topic-*,*abc*")
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .topicNames(true)
-                        .thenApply(
-                            topics ->
-                                topics.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::replicas)
                         .thenApply(
                             replicas -> {

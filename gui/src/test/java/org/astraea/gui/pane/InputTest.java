@@ -39,11 +39,6 @@ public class InputTest {
           public Map<String, Optional<String>> texts() {
             return texts;
           }
-
-          @Override
-          public boolean matchSearch(String word) {
-            return false;
-          }
         };
 
     texts.put("key", Optional.empty());
