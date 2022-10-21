@@ -248,7 +248,7 @@ public class TopicTab {
                                     .input(
                                         TopicConfigs.DYNAMICAL_CONFIGS.stream()
                                             .collect(
-                                                Collectors.toMap(
+                                                MapUtils.toSortedMap(
                                                     Label::of,
                                                     k ->
                                                         TextField.builder()
