@@ -19,10 +19,8 @@ package org.astraea.common;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -266,14 +264,6 @@ public final class Utils {
     var pw = new PrintWriter(sw);
     e.printStackTrace(pw);
     return sw.toString();
-  }
-
-  public static String format(long timestamp) {
-    if (timestamp > 0) {
-      var format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-      return format.format(new Date(timestamp));
-    }
-    return "unknown";
   }
 
   public static Pattern wildcardToPattern(String string) {

@@ -16,6 +16,9 @@
  */
 package org.astraea.gui.tab;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -27,7 +30,6 @@ import java.util.stream.Stream;
 import javafx.geometry.Side;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
@@ -167,7 +169,8 @@ public class ClientTab {
                     "last sequence",
                     state.lastSequence(),
                     "last timestamp",
-                    Utils.format(state.lastTimestamp())))
+                    LocalDateTime.ofInstant(
+                        Instant.ofEpochMilli(state.lastTimestamp()), ZoneId.systemDefault())))
         .collect(Collectors.toList());
   }
 

@@ -17,6 +17,9 @@
 package org.astraea.gui.tab.topic;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -31,7 +34,6 @@ import javafx.geometry.Side;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
@@ -402,11 +404,17 @@ public class TopicTab {
                   .mapToLong(t -> t)
                   .max()
                   .stream()
-                  .mapToObj(Utils::format)
+                  .mapToObj(
+                      t -> LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.systemDefault()))
                   .findFirst()
                   .ifPresent(t -> result.put("max timestamp", t));
               Optional.ofNullable(topicTimestampOfLatestRecords.get(topic))
-                  .ifPresent(t -> result.put("timestamp of latest record", Utils.format(t)));
+                  .ifPresent(
+                      t ->
+                          result.put(
+                              "timestamp of latest record",
+                              LocalDateTime.ofInstant(
+                                  Instant.ofEpochMilli(t), ZoneId.systemDefault())));
               result.put(
                   "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
               topicPartitions.getOrDefault(topic, List.of()).stream()
