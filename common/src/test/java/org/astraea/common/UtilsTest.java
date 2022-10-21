@@ -157,6 +157,36 @@ public class UtilsTest {
     Assertions.assertEquals("yes", f.get());
   }
 
+  @Test
+  void testWildcard() {
+    var pattern0 = Utils.wildcardToPattern("aaa*");
+    Assertions.assertTrue(pattern0.matcher("aaa").matches());
+    Assertions.assertTrue(pattern0.matcher("aaab").matches());
+    Assertions.assertTrue(pattern0.matcher("aaacc").matches());
+    Assertions.assertFalse(pattern0.matcher("bbaaa").matches());
+    Assertions.assertFalse(pattern0.matcher("ccaaadd").matches());
+    Assertions.assertFalse(pattern0.matcher("aa").matches());
+
+    var pattern1 = Utils.wildcardToPattern("*aaa*");
+    Assertions.assertTrue(pattern1.matcher("aaa").matches());
+    Assertions.assertTrue(pattern1.matcher("aaab").matches());
+    Assertions.assertTrue(pattern1.matcher("aaacc").matches());
+    Assertions.assertTrue(pattern1.matcher("bbaaa").matches());
+    Assertions.assertTrue(pattern1.matcher("ccaaadd").matches());
+    Assertions.assertFalse(pattern1.matcher("aa").matches());
+
+    var pattern2 = Utils.wildcardToPattern("?aaa*");
+    Assertions.assertFalse(pattern2.matcher("aaa").matches());
+    Assertions.assertFalse(pattern2.matcher("aaab").matches());
+    Assertions.assertFalse(pattern2.matcher("aaacc").matches());
+    Assertions.assertTrue(pattern2.matcher("baaa").matches());
+    Assertions.assertTrue(pattern2.matcher("caaadd").matches());
+    Assertions.assertFalse(pattern2.matcher("aa").matches());
+
+    var pattern3 = Utils.wildcardToPattern("192*");
+    Assertions.assertTrue(pattern3.matcher("192.168").matches());
+  }
+
   private static class TestConfigCostFunction implements CostFunction {
     public TestConfigCostFunction(Configuration configuration) {}
   }
