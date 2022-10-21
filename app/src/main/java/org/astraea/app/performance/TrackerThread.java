@@ -144,13 +144,13 @@ public interface TrackerThread extends AbstractThread {
         var report = reports.get(i);
         var clientId = report.clientId();
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
+        var assignedPartitions =
+            ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of());
+        var revokedPartitions =
+            ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of());
         var nonStickyPartitions =
-            ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).stream()
-                .filter(
-                    tp ->
-                        !ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS
-                            .getOrDefault(clientId, Set.of())
-                            .contains(tp))
+            assignedPartitions.stream()
+                .filter(tp -> !revokedPartitions.contains(tp))
                 .collect(Collectors.toSet());
         if (ms.isPresent()) {
           System.out.printf(
@@ -158,10 +158,7 @@ public interface TrackerThread extends AbstractThread {
               i,
               (int) ms.get().assignedPartitions(),
               nonStickyPartitions.size(),
-              (ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).size()
-                  - ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS
-                      .getOrDefault(clientId, Set.of())
-                      .size()));
+              (assignedPartitions.size() - revokedPartitions.size()));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
