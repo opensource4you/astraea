@@ -202,7 +202,7 @@ public class AdminTest extends RequireBrokerCluster {
           .forEach(p -> Assertions.assertEquals(1, p.latestOffset()));
       admin
           .partitions(Set.of(topicName))
-          .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
+          .forEach(p -> Assertions.assertNotEquals(Optional.empty(), p.maxTimestamp()));
     }
   }
 

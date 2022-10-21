@@ -33,6 +33,8 @@ import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class QuotaTab {
 
@@ -41,8 +43,8 @@ public class QuotaTab {
     var rateKey = "connections/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(ipLabelKey, true, false)
-        .input(rateKey, false, true)
+        .input(Label.highlight(ipLabelKey), TextField.of())
+        .input(Label.highlight(rateKey), TextField.builder().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
@@ -78,8 +80,8 @@ public class QuotaTab {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(clientIdLabelKey, true, false)
-        .input(byteRateKey, false, true)
+        .input(Label.highlight(clientIdLabelKey), TextField.of())
+        .input(Label.of(byteRateKey), TextField.builder().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
@@ -115,8 +117,8 @@ public class QuotaTab {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(clientIdLabelKey, true, false)
-        .input(byteRateKey, false, true)
+        .input(Label.highlight(clientIdLabelKey), TextField.of())
+        .input(Label.of(byteRateKey), TextField.builder().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
@@ -178,11 +180,11 @@ public class QuotaTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .radioButtons(List.of(ipKey, clientIdKey))
+            .singleRadioButtons(List.of(ipKey, clientIdKey))
             .searchField(ipKey + "/" + clientIdKey)
             .buttonAction(
                 (input, logger) -> {
-                  var target = input.selectedRadio().map(o -> (String) o).orElse(ipKey);
+                  var target = input.singleSelectedRadio(ipKey);
                   return context
                       .admin()
                       .quotas(

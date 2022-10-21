@@ -47,6 +47,7 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.UnsupportedVersionException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
 import org.apache.kafka.common.quota.ClientQuotaFilter;
@@ -347,15 +348,21 @@ class AsyncAdminImpl implements AsyncAdmin {
         updatableTopicPartitions,
         updatableTopicPartitions.thenCompose(
             ps ->
-                to(
-                    kafkaAdmin
+                to(kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.MaxTimestampSpec())))
-                        .all())),
+                        .all())
+                    // the old kafka does not support to fetch max timestamp
+                    .exceptionally(
+                        e -> {
+                          if (e instanceof UnsupportedVersionException) return Map.of();
+                          if (e instanceof RuntimeException) throw (RuntimeException) e;
+                          throw new RuntimeException(e);
+                        })),
         (ps, result) ->
             ps.stream()
                 .collect(
@@ -393,7 +400,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                     tp -> {
                       var earliest = earliestOffsets.getOrDefault(tp, -1L);
                       var latest = latestOffsets.getOrDefault(tp, -1L);
-                      var maxTimestamp = maxTimestamps.getOrDefault(tp, -1L);
+                      var maxTimestamp = Optional.ofNullable(maxTimestamps.get(tp));
                       var tpInfo = tpInfos.get(tp);
                       var leader =
                           tpInfo.leader() == null || tpInfo.leader().isEmpty()
@@ -538,6 +545,13 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .map(TopicPartition::to)
                     .collect(Collectors.toUnmodifiableList()))
             .all())
+        // the old kafka does not support to fetch producer states
+        .exceptionally(
+            e -> {
+              if (e instanceof UnsupportedVersionException) return Map.of();
+              if (e instanceof RuntimeException) throw (RuntimeException) e;
+              throw new RuntimeException(e);
+            })
         .thenApply(
             ps ->
                 ps.entrySet().stream()

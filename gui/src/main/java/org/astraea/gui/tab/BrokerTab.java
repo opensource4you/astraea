@@ -48,6 +48,8 @@ import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class BrokerTab {
 
@@ -186,7 +188,7 @@ public class BrokerTab {
         "metrics",
         PaneBuilder.of()
             .searchField("config key")
-            .radioButtons(MetricType.values())
+            .singleRadioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
                     context
@@ -200,9 +202,7 @@ public class BrokerTab {
                                             Map.entry(
                                                 entry.getKey(),
                                                 input
-                                                    .selectedRadio()
-                                                    .map(o -> (MetricType) o)
-                                                    .orElse(MetricType.BROKER_TOPIC)
+                                                    .singleSelectedRadio(MetricType.BROKER_TOPIC)
                                                     .fetcher
                                                     .apply(entry.getValue())))
                                     .sorted(Comparator.comparing(e -> e.getKey().id()))
@@ -364,17 +364,13 @@ public class BrokerTab {
                 .thenApply(
                     brokers ->
                         PaneBuilder.of()
-                            .radioButtons(
+                            .singleRadioButtons(
                                 brokers.stream().map(NodeInfo::id).collect(Collectors.toList()))
                             .buttonAction(
                                 (input, logger) ->
                                     CompletableFuture.supplyAsync(
                                         () -> {
-                                          int id =
-                                              input
-                                                  .selectedRadio()
-                                                  .map(b -> (int) b)
-                                                  .orElse(brokers.get(0).id());
+                                          int id = input.singleSelectedRadio(brokers.get(0).id());
                                           return brokers.stream()
                                               .filter(b -> b.id() == id)
                                               .findFirst()
@@ -447,12 +443,15 @@ public class BrokerTab {
                                                     BrokerConfigs.DYNAMICAL_CONFIGS.stream()
                                                         .collect(
                                                             MapUtils.toSortedMap(
-                                                                k -> k,
+                                                                Label::of,
                                                                 k ->
-                                                                    broker
-                                                                        .config()
-                                                                        .value(k)
-                                                                        .orElse(""))))
+                                                                    TextField.builder()
+                                                                        .defaultValue(
+                                                                            broker
+                                                                                .config()
+                                                                                .value(k)
+                                                                                .orElse(""))
+                                                                        .build())))
                                                 .buttonListener(
                                                     (input, logger) ->
                                                         context

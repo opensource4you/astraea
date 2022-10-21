@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -103,7 +104,7 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
             // there is no more data, so all replicas are in-sync
             Assertions.assertEquals(1, p.isr().size());
             p.isr().forEach(n -> Assertions.assertTrue(n.offline()));
-            Assertions.assertEquals(-1, p.maxTimestamp());
+            Assertions.assertEquals(Optional.empty(), p.maxTimestamp());
             Assertions.assertEquals(-1, p.earliestOffset());
             Assertions.assertEquals(-1, p.latestOffset());
           });
