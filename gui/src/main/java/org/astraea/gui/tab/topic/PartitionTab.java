@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Partition;
@@ -68,12 +69,14 @@ public class PartitionTab {
   }
 
   static Tab tab(Context context) {
+    var includeInternal = "internal";
     var moveToKey = "move to brokers";
     var offsetKey = "truncate to offset";
     return Tab.of(
         "partition",
         PaneBuilder.of()
             .searchField("topic name")
+            .multiRadioButtons(List.of(includeInternal))
             .tableViewAction(
                 MapUtils.of(
                     Label.of(moveToKey),
@@ -89,11 +92,11 @@ public class PartitionTab {
                                 var topic = item.get(TOPIC_NAME_KEY);
                                 var partition = item.get(PARTITION_KEY);
                                 if (topic != null && partition != null)
-                                  return Optional.of(
+                                  return Stream.of(
                                       TopicPartition.of(
-                                          topic.toString(), Integer.parseInt(partition.toString())))
-                                      .stream();
-                                return Optional.<TopicPartition>empty().stream();
+                                          topic.toString(),
+                                          Integer.parseInt(partition.toString())));
+                                return Stream.of();
                               })
                           .collect(Collectors.toSet());
                   if (partitions.isEmpty()) {
@@ -159,7 +162,7 @@ public class PartitionTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(true)
+                        .topicNames(input.multiSelectedRadios(List.of()).contains(includeInternal))
                         .thenApply(
                             names ->
                                 names.stream()
