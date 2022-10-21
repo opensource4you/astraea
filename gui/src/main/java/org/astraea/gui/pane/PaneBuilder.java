@@ -64,7 +64,7 @@ public class PaneBuilder {
 
   private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
 
-  private Button actionButton = Button.of("LOAD");
+  private Button actionButton = Button.of("REFRESH");
 
   private TableView tableView = null;
 
@@ -152,20 +152,23 @@ public class PaneBuilder {
     var console = TextArea.of();
     Logger logger = console::append;
     // add query
+    Runnable runQuery;
     if (tableView != null) {
       var filterText =
           TextField.builder()
               .hint("c0,c1,c2,c3,c0=aa,c1<20,c2>30MB,c3>=2022-10-22T04:57:43.530")
               .build();
+      runQuery =
+          () -> {
+            try {
+              tableView.convert(filterText.text().map(PaneBuilder::converter).orElse(v -> v));
+            } catch (Exception e) {
+              console.text(e);
+            }
+          };
       filterText.setOnKeyPressed(
           event -> {
-            if (event.getCode().equals(KeyCode.ENTER)) {
-              try {
-                tableView.convert(filterText.text().map(PaneBuilder::converter).orElse(v -> v));
-              } catch (Exception e) {
-                console.text(e);
-              }
-            }
+            if (event.getCode().equals(KeyCode.ENTER)) runQuery.run();
           });
       var sizeLabel = Label.of("");
       tableView
@@ -174,7 +177,7 @@ public class PaneBuilder {
               (ListChangeListener<Map<String, Object>>)
                   c -> sizeLabel.text("total: " + tableView.size()));
       nodes.add(VBox.of(Pos.CENTER, filterText, tableView, sizeLabel));
-    }
+    } else runQuery = () -> {};
 
     // ---------------------------------[second control layout]---------------------------------//
     if (tableView != null && tableViewAction != null) {
@@ -266,7 +269,11 @@ public class PaneBuilder {
                   .whenComplete(
                       (data, e) -> {
                         try {
-                          if (data != null) tableView.set(data);
+                          if (data != null) {
+                            tableView.set(data);
+                            // update the table view if there is a query
+                            runQuery.run();
+                          }
                           console.text(e);
                         } finally {
                           actionButton.enable();
