@@ -31,6 +31,7 @@ import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
+import org.astraea.common.Utils;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
 import org.astraea.gui.box.HBox;
@@ -227,7 +228,7 @@ public class PaneBuilder {
                   ? List.<Pattern>of()
                   : Arrays.stream(searchField.getText().split(","))
                       .filter(s -> !s.isBlank())
-                      .map(PaneBuilder::wildcardToPattern)
+                      .map(Utils::wildcardToPattern)
                       .collect(Collectors.toList());
           var rawTexts =
               inputKeyAndFields.entrySet().stream()
@@ -297,10 +298,5 @@ public class PaneBuilder {
           });
 
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
-  }
-
-  static Pattern wildcardToPattern(String string) {
-    return Pattern.compile(
-        string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 }

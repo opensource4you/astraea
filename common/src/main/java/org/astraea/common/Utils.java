@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.cost.Configuration;
 
@@ -273,6 +274,11 @@ public final class Utils {
       return format.format(new Date(timestamp));
     }
     return "unknown";
+  }
+
+  public static Pattern wildcardToPattern(String string) {
+    return Pattern.compile(
+        string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 
   private Utils() {}
