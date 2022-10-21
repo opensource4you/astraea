@@ -157,7 +157,7 @@ public class PaneBuilder {
     if (tableView != null) {
       var filterText =
           TextField.builder()
-              .hint("c0,c1,c2,c3,c0=aa,c1<20,c2>30MB,c3>=2022-10-22T04:57:43.530")
+              .hint("c0||c1||c2||c3||c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530")
               .build();
       runQuery =
           () -> {
@@ -302,6 +302,8 @@ public class PaneBuilder {
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
   }
 
+  private static final String OR_KEY = "\\|\\|";
+
   /**
    * the form of text is <key>,...<key=value>. 1) if there is only key, it means the visible column
    * names 2) if there is a pair of key and value, it is the condition used to select row. For
@@ -313,12 +315,12 @@ public class PaneBuilder {
    */
   private static Function<Map<String, Object>, Map<String, Object>> converter(String text) {
     if (text == null || text.isBlank()) return v -> v;
-
     var predicates =
-        Stream.concat(forString(text).stream(), forNumber(text).stream())
+        Stream.of(forString(text).stream(), forNumber(text).stream(), forNonexistent(text).stream())
+            .flatMap(s -> s)
             .collect(Collectors.toList());
     var visibleKeys =
-        Arrays.stream(text.split(","))
+        Arrays.stream(text.split(OR_KEY))
             .filter(item -> !item.contains("=") && !item.contains("<") && !item.contains(">"))
             .map(Utils::wildcardToPattern)
             .collect(Collectors.toList());
@@ -342,7 +344,7 @@ public class PaneBuilder {
     var larges = new HashMap<Pattern, String>();
     var equals = new HashMap<Pattern, String>();
     var smalls = new HashMap<Pattern, String>();
-    for (var item : text.split(",")) {
+    for (var item : text.split(OR_KEY)) {
       var ss = item.trim().split(">=");
       if (ss.length == 2) {
         larges.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
@@ -443,9 +445,9 @@ public class PaneBuilder {
                     }));
   }
 
-  private static Optional<Predicate<Map<String, Object>>> forString(String text) {
-    var patternForNonexistentKeys =
-        Arrays.stream(text.split(","))
+  private static Optional<Predicate<Map<String, Object>>> forNonexistent(String text) {
+    var patterns =
+        Arrays.stream(text.split(OR_KEY))
             // this is number comparison
             .filter(item -> !item.contains("=="))
             .flatMap(
@@ -458,8 +460,22 @@ public class PaneBuilder {
                   return Stream.of();
                 })
             .collect(Collectors.toList());
+    if (patterns.isEmpty()) return Optional.empty();
+    return Optional.of(
+        item ->
+            !patterns.stream()
+                .allMatch(
+                    p ->
+                        item.entrySet().stream()
+                            .anyMatch(
+                                entry ->
+                                    p.matcher(entry.getKey()).matches()
+                                        && !entry.getValue().toString().isBlank())));
+  }
+
+  private static Optional<Predicate<Map<String, Object>>> forString(String text) {
     var patterns =
-        Arrays.stream(text.split(","))
+        Arrays.stream(text.split(OR_KEY))
             // this is number comparison
             .filter(item -> !item.contains("=="))
             .flatMap(
@@ -473,28 +489,18 @@ public class PaneBuilder {
                   return Stream.of();
                 })
             .collect(Collectors.toList());
-    if (patterns.isEmpty() && patternForNonexistentKeys.isEmpty()) return Optional.empty();
+    if (patterns.isEmpty()) return Optional.empty();
     return Optional.of(
         item ->
-            (!patterns.isEmpty()
-                    && item.entrySet().stream()
-                        .anyMatch(
-                            entry ->
-                                patterns.stream()
-                                    .anyMatch(
-                                        ptns ->
-                                            ptns.getKey().matcher(entry.getKey()).matches()
-                                                && ptns.getValue()
-                                                    .matcher(entry.getValue().toString())
-                                                    .matches())))
-                || (!patternForNonexistentKeys.isEmpty()
-                    && !patternForNonexistentKeys.stream()
-                        .allMatch(
-                            p ->
-                                item.entrySet().stream()
-                                    .anyMatch(
-                                        entry ->
-                                            p.matcher(entry.getKey()).matches()
-                                                && !entry.getValue().toString().isBlank()))));
+            item.entrySet().stream()
+                .anyMatch(
+                    entry ->
+                        patterns.stream()
+                            .anyMatch(
+                                ptns ->
+                                    ptns.getKey().matcher(entry.getKey()).matches()
+                                        && ptns.getValue()
+                                            .matcher(entry.getValue().toString())
+                                            .matches())));
   }
 }
