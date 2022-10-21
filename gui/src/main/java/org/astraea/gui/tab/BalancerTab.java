@@ -103,7 +103,7 @@ public class BalancerTab {
                       : "not change",
                   PREVIOUS_FOLLOWER_KEY,
                   previousFollowers.size() == 0
-                      ? "not change"
+                      ? "no follower"
                       : previousFollowers.stream()
                           .map(r -> r.nodeInfo().id() + ":" + r.path())
                           .collect(Collectors.joining(",")),
