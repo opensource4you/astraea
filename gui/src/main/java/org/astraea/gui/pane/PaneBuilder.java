@@ -444,6 +444,20 @@ public class PaneBuilder {
   }
 
   private static Optional<Predicate<Map<String, Object>>> forString(String text) {
+    var patternForNonexistentKeys =
+        Arrays.stream(text.split(","))
+            // this is number comparison
+            .filter(item -> !item.contains("=="))
+            .flatMap(
+                item -> {
+                  var string = item.trim();
+                  var ss = string.split("=");
+                  if (ss.length == 1 && string.endsWith("="))
+                    return Stream.of(
+                        Utils.wildcardToPattern(string.substring(0, string.length() - 1)));
+                  return Stream.of();
+                })
+            .collect(Collectors.toList());
     var patterns =
         Arrays.stream(text.split(","))
             // this is number comparison
@@ -459,18 +473,28 @@ public class PaneBuilder {
                   return Stream.of();
                 })
             .collect(Collectors.toList());
-    if (patterns.isEmpty()) return Optional.empty();
+    if (patterns.isEmpty() && patternForNonexistentKeys.isEmpty()) return Optional.empty();
     return Optional.of(
         item ->
-            item.entrySet().stream()
-                .anyMatch(
-                    entry ->
-                        patterns.stream()
-                            .anyMatch(
-                                ptns ->
-                                    ptns.getKey().matcher(entry.getKey()).matches()
-                                        && ptns.getValue()
-                                            .matcher(entry.getValue().toString())
-                                            .matches())));
+            (!patterns.isEmpty()
+                    && item.entrySet().stream()
+                        .anyMatch(
+                            entry ->
+                                patterns.stream()
+                                    .anyMatch(
+                                        ptns ->
+                                            ptns.getKey().matcher(entry.getKey()).matches()
+                                                && ptns.getValue()
+                                                    .matcher(entry.getValue().toString())
+                                                    .matches())))
+                || (!patternForNonexistentKeys.isEmpty()
+                    && !patternForNonexistentKeys.stream()
+                        .allMatch(
+                            p ->
+                                item.entrySet().stream()
+                                    .anyMatch(
+                                        entry ->
+                                            p.matcher(entry.getKey()).matches()
+                                                && !entry.getValue().toString().isBlank()))));
   }
 }
