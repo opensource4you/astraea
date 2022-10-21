@@ -151,7 +151,8 @@ public class PaneBuilder {
     nodes.add(actionButton);
     var console = TextArea.of();
     Logger logger = console::append;
-    // add query
+
+    // ---------------------------------[table query]---------------------------------//
     Runnable runQuery;
     if (tableView != null) {
       var filterText =
