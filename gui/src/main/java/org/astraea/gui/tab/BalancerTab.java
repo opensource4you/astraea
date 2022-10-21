@@ -18,6 +18,7 @@ package org.astraea.gui.tab;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
@@ -46,8 +47,10 @@ public class BalancerTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
-  private static final String MIGRATED_LEADER_KEY = "migrated leader";
-  private static final String OLD_ASSIGNMENT_KEY = "old assignments";
+  private static final String PREVIOUS_LEADER_KEY = "previous leader";
+  private static final String NEW_LEADER_KEY = "new leader";
+  private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
+  private static final String NEW_FOLLOWER_KEY = "new follower";
   private static final String NEW_ASSIGNMENT_KEY = "new assignments";
 
   private enum Cost {
@@ -78,51 +81,53 @@ public class BalancerTab {
             tp -> {
               var oldAssignments = clusterInfo.replicas(tp);
               var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
-              var migratedLeader =
-                  oldAssignments.stream()
-                      .filter(
-                          beforeReplica ->
-                              newAssignments.stream()
-                                  .noneMatch(
-                                      r ->
-                                          r.nodeInfo().id() == beforeReplica.nodeInfo().id()
-                                              && r.topic().equals(beforeReplica.topic())
-                                              && r.partition() == beforeReplica.partition()
-                                              && r.path().equals(beforeReplica.path())))
-                      .anyMatch(ReplicaInfo::isLeader);
+              var previousLeader =
+                  oldAssignments.stream().filter(ReplicaInfo::isLeader).findFirst().get();
+              var newLeader =
+                  newAssignments.stream().filter(ReplicaInfo::isLeader).findFirst().get();
+              var previousFollowers =
+                  oldAssignments.stream().filter(r -> !r.isLeader()).collect(Collectors.toList());
+              var newFollowers =
+                  newAssignments.stream().filter(r -> !r.isLeader()).collect(Collectors.toList());
+              var migratedReplicas = diff(oldAssignments, newAssignments);
               return MapUtils.<String, Object>of(
                   TOPIC_NAME_KEY,
                   tp.topic(),
                   PARTITION_KEY,
                   tp.partition(),
-                  MIGRATED_LEADER_KEY,
-                  migratedLeader
-                      ? clusterInfo.replicaLeader(tp).get().nodeInfo().id()
-                          + ":"
-                          + clusterInfo.replicaLeader(tp).get().path()
-                          + "->"
-                          + newAssignments.stream()
-                              .filter(Replica::isLeader)
-                              .findFirst()
-                              .get()
-                              .nodeInfo()
-                              .id()
-                          + ":"
-                          + newAssignments.stream()
-                              .filter(Replica::isLeader)
-                              .findFirst()
-                              .get()
-                              .path()
-                      : false,
-                  OLD_ASSIGNMENT_KEY,
-                  oldAssignments.stream()
-                      .map(r -> r.nodeInfo().id() + ":" + r.path())
-                      .collect(Collectors.joining(",")),
-                  NEW_ASSIGNMENT_KEY,
-                  newAssignments.stream()
-                      .map(r -> r.nodeInfo().id() + ":" + r.path())
-                      .collect(Collectors.joining(",")));
+                  PREVIOUS_LEADER_KEY,
+                  previousLeader.nodeInfo().id() + ":" + previousLeader.path(),
+                  NEW_LEADER_KEY,
+                  migratedReplicas.stream().anyMatch(ReplicaInfo::isLeader)
+                      ? newLeader.nodeInfo().id() + ":" + newLeader.path()
+                      : "not change",
+                  PREVIOUS_FOLLOWER_KEY,
+                  previousFollowers.size() == 0
+                      ? "not change"
+                      : previousFollowers.stream()
+                          .map(r -> r.nodeInfo().id() + ":" + r.path())
+                          .collect(Collectors.joining(",")),
+                  NEW_FOLLOWER_KEY,
+                  migratedReplicas.stream().anyMatch(r -> !r.isLeader())
+                      ? newFollowers.stream()
+                          .map(r -> r.nodeInfo().id() + ":" + r.path())
+                          .collect(Collectors.joining(","))
+                      : "not change");
             })
+        .collect(Collectors.toList());
+  }
+
+  private static List<Replica> diff(Collection<Replica> before, Collection<Replica> after) {
+    return before.stream()
+        .filter(
+            beforeReplica ->
+                after.stream()
+                    .noneMatch(
+                        r ->
+                            r.nodeInfo().id() == beforeReplica.nodeInfo().id()
+                                && r.topic().equals(beforeReplica.topic())
+                                && r.partition() == beforeReplica.partition()
+                                && r.path().equals(beforeReplica.path())))
         .collect(Collectors.toList());
   }
 
