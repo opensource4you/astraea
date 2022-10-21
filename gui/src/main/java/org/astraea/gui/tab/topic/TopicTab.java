@@ -58,7 +58,7 @@ public class TopicTab {
         "metrics",
         PaneBuilder.of()
             .singleRadioButtons(ServerMetrics.Topic.values())
-            .searchField("topic name")
+            .searchField("topic name", "topic-*,*abc*")
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
@@ -115,7 +115,7 @@ public class TopicTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .searchField("config key")
+            .searchField("config key", "*policy*")
             .buttonAction(
                 (input, logger) ->
                     context
@@ -149,7 +149,7 @@ public class TopicTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .searchField("topic name")
+            .searchField("topic name", "topic-*,*abc*")
             .multiRadioButtons(List.of(includeInternal, includeTimestampOfRecord))
             .tableViewAction(
                 Map.of(),

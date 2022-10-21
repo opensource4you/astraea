@@ -56,12 +56,21 @@ public class TextField extends javafx.scene.control.TextField {
     }
 
     public Builder defaultValue(String defaultValue) {
-      field.text(defaultValue);
+      if (defaultValue != null) {
+        field.text(defaultValue);
+        field.setFocusTraversable(false);
+      }
       return this;
     }
 
     public Builder disable() {
       field.disable();
+      return this;
+    }
+
+    public Builder hint(String hint) {
+      field.setPromptText(hint);
+      field.setFocusTraversable(false);
       return this;
     }
 

@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
@@ -62,7 +63,7 @@ public class PartitionTab {
                       .collect(Collectors.joining(",")));
               result.put("earliest offset", p.earliestOffset());
               result.put("latest offset", p.latestOffset());
-              p.maxTimestamp().ifPresent(t -> result.put("max timestamp", t));
+              p.maxTimestamp().ifPresent(t -> result.put("max timestamp", Utils.format(t)));
               return result;
             })
         .collect(Collectors.toList());
@@ -75,12 +76,12 @@ public class PartitionTab {
     return Tab.of(
         "partition",
         PaneBuilder.of()
-            .searchField("topic name")
+            .searchField("topic name", "topic-*,*abc*")
             .multiRadioButtons(List.of(includeInternal))
             .tableViewAction(
                 MapUtils.of(
                     Label.of(moveToKey),
-                    TextField.builder().disable().build(),
+                    TextField.builder().disable().hint("1001,1002").build(),
                     Label.of(offsetKey),
                     TextField.builder().disable().build()),
                 "ALTER",

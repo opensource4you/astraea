@@ -139,7 +139,7 @@ public class BalancerTab {
         PaneBuilder.of()
             .multiRadioButtons(Arrays.stream(Cost.values()).collect(Collectors.toList()))
             .buttonName("PLAN")
-            .searchField("topic name")
+            .searchField("topic name", "topic-*,*abc*")
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",

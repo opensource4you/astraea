@@ -123,7 +123,7 @@ public class ReplicaTab {
         "replica",
         PaneBuilder.of()
             .singleRadioButtons(List.of(all, syncing, offline))
-            .searchField("topic name")
+            .searchField("topic name", "topic-*,*abc*")
             .buttonAction(
                 (input, logger) ->
                     context
