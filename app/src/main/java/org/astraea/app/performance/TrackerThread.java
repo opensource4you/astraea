@@ -19,11 +19,13 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
+import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
@@ -140,10 +142,23 @@ public interface TrackerThread extends AbstractThread {
           .ifPresent(i -> System.out.printf("  rebalance average latency: %.3f ms%n", i));
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
+        var clientId = report.clientId();
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
+        var assignedPartitions =
+            ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of());
+        var revokedPartitions =
+            ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of());
+        var nonStickyPartitions =
+            assignedPartitions.stream()
+                .filter(tp -> !revokedPartitions.contains(tp))
+                .collect(Collectors.toSet());
         if (ms.isPresent()) {
           System.out.printf(
-              "  consumer[%d] has %d partitions%n", i, (int) ms.get().assignedPartitions());
+              "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
+              i,
+              (int) ms.get().assignedPartitions(),
+              nonStickyPartitions.size(),
+              (assignedPartitions.size() - revokedPartitions.size()));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
