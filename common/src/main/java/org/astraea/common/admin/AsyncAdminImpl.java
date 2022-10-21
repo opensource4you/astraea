@@ -359,19 +359,21 @@ class AsyncAdminImpl implements AsyncAdmin {
                     // the old kafka does not support to fetch max timestamp
                     .exceptionally(
                         e -> {
-                          if (e instanceof UnsupportedVersionException) return Map.of();
+                          if (e instanceof UnsupportedVersionException
+                              || e.getCause() instanceof UnsupportedVersionException)
+                            return Map.of();
                           if (e instanceof RuntimeException) throw (RuntimeException) e;
                           throw new RuntimeException(e);
                         })),
         (ps, result) ->
             ps.stream()
-                .collect(
-                    Collectors.toMap(
-                        tp -> tp,
-                        tp ->
-                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
-                                .map(ListOffsetsResult.ListOffsetsResultInfo::timestamp)
-                                .orElse(-1L))));
+                .flatMap(
+                    tp ->
+                        Optional.ofNullable(result.get(TopicPartition.to(tp))).stream()
+                            .map(ListOffsetsResult.ListOffsetsResultInfo::timestamp)
+                            .filter(t -> t > 0)
+                            .map(t -> Map.entry(tp, t)))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   @Override
@@ -548,7 +550,8 @@ class AsyncAdminImpl implements AsyncAdmin {
         // the old kafka does not support to fetch producer states
         .exceptionally(
             e -> {
-              if (e instanceof UnsupportedVersionException) return Map.of();
+              if (e instanceof UnsupportedVersionException
+                  || e.getCause() instanceof UnsupportedVersionException) return Map.of();
               if (e instanceof RuntimeException) throw (RuntimeException) e;
               throw new RuntimeException(e);
             })

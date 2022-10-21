@@ -187,7 +187,7 @@ public class BrokerTab {
     return Tab.of(
         "metrics",
         PaneBuilder.of()
-            .searchField("config key")
+            .searchField("config key", "*thread*")
             .singleRadioButtons(MetricType.values())
             .buttonAction(
                 (input, logger) ->
@@ -273,7 +273,7 @@ public class BrokerTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .searchField("broker id/host")
+            .searchField("broker id or host", "100*,192.168.*")
             .buttonAction(
                 (input, logger) ->
                     context
@@ -295,7 +295,7 @@ public class BrokerTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .searchField("config key")
+            .searchField("config key", "*thread*")
             .buttonAction(
                 (input, logger) ->
                     context

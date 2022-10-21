@@ -181,7 +181,7 @@ public class QuotaTab {
         "basic",
         PaneBuilder.of()
             .singleRadioButtons(List.of(ipKey, clientIdKey))
-            .searchField(ipKey + "/" + clientIdKey)
+            .searchField("ip or client id", "192.168.*,client-*")
             .buttonAction(
                 (input, logger) -> {
                   var target = input.singleSelectedRadio(ipKey);

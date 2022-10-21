@@ -56,7 +56,7 @@ public class PaneBuilder {
   private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
 
   private Label searchLabel = null;
-  private final TextField searchField = TextField.of();
+  private TextField searchField = null;
 
   private Button actionButton = Button.of("SEARCH");
 
@@ -102,8 +102,9 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder searchField(String hint) {
+  public PaneBuilder searchField(String hint, String example) {
     searchLabel = Label.of(hint);
+    searchField = TextField.builder().hint(example).build();
     return this;
   }
 
@@ -153,7 +154,8 @@ public class PaneBuilder {
               : GridPane.of(inputKeyAndFields, 3);
       nodes.add(gridPane);
     }
-    if (searchLabel != null) nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
+    if (searchLabel != null && searchField != null)
+      nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
     else nodes.add(actionButton);
     var console = TextArea.of();
     Logger logger = console::append;
@@ -185,10 +187,7 @@ public class PaneBuilder {
               checkbox.setSelected(false);
               tableViewAction
                   .apply(items, input, logger)
-                  .whenComplete(
-                      (data, e) -> {
-                        console.text(e);
-                      });
+                  .whenComplete((data, e) -> console.text(e));
             } catch (Exception e) {
               console.text(e);
             }
@@ -224,10 +223,12 @@ public class PaneBuilder {
           }
 
           var searchPatterns =
-              Arrays.stream(searchField.getText().split(","))
-                  .filter(s -> !s.isBlank())
-                  .map(PaneBuilder::wildcardToPattern)
-                  .collect(Collectors.toList());
+              searchField == null
+                  ? List.<Pattern>of()
+                  : Arrays.stream(searchField.getText().split(","))
+                      .filter(s -> !s.isBlank())
+                      .map(PaneBuilder::wildcardToPattern)
+                      .collect(Collectors.toList());
           var rawTexts =
               inputKeyAndFields.entrySet().stream()
                   .collect(Collectors.toMap(e -> e.getKey().key(), e -> e.getValue().text()));
@@ -289,7 +290,7 @@ public class PaneBuilder {
 
     actionButton.setOnAction(ignored -> handler.run());
     // there is only one text field, so we register the ENTER event.
-    if (inputKeyAndFields.isEmpty())
+    if (inputKeyAndFields.isEmpty() && searchField != null)
       searchField.setOnKeyPressed(
           event -> {
             if (event.getCode().equals(KeyCode.ENTER)) handler.run();
