@@ -64,7 +64,7 @@ public class PaneBuilder {
 
   private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
 
-  private Button actionButton = Button.of("SEARCH");
+  private Button actionButton = Button.of("LOAD");
 
   private TableView tableView = null;
 
