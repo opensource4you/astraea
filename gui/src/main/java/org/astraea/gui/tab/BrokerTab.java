@@ -16,6 +16,9 @@
  */
 package org.astraea.gui.tab;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -34,7 +37,6 @@ import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
@@ -73,7 +75,10 @@ public class BrokerTab {
                         Map.<String, Object>of(
                             "version", appInfo.version(),
                             "revision", appInfo.commitId(),
-                            "start time", Utils.format(appInfo.startTimeMs())))
+                            "start time",
+                                LocalDateTime.ofInstant(
+                                    Instant.ofEpochMilli(appInfo.startTimeMs()),
+                                    ZoneId.systemDefault())))
                 .orElse(Map.of())),
     ZOOKEEPER_REQUEST(
         "zookeeper request",

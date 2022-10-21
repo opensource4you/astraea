@@ -16,6 +16,9 @@
  */
 package org.astraea.gui.text;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.concurrent.CompletionException;
 import javafx.application.Platform;
 import org.astraea.common.Utils;
@@ -70,6 +73,8 @@ public class TextArea extends javafx.scene.control.TextArea {
   }
 
   private static String formatCurrentTime() {
-    return Utils.format(System.currentTimeMillis());
+    return LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(System.currentTimeMillis()), ZoneId.systemDefault())
+        .toString();
   }
 }

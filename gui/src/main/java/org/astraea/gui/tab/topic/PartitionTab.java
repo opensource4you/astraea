@@ -16,6 +16,9 @@
  */
 package org.astraea.gui.tab.topic;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -27,7 +30,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
@@ -63,7 +65,13 @@ public class PartitionTab {
                       .collect(Collectors.joining(",")));
               result.put("earliest offset", p.earliestOffset());
               result.put("latest offset", p.latestOffset());
-              p.maxTimestamp().ifPresent(t -> result.put("max timestamp", Utils.format(t)));
+              p.maxTimestamp()
+                  .ifPresent(
+                      t ->
+                          result.put(
+                              "max timestamp",
+                              LocalDateTime.ofInstant(
+                                  Instant.ofEpochMilli(t), ZoneId.systemDefault())));
               return result;
             })
         .collect(Collectors.toList());
