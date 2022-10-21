@@ -24,7 +24,7 @@ public class Max<V extends Comparable<V>> implements Stat<V> {
   }
 
   @Override
-  public void record(V value) {
+  public synchronized void record(V value) {
     max = (max == null || max.compareTo(value) < 0) ? value : max;
   }
 

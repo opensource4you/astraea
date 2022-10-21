@@ -24,7 +24,7 @@ public class Min<V extends Comparable<V>> implements Stat<V> {
   }
 
   @Override
-  public void record(V value) {
+  public synchronized void record(V value) {
     min = (min == null || min.compareTo(value) > 0) ? value : min;
   }
 

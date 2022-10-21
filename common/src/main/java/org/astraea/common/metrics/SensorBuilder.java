@@ -41,13 +41,13 @@ public class SensorBuilder<V> {
       }
 
       @Override
-      public synchronized V measure(String metricName) {
+      public V measure(String metricName) {
         return stats.get(metricName).measure();
       }
 
       @Override
-      public Map<String, Stat<V>> metrics() {
-        return stats;
+      public synchronized Map<String, Stat<V>> metrics() {
+        return Map.copyOf(stats);
       }
     };
   }

@@ -16,6 +16,7 @@
  */
 package org.astraea.common.metrics.stats;
 
+/** This should be thread safe */
 public interface Stat<V> {
   void record(V value);
 
