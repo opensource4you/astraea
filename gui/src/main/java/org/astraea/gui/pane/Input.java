@@ -32,7 +32,7 @@ public interface Input {
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {
     return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isPresent())
+        .filter(entry -> entry.getValue().isEmpty())
         .map(Map.Entry::getKey)
         .collect(Collectors.toUnmodifiableSet());
   }
