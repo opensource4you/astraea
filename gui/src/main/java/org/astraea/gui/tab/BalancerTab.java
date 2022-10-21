@@ -100,10 +100,10 @@ public class BalancerTab {
                   NEW_LEADER_KEY,
                   migratedReplicas.stream().anyMatch(ReplicaInfo::isLeader)
                       ? newLeader.nodeInfo().id() + ":" + newLeader.path()
-                      : "not change",
+                      : "",
                   PREVIOUS_FOLLOWER_KEY,
                   previousFollowers.size() == 0
-                      ? "no follower"
+                      ? ""
                       : previousFollowers.stream()
                           .map(r -> r.nodeInfo().id() + ":" + r.path())
                           .collect(Collectors.joining(",")),
@@ -112,7 +112,7 @@ public class BalancerTab {
                       ? newFollowers.stream()
                           .map(r -> r.nodeInfo().id() + ":" + r.path())
                           .collect(Collectors.joining(","))
-                      : "not change");
+                      : "");
             })
         .collect(Collectors.toList());
   }
