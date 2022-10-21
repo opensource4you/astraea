@@ -151,6 +151,7 @@ public class PaneBuilder {
     nodes.add(actionButton);
     var console = TextArea.of();
     Logger logger = console::append;
+    // add query
     if (tableView != null) {
       var filterText =
           TextField.builder()
