@@ -18,6 +18,8 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,6 +27,7 @@ import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
@@ -38,10 +41,10 @@ public class BalancerBuilder {
 
   private RebalancePlanGenerator planGenerator;
   private HasClusterCost clusterCostFunction;
-  private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
+  private List<HasMoveCost> moveCostFunction = List.of(HasMoveCost.EMPTY);
   private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
       (before, after) -> after.value() < before.value();
-  private Predicate<MoveCost> movementConstraint = ignore -> true;
+  private Map<String, Predicate<MoveCost>> movementConstraint = Map.of("", ignore -> true);
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
   private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
@@ -79,7 +82,7 @@ public class BalancerBuilder {
    *     cluster.
    * @return this
    */
-  public BalancerBuilder moveCost(HasMoveCost costFunction) {
+  public BalancerBuilder moveCost(List<HasMoveCost> costFunction) {
     this.moveCostFunction = costFunction;
     return this;
   }
@@ -106,7 +109,7 @@ public class BalancerBuilder {
    *     terms of the ongoing cost caused by execute this rebalance plan).
    * @return this
    */
-  public BalancerBuilder movementConstraint(Predicate<MoveCost> moveConstraint) {
+  public BalancerBuilder movementConstraint(Map<String, Predicate<MoveCost>> moveConstraint) {
     this.movementConstraint = moveConstraint;
     return this;
   }
@@ -195,11 +198,21 @@ public class BalancerBuilder {
                 return new Balancer.Plan(
                     proposal,
                     clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
-                    moveCostFunction.moveCost(
-                        currentClusterInfo, newClusterInfo, currentClusterBean));
+                    moveCostFunction.stream()
+                        .map(
+                            cf ->
+                                cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
+                        .collect(Collectors.toList()));
               })
           .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
-          .filter(plan -> movementConstraint.test(plan.moveCost))
+          .filter(
+              plan ->
+                  plan.moveCost().stream()
+                      .allMatch(
+                          moveCost ->
+                              movementConstraint
+                                  .getOrDefault(moveCost.name(), (ignore) -> true)
+                                  .test(moveCost)))
           .min(Comparator.comparing(plan -> plan.clusterCost.value()));
     };
   }
@@ -227,10 +240,19 @@ public class BalancerBuilder {
                         return new Balancer.Plan(
                             proposal,
                             clusterCostFunction.clusterCost(newClusterInfo, metrics),
-                            moveCostFunction.moveCost(originClusterInfo, newClusterInfo, metrics));
+                            moveCostFunction.stream()
+                                .map(cf -> cf.moveCost(originClusterInfo, newClusterInfo, metrics))
+                                .collect(Collectors.toList()));
                       })
                   .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
-                  .filter(plan -> movementConstraint.test(plan.moveCost))
+                  .filter(
+                      plan ->
+                          plan.moveCost().stream()
+                              .allMatch(
+                                  moveCost ->
+                                      movementConstraint
+                                          .getOrDefault(moveCost.name(), (ignore) -> true)
+                                          .test(moveCost)))
                   .findFirst();
       var currentCost = clusterCostFunction.clusterCost(originClusterInfo, metrics);
       var currentAllocation =
