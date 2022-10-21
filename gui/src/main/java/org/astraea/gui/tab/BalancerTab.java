@@ -78,15 +78,42 @@ public class BalancerTab {
             tp -> {
               var oldAssignments = clusterInfo.replicas(tp);
               var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
+              var migratedLeader =
+                  oldAssignments.stream()
+                      .filter(
+                          beforeReplica ->
+                              newAssignments.stream()
+                                  .noneMatch(
+                                      r ->
+                                          r.nodeInfo().id() == beforeReplica.nodeInfo().id()
+                                              && r.topic().equals(beforeReplica.topic())
+                                              && r.partition() == beforeReplica.partition()
+                                              && r.path().equals(beforeReplica.path())))
+                      .anyMatch(ReplicaInfo::isLeader);
               return MapUtils.<String, Object>of(
                   TOPIC_NAME_KEY,
                   tp.topic(),
                   PARTITION_KEY,
                   tp.partition(),
                   MIGRATED_LEADER_KEY,
-                  oldAssignments.stream()
-                      .filter(newAssignments::contains)
-                      .anyMatch(ReplicaInfo::isLeader),
+                  migratedLeader
+                      ? clusterInfo.replicaLeader(tp).get().nodeInfo().id()
+                          + ":"
+                          + clusterInfo.replicaLeader(tp).get().path()
+                          + "->"
+                          + newAssignments.stream()
+                              .filter(Replica::isLeader)
+                              .findFirst()
+                              .get()
+                              .nodeInfo()
+                              .id()
+                          + ":"
+                          + newAssignments.stream()
+                              .filter(Replica::isLeader)
+                              .findFirst()
+                              .get()
+                              .path()
+                      : false,
                   OLD_ASSIGNMENT_KEY,
                   oldAssignments.stream()
                       .map(r -> r.nodeInfo().id() + ":" + r.path())
