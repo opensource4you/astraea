@@ -26,6 +26,7 @@ import java.util.stream.Stream;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
@@ -45,6 +46,8 @@ public class BalancerTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
+  private static final String MIGRATED_LEADER_KEY = "migrated leader";
+  private static final String OLD_ASSIGNMENT_KEY = "old assignments";
   private static final String NEW_ASSIGNMENT_KEY = "new assignments";
 
   private enum Cost {
@@ -72,20 +75,27 @@ public class BalancerTab {
             ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
         .stream()
         .map(
-            tp ->
-                MapUtils.<String, Object>of(
-                    TOPIC_NAME_KEY,
-                    tp.topic(),
-                    PARTITION_KEY,
-                    tp.partition(),
-                    "old assignments",
-                    clusterInfo.replicas(tp).stream()
-                        .map(r -> r.nodeInfo().id() + ":" + r.path())
-                        .collect(Collectors.joining(",")),
-                    NEW_ASSIGNMENT_KEY,
-                    plan.proposal().rebalancePlan().logPlacements(tp).stream()
-                        .map(r -> r.nodeInfo().id() + ":" + r.path())
-                        .collect(Collectors.joining(","))))
+            tp -> {
+              var oldAssignments = clusterInfo.replicas(tp);
+              var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
+              return MapUtils.<String, Object>of(
+                  TOPIC_NAME_KEY,
+                  tp.topic(),
+                  PARTITION_KEY,
+                  tp.partition(),
+                  MIGRATED_LEADER_KEY,
+                  oldAssignments.stream()
+                      .filter(newAssignments::contains)
+                      .anyMatch(ReplicaInfo::isLeader),
+                  OLD_ASSIGNMENT_KEY,
+                  oldAssignments.stream()
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(",")),
+                  NEW_ASSIGNMENT_KEY,
+                  newAssignments.stream()
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(",")));
+            })
         .collect(Collectors.toList());
   }
 
