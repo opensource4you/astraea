@@ -34,7 +34,7 @@ object Spark2Kafka {
         .spark(metaData.deploymentModel)
         .schema(createSchema(metaData.column, metaData.primaryKeys))
         .sinkPath(metaData.sinkPath.getPath)
-        .readFromCSV(metaData.sourcePath.getPath)
+        .readCSV(metaData.sourcePath.getPath)
         .csvToJSON(metaData.primaryKeys.keys.toSeq)
 
       eventualBoolean.onComplete {

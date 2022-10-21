@@ -17,9 +17,9 @@
 package org.astraea.etl
 
 import org.apache.spark.SparkException
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Encoder, Row}
 import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.astraea.etl.FileCreator.{generateCSVF, getCSVFile, mkdir}
 import org.astraea.etl.Reader.createSpark
@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test
 
 import java.io._
 import java.nio.file.Files
+import scala.collection.JavaConverters._
 import scala.util.Random
 
 class ReaderTest extends RequireBrokerCluster {
@@ -83,12 +84,20 @@ class ReaderTest extends RequireBrokerCluster {
     )
 
     assertEquals(structType.length, 4)
-    val csvDF =
-      Reader.read(spark, structType, sourceDir.getPath, sinkDir.getPath)
+    val csvDF = Reader
+      .of()
+      .spark("local[2]")
+      .schema(structType)
+      .sinkPath(sinkDir.getPath)
+      .readCSV(sourceDir.getPath)
+    assertTrue(
+      csvDF.dataFrame().isStreaming,
+      "sessions must be a streaming Dataset"
+    )
 
-    assertTrue(csvDF.isStreaming, "sessions must be a streaming Dataset")
-
-    csvDF.writeStream
+    csvDF
+      .dataFrame()
+      .writeStream
       .format("csv")
       .option("path", dataDir.getPath)
       .option("checkpointLocation", checkoutDir.getPath)
@@ -121,65 +130,37 @@ class ReaderTest extends RequireBrokerCluster {
     val spark = createSpark("local[2]")
     import spark.implicits._
 
-    case class Person(name: String, age: Long)
-    val data =
-      Seq(Person("Michael", 29), Person("Andy", 30), Person("Justin", 19))
-    implicit val make: Encoder[Person] =
-      org.apache.spark.sql.Encoders.kryo[Person]
-
-    val json = new DataFrameOp(
-      spark.createDataset(data).map(x => (x.name, x.age)).toDF("name", "age")
+    val result = new DataFrameOp(
+      Seq(("Michael", 29)).toDF().toDF("name", "age")
     ).csvToJSON(Seq("name"))
-    val iterator = (0 to 2).iterator
-    json
       .dataFrame()
       .collectAsList()
-      .forEach(row => {
-        val i = iterator.next()
-        assertEquals(row(0), data(i).name)
-        assertEquals(
-          row(1),
-          s"""{"name":"${data(i).name}","age":${data(i).age}}"""
-        )
-      })
+      .asScala
+      .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
+      .toMap
+
+    assertEquals(1, result.size)
+    assertEquals("{\"name\":\"Michael\",\"age\":29}", result("Michael"))
   }
 
   @Test def csvToJsonMulKeysTest(): Unit = {
     val spark = createSpark("local[2]")
     import spark.implicits._
 
-    case class Person(firstName: String, secondName: String, age: Long)
-    val data =
-      Seq(
-        Person("Michael", "A", 29),
-        Person("Andy", "B", 30),
-        Person("Justin", "C", 19)
-      )
-    implicit val make: Encoder[Person] =
-      org.apache.spark.sql.Encoders.kryo[Person]
-
-    val json = new DataFrameOp(
-      spark
-        .createDataset(data)
-        .map(x => (x.firstName, x.secondName, x.age))
-        .toDF("firstName", "secondName", "age")
-    ).csvToJSON(Seq("firstName", "secondName")).dataFrame()
-
-    val iterator = (0 to 2).iterator
-    json
+    val result = new DataFrameOp(
+      Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
+    ).csvToJSON(Seq("firstName", "secondName"))
+      .dataFrame()
       .collectAsList()
-      .forEach(row => {
-        val i = iterator.next()
-        assertEquals(row(0), s"${data(i).firstName},${data(i).secondName}")
-        assertEquals(
-          row(1),
-          s"""{"firstName":"${data(
-            i
-          ).firstName}","secondName":"${data(i).secondName}","age":${data(
-            i
-          ).age}}"""
-        )
-      })
+      .asScala
+      .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
+      .toMap
+
+    assertEquals(1, result.size)
+    assertEquals(
+      "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":29}",
+      result("Michael,A")
+    )
   }
 
   @Test def jsonToByteTest(): Unit = {

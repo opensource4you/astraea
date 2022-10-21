@@ -20,11 +20,11 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.astraea.common.admin.AsyncAdmin
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.{generateCSVF, mkdir}
-import org.astraea.etl.Spark2KafkaTest._
+import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{BeforeAll, Test}
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
@@ -40,30 +40,6 @@ import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class Spark2KafkaTest extends RequireBrokerCluster {
-  setup()
-
-  def setup(): Unit = {
-    synchronized {
-      if (!hasPerform) {
-        hasPerform = true
-        val myDir = mkdir(tempPath)
-        val sourceDir = mkdir(tempPath + "/source")
-        val sinkDir = mkdir(sinkD)
-        val checkoutDir = mkdir(tempPath + "/checkout")
-        val dataDir = mkdir(tempPath + "/data")
-        val myPropDir =
-          Files.createFile(new File(myDir + "/prop.properties").toPath)
-        generateCSVF(sourceDir, rows)
-
-        writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
-        Spark2Kafka.executor(
-          Array(myPropDir.toString),
-          Duration(20, TimeUnit.SECONDS)
-        )
-      }
-    }
-  }
-
   @Test
   def consumerDataTest(): Unit = {
     val topic = new util.HashSet[String]
@@ -157,24 +133,35 @@ class Spark2KafkaTest extends RequireBrokerCluster {
       )
       .toMap
   }
+}
 
-  def rows: List[List[String]] = {
-    val columnOne: List[String] =
-      List("Michael", "Andy", "Justin", "LuLu")
-    val columnTwo: List[String] =
-      List("A.K", "B.C", "C.L", "C.C")
-    val columnThree: List[String] =
-      List("29", "30", "19", "18")
+object Spark2KafkaTest extends RequireBrokerCluster {
+  private val tempPath: String =
+    System.getProperty("java.io.tmpdir") + "/sparkFile" + Random.nextInt()
+  private val source: String = tempPath + "/source"
+  private val sinkD: String = tempPath + "/sink"
+  private val COL_NAMES =
+    "ID=integer,FirstName=string,SecondName=string,Age=integer"
 
-    columnOne
-      .zip(columnTwo.zip(columnThree))
-      .foldLeft(List.empty[List[String]]) { case (acc, (a, (b, c))) =>
-        List(a, b, c) +: acc
-      }
-      .reverse
+  @BeforeAll
+  def setup(): Unit = {
+    val myDir = mkdir(tempPath)
+    val sourceDir = mkdir(tempPath + "/source")
+    val sinkDir = mkdir(sinkD)
+    val checkoutDir = mkdir(tempPath + "/checkout")
+    val dataDir = mkdir(tempPath + "/data")
+    val myPropDir =
+      Files.createFile(new File(myDir + "/prop.properties").toPath)
+    generateCSVF(sourceDir, rows)
+
+    writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
+    Spark2Kafka.executor(
+      Array(myPropDir.toString),
+      Duration(20, TimeUnit.SECONDS)
+    )
   }
 
-  def writeProperties(
+  private def writeProperties(
       file: File,
       sourcePath: String,
       sinkPath: String
@@ -209,14 +196,20 @@ class Spark2KafkaTest extends RequireBrokerCluster {
       properties.store(fileOut, "Favorite Things");
     }
   }
-}
 
-object Spark2KafkaTest {
-  private var hasPerform = false
-  private val tempPath: String =
-    System.getProperty("java.io.tmpdir") + "/sparkFile" + Random.nextInt()
-  private val source: String = tempPath + "/source"
-  private val sinkD: String = tempPath + "/sink"
-  private val COL_NAMES =
-    "ID=integer,FirstName=string,SecondName=string,Age=integer"
+  private def rows: List[List[String]] = {
+    val columnOne: List[String] =
+      List("Michael", "Andy", "Justin", "LuLu")
+    val columnTwo: List[String] =
+      List("A.K", "B.C", "C.L", "C.C")
+    val columnThree: List[String] =
+      List("29", "30", "19", "18")
+
+    columnOne
+      .zip(columnTwo.zip(columnThree))
+      .foldLeft(List.empty[List[String]]) { case (acc, (a, (b, c))) =>
+        List(a, b, c) +: acc
+      }
+      .reverse
+  }
 }

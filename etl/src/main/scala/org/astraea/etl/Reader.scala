@@ -52,7 +52,7 @@ class Reader[PassedStep <: BuildStep] private (
     new Reader[PassedStep with SchemaStep](this)
   }
 
-  def readFromCSV(
+  def readCSV(
       source: String
   )(implicit ev: PassedStep =:= FullReader) = {
     new DataFrameOp(
@@ -99,18 +99,5 @@ object Reader {
         userSchema = userSchema.add(col._1, col._2.value, nullable = true)
     )
     userSchema
-  }
-
-  def read(
-      spark: SparkSession,
-      userSchema: StructType,
-      sourcePath: String,
-      sinkPath: String
-  ): DataFrame = {
-    spark.readStream
-      .option("cleanSource", "archive")
-      .option("sourceArchiveDir", sinkPath)
-      .schema(userSchema)
-      .csv(sourcePath)
   }
 }
