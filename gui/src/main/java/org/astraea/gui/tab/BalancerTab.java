@@ -19,12 +19,12 @@ package org.astraea.gui.tab;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
@@ -79,40 +79,34 @@ public class BalancerTab {
         .stream()
         .map(
             tp -> {
-              var oldAssignments = clusterInfo.replicas(tp);
+              var previousAssignments = clusterInfo.replicas(tp);
               var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
-              var previousLeader =
-                  oldAssignments.stream().filter(ReplicaInfo::isLeader).findFirst().get();
-              var newLeader =
-                  newAssignments.stream().filter(ReplicaInfo::isLeader).findFirst().get();
+              var result = new LinkedHashMap<String, Object>();
+              result.put(TOPIC_NAME_KEY, tp.topic());
+              result.put(PARTITION_KEY, tp.partition());
+              previousAssignments.stream()
+                  .filter(ReplicaInfo::isLeader)
+                  .findFirst()
+                  .ifPresent(
+                      r -> result.put(PREVIOUS_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
+              newAssignments.stream()
+                  .filter(ReplicaInfo::isLeader)
+                  .findFirst()
+                  .ifPresent(r -> result.put(NEW_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
               var previousFollowers =
-                  oldAssignments.stream().filter(r -> !r.isLeader()).collect(Collectors.toList());
+                  previousAssignments.stream()
+                      .filter(r -> !r.isLeader())
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(","));
               var newFollowers =
-                  newAssignments.stream().filter(r -> !r.isLeader()).collect(Collectors.toList());
-              var migratedReplicas = diff(oldAssignments, newAssignments);
-              return MapUtils.<String, Object>of(
-                  TOPIC_NAME_KEY,
-                  tp.topic(),
-                  PARTITION_KEY,
-                  tp.partition(),
-                  PREVIOUS_LEADER_KEY,
-                  previousLeader.nodeInfo().id() + ":" + previousLeader.path(),
-                  NEW_LEADER_KEY,
-                  migratedReplicas.stream().anyMatch(ReplicaInfo::isLeader)
-                      ? newLeader.nodeInfo().id() + ":" + newLeader.path()
-                      : "",
-                  PREVIOUS_FOLLOWER_KEY,
-                  previousFollowers.size() == 0
-                      ? ""
-                      : previousFollowers.stream()
-                          .map(r -> r.nodeInfo().id() + ":" + r.path())
-                          .collect(Collectors.joining(",")),
-                  NEW_FOLLOWER_KEY,
-                  migratedReplicas.stream().anyMatch(r -> !r.isLeader())
-                      ? newFollowers.stream()
-                          .map(r -> r.nodeInfo().id() + ":" + r.path())
-                          .collect(Collectors.joining(","))
-                      : "");
+                  newAssignments.stream()
+                      .filter(r -> !r.isLeader())
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(","));
+              if (!previousFollowers.isBlank())
+                result.put(PREVIOUS_FOLLOWER_KEY, previousFollowers);
+              if (!newFollowers.isBlank()) result.put(NEW_FOLLOWER_KEY, newFollowers);
+              return result;
             })
         .collect(Collectors.toList());
   }
