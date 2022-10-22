@@ -16,26 +16,31 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.catalyst.expressions.objects.AssertNotNull
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.{Column, SparkSession}
 import org.apache.spark.sql.types.StructType
 import org.astraea.etl.DataType.StringType
 import org.astraea.etl.Reader._
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
     var userSchema: StructType,
-    var sinkPath: String
+    var sinkPath: String,
+    var pk: Seq[String]
 ) {
   protected def this() = this(
     "deploymentModel",
     Reader
       .createSchema(Map("Type" -> StringType), Map("Type" -> StringType)),
-    "sinkPath"
+    "sinkPath",
+    Seq.empty
   )
 
   protected def this(pb: Reader[_]) = this(
     pb.deploymentModel,
     pb.userSchema,
-    pb.sinkPath
+    pb.sinkPath,
+    pb.pk
   )
 
   def spark(
@@ -52,22 +57,30 @@ class Reader[PassedStep <: BuildStep] private (
     new Reader[PassedStep with SchemaStep](this)
   }
 
-  def readCSV(
-      source: String
-  )(implicit ev: PassedStep =:= FullReader) = {
-    new DataFrameOp(
-      createSpark(deploymentModel).readStream
-        .option("cleanSource", "archive")
-        .option("sourceArchiveDir", sinkPath)
-        .schema(userSchema)
-        .csv(source)
-    )
-  }
-
   def sinkPath(sink: String): Reader[PassedStep with SinkStep] = {
     this.sinkPath = sink
     new Reader[PassedStep with SinkStep](this)
   }
+
+  def primaryKeys(pk: Seq[String]): Reader[PassedStep with PkStep] = {
+    this.pk = pk
+    new Reader[PassedStep with PkStep](this)
+  }
+
+  def readCSV(
+      source: String
+  )(implicit ev: PassedStep =:= FullReader): DataFrameOp = {
+    var df = createSpark(deploymentModel).readStream
+      .option("cleanSource", "archive")
+      .option("sourceArchiveDir", sinkPath)
+      .schema(userSchema)
+      .csv(source)
+    pk.foreach(str =>
+      df = df.withColumn(str, new Column(AssertNotNull(col(str).expr)))
+    )
+    new DataFrameOp(df)
+  }
+
 }
 
 object Reader {
@@ -75,8 +88,9 @@ object Reader {
   sealed trait SparkStep extends BuildStep
   sealed trait SchemaStep extends BuildStep
   sealed trait SinkStep extends BuildStep
+  sealed trait PkStep extends BuildStep
 
-  type FullReader = SparkStep with SchemaStep with SinkStep
+  type FullReader = SparkStep with SchemaStep with SinkStep with PkStep
   def of() = new Reader[BuildStep]()
 
   def createSpark(deploymentModel: String): SparkSession = {
@@ -92,12 +106,7 @@ object Reader {
       pk: Map[String, DataType]
   ): StructType = {
     var userSchema = new StructType()
-    cols.foreach(col =>
-      if (pk.contains(col._1))
-        userSchema = userSchema.add(col._1, col._2.value, nullable = false)
-      else
-        userSchema = userSchema.add(col._1, col._2.value, nullable = true)
-    )
+    cols.foreach(col => userSchema = userSchema.add(col._1, col._2.value))
     userSchema
   }
 }

@@ -111,19 +111,4 @@ object Writer {
   type FullWriter = DFStep with TargetStep with CheckpointStep
 
   def of() = new Writer[BuildStep]()
-
-  def createTopic(
-      admin: AsyncAdmin,
-      metadata: Metadata
-  ): Future[java.lang.Boolean] = {
-    Utils.asScala(
-      admin
-        .creator()
-        .topic(metadata.topicName)
-        .numberOfPartitions(metadata.numPartitions)
-        .numberOfReplicas(metadata.numReplicas)
-        .configs(metadata.topicConfig.asJava)
-        .run()
-    )
-  }
 }

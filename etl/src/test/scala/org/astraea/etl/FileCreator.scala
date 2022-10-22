@@ -17,7 +17,6 @@
 package org.astraea.etl
 
 import com.opencsv.CSVWriter
-import org.astraea.etl.FileCreator.{createCSV, generateCSV}
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Files
@@ -36,6 +35,7 @@ object FileCreator {
       ExecutionContext.fromExecutor(singleThread)
     Future { generateCSV(sourceDir, rows) }
   }
+
   def generateCSV(sourceDir: File, rows: List[List[String]]): Boolean = {
     Range
       .inclusive(0, 5)

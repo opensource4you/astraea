@@ -17,6 +17,7 @@
 package org.astraea.etl
 
 import org.astraea.common.admin.AsyncAdmin
+import org.astraea.etl.Utils.createTopic
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{
@@ -102,7 +103,7 @@ class WriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                Writer.createTopic(admin, partition),
+                createTopic(admin, partition),
                 Duration.Inf
               )
           ).getCause
@@ -127,7 +128,7 @@ class WriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                Writer.createTopic(admin, replica),
+                createTopic(admin, replica),
                 Duration.Inf
               )
           ).getCause
@@ -152,7 +153,7 @@ class WriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                Writer.createTopic(admin, config),
+                createTopic(admin, config),
                 Duration.Inf
               )
           ).getCause
@@ -178,6 +179,6 @@ class WriterTest extends RequireBrokerCluster {
       config,
       "local[2]"
     )
-    Writer.createTopic(asyncAdmin, metadata)
+    createTopic(asyncAdmin, metadata)
   }
 }
