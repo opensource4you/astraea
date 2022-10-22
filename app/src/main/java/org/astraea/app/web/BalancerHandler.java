@@ -29,10 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -58,9 +54,8 @@ import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
-import org.astraea.common.metrics.collector.BeanCollector;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.Receiver;
+import org.astraea.common.metrics.collector.MetricSampler;
 
 class BalancerHandler implements Handler {
 
@@ -81,8 +76,6 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
-  private final Duration metricSampleInterval = Duration.ofSeconds(1);
-  private final BeanCollector beanCollector;
   private final Map<Integer, InetSocketAddress> brokerJmxAddresses;
 
   BalancerHandler(Admin admin) {
@@ -124,8 +117,6 @@ class BalancerHandler implements Handler {
     this.moveCostFunction = moveCostFunction;
     this.generator = generator;
     this.executor = executor;
-    this.beanCollector =
-        BeanCollector.builder().numberOfObjectsPerNode(2000).interval(metricSampleInterval).build();
   }
 
   @Override
@@ -222,7 +213,8 @@ class BalancerHandler implements Handler {
     return CompletableFuture.supplyAsync(
         () -> {
           // metrics sampling logic
-          try (var metricSampler = new MetricSampler(aggregatedFetcher().orElse(null))) {
+          try (var metricSampler =
+              new MetricSampler(aggregatedFetcher().orElse(null), brokerJmxAddresses)) {
             // error tracking variables
             var lastError = (BadMetricsException) null;
             var errorCounter = 0;
@@ -237,7 +229,7 @@ class BalancerHandler implements Handler {
                 lastError = e;
                 errorCounter++;
                 // sleep until the new metrics are available
-                Utils.sleep(metricSampleInterval);
+                Utils.sleep(metricSampler.interval());
               }
             }
             throw new RuntimeException(
@@ -507,63 +499,6 @@ class BalancerHandler implements Handler {
       this.done = done;
       this.exception = exception;
       this.report = report;
-    }
-  }
-
-  private class MetricSampler implements AutoCloseable {
-
-    private final Map<Integer, Receiver> receivers;
-    private final ScheduledExecutorService executor;
-    private final List<ScheduledFuture<?>> scheduledFutures;
-
-    public MetricSampler(Fetcher fetcher) {
-      var theFetcher = Optional.ofNullable(fetcher);
-      // if no fetcher is supplied, no receiver will be created.
-      this.receivers =
-          theFetcher
-              .map(
-                  fetch ->
-                      brokerJmxAddresses.entrySet().stream()
-                          .collect(
-                              Collectors.toUnmodifiableMap(
-                                  Map.Entry::getKey,
-                                  entry ->
-                                      beanCollector
-                                          .register()
-                                          .host(entry.getValue().getHostName())
-                                          .port(entry.getValue().getPort())
-                                          .fetcher(fetch)
-                                          .build())))
-              .orElse(Map.of());
-      // the number of threads for sampling, limited by the process count
-      int threadCount = Math.min(Runtime.getRuntime().availableProcessors(), receivers.size());
-      this.executor = Executors.newScheduledThreadPool(threadCount);
-      this.scheduledFutures =
-          receivers.values().stream()
-              .map(
-                  receiver ->
-                      executor.scheduleAtFixedRate(
-                          receiver::current,
-                          metricSampleInterval.toMillis(),
-                          metricSampleInterval.toMillis(),
-                          TimeUnit.MILLISECONDS))
-              .collect(Collectors.toUnmodifiableList());
-    }
-
-    public ClusterBean offer() {
-      if (receivers.isEmpty()) return ClusterBean.EMPTY;
-      return ClusterBean.of(
-          receivers.entrySet().stream()
-              .collect(
-                  Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().current())));
-    }
-
-    @Override
-    public void close() {
-      this.scheduledFutures.forEach(x -> x.cancel(false));
-      this.executor.shutdown();
-      Utils.packException(() -> this.executor.awaitTermination(10, TimeUnit.SECONDS));
-      receivers.values().forEach(Receiver::close);
     }
   }
 }
