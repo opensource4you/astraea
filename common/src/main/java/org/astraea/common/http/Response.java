@@ -18,29 +18,20 @@ package org.astraea.common.http;
 
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 
-public class AstraeaHttpResponse<T> {
+public class Response<T> {
 
   private final CompletionStage<HttpResponse<T>> completionStage;
 
-  public static <T> AstraeaHttpResponse<T> of(CompletionStage<HttpResponse<T>> completionStage) {
-    return new AstraeaHttpResponse<>(completionStage);
+  public static <T> Response<T> of(CompletionStage<HttpResponse<T>> completionStage) {
+    return new Response<>(completionStage);
   }
 
-  private AstraeaHttpResponse(CompletionStage<HttpResponse<T>> completionStage) {
+  private Response(CompletionStage<HttpResponse<T>> completionStage) {
     this.completionStage = completionStage;
   }
 
   public CompletionStage<HttpResponse<T>> completionStage() {
     return completionStage;
-  }
-
-  public CompletionStage<HttpResponse<T>> completionFuture() {
-    return completionStage.toCompletableFuture();
-  }
-
-  public HttpResponse<T> httpResponse() throws ExecutionException, InterruptedException {
-    return completionStage.toCompletableFuture().get();
   }
 }

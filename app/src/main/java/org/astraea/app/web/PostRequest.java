@@ -16,8 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.reflect.TypeToken;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +71,7 @@ public interface PostRequest {
 
   default <T> Optional<T> get(String key, Class<T> clz) {
     return Optional.ofNullable(raw().get(key))
-        .map(v -> JsonConverter.defaultConverter().fromJson(v, clz));
+        .map(v -> JsonConverter.defaultConverter().fromJson(v, TypeRef.of(clz)));
   }
 
   default <T> Optional<T> get(String key, TypeRef<T> typeRef) {
@@ -165,9 +163,15 @@ public interface PostRequest {
   // -----------------------------[others]-----------------------------//
 
   default <T> List<T> values(String key, Class<T> clz) {
-    return JsonConverter.defaultConverter()
-        .fromJson(
-            value(key), TypeRef.of(TypeToken.getParameterized(ArrayList.class, clz).getType()));
+    return JsonConverter.defaultConverter().fromJson(value(key), TypeRef.array(clz));
+  }
+
+  default <T> List<T> valuesWithDefault(String key, Class<T> clz) {
+    try {
+      return values(key, clz);
+    } catch (NoSuchElementException noSuchElementException) {
+      return List.of();
+    }
   }
 
   default List<PostRequest> requests(String key) {

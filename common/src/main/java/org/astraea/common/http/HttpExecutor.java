@@ -26,15 +26,13 @@ public interface HttpExecutor {
     return new HttpExecutorBuilder();
   }
 
-  <T> AstraeaHttpResponse<T> get(String url, Class<T> respCls);
+  <T> Response<T> get(String url, TypeRef<T> typeRef);
 
-  <T> AstraeaHttpResponse<T> get(String url, Map<String, String> param, Class<T> respCls);
+  <T> Response<T> get(String url, Map<String, String> param, TypeRef<T> typeRef);
 
-  <T> AstraeaHttpResponse<T> get(String url, TypeRef<T> typeRef);
+  <T> Response<T> post(String url, Object body, TypeRef<T> typeRef);
 
-  <T> AstraeaHttpResponse<T> post(String url, Object body, Class<T> respCls);
+  <T> Response<T> put(String url, Object body, TypeRef<T> typeRef);
 
-  <T> AstraeaHttpResponse<T> put(String url, Object body, Class<T> respCls);
-
-  AstraeaHttpResponse<Void> delete(String url);
+  Response<Void> delete(String url);
 }

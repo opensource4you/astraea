@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +32,6 @@ import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.json.TypeRef;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;
@@ -97,16 +95,8 @@ public class ThrottleHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var brokerToUpdate =
-        channel
-            .request()
-            .<Collection<BrokerThrottle>>get("brokers", new TypeRef<>() {})
-            .orElse(List.of());
-    var topics =
-        channel
-            .request()
-            .<Collection<TopicThrottle>>get("topics", new TypeRef<>() {})
-            .orElse(List.of());
+    var brokerToUpdate = channel.request().valuesWithDefault("brokers", BrokerThrottle.class);
+    var topics = channel.request().valuesWithDefault("topics", TopicThrottle.class);
 
     final var throttler = admin.replicationThrottler();
     // ingress

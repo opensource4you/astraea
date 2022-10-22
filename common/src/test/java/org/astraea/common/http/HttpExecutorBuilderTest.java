@@ -54,11 +54,6 @@ class HttpExecutorBuilderTest {
     }
 
     @Override
-    public <T> T fromJson(String json, Class<T> tClass) {
-      return null;
-    }
-
-    @Override
     public <T> T fromJson(String json, TypeRef<T> typeRef) {
       return null;
     }

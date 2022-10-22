@@ -80,7 +80,7 @@ class JsonConverterTest {
     var convertedTestFieldClass =
         jsonConverter.fromJson(
             "{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}",
-            TestPrimitiveClass.class);
+            TypeRef.of(TestPrimitiveClass.class));
     assertEquals(456d, convertedTestFieldClass.doubleValue);
     assertEquals(12, convertedTestFieldClass.intValue);
     assertEquals("hello", convertedTestFieldClass.stringValue);
@@ -111,13 +111,13 @@ class JsonConverterTest {
     var convertedTestFieldClass =
         jsonConverter.fromJson(
             "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}",
-            TestOptionalClass.class);
+            TypeRef.of(TestOptionalClass.class));
     assertEquals("hello", convertedTestFieldClass.optValue.get());
     assertEquals(List.of("hello"), convertedTestFieldClass.nestedOpt.get());
     assertEquals("hello", convertedTestFieldClass.nonInitOpt.get());
 
     convertedTestFieldClass =
-        jsonConverter.fromJson("{\"optValue\":null}", TestOptionalClass.class);
+        jsonConverter.fromJson("{\"optValue\":null}", TypeRef.of(TestOptionalClass.class));
     assertTrue(convertedTestFieldClass.optValue.isEmpty());
     assertTrue(convertedTestFieldClass.nestedOpt.isEmpty());
     assertNull(convertedTestFieldClass.nonInitOpt);
@@ -137,7 +137,7 @@ class JsonConverterTest {
         "{\"nestedList\":[{\"key\":\"value\"}],\"nestedMap\":{\"helloKey\":[\"hello\"]},\"nestedObject\":{\"intValue\":0}}";
     assertEquals(expectedJson, json);
 
-    var fromJson = jsonConverter.fromJson(expectedJson, TestNestedObjectClass.class);
+    var fromJson = jsonConverter.fromJson(expectedJson, TypeRef.of(TestNestedObjectClass.class));
     assertEquals("value", fromJson.nestedList.get(0).get("key"));
     assertEquals(0, fromJson.nestedObject.intValue);
     assertEquals("hello", fromJson.nestedMap.get("helloKey").get(0));
@@ -149,12 +149,14 @@ class JsonConverterTest {
     var json = "{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}";
     var sameJsonDiffOrder = "{\"stringValue\":\"hello\",\"doubleValue\":456.0,\"intValue\":12}";
 
-    var convertedTestFieldClass = jsonConverter.fromJson(json, TestPrimitiveClass.class);
+    var convertedTestFieldClass =
+        jsonConverter.fromJson(json, TypeRef.of(TestPrimitiveClass.class));
     assertEquals(456d, convertedTestFieldClass.doubleValue);
     assertEquals(12, convertedTestFieldClass.intValue);
     assertEquals("hello", convertedTestFieldClass.stringValue);
 
-    convertedTestFieldClass = jsonConverter.fromJson(sameJsonDiffOrder, TestPrimitiveClass.class);
+    convertedTestFieldClass =
+        jsonConverter.fromJson(sameJsonDiffOrder, TypeRef.of(TestPrimitiveClass.class));
     assertEquals(456d, convertedTestFieldClass.doubleValue);
     assertEquals(12, convertedTestFieldClass.intValue);
     assertEquals("hello", convertedTestFieldClass.stringValue);

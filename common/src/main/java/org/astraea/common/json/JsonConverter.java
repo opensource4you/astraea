@@ -54,8 +54,6 @@ public interface JsonConverter {
 
   String toJson(Object src);
 
-  <T> T fromJson(String json, Class<T> tClass);
-
   /** for nested generic object ,the return value should specify typeRef , Example: List<String> */
   <T> T fromJson(String json, TypeRef<T> typeRef);
 
@@ -73,15 +71,11 @@ public interface JsonConverter {
             .visibility(new Std(JsonAutoDetect.Visibility.NONE).with(JsonAutoDetect.Visibility.ANY))
             .serializationInclusion(Include.NON_EMPTY)
             .build();
+
     return new JsonConverter() {
       @Override
       public String toJson(Object src) {
         return Utils.packException(() -> objectMapper.writeValueAsString(src));
-      }
-
-      @Override
-      public <T> T fromJson(String json, Class<T> tClass) {
-        return Utils.packException(() -> objectMapper.readValue(json, tClass));
       }
 
       @Override
@@ -90,7 +84,7 @@ public interface JsonConverter {
             () ->
                 objectMapper.readValue(
                     json,
-                    new TypeReference<>() {
+                    new TypeReference<T>() { // astraea-986 diamond not work (jdk bug)
                       @Override
                       public Type getType() {
                         return typeRef.getType();
@@ -139,11 +133,6 @@ public interface JsonConverter {
             .sorted(Entry.comparingByKey())
             .forEach(x -> newJsonObject.add(x.getKey(), getOrderedObject(x.getValue())));
         return newJsonObject;
-      }
-
-      @Override
-      public <T> T fromJson(String json, Class<T> tClass) {
-        return gson.fromJson(json, tClass);
       }
 
       @Override

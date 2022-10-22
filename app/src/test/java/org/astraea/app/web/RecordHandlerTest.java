@@ -54,6 +54,7 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -648,7 +649,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var foo = new Foo("test".getBytes());
     var jsonConverter = JsonConverter.defaultConverter();
     Assertions.assertArrayEquals(
-        foo.bar, jsonConverter.fromJson(jsonConverter.toJson(foo), Foo.class).bar);
+        foo.bar, jsonConverter.fromJson(jsonConverter.toJson(foo), TypeRef.of(Foo.class)).bar);
   }
 
   private static class Foo {

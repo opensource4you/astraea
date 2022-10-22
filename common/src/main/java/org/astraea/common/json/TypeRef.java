@@ -16,8 +16,11 @@
  */
 package org.astraea.common.json;
 
+import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.List;
+import java.util.Map;
 
 /** ParentType didn't erase , use reflection to get that type */
 public abstract class TypeRef<T> {
@@ -29,6 +32,18 @@ public abstract class TypeRef<T> {
         return _type;
       }
     };
+  }
+
+  public static <T> TypeRef<T> of(Class<T> clz) {
+    return of((Type) clz);
+  }
+
+  public static <T> TypeRef<List<T>> array(Class<T> clz) {
+    return of(TypeToken.getParameterized(List.class, clz).getType());
+  }
+
+  public static <T> TypeRef<Map<String, T>> map(Class<T> clz) {
+    return of(TypeToken.getParameterized(Map.class, String.class, clz).getType());
   }
 
   protected final Type type;

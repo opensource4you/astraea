@@ -43,7 +43,11 @@ class HttpExecutorTest {
             Utils.packException(
                 () -> {
                   var responseHttpResponse =
-                      httpExecutor.get(getUrl(x, "/test"), TestResponse.class).httpResponse();
+                      httpExecutor
+                          .get(getUrl(x, "/test"), TypeRef.of(TestResponse.class))
+                          .completionStage()
+                          .toCompletableFuture()
+                          .get();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -51,8 +55,10 @@ class HttpExecutorTest {
                           ExecutionException.class,
                           () ->
                               httpExecutor
-                                  .get(getUrl(x, "/NotFound"), TestResponse.class)
-                                  .httpResponse());
+                                  .get(getUrl(x, "/NotFound"), TypeRef.of(TestResponse.class))
+                                  .completionStage()
+                                  .toCompletableFuture()
+                                  .get());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -74,8 +80,13 @@ class HttpExecutorTest {
                 () -> {
                   var responseHttpResponse =
                       httpExecutor
-                          .get(getUrl(x, "/test"), Map.of("k1", "v1"), TestResponse.class)
-                          .httpResponse();
+                          .get(
+                              getUrl(x, "/test"),
+                              Map.of("k1", "v1"),
+                              TypeRef.of(TestResponse.class))
+                          .completionStage()
+                          .toCompletableFuture()
+                          .get();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -83,15 +94,17 @@ class HttpExecutorTest {
                           ExecutionException.class,
                           () ->
                               httpExecutor
-                                  .get(getUrl(x, "/NotFound"), TestResponse.class)
-                                  .httpResponse());
+                                  .get(getUrl(x, "/NotFound"), TypeRef.of(TestResponse.class))
+                                  .completionStage()
+                                  .toCompletableFuture()
+                                  .get());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
   }
 
   @Test
-  void testGetByTypeRef() {
+  void testGetNestedObject() {
     var httpExecutor = HttpExecutor.builder().build();
     HttpTestUtil.testWithServer(
         httpServer ->
@@ -103,18 +116,10 @@ class HttpExecutorTest {
                   var responseHttpResponse =
                       httpExecutor
                           .get(getUrl(x, "/test"), new TypeRef<List<String>>() {})
-                          .httpResponse();
+                          .completionStage()
+                          .toCompletableFuture()
+                          .get();
                   assertEquals(List.of("v1", "v2"), responseHttpResponse.body());
-
-                  var executionException =
-                      assertThrows(
-                          ExecutionException.class,
-                          () ->
-                              httpExecutor
-                                  .get(getUrl(x, "/NotFound"), new TypeRef<List<String>>() {})
-                                  .httpResponse());
-                  assertEquals(
-                      StringResponseException.class, executionException.getCause().getClass());
                 }));
   }
 
@@ -128,7 +133,7 @@ class HttpExecutorTest {
                 HttpTestUtil.createTextHandler(
                     List.of("Post"),
                     (x) -> {
-                      var request = jsonConverter.fromJson(x.body(), TestRequest.class);
+                      var request = jsonConverter.fromJson(x.body(), TypeRef.of(TestRequest.class));
                       assertEquals("testRequestValue", request.requestValue());
                     },
                     "{'responseValue':'testValue'}")),
@@ -139,8 +144,10 @@ class HttpExecutorTest {
                   request.setRequestValue("testRequestValue");
                   var responseHttpResponse =
                       httpExecutor
-                          .post(getUrl(x, "/test"), request, TestResponse.class)
-                          .httpResponse();
+                          .post(getUrl(x, "/test"), request, TypeRef.of(TestResponse.class))
+                          .completionStage()
+                          .toCompletableFuture()
+                          .get();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   // response body can't convert to testResponse
@@ -149,8 +156,13 @@ class HttpExecutorTest {
                           ExecutionException.class,
                           () ->
                               httpExecutor
-                                  .post(getUrl(x, "/NotFound"), request, TestResponse.class)
-                                  .httpResponse());
+                                  .post(
+                                      getUrl(x, "/NotFound"),
+                                      request,
+                                      TypeRef.of(TestResponse.class))
+                                  .completionStage()
+                                  .toCompletableFuture()
+                                  .get());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -166,7 +178,7 @@ class HttpExecutorTest {
                 HttpTestUtil.createTextHandler(
                     List.of("Put"),
                     (x) -> {
-                      var request = jsonConverter.fromJson(x.body(), TestRequest.class);
+                      var request = jsonConverter.fromJson(x.body(), TypeRef.of(TestRequest.class));
                       assertEquals("testRequestValue", request.requestValue());
                     },
                     "{'responseValue':'testValue'}")),
@@ -177,8 +189,10 @@ class HttpExecutorTest {
                   request.setRequestValue("testRequestValue");
                   var responseHttpResponse =
                       httpExecutor
-                          .put(getUrl(x, "/test"), request, TestResponse.class)
-                          .httpResponse();
+                          .put(getUrl(x, "/test"), request, TypeRef.of(TestResponse.class))
+                          .completionStage()
+                          .toCompletableFuture()
+                          .get();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -186,8 +200,13 @@ class HttpExecutorTest {
                           ExecutionException.class,
                           () ->
                               httpExecutor
-                                  .put(getUrl(x, "/NotFound"), request, TestResponse.class)
-                                  .httpResponse());
+                                  .put(
+                                      getUrl(x, "/NotFound"),
+                                      request,
+                                      TypeRef.of(TestResponse.class))
+                                  .completionStage()
+                                  .toCompletableFuture()
+                                  .get());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -206,25 +225,18 @@ class HttpExecutorTest {
           var executionException =
               assertThrows(
                   ExecutionException.class,
-                  () -> httpExecutor.delete(getUrl(x, "/NotFound")).httpResponse());
+                  () ->
+                      httpExecutor
+                          .delete(getUrl(x, "/NotFound"))
+                          .completionStage()
+                          .toCompletableFuture()
+                          .get());
           assertEquals(StringResponseException.class, executionException.getCause().getClass());
         });
   }
 
   private String getUrl(InetSocketAddress socketAddress, String path) {
     return "http://localhost:" + socketAddress.getPort() + path;
-  }
-
-  public static class TestParam {
-    private final String k1;
-
-    public TestParam(String k1) {
-      this.k1 = k1;
-    }
-
-    public String k1() {
-      return k1;
-    }
   }
 
   public static class TestResponse {

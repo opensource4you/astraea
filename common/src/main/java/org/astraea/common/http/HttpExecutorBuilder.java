@@ -16,7 +16,6 @@
  */
 package org.astraea.common.http;
 
-import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -24,8 +23,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -53,33 +50,21 @@ public class HttpExecutorBuilder {
 
     return new HttpExecutor() {
       @Override
-      public <T> AstraeaHttpResponse<T> get(String url, Class<T> respCls) {
+      public <T> Response<T> get(String url, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().GET().uri(new URI(url)).build();
               return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
+                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
             });
       }
 
       @Override
-      public <T> AstraeaHttpResponse<T> get(
-          String url, Map<String, String> param, Class<T> respCls) {
+      public <T> Response<T> get(String url, Map<String, String> param, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request =
                   HttpRequest.newBuilder().GET().uri(getParameterURI(url, param)).build();
-
-              return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
-            });
-      }
-
-      @Override
-      public <T> AstraeaHttpResponse<T> get(String url, TypeRef<T> typeRef) {
-        return Utils.packException(
-            () -> {
-              HttpRequest request = HttpRequest.newBuilder().GET().uri(new URI(url)).build();
 
               return toJsonHttpResponse(
                   client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
@@ -87,7 +72,7 @@ public class HttpExecutorBuilder {
       }
 
       @Override
-      public <T> AstraeaHttpResponse<T> post(String url, Object body, Class<T> respCls) {
+      public <T> Response<T> post(String url, Object body, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request =
@@ -98,12 +83,12 @@ public class HttpExecutorBuilder {
                       .build();
 
               return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
+                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
             });
       }
 
       @Override
-      public <T> AstraeaHttpResponse<T> put(String url, Object body, Class<T> respCls) {
+      public <T> Response<T> put(String url, Object body, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request =
@@ -114,12 +99,12 @@ public class HttpExecutorBuilder {
                       .build();
 
               return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), respCls);
+                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
             });
       }
 
       @Override
-      public AstraeaHttpResponse<Void> delete(String url) {
+      public Response<Void> delete(String url) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().DELETE().uri(new URI(url)).build();
@@ -132,20 +117,10 @@ public class HttpExecutorBuilder {
        * if return value is Json , then we can convert it to Object. Or we just simply handle
        * exception by {@link #withException(CompletableFuture)}
        */
-      private <T> AstraeaHttpResponse<T> toJsonHttpResponse(
+      private <T> Response<T> toJsonHttpResponse(
           CompletableFuture<HttpResponse<String>> asyncResponse, TypeRef<T> typeRef)
           throws StringResponseException {
-        return AstraeaHttpResponse.of(asyncResponse.thenApply(x -> toJsonHttpResponse(x, typeRef)));
-      }
-
-      /**
-       * if return value is Json , then we can convert it to Object. Or we just simply handle
-       * exception by {@link #withException(CompletableFuture)}
-       */
-      private <T> AstraeaHttpResponse<T> toJsonHttpResponse(
-          CompletableFuture<HttpResponse<String>> asyncResponse, Class<T> tClass)
-          throws StringResponseException {
-        return toJsonHttpResponse(asyncResponse, TypeRef.of(tClass));
+        return Response.of(asyncResponse.thenApply(x -> toJsonHttpResponse(x, typeRef)));
       }
 
       private <T> HttpResponse<T> toJsonHttpResponse(
@@ -166,9 +141,8 @@ public class HttpExecutorBuilder {
        * Handle exception with non json type response . If return value is json , we can use {@link
        * #toJsonHttpResponse(CompletableFuture, TypeRef)}
        */
-      private <T> AstraeaHttpResponse<T> withException(
-          CompletableFuture<HttpResponse<T>> response) {
-        return AstraeaHttpResponse.of(response.thenApply(this::withException));
+      private <T> Response<T> withException(CompletableFuture<HttpResponse<T>> response) {
+        return Response.of(response.thenApply(this::withException));
       }
 
       private <T> HttpResponse<T> withException(HttpResponse<T> response) {
@@ -206,25 +180,6 @@ public class HttpExecutorBuilder {
         return HttpRequest.BodyPublishers.ofString(jsonConverter.toJson(t));
       }
     };
-  }
-
-  private static List<String> getFieldParameter(Object obj, Field field)
-      throws IllegalAccessException {
-    var fieldClass = field.getType();
-    var fieldObj = field.get(obj);
-    if (fieldObj == null) {
-      return List.of();
-    }
-    if (fieldClass == String.class) {
-      return List.of((String) fieldObj);
-    } else if (fieldClass.isPrimitive()) {
-      return List.of(String.valueOf(fieldObj));
-    } else if (Collection.class.isAssignableFrom(fieldClass)) {
-      Collection<?> collection = (Collection<?>) fieldObj;
-      return collection.stream().map(Object::toString).collect(Collectors.toList());
-    } else {
-      return List.of(fieldObj.toString());
-    }
   }
 
   static URI getQueryUri(String url, Map<String, String> parameters) throws URISyntaxException {

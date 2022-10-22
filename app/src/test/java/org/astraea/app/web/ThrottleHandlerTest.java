@@ -41,6 +41,7 @@ import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -197,7 +198,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var serialized = setting.json();
     var deserialized =
         JsonConverter.defaultConverter()
-            .fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
+            .fromJson(serialized, TypeRef.of(ThrottleHandler.ThrottleSetting.class));
 
     Assertions.assertEquals(set0, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(set1, Set.copyOf(deserialized.topics));
@@ -226,7 +227,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             new ThrottleHandler.TopicThrottle("MyTopicD", 4, 1001, leader));
 
     var deserialized =
-        JsonConverter.defaultConverter().fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
+        JsonConverter.defaultConverter()
+            .fromJson(rawJson, TypeRef.of(ThrottleHandler.ThrottleSetting.class));
 
     Assertions.assertEquals(expectedBroker, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(expectedTopic, Set.copyOf(deserialized.topics));
@@ -317,7 +319,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().get();
       var deserialized =
           JsonConverter.defaultConverter()
-              .fromJson(post.json(), ThrottleHandler.ThrottleSetting.class);
+              .fromJson(post.json(), TypeRef.of(ThrottleHandler.ThrottleSetting.class));
       Utils.sleep(Duration.ofSeconds(1));
 
       // verify response content is correct
