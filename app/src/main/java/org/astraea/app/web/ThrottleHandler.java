@@ -30,6 +30,8 @@ import java.util.stream.Stream;
 import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
@@ -52,12 +54,12 @@ public class ThrottleHandler implements Handler {
                 node -> {
                   final var egress =
                       node.config()
-                          .value("leader.replication.throttled.rate")
+                          .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                           .map(Long::valueOf)
                           .orElse(null);
                   final var ingress =
                       node.config()
-                          .value("follower.replication.throttled.rate")
+                          .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                           .map(Long::valueOf)
                           .orElse(null);
                   return new BrokerThrottle(node.id(), ingress, egress);
@@ -70,7 +72,10 @@ public class ThrottleHandler implements Handler {
                 topic ->
                     toReplicaSet(
                         topic.name(),
-                        topic.config().value("leader.replication.throttled.replicas").orElse("")))
+                        topic
+                            .config()
+                            .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+                            .orElse("")))
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
     final var followerTargets =
@@ -79,7 +84,10 @@ public class ThrottleHandler implements Handler {
                 topic ->
                     toReplicaSet(
                         topic.name(),
-                        topic.config().value("follower.replication.throttled.replicas").orElse("")))
+                        topic
+                            .config()
+                            .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+                            .orElse("")))
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 

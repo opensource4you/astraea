@@ -101,6 +101,7 @@ public class TrackerTest {
     var report = Mockito.mock(Report.class);
     var records = new AtomicLong(0);
     Mockito.when(report.records()).thenAnswer(a -> records.get());
+    Mockito.when(report.clientId()).thenReturn("forTest");
     var printer = new TrackerThread.ConsumerPrinter(() -> List.of(report));
     Assertions.assertFalse(printer.tryToPrint(Duration.ofSeconds(1)));
     records.set(100);

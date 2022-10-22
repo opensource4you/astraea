@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableColumnBase;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -53,6 +54,9 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
 
     var keyForMacos = new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN);
 
+    var copyAllForMacos = new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN);
+    var copyAllForWindows = new KeyCodeCombination(KeyCode.A, KeyCombination.CONTROL_DOWN);
+
     tableView.setOnKeyPressed(
         event -> {
           var result = fetcher.apply(event);
@@ -63,12 +67,42 @@ public class TableView extends javafx.scene.control.TableView<Map<String, Object
               Clipboard.getSystemClipboard().setContent(clipboardContent);
             }
           }
+
+          if (copyAllForWindows.match(event) || copyAllForMacos.match(event)) {
+            var items = tableView.items();
+            var keys = tableView.keys();
+            var stringBuilder = new StringBuilder();
+            stringBuilder.append(String.join(",", keys)).append("\n");
+            items.forEach(
+                item ->
+                    stringBuilder
+                        .append(
+                            keys.stream()
+                                .map(key -> item.getOrDefault(key, "").toString())
+                                .collect(Collectors.joining(",")))
+                        .append("\n"));
+            if (stringBuilder.length() > 0) {
+              var clipboardContent = new ClipboardContent();
+              clipboardContent.putString(stringBuilder.toString());
+              Clipboard.getSystemClipboard().setContent(clipboardContent);
+            }
+          }
         });
     return tableView;
   }
 
   private TableView() {
     super();
+  }
+
+  public List<Map<String, Object>> items() {
+    return List.copyOf(getItems());
+  }
+
+  public List<String> keys() {
+    return getColumns().stream()
+        .map(TableColumnBase::getText)
+        .collect(Collectors.toUnmodifiableList());
   }
 
   public void update(List<Map<String, Object>> data) {

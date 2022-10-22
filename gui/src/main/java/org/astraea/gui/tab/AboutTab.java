@@ -19,7 +19,7 @@ package org.astraea.gui.tab;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.VersionUtils;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
@@ -31,7 +31,7 @@ public class AboutTab {
     Version(
         "版本",
         List.of(
-            LinkedHashMap.of(
+            MapUtils.of(
                 "version",
                 VersionUtils.VERSION,
                 "revision",
@@ -43,63 +43,63 @@ public class AboutTab {
     Author(
         "維護者",
         List.of(
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "蔡嘉平",
                 "email",
                 "chia7712@gmail.com",
                 "個人頁面",
                 "https://github.com/chia7712"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "王懿宸",
                 "email",
                 "warren215215@gmail.com",
                 "個人頁面",
                 "https://github.com/wycccccc"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "方竫泓",
                 "email",
                 "fjh7777@gmail.com",
                 "個人頁面",
                 "https://github.com/chinghongfang"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "李政憲",
                 "email",
                 "garyparrottt@gmail.com",
                 "個人頁面",
                 "https://github.com/garyparrot"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "孫祥鈞",
                 "email",
                 "sean0651101@gmail.com",
                 "個人頁面",
                 "https://github.com/qoo332001"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "鄧智懋",
                 "email",
                 "zhimao.teng@gmail.com",
                 "個人頁面",
                 "https://github.com/harryteng9527"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "陳嘉晟",
                 "email",
                 "haser1156@gmail.com",
                 "個人頁面",
                 "https://github.com/Haser0305"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "李兆恆",
                 "email",
                 "chaohengstudent@gmail.com",
                 "個人頁面",
                 "https://github.com/chaohengstudent"),
-            LinkedHashMap.of(
+            MapUtils.of(
                 "name",
                 "李宜桓",
                 "email",
@@ -125,11 +125,11 @@ public class AboutTab {
   public static Tab of(Context ignored) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(Info.values())
+            .singleRadioButtons(Info.values())
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.completedFuture(
-                        input.selectedRadio().map(o -> (Info) o).orElse(Info.Version).tables))
+                        input.singleSelectedRadio(Info.Version).tables))
             .build();
     return Tab.of("about", pane);
   }

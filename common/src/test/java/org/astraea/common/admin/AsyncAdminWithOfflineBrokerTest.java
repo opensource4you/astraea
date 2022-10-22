@@ -17,9 +17,11 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -31,7 +33,14 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   private static final String TOPIC_NAME = Utils.randomString();
   private static final int PARTITIONS = 10;
+
+  private static final Set<TopicPartition> TOPIC_PARTITIONS =
+      IntStream.range(0, PARTITIONS)
+          .mapToObj(id -> TopicPartition.of(TOPIC_NAME, id))
+          .collect(Collectors.toSet());
   private static final int CLOSED_BROKER_ID = brokerIds().iterator().next();
+
+  private static int NUMBER_OF_ONLINE_PARTITIONS = -1;
 
   @BeforeAll
   static void closeOneBroker() throws ExecutionException, InterruptedException {
@@ -44,6 +53,9 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .get();
       var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().get();
+      NUMBER_OF_ONLINE_PARTITIONS =
+          PARTITIONS
+              - (int) allPs.stream().filter(p -> p.leader().get().id() == CLOSED_BROKER_ID).count();
       Assertions.assertEquals(PARTITIONS, allPs.size());
       Utils.sleep(Duration.ofSeconds(2));
     }
@@ -70,7 +82,7 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
       Assertions.assertEquals(2, brokers.size());
       brokers.forEach(
           b ->
-              b.folders()
+              b.dataFolders()
                   .forEach(d -> Assertions.assertEquals(0, d.orphanPartitionSizes().size())));
       var offlineBrokers = brokers.stream().filter(NodeInfo::offline).collect(Collectors.toList());
       Assertions.assertEquals(0, offlineBrokers.size());
@@ -92,8 +104,11 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
             // there is no more data, so all replicas are in-sync
             Assertions.assertEquals(1, p.isr().size());
             p.isr().forEach(n -> Assertions.assertTrue(n.offline()));
+            Assertions.assertEquals(Optional.empty(), p.maxTimestamp());
+            Assertions.assertEquals(-1, p.earliestOffset());
+            Assertions.assertEquals(-1, p.latestOffset());
           });
-      Assertions.assertNotEquals(0, offlinePartitions.size());
+      Assertions.assertEquals(PARTITIONS - NUMBER_OF_ONLINE_PARTITIONS, offlinePartitions.size());
     }
   }
 
@@ -147,6 +162,33 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       Assertions.assertEquals(
           1, admin.topics(Set.of(TOPIC_NAME)).toCompletableFuture().get().size());
+    }
+  }
+
+  @Timeout(10)
+  @Test
+  void testEarliest() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      Assertions.assertEquals(
+          0, admin.earliestOffsets(TOPIC_PARTITIONS).toCompletableFuture().get().size());
+    }
+  }
+
+  @Timeout(10)
+  @Test
+  void testLatest() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      Assertions.assertEquals(
+          0, admin.latestOffsets(TOPIC_PARTITIONS).toCompletableFuture().get().size());
+    }
+  }
+
+  @Timeout(10)
+  @Test
+  void testMaxTimestamp() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      Assertions.assertEquals(
+          0, admin.maxTimestamps(TOPIC_PARTITIONS).toCompletableFuture().get().size());
     }
   }
 }

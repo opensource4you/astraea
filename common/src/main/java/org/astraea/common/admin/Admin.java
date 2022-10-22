@@ -122,7 +122,9 @@ public interface Admin extends Closeable {
             Collectors.toMap(
                 NodeInfo::id,
                 n ->
-                    n.folders().stream().map(Broker.DataFolder::path).collect(Collectors.toSet())));
+                    n.dataFolders().stream()
+                        .map(Broker.DataFolder::path)
+                        .collect(Collectors.toSet())));
   }
 
   /** @return a partition migrator used to move partitions to another broker or folder. */

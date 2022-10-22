@@ -42,8 +42,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
@@ -51,6 +52,7 @@ import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
@@ -79,9 +81,9 @@ public class RecordHandler implements Handler {
   final Producer<byte[], byte[]> producer;
   private final Cache<String, Producer<byte[], byte[]>> transactionalProducerCache;
 
-  final Admin admin;
+  final AsyncAdmin admin;
 
-  RecordHandler(Admin admin, String bootstrapServers) {
+  RecordHandler(AsyncAdmin admin, String bootstrapServers) {
     this.admin = admin;
     this.bootstrapServers = requireNonNull(bootstrapServers);
     this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();
@@ -151,19 +153,17 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(
             distanceFromLatest ->
-                consumerBuilder.seek(
-                    Builder.SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
+                consumerBuilder.seek(SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
 
     Optional.ofNullable(channel.queries().get(DISTANCE_FROM_BEGINNING))
         .map(Long::parseLong)
         .ifPresent(
             distanceFromBeginning ->
-                consumerBuilder.seek(
-                    Builder.SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
+                consumerBuilder.seek(SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
 
     Optional.ofNullable(channel.queries().get(SEEK_TO))
         .map(Long::parseLong)
-        .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
+        .ifPresent(seekTo -> consumerBuilder.seek(SeekStrategy.SEEK_TO, seekTo));
 
     return CompletableFuture.completedFuture(get(consumerBuilder.build(), limit, timeout));
   }
@@ -211,7 +211,7 @@ public class RecordHandler implements Handler {
                 })
             .thenCompose(
                 senderFutures ->
-                    Utils.sequence(
+                    FutureUtils.sequence(
                         senderFutures.stream()
                             .map(
                                 s ->
@@ -238,28 +238,39 @@ public class RecordHandler implements Handler {
     var topic = channel.target().get();
     var partitions =
         Optional.ofNullable(channel.queries().get(PARTITION))
-            .map(x -> Set.of(TopicPartition.of(topic, x)))
+            .map(x -> CompletableFuture.completedStage(Set.of(TopicPartition.of(topic, x))))
             .orElseGet(() -> admin.topicPartitions(Set.of(topic)));
 
-    var deletedOffsets =
-        Optional.ofNullable(channel.queries().get(OFFSET))
-            .map(Long::parseLong)
-            .map(
-                offset ->
-                    partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
-            .orElseGet(
-                () -> {
-                  var currentPartitions =
-                      admin.partitions(Set.of(topic)).stream()
-                          .collect(
-                              Collectors.toMap(Partition::topicPartition, Function.identity()));
-                  return partitions.stream()
-                      .collect(
-                          Collectors.toMap(
-                              Function.identity(), x -> currentPartitions.get(x).latestOffset()));
-                });
-    admin.deleteRecords(deletedOffsets);
-    return CompletableFuture.completedFuture(Response.OK);
+    return Optional.ofNullable(channel.queries().get(OFFSET))
+        .map(Long::parseLong)
+        .map(
+            offset ->
+                partitions.thenApply(
+                    p -> p.stream().collect(Collectors.toMap(Function.identity(), x -> offset))))
+        .orElseGet(
+            () ->
+                admin
+                    .partitions(Set.of(topic))
+                    .thenApply(
+                        p ->
+                            p.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        Partition::topicPartition, Function.identity())))
+                    .thenCompose(
+                        topicPartitionPartitionMap ->
+                            partitions.thenApply(
+                                p ->
+                                    p.stream()
+                                        .collect(
+                                            Collectors.toMap(
+                                                Function.identity(),
+                                                x ->
+                                                    topicPartitionPartitionMap
+                                                        .get(x)
+                                                        .latestOffset())))))
+        .thenCompose(admin::deleteRecords)
+        .thenApply(records -> Response.OK);
   }
 
   enum SerDe implements EnumInfo {

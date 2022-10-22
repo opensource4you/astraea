@@ -45,12 +45,12 @@ public class WebService {
     server.createContext("/brokers", to(new BrokerHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/producers", to(new ProducerHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/quotas", to(new QuotaHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/transactions", to(new TransactionHandler(Admin.of(arg.configs()))));
+    server.createContext("/transactions", to(new TransactionHandler(AsyncAdmin.of(arg.configs()))));
     if (arg.needJmx())
       server.createContext(
           "/beans", to(new BeanHandler(AsyncAdmin.of(arg.configs()), arg.jmxPorts())));
     server.createContext(
-        "/records", to(new RecordHandler(Admin.of(arg.configs()), arg.bootstrapServers())));
+        "/records", to(new RecordHandler(AsyncAdmin.of(arg.configs()), arg.bootstrapServers())));
     server.createContext("/reassignments", to(new ReassignmentHandler(Admin.of(arg.configs()))));
     server.createContext(
         "/balancer", to(new BalancerHandler(Admin.of(arg.configs()), arg.brokerJmxMap)));

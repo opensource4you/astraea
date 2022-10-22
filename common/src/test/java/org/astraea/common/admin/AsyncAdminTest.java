@@ -16,12 +16,14 @@
  */
 package org.astraea.common.admin;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.CompletableFuture;
@@ -634,7 +636,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .partitions(Set.of(topic))
           .toCompletableFuture()
           .get()
-          .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
+          .forEach(p -> Assertions.assertNotEquals(Optional.empty(), p.maxTimestamp()));
     }
   }
 
@@ -937,6 +939,18 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                           Assertions.assertEquals(
                               admin.brokerFolders().toCompletableFuture().get().get(id).size(),
                               ds.size())));
+
+      admin
+          .brokers()
+          .toCompletableFuture()
+          .get()
+          .forEach(
+              broker ->
+                  Assertions.assertEquals(
+                      broker.topicPartitions().size(),
+                      broker.dataFolders().stream()
+                          .mapToInt(e -> e.partitionSizes().size())
+                          .sum()));
     }
   }
 
@@ -1148,7 +1162,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .forEach(
               broker ->
                   broker
-                      .folders()
+                      .dataFolders()
                       .forEach(
                           d ->
                               d.partitionSizes().entrySet().stream()
@@ -1421,6 +1435,63 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .preferredLeaderElection(Set.of(TopicPartition.of(topic, 0)))
           .toCompletableFuture()
           .get();
+    }
+  }
+
+  @Test
+  public void testTimestampOfLatestRecords() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(4).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(3));
+      var ps = admin.topicPartitions(Set.of(topic)).toCompletableFuture().get();
+      Assertions.assertEquals(
+          0,
+          admin
+              .timestampOfLatestRecords(ps, Duration.ofSeconds(3))
+              .toCompletableFuture()
+              .get()
+              .size());
+
+      var t = System.currentTimeMillis();
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer
+            .sender()
+            .topic(topic)
+            .partition(0)
+            .timestamp(t)
+            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+            .run();
+        producer
+            .sender()
+            .topic(topic)
+            .partition(1)
+            .timestamp(t + 1)
+            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+            .run();
+        producer
+            .sender()
+            .topic(topic)
+            .partition(2)
+            .timestamp(t + 2)
+            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+            .run();
+        producer
+            .sender()
+            .topic(topic)
+            .partition(3)
+            .timestamp(t + 3)
+            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+            .run();
+        producer.flush();
+      }
+      var ts =
+          admin.timestampOfLatestRecords(ps, Duration.ofSeconds(3)).toCompletableFuture().get();
+      Assertions.assertEquals(4, ts.size());
+      Assertions.assertEquals(t, ts.get(TopicPartition.of(topic, 0)));
+      Assertions.assertEquals(t + 1, ts.get(TopicPartition.of(topic, 1)));
+      Assertions.assertEquals(t + 2, ts.get(TopicPartition.of(topic, 2)));
+      Assertions.assertEquals(t + 3, ts.get(TopicPartition.of(topic, 3)));
     }
   }
 }

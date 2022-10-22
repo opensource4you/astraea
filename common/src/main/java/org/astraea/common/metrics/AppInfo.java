@@ -14,33 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.common.metrics;
 
-import javafx.application.Platform;
+public interface AppInfo extends HasBeanObject {
 
-public class Button extends javafx.scene.control.Button {
+  String id();
 
-  public static Button disabled(String name) {
-    var btn = new Button(name);
-    btn.disable();
-    return btn;
-  }
+  String commitId();
 
-  public static Button of(String name) {
-    return new Button(name);
-  }
+  long startTimeMs();
 
-  private Button(String topic) {
-    super(topic);
-  }
-
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
-  }
-
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
-  }
+  String version();
 }

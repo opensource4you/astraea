@@ -14,33 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.common.function;
 
-import javafx.application.Platform;
-
-public class Button extends javafx.scene.control.Button {
-
-  public static Button disabled(String name) {
-    var btn = new Button(name);
-    btn.disable();
-    return btn;
-  }
-
-  public static Button of(String name) {
-    return new Button(name);
-  }
-
-  private Button(String topic) {
-    super(topic);
-  }
-
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
-  }
-
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
-  }
+@FunctionalInterface
+public interface Bi5Function<A, B, C, D, E, R> {
+  R apply(A a, B b, C c, D d, E e);
 }

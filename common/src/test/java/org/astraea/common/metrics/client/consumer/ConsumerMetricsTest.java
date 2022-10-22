@@ -18,24 +18,40 @@ package org.astraea.common.metrics.client.consumer;
 
 import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ConsumerMetricsTest extends RequireBrokerCluster {
+
   @Test
-  void testMultiBrokers() {
+  void testAppInfo() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var consumer =
             Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
+      Utils.sleep(Duration.ofSeconds(3));
+      consumer.poll(Duration.ofSeconds(5));
+      ConsumerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    }
+  }
+
+  @Test
+  void testMultiBrokers() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString(10);
+    try (var admin = AsyncAdmin.of(bootstrapServers());
+        var consumer =
+            Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
       var metrics = ConsumerMetrics.nodes(MBeanClient.local());

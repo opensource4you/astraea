@@ -16,6 +16,10 @@
  */
 package org.astraea.gui.text;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.concurrent.CompletionException;
 import javafx.application.Platform;
 import org.astraea.common.Utils;
 
@@ -29,12 +33,16 @@ public class TextArea extends javafx.scene.control.TextArea {
     super();
   }
 
-  public void text(String text, Throwable e) {
-    if (e != null) text(e);
-    else text(text);
-  }
-
   public void text(Throwable e) {
+    if (e instanceof IllegalArgumentException) {
+      // expected error so we just print message
+      append(e.getMessage());
+      return;
+    }
+    if (e instanceof CompletionException) {
+      text(e.getCause());
+      return;
+    }
     if (e != null) text(Utils.toString(e));
   }
 
@@ -59,16 +67,14 @@ public class TextArea extends javafx.scene.control.TextArea {
     text(text, true);
   }
 
-  public void append(Throwable e) {
-    if (e != null) text(Utils.toString(e), true);
-  }
-
   public void cleanup() {
     if (Platform.isFxApplicationThread()) setText("");
     else Platform.runLater(() -> setText(""));
   }
 
   private static String formatCurrentTime() {
-    return Utils.format(System.currentTimeMillis());
+    return LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(System.currentTimeMillis()), ZoneId.systemDefault())
+        .toString();
   }
 }

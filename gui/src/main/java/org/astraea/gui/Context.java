@@ -81,4 +81,8 @@ public class Context {
     if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmx port");
     return copy;
   }
+
+  public boolean hasMetrics() {
+    return !clients.isEmpty();
+  }
 }
