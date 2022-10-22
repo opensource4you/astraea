@@ -44,11 +44,11 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
-import org.astraea.common.cost.BadMetricsException;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.NotEnoughMetricsException;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HostMetrics;
@@ -787,7 +787,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             public synchronized ClusterCost clusterCost(
                 ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
               if (clusterBean.all().get(0).size() < 10)
-                throw new BadMetricsException("Insufficient metrics");
+                throw new NotEnoughMetricsException("Insufficient metrics");
               clusterBean
                   .all()
                   .get(0)

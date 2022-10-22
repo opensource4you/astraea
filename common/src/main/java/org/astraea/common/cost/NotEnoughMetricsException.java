@@ -22,18 +22,18 @@ package org.astraea.common.cost;
  * exception serves as a hint to the caller that it needs more or newer metrics to function, please
  * retry later.
  */
-public class BadMetricsException extends RuntimeException {
-  public BadMetricsException() {}
+public class NotEnoughMetricsException extends RuntimeException {
+  public NotEnoughMetricsException() {}
 
-  public BadMetricsException(String message) {
+  public NotEnoughMetricsException(String message) {
     super(message);
   }
 
-  public BadMetricsException(String message, Throwable cause) {
+  public NotEnoughMetricsException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public BadMetricsException(
+  public NotEnoughMetricsException(
       String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }

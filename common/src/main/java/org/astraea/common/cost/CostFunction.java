@@ -29,7 +29,7 @@ import org.astraea.common.metrics.collector.Fetcher;
  * <p>A cost function might take advantage of some Mbean metrics to function. One can indicate such
  * requirement in the {@link CostFunction#fetcher()} function. If the operation logic of
  * CostFunction thinks the metrics on hand are insufficient or not ready to work. One can throw a
- * {@link BadMetricsException} from the calculation logic of {@link HasBrokerCost} or {@link
+ * {@link NotEnoughMetricsException} from the calculation logic of {@link HasBrokerCost} or {@link
  * HasClusterCost}. This serves as a hint to the caller that it needs newer metrics and please retry
  * later.
  */

@@ -47,11 +47,11 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
-import org.astraea.common.cost.BadMetricsException;
 import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.NotEnoughMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.metrics.collector.Fetcher;
@@ -216,7 +216,7 @@ class BalancerHandler implements Handler {
           try (var metricSampler =
               new MetricSampler(aggregatedFetcher().orElse(null), brokerJmxAddresses)) {
             // error tracking variables
-            var lastError = (BadMetricsException) null;
+            var lastError = (NotEnoughMetricsException) null;
             var errorCounter = 0;
             var deadline = System.currentTimeMillis() + timeout.toMillis();
             // main loop
@@ -224,7 +224,7 @@ class BalancerHandler implements Handler {
               try {
                 var newTimeout = Duration.ofMillis(deadline - System.currentTimeMillis());
                 return searchRebalancePlan(metricSampler::offer, newTimeout, loop, topics);
-              } catch (BadMetricsException e) {
+              } catch (NotEnoughMetricsException e) {
                 // this exception might be caused by insufficient metrics, retry later
                 lastError = e;
                 errorCounter++;
