@@ -165,7 +165,7 @@ class BalancerHandler implements Handler {
         Optional.ofNullable(channel.queries().get(TOPICS_KEY))
             .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
             .orElseGet(() -> admin.topicNames(false));
-    generatedPlans.put(newPlanId, launchSearchTask(newPlanId, timeout, loop, topics));
+    generatedPlans.put(newPlanId, launchSearchTask(timeout, loop, topics));
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
@@ -209,38 +209,34 @@ class BalancerHandler implements Handler {
   }
 
   private CompletableFuture<PlanInfo> launchSearchTask(
-      String planId, Duration timeout, int loop, Set<String> topics) {
+      Duration timeout, int loop, Set<String> topics) {
+    MetricSampler metricSampler =
+        new MetricSampler(aggregatedFetcher().orElse(null), brokerJmxAddresses);
+    return loop(metricSampler, timeout, loop, topics)
+        .whenComplete((ignore0, ignore1) -> metricSampler.close());
+  }
+
+  private CompletableFuture<PlanInfo> loop(
+      MetricSampler sampler, Duration timeout, int loop, Set<String> topics) {
+    long startMs = System.currentTimeMillis();
     return CompletableFuture.supplyAsync(
-        () -> {
-          // metrics sampling logic
-          try (var metricSampler =
-              new MetricSampler(aggregatedFetcher().orElse(null), brokerJmxAddresses)) {
-            // error tracking variables
-            var lastError = (NotEnoughMetricsException) null;
-            var errorCounter = 0;
-            var deadline = System.currentTimeMillis() + timeout.toMillis();
-            // main loop
-            while (System.currentTimeMillis() < deadline) {
+            () -> {
               try {
-                var newTimeout = Duration.ofMillis(deadline - System.currentTimeMillis());
-                return searchRebalancePlan(metricSampler::offer, newTimeout, loop, topics);
+                return searchRebalancePlan(sampler::offer, timeout, loop, topics);
               } catch (NotEnoughMetricsException e) {
-                // this exception might be caused by insufficient metrics, retry later
-                lastError = e;
-                errorCounter++;
                 // sleep until the new metrics are available
-                Utils.sleep(metricSampler.interval());
+                Utils.sleep(sampler.interval());
+                return null;
               }
-            }
-            throw new RuntimeException(
-                "Timeout on searching usable rebalance plan for "
-                    + planId
-                    + ". Failed after "
-                    + errorCounter
-                    + " trials.",
-                lastError);
-          }
-        });
+            })
+        .thenCompose(
+            (planInfo) -> {
+              Duration newTimeout = timeout.minusMillis(System.currentTimeMillis() - startMs);
+              if (planInfo != null) return CompletableFuture.completedFuture(planInfo);
+              else if (newTimeout.isNegative())
+                return CompletableFuture.failedFuture(new RuntimeException("Timeout"));
+              else return loop(sampler, newTimeout, loop, topics);
+            });
   }
 
   private PlanInfo searchRebalancePlan(
