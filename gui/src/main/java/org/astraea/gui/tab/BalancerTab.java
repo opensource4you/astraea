@@ -18,7 +18,6 @@ package org.astraea.gui.tab;
 
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,20 +107,6 @@ public class BalancerTab {
               if (!newFollowers.isBlank()) result.put(NEW_FOLLOWER_KEY, newFollowers);
               return result;
             })
-        .collect(Collectors.toList());
-  }
-
-  private static List<Replica> diff(Collection<Replica> before, Collection<Replica> after) {
-    return before.stream()
-        .filter(
-            beforeReplica ->
-                after.stream()
-                    .noneMatch(
-                        r ->
-                            r.nodeInfo().id() == beforeReplica.nodeInfo().id()
-                                && r.topic().equals(beforeReplica.topic())
-                                && r.partition() == beforeReplica.partition()
-                                && r.path().equals(beforeReplica.path())))
         .collect(Collectors.toList());
   }
 
