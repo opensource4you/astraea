@@ -68,9 +68,6 @@ class ReaderTest extends RequireBrokerCluster {
         "RecordNumber" -> StringType,
         "Size" -> IntegerType,
         "Type" -> StringType
-      ),
-      Map(
-        "RecordNumber" -> StringType
       )
     )
 
@@ -111,9 +108,6 @@ class ReaderTest extends RequireBrokerCluster {
         "RecordNumber" -> StringType,
         "Size" -> IntegerType,
         "Type" -> StringType
-      ),
-      Map(
-        "SerialNumber" -> IntegerType
       )
     )
 

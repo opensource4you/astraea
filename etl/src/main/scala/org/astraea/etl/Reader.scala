@@ -31,7 +31,7 @@ class Reader[PassedStep <: BuildStep] private (
   protected def this() = this(
     "deploymentModel",
     Reader
-      .createSchema(Map("Type" -> StringType), Map("Type" -> StringType)),
+      .createSchema(Map("Type" -> StringType)),
     "sinkPath",
     Seq.empty
   )
@@ -101,10 +101,7 @@ object Reader {
       .getOrCreate()
   }
 
-  def createSchema(
-      cols: Map[String, DataType],
-      pk: Map[String, DataType]
-  ): StructType = {
+  def createSchema(cols: Map[String, DataType]): StructType = {
     var userSchema = new StructType()
     cols.foreach(col => userSchema = userSchema.add(col._1, col._2.value))
     userSchema

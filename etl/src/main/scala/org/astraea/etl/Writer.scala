@@ -19,17 +19,7 @@ package org.astraea.etl
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
-import org.astraea.common.admin.AsyncAdmin
-import org.astraea.etl.Writer.{
-  BuildStep,
-  CheckpointStep,
-  DFStep,
-  FullWriter,
-  TargetStep
-}
-
-import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import org.astraea.etl.Writer._
 
 class Writer[PassedStep <: BuildStep] private (
     var dataFrameOp: DataFrameOp,

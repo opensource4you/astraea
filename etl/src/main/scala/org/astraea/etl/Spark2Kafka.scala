@@ -32,7 +32,7 @@ object Spark2Kafka {
       val df = Reader
         .of()
         .spark(metaData.deploymentModel)
-        .schema(createSchema(metaData.column, metaData.primaryKeys))
+        .schema(createSchema(metaData.column))
         .sinkPath(metaData.sinkPath.getPath)
         .primaryKeys(metaData.primaryKeys.keys.toSeq)
         .readCSV(metaData.sourcePath.getPath)
