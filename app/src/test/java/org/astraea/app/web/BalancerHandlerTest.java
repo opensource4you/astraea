@@ -251,7 +251,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> after.value() <= before.value())
               .moveCost(List.of(moveCostFunction))
-              .movementConstraint(Map.of("unknown", moveCost -> true))
+              .movementConstraint(moveCosts -> true)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
 
@@ -266,7 +266,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   .clusterCost(clusterCostFunction)
                   .clusterConstraint((before, after) -> true)
                   .moveCost(List.of(moveCostFunction))
-                  .movementConstraint(Map.of("unknown", moveCost -> true))
+                  .movementConstraint(moveCosts -> true)
                   .limit(0)
                   .build()
                   .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
@@ -279,7 +279,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> false)
               .moveCost(List.of(moveCostFunction))
-              .movementConstraint(Map.of("unknown", moveCost -> true))
+              .movementConstraint(moveCosts -> true)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
@@ -291,7 +291,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> true)
               .moveCost(List.of(moveCostFunction))
-              .movementConstraint(Map.of("unknown", moveCost -> false))
+              .movementConstraint(moveCosts -> false)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
     }
