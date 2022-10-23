@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -776,6 +778,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     @Override
     public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
       executionCounter.increment();
+    }
+
+    @Override
+    public CompletionStage<Void> run(AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+      executionCounter.increment();
+      return null;
     }
 
     int count() {

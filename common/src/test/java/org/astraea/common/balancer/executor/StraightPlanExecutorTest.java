@@ -20,11 +20,13 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -36,7 +38,7 @@ import org.junit.jupiter.api.Test;
 class StraightPlanExecutorTest extends RequireBrokerCluster {
 
   @Test
-  void testRun() {
+  void testRun() throws ExecutionException, InterruptedException {
     // arrange
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
@@ -108,6 +110,104 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       System.out.println(ClusterLogAllocation.toString(currentAllocation));
       System.out.println("Original:");
       System.out.println(ClusterLogAllocation.toString(originalAllocation));
+    }
+  }
+
+  @Test
+  void testAsyncRun() throws ExecutionException, InterruptedException {
+    try (AsyncAdmin admin = AsyncAdmin.of(bootstrapServers())) {
+      final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
+
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 2)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var originalAllocation =
+          admin
+              .clusterInfo(Set.of(topicName))
+              .thenApply(ClusterLogAllocation::of)
+              .toCompletableFuture()
+              .join();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      final var broker0 = 0;
+      final var broker1 = 1;
+      final var logFolder0 = logFolders().get(broker0).stream().findAny().orElseThrow();
+      final var logFolder1 = logFolders().get(broker1).stream().findAny().orElseThrow();
+      final var onlyPlacement =
+          (Function<TopicPartition, List<Replica>>)
+              (TopicPartition tp) ->
+                  List.of(
+                      Replica.of(
+                          tp.topic(),
+                          tp.partition(),
+                          NodeInfo.of(broker0, "", -1),
+                          0,
+                          0,
+                          true,
+                          true,
+                          false,
+                          false,
+                          true,
+                          logFolder0),
+                      Replica.of(
+                          tp.topic(),
+                          tp.partition(),
+                          NodeInfo.of(broker1, "", -1),
+                          0,
+                          0,
+                          false,
+                          true,
+                          false,
+                          false,
+                          false,
+                          logFolder1));
+      final var allocation =
+          IntStream.range(0, 10)
+              .mapToObj(i -> TopicPartition.of(topicName, i))
+              .collect(Collectors.toUnmodifiableMap(tp -> tp, onlyPlacement))
+              .values()
+              .stream()
+              .flatMap(Collection::stream)
+              .collect(Collectors.toUnmodifiableList());
+      final var expectedAllocation = ClusterLogAllocation.of(allocation);
+      final var expectedTopicPartition = expectedAllocation.topicPartitions();
+
+      var execute = new StraightPlanExecutor().run(admin, expectedAllocation);
+
+      execute.toCompletableFuture().join();
+
+      final var CurrentAllocation =
+          admin
+              .clusterInfo(Set.of(topicName))
+              .thenApply(ClusterLogAllocation::of)
+              .toCompletableFuture()
+              .join();
+
+      final var CurrentTopicPartition = CurrentAllocation.topicPartitions();
+
+      System.out.println("Expected:");
+      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
+      System.out.println("Current:");
+      System.out.println(ClusterLogAllocation.toString(CurrentAllocation));
+      System.out.println("Original:");
+      System.out.println(ClusterLogAllocation.toString(originalAllocation));
+
+      Assertions.assertEquals(expectedTopicPartition, CurrentTopicPartition);
+      expectedTopicPartition.forEach(
+          topicPartition ->
+              Assertions.assertTrue(
+                  ClusterLogAllocation.placementMatch(
+                      expectedAllocation.logPlacements(topicPartition),
+                      CurrentAllocation.logPlacements(topicPartition))));
     }
   }
 }
