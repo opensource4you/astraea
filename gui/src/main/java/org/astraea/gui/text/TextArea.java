@@ -26,12 +26,6 @@ import org.astraea.common.Utils;
 
 public class TextArea extends javafx.scene.control.TextArea {
 
-  public static TextArea placeholder(String content) {
-    var text = new TextArea();
-    text.setPromptText(content);
-    return text;
-  }
-
   public static TextArea of() {
     return new TextArea();
   }
