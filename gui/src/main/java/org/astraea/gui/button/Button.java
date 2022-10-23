@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.button;
 
+import java.util.function.Consumer;
 import javafx.application.Platform;
 
 public class Button extends javafx.scene.control.Button {
@@ -28,6 +29,12 @@ public class Button extends javafx.scene.control.Button {
 
   public static Button of(String name) {
     return new Button(name);
+  }
+
+  public static Button of(String name, Consumer<Button> action) {
+    var btn = new Button(name);
+    btn.setOnAction(ignored -> action.accept(btn));
+    return btn;
   }
 
   private Button(String topic) {

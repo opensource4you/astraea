@@ -16,37 +16,29 @@
  */
 package org.astraea.gui.pane;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import javafx.collections.ListChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
-import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
-import org.astraea.common.DataSize;
-import org.astraea.common.MapUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
+import org.astraea.gui.Queries;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
 import org.astraea.gui.button.RadioButton;
-import org.astraea.gui.table.TableView;
+import org.astraea.gui.button.SelectButton;
+import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.Label;
 import org.astraea.gui.text.TextArea;
 import org.astraea.gui.text.TextField;
@@ -66,7 +58,10 @@ public class PaneBuilder {
 
   private Button actionButton = Button.of("REFRESH");
 
-  private TableView tableView = null;
+  private final TextArea console = TextArea.of();
+
+  private TableViewer tableViewer = null;
+  private Node motherOfTableView = null;
 
   private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
   private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
@@ -116,7 +111,46 @@ public class PaneBuilder {
   public PaneBuilder buttonAction(
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
-    if (tableView == null) tableView = TableView.copyable();
+    var selectBox = SelectButton.withScroll();
+    var queryField =
+        TextField.builder().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
+    var sizeLabel = Label.of("");
+
+    tableViewer =
+        TableViewer.builder()
+            .rowFilter(
+                item -> {
+                  try {
+                    return queryField.text().map(t -> Queries.predicate(t).test(item)).orElse(true);
+                  } catch (Exception e) {
+                    console.text(e);
+                    return true;
+                  }
+                })
+            .columnFilter(name -> selectBox.selectedContent().contains(name))
+            .filteredDataListener(List.of(data -> sizeLabel.text("total: " + data.size())))
+            .dataListener(
+                List.of(
+                    data ->
+                        selectBox.set(
+                            data.stream()
+                                .flatMap(e -> e.keySet().stream())
+                                .distinct()
+                                .collect(Collectors.toList()))))
+            .build();
+    var borderPane = new BorderPane();
+    borderPane.setTop(queryField);
+    borderPane.setCenter(tableViewer.node());
+    borderPane.setLeft(
+        VBox.of(
+            Pos.TOP_CENTER,
+            HBox.of(
+                Pos.CENTER,
+                Button.of("all", ignored -> selectBox.makeAllSelected()),
+                Button.of("none", ignored -> selectBox.makeAllUnselected())),
+            selectBox.node()));
+    borderPane.setBottom(sizeLabel);
+    motherOfTableView = borderPane;
     return this;
   }
 
@@ -149,39 +183,9 @@ public class PaneBuilder {
       nodes.add(gridPane);
     }
     nodes.add(actionButton);
-    var console = TextArea.of();
-    Logger logger = console::append;
-
-    // ---------------------------------[table query]---------------------------------//
-    Runnable runQuery;
-    if (tableView != null) {
-      var filterText =
-          TextField.builder()
-              .hint("c0||c1||c2||c3||c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530")
-              .build();
-      runQuery =
-          () -> {
-            try {
-              tableView.convert(filterText.text().map(PaneBuilder::converter).orElse(v -> v));
-            } catch (Exception e) {
-              console.text(e);
-            }
-          };
-      filterText.setOnKeyPressed(
-          event -> {
-            if (event.getCode().equals(KeyCode.ENTER)) runQuery.run();
-          });
-      var sizeLabel = Label.of("");
-      tableView
-          .getItems()
-          .addListener(
-              (ListChangeListener<Map<String, Object>>)
-                  c -> sizeLabel.text("total: " + tableView.size()));
-      nodes.add(VBox.of(Pos.CENTER, filterText, tableView, sizeLabel));
-    } else runQuery = () -> {};
-
+    if (motherOfTableView != null) nodes.add(motherOfTableView);
     // ---------------------------------[second control layout]---------------------------------//
-    if (tableView != null && tableViewAction != null) {
+    if (tableViewer != null && tableViewAction != null) {
       var checkbox = new CheckBox("enable");
       checkbox
           .selectedProperty()
@@ -197,7 +201,7 @@ public class PaneBuilder {
               });
       tableViewActionButton.setOnAction(
           event -> {
-            var items = tableView.items();
+            var items = tableViewer.filteredData();
             var input =
                 secondInputKeyAndFields.entrySet().stream()
                     .flatMap(e -> e.getValue().text().stream().map(v -> Map.entry(e.getKey(), v)))
@@ -205,7 +209,7 @@ public class PaneBuilder {
             try {
               checkbox.setSelected(false);
               tableViewAction
-                  .apply(items, input, logger)
+                  .apply(items, input, console::append)
                   .whenComplete((data, e) -> console.text(e));
             } catch (Exception e) {
               console.text(e);
@@ -266,15 +270,11 @@ public class PaneBuilder {
           try {
             if (buttonAction != null)
               buttonAction
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
-                          if (data != null) {
-                            tableView.set(data);
-                            // update the table view if there is a query
-                            runQuery.run();
-                          }
+                          if (data != null && tableViewer != null) tableViewer.data(data);
                           console.text(e);
                         } finally {
                           actionButton.enable();
@@ -282,7 +282,7 @@ public class PaneBuilder {
                       });
             if (buttonListener != null)
               buttonListener
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
@@ -300,207 +300,5 @@ public class PaneBuilder {
 
     actionButton.setOnAction(ignored -> handler.run());
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
-  }
-
-  private static final String OR_KEY = "\\|\\|";
-
-  /**
-   * the form of text is <key>,...<key=value>. 1) if there is only key, it means the visible column
-   * names 2) if there is a pair of key and value, it is the condition used to select row. For
-   * example: *policy*=compact. Noted that the conditions are combined by OR rather AND. Hence, a
-   * row get selected if it matches one of condition.
-   *
-   * @param text show the wildcard rules
-   * @return predicate
-   */
-  private static Function<Map<String, Object>, Map<String, Object>> converter(String text) {
-    if (text == null || text.isBlank()) return v -> v;
-    var predicates =
-        Stream.of(forString(text).stream(), forNumber(text).stream(), forNonexistent(text).stream())
-            .flatMap(s -> s)
-            .collect(Collectors.toList());
-    var visibleKeys =
-        Arrays.stream(text.split(OR_KEY))
-            .filter(item -> !item.contains("=") && !item.contains("<") && !item.contains(">"))
-            .map(Utils::wildcardToPattern)
-            .collect(Collectors.toList());
-
-    return item -> {
-      if (item.isEmpty()) return item;
-      var match = predicates.isEmpty() || predicates.stream().anyMatch(p -> p.test(item));
-      if (!match) return Map.of();
-      if (visibleKeys.isEmpty()) return item;
-      var firstKey = item.entrySet().iterator().next().getKey();
-      return item.entrySet().stream()
-          .filter(
-              e ->
-                  e.getKey().equals(firstKey)
-                      || visibleKeys.stream().anyMatch(p -> p.matcher(e.getKey()).matches()))
-          .collect(MapUtils.toLinkedHashMap(Map.Entry::getKey, Map.Entry::getValue));
-    };
-  }
-
-  private static Optional<Predicate<Map<String, Object>>> forNumber(String text) {
-    var larges = new HashMap<Pattern, String>();
-    var equals = new HashMap<Pattern, String>();
-    var smalls = new HashMap<Pattern, String>();
-    for (var item : text.split(OR_KEY)) {
-      var ss = item.trim().split(">=");
-      if (ss.length == 2) {
-        larges.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-        equals.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-        continue;
-      }
-      ss = item.trim().split("<=");
-      if (ss.length == 2) {
-        smalls.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-        equals.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-        continue;
-      }
-      ss = item.split("==");
-      if (ss.length == 2) {
-        equals.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-        continue;
-      }
-      ss = item.trim().split(">");
-      if (ss.length == 2) {
-        larges.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-        continue;
-      }
-      ss = item.split("<");
-      if (ss.length == 2) smalls.put(Utils.wildcardToPattern(ss[0].trim()), ss[1].trim());
-    }
-    if (larges.isEmpty() && equals.isEmpty() && smalls.isEmpty()) return Optional.empty();
-    return Optional.of(
-        item ->
-            item.entrySet().stream()
-                .anyMatch(
-                    e -> {
-                      if (e.getValue() instanceof Number) {
-                        var value = ((Number) e.getValue()).longValue();
-                        if (larges.entrySet().stream()
-                            .anyMatch(
-                                large ->
-                                    large.getKey().matcher(e.getKey()).matches()
-                                        && value > Long.parseLong(large.getValue()))) return true;
-                        if (equals.entrySet().stream()
-                            .anyMatch(
-                                equal ->
-                                    equal.getKey().matcher(e.getKey()).matches()
-                                        && value == Long.parseLong(equal.getValue()))) return true;
-                        if (smalls.entrySet().stream()
-                            .anyMatch(
-                                small ->
-                                    small.getKey().matcher(e.getKey()).matches()
-                                        && value < Long.parseLong(small.getValue()))) return true;
-                      }
-
-                      if (e.getValue() instanceof DataSize) {
-                        var size = ((DataSize) e.getValue());
-                        if (larges.entrySet().stream()
-                            .anyMatch(
-                                large ->
-                                    large.getKey().matcher(e.getKey()).matches()
-                                        && size.greaterThan(
-                                            new DataSize.Field().convert(large.getValue()))))
-                          return true;
-                        if (equals.entrySet().stream()
-                            .anyMatch(
-                                equal ->
-                                    equal.getKey().matcher(e.getKey()).matches()
-                                        && size.equals(
-                                            new DataSize.Field().convert(equal.getValue()))))
-                          return true;
-                        if (smalls.entrySet().stream()
-                            .anyMatch(
-                                small ->
-                                    small.getKey().matcher(e.getKey()).matches()
-                                        && size.smallerThan(
-                                            new DataSize.Field().convert(small.getValue()))))
-                          return true;
-                      }
-
-                      if (e.getValue() instanceof LocalDateTime) {
-                        var time = ((LocalDateTime) e.getValue());
-                        if (larges.entrySet().stream()
-                            .anyMatch(
-                                large ->
-                                    large.getKey().matcher(e.getKey()).matches()
-                                        && time.compareTo(LocalDateTime.parse(large.getValue()))
-                                            > 0)) return true;
-                        if (equals.entrySet().stream()
-                            .anyMatch(
-                                equal ->
-                                    equal.getKey().matcher(e.getKey()).matches()
-                                        && time.compareTo(LocalDateTime.parse(equal.getValue()))
-                                            == 0)) return true;
-                        if (smalls.entrySet().stream()
-                            .anyMatch(
-                                small ->
-                                    small.getKey().matcher(e.getKey()).matches()
-                                        && time.compareTo(LocalDateTime.parse(small.getValue()))
-                                            < 0)) return true;
-                      }
-                      return false;
-                    }));
-  }
-
-  private static Optional<Predicate<Map<String, Object>>> forNonexistent(String text) {
-    var patterns =
-        Arrays.stream(text.split(OR_KEY))
-            // this is number comparison
-            .filter(item -> !item.contains("=="))
-            .flatMap(
-                item -> {
-                  var string = item.trim();
-                  var ss = string.split("=");
-                  if (ss.length == 1 && string.endsWith("="))
-                    return Stream.of(
-                        Utils.wildcardToPattern(string.substring(0, string.length() - 1)));
-                  return Stream.of();
-                })
-            .collect(Collectors.toList());
-    if (patterns.isEmpty()) return Optional.empty();
-    return Optional.of(
-        item ->
-            !patterns.stream()
-                .allMatch(
-                    p ->
-                        item.entrySet().stream()
-                            .anyMatch(
-                                entry ->
-                                    p.matcher(entry.getKey()).matches()
-                                        && !entry.getValue().toString().isBlank())));
-  }
-
-  private static Optional<Predicate<Map<String, Object>>> forString(String text) {
-    var patterns =
-        Arrays.stream(text.split(OR_KEY))
-            // this is number comparison
-            .filter(item -> !item.contains("=="))
-            .flatMap(
-                item -> {
-                  var ss = item.trim().split("=");
-                  if (ss.length == 2)
-                    return Stream.of(
-                        Map.entry(
-                            Utils.wildcardToPattern(ss[0].trim()),
-                            Utils.wildcardToPattern(ss[1].trim())));
-                  return Stream.of();
-                })
-            .collect(Collectors.toList());
-    if (patterns.isEmpty()) return Optional.empty();
-    return Optional.of(
-        item ->
-            item.entrySet().stream()
-                .anyMatch(
-                    entry ->
-                        patterns.stream()
-                            .anyMatch(
-                                ptns ->
-                                    ptns.getKey().matcher(entry.getKey()).matches()
-                                        && ptns.getValue()
-                                            .matcher(entry.getValue().toString())
-                                            .matches())));
   }
 }

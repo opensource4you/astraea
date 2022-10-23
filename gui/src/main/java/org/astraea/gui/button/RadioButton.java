@@ -36,6 +36,7 @@ public class RadioButton extends javafx.scene.control.RadioButton {
                   return button;
                 })
             .collect(Collectors.toList());
+
     buttons.get(0).setSelected(true);
     return buttons;
   }

@@ -19,11 +19,18 @@ package org.astraea.gui.text;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import javafx.application.Platform;
 import org.astraea.common.Utils;
 
 public class TextArea extends javafx.scene.control.TextArea {
+
+  public static TextArea placeholder(String content) {
+    var text = new TextArea();
+    text.setPromptText(content);
+    return text;
+  }
 
   public static TextArea of() {
     return new TextArea();
@@ -76,5 +83,9 @@ public class TextArea extends javafx.scene.control.TextArea {
     return LocalDateTime.ofInstant(
             Instant.ofEpochMilli(System.currentTimeMillis()), ZoneId.systemDefault())
         .toString();
+  }
+
+  public Optional<String> text() {
+    return Optional.ofNullable(getText()).filter(r -> !r.isBlank());
   }
 }
