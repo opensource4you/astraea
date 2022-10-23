@@ -28,16 +28,16 @@ import java.util.stream.Collectors;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
-import org.astraea.gui.Queries;
+import org.astraea.gui.Query;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
 import org.astraea.gui.button.RadioButton;
-import org.astraea.gui.button.SelectButton;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.Label;
 import org.astraea.gui.text.TextArea;
@@ -111,45 +111,27 @@ public class PaneBuilder {
   public PaneBuilder buttonAction(
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
-    var selectBox = SelectButton.withScroll();
     var queryField =
         TextField.builder().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
     var sizeLabel = Label.of("");
 
     tableViewer =
         TableViewer.builder()
-            .rowFilter(
-                item -> {
-                  try {
-                    return queryField.text().map(t -> Queries.predicate(t).test(item)).orElse(true);
-                  } catch (Exception e) {
-                    console.text(e);
-                    return true;
-                  }
-                })
-            .columnFilter(name -> selectBox.selectedContent().contains(name))
-            .filteredDataListener(List.of(data -> sizeLabel.text("total: " + data.size())))
-            .dataListener(
-                List.of(
-                    data ->
-                        selectBox.set(
-                            data.stream()
-                                .flatMap(e -> e.keySet().stream())
-                                .distinct()
-                                .collect(Collectors.toList()))))
+            .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
+            .filteredDataListener(
+                List.of((ignored, data) -> sizeLabel.text("total: " + data.size())))
             .build();
+
+    queryField.setOnKeyPressed(
+        key -> {
+          if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
+        });
+
     var borderPane = new BorderPane();
     borderPane.setTop(queryField);
     borderPane.setCenter(tableViewer.node());
-    borderPane.setLeft(
-        VBox.of(
-            Pos.TOP_CENTER,
-            HBox.of(
-                Pos.CENTER,
-                Button.of("all", ignored -> selectBox.makeAllSelected()),
-                Button.of("none", ignored -> selectBox.makeAllUnselected())),
-            selectBox.node()));
     borderPane.setBottom(sizeLabel);
+    BorderPane.setAlignment(sizeLabel, Pos.CENTER);
     motherOfTableView = borderPane;
     return this;
   }

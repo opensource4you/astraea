@@ -22,8 +22,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -37,6 +38,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import org.astraea.common.MapUtils;
+import org.astraea.gui.Query;
 
 public interface TableViewer {
 
@@ -49,8 +51,6 @@ public interface TableViewer {
   Node node();
 
   void data(List<Map<String, Object>> data);
-
-  List<Map<String, Object>> data();
 
   List<Map<String, Object>> filteredData();
 
@@ -109,31 +109,20 @@ public interface TableViewer {
 
   class Builder {
 
-    private List<Consumer<List<Map<String, Object>>>> dataListener = List.of();
-    private List<Consumer<List<Map<String, Object>>>> filteredDataListener = List.of();
-    private Predicate<Map<String, Object>> rowFilter = ignored -> true;
-    private Predicate<String> columnFilter = ignored -> true;
+    private List<BiConsumer<Set<String>, List<Map<String, Object>>>> filteredDataListener =
+        List.of();
+    private Supplier<Query> querySupplier = () -> Query.ALL;
 
     private Builder() {}
 
-    public Builder dataListener(List<Consumer<List<Map<String, Object>>>> dataListener) {
-      this.dataListener = dataListener;
-      return this;
-    }
-
     public Builder filteredDataListener(
-        List<Consumer<List<Map<String, Object>>>> filteredDataListener) {
+        List<BiConsumer<Set<String>, List<Map<String, Object>>>> filteredDataListener) {
       this.filteredDataListener = filteredDataListener;
       return this;
     }
 
-    public Builder rowFilter(Predicate<Map<String, Object>> rowFilter) {
-      this.rowFilter = rowFilter;
-      return this;
-    }
-
-    public Builder columnFilter(Predicate<String> columnFilter) {
-      this.columnFilter = columnFilter;
+    public Builder querySupplier(Supplier<Query> querySupplier) {
+      this.querySupplier = querySupplier;
       return this;
     }
 
@@ -141,10 +130,15 @@ public interface TableViewer {
       var table = new javafx.scene.control.TableView<Map<String, Object>>();
       table.getSelectionModel().setCellSelectionEnabled(true);
       table.setOnKeyPressed(new CopyableEvent());
-      var dataListener = List.copyOf(Builder.this.dataListener);
       var filteredDataListener = List.copyOf(Builder.this.filteredDataListener);
-      var rowFilter = Builder.this.rowFilter;
-      var columnFilter = Builder.this.columnFilter;
+
+      Function<List<Map<String, Object>>, Set<String>> toKey =
+          data ->
+              data.stream()
+                  .map(Map::keySet)
+                  .sorted(Comparator.comparingInt((Set<String> o) -> o.size()).reversed())
+                  .flatMap(Collection::stream)
+                  .collect(Collectors.toCollection(LinkedHashSet::new));
 
       return new TableViewer() {
         private volatile List<Map<String, Object>> data = List.of();
@@ -152,18 +146,35 @@ public interface TableViewer {
 
         @Override
         public void refresh() {
+          var query = querySupplier.get();
           List<Map<String, Object>> result =
               data.stream()
-                  .filter(rowFilter)
+                  .filter(query::required)
                   .map(
-                      item ->
-                          item.entrySet().stream()
-                              .filter(e -> columnFilter.test(e.getKey()))
-                              .collect(
-                                  MapUtils.toLinkedHashMap(Map.Entry::getKey, Map.Entry::getValue)))
+                      item -> {
+                        var requiredKeys = new LinkedHashSet<String>();
+                        item.keySet().stream().findFirst().ifPresent(requiredKeys::add);
+                        item.keySet().stream()
+                            .skip(0)
+                            .filter(query::required)
+                            .forEach(requiredKeys::add);
+                        item.keySet().stream()
+                            .filter(k -> !query.required(k))
+                            .forEach(requiredKeys::add);
+                        return requiredKeys.stream()
+                            .collect(MapUtils.toLinkedHashMap(k -> k, item::get));
+                      })
                   .collect(Collectors.toUnmodifiableList());
           filteredData = result;
-          filteredDataListener.forEach(c -> c.accept(filteredData));
+          filteredDataListener.forEach(c -> c.accept(toKey.apply(filteredData), filteredData));
+          var sortName =
+              table.getSortOrder().isEmpty()
+                  ? result.isEmpty() ? null : result.get(0).entrySet().iterator().next().getKey()
+                  : table.getSortOrder().get(0).getText();
+          var sortType =
+              table.getSortOrder().isEmpty()
+                  ? TableColumn.SortType.ASCENDING
+                  : table.getSortOrder().get(0).getSortType();
           var columns =
               result.stream()
                   .map(Map::keySet)
@@ -181,15 +192,22 @@ public interface TableViewer {
                         return col;
                       })
                   .collect(Collectors.toUnmodifiableList());
-          if (Platform.isFxApplicationThread()) {
-            table.getColumns().setAll(columns);
-            table.getItems().setAll(result);
-          } else
-            Platform.runLater(
-                () -> {
-                  table.getColumns().setAll(columns);
-                  table.getItems().setAll(result);
-                });
+          Runnable updater =
+              () -> {
+                table.getColumns().setAll(columns);
+                table.getItems().setAll(result);
+                columns.stream()
+                    .filter(c -> sortName != null && c.getText().equals(sortName))
+                    .findFirst()
+                    .ifPresent(
+                        c -> {
+                          table.getSortOrder().add(c);
+                          c.setSortType(sortType);
+                          c.setSortable(true);
+                        });
+              };
+          if (Platform.isFxApplicationThread()) updater.run();
+          else Platform.runLater(updater);
         }
 
         @Override
@@ -200,13 +218,7 @@ public interface TableViewer {
         @Override
         public void data(List<Map<String, Object>> data) {
           this.data = List.copyOf(data);
-          dataListener.forEach(c -> c.accept(this.data));
           refresh();
-        }
-
-        @Override
-        public List<Map<String, Object>> data() {
-          return data;
         }
 
         @Override

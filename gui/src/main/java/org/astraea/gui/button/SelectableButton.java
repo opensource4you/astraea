@@ -16,6 +16,8 @@
  */
 package org.astraea.gui.button;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -26,14 +28,19 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.input.KeyCode;
+import org.astraea.common.Utils;
+import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
+import org.astraea.gui.text.TextField;
 
-public interface SelectButton {
+public interface SelectableButton {
 
-  static SelectButton withScroll() {
+  static SelectableButton withScroll() {
     var pane = new ScrollPane();
     pane.setPrefWidth(150);
-    return new SelectButton() {
+    pane.setPrefWidth(300);
+    return new SelectableButton() {
       private final Set<String> selectedValues = Collections.synchronizedSet(new HashSet<>());
 
       private volatile List<CheckBox> boxes = List.of();
@@ -44,7 +51,7 @@ public interface SelectButton {
       }
 
       @Override
-      public void set(List<String> names) {
+      public void set(Collection<String> names) {
         selectedValues.clear();
         var newBoxes =
             names.stream()
@@ -70,7 +77,28 @@ public interface SelectButton {
                       return box;
                     })
                 .collect(Collectors.toList());
-        var box = VBox.of(Pos.TOP_LEFT, newBoxes.toArray(Node[]::new));
+        var wildcardText = TextField.builder().hint("*thread*").build();
+        wildcardText.setOnKeyPressed(
+            event -> {
+              if (event.getCode() == KeyCode.ENTER) {
+                var context = wildcardText.getText();
+                Runnable action;
+                if (context != null && !context.isBlank()) {
+                  var pattern = Utils.wildcardToPattern(context);
+                  action =
+                      () ->
+                          this.boxes.forEach(
+                              b -> b.setSelected(pattern.matcher(b.getText()).matches()));
+
+                } else action = () -> this.boxes.forEach(b -> b.setSelected(false));
+                if (Platform.isFxApplicationThread()) action.run();
+                else Platform.runLater(action);
+              }
+            });
+        var nodes = new ArrayList<Node>();
+        nodes.add(HBox.of(Pos.TOP_LEFT, wildcardText));
+        nodes.addAll(newBoxes);
+        var box = VBox.of(Pos.TOP_LEFT, nodes.toArray(Node[]::new));
         if (Platform.isFxApplicationThread()) pane.setContent(box);
         else Platform.runLater(() -> pane.setContent(box));
         this.boxes = newBoxes;
@@ -92,7 +120,7 @@ public interface SelectButton {
 
   Set<String> selectedContent();
 
-  void set(List<String> names);
+  void set(Collection<String> names);
 
   void makeAllSelected();
 
