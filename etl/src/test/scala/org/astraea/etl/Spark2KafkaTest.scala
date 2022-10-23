@@ -20,11 +20,17 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.astraea.common.admin.AsyncAdmin
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.{generateCSVF, mkdir}
-import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
+import org.astraea.etl.Spark2KafkaTest.{
+  COL_NAMES,
+  complete,
+  rows,
+  sinkD,
+  source
+}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
-import org.junit.jupiter.api.{BeforeAll, Test}
+import org.junit.jupiter.api.Test
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
@@ -36,12 +42,16 @@ import scala.collection.convert.ImplicitConversions.{
   `collection AsScalaIterable`,
   `collection asJava`
 }
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class Spark2KafkaTest extends RequireBrokerCluster {
   @Test
   def consumerDataTest(): Unit = {
+    Await.ready(complete, Duration.Inf)
+
     val topic = new util.HashSet[String]
     topic.add("testTopic")
 
@@ -70,6 +80,8 @@ class Spark2KafkaTest extends RequireBrokerCluster {
 
   @Test
   def topicCheckTest(): Unit = {
+    Await.ready(complete, Duration.Inf)
+
     val TOPIC = "testTopic"
     Utils.Using(AsyncAdmin.of(bootstrapServers())) { admin =>
       assertEquals(
@@ -102,6 +114,8 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   }
 
   @Test def archive(): Unit = {
+    Await.ready(complete, Duration.Inf)
+
     Thread.sleep(Duration(10, TimeUnit.SECONDS).toMillis)
     Range
       .inclusive(0, 4)
@@ -142,9 +156,9 @@ object Spark2KafkaTest extends RequireBrokerCluster {
   private val sinkD: String = tempPath + "/sink"
   private val COL_NAMES =
     "ID=integer,FirstName=string,SecondName=string,Age=integer"
+  private val complete = setup()
 
-  @BeforeAll
-  def setup(): Unit = {
+  def setup(): Future[Boolean] = {
     val myDir = mkdir(tempPath)
     val sourceDir = mkdir(tempPath + "/source")
     val sinkDir = mkdir(sinkD)
@@ -159,6 +173,9 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       Array(myPropDir.toString),
       Duration(20, TimeUnit.SECONDS)
     )
+    Future {
+      true
+    }
   }
 
   private def writeProperties(
@@ -178,7 +195,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
     val DEPLOYMENT_MODEL = "deployment.model"
 
     Utils.Using(new FileOutputStream(file)) { fileOut =>
-      val properties = new Properties();
+      val properties = new Properties()
       properties.setProperty(SOURCE_PATH, sourcePath)
       properties.setProperty(SINK_PATH, sinkPath)
       properties.setProperty(

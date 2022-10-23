@@ -21,6 +21,7 @@ import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
@@ -29,17 +30,19 @@ object Spark2Kafka {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
       val eventualBoolean = createTopic(admin, metaData)
-      val df = Reader
-        .of()
-        .spark(metaData.deploymentModel)
-        .schema(createSchema(metaData.column))
-        .sinkPath(metaData.sinkPath.getPath)
-        .primaryKeys(metaData.primaryKeys.keys.toSeq)
-        .readCSV(metaData.sourcePath.getPath)
-        .csvToJSON(metaData.primaryKeys.keys.toSeq)
+      Await.result(eventualBoolean, Duration.Inf)
 
       eventualBoolean.onComplete {
         case Success(_) =>
+          val df = Reader
+            .of()
+            .spark(metaData.deploymentModel)
+            .schema(createSchema(metaData.column))
+            .sinkPath(metaData.sinkPath.getPath)
+            .primaryKeys(metaData.primaryKeys.keys.toSeq)
+            .readCSV(metaData.sourcePath.getPath)
+            .csvToJSON(metaData.primaryKeys.keys.toSeq)
+
           Writer
             .of()
             .dataFrameOp(df)
