@@ -78,8 +78,4 @@ public class TextArea extends javafx.scene.control.TextArea {
             Instant.ofEpochMilli(System.currentTimeMillis()), ZoneId.systemDefault())
         .toString();
   }
-
-  public Optional<String> text() {
-    return Optional.ofNullable(getText()).filter(r -> !r.isBlank());
-  }
 }
