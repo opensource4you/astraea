@@ -22,7 +22,7 @@ import org.astraea.etl.Metadata.{
   requireNonidentical,
   requirePair
 }
-import org.junit.jupiter.api.Assertions.{assertThrows, assertTrue}
+import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.{BeforeEach, Test}
 
 import java.io.{File, FileOutputStream}
@@ -42,20 +42,21 @@ class MetadataTest {
 
   @Test def defaultTest(): Unit = {
     val config = Metadata(Utils.requireFile(file.getAbsolutePath))
-    assertTrue(config.sourcePath.equals(new File(file.getParent)))
-    assertTrue(config.sinkPath.equals(new File(file.getParent)))
-    assertTrue(
-      config.column equals Map(
+    assertEquals(config.sourcePath, new File(file.getParent))
+    assertEquals(config.sinkPath, new File(file.getParent))
+    assertEquals(
+      config.column,
+      Map(
         "ID" -> StringType,
         "KA" -> StringType,
         "KB" -> StringType,
         "KC" -> StringType
       )
     )
-    assertTrue(config.primaryKeys equals Map("ID" -> StringType))
-    assertTrue(config.kafkaBootstrapServers.equals("0.0.0.0"))
-    assertTrue(config.numPartitions.equals(15))
-    assertTrue(config.numReplicas.equals(1.toShort))
+    assertEquals(config.primaryKeys, Map("ID" -> StringType))
+    assertEquals(config.kafkaBootstrapServers, "0.0.0.0")
+    assertEquals(config.numPartitions, 15)
+    assertEquals(config.numReplicas, 1.toShort)
     assertTrue(config.topicName.nonEmpty)
     assertTrue(config.topicConfig.isEmpty)
   }
@@ -90,22 +91,19 @@ class MetadataTest {
   }
 
   @Test def requireNonidenticalTest(): Unit = {
-    val map = Map[String, String]("data" -> "ID,KA,KB,KC,ID")
     assertThrows(
       classOf[IllegalArgumentException],
-      () => requireNonidentical("data", map)
+      () => requireNonidentical("data", "ID,KA,KB,KC,ID")
     )
   }
 
   @Test def primaryKeysParseTest(): Unit = {
-    val map =
-      Map[String, String]("data" -> "ID,KA,KB,KC", "primary=keys" -> "DD")
     assertThrows(
       classOf[IllegalArgumentException],
       () =>
         primaryKeyParse(
-          map,
-          DataType.of(requireNonidentical("data", map))
+          "DD",
+          DataType.of(requireNonidentical("data", "ID,KA,KB,KC"))
         )
     )
   }
@@ -116,14 +114,11 @@ class MetadataTest {
   }
 
   @Test def columnParseTest(): Unit = {
-    val map =
-      Map[String, String]("data" -> "ID=string,KA=string,KB=string,KC=integer")
-    Metadata.columnParse("data", map)
-    val error =
-      Map[String, String]("data" -> "ID=string,KA=string,KB=string,KC=intege")
+    Metadata.columnParse("data", "ID=string,KA=string,KB=string,KC=integer")
     assertThrows(
       classOf[IllegalArgumentException],
-      () => Metadata.columnParse("data", error)
+      () =>
+        Metadata.columnParse("data", "ID=string,KA=string,KB=string,KC=intege")
     )
   }
 
@@ -135,10 +130,9 @@ class MetadataTest {
   }
 
   @Test def requireDeployModeTest(): Unit = {
-    val deploy = Map[String, String]("deployment.model" -> "local")
     assertThrows(
       classOf[IllegalArgumentException],
-      () => Metadata.requireDeployMode("deployment.model", deploy)
+      () => Metadata.requireDeployMode("deployment.model", "local")
     )
   }
 

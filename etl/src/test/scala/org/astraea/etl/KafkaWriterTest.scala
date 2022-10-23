@@ -83,18 +83,19 @@ class KafkaWriterTest extends RequireBrokerCluster {
 
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        val partition = Metadata(
-          new File(""),
-          new File(""),
-          Map.empty,
-          Map.empty,
-          bootstrapServers(),
-          TOPIC,
-          2,
-          2,
-          Map("compression.type" -> "gzip"),
-          "local[2]"
-        )
+        val partition = Metadata
+          .of()
+          .deploymentMode("local[2]")
+          .sourcePath(new File(""))
+          .sinkPath(new File(""))
+          .columns(Map.empty)
+          .primaryKey(Map.empty)
+          .kafkaBootstrapServers(bootstrapServers())
+          .topicName(TOPIC)
+          .numPartitions(2)
+          .numReplicas(2)
+          .topicConfig(Map("compression.type" -> "gzip"))
+
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
         assertInstanceOf(
           classOf[IllegalArgumentException],
@@ -108,18 +109,18 @@ class KafkaWriterTest extends RequireBrokerCluster {
           ).getCause
         )
 
-        val replica = Metadata(
-          new File(""),
-          new File(""),
-          Map.empty,
-          Map.empty,
-          bootstrapServers(),
-          TOPIC,
-          10,
-          1,
-          Map("compression.type" -> "gzip"),
-          "local[2]"
-        )
+        val replica = Metadata
+          .of()
+          .deploymentMode("local[2]")
+          .sourcePath(new File(""))
+          .sinkPath(new File(""))
+          .columns(Map.empty)
+          .primaryKey(Map.empty)
+          .kafkaBootstrapServers(bootstrapServers())
+          .topicName(TOPIC)
+          .numPartitions(10)
+          .numReplicas(1)
+          .topicConfig(Map("compression.type" -> "gzip"))
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
@@ -133,18 +134,18 @@ class KafkaWriterTest extends RequireBrokerCluster {
           ).getCause
         )
 
-        val config = Metadata(
-          new File(""),
-          new File(""),
-          Map.empty,
-          Map.empty,
-          bootstrapServers(),
-          TOPIC,
-          10,
-          1,
-          Map("compression.type" -> "lz4"),
-          "local[2]"
-        )
+        val config = Metadata
+          .of()
+          .deploymentMode("local[2]")
+          .sourcePath(new File(""))
+          .sinkPath(new File(""))
+          .columns(Map.empty)
+          .primaryKey(Map.empty)
+          .kafkaBootstrapServers(bootstrapServers())
+          .topicName(TOPIC)
+          .numPartitions(10)
+          .numReplicas(2)
+          .topicConfig(Map("compression.type" -> "lz4"))
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
@@ -165,19 +166,18 @@ class KafkaWriterTest extends RequireBrokerCluster {
       asyncAdmin: AsyncAdmin,
       TOPIC: String
   ): Future[java.lang.Boolean] = {
-    val config = Map("compression.type" -> "gzip")
-    val metadata = Metadata(
-      new File(""),
-      new File(""),
-      Map.empty,
-      Map.empty,
-      bootstrapServers(),
-      TOPIC,
-      10,
-      2,
-      config,
-      "local[2]"
-    )
+    val metadata = Metadata
+      .of()
+      .deploymentMode("local[2]")
+      .sourcePath(new File(""))
+      .sinkPath(new File(""))
+      .columns(Map.empty)
+      .primaryKey(Map.empty)
+      .kafkaBootstrapServers(bootstrapServers())
+      .topicName(TOPIC)
+      .numPartitions(10)
+      .numReplicas(2)
+      .topicConfig(Map("compression.type" -> "gzip"))
     KafkaWriter.createTopic(asyncAdmin, metadata)
   }
 }
