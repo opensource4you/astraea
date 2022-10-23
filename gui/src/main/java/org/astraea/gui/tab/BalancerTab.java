@@ -18,14 +18,15 @@ package org.astraea.gui.tab;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
@@ -45,6 +46,10 @@ public class BalancerTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
+  private static final String PREVIOUS_LEADER_KEY = "previous leader";
+  private static final String NEW_LEADER_KEY = "new leader";
+  private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
+  private static final String NEW_FOLLOWER_KEY = "new follower";
   private static final String NEW_ASSIGNMENT_KEY = "new assignments";
 
   private enum Cost {
@@ -72,20 +77,36 @@ public class BalancerTab {
             ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
         .stream()
         .map(
-            tp ->
-                MapUtils.<String, Object>of(
-                    TOPIC_NAME_KEY,
-                    tp.topic(),
-                    PARTITION_KEY,
-                    tp.partition(),
-                    "old assignments",
-                    clusterInfo.replicas(tp).stream()
-                        .map(r -> r.nodeInfo().id() + ":" + r.path())
-                        .collect(Collectors.joining(",")),
-                    NEW_ASSIGNMENT_KEY,
-                    plan.proposal().rebalancePlan().logPlacements(tp).stream()
-                        .map(r -> r.nodeInfo().id() + ":" + r.path())
-                        .collect(Collectors.joining(","))))
+            tp -> {
+              var previousAssignments = clusterInfo.replicas(tp);
+              var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
+              var result = new LinkedHashMap<String, Object>();
+              result.put(TOPIC_NAME_KEY, tp.topic());
+              result.put(PARTITION_KEY, tp.partition());
+              previousAssignments.stream()
+                  .filter(ReplicaInfo::isLeader)
+                  .findFirst()
+                  .ifPresent(
+                      r -> result.put(PREVIOUS_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
+              newAssignments.stream()
+                  .filter(ReplicaInfo::isLeader)
+                  .findFirst()
+                  .ifPresent(r -> result.put(NEW_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
+              var previousFollowers =
+                  previousAssignments.stream()
+                      .filter(r -> !r.isLeader())
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(","));
+              var newFollowers =
+                  newAssignments.stream()
+                      .filter(r -> !r.isLeader())
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(","));
+              if (!previousFollowers.isBlank())
+                result.put(PREVIOUS_FOLLOWER_KEY, previousFollowers);
+              if (!newFollowers.isBlank()) result.put(NEW_FOLLOWER_KEY, newFollowers);
+              return result;
+            })
         .collect(Collectors.toList());
   }
 
