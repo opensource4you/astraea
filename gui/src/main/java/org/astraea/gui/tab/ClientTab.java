@@ -36,6 +36,7 @@ import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
@@ -49,10 +50,7 @@ public class ClientTab {
       List<ConsumerGroup> cgs, List<Partition> partitions, Input input) {
     var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
     return cgs.stream()
-        .filter(
-            cg ->
-                !input.multiSelectedRadios(List.<String>of()).contains(ACTIVE_KEY)
-                    || !cg.assignment().isEmpty())
+        .filter(cg -> !input.selectedKeys().contains(ACTIVE_KEY) || !cg.assignment().isEmpty())
         .flatMap(
             cg ->
                 Stream.concat(
@@ -94,7 +92,7 @@ public class ClientTab {
     return Tab.of(
         "consumer",
         PaneBuilder.of()
-            .multiRadioButtons(List.of(ACTIVE_KEY))
+            .selectBox(SelectBox.single(List.of(ACTIVE_KEY)))
             .buttonAction(
                 (input, logger) ->
                     FutureUtils.combine(

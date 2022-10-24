@@ -18,14 +18,17 @@ package org.astraea.gui.pane;
 
 import java.util.Map;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import org.astraea.gui.box.ComboBox;
+import javafx.scene.control.ComboBox;
 
 public class BorderPane extends javafx.scene.layout.BorderPane {
 
   public static BorderPane selectableTop(Map<String, Node> topAndCenter) {
-    var box = ComboBox.strings(topAndCenter.keySet());
+    var box =
+        new ComboBox<>(
+            FXCollections.observableArrayList(topAndCenter.keySet().toArray(String[]::new)));
     var pane = new BorderPane();
     BorderPane.setAlignment(box, Pos.CENTER);
     pane.setTop(box);
