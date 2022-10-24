@@ -24,21 +24,21 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
-import org.astraea.common.Utils;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
+import org.astraea.gui.Query;
 import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
 import org.astraea.gui.button.RadioButton;
-import org.astraea.gui.table.TableView;
+import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.Label;
 import org.astraea.gui.text.TextArea;
 import org.astraea.gui.text.TextField;
@@ -56,12 +56,12 @@ public class PaneBuilder {
 
   private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
 
-  private Label searchLabel = null;
-  private TextField searchField = null;
+  private Button actionButton = Button.of("REFRESH");
 
-  private Button actionButton = Button.of("SEARCH");
+  private final TextArea console = TextArea.of();
 
-  private TableView tableView = null;
+  private TableViewer tableViewer = null;
+  private Node motherOfTableView = null;
 
   private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
   private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
@@ -103,12 +103,6 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder searchField(String hint, String example) {
-    searchLabel = Label.of(hint);
-    searchField = TextField.builder().hint(example).build();
-    return this;
-  }
-
   public PaneBuilder buttonName(String name) {
     actionButton = Button.of(name);
     return this;
@@ -117,19 +111,34 @@ public class PaneBuilder {
   public PaneBuilder buttonAction(
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
-    if (tableView == null) tableView = TableView.copyable();
+    var queryField =
+        TextField.builder().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
+    var sizeLabel = Label.of("");
+
+    tableViewer =
+        TableViewer.builder()
+            .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
+            .filteredDataListener(
+                List.of((ignored, data) -> sizeLabel.text("total: " + data.size())))
+            .build();
+
+    queryField.setOnKeyPressed(
+        key -> {
+          if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
+        });
+
+    var borderPane = new BorderPane();
+    borderPane.setTop(queryField);
+    borderPane.setCenter(tableViewer.node());
+    borderPane.setBottom(sizeLabel);
+    BorderPane.setAlignment(sizeLabel, Pos.CENTER);
+    motherOfTableView = borderPane;
     return this;
   }
 
   public PaneBuilder buttonListener(
       BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
     this.buttonListener = buttonListener;
-    return this;
-  }
-
-  public PaneBuilder initTableView(List<Map<String, Object>> data) {
-    if (tableView == null) tableView = TableView.copyable();
-    tableView.update(data);
     return this;
   }
 
@@ -155,15 +164,10 @@ public class PaneBuilder {
               : GridPane.of(inputKeyAndFields, 3);
       nodes.add(gridPane);
     }
-    if (searchLabel != null && searchField != null)
-      nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
-    else nodes.add(actionButton);
-    var console = TextArea.of();
-    Logger logger = console::append;
-    if (tableView != null) nodes.add(tableView);
-
+    nodes.add(actionButton);
+    if (motherOfTableView != null) nodes.add(motherOfTableView);
     // ---------------------------------[second control layout]---------------------------------//
-    if (tableView != null && tableViewAction != null) {
+    if (tableViewer != null && tableViewAction != null) {
       var checkbox = new CheckBox("enable");
       checkbox
           .selectedProperty()
@@ -179,7 +183,7 @@ public class PaneBuilder {
               });
       tableViewActionButton.setOnAction(
           event -> {
-            var items = tableView.items();
+            var items = tableViewer.filteredData();
             var input =
                 secondInputKeyAndFields.entrySet().stream()
                     .flatMap(e -> e.getValue().text().stream().map(v -> Map.entry(e.getKey(), v)))
@@ -187,7 +191,7 @@ public class PaneBuilder {
             try {
               checkbox.setSelected(false);
               tableViewAction
-                  .apply(items, input, logger)
+                  .apply(items, input, console::append)
                   .whenComplete((data, e) -> console.text(e));
             } catch (Exception e) {
               console.text(e);
@@ -223,13 +227,6 @@ public class PaneBuilder {
             return;
           }
 
-          var searchPatterns =
-              searchField == null
-                  ? List.<Pattern>of()
-                  : Arrays.stream(searchField.getText().split(","))
-                      .filter(s -> !s.isBlank())
-                      .map(Utils::wildcardToPattern)
-                      .collect(Collectors.toList());
           var rawTexts =
               inputKeyAndFields.entrySet().stream()
                   .collect(Collectors.toMap(e -> e.getKey().key(), e -> e.getValue().text()));
@@ -245,12 +242,6 @@ public class PaneBuilder {
                 public Map<String, Optional<String>> texts() {
                   return rawTexts;
                 }
-
-                @Override
-                public boolean matchSearch(String word) {
-                  return searchPatterns.isEmpty()
-                      || searchPatterns.stream().anyMatch(p -> p.matcher(word).matches());
-                }
               };
 
           // nothing to do
@@ -261,11 +252,11 @@ public class PaneBuilder {
           try {
             if (buttonAction != null)
               buttonAction
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
-                          if (data != null) tableView.update(data);
+                          if (data != null && tableViewer != null) tableViewer.data(data);
                           console.text(e);
                         } finally {
                           actionButton.enable();
@@ -273,7 +264,7 @@ public class PaneBuilder {
                       });
             if (buttonListener != null)
               buttonListener
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
@@ -290,13 +281,6 @@ public class PaneBuilder {
         };
 
     actionButton.setOnAction(ignored -> handler.run());
-    // there is only one text field, so we register the ENTER event.
-    if (inputKeyAndFields.isEmpty() && searchField != null)
-      searchField.setOnKeyPressed(
-          event -> {
-            if (event.getCode().equals(KeyCode.ENTER)) handler.run();
-          });
-
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
   }
 }

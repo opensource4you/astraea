@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -60,7 +61,6 @@ public class TopicTab {
         "metrics",
         PaneBuilder.of()
             .singleRadioButtons(ServerMetrics.Topic.values())
-            .searchField("topic name", "topic-*,*abc*")
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
@@ -73,10 +73,7 @@ public class TopicTab {
                                   .collect(
                                       MapUtils.toSortedMap(
                                           Map.Entry::getKey,
-                                          entry ->
-                                              metric.fetch(entry.getValue()).stream()
-                                                  .filter(m -> input.matchSearch(m.topic()))
-                                                  .collect(Collectors.toList())));
+                                          entry -> metric.fetch(entry.getValue())));
                           var topics =
                               nodeMeters.values().stream()
                                   .flatMap(Collection::stream)
@@ -117,7 +114,6 @@ public class TopicTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .searchField("config key", "*policy*")
             .buttonAction(
                 (input, logger) ->
                     context
@@ -133,12 +129,7 @@ public class TopicTab {
                                         e -> {
                                           var map = new LinkedHashMap<String, Object>();
                                           map.put("topic", e.getKey());
-                                          e.getValue().raw().entrySet().stream()
-                                              .filter(entry -> input.matchSearch(entry.getKey()))
-                                              .sorted(Map.Entry.comparingByKey())
-                                              .forEach(
-                                                  entry ->
-                                                      map.put(entry.getKey(), entry.getValue()));
+                                          map.putAll(new TreeMap<>(e.getValue().raw()));
                                           return map;
                                         })
                                     .collect(Collectors.toList())))
@@ -151,7 +142,6 @@ public class TopicTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .searchField("topic name", "topic-*,*abc*")
             .multiRadioButtons(List.of(includeInternal, includeTimestampOfRecord))
             .tableViewAction(
                 Map.of(),
@@ -196,11 +186,6 @@ public class TopicTab {
                         .admin()
                         .topicNames(
                             input.multiSelectedRadios(List.<String>of()).contains(includeInternal))
-                        .thenApply(
-                            topics ->
-                                topics.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(
                             topics ->
                                 FutureUtils.combine(

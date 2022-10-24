@@ -46,6 +46,4 @@ public interface Input {
 
   /** @return the input key and value. The value could be empty. */
   Map<String, Optional<String>> texts();
-
-  boolean matchSearch(String word);
 }

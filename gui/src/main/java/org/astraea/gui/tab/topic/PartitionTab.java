@@ -84,7 +84,6 @@ public class PartitionTab {
     return Tab.of(
         "partition",
         PaneBuilder.of()
-            .searchField("topic name", "topic-*,*abc*")
             .multiRadioButtons(List.of(includeInternal))
             .tableViewAction(
                 MapUtils.of(
@@ -172,11 +171,6 @@ public class PartitionTab {
                     context
                         .admin()
                         .topicNames(input.multiSelectedRadios(List.of()).contains(includeInternal))
-                        .thenApply(
-                            names ->
-                                names.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::partitions)
                         .thenApply(PartitionTab::basicResult))
             .build());
