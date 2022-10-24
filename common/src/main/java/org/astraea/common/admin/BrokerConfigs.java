@@ -47,8 +47,6 @@ public final class BrokerConfigs {
   public static final String MAX_CONNECTIONS_PER_IP_CONFIG = "max.connections.per.ip";
   public static final String MAX_CONNECTIONS_PER_IP_OVERRIDES_CONFIG =
       "max.connections.per.ip.overrides";
-  public static final String MAX_CONNECTION_CREATION_RATE_PR_CONFIG =
-      "max.connection.creation.rate";
   public static final String LOG_SEGMENT_BYTES_CONFIG = "log.segment.bytes";
   public static final String LOG_ROLL_TIME_MILLIS_CONFIG = "log.roll.ms";
   public static final String LOG_ROLL_TIME_JITTER_MILLIS_CONFIG = "log.roll.jitter.ms";

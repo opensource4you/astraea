@@ -27,7 +27,7 @@ public interface Config {
   static Config of(org.apache.kafka.clients.admin.Config config) {
     var configs =
         config.entries().stream()
-            .filter(e -> e.value() != null)
+            .filter(e -> e.value() != null && !e.value().isBlank())
             .collect(Collectors.toUnmodifiableMap(ConfigEntry::name, ConfigEntry::value));
     return new Config() {
       @Override
