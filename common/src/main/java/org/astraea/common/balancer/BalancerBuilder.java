@@ -29,9 +29,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.RebalanceAlgorithm;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -47,6 +50,7 @@ public class BalancerBuilder {
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
   private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
+  private Configuration algorithmConfig;
 
   private boolean greedy = false;
 
@@ -159,6 +163,54 @@ public class BalancerBuilder {
   public BalancerBuilder metricSource(Supplier<ClusterBean> metricSource) {
     this.metricSource = metricSource;
     return this;
+  }
+
+  /**
+   * @param configuration for {@link RebalanceAlgorithm}
+   * @return this
+   */
+  public BalancerBuilder config(Configuration configuration) {
+    this.algorithmConfig = configuration;
+    return this;
+  }
+
+  private AlgorithmConfig toConfig() {
+    return new AlgorithmConfig() {
+      @Override
+      public HasClusterCost clusterCostFunction() {
+        return clusterCostFunction;
+      }
+
+      @Override
+      public List<HasMoveCost> moveCostFunctions() {
+        return moveCostFunction;
+      }
+
+      @Override
+      public BiPredicate<ClusterCost, ClusterCost> clusterCostConstraint() {
+        return clusterConstraint;
+      }
+
+      @Override
+      public Predicate<List<MoveCost>> movementConstraint() {
+        return movementConstraint;
+      }
+
+      @Override
+      public Duration executionTime() {
+        return executionTime;
+      }
+
+      @Override
+      public Supplier<ClusterBean> metricSource() {
+        return metricSource;
+      }
+
+      @Override
+      public Configuration algorithmConfig() {
+        return algorithmConfig;
+      }
+    };
   }
 
   /**
