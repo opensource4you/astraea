@@ -29,12 +29,9 @@ object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
-      val eventualBoolean = createTopic(admin, metaData)
-      Await.result(eventualBoolean, Duration.Inf)
-
-      eventualBoolean.onComplete {
-        case Success(_) =>
-          val df = Reader
+      val writeDfFuture = createTopic(admin, metaData)
+        .map(_ =>
+          Reader
             .of()
             .spark(metaData.deploymentModel)
             .schema(createSchema(metaData.column))
@@ -42,7 +39,11 @@ object Spark2Kafka {
             .primaryKeys(metaData.primaryKeys.keys.toSeq)
             .readCSV(metaData.sourcePath.getPath)
             .csvToJSON(metaData.primaryKeys.keys.toSeq)
+        )
+      Await.result(writeDfFuture, Duration.Inf)
 
+      writeDfFuture.onComplete {
+        case Success(df) =>
           Writer
             .of()
             .dataFrameOp(df)
