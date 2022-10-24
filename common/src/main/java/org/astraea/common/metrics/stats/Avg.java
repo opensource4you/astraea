@@ -14,39 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.common.metrics.stats;
 
-import javafx.application.Platform;
+public class Avg implements Stat<Double> {
+  private int counter = 0;
+  private double accumulator = 0.0;
 
-public class Button extends javafx.scene.control.Button {
+  public Avg() {}
 
-  public static Button disabled(String name) {
-    var btn = new Button(name);
-    btn.disable();
-    return btn;
+  @Override
+  public synchronized void record(Double value) {
+    ++counter;
+    accumulator += value;
   }
 
-  public static Button of(String name) {
-    return new Button(name);
-  }
-
-  public static Button of(String name, Runnable action) {
-    var btn = new Button(name);
-    btn.setOnAction(ignored -> action.run());
-    return btn;
-  }
-
-  private Button(String topic) {
-    super(topic);
-  }
-
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
-  }
-
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
+  @Override
+  public synchronized Double measure() {
+    if (counter == 0) throw new RuntimeException("Nothing to measure");
+    return accumulator / counter;
   }
 }

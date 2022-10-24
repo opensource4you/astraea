@@ -34,10 +34,11 @@ import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 public class PartitionTab {
 
@@ -84,14 +85,13 @@ public class PartitionTab {
     return Tab.of(
         "partition",
         PaneBuilder.of()
-            .searchField("topic name", "topic-*,*abc*")
-            .multiRadioButtons(List.of(includeInternal))
+            .selectBox(SelectBox.single(List.of(includeInternal)))
             .tableViewAction(
                 MapUtils.of(
-                    Label.of(moveToKey),
-                    TextField.builder().disable().hint("1001,1002").build(),
-                    Label.of(offsetKey),
-                    TextField.builder().disable().build()),
+                    KeyLabel.of(moveToKey),
+                    TextInput.singleLine().disable().hint("1001,1002").build(),
+                    KeyLabel.of(offsetKey),
+                    TextInput.singleLine().disable().build()),
                 "ALTER",
                 (items, inputs, logger) -> {
                   var partitions =
@@ -171,12 +171,7 @@ public class PartitionTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(input.multiSelectedRadios(List.of()).contains(includeInternal))
-                        .thenApply(
-                            names ->
-                                names.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
+                        .topicNames(input.selectedKeys().contains(includeInternal))
                         .thenCompose(context.admin()::partitions)
                         .thenApply(PartitionTab::basicResult))
             .build());

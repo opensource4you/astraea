@@ -17,31 +17,28 @@
 package org.astraea.gui.pane;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
-import org.astraea.common.Utils;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
-import org.astraea.gui.box.HBox;
+import org.astraea.gui.Query;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
-import org.astraea.gui.button.RadioButton;
-import org.astraea.gui.table.TableView;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextArea;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.button.SelectBox;
+import org.astraea.gui.table.TableViewer;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 /** a template layout for all tabs. */
 public class PaneBuilder {
@@ -52,23 +49,23 @@ public class PaneBuilder {
 
   // ---------------------------------[first control]---------------------------------//
 
-  private List<RadioButton> radioButtons = new ArrayList<>();
+  private SelectBox selectBox;
 
-  private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
+  private final Map<KeyLabel, TextInput> inputKeyAndFields = new LinkedHashMap<>();
 
-  private Label searchLabel = null;
-  private TextField searchField = null;
+  private Button actionButton = Button.of("REFRESH");
 
-  private Button actionButton = Button.of("SEARCH");
+  private final TextInput console = TextInput.multiline().build();
 
-  private TableView tableView = null;
+  private TableViewer tableViewer = null;
+  private Node motherOfTableView = null;
 
   private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
   private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
 
   // ---------------------------------[second control]---------------------------------//
 
-  private final Map<Label, TextField> secondInputKeyAndFields = new LinkedHashMap<>();
+  private final Map<KeyLabel, TextInput> secondInputKeyAndFields = new LinkedHashMap<>();
 
   private Button tableViewActionButton = Button.disabled("EXECUTE");
 
@@ -77,35 +74,18 @@ public class PaneBuilder {
 
   private PaneBuilder() {}
 
-  public PaneBuilder singleRadioButtons(Object[] objs) {
-    return singleRadioButtons(Arrays.asList(objs));
-  }
-
-  public PaneBuilder singleRadioButtons(List<Object> objs) {
-    if (objs.isEmpty()) return this;
-    radioButtons = RadioButton.single(objs);
+  public PaneBuilder selectBox(SelectBox selectBox) {
+    this.selectBox = selectBox;
     return this;
   }
 
-  public PaneBuilder multiRadioButtons(List<Object> objs) {
-    if (objs.isEmpty()) return this;
-    radioButtons = RadioButton.multi(objs);
-    return this;
-  }
-
-  public PaneBuilder input(Label key, TextField value) {
+  public PaneBuilder input(KeyLabel key, TextInput value) {
     inputKeyAndFields.put(key, value);
     return this;
   }
 
-  public PaneBuilder input(Map<Label, TextField> inputs) {
+  public PaneBuilder input(Map<KeyLabel, TextInput> inputs) {
     inputKeyAndFields.putAll(inputs);
-    return this;
-  }
-
-  public PaneBuilder searchField(String hint, String example) {
-    searchLabel = Label.of(hint);
-    searchField = TextField.builder().hint(example).build();
     return this;
   }
 
@@ -117,7 +97,30 @@ public class PaneBuilder {
   public PaneBuilder buttonAction(
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
-    if (tableView == null) tableView = TableView.copyable();
+    var queryField =
+        TextInput.singleLine().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
+    var sizeLabel = KeyLabel.of("");
+
+    tableViewer =
+        TableViewer.builder()
+            .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
+            .filteredDataListener(
+                List.of((ignored, data) -> sizeLabel.text("total: " + data.size())))
+            .build();
+
+    queryField
+        .node()
+        .setOnKeyPressed(
+            key -> {
+              if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
+            });
+
+    var borderPane = new BorderPane();
+    borderPane.setTop(queryField.node());
+    borderPane.setCenter(tableViewer.node());
+    borderPane.setBottom(sizeLabel.node());
+    BorderPane.setAlignment(sizeLabel.node(), Pos.CENTER);
+    motherOfTableView = borderPane;
     return this;
   }
 
@@ -127,14 +130,8 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder initTableView(List<Map<String, Object>> data) {
-    if (tableView == null) tableView = TableView.copyable();
-    tableView.update(data);
-    return this;
-  }
-
   public PaneBuilder tableViewAction(
-      Map<Label, TextField> inputs,
+      Map<KeyLabel, TextInput> inputs,
       String buttonName,
       Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
           action) {
@@ -147,23 +144,18 @@ public class PaneBuilder {
   public Pane build() {
     // step.1 layout
     var nodes = new ArrayList<Node>();
-    if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
+    if (selectBox != null) nodes.add(selectBox.node());
     if (!inputKeyAndFields.isEmpty()) {
-      var gridPane =
+      var lattice =
           inputKeyAndFields.size() <= 3
-              ? GridPane.singleColumn(inputKeyAndFields)
-              : GridPane.of(inputKeyAndFields, 3);
-      nodes.add(gridPane);
+              ? Lattice.singleColumn(inputKeyAndFields)
+              : Lattice.of(inputKeyAndFields, 3);
+      nodes.add(lattice.node());
     }
-    if (searchLabel != null && searchField != null)
-      nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
-    else nodes.add(actionButton);
-    var console = TextArea.of();
-    Logger logger = console::append;
-    if (tableView != null) nodes.add(tableView);
-
+    nodes.add(actionButton);
+    if (motherOfTableView != null) nodes.add(motherOfTableView);
     // ---------------------------------[second control layout]---------------------------------//
-    if (tableView != null && tableViewAction != null) {
+    if (tableViewer != null && tableViewAction != null) {
       var checkbox = new CheckBox("enable");
       checkbox
           .selectedProperty()
@@ -171,15 +163,15 @@ public class PaneBuilder {
               (observable, oldValue, newValue) -> {
                 if (checkbox.isSelected()) {
                   tableViewActionButton.enable();
-                  secondInputKeyAndFields.values().forEach(TextField::enable);
+                  secondInputKeyAndFields.values().forEach(TextInput::enable);
                 } else {
                   tableViewActionButton.disable();
-                  secondInputKeyAndFields.values().forEach(TextField::disable);
+                  secondInputKeyAndFields.values().forEach(TextInput::disable);
                 }
               });
       tableViewActionButton.setOnAction(
           event -> {
-            var items = tableView.items();
+            var items = tableViewer.filteredData();
             var input =
                 secondInputKeyAndFields.entrySet().stream()
                     .flatMap(e -> e.getValue().text().stream().map(v -> Map.entry(e.getKey(), v)))
@@ -187,7 +179,7 @@ public class PaneBuilder {
             try {
               checkbox.setSelected(false);
               tableViewAction
-                  .apply(items, input, logger)
+                  .apply(items, input, console::append)
                   .whenComplete((data, e) -> console.text(e));
             } catch (Exception e) {
               console.text(e);
@@ -198,20 +190,15 @@ public class PaneBuilder {
           VBox.of(
               Pos.CENTER,
               checkbox,
-              GridPane.singleColumn(secondInputKeyAndFields),
+              Lattice.singleColumn(secondInputKeyAndFields).node(),
               tableViewActionButton));
     }
 
-    nodes.add(console);
+    nodes.add(console.node());
 
     // step.2 event
     Runnable handler =
         () -> {
-          var multiSelectedRadio =
-              radioButtons.stream()
-                  .filter(RadioButton::isSelected)
-                  .flatMap(r -> r.selectedObject().stream())
-                  .collect(Collectors.toList());
           var requiredNonexistentKeys =
               inputKeyAndFields.entrySet().stream()
                   .filter(entry -> entry.getKey().highlight())
@@ -223,33 +210,19 @@ public class PaneBuilder {
             return;
           }
 
-          var searchPatterns =
-              searchField == null
-                  ? List.<Pattern>of()
-                  : Arrays.stream(searchField.getText().split(","))
-                      .filter(s -> !s.isBlank())
-                      .map(Utils::wildcardToPattern)
-                      .collect(Collectors.toList());
           var rawTexts =
               inputKeyAndFields.entrySet().stream()
                   .collect(Collectors.toMap(e -> e.getKey().key(), e -> e.getValue().text()));
           var input =
               new Input() {
                 @Override
-                @SuppressWarnings("unchecked")
-                public <T> List<T> multiSelectedRadios(List<T> defaultObjs) {
-                  return multiSelectedRadio.isEmpty() ? defaultObjs : (List<T>) multiSelectedRadio;
+                public List<String> selectedKeys() {
+                  return selectBox == null ? List.of() : selectBox.selectedKeys();
                 }
 
                 @Override
                 public Map<String, Optional<String>> texts() {
                   return rawTexts;
-                }
-
-                @Override
-                public boolean matchSearch(String word) {
-                  return searchPatterns.isEmpty()
-                      || searchPatterns.stream().anyMatch(p -> p.matcher(word).matches());
                 }
               };
 
@@ -261,11 +234,11 @@ public class PaneBuilder {
           try {
             if (buttonAction != null)
               buttonAction
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
-                          if (data != null) tableView.update(data);
+                          if (data != null && tableViewer != null) tableViewer.data(data);
                           console.text(e);
                         } finally {
                           actionButton.enable();
@@ -273,7 +246,7 @@ public class PaneBuilder {
                       });
             if (buttonListener != null)
               buttonListener
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
@@ -290,13 +263,6 @@ public class PaneBuilder {
         };
 
     actionButton.setOnAction(ignored -> handler.run());
-    // there is only one text field, so we register the ENTER event.
-    if (inputKeyAndFields.isEmpty() && searchField != null)
-      searchField.setOnKeyPressed(
-          event -> {
-            if (event.getCode().equals(KeyCode.ENTER)) handler.run();
-          });
-
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
   }
 }

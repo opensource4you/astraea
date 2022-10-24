@@ -158,7 +158,7 @@ class BalancerHandler implements Handler {
                   Balancer.builder()
                       .planGenerator(generator)
                       .clusterCost(clusterCostFunction)
-                      .moveCost(moveCostFunction)
+                      .moveCost(List.of(moveCostFunction))
                       .limit(loop)
                       .limit(timeout)
                       .build()
@@ -205,7 +205,7 @@ class BalancerHandler implements Handler {
                       clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
-                          .map(p -> List.of(new MigrationCost(p.moveCost())))
+                          .map(p -> List.of(new MigrationCost(p.moveCost().iterator().next())))
                           .orElseGet(List::of));
               return new PlanInfo(report, bestPlan.orElseThrow());
             });

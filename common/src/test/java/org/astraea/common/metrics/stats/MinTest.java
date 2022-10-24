@@ -14,39 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.metrics.stats;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class InputTest {
+public class MinTest {
+  @Test
+  void testMin() {
+    var stat = new Min<Integer>();
+    stat.record(39);
+    stat.record(20);
+    stat.record(103);
+
+    Assertions.assertEquals(20, stat.measure());
+  }
 
   @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input =
-        new Input() {
-          @Override
-          public List<String> selectedKeys() {
-            return List.of();
-          }
-
-          @Override
-          public Map<String, Optional<String>> texts() {
-            return texts;
-          }
-        };
-
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
-
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+  void testException() {
+    var stat = new Min<Integer>();
+    Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }

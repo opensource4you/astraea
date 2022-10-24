@@ -14,39 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.common.metrics.stats;
 
-import javafx.application.Platform;
+public class Max<V extends Comparable<V>> implements Stat<V> {
+  private V max;
 
-public class Button extends javafx.scene.control.Button {
-
-  public static Button disabled(String name) {
-    var btn = new Button(name);
-    btn.disable();
-    return btn;
+  public Max() {
+    max = null;
   }
 
-  public static Button of(String name) {
-    return new Button(name);
+  @Override
+  public synchronized void record(V value) {
+    max = (max == null || max.compareTo(value) < 0) ? value : max;
   }
 
-  public static Button of(String name, Runnable action) {
-    var btn = new Button(name);
-    btn.setOnAction(ignored -> action.run());
-    return btn;
-  }
-
-  private Button(String topic) {
-    super(topic);
-  }
-
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
-  }
-
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
+  @Override
+  public V measure() {
+    if (max == null) throw new RuntimeException("Nothing to measure");
+    return max;
   }
 }

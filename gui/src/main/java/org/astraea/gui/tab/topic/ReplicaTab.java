@@ -24,6 +24,7 @@ import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 
@@ -122,24 +123,18 @@ public class ReplicaTab {
     return Tab.of(
         "replica",
         PaneBuilder.of()
-            .singleRadioButtons(List.of(all, syncing, offline))
-            .searchField("topic name", "topic-*,*abc*")
+            .selectBox(SelectBox.single(List.of(all, syncing, offline)))
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .topicNames(true)
-                        .thenApply(
-                            topics ->
-                                topics.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::replicas)
                         .thenApply(
                             replicas -> {
-                              var selected = input.singleSelectedRadio(all);
-                              if (selected.equals(syncing)) return syncingResult(replicas);
-                              if (selected.equals(offline)) return offlineResult(replicas);
+                              var selected = input.selectedKeys();
+                              if (selected.contains(syncing)) return syncingResult(replicas);
+                              if (selected.contains(offline)) return offlineResult(replicas);
                               return allResult(replicas);
                             }))
             .build());
