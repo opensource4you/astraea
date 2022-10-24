@@ -21,9 +21,11 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -49,6 +51,8 @@ public class BalancerTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
+  private static final String MAX_MIGRATE_LOG_SIZE = "total max migrate log size";
+  private static final String MAX_MIGRATE_LEADER_NUM = "maximum leader number to migrate";
   private static final String PREVIOUS_LEADER_KEY = "previous leader";
   private static final String NEW_LEADER_KEY = "new leader";
   private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
@@ -137,6 +141,13 @@ public class BalancerTab {
                                               .collect(Collectors.toList()))
                                   .orElse(List.of());
                           logger.log("searching better assignments ... ");
+                          var converter = new DataSize.Field();
+                          var replicaSizeLimit =
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LOG_SIZE))
+                                  .map(x -> converter.convert(x).bytes());
+                          var leaderNumLimit =
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LEADER_NUM))
+                                  .map(Integer::parseInt);
                           return Map.entry(
                               clusterInfo,
                               Balancer.builder()
@@ -150,6 +161,26 @@ public class BalancerTab {
                                               .collect(
                                                   Collectors.toMap(
                                                       Map.Entry::getKey, Map.Entry::getValue))))
+                                  .moveCost(List.of(new ReplicaSizeCost(), new ReplicaLeaderCost()))
+                                  .movementConstraint(
+                                      moveCosts ->
+                                          moveCosts.stream()
+                                              .allMatch(
+                                                  mc -> {
+                                                    switch (mc.name()) {
+                                                      case "size":
+                                                        if (replicaSizeLimit.isEmpty()
+                                                            || mc.totalCost()
+                                                                <= replicaSizeLimit.get())
+                                                          return true;
+                                                      case "leader":
+                                                        if (leaderNumLimit.isEmpty()
+                                                            || mc.totalCost()
+                                                                <= leaderNumLimit.get())
+                                                          return true;
+                                                    }
+                                                    return false;
+                                                  }))
                                   .limit(Duration.ofSeconds(10))
                                   .limit(10000)
                                   .greedy(true)
@@ -180,6 +211,8 @@ public class BalancerTab {
             .multiRadioButtons(Arrays.stream(Cost.values()).collect(Collectors.toList()))
             .buttonName("PLAN")
             .input(Label.of(TOPIC_NAME_KEY), TextField.builder().hint("topic-*,*abc*").build())
+            .input(Label.of(MAX_MIGRATE_LEADER_NUM), TextField.builder().onlyNumber().build())
+            .input(Label.of(MAX_MIGRATE_LOG_SIZE), TextField.of())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",
