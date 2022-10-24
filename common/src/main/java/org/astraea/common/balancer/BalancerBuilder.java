@@ -57,7 +57,7 @@ public class BalancerBuilder {
    * @return this
    */
   public BalancerBuilder planGenerator(RebalancePlanGenerator generator) {
-    this.planGenerator = generator;
+    this.planGenerator = Objects.requireNonNull(generator);
     return this;
   }
 
@@ -69,7 +69,7 @@ public class BalancerBuilder {
    * @return this
    */
   public BalancerBuilder clusterCost(HasClusterCost costFunction) {
-    this.clusterCostFunction = costFunction;
+    this.clusterCostFunction = Objects.requireNonNull(costFunction);
     return this;
   }
 
@@ -82,7 +82,7 @@ public class BalancerBuilder {
    * @return this
    */
   public BalancerBuilder moveCost(List<HasMoveCost> costFunction) {
-    this.moveCostFunction = costFunction;
+    this.moveCostFunction = Objects.requireNonNull(costFunction);
     return this;
   }
 
@@ -109,7 +109,7 @@ public class BalancerBuilder {
    * @return this
    */
   public BalancerBuilder movementConstraint(Predicate<List<MoveCost>> moveConstraint) {
-    this.movementConstraint = moveConstraint;
+    this.movementConstraint = Objects.requireNonNull(moveConstraint);
     return this;
   }
 
@@ -166,12 +166,6 @@ public class BalancerBuilder {
    *     you specified.
    */
   public Balancer build() {
-    // sanity check
-    Objects.requireNonNull(this.planGenerator);
-    Objects.requireNonNull(this.clusterCostFunction);
-    Objects.requireNonNull(this.moveCostFunction);
-    Objects.requireNonNull(this.movementConstraint);
-
     if (greedy) return buildGreedy();
     return buildNormal();
   }
