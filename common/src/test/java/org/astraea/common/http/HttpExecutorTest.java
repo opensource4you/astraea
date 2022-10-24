@@ -45,9 +45,9 @@ class HttpExecutorTest {
                   var responseHttpResponse =
                       httpExecutor
                           .get(getUrl(x, "/test"), TypeRef.of(TestResponse.class))
-                          .completionStage()
                           .toCompletableFuture()
-                          .get();
+                          .get()
+                          .response();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -56,9 +56,9 @@ class HttpExecutorTest {
                           () ->
                               httpExecutor
                                   .get(getUrl(x, "/NotFound"), TypeRef.of(TestResponse.class))
-                                  .completionStage()
                                   .toCompletableFuture()
-                                  .get());
+                                  .get()
+                                  .response());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -84,9 +84,9 @@ class HttpExecutorTest {
                               getUrl(x, "/test"),
                               Map.of("k1", "v1"),
                               TypeRef.of(TestResponse.class))
-                          .completionStage()
                           .toCompletableFuture()
-                          .get();
+                          .get()
+                          .response();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -95,9 +95,9 @@ class HttpExecutorTest {
                           () ->
                               httpExecutor
                                   .get(getUrl(x, "/NotFound"), TypeRef.of(TestResponse.class))
-                                  .completionStage()
                                   .toCompletableFuture()
-                                  .get());
+                                  .get()
+                                  .response());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -116,9 +116,9 @@ class HttpExecutorTest {
                   var responseHttpResponse =
                       httpExecutor
                           .get(getUrl(x, "/test"), new TypeRef<List<String>>() {})
-                          .completionStage()
                           .toCompletableFuture()
-                          .get();
+                          .get()
+                          .response();
                   assertEquals(List.of("v1", "v2"), responseHttpResponse.body());
                 }));
   }
@@ -145,9 +145,9 @@ class HttpExecutorTest {
                   var responseHttpResponse =
                       httpExecutor
                           .post(getUrl(x, "/test"), request, TypeRef.of(TestResponse.class))
-                          .completionStage()
                           .toCompletableFuture()
-                          .get();
+                          .get()
+                          .response();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   // response body can't convert to testResponse
@@ -160,9 +160,9 @@ class HttpExecutorTest {
                                       getUrl(x, "/NotFound"),
                                       request,
                                       TypeRef.of(TestResponse.class))
-                                  .completionStage()
                                   .toCompletableFuture()
-                                  .get());
+                                  .get()
+                                  .response());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -190,9 +190,9 @@ class HttpExecutorTest {
                   var responseHttpResponse =
                       httpExecutor
                           .put(getUrl(x, "/test"), request, TypeRef.of(TestResponse.class))
-                          .completionStage()
                           .toCompletableFuture()
-                          .get();
+                          .get()
+                          .response();
                   assertEquals("testValue", responseHttpResponse.body().responseValue());
 
                   var executionException =
@@ -204,9 +204,9 @@ class HttpExecutorTest {
                                       getUrl(x, "/NotFound"),
                                       request,
                                       TypeRef.of(TestResponse.class))
-                                  .completionStage()
                                   .toCompletableFuture()
-                                  .get());
+                                  .get()
+                                  .response());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                 }));
@@ -228,9 +228,9 @@ class HttpExecutorTest {
                   () ->
                       httpExecutor
                           .delete(getUrl(x, "/NotFound"))
-                          .completionStage()
                           .toCompletableFuture()
-                          .get());
+                          .get()
+                          .response());
           assertEquals(StringResponseException.class, executionException.getCause().getClass());
         });
   }

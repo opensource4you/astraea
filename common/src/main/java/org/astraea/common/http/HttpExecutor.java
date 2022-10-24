@@ -17,6 +17,7 @@
 package org.astraea.common.http;
 
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import org.astraea.common.json.TypeRef;
 
 /** Send json http request. */
@@ -26,13 +27,13 @@ public interface HttpExecutor {
     return new HttpExecutorBuilder();
   }
 
-  <T> Response<T> get(String url, TypeRef<T> typeRef);
+  <T> CompletionStage<Response<T>> get(String url, TypeRef<T> typeRef);
 
-  <T> Response<T> get(String url, Map<String, String> param, TypeRef<T> typeRef);
+  <T> CompletionStage<Response<T>> get(String url, Map<String, String> param, TypeRef<T> typeRef);
 
-  <T> Response<T> post(String url, Object body, TypeRef<T> typeRef);
+  <T> CompletionStage<Response<T>> post(String url, Object body, TypeRef<T> typeRef);
 
-  <T> Response<T> put(String url, Object body, TypeRef<T> typeRef);
+  <T> CompletionStage<Response<T>> put(String url, Object body, TypeRef<T> typeRef);
 
-  Response<Void> delete(String url);
+  CompletionStage<Response<Void>> delete(String url);
 }

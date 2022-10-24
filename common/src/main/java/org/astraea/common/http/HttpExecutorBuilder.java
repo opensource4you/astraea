@@ -25,7 +25,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
@@ -50,29 +50,34 @@ public class HttpExecutorBuilder {
 
     return new HttpExecutor() {
       @Override
-      public <T> Response<T> get(String url, TypeRef<T> typeRef) {
+      public <T> CompletionStage<Response<T>> get(String url, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().GET().uri(new URI(url)).build();
-              return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
+              return client
+                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
+                  .thenApply(Response::of);
             });
       }
 
       @Override
-      public <T> Response<T> get(String url, Map<String, String> param, TypeRef<T> typeRef) {
+      public <T> CompletionStage<Response<T>> get(
+          String url, Map<String, String> param, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request =
                   HttpRequest.newBuilder().GET().uri(getParameterURI(url, param)).build();
 
-              return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
+              return client
+                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
+                  .thenApply(Response::of);
             });
       }
 
       @Override
-      public <T> Response<T> post(String url, Object body, TypeRef<T> typeRef) {
+      public <T> CompletionStage<Response<T>> post(String url, Object body, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request =
@@ -82,13 +87,15 @@ public class HttpExecutorBuilder {
                       .uri(new URI(url))
                       .build();
 
-              return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
+              return client
+                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
+                  .thenApply(Response::of);
             });
       }
 
       @Override
-      public <T> Response<T> put(String url, Object body, TypeRef<T> typeRef) {
+      public <T> CompletionStage<Response<T>> put(String url, Object body, TypeRef<T> typeRef) {
         return Utils.packException(
             () -> {
               HttpRequest request =
@@ -98,31 +105,29 @@ public class HttpExecutorBuilder {
                       .uri(new URI(url))
                       .build();
 
-              return toJsonHttpResponse(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.ofString()), typeRef);
+              return client
+                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
+                  .thenApply(Response::of);
             });
       }
 
       @Override
-      public Response<Void> delete(String url) {
+      public CompletionStage<Response<Void>> delete(String url) {
         return Utils.packException(
             () -> {
               HttpRequest request = HttpRequest.newBuilder().DELETE().uri(new URI(url)).build();
-              return withException(
-                  client.sendAsync(request, HttpResponse.BodyHandlers.discarding()));
+              return client
+                  .sendAsync(request, HttpResponse.BodyHandlers.discarding())
+                  .thenApply(this::withException)
+                  .thenApply(Response::of);
             });
       }
 
       /**
        * if return value is Json , then we can convert it to Object. Or we just simply handle
-       * exception by {@link #withException(CompletableFuture)}
+       * exception by {@link #withException(HttpResponse)}
        */
-      private <T> Response<T> toJsonHttpResponse(
-          CompletableFuture<HttpResponse<String>> asyncResponse, TypeRef<T> typeRef)
-          throws StringResponseException {
-        return Response.of(asyncResponse.thenApply(x -> toJsonHttpResponse(x, typeRef)));
-      }
-
       private <T> HttpResponse<T> toJsonHttpResponse(
           HttpResponse<String> response, TypeRef<T> typeRef) throws StringResponseException {
         var innerResponse = withException(response);
@@ -139,12 +144,8 @@ public class HttpExecutorBuilder {
 
       /**
        * Handle exception with non json type response . If return value is json , we can use {@link
-       * #toJsonHttpResponse(CompletableFuture, TypeRef)}
+       * #toJsonHttpResponse(HttpResponse, TypeRef)}
        */
-      private <T> Response<T> withException(CompletableFuture<HttpResponse<T>> response) {
-        return Response.of(response.thenApply(this::withException));
-      }
-
       private <T> HttpResponse<T> withException(HttpResponse<T> response) {
         if (response.statusCode() >= 400) {
           throw new StringResponseException(toStringResponse(response));

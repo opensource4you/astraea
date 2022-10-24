@@ -17,21 +17,20 @@
 package org.astraea.common.http;
 
 import java.net.http.HttpResponse;
-import java.util.concurrent.CompletionStage;
 
 public class Response<T> {
 
-  private final CompletionStage<HttpResponse<T>> completionStage;
+  private final HttpResponse<T> response;
 
-  public static <T> Response<T> of(CompletionStage<HttpResponse<T>> completionStage) {
+  public static <T> Response<T> of(HttpResponse<T> completionStage) {
     return new Response<>(completionStage);
   }
 
-  private Response(CompletionStage<HttpResponse<T>> completionStage) {
-    this.completionStage = completionStage;
+  private Response(HttpResponse<T> response) {
+    this.response = response;
   }
 
-  public CompletionStage<HttpResponse<T>> completionStage() {
-    return completionStage;
+  public HttpResponse<T> response() {
+    return response;
   }
 }
