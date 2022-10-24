@@ -281,6 +281,14 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Void> setConfigs(String topic, Map<String, String> override);
 
   /**
+   * append the value to config. Noted that it appends nothing if the existent value is "*".
+   *
+   * @param topic to append
+   * @param appended values
+   */
+  CompletionStage<Void> appendConfigs(String topic, Map<String, String> appended);
+
+  /**
    * unset the value associated to given keys. The unset config will become either null of default
    * value. Normally, the default value is defined by server.properties or hardcode in source code.
    */
@@ -288,6 +296,14 @@ public interface AsyncAdmin extends AutoCloseable {
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
   CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override);
+
+  /**
+   * append the value to config. Noted that it appends nothing if the existent value is "*".
+   *
+   * @param brokerId to append
+   * @param appended values
+   */
+  CompletionStage<Void> appendConfigs(int brokerId, Map<String, String> appended);
 
   /**
    * unset the value associated to given keys. The unset config will become either null of default

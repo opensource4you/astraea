@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -1023,47 +1024,91 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> setConfigs(String topic, Map<String, String> override) {
-    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
-            .incrementalAlterConfigs(
-                Map.of(
-                    new ConfigResource(ConfigResource.Type.TOPIC, topic),
-                    override.entrySet().stream()
-                        .map(
-                            entry ->
-                                new AlterConfigOp(
-                                    new ConfigEntry(entry.getKey(), entry.getValue()),
-                                    AlterConfigOp.OpType.SET))
-                        .collect(Collectors.toList())))
-            .all());
+    return doSetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), override);
+  }
+
+  @Override
+  public CompletionStage<Void> appendConfigs(String topic, Map<String, String> appended) {
+    return doAppendConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), appended);
   }
 
   @Override
   public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
-    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
-            .incrementalAlterConfigs(
-                Map.of(
-                    new ConfigResource(ConfigResource.Type.TOPIC, topic),
-                    keys.stream()
-                        .map(
-                            key ->
-                                new AlterConfigOp(
-                                    new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
-                        .collect(Collectors.toList())))
-            .all());
+    return doUnsetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), keys);
   }
 
   @Override
   public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
+    return doSetConfigs(
+        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), override);
+  }
+
+  @Override
+  public CompletionStage<Void> appendConfigs(int brokerId, Map<String, String> appended) {
+    return doAppendConfigs(
+        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), appended);
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+    return doUnsetConfigs(
+        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), keys);
+  }
+
+  private CompletionStage<Void> doAppendConfigs(
+      ConfigResource resource, Map<String, String> appended) {
+    if (appended.isEmpty()) return CompletableFuture.completedFuture(null);
+    return to(kafkaAdmin.describeConfigs(List.of(resource)).all())
+        .thenApply(
+            map ->
+                map.get(resource).entries().stream()
+                    .filter(e -> e.value() != null && !e.value().isBlank())
+                    .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))
+        .thenCompose(
+            configs -> {
+              // append to empty will cause bug (see https://github.com/apache/kafka/pull/12503)
+              var requestToSet =
+                  appended.entrySet().stream()
+                      .filter(entry -> !configs.containsKey(entry.getKey()))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              // append value only if 1) it is not wildcard, 2) it is not empty
+              var requestToAppend =
+                  appended.entrySet().stream()
+                      .filter(
+                          entry ->
+                              configs.containsKey(entry.getKey())
+                                  && Arrays.stream(configs.get(entry.getKey()).split(","))
+                                      .noneMatch(s -> s.equals("*") || s.equals(entry.getValue())))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+              return doSetConfigs(resource, requestToSet)
+                  .thenCompose(
+                      ignored ->
+                          to(
+                              kafkaAdmin
+                                  .incrementalAlterConfigs(
+                                      Map.of(
+                                          resource,
+                                          requestToAppend.entrySet().stream()
+                                              .map(
+                                                  entry ->
+                                                      new AlterConfigOp(
+                                                          new ConfigEntry(
+                                                              entry.getKey(), entry.getValue()),
+                                                          AlterConfigOp.OpType.APPEND))
+                                              .collect(Collectors.toList())))
+                                  .all()));
+            });
+  }
+
+  private CompletionStage<Void> doSetConfigs(
+      ConfigResource resource, Map<String, String> override) {
     if (override.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
                 Map.of(
-                    new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)),
+                    resource,
                     override.entrySet().stream()
                         .map(
                             entry ->
@@ -1074,14 +1119,13 @@ class AsyncAdminImpl implements AsyncAdmin {
             .all());
   }
 
-  @Override
-  public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+  private CompletionStage<Void> doUnsetConfigs(ConfigResource resource, Set<String> keys) {
     if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
     return to(
         kafkaAdmin
             .incrementalAlterConfigs(
                 Map.of(
-                    new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)),
+                    resource,
                     keys.stream()
                         .map(
                             key ->
