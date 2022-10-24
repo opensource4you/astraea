@@ -18,11 +18,14 @@ package org.astraea.app.web;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
@@ -95,8 +98,9 @@ public class ThrottleHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var brokerToUpdate = channel.request().valuesWithDefault("brokers", BrokerThrottle.class);
-    var topics = channel.request().valuesWithDefault("topics", TopicThrottle.class);
+    var brokerToUpdate =
+        withDefault(() -> channel.request().values("brokers", BrokerThrottle.class));
+    var topics = withDefault(() -> channel.request().values("topics", TopicThrottle.class));
 
     final var throttler = admin.replicationThrottler();
     // ingress
@@ -221,6 +225,14 @@ public class ThrottleHandler implements Handler {
                 TopicPartitionReplica.of(
                     topic, Integer.parseInt(pair[0]), Integer.parseInt(pair[1])))
         .collect(Collectors.toUnmodifiableSet());
+  }
+
+  private <T> List<T> withDefault(Supplier<List<T>> supplier) {
+    try {
+      return supplier.get();
+    } catch (NoSuchElementException noSuchElementException) {
+      return List.of();
+    }
   }
 
   /**

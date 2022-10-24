@@ -18,19 +18,23 @@ package org.astraea.common.http;
 
 import java.net.http.HttpResponse;
 
-public class Response<T> {
+public interface Response<T> {
 
-  private final HttpResponse<T> response;
+  int statusCode();
 
-  public static <T> Response<T> of(HttpResponse<T> completionStage) {
-    return new Response<>(completionStage);
-  }
+  T body();
 
-  private Response(HttpResponse<T> response) {
-    this.response = response;
-  }
+  static <T> Response<T> of(HttpResponse<T> response) {
+    return new Response<>() {
+      @Override
+      public int statusCode() {
+        return response.statusCode();
+      }
 
-  public HttpResponse<T> response() {
-    return response;
+      @Override
+      public T body() {
+        return response.body();
+      }
+    };
   }
 }

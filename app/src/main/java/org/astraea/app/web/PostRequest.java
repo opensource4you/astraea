@@ -30,8 +30,7 @@ public interface PostRequest {
   PostRequest EMPTY = PostRequest.of(Map.of());
 
   static PostRequest of(String json) {
-    return of(
-        JsonConverter.defaultConverter().<Map<String, Object>>fromJson(json, new TypeRef<>() {}));
+    return of(JsonConverter.defaultConverter().fromJson(json, TypeRef.map(Object.class)));
   }
 
   static String handle(Object obj) {
@@ -164,14 +163,6 @@ public interface PostRequest {
 
   default <T> List<T> values(String key, Class<T> clz) {
     return JsonConverter.defaultConverter().fromJson(value(key), TypeRef.array(clz));
-  }
-
-  default <T> List<T> valuesWithDefault(String key, Class<T> clz) {
-    try {
-      return values(key, clz);
-    } catch (NoSuchElementException noSuchElementException) {
-      return List.of();
-    }
   }
 
   default List<PostRequest> requests(String key) {
