@@ -17,6 +17,7 @@
 package org.astraea.common.metrics;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import org.astraea.common.metrics.stats.Avg;
 import org.astraea.common.metrics.stats.Stat;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,16 @@ public class SensorTest {
 
     Assertions.assertEquals(1.0, sensor.measure("t1"));
     Assertions.assertEquals(2.0, sensor.measure("t2"));
+  }
+
+  @Test
+  void testMetrics() {
+    var sensor = new SensorBuilder<Double>().addStat("average", new Avg()).build();
+    sensor.record(1.0);
+    var metrics = sensor.metrics();
+    Assertions.assertEquals(1.0, metrics.get("average").measure());
+    sensor.record(2.0);
+    Assertions.assertEquals(1.0, metrics.get("average").measure());
   }
 
   private Stat<Double> countRecord(AtomicInteger counter) {

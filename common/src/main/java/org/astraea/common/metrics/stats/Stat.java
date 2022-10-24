@@ -21,4 +21,17 @@ public interface Stat<V> {
   void record(V value);
 
   V measure();
+
+  default Stat<V> snapshot() {
+    var value = measure();
+    return new Stat<>() {
+      @Override
+      public void record(V ignore) {}
+
+      @Override
+      public V measure() {
+        return value;
+      }
+    };
+  }
 }
