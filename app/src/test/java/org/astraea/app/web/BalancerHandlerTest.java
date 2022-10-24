@@ -260,8 +260,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .planGenerator(RebalancePlanGenerator.random(30))
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> after.value() <= before.value())
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> true)
+              .moveCost(List.of(moveCostFunction))
+              .movementConstraint(moveCosts -> true)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
 
@@ -275,8 +275,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   .planGenerator(RebalancePlanGenerator.random(30))
                   .clusterCost(clusterCostFunction)
                   .clusterConstraint((before, after) -> true)
-                  .moveCost(moveCostFunction)
-                  .movementConstraint(moveCost -> true)
+                  .moveCost(List.of(moveCostFunction))
+                  .movementConstraint(moveCosts -> true)
                   .limit(0)
                   .build()
                   .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
@@ -288,8 +288,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .planGenerator(RebalancePlanGenerator.random(30))
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> false)
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> true)
+              .moveCost(List.of(moveCostFunction))
+              .movementConstraint(moveCosts -> true)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
@@ -300,8 +300,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .planGenerator(RebalancePlanGenerator.random(30))
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> true)
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> false)
+              .moveCost(List.of(moveCostFunction))
+              .movementConstraint(moveCosts -> false)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
     }
