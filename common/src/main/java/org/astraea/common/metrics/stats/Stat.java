@@ -22,11 +22,14 @@ public interface Stat<V> {
 
   V measure();
 
+  /** Make a readonly copy of this object. */
   default Stat<V> snapshot() {
     var value = measure();
     return new Stat<>() {
       @Override
-      public void record(V ignore) {}
+      public void record(V ignore) {
+        throw new UnsupportedOperationException("Cannot update snapshot object!");
+      }
 
       @Override
       public V measure() {
