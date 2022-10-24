@@ -17,7 +17,6 @@
 package org.astraea.gui.pane;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,14 +33,12 @@ import javafx.scene.layout.Pane;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
 import org.astraea.gui.Query;
-import org.astraea.gui.box.HBox;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
-import org.astraea.gui.button.RadioButton;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextArea;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 /** a template layout for all tabs. */
 public class PaneBuilder {
@@ -52,13 +49,13 @@ public class PaneBuilder {
 
   // ---------------------------------[first control]---------------------------------//
 
-  private List<RadioButton> radioButtons = new ArrayList<>();
+  private SelectBox selectBox;
 
-  private final Map<Label, TextField> inputKeyAndFields = new LinkedHashMap<>();
+  private final Map<KeyLabel, TextInput> inputKeyAndFields = new LinkedHashMap<>();
 
   private Button actionButton = Button.of("REFRESH");
 
-  private final TextArea console = TextArea.of();
+  private final TextInput console = TextInput.multiline().build();
 
   private TableViewer tableViewer = null;
   private Node motherOfTableView = null;
@@ -68,7 +65,7 @@ public class PaneBuilder {
 
   // ---------------------------------[second control]---------------------------------//
 
-  private final Map<Label, TextField> secondInputKeyAndFields = new LinkedHashMap<>();
+  private final Map<KeyLabel, TextInput> secondInputKeyAndFields = new LinkedHashMap<>();
 
   private Button tableViewActionButton = Button.disabled("EXECUTE");
 
@@ -77,28 +74,17 @@ public class PaneBuilder {
 
   private PaneBuilder() {}
 
-  public PaneBuilder singleRadioButtons(Object[] objs) {
-    return singleRadioButtons(Arrays.asList(objs));
-  }
-
-  public PaneBuilder singleRadioButtons(List<Object> objs) {
-    if (objs.isEmpty()) return this;
-    radioButtons = RadioButton.single(objs);
+  public PaneBuilder selectBox(SelectBox selectBox) {
+    this.selectBox = selectBox;
     return this;
   }
 
-  public PaneBuilder multiRadioButtons(List<Object> objs) {
-    if (objs.isEmpty()) return this;
-    radioButtons = RadioButton.multi(objs);
-    return this;
-  }
-
-  public PaneBuilder input(Label key, TextField value) {
+  public PaneBuilder input(KeyLabel key, TextInput value) {
     inputKeyAndFields.put(key, value);
     return this;
   }
 
-  public PaneBuilder input(Map<Label, TextField> inputs) {
+  public PaneBuilder input(Map<KeyLabel, TextInput> inputs) {
     inputKeyAndFields.putAll(inputs);
     return this;
   }
@@ -112,8 +98,8 @@ public class PaneBuilder {
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
     var queryField =
-        TextField.builder().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
-    var sizeLabel = Label.of("");
+        TextInput.singleLine().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
+    var sizeLabel = KeyLabel.of("");
 
     tableViewer =
         TableViewer.builder()
@@ -122,16 +108,18 @@ public class PaneBuilder {
                 List.of((ignored, data) -> sizeLabel.text("total: " + data.size())))
             .build();
 
-    queryField.setOnKeyPressed(
-        key -> {
-          if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
-        });
+    queryField
+        .node()
+        .setOnKeyPressed(
+            key -> {
+              if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
+            });
 
     var borderPane = new BorderPane();
-    borderPane.setTop(queryField);
+    borderPane.setTop(queryField.node());
     borderPane.setCenter(tableViewer.node());
-    borderPane.setBottom(sizeLabel);
-    BorderPane.setAlignment(sizeLabel, Pos.CENTER);
+    borderPane.setBottom(sizeLabel.node());
+    BorderPane.setAlignment(sizeLabel.node(), Pos.CENTER);
     motherOfTableView = borderPane;
     return this;
   }
@@ -143,7 +131,7 @@ public class PaneBuilder {
   }
 
   public PaneBuilder tableViewAction(
-      Map<Label, TextField> inputs,
+      Map<KeyLabel, TextInput> inputs,
       String buttonName,
       Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
           action) {
@@ -156,13 +144,13 @@ public class PaneBuilder {
   public Pane build() {
     // step.1 layout
     var nodes = new ArrayList<Node>();
-    if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
+    if (selectBox != null) nodes.add(selectBox.node());
     if (!inputKeyAndFields.isEmpty()) {
-      var gridPane =
+      var lattice =
           inputKeyAndFields.size() <= 3
-              ? GridPane.singleColumn(inputKeyAndFields)
-              : GridPane.of(inputKeyAndFields, 3);
-      nodes.add(gridPane);
+              ? Lattice.singleColumn(inputKeyAndFields)
+              : Lattice.of(inputKeyAndFields, 3);
+      nodes.add(lattice.node());
     }
     nodes.add(actionButton);
     if (motherOfTableView != null) nodes.add(motherOfTableView);
@@ -175,10 +163,10 @@ public class PaneBuilder {
               (observable, oldValue, newValue) -> {
                 if (checkbox.isSelected()) {
                   tableViewActionButton.enable();
-                  secondInputKeyAndFields.values().forEach(TextField::enable);
+                  secondInputKeyAndFields.values().forEach(TextInput::enable);
                 } else {
                   tableViewActionButton.disable();
-                  secondInputKeyAndFields.values().forEach(TextField::disable);
+                  secondInputKeyAndFields.values().forEach(TextInput::disable);
                 }
               });
       tableViewActionButton.setOnAction(
@@ -202,20 +190,15 @@ public class PaneBuilder {
           VBox.of(
               Pos.CENTER,
               checkbox,
-              GridPane.singleColumn(secondInputKeyAndFields),
+              Lattice.singleColumn(secondInputKeyAndFields).node(),
               tableViewActionButton));
     }
 
-    nodes.add(console);
+    nodes.add(console.node());
 
     // step.2 event
     Runnable handler =
         () -> {
-          var multiSelectedRadio =
-              radioButtons.stream()
-                  .filter(RadioButton::isSelected)
-                  .flatMap(r -> r.selectedObject().stream())
-                  .collect(Collectors.toList());
           var requiredNonexistentKeys =
               inputKeyAndFields.entrySet().stream()
                   .filter(entry -> entry.getKey().highlight())
@@ -233,9 +216,8 @@ public class PaneBuilder {
           var input =
               new Input() {
                 @Override
-                @SuppressWarnings("unchecked")
-                public <T> List<T> multiSelectedRadios(List<T> defaultObjs) {
-                  return multiSelectedRadio.isEmpty() ? defaultObjs : (List<T>) multiSelectedRadio;
+                public List<String> selectedKeys() {
+                  return selectBox == null ? List.of() : selectBox.selectedKeys();
                 }
 
                 @Override

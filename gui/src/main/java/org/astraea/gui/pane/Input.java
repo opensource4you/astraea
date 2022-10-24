@@ -23,11 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Input {
-  default <T> T singleSelectedRadio(T defaultObj) {
-    return multiSelectedRadios(List.of(defaultObj)).get(0);
-  }
-
-  <T> List<T> multiSelectedRadios(List<T> defaultObjs);
+  List<String> selectedKeys();
 
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {

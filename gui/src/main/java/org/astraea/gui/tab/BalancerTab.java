@@ -39,11 +39,12 @@ import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 public class BalancerTab {
 
@@ -143,9 +144,11 @@ public class BalancerTab {
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
                                       HasClusterCost.of(
-                                          input
-                                              .multiSelectedRadios(Arrays.asList(Cost.values()))
-                                              .stream()
+                                          input.selectedKeys().stream()
+                                              .flatMap(
+                                                  name ->
+                                                      Arrays.stream(Cost.values())
+                                                          .filter(c -> c.toString().equals(name)))
                                               .map(cost -> Map.entry(cost.costFunction, 1.0))
                                               .collect(
                                                   Collectors.toMap(
@@ -177,9 +180,12 @@ public class BalancerTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .multiRadioButtons(Arrays.stream(Cost.values()).collect(Collectors.toList()))
+            .selectBox(
+                SelectBox.multi(
+                    Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList())))
             .buttonName("PLAN")
-            .input(Label.of(TOPIC_NAME_KEY), TextField.builder().hint("topic-*,*abc*").build())
+            .input(
+                KeyLabel.of(TOPIC_NAME_KEY), TextInput.singleLine().hint("topic-*,*abc*").build())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",
