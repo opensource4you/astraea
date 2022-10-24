@@ -150,11 +150,10 @@ public class TopicTab {
 
   private static Tab basicTab(Context context) {
     var includeTimestampOfRecord = "record timestamp";
-    var includeInternal = "internal";
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .selectBox(SelectBox.multi(List.of(includeInternal, includeTimestampOfRecord)))
+            .selectBox(SelectBox.multi(List.of(includeTimestampOfRecord)))
             .tableViewAction(
                 Map.of(),
                 "DELETE",
@@ -196,7 +195,7 @@ public class TopicTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(input.selectedKeys().contains(includeInternal))
+                        .topicNames(true)
                         .thenCompose(
                             topics ->
                                 FutureUtils.combine(
@@ -384,21 +383,15 @@ public class TopicTab {
         .sorted()
         .map(
             topic -> {
+              var ps = topicPartitions.getOrDefault(topic, List.of());
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, topic);
+              ps.stream().findFirst().ifPresent(p -> result.put("internal", p.internal()));
+              result.put("number of partitions", ps.size());
               result.put(
-                  "number of partitions", topicPartitions.getOrDefault(topic, List.of()).size());
-              result.put(
-                  "number of replicas",
-                  topicPartitions.getOrDefault(topic, List.of()).stream()
-                      .mapToInt(p -> p.replicas().size())
-                      .sum());
+                  "number of replicas", ps.stream().mapToInt(p -> p.replicas().size()).sum());
               result.put("size", DataSize.Byte.of(topicSize.getOrDefault(topic, 0L)));
-              topicPartitions.getOrDefault(topic, List.of()).stream()
-                  .flatMap(p -> p.maxTimestamp().stream())
-                  .mapToLong(t -> t)
-                  .max()
-                  .stream()
+              ps.stream().flatMap(p -> p.maxTimestamp().stream()).mapToLong(t -> t).max().stream()
                   .mapToObj(
                       t -> LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.systemDefault()))
                   .findFirst()
@@ -412,7 +405,7 @@ public class TopicTab {
                                   Instant.ofEpochMilli(t), ZoneId.systemDefault())));
               result.put(
                   "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
-              topicPartitions.getOrDefault(topic, List.of()).stream()
+              ps.stream()
                   .flatMap(p -> p.replicas().stream())
                   .collect(Collectors.groupingBy(NodeInfo::id))
                   .entrySet()

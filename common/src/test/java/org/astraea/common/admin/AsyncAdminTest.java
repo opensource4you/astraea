@@ -685,6 +685,26 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .size());
           Assertions.assertEquals(
               1, admin.consumerGroups(Set.of("abc")).toCompletableFuture().get().size());
+
+          // test internal
+          Assertions.assertNotEquals(
+              0,
+              admin
+                  .topics(admin.topicNames(true).toCompletableFuture().get())
+                  .toCompletableFuture()
+                  .get()
+                  .stream()
+                  .filter(Topic::internal)
+                  .count());
+          Assertions.assertNotEquals(
+              0,
+              admin
+                  .partitions(admin.topicNames(true).toCompletableFuture().get())
+                  .toCompletableFuture()
+                  .get()
+                  .stream()
+                  .filter(Partition::internal)
+                  .count());
         }
       }
     }

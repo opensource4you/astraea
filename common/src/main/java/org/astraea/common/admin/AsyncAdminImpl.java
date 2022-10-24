@@ -349,23 +349,15 @@ class AsyncAdminImpl implements AsyncAdmin {
         updatableTopicPartitions,
         updatableTopicPartitions.thenCompose(
             ps ->
-                to(kafkaAdmin
+                to(
+                    kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.MaxTimestampSpec())))
-                        .all())
-                    // the old kafka does not support to fetch max timestamp
-                    .exceptionally(
-                        e -> {
-                          if (e instanceof UnsupportedVersionException
-                              || e.getCause() instanceof UnsupportedVersionException)
-                            return Map.of();
-                          if (e instanceof RuntimeException) throw (RuntimeException) e;
-                          throw new RuntimeException(e);
-                        })),
+                        .all())),
         (ps, result) ->
             ps.stream()
                 .flatMap(
@@ -381,23 +373,37 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<List<Partition>> partitions(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     var updatableTopicPartitions = updatableTopicPartitions(topics);
+    var topicDesc = to(kafkaAdmin.describeTopics(topics).all());
     return FutureUtils.combine(
         updatableTopicPartitions.thenCompose(this::earliestOffsets),
         updatableTopicPartitions.thenCompose(this::latestOffsets),
-        updatableTopicPartitions.thenCompose(this::maxTimestamps),
-        to(kafkaAdmin.describeTopics(topics).all())
-            .thenApply(
-                ts ->
-                    ts.entrySet().stream()
-                        .flatMap(
-                            e ->
-                                e.getValue().partitions().stream()
-                                    .map(
-                                        tp ->
-                                            Map.entry(
-                                                TopicPartition.of(e.getKey(), tp.partition()), tp)))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
-        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos) ->
+        updatableTopicPartitions
+            .thenCompose(this::maxTimestamps)
+            // the old kafka does not support to fetch max timestamp. It is fine to return partition
+            // without max timestamp
+            .exceptionally(
+                e -> {
+                  if (e instanceof UnsupportedVersionException
+                      || e.getCause() instanceof UnsupportedVersionException) return Map.of();
+                  if (e instanceof RuntimeException) throw (RuntimeException) e;
+                  throw new RuntimeException(e);
+                }),
+        topicDesc.thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    .flatMap(
+                        e ->
+                            e.getValue().partitions().stream()
+                                .map(
+                                    tp ->
+                                        Map.entry(
+                                            TopicPartition.of(e.getKey(), tp.partition()), tp)))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
+        topicDesc.thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isInternal()))),
+        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos, topicAndInternal) ->
             tpInfos.keySet().stream()
                 .map(
                     tp -> {
@@ -421,7 +427,8 @@ class AsyncAdminImpl implements AsyncAdmin {
                           isr,
                           earliest,
                           latest,
-                          maxTimestamp);
+                          maxTimestamp,
+                          topicAndInternal.get(tp.topic()));
                     })
                 .sorted(Comparator.comparing(Partition::topicPartition))
                 .collect(Collectors.toList()));
@@ -548,14 +555,6 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .map(TopicPartition::to)
                     .collect(Collectors.toUnmodifiableList()))
             .all())
-        // the old kafka does not support to fetch producer states
-        .exceptionally(
-            e -> {
-              if (e instanceof UnsupportedVersionException
-                  || e.getCause() instanceof UnsupportedVersionException) return Map.of();
-              if (e instanceof RuntimeException) throw (RuntimeException) e;
-              throw new RuntimeException(e);
-            })
         .thenApply(
             ps ->
                 ps.entrySet().stream()
