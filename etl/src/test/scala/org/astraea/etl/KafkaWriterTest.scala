@@ -83,7 +83,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
 
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        val partition = Metadata
+        val partition = MetadataBuilder
           .of()
           .deploymentMode("local[2]")
           .sourcePath(new File(""))
@@ -95,6 +95,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           .numPartitions(2)
           .numReplicas(2)
           .topicConfig(Map("compression.type" -> "gzip"))
+          .build()
 
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
         assertInstanceOf(
@@ -109,7 +110,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           ).getCause
         )
 
-        val replica = Metadata
+        val replica = MetadataBuilder
           .of()
           .deploymentMode("local[2]")
           .sourcePath(new File(""))
@@ -121,6 +122,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           .numPartitions(10)
           .numReplicas(1)
           .topicConfig(Map("compression.type" -> "gzip"))
+          .build()
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
@@ -134,7 +136,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           ).getCause
         )
 
-        val config = Metadata
+        val config = MetadataBuilder
           .of()
           .deploymentMode("local[2]")
           .sourcePath(new File(""))
@@ -146,6 +148,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
           .numPartitions(10)
           .numReplicas(2)
           .topicConfig(Map("compression.type" -> "lz4"))
+          .build()
 
         assertInstanceOf(
           classOf[IllegalArgumentException],
@@ -166,7 +169,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
       asyncAdmin: AsyncAdmin,
       TOPIC: String
   ): Future[java.lang.Boolean] = {
-    val metadata = Metadata
+    val metadata = MetadataBuilder
       .of()
       .deploymentMode("local[2]")
       .sourcePath(new File(""))
@@ -178,6 +181,8 @@ class KafkaWriterTest extends RequireBrokerCluster {
       .numPartitions(10)
       .numReplicas(2)
       .topicConfig(Map("compression.type" -> "gzip"))
+      .build()
+
     KafkaWriter.createTopic(asyncAdmin, metadata)
   }
 }

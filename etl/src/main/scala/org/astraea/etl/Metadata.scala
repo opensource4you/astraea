@@ -47,7 +47,7 @@ import scala.collection.JavaConverters._
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
   */
-class Metadata private (
+case class Metadata private (
     var deploymentModel: String,
     var sourcePath: File,
     var sinkPath: File,
@@ -58,83 +58,7 @@ class Metadata private (
     var numPartitions: Int,
     var numReplicas: Short,
     var topicConfig: Map[String, String]
-) {
-  protected def this() = this(
-    "deploymentModel",
-    new File(""),
-    new File(""),
-    Map.empty,
-    Map.empty,
-    "kafkaBootstrapServers",
-    "topicName",
-    -1,
-    -1,
-    Map.empty
-  )
-
-  protected def this(pb: Metadata) = this(
-    pb.deploymentModel,
-    pb.sourcePath,
-    pb.sinkPath,
-    pb.column,
-    pb.primaryKeys,
-    pb.kafkaBootstrapServers,
-    pb.topicName,
-    pb.numPartitions,
-    pb.numReplicas,
-    pb.topicConfig
-  )
-
-  def deploymentMode(str: String): Metadata = {
-    this.deploymentModel = str
-    new Metadata(this)
-  }
-
-  def sourcePath(file: File): Metadata = {
-    this.sourcePath = file
-    new Metadata(this)
-  }
-
-  def sinkPath(file: File): Metadata = {
-    this.sinkPath = file
-    new Metadata(this)
-  }
-
-  def columns(map: Map[String, DataType]): Metadata = {
-    this.column = map
-    new Metadata(this)
-  }
-
-  def primaryKey(map: Map[String, DataType]): Metadata = {
-    this.primaryKeys = map
-    new Metadata(this)
-  }
-
-  def kafkaBootstrapServers(str: String): Metadata = {
-    this.kafkaBootstrapServers = str
-    new Metadata(this)
-  }
-
-  def topicName(str: String): Metadata = {
-    this.topicName = str
-    new Metadata(this)
-  }
-
-  def numPartitions(num: Int): Metadata = {
-    this.numPartitions = num
-    new Metadata(this)
-  }
-
-  def numReplicas(num: Short): Metadata = {
-    this.numReplicas = num
-    new Metadata(this)
-  }
-
-  def topicConfig(map: Map[String, String]): Metadata = {
-    this.topicConfig = map
-    new Metadata(this)
-  }
-}
+)
 
 object Metadata {
   private[this] val SOURCE_PATH = "source.path"
@@ -151,42 +75,46 @@ object Metadata {
   private[this] val DEFAULT_PARTITIONS = "15"
   private[this] val DEFAULT_REPLICAS = "1"
 
-  def of(): Metadata = {
-    new Metadata()
-  }
-
   //Parameters needed to configure ETL.
   def apply(path: File): Metadata = {
     val properties = readProp(path).asScala
 
-    var metadata = Metadata.of()
+    var metadataBuilder = MetadataBuilder.of()
     properties.foreach(entry =>
       entry._1 match {
         case DEPLOYMENT_MODEL =>
-          metadata = metadata.deploymentMode(DeployModel.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.deploymentMode(DeployModel.process(entry._2))
         case SOURCE_PATH =>
-          metadata = metadata.sourcePath(SourcePath.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.sourcePath(SourcePath.process(entry._2))
         case SINK_PATH =>
-          metadata = metadata.sinkPath(SinkPath.process(entry._2))
+          metadataBuilder = metadataBuilder.sinkPath(SinkPath.process(entry._2))
         case COLUMN_NAME =>
-          metadata = metadata.columns(ColumnName.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.columns(ColumnName.process(entry._2))
         case PRIMARY_KEYS =>
-          metadata = metadata.primaryKey(PrimaryKeys.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.primaryKey(PrimaryKeys.process(entry._2))
         case KAFKA_BOOTSTRAP_SERVERS =>
-          metadata = metadata.kafkaBootstrapServers(
+          metadataBuilder = metadataBuilder.kafkaBootstrapServers(
             KafkaBootstrapServers.process(entry._2)
           )
         case TOPIC_NAME =>
-          metadata = metadata.topicName(TopicName.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.topicName(TopicName.process(entry._2))
         case TOPIC_PARTITIONS =>
-          metadata = metadata.numPartitions(NumPartitions.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.numPartitions(NumPartitions.process(entry._2))
         case TOPIC_REPLICAS =>
-          metadata = metadata.numReplicas(NumReplicas.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.numReplicas(NumReplicas.process(entry._2))
         case TOPIC_CONFIG =>
-          metadata = metadata.topicConfig(TopicConfig.process(entry._2))
+          metadataBuilder =
+            metadataBuilder.topicConfig(TopicConfig.process(entry._2))
       }
     )
-    metadata
+    metadataBuilder.build()
   }
 
   //Handling the topic.parameters parameter.
