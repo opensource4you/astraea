@@ -19,7 +19,6 @@ package org.astraea.gui.text;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import javafx.application.Platform;
 import org.astraea.common.Utils;
