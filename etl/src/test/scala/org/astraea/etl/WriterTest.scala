@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Assertions.{
 import org.junit.jupiter.api.Test
 
 import java.io.File
-import java.util.concurrent.CompletionException
+import java.util.concurrent.{CompletionException, TimeUnit}
 import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
@@ -38,6 +38,7 @@ import scala.concurrent.{Await, Future}
 class WriterTest extends RequireBrokerCluster {
 
   @Test def topicCreatorTest(): Unit = {
+    Thread.sleep(Duration(15, TimeUnit.SECONDS).toMillis)
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
