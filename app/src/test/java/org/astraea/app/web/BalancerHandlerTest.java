@@ -39,7 +39,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
@@ -792,11 +791,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   private static class NoOpExecutor implements RebalancePlanExecutor {
 
     private final LongAdder executionCounter = new LongAdder();
-
-    @Override
-    public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
-      executionCounter.increment();
-    }
 
     @Override
     public CompletionStage<Void> run(AsyncAdmin admin, ClusterLogAllocation targetAllocation) {

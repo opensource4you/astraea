@@ -24,7 +24,5 @@ import org.astraea.common.balancer.log.ClusterLogAllocation;
 public interface RebalancePlanExecutor {
 
   /** This method responsible for fulfill a rebalance plan. */
-  void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation);
-
   CompletionStage<Void> run(AsyncAdmin admin, ClusterLogAllocation targetAllocation);
 }

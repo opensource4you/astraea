@@ -19,6 +19,7 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -33,7 +34,6 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ClusterCost;
@@ -53,13 +53,12 @@ class BalancerTest extends RequireBrokerCluster {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testLeaderCountRebalance(boolean greedy) throws ExecutionException, InterruptedException {
-    try (var admin = Admin.of(bootstrapServers());
-        var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
               () ->
-                  admin.replicas().stream()
+                  admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
                       .filter(Replica::isLeader)
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
@@ -77,7 +76,7 @@ class BalancerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .binomialProbability(0.1)
           .build()
-          .apply(asyncAdmin)
+          .apply(admin)
           .toCompletableFuture()
           .get();
       var imbalanceFactor0 = currentImbalanceFactor.get();
@@ -91,9 +90,15 @@ class BalancerTest extends RequireBrokerCluster {
               .limit(Duration.ofSeconds(10))
               .greedy(greedy)
               .build()
-              .offer(admin.clusterInfo(), topic -> topic.equals(topicName), admin.brokerFolders())
+              .offer(
+                  admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join(),
+                  topic -> topic.equals(topicName),
+                  admin.brokerFolders().toCompletableFuture().join())
               .orElseThrow();
-      new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal().rebalancePlan());
+      new StraightPlanExecutor()
+          .run(admin, plan.proposal().rebalancePlan())
+          .toCompletableFuture()
+          .join();
 
       var imbalanceFactor1 = currentImbalanceFactor.get();
       Assertions.assertTrue(
