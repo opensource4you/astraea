@@ -16,15 +16,22 @@
  */
 package org.astraea.gui.tab;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.FutureUtils;
+import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ConsumerGroup;
+import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
@@ -35,40 +42,51 @@ import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
 
 public class ClientTab {
-  private static List<Map<String, Object>> consumerResult(Stream<ConsumerGroup> cgs, Input input) {
-    return cgs.flatMap(
+
+  private static final String ACTIVE_KEY = "active";
+
+  private static List<Map<String, Object>> consumerResult(
+      List<ConsumerGroup> cgs, List<Partition> partitions, Input input) {
+    var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
+    return cgs.stream()
+        .filter(
             cg ->
-                cg.assignment().entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry.getValue().stream()
-                                .filter(
-                                    tp ->
-                                        input.matchSearch(tp.topic())
-                                            || input.matchSearch(entry.getKey().groupId()))
-                                .map(
-                                    tp ->
-                                        LinkedHashMap.<String, Object>of(
-                                            "group",
-                                            entry.getKey().groupId(),
-                                            "coordinator",
-                                            cg.coordinator().id(),
-                                            "topic",
-                                            tp.topic(),
-                                            "partition",
-                                            tp.partition(),
-                                            "offset",
-                                            Optional.ofNullable(cg.consumeProgress().get(tp))
-                                                .map(String::valueOf)
-                                                .orElse("unknown"),
-                                            "client host",
-                                            entry.getKey().host(),
-                                            "client id",
-                                            entry.getKey().clientId(),
-                                            "member id",
-                                            entry.getKey().memberId(),
-                                            "instance id",
-                                            entry.getKey().groupInstanceId().orElse("")))))
+                !input.multiSelectedRadios(List.<String>of()).contains(ACTIVE_KEY)
+                    || !cg.assignment().isEmpty())
+        .flatMap(
+            cg ->
+                Stream.concat(
+                        cg.consumeProgress().keySet().stream(),
+                        cg.assignment().values().stream().flatMap(Collection::stream))
+                    .map(
+                        tp -> {
+                          var result = new LinkedHashMap<String, Object>();
+                          result.put("group", cg.groupId());
+                          result.put("coordinator", cg.coordinator().id());
+                          result.put("topic", tp.topic());
+                          result.put("partition", tp.partition());
+                          Optional.ofNullable(cg.consumeProgress().get(tp))
+                              .ifPresent(offset -> result.put("offset", offset));
+                          result.put(
+                              "lag",
+                              pts.get(tp).get(0).latestOffset()
+                                  - Optional.ofNullable(cg.consumeProgress().get(tp)).orElse(0L));
+                          cg.assignment().entrySet().stream()
+                              .filter(e -> e.getValue().contains(tp))
+                              .findFirst()
+                              .map(Map.Entry::getKey)
+                              .ifPresent(
+                                  member -> {
+                                    result.put("client host", member.host());
+                                    result.put("client id", member.clientId());
+                                    result.put("member id", member.memberId());
+                                    member
+                                        .groupInstanceId()
+                                        .ifPresent(
+                                            instanceId -> result.put("instance id", instanceId));
+                                  });
+                          return result;
+                        }))
         .collect(Collectors.toList());
   }
 
@@ -76,22 +94,27 @@ public class ClientTab {
     return Tab.of(
         "consumer",
         PaneBuilder.of()
-            .searchField("group id or topic name")
+            .multiRadioButtons(List.of(ACTIVE_KEY))
             .buttonAction(
                 (input, logger) ->
-                    context
-                        .admin()
-                        .consumerGroupIds()
-                        .thenCompose(context.admin()::consumerGroups)
-                        .thenApply(cgs -> consumerResult(cgs.stream(), input)))
+                    FutureUtils.combine(
+                        context
+                            .admin()
+                            .consumerGroupIds()
+                            .thenCompose(context.admin()::consumerGroups),
+                        context
+                            .admin()
+                            .topicNames(true)
+                            .thenCompose(names -> context.admin().partitions(names)),
+                        (cgs, partitions) -> consumerResult(cgs, partitions, input)))
             .build());
   }
 
-  private static List<Map<String, Object>> transactionResult(Stream<Transaction> transactions) {
-    return transactions
+  private static List<Map<String, Object>> transactionResult(List<Transaction> transactions) {
+    return transactions.stream()
         .map(
             transaction ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "transaction id", transaction.transactionId(),
                     "coordinator id", transaction.coordinatorId(),
                     "state", transaction.state().alias(),
@@ -109,21 +132,12 @@ public class ClientTab {
     return Tab.of(
         "transaction",
         PaneBuilder.of()
-            .searchField("topic name or transaction id")
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .transactionIds()
                         .thenCompose(context.admin()::transactions)
-                        .thenApply(
-                            ts ->
-                                ts.stream()
-                                    .filter(
-                                        transaction ->
-                                            input.matchSearch(transaction.transactionId())
-                                                || transaction.topicPartitions().stream()
-                                                    .anyMatch(tp -> input.matchSearch(tp.topic()))))
                         .thenApply(ClientTab::transactionResult))
             .build());
   }
@@ -132,7 +146,7 @@ public class ClientTab {
     return states
         .map(
             state ->
-                LinkedHashMap.<String, Object>of(
+                MapUtils.<String, Object>of(
                     "topic",
                     state.topic(),
                     "partition",
@@ -144,7 +158,8 @@ public class ClientTab {
                     "last sequence",
                     state.lastSequence(),
                     "last timestamp",
-                    state.lastTimestamp()))
+                    LocalDateTime.ofInstant(
+                        Instant.ofEpochMilli(state.lastTimestamp()), ZoneId.systemDefault())))
         .collect(Collectors.toList());
   }
 
@@ -152,17 +167,11 @@ public class ClientTab {
     return Tab.of(
         "producer",
         PaneBuilder.of()
-            .searchField("topic name")
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .topicNames(true)
-                        .thenApply(
-                            names ->
-                                names.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::topicPartitions)
                         .thenCompose(context.admin()::producerStates)
                         .thenApply(

@@ -43,10 +43,9 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
-import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
-import org.astraea.common.ExecutionRuntimeException;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -203,7 +202,7 @@ public class AdminTest extends RequireBrokerCluster {
           .forEach(p -> Assertions.assertEquals(1, p.latestOffset()));
       admin
           .partitions(Set.of(topicName))
-          .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
+          .forEach(p -> Assertions.assertNotEquals(Optional.empty(), p.maxTimestamp()));
     }
   }
 
@@ -617,144 +616,6 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testProducerStates() throws ExecutionException, InterruptedException {
-    var topic = Utils.randomString(10);
-    try (var producer = Producer.of(bootstrapServers());
-        var admin = Admin.of(bootstrapServers())) {
-      producer.sender().topic(topic).value(new byte[1]).run().toCompletableFuture().get();
-
-      var states = admin.producerStates();
-      Assertions.assertNotEquals(0, states.size());
-      var producerState =
-          states.stream()
-              .filter(s -> s.topic().equals(topic))
-              .collect(Collectors.toUnmodifiableList());
-      Assertions.assertEquals(1, producerState.size());
-    }
-  }
-
-  @Test
-  void testIpQuota() {
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().ip("192.168.11.11").connectionRate(10).create();
-      Utils.sleep(Duration.ofSeconds(2));
-
-      java.util.function.Consumer<List<Quota>> checker =
-          (quotas) -> {
-            Assertions.assertEquals(1, quotas.size());
-            Assertions.assertEquals(
-                Set.of(QuotaConfigs.IP),
-                quotas.stream().map(Quota::targetKey).collect(Collectors.toSet()));
-            Assertions.assertEquals(
-                Set.of(QuotaConfigs.IP_CONNECTION_RATE_CONFIG),
-                quotas.stream().map(Quota::limitKey).collect(Collectors.toSet()));
-            Assertions.assertEquals("192.168.11.11", quotas.iterator().next().targetValue());
-            Assertions.assertEquals(10, quotas.iterator().next().limitValue());
-          };
-
-      // only target
-      checker.accept(
-          admin.quotas(Quota.Target.IP).stream().collect(Collectors.toUnmodifiableList()));
-
-      // only target and name
-      checker.accept(
-          admin.quotas(Quota.Target.IP, "192.168.11.11").stream()
-              .collect(Collectors.toUnmodifiableList()));
-    }
-  }
-
-  @Test
-  void testMultipleIpQuota() {
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.quotaCreator().ip("192.168.11.11").connectionRate(10).create();
-      admin.quotaCreator().ip("192.168.11.11").connectionRate(12).create();
-      admin.quotaCreator().ip("192.168.11.11").connectionRate(9).create();
-      Utils.sleep(Duration.ofSeconds(2));
-      Assertions.assertEquals(1, admin.quotas(Quota.Target.IP, "192.168.11.11").size());
-    }
-  }
-
-  @Test
-  void testClientQuota() {
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin
-          .quotaCreator()
-          .clientId("my-id")
-          .produceRate(DataRate.Byte.of(10L).perSecond())
-          .consumeRate(DataRate.Byte.of(100L).perSecond())
-          .create();
-      Utils.sleep(Duration.ofSeconds(2));
-
-      java.util.function.Consumer<List<Quota>> checker =
-          (quotas) -> {
-            Assertions.assertEquals(2, quotas.size());
-            Assertions.assertEquals(
-                Set.of(QuotaConfigs.CLIENT_ID),
-                quotas.stream().map(Quota::targetKey).collect(Collectors.toSet()));
-            Assertions.assertEquals(
-                Set.of(
-                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG),
-                quotas.stream().map(Quota::limitKey).collect(Collectors.toSet()));
-            Assertions.assertEquals(
-                10,
-                quotas.stream()
-                    .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
-                    .findFirst()
-                    .get()
-                    .limitValue());
-            Assertions.assertEquals(
-                "my-id",
-                quotas.stream()
-                    .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
-                    .findFirst()
-                    .get()
-                    .targetValue());
-            Assertions.assertEquals(
-                100,
-                quotas.stream()
-                    .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-                    .findFirst()
-                    .get()
-                    .limitValue());
-            Assertions.assertEquals(
-                "my-id",
-                quotas.stream()
-                    .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-                    .findFirst()
-                    .get()
-                    .targetValue());
-          };
-
-      // only target
-      checker.accept(
-          admin.quotas(Quota.Target.CLIENT_ID).stream().collect(Collectors.toUnmodifiableList()));
-
-      // only target and name
-      checker.accept(
-          admin.quotas(Quota.Target.CLIENT_ID, "my-id").stream()
-              .collect(Collectors.toUnmodifiableList()));
-    }
-  }
-
-  @Test
-  void testMultipleClientQuota() {
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin
-          .quotaCreator()
-          .clientId("my-id")
-          .consumeRate(DataRate.Byte.of(100L).perSecond())
-          .create();
-      admin
-          .quotaCreator()
-          .clientId("my-id")
-          .produceRate(DataRate.Byte.of(1000L).perSecond())
-          .create();
-      Utils.sleep(Duration.ofSeconds(2));
-      Assertions.assertEquals(2, admin.quotas(Quota.Target.CLIENT_ID, "my-id").size());
-    }
-  }
-
-  @Test
   void testClusterInfo() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       String topic0 = "testClusterInfoFromAdmin_" + Utils.randomString(8);
@@ -841,13 +702,13 @@ public class AdminTest extends RequireBrokerCluster {
                   admin.replicas(Set.of(topic)).stream()
                       .filter(Replica::isLeader)
                       .collect(
-                          Utils.toSortedMap(
+                          MapUtils.toSortedMap(
                               replica -> TopicPartition.of(replica.topic(), replica.partition()),
                               replica -> replica.nodeInfo().id()));
       var expectedReplicaList =
           currentLeaderMap.get().entrySet().stream()
               .collect(
-                  Utils.toSortedMap(
+                  MapUtils.toSortedMap(
                       Map.Entry::getKey,
                       entry -> {
                         int leaderBroker = entry.getValue();
@@ -862,7 +723,7 @@ public class AdminTest extends RequireBrokerCluster {
               () ->
                   expectedReplicaList.entrySet().stream()
                       .collect(
-                          Utils.toSortedMap(
+                          MapUtils.toSortedMap(
                               Map.Entry::getKey,
                               e -> e.getValue().stream().findFirst().orElseThrow()));
 
@@ -960,148 +821,6 @@ public class AdminTest extends RequireBrokerCluster {
                   .get()
                   .topicPartitions()
                   .isEmpty());
-    }
-  }
-
-  @Test
-  void testRemoveAllMembers() {
-    var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
-        var consumer =
-            Consumer.forTopics(Set.of(topicName))
-                .bootstrapServers(bootstrapServers())
-                .config(
-                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-                .build()) {
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
-
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      admin.removeAllMembers(consumer.groupId());
-      Assertions.assertEquals(
-          0,
-          admin.consumerGroups(Set.of(consumer.groupId())).stream()
-              .filter(g -> g.groupId().equals(consumer.groupId()))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-    }
-  }
-
-  @Test
-  void testRemoveEmptyMember() {
-    var topicName = Utils.randomString(10);
-    var groupId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      try (var consumer =
-          Consumer.forTopics(Set.of(topicName))
-              .bootstrapServers(bootstrapServers())
-              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-              .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
-              .build()) {
-        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-      }
-      Assertions.assertEquals(
-          1,
-          admin.consumerGroups(Set.of(groupId)).stream()
-              .filter(g -> g.groupId().equals(groupId))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-      admin.removeAllMembers(groupId);
-      Assertions.assertEquals(
-          0,
-          admin.consumerGroups(Set.of(groupId)).stream()
-              .filter(g -> g.groupId().equals(groupId))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-      admin.removeAllMembers(groupId);
-    }
-  }
-
-  @Test
-  void testRemoveStaticMembers() {
-    var topicName = Utils.randomString(10);
-    var staticId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.builder().bootstrapServers(bootstrapServers()).build();
-        var consumer =
-            Consumer.forTopics(Set.of(topicName))
-                .bootstrapServers(bootstrapServers())
-                .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, staticId)
-                .config(
-                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-                .build()) {
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
-
-      producer.sender().topic(topicName).key(new byte[10]).run();
-      producer.flush();
-      admin.removeStaticMembers(consumer.groupId(), Set.of(consumer.groupInstanceId().get()));
-      Assertions.assertEquals(
-          0,
-          admin.consumerGroups(Set.of(consumer.groupId())).stream()
-              .filter(g -> g.groupId().equals(consumer.groupId()))
-              .findFirst()
-              .get()
-              .assignment()
-              .size());
-    }
-  }
-
-  @Test
-  void testRemoveGroupWithDynamicMembers() {
-    var groupId = Utils.randomString(10);
-    var topicName = Utils.randomString(10);
-    try (var consumer =
-        Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
-            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-            .build()) {
-      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-    }
-    try (var admin = Admin.of(bootstrapServers())) {
-      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
-      admin.removeGroup(groupId);
-      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
-    }
-  }
-
-  @Test
-  void testRemoveGroupWithStaticMembers() {
-    var groupId = Utils.randomString(10);
-    var topicName = Utils.randomString(10);
-    try (var consumer =
-        Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
-            .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-            .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
-            .build()) {
-      Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-    }
-
-    try (var admin = Admin.of(bootstrapServers())) {
-      Assertions.assertTrue(admin.consumerGroupIds().contains(groupId));
-      // the static member is existent
-      var astraeaExecutionRuntimeException =
-          Assertions.assertThrows(
-              ExecutionRuntimeException.class, () -> admin.removeGroup(groupId));
-      Assertions.assertEquals(
-          GroupNotEmptyException.class, astraeaExecutionRuntimeException.getRootCause().getClass());
-      // cleanup members
-      admin.removeAllMembers(groupId);
-      admin.removeGroup(groupId);
-      Assertions.assertFalse(admin.consumerGroupIds().contains(groupId));
     }
   }
 
@@ -1341,7 +1060,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("leader.replication.throttled.rate")
+                        .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
                 var followerValue =
                     admin.brokers().stream()
@@ -1349,7 +1068,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("follower.replication.throttled.rate")
+                        .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
 
                 Assertions.assertEquals(
@@ -1383,7 +1102,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("leader.replication.throttled.rate")
+                        .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
                 var followerValue =
                     admin.brokers().stream()
@@ -1391,7 +1110,7 @@ public class AdminTest extends RequireBrokerCluster {
                         .findFirst()
                         .get()
                         .config()
-                        .value("follower.replication.throttled.rate")
+                        .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                         .orElseThrow();
 
                 Assertions.assertEquals(
@@ -1583,8 +1302,10 @@ public class AdminTest extends RequireBrokerCluster {
         admin.creator().topic(topic).numberOfPartitions(10).numberOfReplicas((short) 3).create();
         Utils.sleep(Duration.ofSeconds(1));
 
-        var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", "*");
-        var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", "*");
+        var configEntry0 =
+            new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*");
+        var configEntry1 =
+            new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*");
         var alter0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SET);
         var alter1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SET);
         var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
@@ -1628,11 +1349,13 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   private Set<TopicPartitionReplica> fetchLeaderThrottle(String topicName) {
-    return fetchLogThrottleConfig("leader.replication.throttled.replicas", topicName);
+    return fetchLogThrottleConfig(
+        TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, topicName);
   }
 
   private Set<TopicPartitionReplica> fetchFollowerThrottle(String topicName) {
-    return fetchLogThrottleConfig("follower.replication.throttled.replicas", topicName);
+    return fetchLogThrottleConfig(
+        TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, topicName);
   }
 
   @Test
@@ -1707,7 +1430,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("follower.replication.throttled.rate");
+              .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertEquals((long) dataRate.byteRate(), Long.valueOf(value0.orElseThrow()));
 
       // clear throttle
@@ -1721,7 +1444,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("follower.replication.throttled.rate");
+              .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertTrue(value1.isEmpty());
     }
   }
@@ -1741,7 +1464,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("leader.replication.throttled.rate");
+              .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertEquals((long) dataRate.byteRate(), Long.valueOf(value0.orElseThrow()));
 
       // clear throttle
@@ -1755,7 +1478,7 @@ public class AdminTest extends RequireBrokerCluster {
               .findFirst()
               .get()
               .config()
-              .value("leader.replication.throttled.rate");
+              .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG);
       Assertions.assertTrue(value1.isEmpty());
     }
   }
@@ -1806,7 +1529,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("leader.replication.throttled.replicas")
+              .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
 
       admin.clearLeaderReplicationThrottle(log);
@@ -1817,7 +1540,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("leader.replication.throttled.replicas")
+              .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
     }
   }
@@ -1837,7 +1560,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("follower.replication.throttled.replicas")
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
 
       admin.clearFollowerReplicationThrottle(log);
@@ -1848,7 +1571,7 @@ public class AdminTest extends RequireBrokerCluster {
               .topics(Set.of(topic))
               .get(0)
               .config()
-              .value("follower.replication.throttled.replicas")
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .orElse(""));
     }
   }

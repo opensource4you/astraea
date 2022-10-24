@@ -17,16 +17,17 @@
 package org.astraea.gui.tab;
 
 import java.time.Duration;
-import java.util.Comparator;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.LinkedHashMap;
+import java.util.stream.Stream;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
@@ -41,8 +42,18 @@ import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class BalancerTab {
+
+  private static final String TOPIC_NAME_KEY = "topic";
+  private static final String PARTITION_KEY = "partition";
+  private static final String PREVIOUS_LEADER_KEY = "previous leader";
+  private static final String NEW_LEADER_KEY = "new leader";
+  private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
+  private static final String NEW_FOLLOWER_KEY = "new follower";
+  private static final String NEW_ASSIGNMENT_KEY = "new assignments";
 
   private enum Cost {
     REPLICA("replica", new ReplicaNumberCost()),
@@ -69,20 +80,36 @@ public class BalancerTab {
             ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
         .stream()
         .map(
-            tp ->
-                LinkedHashMap.<String, Object>of(
-                    "topic",
-                    tp.topic(),
-                    "partition",
-                    tp.partition(),
-                    "old assignments",
-                    clusterInfo.replicas(tp).stream()
-                        .map(r -> r.nodeInfo().id() + ":" + r.path())
-                        .collect(Collectors.joining(",")),
-                    "new assignments",
-                    plan.proposal().rebalancePlan().logPlacements(tp).stream()
-                        .map(r -> r.nodeInfo().id() + ":" + r.path())
-                        .collect(Collectors.joining(","))))
+            tp -> {
+              var previousAssignments = clusterInfo.replicas(tp);
+              var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
+              var result = new LinkedHashMap<String, Object>();
+              result.put(TOPIC_NAME_KEY, tp.topic());
+              result.put(PARTITION_KEY, tp.partition());
+              previousAssignments.stream()
+                  .filter(ReplicaInfo::isLeader)
+                  .findFirst()
+                  .ifPresent(
+                      r -> result.put(PREVIOUS_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
+              newAssignments.stream()
+                  .filter(ReplicaInfo::isLeader)
+                  .findFirst()
+                  .ifPresent(r -> result.put(NEW_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
+              var previousFollowers =
+                  previousAssignments.stream()
+                      .filter(r -> !r.isLeader())
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(","));
+              var newFollowers =
+                  newAssignments.stream()
+                      .filter(r -> !r.isLeader())
+                      .map(r -> r.nodeInfo().id() + ":" + r.path())
+                      .collect(Collectors.joining(","));
+              if (!previousFollowers.isBlank())
+                result.put(PREVIOUS_FOLLOWER_KEY, previousFollowers);
+              if (!newFollowers.isBlank()) result.put(NEW_FOLLOWER_KEY, newFollowers);
+              return result;
+            })
         .collect(Collectors.toList());
   }
 
@@ -90,7 +117,7 @@ public class BalancerTab {
       Context context, Input input, Logger logger) {
     return context
         .admin()
-        .topicNames(true)
+        .topicNames(false)
         .thenCompose(context.admin()::clusterInfo)
         .thenCompose(
             clusterInfo ->
@@ -99,122 +126,151 @@ public class BalancerTab {
                     .brokerFolders()
                     .thenApply(
                         brokerFolders -> {
+                          var patterns =
+                              input
+                                  .texts()
+                                  .get(TOPIC_NAME_KEY)
+                                  .map(
+                                      ss ->
+                                          Arrays.stream(ss.split(","))
+                                              .map(Utils::wildcardToPattern)
+                                              .collect(Collectors.toList()))
+                                  .orElse(List.of());
                           logger.log("searching better assignments ... ");
                           return Map.entry(
                               clusterInfo,
                               Balancer.builder()
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
-                                      input
-                                          .selectedRadio()
-                                          .map(o -> (Cost) o)
-                                          .orElse(Cost.REPLICA)
-                                          .costFunction)
+                                      HasClusterCost.of(
+                                          input
+                                              .multiSelectedRadios(Arrays.asList(Cost.values()))
+                                              .stream()
+                                              .map(cost -> Map.entry(cost.costFunction, 1.0))
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      Map.Entry::getKey, Map.Entry::getValue))))
                                   .limit(Duration.ofSeconds(10))
                                   .limit(10000)
                                   .greedy(true)
                                   .build()
-                                  .offer(clusterInfo, input::matchSearch, brokerFolders));
+                                  .offer(
+                                      clusterInfo,
+                                      topic ->
+                                          patterns.isEmpty()
+                                              || patterns.stream()
+                                                  .anyMatch(p -> p.matcher(topic).matches()),
+                                      brokerFolders));
                         }))
-        .thenCompose(
+        .thenApply(
             entry -> {
-              var tpAndReplicasMap =
-                  entry
-                      .getValue()
-                      .map(
-                          plan ->
-                              ClusterLogAllocation.findNonFulfilledAllocation(
-                                      ClusterLogAllocation.of(entry.getKey()),
-                                      plan.proposal().rebalancePlan())
-                                  .stream()
-                                  .collect(
-                                      Collectors.toMap(
-                                          Function.identity(),
-                                          tp ->
-                                              plan
-                                                  .proposal()
-                                                  .rebalancePlan()
-                                                  .logPlacements(tp)
-                                                  .stream()
-                                                  .sorted(
-                                                      Comparator.comparing(
-                                                          Replica::isPreferredLeader))
-                                                  .collect(Collectors.toList()))))
-                      .orElse(Map.of());
-              if (tpAndReplicasMap.isEmpty()) {
-                logger.log("there is no better assignments");
-                return CompletableFuture.completedFuture(List.of());
-              }
-              logger.log("applying better assignments ... ");
-              // TODO: how to migrate folder safely ???
-
-              var moveBrokerRequest =
-                  tpAndReplicasMap.entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              Map.Entry::getKey,
-                              e ->
-                                  e.getValue().stream()
-                                      .map(r -> r.nodeInfo().id())
-                                      .collect(Collectors.toList())));
-              var moveFolderRequest =
-                  tpAndReplicasMap.entrySet().stream()
-                      .flatMap(
-                          e ->
-                              e.getValue().stream()
-                                  .map(r -> Map.entry(r.topicPartitionReplica(), r.path())))
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-              var expectedReplicas =
-                  moveBrokerRequest.entrySet().stream()
-                      .flatMap(
-                          e ->
-                              e.getValue().stream()
-                                  .map(
-                                      id ->
-                                          TopicPartitionReplica.of(
-                                              e.getKey().topic(), e.getKey().partition(), id)))
-                      .collect(Collectors.toList());
-              return context
-                  .admin()
-                  .moveToBrokers(moveBrokerRequest)
-                  // wait assignment
-                  .thenCompose(
-                      ignored ->
-                          context
-                              .admin()
-                              .waitCluster(
-                                  moveBrokerRequest.keySet().stream()
-                                      .map(TopicPartition::topic)
-                                      .collect(Collectors.toSet()),
-                                  clusterInfo ->
-                                      expectedReplicas.stream()
-                                          .allMatch(
-                                              r ->
-                                                  clusterInfo
-                                                      .replicaStream()
-                                                      .anyMatch(
-                                                          replica ->
-                                                              replica
-                                                                  .topicPartitionReplica()
-                                                                  .equals(r))),
-                                  Duration.ofSeconds(10),
-                                  2))
-                  .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
-                  .thenApply(
-                      ignored ->
-                          entry
-                              .getValue()
-                              .map(plan -> result(entry.getKey(), plan))
-                              .orElse(List.of()));
+              var result =
+                  entry.getValue().map(plan -> result(entry.getKey(), plan)).orElse(List.of());
+              if (result.isEmpty()) logger.log("there is no better assignments");
+              else
+                logger.log(
+                    "find a better assignments. Total number of reassignments is " + result.size());
+              return result;
             });
   }
 
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .radioButtons(Cost.values())
-            .buttonName("EXECUTE")
-            .searchField("topic name")
+            .multiRadioButtons(Arrays.stream(Cost.values()).collect(Collectors.toList()))
+            .buttonName("PLAN")
+            .input(Label.of(TOPIC_NAME_KEY), TextField.builder().hint("topic-*,*abc*").build())
+            .tableViewAction(
+                Map.of(),
+                "EXECUTE",
+                (items, inputs, logger) -> {
+                  logger.log("applying better assignments ... ");
+                  var reassignments =
+                      items.stream()
+                          .flatMap(
+                              item -> {
+                                var topic = item.get(TOPIC_NAME_KEY);
+                                var partition = item.get(PARTITION_KEY);
+                                var assignments = item.get(NEW_ASSIGNMENT_KEY);
+                                if (topic != null && partition != null && assignments != null)
+                                  return Stream.of(
+                                      Map.entry(
+                                          TopicPartition.of(
+                                              topic.toString(),
+                                              Integer.parseInt(partition.toString())),
+                                          Arrays.stream(assignments.toString().split(","))
+                                              .map(
+                                                  assignment ->
+                                                      Map.entry(
+                                                          Integer.parseInt(
+                                                              assignment.split(":")[0]),
+                                                          assignment.split(":")[1]))
+                                              .collect(Collectors.toList())));
+                                return Stream.of();
+                              })
+                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                  var moveBrokerRequest =
+                      reassignments.entrySet().stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  e ->
+                                      e.getValue().stream()
+                                          .map(Map.Entry::getKey)
+                                          .collect(Collectors.toList())));
+                  var moveFolderRequest =
+                      reassignments.entrySet().stream()
+                          .flatMap(
+                              e ->
+                                  e.getValue().stream()
+                                      .map(
+                                          idAndPath ->
+                                              Map.entry(
+                                                  TopicPartitionReplica.of(
+                                                      e.getKey().topic(),
+                                                      e.getKey().partition(),
+                                                      idAndPath.getKey()),
+                                                  idAndPath.getValue())))
+                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                  var expectedReplicas =
+                      moveBrokerRequest.entrySet().stream()
+                          .flatMap(
+                              e ->
+                                  e.getValue().stream()
+                                      .map(
+                                          id ->
+                                              TopicPartitionReplica.of(
+                                                  e.getKey().topic(), e.getKey().partition(), id)))
+                          .collect(Collectors.toList());
+                  return context
+                      .admin()
+                      .moveToBrokers(moveBrokerRequest)
+                      // wait assignment
+                      .thenCompose(
+                          ignored ->
+                              context
+                                  .admin()
+                                  .waitCluster(
+                                      moveBrokerRequest.keySet().stream()
+                                          .map(TopicPartition::topic)
+                                          .collect(Collectors.toSet()),
+                                      clusterInfo ->
+                                          expectedReplicas.stream()
+                                              .allMatch(
+                                                  r ->
+                                                      clusterInfo
+                                                          .replicaStream()
+                                                          .anyMatch(
+                                                              replica ->
+                                                                  replica
+                                                                      .topicPartitionReplica()
+                                                                      .equals(r))),
+                                      Duration.ofSeconds(15),
+                                      2))
+                      .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
+                      .thenAccept(ignored -> logger.log("succeed to balance cluster"));
+                })
             .buttonAction((input, logger) -> generator(context, input, logger))
             .build();
 

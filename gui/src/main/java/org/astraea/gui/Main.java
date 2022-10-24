@@ -26,11 +26,9 @@ import org.astraea.gui.tab.AboutTab;
 import org.astraea.gui.tab.BalancerTab;
 import org.astraea.gui.tab.BrokerTab;
 import org.astraea.gui.tab.ClientTab;
-import org.astraea.gui.tab.PartitionTab;
 import org.astraea.gui.tab.QuotaTab;
-import org.astraea.gui.tab.ReplicaTab;
 import org.astraea.gui.tab.SettingTab;
-import org.astraea.gui.tab.TopicTab;
+import org.astraea.gui.tab.topic.TopicTab;
 
 /**
  * Since the Java launcher checks if the main class extends javafx.application.Application, and in
@@ -50,8 +48,8 @@ public class Main {
     public void start(Stage stage) {
       var context = new Context();
       stage.setTitle("Astraea");
-      stage.setHeight(1000);
-      stage.setWidth(1300);
+      stage.setHeight(900);
+      stage.setWidth(1200);
       stage.setScene(
           new Scene(
               TabPane.of(
@@ -60,8 +58,6 @@ public class Main {
                       SettingTab.of(context),
                       BrokerTab.of(context),
                       TopicTab.of(context),
-                      PartitionTab.of(context),
-                      ReplicaTab.of(context),
                       ClientTab.of(context),
                       QuotaTab.of(context),
                       BalancerTab.of(context),

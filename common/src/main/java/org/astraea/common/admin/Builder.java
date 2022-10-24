@@ -32,17 +32,11 @@ import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
-import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
-import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.errors.ReplicaNotAvailableException;
-import org.apache.kafka.common.quota.ClientQuotaAlteration;
-import org.apache.kafka.common.quota.ClientQuotaEntity;
-import org.apache.kafka.common.quota.ClientQuotaFilter;
-import org.apache.kafka.common.quota.ClientQuotaFilterComponent;
 import org.astraea.common.DataRate;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
@@ -115,12 +109,6 @@ public class Builder {
         // leader. It is ok to swallow the exception since the preferred leader be the actual
         // leader. That is what the caller wants to be.
       }
-    }
-
-    @Override
-    public List<ProducerState> producerStates(Set<TopicPartition> partitions) {
-      return Utils.packException(
-          () -> asyncAdmin.producerStates(partitions).toCompletableFuture().get());
     }
 
     @Override
@@ -207,35 +195,6 @@ public class Builder {
     }
 
     @Override
-    public QuotaCreator quotaCreator() {
-      return new QuotaImpl(admin);
-    }
-
-    @Override
-    public Collection<Quota> quotas(Quota.Target target) {
-      return quotas(
-          ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntityType(target.alias()))));
-    }
-
-    @Override
-    public Collection<Quota> quotas(Quota.Target target, String value) {
-      return quotas(
-          ClientQuotaFilter.contains(
-              List.of(ClientQuotaFilterComponent.ofEntity(target.alias(), value))));
-    }
-
-    @Override
-    public Collection<Quota> quotas() {
-      return quotas(ClientQuotaFilter.all());
-    }
-
-    private Collection<Quota> quotas(ClientQuotaFilter filter) {
-      return Quota.of(
-          Utils.packException(() -> admin.describeClientQuotas(filter).entities().get()));
-    }
-
-    @Override
     public Set<String> transactionIds() {
       return Utils.packException(() -> asyncAdmin.transactionIds().toCompletableFuture().get());
     }
@@ -244,48 +203,6 @@ public class Builder {
     public List<Transaction> transactions(Set<String> transactionIds) {
       return Utils.packException(
           () -> asyncAdmin.transactions(transactionIds).toCompletableFuture().get());
-    }
-
-    @Override
-    public void removeGroup(String groupId) {
-      Utils.packException(() -> admin.deleteConsumerGroups(Set.of(groupId)).all().get());
-    }
-
-    @Override
-    public void removeAllMembers(String groupId) {
-      try {
-        Utils.packException(
-            () -> {
-              admin
-                  .removeMembersFromConsumerGroup(
-                      groupId, new RemoveMembersFromConsumerGroupOptions())
-                  .all()
-                  .get();
-            });
-      } catch (ExecutionRuntimeException executionRuntimeException) {
-        var rootCause = executionRuntimeException.getRootCause();
-        if (IllegalArgumentException.class == rootCause.getClass()
-            && ERROR_MSG_MEMBER_IS_EMPTY.equals(rootCause.getMessage())) {
-          // Deleting all members can't work when there is no members already.
-          return;
-        }
-        throw executionRuntimeException;
-      }
-    }
-
-    @Override
-    public void removeStaticMembers(String groupId, Set<String> members) {
-      Utils.packException(
-          () ->
-              admin
-                  .removeMembersFromConsumerGroup(
-                      groupId,
-                      new RemoveMembersFromConsumerGroupOptions(
-                          members.stream()
-                              .map(MemberToRemove::new)
-                              .collect(Collectors.toUnmodifiableList())))
-                  .all()
-                  .get());
     }
 
     @Override
@@ -496,7 +413,8 @@ public class Builder {
                 () ->
                     admin
                         .incrementalAlterConfigs(
-                            toKafkaConfigs.apply(leaders, "leader.replication.throttled.replicas"))
+                            toKafkaConfigs.apply(
+                                leaders, TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
                         .all()
                         .get());
 
@@ -506,7 +424,8 @@ public class Builder {
                     admin
                         .incrementalAlterConfigs(
                             toKafkaConfigs.apply(
-                                followers, "follower.replication.throttled.replicas"))
+                                followers,
+                                TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
                         .all()
                         .get());
         }
@@ -534,7 +453,8 @@ public class Builder {
                 () ->
                     admin
                         .incrementalAlterConfigs(
-                            toKafkaConfigs.apply(egress, "leader.replication.throttled.rate"))
+                            toKafkaConfigs.apply(
+                                egress, BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG))
                         .all()
                         .get());
 
@@ -543,7 +463,8 @@ public class Builder {
                 () ->
                     admin
                         .incrementalAlterConfigs(
-                            toKafkaConfigs.apply(ingress, "follower.replication.throttled.rate"))
+                            toKafkaConfigs.apply(
+                                ingress, BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))
                         .all()
                         .get());
         }
@@ -552,9 +473,11 @@ public class Builder {
 
     @Override
     public void clearReplicationThrottle(String topic) {
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", "");
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "");
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.DELETE);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", "");
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "");
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.DELETE);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
 
@@ -571,8 +494,10 @@ public class Builder {
               .filter(replica -> replica.partition() == topicPartition.partition())
               .map(replica -> topicPartition.partition() + ":" + replica.nodeInfo().id())
               .collect(Collectors.joining(","));
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, topicPartition.topic());
@@ -588,8 +513,10 @@ public class Builder {
       // We have to submit all the changes in one API request.
       // see https://github.com/skiptests/astraea/issues/649
       var configValue = log.partition() + ":" + log.brokerId();
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
           () ->
@@ -604,7 +531,8 @@ public class Builder {
     @Override
     public void clearLeaderReplicationThrottle(TopicPartitionReplica log) {
       var configValue = log.partition() + ":" + log.brokerId();
-      var configEntry0 = new ConfigEntry("leader.replication.throttled.replicas", configValue);
+      var configEntry0 =
+          new ConfigEntry(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var alterConfigOp0 = new AlterConfigOp(configEntry0, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
@@ -614,7 +542,8 @@ public class Builder {
     @Override
     public void clearFollowerReplicationThrottle(TopicPartitionReplica log) {
       var configValue = log.partition() + ":" + log.brokerId();
-      var configEntry1 = new ConfigEntry("follower.replication.throttled.replicas", configValue);
+      var configEntry1 =
+          new ConfigEntry(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, configValue);
       var alterConfigOp1 = new AlterConfigOp(configEntry1, AlterConfigOp.OpType.SUBTRACT);
       var configResource = new ConfigResource(ConfigResource.Type.TOPIC, log.topic());
       Utils.packException(
@@ -627,7 +556,8 @@ public class Builder {
           brokerIds.stream()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      id -> id, id -> Set.of("follower.replication.throttled.rate"))));
+                      id -> id,
+                      id -> Set.of(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))));
     }
 
     @Override
@@ -636,7 +566,8 @@ public class Builder {
           brokerIds.stream()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      id -> id, id -> Set.of("leader.replication.throttled.rate"))));
+                      id -> id,
+                      id -> Set.of(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG))));
     }
 
     private void deleteBrokerConfigs(Map<Integer, Set<String>> brokerAndConfigKeys) {
@@ -790,89 +721,6 @@ public class Builder {
                                   ignore -> Optional.of(new NewPartitionReassignment(brokers)))))
                   .all()
                   .get());
-    }
-  }
-
-  private static class QuotaImpl implements QuotaCreator {
-    private final org.apache.kafka.clients.admin.Admin admin;
-
-    QuotaImpl(org.apache.kafka.clients.admin.Admin admin) {
-      this.admin = admin;
-    }
-
-    @Override
-    public Ip ip(String ip) {
-      return new Ip() {
-        private int connectionRate = Integer.MAX_VALUE;
-
-        @Override
-        public Ip connectionRate(int value) {
-          this.connectionRate = value;
-          return this;
-        }
-
-        @Override
-        public void create() {
-          if (connectionRate == Integer.MAX_VALUE) return;
-          Utils.packException(
-              () ->
-                  admin
-                      .alterClientQuotas(
-                          List.of(
-                              new ClientQuotaAlteration(
-                                  new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
-                                  List.of(
-                                      new ClientQuotaAlteration.Op(
-                                          QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
-                                          (double) connectionRate)))))
-                      .all()
-                      .get());
-        }
-      };
-    }
-
-    @Override
-    public Client clientId(String id) {
-      return new Client() {
-        private DataRate produceRate = null;
-        private DataRate consumeRate = null;
-
-        @Override
-        public Client produceRate(DataRate value) {
-          this.produceRate = value;
-          return this;
-        }
-
-        @Override
-        public Client consumeRate(DataRate value) {
-          this.consumeRate = value;
-          return this;
-        }
-
-        @Override
-        public void create() {
-          var q = new ArrayList<ClientQuotaAlteration.Op>();
-          if (produceRate != null)
-            q.add(
-                new ClientQuotaAlteration.Op(
-                    QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, produceRate.byteRate()));
-          if (consumeRate != null)
-            q.add(
-                new ClientQuotaAlteration.Op(
-                    QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, consumeRate.byteRate()));
-          if (!q.isEmpty())
-            Utils.packException(
-                () ->
-                    admin
-                        .alterClientQuotas(
-                            List.of(
-                                new ClientQuotaAlteration(
-                                    new ClientQuotaEntity(Map.of(ClientQuotaEntity.CLIENT_ID, id)),
-                                    q)))
-                        .all()
-                        .get());
-        }
-      };
     }
   }
 }

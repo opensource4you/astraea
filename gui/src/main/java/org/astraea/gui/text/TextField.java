@@ -16,20 +16,67 @@
  */
 package org.astraea.gui.text;
 
+import java.util.Optional;
 import javafx.application.Platform;
 
 public class TextField extends javafx.scene.control.TextField {
-  public static TextField onlyNumber() {
-    var field = new TextField();
-    field
-        .textProperty()
-        .addListener(
-            (observable, oldValue, newValue) -> {
-              if (!newValue.matches("\\d*")) {
-                field.setText(newValue.replaceAll("[^\\d]", ""));
-              }
-            });
-    return field;
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public static class Builder {
+    private final TextField field = new TextField();
+
+    private Builder() {}
+
+    public Builder placeholder(String placeholder) {
+      field
+          .textProperty()
+          .addListener(
+              (observable, oldValue, newValue) -> {
+                if (newValue == null || newValue.isBlank()) {
+                  field.text(placeholder);
+                }
+              });
+      field.text(placeholder);
+      return this;
+    }
+
+    public Builder onlyNumber() {
+      field
+          .textProperty()
+          .addListener(
+              (observable, oldValue, newValue) -> {
+                if (newValue != null && !newValue.matches("\\d*")) {
+                  field.setText(newValue.replaceAll("\\D", ""));
+                }
+              });
+      return this;
+    }
+
+    public Builder defaultValue(String defaultValue) {
+      if (defaultValue != null) {
+        field.text(defaultValue);
+        field.setFocusTraversable(false);
+      }
+      return this;
+    }
+
+    public Builder disable() {
+      field.disable();
+      return this;
+    }
+
+    public Builder hint(String hint) {
+      field.setPromptText(hint);
+      field.setFocusTraversable(false);
+      return this;
+    }
+
+    public TextField build() {
+      return field;
+    }
   }
 
   public static TextField of() {
@@ -51,5 +98,19 @@ public class TextField extends javafx.scene.control.TextField {
   public void text(String text) {
     if (Platform.isFxApplicationThread()) setText(text);
     else Platform.runLater(() -> setText(text));
+  }
+
+  public Optional<String> text() {
+    return Optional.ofNullable(getText()).filter(r -> !r.isBlank());
+  }
+
+  public void disable() {
+    if (Platform.isFxApplicationThread()) setDisable(true);
+    else Platform.runLater(() -> setDisable(true));
+  }
+
+  public void enable() {
+    if (Platform.isFxApplicationThread()) setDisable(false);
+    else Platform.runLater(() -> setDisable(false));
   }
 }

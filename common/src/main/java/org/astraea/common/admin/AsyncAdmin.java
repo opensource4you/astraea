@@ -17,18 +17,22 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Record;
+import org.astraea.common.consumer.SeekStrategy;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -36,7 +40,7 @@ public interface AsyncAdmin extends AutoCloseable {
     return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrap));
   }
 
-  static AsyncAdmin of(Map<String, Object> configs) {
+  static AsyncAdmin of(Map<String, String> configs) {
     return new AsyncAdminImpl(configs);
   }
 
@@ -44,7 +48,7 @@ public interface AsyncAdmin extends AutoCloseable {
   String clientId();
 
   /** @return the number of pending requests. */
-  int pendingRequests();
+  int runningRequests();
 
   // ---------------------------------[readonly]---------------------------------//
 
@@ -70,6 +74,55 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
 
+  CompletionStage<Map<TopicPartition, Long>> earliestOffsets(Set<TopicPartition> topicPartitions);
+
+  CompletionStage<Map<TopicPartition, Long>> latestOffsets(Set<TopicPartition> topicPartitions);
+
+  /**
+   * find the timestamp of the latest record for given partitions
+   *
+   * @param topicPartitions to search timestamp of the latest record
+   * @param timeout to wait the latest record
+   * @return partition and timestamp of the latest record
+   */
+  default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return brokers()
+        .thenApply(
+            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
+        .thenApply(
+            bootstrap -> {
+              try (var consumer =
+                  Consumer.forPartitions(topicPartitions)
+                      .bootstrapServers(bootstrap)
+                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
+                      .build()) {
+                // TODO: how many records we should take ?
+                return consumer.poll(topicPartitions.size(), timeout).stream()
+                    .collect(
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+                    .entrySet()
+                    .stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                e.getValue().stream()
+                                    .mapToLong(Record::timestamp)
+                                    .max()
+                                    .orElse(-1L)));
+              }
+            });
+  }
+
+  /**
+   * find the max timestamp of existent records for given partitions
+   *
+   * @param topicPartitions to search max timestamp
+   * @return partition and max timestamp
+   */
+  CompletionStage<Map<TopicPartition, Long>> maxTimestamps(Set<TopicPartition> topicPartitions);
+
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
   /** @return online node information */
@@ -87,7 +140,7 @@ public interface AsyncAdmin extends AutoCloseable {
                         Collectors.toMap(
                             NodeInfo::id,
                             n ->
-                                n.folders().stream()
+                                n.dataFolders().stream()
                                     .map(Broker.DataFolder::path)
                                     .collect(Collectors.toSet()))));
   }
@@ -107,17 +160,53 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<List<Replica>> replicas(Set<String> topics);
 
   default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
+    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
+  }
+
+  default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
+    if (checkers.isEmpty()) {
+      throw new RuntimeException("Can not check for idle topics because of no checkers!");
+    }
+
+    return topicNames(false)
+        .thenCompose(
+            topicNames ->
+                FutureUtils.sequence(
+                        checkers.stream()
+                            .map(
+                                checker ->
+                                    checker.usedTopics(this, topicNames).toCompletableFuture())
+                            .collect(Collectors.toUnmodifiableList()))
+                    .thenApply(
+                        s ->
+                            s.stream()
+                                .flatMap(Collection::stream)
+                                .collect(Collectors.toUnmodifiableSet()))
+                    .thenApply(
+                        usedTopics ->
+                            topicNames.stream()
+                                .filter(name -> !usedTopics.contains(name))
+                                .collect(Collectors.toUnmodifiableSet())));
   }
 
   /**
-   * get the quotas associated to given target. {@link QuotaConfigs#IP}, {@link
-   * QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   * get the quotas associated to given target keys and target values. The available target types
+   * include {@link QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
    *
-   * @param targetKey to search
+   * @param targets target type and associated value. For example: Map.of({@link QuotaConfigs#IP},
+   *     Set.of(10.1.1.2, 10..2.2.2))
    * @return quotas matched to given target
    */
-  CompletionStage<List<Quota>> quotas(String targetKey);
+  CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets);
+
+  /**
+   * get the quotas associated to given target keys. The available target types include {@link
+   * QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targetKeys target keys
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(Set<String> targetKeys);
 
   CompletionStage<List<Quota>> quotas();
 
@@ -178,9 +267,9 @@ public interface AsyncAdmin extends AutoCloseable {
    * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
    * Otherwise, an exception might be raised.
    *
-   * @param topicPartition to perform preferred leader election
+   * @param topicPartitions to perform preferred leader election
    */
-  CompletionStage<Void> preferredLeaderElection(TopicPartition topicPartition);
+  CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> topicPartitions);
 
   /**
    * @param total the final number of partitions. Noted that reducing number of partitions is
@@ -218,7 +307,96 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
 
+  /**
+   * delete all members from given groups.
+   *
+   * @param groupAndInstanceIds to delete instance id from group (key)
+   */
+  CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds);
+
+  /**
+   * delete all members from given groups.
+   *
+   * @param consumerGroups to delete members
+   */
+  CompletionStage<Void> deleteMembers(Set<String> consumerGroups);
+
+  /**
+   * delete given groups. all members in those groups get deleted also.
+   *
+   * @param consumerGroups to be deleted
+   */
+  CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
+
   // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the leader of partition get allocated. The topic creation needs time to be synced by all
+   * brokers. This method is used to check whether "most" of brokers get the topic creation.
+   *
+   * @param topicAndNumberOfPartitions to check leader allocation
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletionStage<Boolean> waitPartitionLeaderSynced(
+      Map<String, Integer> topicAndNumberOfPartitions, Duration timeout) {
+    return waitCluster(
+        topicAndNumberOfPartitions.keySet(),
+        clusterInfo -> {
+          var current =
+              clusterInfo
+                  .replicaStream()
+                  .filter(ReplicaInfo::isLeader)
+                  .collect(Collectors.groupingBy(ReplicaInfo::topic));
+          return topicAndNumberOfPartitions.entrySet().stream()
+              .allMatch(
+                  entry ->
+                      current.getOrDefault(entry.getKey(), List.of()).size() == entry.getValue());
+        },
+        timeout,
+        2);
+  }
+
+  /**
+   * wait the preferred leader of partition get elected.
+   *
+   * @param topicPartitions to check leader election
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletionStage<Boolean> waitPreferredLeaderSynced(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return waitCluster(
+        topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
+        clusterInfo ->
+            clusterInfo
+                .replicaStream()
+                .filter(r -> topicPartitions.contains(r.topicPartition()))
+                .filter(Replica::isPreferredLeader)
+                .allMatch(ReplicaInfo::isLeader),
+        timeout,
+        2);
+  }
+
+  /**
+   * wait the given replicas to be allocated correctly
+   *
+   * @param replicas the expected replica allocations
+   * @param timeout to wait
+   * @return a background thread used to check replica allocations
+   */
+  default CompletionStage<Boolean> waitReplicasSynced(
+      Set<TopicPartitionReplica> replicas, Duration timeout) {
+    return waitCluster(
+        replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
+        clusterInfo ->
+            clusterInfo
+                .replicaStream()
+                .filter(r -> replicas.contains(r.topicPartitionReplica()))
+                .allMatch(r -> r.inSync() && !r.isFuture()),
+        timeout,
+        2);
+  }
 
   /**
    * wait the async operations to be done on server-side. You have to define the predicate to
@@ -242,12 +420,15 @@ public interface AsyncAdmin extends AutoCloseable {
                 .thenApply(predicate::test)
                 .exceptionally(
                     e -> {
-                      System.out.println("e: " + e.getClass().getName());
-                      if (e instanceof CompletionException
-                          && e.getCause()
-                              instanceof org.apache.kafka.common.errors.RetriableException)
+                      if (e
+                              instanceof
+                              org.apache.kafka.common.errors.UnknownTopicOrPartitionException
+                          || e.getCause()
+                              instanceof
+                              org.apache.kafka.common.errors.UnknownTopicOrPartitionException)
                         return false;
-                      throw (RuntimeException) e;
+                      if (e instanceof RuntimeException) throw (RuntimeException) e;
+                      throw new RuntimeException(e);
                     }),
         timeout.toMillis(),
         debounce,

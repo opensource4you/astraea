@@ -16,22 +16,82 @@
  */
 package org.astraea.gui.tab;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
+import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class SettingTab {
 
   private static final String BOOTSTRAP_SERVERS = "bootstrap servers";
   private static final String JMX_PORT = "jmx port";
 
+  private static Optional<File> propertyFile() {
+    var tempDir = System.getProperty("java.io.tmpdir");
+    if (tempDir == null) return Optional.empty();
+    var dir = new File(tempDir);
+    if (!dir.exists() || !dir.isDirectory()) return Optional.empty();
+    var f = new File(dir, "astraee_gui.properties");
+    if (!f.exists() && !Utils.packException(f::createNewFile)) return Optional.empty();
+    return Optional.of(f);
+  }
+
+  private static Map<String, String> loadProperty() {
+    return propertyFile()
+        .map(
+            f -> {
+              try (var input = new FileInputStream(f)) {
+                var props = new Properties();
+                props.load(input);
+                return props.entrySet().stream()
+                    .filter(
+                        e -> !e.getKey().toString().isBlank() && !e.getValue().toString().isBlank())
+                    .collect(
+                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString()));
+              } catch (IOException e) {
+                return Map.<String, String>of();
+              }
+            })
+        .orElse(Map.of());
+  }
+
+  private static void saveProperty(Map<String, String> configs) {
+    propertyFile()
+        .ifPresent(
+            f -> {
+              try (var output = new FileOutputStream(f)) {
+                var props = new Properties();
+                props.putAll(configs);
+                props.store(output, null);
+              } catch (IOException e) {
+                // swallow
+              }
+            });
+  }
+
   public static Tab of(Context context) {
+    var bootstrapKey = "bootstrap";
+    var jmxPortKey = "jmx";
+    var properties = loadProperty();
     var pane =
         PaneBuilder.of()
-            .input(BOOTSTRAP_SERVERS, true, false)
-            .input(JMX_PORT, false, true)
+            .input(
+                Label.highlight(BOOTSTRAP_SERVERS),
+                TextField.builder().defaultValue(properties.get(bootstrapKey)).build())
+            .input(
+                Label.of(JMX_PORT),
+                TextField.builder().onlyNumber().defaultValue(properties.get(jmxPortKey)).build())
             .buttonName("CHECK")
             .buttonListener(
                 (input, logger) -> {
@@ -39,6 +99,12 @@ public class SettingTab {
                   var jmxPort =
                       Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT))
                           .map(Integer::parseInt);
+                  saveProperty(
+                      Map.of(
+                          bootstrapKey,
+                          bootstrapServers,
+                          jmxPortKey,
+                          jmxPort.map(String::valueOf).orElse("")));
                   var newAdmin = AsyncAdmin.of(bootstrapServers);
                   return newAdmin
                       .nodeInfos()

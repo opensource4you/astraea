@@ -30,7 +30,6 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
@@ -131,42 +130,20 @@ class RebalanceAdminImpl implements RebalanceAdmin {
 
   @Override
   public CompletableFuture<Boolean> waitLogSynced(TopicPartitionReplica log, Duration timeout) {
-    return asyncAdmin
-        .waitCluster(
-            Set.of(log.topic()),
-            clusterInfo ->
-                clusterInfo
-                    .replicaStream()
-                    .filter(r -> r.topic().equals(log.topic()))
-                    .filter(r -> r.partition() == log.partition())
-                    .filter(r -> r.nodeInfo().id() == log.brokerId())
-                    .allMatch(r -> r.inSync() && !r.isFuture()),
-            timeout,
-            2)
-        .toCompletableFuture();
+    return asyncAdmin.waitReplicasSynced(Set.of(log), timeout).toCompletableFuture();
   }
 
   @Override
   public CompletableFuture<Boolean> waitPreferredLeaderSynced(
       TopicPartition topicPartition, Duration timeout) {
     return asyncAdmin
-        .waitCluster(
-            Set.of(topicPartition.topic()),
-            clusterInfo ->
-                clusterInfo
-                    .replicaStream()
-                    .filter(r -> r.topic().equals(topicPartition.topic()))
-                    .filter(r -> r.partition() == topicPartition.partition())
-                    .filter(Replica::isPreferredLeader)
-                    .allMatch(ReplicaInfo::isLeader),
-            timeout,
-            2)
+        .waitPreferredLeaderSynced(Set.of(topicPartition), timeout)
         .toCompletableFuture();
   }
 
   @Override
   public LeaderElectionTask leaderElection(TopicPartition topicPartition) {
-    admin.preferredLeaderElection(topicPartition);
+    asyncAdmin.preferredLeaderElection(Set.of(topicPartition));
 
     return new LeaderElectionTask(this, topicPartition);
   }

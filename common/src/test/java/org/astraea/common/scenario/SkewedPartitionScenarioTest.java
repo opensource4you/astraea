@@ -18,9 +18,10 @@ package org.astraea.common.scenario;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,11 +47,11 @@ class SkewedPartitionScenarioTest extends RequireBrokerCluster {
         "         100,        3",
       })
   @ParameterizedTest
-  void test(int partitions, short replicas) {
+  void test(int partitions, short replicas) throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString();
     var scenario = new SkewedPartitionScenario(topicName, partitions, replicas, 0.5);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var result = scenario.apply(admin);
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var result = scenario.apply(admin).toCompletableFuture().get();
       Assertions.assertEquals(topicName, result.topicName());
       Assertions.assertEquals(partitions, result.numberOfPartitions());
       Assertions.assertEquals(replicas, result.numberOfReplicas());

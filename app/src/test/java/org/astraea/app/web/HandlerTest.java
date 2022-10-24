@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,12 @@ public class HandlerTest {
     var r =
         Assertions.assertInstanceOf(
             Response.ResponseImpl.class,
-            handler.process(Channel.builder().type(Channel.Type.GET).build()));
+            Utils.packException(
+                () ->
+                    handler
+                        .process(Channel.builder().type(Channel.Type.GET).build())
+                        .toCompletableFuture()
+                        .get()));
     Assertions.assertNotEquals(200, r.code);
     Assertions.assertEquals(exception.getMessage(), r.message);
   }

@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.tab;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,13 +26,15 @@ import javafx.geometry.Side;
 import javafx.scene.layout.Pane;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
-import org.astraea.common.LinkedHashMap;
+import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.text.Label;
+import org.astraea.gui.text.TextField;
 
 public class QuotaTab {
 
@@ -40,8 +43,8 @@ public class QuotaTab {
     var rateKey = "connections/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(ipLabelKey, true, false)
-        .input(rateKey, false, true)
+        .input(Label.highlight(ipLabelKey), TextField.of())
+        .input(Label.highlight(rateKey), TextField.builder().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
@@ -63,7 +66,7 @@ public class QuotaTab {
                         ignored ->
                             context
                                 .admin()
-                                .quotas(QuotaConfigs.IP)
+                                .quotas(Set.of(QuotaConfigs.IP))
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
@@ -77,8 +80,8 @@ public class QuotaTab {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(clientIdLabelKey, true, false)
-        .input(byteRateKey, false, true)
+        .input(Label.highlight(clientIdLabelKey), TextField.of())
+        .input(Label.of(byteRateKey), TextField.builder().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
@@ -100,7 +103,7 @@ public class QuotaTab {
                         ignored ->
                             context
                                 .admin()
-                                .quotas(QuotaConfigs.CLIENT_ID)
+                                .quotas(Set.of(QuotaConfigs.CLIENT_ID))
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
@@ -114,8 +117,8 @@ public class QuotaTab {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(clientIdLabelKey, true, false)
-        .input(byteRateKey, false, true)
+        .input(Label.highlight(clientIdLabelKey), TextField.of())
+        .input(Label.of(byteRateKey), TextField.builder().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
@@ -137,7 +140,7 @@ public class QuotaTab {
                         ignored ->
                             context
                                 .admin()
-                                .quotas(QuotaConfigs.CLIENT_ID)
+                                .quotas(Set.of(QuotaConfigs.CLIENT_ID))
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
@@ -161,7 +164,7 @@ public class QuotaTab {
   }
 
   static LinkedHashMap<String, Object> basicResult(Quota quota) {
-    return LinkedHashMap.of(
+    return MapUtils.of(
         quota.targetKey(),
         quota.targetValue(),
         quota.limitKey(),
@@ -177,18 +180,17 @@ public class QuotaTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .radioButtons(List.of(ipKey, clientIdKey))
-            .searchField(ipKey + "/" + clientIdKey)
+            .singleRadioButtons(List.of(ipKey, clientIdKey))
             .buttonAction(
                 (input, logger) -> {
-                  var target = input.selectedRadio().map(o -> (String) o).orElse(ipKey);
+                  var target = input.singleSelectedRadio(ipKey);
                   return context
                       .admin()
-                      .quotas(target.equals("ip") ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID)
+                      .quotas(
+                          Set.of(target.equals("ip") ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID))
                       .thenApply(
                           quotas ->
                               quotas.stream()
-                                  .filter(q -> input.matchSearch(q.targetValue()))
                                   .map(QuotaTab::basicResult)
                                   .collect(Collectors.toList()));
                 })

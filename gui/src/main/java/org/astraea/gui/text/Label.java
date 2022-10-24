@@ -16,30 +16,47 @@
  */
 package org.astraea.gui.text;
 
+import javafx.application.Platform;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
-public class Label extends javafx.scene.control.Label {
+public class Label extends javafx.scene.control.Label implements Comparable<Label> {
 
   public static Label of(String content) {
-    return new Label(content, content);
+    return new Label(false, content, content);
   }
 
   public static Label highlight(String content) {
-    var label = new Label(content, content + "*");
+    var label = new Label(true, content, content + "*");
     label.setFont(Font.font("Verdana", FontWeight.EXTRA_BOLD, 12));
     return label;
   }
 
+  private final boolean highlight;
   private final String key;
 
-  private Label(String key, String content) {
+  private Label(boolean highlight, String key, String content) {
     super(content);
     this.key = key;
+    this.highlight = highlight;
   }
 
   /** @return the key associated to this label. Noted that the key may be different from text */
   public String key() {
     return key;
+  }
+
+  public boolean highlight() {
+    return highlight;
+  }
+
+  @Override
+  public int compareTo(Label o) {
+    return key.compareTo(o.key);
+  }
+
+  public void text(String text) {
+    if (Platform.isFxApplicationThread()) setText(text);
+    else Platform.runLater(() -> setText(text));
   }
 }
