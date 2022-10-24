@@ -20,6 +20,7 @@ import org.astraea.common.admin.AsyncAdmin
 import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -29,31 +30,24 @@ object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
-      val writeDfFuture = createTopic(admin, metaData)
-        .map(_ =>
-          Reader
-            .of()
-            .spark(metaData.deploymentModel)
-            .schema(createSchema(metaData.column))
-            .sinkPath(metaData.sinkPath.getPath)
-            .primaryKeys(metaData.primaryKeys.keys.toSeq)
-            .readCSV(metaData.sourcePath.getPath)
-            .csvToJSON(metaData.primaryKeys.keys.toSeq)
-        )
-      Await.result(writeDfFuture, Duration.Inf)
+      Await.result(createTopic(admin, metaData), Duration(5, TimeUnit.SECONDS))
+      val df = Reader
+        .of()
+        .spark(metaData.deploymentModel)
+        .schema(createSchema(metaData.column))
+        .sinkPath(metaData.sinkPath.getPath)
+        .primaryKeys(metaData.primaryKeys.keys.toSeq)
+        .readCSV(metaData.sourcePath.getPath)
+        .csvToJSON(metaData.primaryKeys.keys.toSeq)
 
-      writeDfFuture.onComplete {
-        case Success(df) =>
-          Writer
-            .of()
-            .dataFrameOp(df)
-            .target(metaData.topicName)
-            .checkpoint(metaData.sinkPath + "/checkpoint")
-            .writeToKafka(metaData.kafkaBootstrapServers)
-            .start()
-            .awaitTermination(duration.toMillis)
-        case Failure(exception) => throw exception
-      }
+      Writer
+        .of()
+        .dataFrameOp(df)
+        .target(metaData.topicName)
+        .checkpoint(metaData.sinkPath + "/checkpoint")
+        .writeToKafka(metaData.kafkaBootstrapServers)
+        .start()
+        .awaitTermination(duration.toMillis)
     }
   }
 
