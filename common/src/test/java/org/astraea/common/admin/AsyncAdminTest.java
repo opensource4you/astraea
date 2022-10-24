@@ -1605,6 +1605,85 @@ public class AsyncAdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testSubtractTopicConfigs() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      // subtract existent value
+      admin
+          .setConfigs(
+              topic,
+              Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001,2:1003"))
+          .toCompletableFuture()
+          .get();
+      admin
+          .subtractConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "2:1003",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // subtract nonexistent value
+      admin
+          .subtractConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "2:1003",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // can't subtract *
+      admin
+          .setConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*"))
+          .toCompletableFuture()
+          .get();
+
+      Assertions.assertInstanceOf(
+          IllegalArgumentException.class,
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .subtractConfigs(
+                              topic,
+                              Map.of(
+                                  TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                                  "1:1001"))
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
+    }
+  }
+
+  @Test
   void testValueOfConfigs() throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin

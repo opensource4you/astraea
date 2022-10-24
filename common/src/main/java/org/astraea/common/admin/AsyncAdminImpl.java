@@ -1033,6 +1033,11 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
+  public CompletionStage<Void> subtractConfigs(String topic, Map<String, String> subtracted) {
+    return doSubtractConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), subtracted);
+  }
+
+  @Override
   public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
     return doUnsetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), keys);
   }
@@ -1041,12 +1046,6 @@ class AsyncAdminImpl implements AsyncAdmin {
   public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
     return doSetConfigs(
         new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), override);
-  }
-
-  @Override
-  public CompletionStage<Void> appendConfigs(int brokerId, Map<String, String> appended) {
-    return doAppendConfigs(
-        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), appended);
   }
 
   @Override
@@ -1098,6 +1097,53 @@ class AsyncAdminImpl implements AsyncAdmin {
                                                           AlterConfigOp.OpType.APPEND))
                                               .collect(Collectors.toList())))
                                   .all()));
+            });
+  }
+
+  private CompletionStage<Void> doSubtractConfigs(
+      ConfigResource resource, Map<String, String> appended) {
+    if (appended.isEmpty()) return CompletableFuture.completedFuture(null);
+    return to(kafkaAdmin.describeConfigs(List.of(resource)).all())
+        .thenApply(
+            map ->
+                map.get(resource).entries().stream()
+                    .filter(e -> e.value() != null && !e.value().isBlank())
+                    .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))
+        .thenCompose(
+            configs -> {
+              var requestToSubtract =
+                  appended.entrySet().stream()
+                      .filter(
+                          entry -> {
+                            // nothing to subtract
+                            if (!configs.containsKey(entry.getKey())) return false;
+                            var values =
+                                Arrays.stream(configs.get(entry.getKey()).split(","))
+                                    .collect(Collectors.toList());
+                            // disable to subtract from *
+                            if (values.contains("*"))
+                              throw new IllegalArgumentException(
+                                  "Can't subtract config from \"*\", key: "
+                                      + entry.getKey()
+                                      + ", value: "
+                                      + configs.containsKey(entry.getKey()));
+                            return values.contains(entry.getValue());
+                          })
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+              return to(
+                  kafkaAdmin
+                      .incrementalAlterConfigs(
+                          Map.of(
+                              resource,
+                              requestToSubtract.entrySet().stream()
+                                  .map(
+                                      entry ->
+                                          new AlterConfigOp(
+                                              new ConfigEntry(entry.getKey(), entry.getValue()),
+                                              AlterConfigOp.OpType.SUBTRACT))
+                                  .collect(Collectors.toList())))
+                      .all());
             });
   }
 
