@@ -32,14 +32,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
@@ -61,7 +60,7 @@ class BalancerHandler implements Handler {
   static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
 
-  private final Admin admin;
+  private final AsyncAdmin admin;
   private final RebalancePlanGenerator generator;
   private final RebalancePlanExecutor executor;
   final HasClusterCost clusterCostFunction;
@@ -70,14 +69,15 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
-  BalancerHandler(Admin admin) {
+  BalancerHandler(AsyncAdmin admin) {
     this(
         admin,
         HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)),
         new ReplicaSizeCost());
   }
 
-  BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
+  BalancerHandler(
+      AsyncAdmin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
     this(
         admin,
         clusterCostFunction,
@@ -87,7 +87,7 @@ class BalancerHandler implements Handler {
   }
 
   BalancerHandler(
-      Admin admin,
+      AsyncAdmin admin,
       HasClusterCost clusterCostFunction,
       HasMoveCost moveCostFunction,
       RebalancePlanGenerator generator,
@@ -145,14 +145,15 @@ class BalancerHandler implements Handler {
               var topics =
                   Optional.ofNullable(channel.queries().get(TOPICS_KEY))
                       .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-                      .orElseGet(() -> admin.topicNames(false));
-              var currentClusterInfo = admin.clusterInfo();
+                      .orElseGet(() -> admin.topicNames(false).toCompletableFuture().join());
+              var currentClusterInfo = admin.clusterInfo(topics).toCompletableFuture().join();
               var cost =
                   clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
               var loop =
                   Integer.parseInt(
                       channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
-              var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
+              var targetAllocations =
+                  ClusterLogAllocation.of(admin.clusterInfo(topics).toCompletableFuture().join());
               var bestPlan =
                   Balancer.builder()
                       .planGenerator(generator)
@@ -161,7 +162,10 @@ class BalancerHandler implements Handler {
                       .limit(loop)
                       .limit(timeout)
                       .build()
-                      .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+                      .offer(
+                          currentClusterInfo,
+                          topics::contains,
+                          admin.brokerFolders().toCompletableFuture().join());
               var changes =
                   bestPlan
                       .map(
@@ -240,8 +244,7 @@ class BalancerHandler implements Handler {
         executedPlans.put(
             thePlanId,
             CompletableFuture.runAsync(
-                () ->
-                    executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
+                () -> executor.run(admin, theRebalanceProposal.rebalancePlan())));
         lastExecutionId.set(thePlanId);
         return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       }
@@ -255,7 +258,7 @@ class BalancerHandler implements Handler {
             .filter(
                 change -> {
                   var currentReplicaList =
-                      admin.replicas(Set.of(change.topic)).stream()
+                      admin.replicas(Set.of(change.topic)).toCompletableFuture().join().stream()
                           .filter(replica -> replica.partition() == change.partition)
                           .sorted(
                               Comparator.comparing(Replica::isPreferredLeader)
@@ -283,9 +286,16 @@ class BalancerHandler implements Handler {
 
     // sanity check: no ongoing migration
     var ongoingMigration =
-        admin.addingReplicas(admin.topicNames()).stream()
-            .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
-            .collect(Collectors.toUnmodifiableSet());
+        admin
+            .topicNames(true)
+            .thenCompose(admin::addingReplicas)
+            .thenApply(
+                addingReplicas ->
+                    addingReplicas.stream()
+                        .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                        .collect(Collectors.toUnmodifiableSet()))
+            .toCompletableFuture()
+            .join();
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(
           "Another rebalance task might be working on. "
