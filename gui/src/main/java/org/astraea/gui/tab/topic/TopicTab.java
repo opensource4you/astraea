@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -45,12 +46,13 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.BorderPane;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 public class TopicTab {
 
@@ -60,13 +62,23 @@ public class TopicTab {
     return Tab.of(
         "metrics",
         PaneBuilder.of()
-            .singleRadioButtons(ServerMetrics.Topic.values())
+            .selectBox(
+                SelectBox.single(
+                    Arrays.stream(ServerMetrics.Topic.values())
+                        .map(ServerMetrics.Topic::toString)
+                        .collect(Collectors.toList())))
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
                         () -> {
                           var metric =
-                              input.singleSelectedRadio(ServerMetrics.Topic.BYTES_IN_PER_SEC);
+                              input.selectedKeys().stream()
+                                  .flatMap(
+                                      name ->
+                                          Arrays.stream(ServerMetrics.Topic.values())
+                                              .filter(c -> c.alias().equals(name)))
+                                  .findFirst()
+                                  .orElse(ServerMetrics.Topic.BYTES_IN_PER_SEC);
 
                           var nodeMeters =
                               context.clients().entrySet().stream()
@@ -142,7 +154,7 @@ public class TopicTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .multiRadioButtons(List.of(includeInternal, includeTimestampOfRecord))
+            .selectBox(SelectBox.multi(List.of(includeInternal, includeTimestampOfRecord)))
             .tableViewAction(
                 Map.of(),
                 "DELETE",
@@ -184,8 +196,7 @@ public class TopicTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(
-                            input.multiSelectedRadios(List.<String>of()).contains(includeInternal))
+                        .topicNames(input.selectedKeys().contains(includeInternal))
                         .thenCompose(
                             topics ->
                                 FutureUtils.combine(
@@ -195,9 +206,7 @@ public class TopicTab {
                                         .admin()
                                         .consumerGroupIds()
                                         .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                    input
-                                            .multiSelectedRadios(List.<String>of())
-                                            .contains(includeTimestampOfRecord)
+                                    input.selectedKeys().contains(includeTimestampOfRecord)
                                         ? context
                                             .admin()
                                             .topicPartitions(topics)
@@ -226,8 +235,8 @@ public class TopicTab {
                                 PaneBuilder.of()
                                     .buttonName("ALTER")
                                     .input(
-                                        Label.of(numberOfPartitions),
-                                        TextField.builder()
+                                        KeyLabel.of(numberOfPartitions),
+                                        TextInput.singleLine()
                                             .onlyNumber()
                                             .defaultValue(
                                                 String.valueOf(topic.topicPartitions().size()))
@@ -236,9 +245,9 @@ public class TopicTab {
                                         TopicConfigs.DYNAMICAL_CONFIGS.stream()
                                             .collect(
                                                 MapUtils.toSortedMap(
-                                                    Label::of,
+                                                    KeyLabel::of,
                                                     k ->
-                                                        TextField.builder()
+                                                        TextInput.singleLine()
                                                             .defaultValue(
                                                                 topic.config().value(k).orElse(""))
                                                             .build())))
@@ -289,12 +298,13 @@ public class TopicTab {
         "create",
         PaneBuilder.of()
             .buttonName("CREATE")
-            .input(Label.highlight(topicNameKey), TextField.of())
-            .input(Label.of(numberOfPartitionsKey), TextField.builder().onlyNumber().build())
-            .input(Label.of(numberOfReplicasKey), TextField.builder().onlyNumber().build())
+            .input(KeyLabel.highlight(topicNameKey), TextInput.singleLine().build())
+            .input(KeyLabel.of(numberOfPartitionsKey), TextInput.singleLine().onlyNumber().build())
+            .input(KeyLabel.of(numberOfReplicasKey), TextInput.singleLine().onlyNumber().build())
             .input(
                 TopicConfigs.ALL_CONFIGS.stream()
-                    .collect(Collectors.toMap(Label::of, ignored -> TextField.of())))
+                    .collect(
+                        Collectors.toMap(KeyLabel::of, ignored -> TextInput.singleLine().build())))
             .buttonListener(
                 (input, logger) -> {
                   var allConfigs = new HashMap<>(input.nonEmptyTexts());

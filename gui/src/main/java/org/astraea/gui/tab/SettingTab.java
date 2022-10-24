@@ -29,8 +29,8 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 public class SettingTab {
 
@@ -87,11 +87,14 @@ public class SettingTab {
     var pane =
         PaneBuilder.of()
             .input(
-                Label.highlight(BOOTSTRAP_SERVERS),
-                TextField.builder().defaultValue(properties.get(bootstrapKey)).build())
+                KeyLabel.highlight(BOOTSTRAP_SERVERS),
+                TextInput.singleLine().defaultValue(properties.get(bootstrapKey)).build())
             .input(
-                Label.of(JMX_PORT),
-                TextField.builder().onlyNumber().defaultValue(properties.get(jmxPortKey)).build())
+                KeyLabel.of(JMX_PORT),
+                TextInput.singleLine()
+                    .onlyNumber()
+                    .defaultValue(properties.get(jmxPortKey))
+                    .build())
             .buttonName("CHECK")
             .buttonListener(
                 (input, logger) -> {
