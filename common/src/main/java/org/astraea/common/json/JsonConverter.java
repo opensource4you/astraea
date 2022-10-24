@@ -94,10 +94,14 @@ public interface JsonConverter {
     };
   }
 
+  /** @deprecated astraea-974 replace gson with jackson */
+  @Deprecated
   static JsonConverter gson() {
     return gson((builder) -> {});
   }
 
+  /** @deprecated astraea-974 replace gson with jackson */
+  @Deprecated
   static JsonConverter gson(Consumer<GsonBuilder> builderConsumer) {
     var gsonBuilder =
         new GsonBuilder()
@@ -142,6 +146,8 @@ public interface JsonConverter {
     };
   }
 
+  /** @deprecated astraea-974 replace gson with jackson */
+  @Deprecated
   class ByteArrayToBase64TypeAdapter implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
     public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)
         throws JsonParseException {
@@ -161,7 +167,10 @@ public interface JsonConverter {
    *
    * <p>OptionalTypeAdapter also can't be replaced by `JsonDeserializer`, because JsonDeserializer
    * didn't get value when value is null in json.
+   *
+   * @deprecated astraea-974 replace gson with jackson
    */
+  @Deprecated
   class OptionalTypeAdapter<E> extends TypeAdapter<Optional<E>> {
 
     public static final TypeAdapterFactory FACTORY =
