@@ -137,11 +137,10 @@ public class BeanCollector {
         var receiver =
             new Receiver() {
               private final Map<Long, HasBeanObject> objects = new ConcurrentSkipListMap<>();
-              private final boolean shouldAutoUpdate = autoUpdate;
               private final ScheduledExecutorService updateThread =
-                  shouldAutoUpdate ? Executors.newScheduledThreadPool(1) : null;
+                  autoUpdate ? Executors.newScheduledThreadPool(1) : null;
               private final ScheduledFuture<?> updateTask =
-                  shouldAutoUpdate
+                  updateThread != null
                       ? updateThread.scheduleAtFixedRate(
                           this::doUpdate,
                           interval.toMillis(),
@@ -159,15 +158,26 @@ public class BeanCollector {
                 return port;
               }
 
+              private boolean isAutoUpdate() {
+                return updateThread != null;
+              }
+
               @Override
               public Collection<HasBeanObject> current() {
-                if (!shouldAutoUpdate) tryUpdate();
+                if (!isAutoUpdate()) {
+                  var needUpdate =
+                      objects.keySet().stream()
+                          .max((Long::compare))
+                          .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
+                          .orElse(true);
+                  if (needUpdate) doUpdate();
+                }
                 return Collections.unmodifiableCollection(objects.values());
               }
 
               @Override
               public void close() {
-                if (shouldAutoUpdate) {
+                if (isAutoUpdate()) {
                   updateTask.cancel(false);
                   updateThread.shutdown();
                   Utils.packException(() -> updateThread.awaitTermination(5, TimeUnit.SECONDS));
@@ -181,15 +191,6 @@ public class BeanCollector {
                 } finally {
                   node.lock.unlock();
                 }
-              }
-
-              private synchronized void tryUpdate() {
-                var needUpdate =
-                    objects.keySet().stream()
-                        .max((Long::compare))
-                        .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
-                        .orElse(true);
-                if (needUpdate) doUpdate();
               }
 
               private synchronized void doUpdate() {
