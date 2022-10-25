@@ -83,8 +83,8 @@ class KafkaWriterTest extends RequireBrokerCluster {
 
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
-        val partition = MetadataBuilder
-          .of()
+        val partition = Metadata
+          .builder()
           .deploymentMode("local[2]")
           .sourcePath(new File(""))
           .sinkPath(new File(""))
@@ -110,8 +110,8 @@ class KafkaWriterTest extends RequireBrokerCluster {
           ).getCause
         )
 
-        val replica = MetadataBuilder
-          .of()
+        val replica = Metadata
+          .builder()
           .deploymentMode("local[2]")
           .sourcePath(new File(""))
           .sinkPath(new File(""))
@@ -136,8 +136,8 @@ class KafkaWriterTest extends RequireBrokerCluster {
           ).getCause
         )
 
-        val config = MetadataBuilder
-          .of()
+        val config = Metadata
+          .builder()
           .deploymentMode("local[2]")
           .sourcePath(new File(""))
           .sinkPath(new File(""))
@@ -169,8 +169,8 @@ class KafkaWriterTest extends RequireBrokerCluster {
       asyncAdmin: AsyncAdmin,
       TOPIC: String
   ): Future[java.lang.Boolean] = {
-    val metadata = MetadataBuilder
-      .of()
+    val metadata = Metadata
+      .builder()
       .deploymentMode("local[2]")
       .sourcePath(new File(""))
       .sinkPath(new File(""))

@@ -75,11 +75,15 @@ object Metadata {
   private[this] val DEFAULT_PARTITIONS = "15"
   private[this] val DEFAULT_REPLICAS = "1"
 
+  def builder(): MetadataBuilder = {
+    MetadataBuilder.of()
+  }
+
   //Parameters needed to configure ETL.
   def apply(path: File): Metadata = {
     val properties = readProp(path).asScala
 
-    var metadataBuilder = MetadataBuilder.of()
+    var metadataBuilder = Metadata.builder()
     properties.foreach(entry =>
       entry._1 match {
         case DEPLOYMENT_MODEL =>
@@ -351,5 +355,102 @@ object Metadata {
       )
     }
     prop
+  }
+
+  class MetadataBuilder private (
+      private var deploymentModel: String,
+      private var sourcePath: File,
+      private var sinkPath: File,
+      private var column: Map[String, DataType],
+      private var primaryKeys: Map[String, DataType],
+      private var kafkaBootstrapServers: String,
+      private var topicName: String,
+      private var numPartitions: Int,
+      private var numReplicas: Short,
+      private var topicConfig: Map[String, String]
+  ) {
+    protected def this() = this(
+      "deploymentModel",
+      new File(""),
+      new File(""),
+      Map.empty,
+      Map.empty,
+      "kafkaBootstrapServers",
+      "topicName",
+      -1,
+      -1,
+      Map.empty
+    )
+
+    def deploymentMode(str: String): MetadataBuilder = {
+      this.deploymentModel = str
+      this
+    }
+
+    def sourcePath(file: File): MetadataBuilder = {
+      this.sourcePath = file
+      this
+    }
+
+    def sinkPath(file: File): MetadataBuilder = {
+      this.sinkPath = file
+      this
+    }
+
+    def columns(map: Map[String, DataType]): MetadataBuilder = {
+      this.column = map
+      this
+    }
+
+    def primaryKey(map: Map[String, DataType]): MetadataBuilder = {
+      this.primaryKeys = map
+      this
+    }
+
+    def kafkaBootstrapServers(str: String): MetadataBuilder = {
+      this.kafkaBootstrapServers = str
+      this
+    }
+
+    def topicName(str: String): MetadataBuilder = {
+      this.topicName = str
+      this
+    }
+
+    def numPartitions(num: Int): MetadataBuilder = {
+      this.numPartitions = num
+      this
+    }
+
+    def numReplicas(num: Short): MetadataBuilder = {
+      this.numReplicas = num
+      this
+    }
+
+    def topicConfig(map: Map[String, String]): MetadataBuilder = {
+      this.topicConfig = map
+      this
+    }
+
+    def build(): Metadata = {
+      Metadata(
+        this.deploymentModel,
+        this.sourcePath,
+        this.sinkPath,
+        this.column,
+        this.primaryKeys,
+        this.kafkaBootstrapServers,
+        this.topicName,
+        this.numPartitions,
+        this.numReplicas,
+        this.topicConfig
+      )
+    }
+  }
+
+  object MetadataBuilder {
+    private[Metadata] def of(): MetadataBuilder = {
+      new MetadataBuilder()
+    }
   }
 }
