@@ -16,6 +16,9 @@
  */
 package org.astraea.gui.tab;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -34,10 +37,8 @@ import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
@@ -45,9 +46,12 @@ import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 public class BrokerTab {
 
@@ -71,7 +75,10 @@ public class BrokerTab {
                         Map.<String, Object>of(
                             "version", appInfo.version(),
                             "revision", appInfo.commitId(),
-                            "start time", Utils.format(appInfo.startTimeMs())))
+                            "start time",
+                                LocalDateTime.ofInstant(
+                                    Instant.ofEpochMilli(appInfo.startTimeMs()),
+                                    ZoneId.systemDefault())))
                 .orElse(Map.of())),
     ZOOKEEPER_REQUEST(
         "zookeeper request",
@@ -185,8 +192,11 @@ public class BrokerTab {
     return Tab.of(
         "metrics",
         PaneBuilder.of()
-            .searchField("config key")
-            .radioButtons(MetricType.values())
+            .selectBox(
+                SelectBox.multi(
+                    Arrays.stream(MetricType.values())
+                        .map(Enum::toString)
+                        .collect(Collectors.toList())))
             .buttonAction(
                 (input, logger) ->
                     context
@@ -195,25 +205,31 @@ public class BrokerTab {
                         .thenApply(
                             nodes ->
                                 context.clients(nodes).entrySet().stream()
-                                    .map(
+                                    .flatMap(
                                         entry ->
-                                            Map.entry(
-                                                entry.getKey(),
-                                                input
-                                                    .selectedRadio()
-                                                    .map(o -> (MetricType) o)
-                                                    .orElse(MetricType.BROKER_TOPIC)
-                                                    .fetcher
-                                                    .apply(entry.getValue())))
-                                    .sorted(Comparator.comparing(e -> e.getKey().id()))
+                                            input.selectedKeys().stream()
+                                                .flatMap(
+                                                    name ->
+                                                        Arrays.stream(MetricType.values())
+                                                            .filter(m -> m.toString().equals(name)))
+                                                .map(
+                                                    m ->
+                                                        Map.entry(
+                                                            entry.getKey(),
+                                                            m.fetcher.apply(entry.getValue()))))
+                                    .collect(Collectors.groupingBy(Map.Entry::getKey))
+                                    .entrySet()
+                                    .stream()
                                     .map(
                                         entry -> {
                                           var result = new LinkedHashMap<String, Object>();
                                           result.put("broker id", entry.getKey().id());
-                                          result.put("host", entry.getKey().host());
-                                          entry.getValue().entrySet().stream()
-                                              .filter(m -> input.matchSearch(m.getKey()))
-                                              .forEach(m -> result.put(m.getKey(), m.getValue()));
+                                          entry.getValue().stream()
+                                              .flatMap(e -> e.getValue().entrySet().stream())
+                                              .sorted(
+                                                  Comparator.comparing(
+                                                      e -> e.getKey().toLowerCase()))
+                                              .forEach(e -> result.put(e.getKey(), e.getValue()));
                                           return result;
                                         })
                                     .collect(Collectors.toList())))
@@ -273,21 +289,8 @@ public class BrokerTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .searchField("broker id/host")
             .buttonAction(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .brokers()
-                        .thenApply(
-                            brokers ->
-                                brokers.stream()
-                                    .filter(
-                                        nodeInfo ->
-                                            input.matchSearch(String.valueOf(nodeInfo.id()))
-                                                || input.matchSearch(nodeInfo.host()))
-                                    .collect(Collectors.toList()))
-                        .thenApply(BrokerTab::basicResult))
+                (input, logger) -> context.admin().brokers().thenApply(BrokerTab::basicResult))
             .build());
   }
 
@@ -295,7 +298,6 @@ public class BrokerTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .searchField("config key")
             .buttonAction(
                 (input, logger) ->
                     context
@@ -312,12 +314,7 @@ public class BrokerTab {
                                         e -> {
                                           var map = new LinkedHashMap<String, Object>();
                                           map.put("broker id", e.getKey());
-                                          e.getValue().raw().entrySet().stream()
-                                              .filter(entry -> input.matchSearch(entry.getKey()))
-                                              .sorted(Map.Entry.comparingByKey())
-                                              .forEach(
-                                                  entry ->
-                                                      map.put(entry.getKey(), entry.getValue()));
+                                          map.putAll(new TreeMap<>(e.getValue().raw()));
                                           return map;
                                         })
                                     .collect(Collectors.toList())))
@@ -364,63 +361,55 @@ public class BrokerTab {
                 .thenApply(
                     brokers ->
                         PaneBuilder.of()
-                            .radioButtons(
-                                brokers.stream().map(NodeInfo::id).collect(Collectors.toList()))
                             .buttonAction(
                                 (input, logger) ->
                                     CompletableFuture.supplyAsync(
-                                        () -> {
-                                          int id =
-                                              input
-                                                  .selectedRadio()
-                                                  .map(b -> (int) b)
-                                                  .orElse(brokers.get(0).id());
-                                          return brokers.stream()
-                                              .filter(b -> b.id() == id)
-                                              .findFirst()
-                                              .map(
-                                                  broker ->
-                                                      broker.dataFolders().stream()
-                                                          .sorted(
-                                                              Comparator.comparing(
-                                                                  Broker.DataFolder::path))
-                                                          .map(
-                                                              d -> {
-                                                                Map<String, Object> result =
-                                                                    new LinkedHashMap<>();
-                                                                result.put("path", d.path());
-                                                                result.put(
-                                                                    "partitions",
-                                                                    d.partitionSizes().size());
-                                                                result.put(
-                                                                    "size",
-                                                                    DataSize.Byte.of(
-                                                                        d
-                                                                            .partitionSizes()
-                                                                            .values()
-                                                                            .stream()
-                                                                            .mapToLong(s -> s)
-                                                                            .sum()));
-                                                                result.put(
-                                                                    "orphan partitions",
-                                                                    d.orphanPartitionSizes()
-                                                                        .size());
-                                                                result.put(
-                                                                    "orphan size",
-                                                                    DataSize.Byte.of(
-                                                                        d
-                                                                            .orphanPartitionSizes()
-                                                                            .values()
-                                                                            .stream()
-                                                                            .mapToLong(s -> s)
-                                                                            .sum()));
-                                                                result.putAll(
-                                                                    metrics.apply(id, d.path()));
-                                                                return result;
-                                                              })
-                                                          .collect(Collectors.toList()))
-                                              .orElse(List.of());
-                                        }))
+                                        () ->
+                                            brokers.stream()
+                                                .flatMap(
+                                                    broker ->
+                                                        broker.dataFolders().stream()
+                                                            .sorted(
+                                                                Comparator.comparing(
+                                                                    Broker.DataFolder::path))
+                                                            .map(
+                                                                d -> {
+                                                                  Map<String, Object> result =
+                                                                      new LinkedHashMap<>();
+                                                                  result.put(
+                                                                      "broker id", broker.id());
+                                                                  result.put("path", d.path());
+                                                                  result.put(
+                                                                      "partitions",
+                                                                      d.partitionSizes().size());
+                                                                  result.put(
+                                                                      "size",
+                                                                      DataSize.Byte.of(
+                                                                          d
+                                                                              .partitionSizes()
+                                                                              .values()
+                                                                              .stream()
+                                                                              .mapToLong(s -> s)
+                                                                              .sum()));
+                                                                  result.put(
+                                                                      "orphan partitions",
+                                                                      d.orphanPartitionSizes()
+                                                                          .size());
+                                                                  result.put(
+                                                                      "orphan size",
+                                                                      DataSize.Byte.of(
+                                                                          d
+                                                                              .orphanPartitionSizes()
+                                                                              .values()
+                                                                              .stream()
+                                                                              .mapToLong(s -> s)
+                                                                              .sum()));
+                                                                  result.putAll(
+                                                                      metrics.apply(
+                                                                          broker.id(), d.path()));
+                                                                  return result;
+                                                                }))
+                                                .collect(Collectors.toList())))
                             .build());
     return Tab.dynamic("folder", nodeSupplier);
   }
@@ -447,12 +436,15 @@ public class BrokerTab {
                                                     BrokerConfigs.DYNAMICAL_CONFIGS.stream()
                                                         .collect(
                                                             MapUtils.toSortedMap(
-                                                                k -> k,
+                                                                KeyLabel::of,
                                                                 k ->
-                                                                    broker
-                                                                        .config()
-                                                                        .value(k)
-                                                                        .orElse(""))))
+                                                                    TextInput.singleLine()
+                                                                        .defaultValue(
+                                                                            broker
+                                                                                .config()
+                                                                                .value(k)
+                                                                                .orElse(""))
+                                                                        .build())))
                                                 .buttonListener(
                                                     (input, logger) ->
                                                         context

@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -348,59 +349,67 @@ class AsyncAdminImpl implements AsyncAdmin {
         updatableTopicPartitions,
         updatableTopicPartitions.thenCompose(
             ps ->
-                to(kafkaAdmin
+                to(
+                    kafkaAdmin
                         .listOffsets(
                             ps.stream()
                                 .collect(
                                     Collectors.toMap(
                                         TopicPartition::to,
                                         ignored -> new OffsetSpec.MaxTimestampSpec())))
-                        .all())
-                    // the old kafka does not support to fetch max timestamp
-                    .exceptionally(
-                        e -> {
-                          if (e instanceof UnsupportedVersionException) return Map.of();
-                          if (e instanceof RuntimeException) throw (RuntimeException) e;
-                          throw new RuntimeException(e);
-                        })),
+                        .all())),
         (ps, result) ->
             ps.stream()
-                .collect(
-                    Collectors.toMap(
-                        tp -> tp,
-                        tp ->
-                            Optional.ofNullable(result.get(TopicPartition.to(tp)))
-                                .map(ListOffsetsResult.ListOffsetsResultInfo::timestamp)
-                                .orElse(-1L))));
+                .flatMap(
+                    tp ->
+                        Optional.ofNullable(result.get(TopicPartition.to(tp))).stream()
+                            .map(ListOffsetsResult.ListOffsetsResultInfo::timestamp)
+                            .filter(t -> t > 0)
+                            .map(t -> Map.entry(tp, t)))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   @Override
   public CompletionStage<List<Partition>> partitions(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     var updatableTopicPartitions = updatableTopicPartitions(topics);
+    var topicDesc = to(kafkaAdmin.describeTopics(topics).all());
     return FutureUtils.combine(
         updatableTopicPartitions.thenCompose(this::earliestOffsets),
         updatableTopicPartitions.thenCompose(this::latestOffsets),
-        updatableTopicPartitions.thenCompose(this::maxTimestamps),
-        to(kafkaAdmin.describeTopics(topics).all())
-            .thenApply(
-                ts ->
-                    ts.entrySet().stream()
-                        .flatMap(
-                            e ->
-                                e.getValue().partitions().stream()
-                                    .map(
-                                        tp ->
-                                            Map.entry(
-                                                TopicPartition.of(e.getKey(), tp.partition()), tp)))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
-        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos) ->
+        updatableTopicPartitions
+            .thenCompose(this::maxTimestamps)
+            // the old kafka does not support to fetch max timestamp. It is fine to return partition
+            // without max timestamp
+            .exceptionally(
+                e -> {
+                  if (e instanceof UnsupportedVersionException
+                      || e.getCause() instanceof UnsupportedVersionException) return Map.of();
+                  if (e instanceof RuntimeException) throw (RuntimeException) e;
+                  throw new RuntimeException(e);
+                }),
+        topicDesc.thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    .flatMap(
+                        e ->
+                            e.getValue().partitions().stream()
+                                .map(
+                                    tp ->
+                                        Map.entry(
+                                            TopicPartition.of(e.getKey(), tp.partition()), tp)))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
+        topicDesc.thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isInternal()))),
+        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos, topicAndInternal) ->
             tpInfos.keySet().stream()
                 .map(
                     tp -> {
                       var earliest = earliestOffsets.getOrDefault(tp, -1L);
                       var latest = latestOffsets.getOrDefault(tp, -1L);
-                      var maxTimestamp = maxTimestamps.getOrDefault(tp, -1L);
+                      var maxTimestamp = Optional.ofNullable(maxTimestamps.get(tp));
                       var tpInfo = tpInfos.get(tp);
                       var leader =
                           tpInfo.leader() == null || tpInfo.leader().isEmpty()
@@ -418,7 +427,8 @@ class AsyncAdminImpl implements AsyncAdmin {
                           isr,
                           earliest,
                           latest,
-                          maxTimestamp);
+                          maxTimestamp,
+                          topicAndInternal.get(tp.topic()));
                     })
                 .sorted(Comparator.comparing(Partition::topicPartition))
                 .collect(Collectors.toList()));
@@ -545,13 +555,6 @@ class AsyncAdminImpl implements AsyncAdmin {
                     .map(TopicPartition::to)
                     .collect(Collectors.toUnmodifiableList()))
             .all())
-        // the old kafka does not support to fetch producer states
-        .exceptionally(
-            e -> {
-              if (e instanceof UnsupportedVersionException) return Map.of();
-              if (e instanceof RuntimeException) throw (RuntimeException) e;
-              throw new RuntimeException(e);
-            })
         .thenApply(
             ps ->
                 ps.entrySet().stream()
@@ -1020,47 +1023,136 @@ class AsyncAdminImpl implements AsyncAdmin {
 
   @Override
   public CompletionStage<Void> setConfigs(String topic, Map<String, String> override) {
-    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
-            .incrementalAlterConfigs(
-                Map.of(
-                    new ConfigResource(ConfigResource.Type.TOPIC, topic),
-                    override.entrySet().stream()
-                        .map(
-                            entry ->
-                                new AlterConfigOp(
-                                    new ConfigEntry(entry.getKey(), entry.getValue()),
-                                    AlterConfigOp.OpType.SET))
-                        .collect(Collectors.toList())))
-            .all());
+    return doSetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), override);
+  }
+
+  @Override
+  public CompletionStage<Void> appendConfigs(String topic, Map<String, String> appended) {
+    return doAppendConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), appended);
+  }
+
+  @Override
+  public CompletionStage<Void> subtractConfigs(String topic, Map<String, String> subtracted) {
+    return doSubtractConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), subtracted);
   }
 
   @Override
   public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
-    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
-            .incrementalAlterConfigs(
-                Map.of(
-                    new ConfigResource(ConfigResource.Type.TOPIC, topic),
-                    keys.stream()
-                        .map(
-                            key ->
-                                new AlterConfigOp(
-                                    new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
-                        .collect(Collectors.toList())))
-            .all());
+    return doUnsetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), keys);
   }
 
   @Override
   public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
+    return doSetConfigs(
+        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), override);
+  }
+
+  @Override
+  public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+    return doUnsetConfigs(
+        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), keys);
+  }
+
+  private CompletionStage<Void> doAppendConfigs(
+      ConfigResource resource, Map<String, String> appended) {
+    if (appended.isEmpty()) return CompletableFuture.completedFuture(null);
+    return to(kafkaAdmin.describeConfigs(List.of(resource)).all())
+        .thenApply(
+            map ->
+                map.get(resource).entries().stream()
+                    .filter(e -> e.value() != null && !e.value().isBlank())
+                    .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))
+        .thenCompose(
+            configs -> {
+              // append to empty will cause bug (see https://github.com/apache/kafka/pull/12503)
+              var requestToSet =
+                  appended.entrySet().stream()
+                      .filter(entry -> !configs.containsKey(entry.getKey()))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              // append value only if 1) it is not wildcard, 2) it is not empty
+              var requestToAppend =
+                  appended.entrySet().stream()
+                      .filter(
+                          entry ->
+                              configs.containsKey(entry.getKey())
+                                  && Arrays.stream(configs.get(entry.getKey()).split(","))
+                                      .noneMatch(s -> s.equals("*") || s.equals(entry.getValue())))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+              return doSetConfigs(resource, requestToSet)
+                  .thenCompose(
+                      ignored ->
+                          to(
+                              kafkaAdmin
+                                  .incrementalAlterConfigs(
+                                      Map.of(
+                                          resource,
+                                          requestToAppend.entrySet().stream()
+                                              .map(
+                                                  entry ->
+                                                      new AlterConfigOp(
+                                                          new ConfigEntry(
+                                                              entry.getKey(), entry.getValue()),
+                                                          AlterConfigOp.OpType.APPEND))
+                                              .collect(Collectors.toList())))
+                                  .all()));
+            });
+  }
+
+  private CompletionStage<Void> doSubtractConfigs(
+      ConfigResource resource, Map<String, String> appended) {
+    if (appended.isEmpty()) return CompletableFuture.completedFuture(null);
+    return to(kafkaAdmin.describeConfigs(List.of(resource)).all())
+        .thenApply(
+            map ->
+                map.get(resource).entries().stream()
+                    .filter(e -> e.value() != null && !e.value().isBlank())
+                    .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))
+        .thenCompose(
+            configs -> {
+              var requestToSubtract =
+                  appended.entrySet().stream()
+                      .filter(
+                          entry -> {
+                            // nothing to subtract
+                            if (!configs.containsKey(entry.getKey())) return false;
+                            var values =
+                                Arrays.stream(configs.get(entry.getKey()).split(","))
+                                    .collect(Collectors.toList());
+                            // disable to subtract from *
+                            if (values.contains("*"))
+                              throw new IllegalArgumentException(
+                                  "Can't subtract config from \"*\", key: "
+                                      + entry.getKey()
+                                      + ", value: "
+                                      + configs.containsKey(entry.getKey()));
+                            return values.contains(entry.getValue());
+                          })
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+              return to(
+                  kafkaAdmin
+                      .incrementalAlterConfigs(
+                          Map.of(
+                              resource,
+                              requestToSubtract.entrySet().stream()
+                                  .map(
+                                      entry ->
+                                          new AlterConfigOp(
+                                              new ConfigEntry(entry.getKey(), entry.getValue()),
+                                              AlterConfigOp.OpType.SUBTRACT))
+                                  .collect(Collectors.toList())))
+                      .all());
+            });
+  }
+
+  private CompletionStage<Void> doSetConfigs(
+      ConfigResource resource, Map<String, String> override) {
     if (override.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
+    return to(kafkaAdmin
             .incrementalAlterConfigs(
                 Map.of(
-                    new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)),
+                    resource,
                     override.entrySet().stream()
                         .map(
                             entry ->
@@ -1068,24 +1160,70 @@ class AsyncAdminImpl implements AsyncAdmin {
                                     new ConfigEntry(entry.getKey(), entry.getValue()),
                                     AlterConfigOp.OpType.SET))
                         .collect(Collectors.toList())))
-            .all());
+            .all())
+        .handle(
+            (r, e) -> {
+              if (e != null) {
+                if (e instanceof UnsupportedVersionException
+                    || e.getCause() instanceof UnsupportedVersionException)
+                  // go back to use deprecated APIs for previous Kafka
+                  return to(
+                      kafkaAdmin
+                          .alterConfigs(
+                              Map.of(
+                                  resource,
+                                  new org.apache.kafka.clients.admin.Config(
+                                      override.entrySet().stream()
+                                          .map(
+                                              entry ->
+                                                  new ConfigEntry(entry.getKey(), entry.getValue()))
+                                          .collect(Collectors.toList()))))
+                          .all());
+
+                if (e instanceof RuntimeException) throw (RuntimeException) e;
+                throw new RuntimeException(e);
+              }
+              return CompletableFuture.<Void>completedStage(null);
+            })
+        .thenCompose(s -> s);
   }
 
-  @Override
-  public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
+  private CompletionStage<Void> doUnsetConfigs(ConfigResource resource, Set<String> keys) {
     if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
+    return to(kafkaAdmin
             .incrementalAlterConfigs(
                 Map.of(
-                    new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)),
+                    resource,
                     keys.stream()
                         .map(
                             key ->
                                 new AlterConfigOp(
                                     new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
                         .collect(Collectors.toList())))
-            .all());
+            .all())
+        .handle(
+            (r, e) -> {
+              if (e != null) {
+                if (e instanceof UnsupportedVersionException
+                    || e.getCause() instanceof UnsupportedVersionException)
+                  // go back to use deprecated APIs for previous Kafka
+                  return to(
+                      kafkaAdmin
+                          .alterConfigs(
+                              Map.of(
+                                  resource,
+                                  new org.apache.kafka.clients.admin.Config(
+                                      keys.stream()
+                                          .map(key -> new ConfigEntry(key, ""))
+                                          .collect(Collectors.toList()))))
+                          .all());
+
+                if (e instanceof RuntimeException) throw (RuntimeException) e;
+                throw new RuntimeException(e);
+              }
+              return CompletableFuture.<Void>completedStage(null);
+            })
+        .thenCompose(s -> s);
   }
 
   @Override

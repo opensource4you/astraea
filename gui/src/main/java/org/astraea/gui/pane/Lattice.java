@@ -17,29 +17,30 @@
 package org.astraea.gui.pane;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import javafx.geometry.HPos;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.layout.GridPane;
 
-public interface Input {
-  List<String> selectedKeys();
+public interface Lattice {
 
-  /** @return the keys having empty/blank value. */
-  default Set<String> emptyValueKeys() {
-    return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isEmpty())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toUnmodifiableSet());
+  static Lattice of(List<Node> nodes, int sizeOfColumns) {
+    var pane = new GridPane();
+    pane.setAlignment(Pos.CENTER);
+    var row = 0;
+    var column = 0;
+    for (var node : nodes) {
+      if (column >= sizeOfColumns) {
+        column = 0;
+        row++;
+      }
+      GridPane.setHalignment(node, HPos.RIGHT);
+      GridPane.setMargin(node, new Insets(10, 5, 10, 15));
+      pane.add(node, column++, row);
+    }
+    return () -> pane;
   }
 
-  /** @return the input key and value. The value is not empty. */
-  default Map<String, String> nonEmptyTexts() {
-    return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isPresent())
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().get()));
-  }
-
-  /** @return the input key and value. The value could be empty. */
-  Map<String, Optional<String>> texts();
+  Node node();
 }

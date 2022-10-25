@@ -36,4 +36,11 @@ public class BrokerConfigsTest {
     Assertions.assertTrue(
         BrokerConfigs.DYNAMICAL_CONFIGS.contains(BrokerConfigs.NUM_REPLICA_FETCHERS_CONFIG));
   }
+
+  @Test
+  void testDuplicate() {
+    Assertions.assertEquals(
+        BrokerConfigs.DYNAMICAL_CONFIGS.size(),
+        BrokerConfigs.DYNAMICAL_CONFIGS.stream().distinct().count());
+  }
 }

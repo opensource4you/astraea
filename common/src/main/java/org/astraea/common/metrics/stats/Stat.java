@@ -14,32 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.text;
+package org.astraea.common.metrics.stats;
 
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
+/** This should be thread safe */
+public interface Stat<V> {
+  void record(V value);
 
-public class Label extends javafx.scene.control.Label {
+  V measure();
 
-  public static Label of(String content) {
-    return new Label(content, content);
-  }
+  /** Make a readonly copy of this object. */
+  default Stat<V> snapshot() {
+    var value = measure();
+    return new Stat<>() {
+      @Override
+      public void record(V ignore) {
+        throw new UnsupportedOperationException("Cannot update snapshot object!");
+      }
 
-  public static Label highlight(String content) {
-    var label = new Label(content, content + "*");
-    label.setFont(Font.font("Verdana", FontWeight.EXTRA_BOLD, 12));
-    return label;
-  }
-
-  private final String key;
-
-  private Label(String key, String content) {
-    super(content);
-    this.key = key;
-  }
-
-  /** @return the key associated to this label. Noted that the key may be different from text */
-  public String key() {
-    return key;
+      @Override
+      public V measure() {
+        return value;
+      }
+    };
   }
 }

@@ -14,16 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common.metrics.stats;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class Avg implements Stat<Double> {
+  private int counter = 0;
+  private double accumulator = 0.0;
 
-public class TopicConfigsTest {
+  public Avg() {}
 
-  @Test
-  void testDynamicalConfigs() {
-    TopicConfigs.DYNAMICAL_CONFIGS.forEach(
-        config -> Assertions.assertTrue(TopicConfigs.ALL_CONFIGS.contains(config)));
+  @Override
+  public synchronized void record(Double value) {
+    ++counter;
+    accumulator += value;
+  }
+
+  @Override
+  public synchronized Double measure() {
+    if (counter == 0) throw new RuntimeException("Nothing to measure");
+    return accumulator / counter;
   }
 }

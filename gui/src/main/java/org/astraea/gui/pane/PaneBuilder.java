@@ -17,33 +17,29 @@
 package org.astraea.gui.pane;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
-import org.astraea.common.MapUtils;
+import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
-import org.astraea.gui.box.HBox;
+import org.astraea.gui.Query;
 import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
-import org.astraea.gui.button.RadioButton;
-import org.astraea.gui.table.TableView;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextArea;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.button.SelectBox;
+import org.astraea.gui.table.TableViewer;
+import org.astraea.gui.text.KeyLabel;
+import org.astraea.gui.text.TextInput;
 
 /** a template layout for all tabs. */
 public class PaneBuilder {
@@ -52,102 +48,45 @@ public class PaneBuilder {
     return new PaneBuilder();
   }
 
-  private List<RadioButton> radioButtons = new ArrayList<>();
+  // ---------------------------------[first control]---------------------------------//
 
-  private final Set<String> inputKeys = new LinkedHashSet<>();
+  private SelectBox selectBox;
 
-  private final Map<String, Boolean> inputKeyPlaceholder = new HashMap<>();
-  private final Map<String, String> inputKeyValue = new HashMap<>();
+  private final Map<KeyLabel, TextInput> inputKeyAndFields = new LinkedHashMap<>();
 
-  private final Map<String, Boolean> inputKeyPriority = new LinkedHashMap<>();
-  private final Map<String, Boolean> inputKeyNumberOnly = new LinkedHashMap<>();
-  private Label searchLabel = null;
-  private final TextField searchField = TextField.of();
+  private Button actionButton = Button.of("REFRESH");
 
-  private Button actionButton = Button.of("SEARCH");
+  private final TextInput console = TextInput.multiline().build();
 
-  private TableView tableView = null;
-
-  private final TextArea console = TextArea.of();
+  private TableViewer tableViewer = null;
+  private Node motherOfTableView = null;
 
   private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
   private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
 
+  // ---------------------------------[second control]---------------------------------//
+
+  private final Map<KeyLabel, TextInput> secondInputKeyAndFields = new LinkedHashMap<>();
+
+  private Button tableViewActionButton = Button.disabled("EXECUTE");
+
+  private Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
+      tableViewAction = null;
+
   private PaneBuilder() {}
 
-  public PaneBuilder radioButtons(Object[] objs) {
-    return radioButtons(Arrays.asList(objs));
-  }
-
-  public PaneBuilder radioButtons(List<Object> objs) {
-    if (objs.isEmpty()) return this;
-    radioButtons = RadioButton.single(objs);
+  public PaneBuilder selectBox(SelectBox selectBox) {
+    this.selectBox = selectBox;
     return this;
   }
 
-  /**
-   * add key to this builder
-   *
-   * @param key to add
-   * @param required true if key is required. The font will get highlight
-   * @param numberOnly true if the value associated to key must be number
-   * @return this builder
-   */
-  public PaneBuilder input(String key, boolean required, boolean numberOnly) {
-    return input(key, required, numberOnly, false, null);
-  }
-
-  /**
-   * add key to this builder
-   *
-   * @param key to add
-   * @param required true if key is required. The font will get highlight
-   * @param numberOnly true if the value associated to key must be number
-   * @param usePlaceholder true if the default value is treated as placeholder
-   * @param defaultValue to show by default
-   * @return this builder
-   */
-  public PaneBuilder input(
-      String key,
-      boolean required,
-      boolean numberOnly,
-      boolean usePlaceholder,
-      String defaultValue) {
-    inputKeys.add(key);
-    inputKeyPriority.put(key, required);
-    inputKeyNumberOnly.put(key, numberOnly);
-    inputKeyPlaceholder.put(key, usePlaceholder);
-    if (defaultValue != null)
-      inputKeyValue.put(
-          key, numberOnly ? String.valueOf(Long.parseLong(defaultValue)) : defaultValue);
-
+  public PaneBuilder input(KeyLabel key, TextInput value) {
+    inputKeyAndFields.put(key, value);
     return this;
   }
 
-  /**
-   * add optional keys to this builder.
-   *
-   * @param keys optional keys
-   * @return this builder
-   */
-  public PaneBuilder input(Set<String> keys) {
-    keys.forEach(k -> input(k, false, false));
-    return this;
-  }
-
-  /**
-   * set the keys and their default values
-   *
-   * @param keysAndValues keys and default values
-   * @return this
-   */
-  public PaneBuilder input(Map<String, String> keysAndValues) {
-    keysAndValues.forEach((k, v) -> input(k, false, false, false, v));
-    return this;
-  }
-
-  public PaneBuilder searchField(String hint) {
-    searchLabel = Label.of(hint);
+  public PaneBuilder input(Map<KeyLabel, TextInput> inputs) {
+    inputKeyAndFields.putAll(inputs);
     return this;
   }
 
@@ -159,7 +98,33 @@ public class PaneBuilder {
   public PaneBuilder buttonAction(
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
-    if (tableView == null) tableView = TableView.copyable();
+    var queryField =
+        TextInput.singleLine()
+            .hint(
+                "press ENTER to query. example: topic=chia && size>10GB || *timestamp*>=2022-10-22T04:57:43.530")
+            .build();
+    var sizeLabel = KeyLabel.of("");
+
+    tableViewer =
+        TableViewer.builder()
+            .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
+            .filteredDataListener(
+                List.of((ignored, data) -> sizeLabel.text("total: " + data.size())))
+            .build();
+
+    queryField
+        .node()
+        .setOnKeyPressed(
+            key -> {
+              if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
+            });
+
+    var borderPane = new BorderPane();
+    borderPane.setTop(queryField.node());
+    borderPane.setCenter(tableViewer.node());
+    borderPane.setBottom(sizeLabel.node());
+    BorderPane.setAlignment(sizeLabel.node(), Pos.CENTER);
+    motherOfTableView = borderPane;
     return this;
   }
 
@@ -169,103 +134,118 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder initTableView(List<Map<String, Object>> data) {
-    if (tableView == null) tableView = TableView.copyable();
-    tableView.update(data);
+  public PaneBuilder tableViewAction(
+      Map<KeyLabel, TextInput> inputs,
+      String buttonName,
+      Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
+          action) {
+    // always disable the input fields
+    inputs.values().forEach(TextInput::disable);
+    secondInputKeyAndFields.putAll(inputs);
+    tableViewActionButton = Button.disabled(buttonName);
+    tableViewAction = action;
     return this;
   }
 
   public Pane build() {
+    // step.1 layout
     var nodes = new ArrayList<Node>();
-    if (!radioButtons.isEmpty()) nodes.add(HBox.of(Pos.CENTER, radioButtons.toArray(Node[]::new)));
-    Map<String, Supplier<String>> textFields;
-    if (!inputKeys.isEmpty()) {
-      var pairs =
-          inputKeys.stream()
-              .collect(
-                  MapUtils.toLinkedHashMap(
-                      key ->
-                          inputKeyPriority.getOrDefault(key, false)
-                              ? Label.highlight(key)
-                              : Label.of(key),
-                      key -> {
-                        var builder = TextField.builder();
-                        if (inputKeyNumberOnly.getOrDefault(key, false))
-                          builder = builder.onlyNumber();
-                        String value = inputKeyValue.get(key);
-                        if (value != null) {
-                          if (inputKeyPlaceholder.getOrDefault(key, false))
-                            builder = builder.placeholder(value);
-                          else builder = builder.defaultValue(value);
-                        }
-                        if (inputKeyNumberOnly.getOrDefault(key, false))
-                          builder = builder.onlyNumber();
-                        return builder.build();
-                      }));
-      var gridPane = pairs.size() <= 3 ? GridPane.singleColumn(pairs, 3) : GridPane.of(pairs, 3);
-      nodes.add(gridPane);
-      textFields =
-          pairs.entrySet().stream()
-              .collect(
-                  MapUtils.toLinkedHashMap(
-                      e -> e.getKey().key(), e -> () -> e.getValue().getText()));
-    } else textFields = Map.of();
-    if (searchLabel != null) nodes.add(HBox.of(Pos.CENTER, searchLabel, searchField, actionButton));
-    else nodes.add(actionButton);
-    if (tableView != null) nodes.add(tableView);
-    nodes.add(console);
+    if (selectBox != null) nodes.add(selectBox.node());
+    if (!inputKeyAndFields.isEmpty()) {
+      var ns =
+          inputKeyAndFields.entrySet().stream()
+              .flatMap(entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
+              .collect(Collectors.toList());
+      var lattice = Lattice.of(ns, inputKeyAndFields.size() <= 3 ? 2 : 6);
+      nodes.add(lattice.node());
+    }
+    nodes.add(actionButton);
+    if (motherOfTableView != null) nodes.add(motherOfTableView);
+    // ---------------------------------[second control layout]---------------------------------//
+    if (tableViewer != null && tableViewAction != null) {
+      var checkbox = new CheckBox("enable");
+      checkbox
+          .selectedProperty()
+          .addListener(
+              (observable, oldValue, newValue) -> {
+                if (checkbox.isSelected()) {
+                  tableViewActionButton.enable();
+                  secondInputKeyAndFields.values().forEach(TextInput::enable);
+                } else {
+                  tableViewActionButton.disable();
+                  secondInputKeyAndFields.values().forEach(TextInput::disable);
+                }
+              });
+      tableViewActionButton.setOnAction(
+          event -> {
+            var items = tableViewer.filteredData();
+            var input =
+                secondInputKeyAndFields.entrySet().stream()
+                    .flatMap(e -> e.getValue().text().stream().map(v -> Map.entry(e.getKey(), v)))
+                    .collect(Collectors.toMap(e -> e.getKey().key(), Map.Entry::getValue));
+            try {
+              checkbox.setSelected(false);
+              var requiredNonexistentKeys =
+                  secondInputKeyAndFields.keySet().stream()
+                      .filter(KeyLabel::highlight)
+                      .map(KeyLabel::key)
+                      .filter(k -> !input.containsKey(k))
+                      .collect(Collectors.toSet());
+              if (!requiredNonexistentKeys.isEmpty()) {
+                console.text("Please define required fields: " + requiredNonexistentKeys);
+                return;
+              }
+              tableViewAction
+                  .apply(items, input, console::append)
+                  .whenComplete((data, e) -> console.text(e));
+            } catch (Exception e) {
+              console.text(e);
+            }
+          });
 
+      nodes.add(
+          VBox.of(
+              Pos.CENTER,
+              checkbox,
+              Lattice.of(
+                      secondInputKeyAndFields.entrySet().stream()
+                          .flatMap(
+                              entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
+                          .collect(Collectors.toList()),
+                      6)
+                  .node(),
+              tableViewActionButton));
+    }
+
+    nodes.add(console.node());
+
+    // step.2 event
     Runnable handler =
         () -> {
-          var selectedRadio =
-              radioButtons.stream()
-                  .filter(RadioButton::isSelected)
-                  .flatMap(r -> r.selectedObject().stream())
-                  .findFirst();
-          var rawTexts =
-              textFields.entrySet().stream()
-                  .flatMap(
-                      entry ->
-                          Optional.ofNullable(entry.getValue().get())
-                              .map(v -> Map.entry(entry.getKey(), v))
-                              .stream())
-                  .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
           var requiredNonexistentKeys =
-              inputKeyPriority.entrySet().stream()
-                  .filter(
-                      entry ->
-                          entry.getValue()
-                              && (!rawTexts.containsKey(entry.getKey())
-                                  || rawTexts.get(entry.getKey()).isBlank()))
-                  .map(Map.Entry::getKey)
+              inputKeyAndFields.entrySet().stream()
+                  .filter(entry -> entry.getKey().highlight())
+                  .filter(entry -> entry.getValue().text().isEmpty())
+                  .map(e -> e.getKey().key())
                   .collect(Collectors.toSet());
           if (!requiredNonexistentKeys.isEmpty()) {
             console.text("Please define required fields: " + requiredNonexistentKeys);
             return;
           }
 
-          var searchPatterns =
-              Arrays.stream(searchField.getText().split(","))
-                  .filter(s -> !s.isBlank())
-                  .map(PaneBuilder::wildcardToPattern)
-                  .collect(Collectors.toList());
-          Logger logger = console::append;
+          var rawTexts =
+              inputKeyAndFields.entrySet().stream()
+                  .collect(Collectors.toMap(e -> e.getKey().key(), e -> e.getValue().text()));
           var input =
               new Input() {
                 @Override
-                public Optional<Object> selectedRadio() {
-                  return selectedRadio;
+                public List<String> selectedKeys() {
+                  return selectBox == null ? List.of() : selectBox.selectedKeys();
                 }
 
                 @Override
-                public Map<String, String> texts() {
+                public Map<String, Optional<String>> texts() {
                   return rawTexts;
-                }
-
-                @Override
-                public boolean matchSearch(String word) {
-                  return searchPatterns.isEmpty()
-                      || searchPatterns.stream().anyMatch(p -> p.matcher(word).matches());
                 }
               };
 
@@ -277,11 +257,11 @@ public class PaneBuilder {
           try {
             if (buttonAction != null)
               buttonAction
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
-                          if (data != null) tableView.update(data);
+                          if (data != null && tableViewer != null) tableViewer.data(data);
                           console.text(e);
                         } finally {
                           actionButton.enable();
@@ -289,7 +269,7 @@ public class PaneBuilder {
                       });
             if (buttonListener != null)
               buttonListener
-                  .apply(input, logger)
+                  .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
@@ -299,28 +279,13 @@ public class PaneBuilder {
                         }
                       });
 
-          } catch (IllegalArgumentException e) {
-            console.append(e.getMessage());
-            actionButton.enable();
           } catch (Exception e) {
-            console.append(e);
+            console.text(e);
             actionButton.enable();
           }
         };
 
     actionButton.setOnAction(ignored -> handler.run());
-    // there is only one text field, so we register the ENTER event.
-    if (textFields.isEmpty())
-      searchField.setOnKeyPressed(
-          event -> {
-            if (event.getCode().equals(KeyCode.ENTER)) handler.run();
-          });
-
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
-  }
-
-  static Pattern wildcardToPattern(String string) {
-    return Pattern.compile(
-        string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 }

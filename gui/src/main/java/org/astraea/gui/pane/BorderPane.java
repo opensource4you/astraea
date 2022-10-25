@@ -16,21 +16,40 @@
  */
 package org.astraea.gui.pane;
 
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import org.astraea.gui.box.ComboBox;
+import javafx.scene.control.ComboBox;
+import org.astraea.common.Utils;
+import org.astraea.gui.text.TextInput;
 
 public class BorderPane extends javafx.scene.layout.BorderPane {
 
-  public static BorderPane selectableTop(Map<String, Node> topAndCenter) {
-    var box = ComboBox.strings(topAndCenter.keySet());
+  public static BorderPane dynamic(
+      Set<String> keys, Function<String, CompletionStage<Node>> nodeSupplier) {
+    var box = new ComboBox<>(FXCollections.observableArrayList(keys.toArray(String[]::new)));
     var pane = new BorderPane();
     BorderPane.setAlignment(box, Pos.CENTER);
     pane.setTop(box);
     box.valueProperty()
-        .addListener((observable, oldValue, newValue) -> pane.center(topAndCenter.get(newValue)));
+        .addListener(
+            (observable, oldValue, key) ->
+                nodeSupplier
+                    .apply(key)
+                    .whenComplete(
+                        (r, e) -> {
+                          if (e != null)
+                            pane.center(
+                                TextInput.multiline()
+                                    .defaultValue(Utils.toString(e))
+                                    .build()
+                                    .node());
+                          else pane.center(r);
+                        }));
     return pane;
   }
 

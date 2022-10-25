@@ -16,30 +16,37 @@
  */
 package org.astraea.gui.pane;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface Input {
-  List<String> selectedKeys();
+public class InputTest {
 
-  /** @return the keys having empty/blank value. */
-  default Set<String> emptyValueKeys() {
-    return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isEmpty())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toUnmodifiableSet());
+  @Test
+  void testTexts() {
+    var texts = new HashMap<String, Optional<String>>();
+    var input =
+        new Input() {
+          @Override
+          public List<String> selectedKeys() {
+            return List.of();
+          }
+
+          @Override
+          public Map<String, Optional<String>> texts() {
+            return texts;
+          }
+        };
+
+    texts.put("key", Optional.empty());
+    texts.put("key2", Optional.of("v"));
+    Assertions.assertEquals(1, input.emptyValueKeys().size());
+    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+
+    Assertions.assertEquals(1, input.nonEmptyTexts().size());
+    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
   }
-
-  /** @return the input key and value. The value is not empty. */
-  default Map<String, String> nonEmptyTexts() {
-    return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isPresent())
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().get()));
-  }
-
-  /** @return the input key and value. The value could be empty. */
-  Map<String, Optional<String>> texts();
 }

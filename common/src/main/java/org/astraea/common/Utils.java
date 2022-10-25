@@ -19,10 +19,8 @@ package org.astraea.common;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -30,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.cost.Configuration;
 
@@ -267,12 +266,9 @@ public final class Utils {
     return sw.toString();
   }
 
-  public static String format(long timestamp) {
-    if (timestamp > 0) {
-      var format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-      return format.format(new Date(timestamp));
-    }
-    return "unknown";
+  public static Pattern wildcardToPattern(String string) {
+    return Pattern.compile(
+        string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 
   private Utils() {}

@@ -14,39 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.button;
+package org.astraea.common.metrics.stats;
 
-import javafx.application.Platform;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class Button extends javafx.scene.control.Button {
+public class MinTest {
+  @Test
+  void testMin() {
+    var stat = new Min<Integer>();
+    stat.record(39);
+    stat.record(20);
+    stat.record(103);
 
-  public static Button disabled(String name) {
-    var btn = new Button(name);
-    btn.disable();
-    return btn;
+    Assertions.assertEquals(20, stat.measure());
   }
 
-  public static Button of(String name) {
-    return new Button(name);
-  }
-
-  public static Button of(String name, Runnable action) {
-    var btn = new Button(name);
-    btn.setOnAction(ignored -> action.run());
-    return btn;
-  }
-
-  private Button(String topic) {
-    super(topic);
-  }
-
-  public void disable() {
-    if (Platform.isFxApplicationThread()) setDisable(true);
-    else Platform.runLater(() -> setDisable(true));
-  }
-
-  public void enable() {
-    if (Platform.isFxApplicationThread()) setDisable(false);
-    else Platform.runLater(() -> setDisable(false));
+  @Test
+  void testException() {
+    var stat = new Min<Integer>();
+    Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }

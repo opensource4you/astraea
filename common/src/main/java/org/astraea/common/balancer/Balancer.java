@@ -16,6 +16,7 @@
  */
 package org.astraea.common.balancer;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -46,7 +47,7 @@ public interface Balancer {
   class Plan {
     final RebalancePlanProposal proposal;
     final ClusterCost clusterCost;
-    final MoveCost moveCost;
+    final List<MoveCost> moveCost;
 
     public RebalancePlanProposal proposal() {
       return proposal;
@@ -56,11 +57,11 @@ public interface Balancer {
       return clusterCost;
     }
 
-    public MoveCost moveCost() {
+    public List<MoveCost> moveCost() {
       return moveCost;
     }
 
-    public Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, MoveCost moveCost) {
+    public Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, List<MoveCost> moveCost) {
       this.proposal = proposal;
       this.clusterCost = clusterCost;
       this.moveCost = moveCost;

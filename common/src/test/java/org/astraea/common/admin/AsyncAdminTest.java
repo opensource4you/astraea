@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.CompletableFuture;
@@ -635,7 +636,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           .partitions(Set.of(topic))
           .toCompletableFuture()
           .get()
-          .forEach(p -> Assertions.assertNotEquals(-1, p.maxTimestamp()));
+          .forEach(p -> Assertions.assertNotEquals(Optional.empty(), p.maxTimestamp()));
     }
   }
 
@@ -684,6 +685,26 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .size());
           Assertions.assertEquals(
               1, admin.consumerGroups(Set.of("abc")).toCompletableFuture().get().size());
+
+          // test internal
+          Assertions.assertNotEquals(
+              0,
+              admin
+                  .topics(admin.topicNames(true).toCompletableFuture().get())
+                  .toCompletableFuture()
+                  .get()
+                  .stream()
+                  .filter(Topic::internal)
+                  .count());
+          Assertions.assertNotEquals(
+              0,
+              admin
+                  .partitions(admin.topicNames(true).toCompletableFuture().get())
+                  .toCompletableFuture()
+                  .get()
+                  .stream()
+                  .filter(Partition::internal)
+                  .count());
         }
       }
     }
@@ -1491,6 +1512,239 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(t + 1, ts.get(TopicPartition.of(topic, 1)));
       Assertions.assertEquals(t + 2, ts.get(TopicPartition.of(topic, 2)));
       Assertions.assertEquals(t + 3, ts.get(TopicPartition.of(topic, 3)));
+    }
+  }
+
+  @Test
+  void testAppendConfigsToTopic() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      // append to nonexistent value
+      Assertions.assertEquals(
+          Optional.empty(),
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG));
+      admin
+          .appendConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "1:1001",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // append to existent value
+      admin
+          .appendConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "1:1001,2:1002",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // append duplicate value
+      admin
+          .appendConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "1:1001,2:1002",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // append to wildcard
+      admin
+          .setConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "*",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+      admin
+          .appendConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "*",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+    }
+  }
+
+  @Test
+  void testSubtractTopicConfigs() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      // subtract existent value
+      admin
+          .setConfigs(
+              topic,
+              Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001,2:1003"))
+          .toCompletableFuture()
+          .get();
+      admin
+          .subtractConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "2:1003",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // subtract nonexistent value
+      admin
+          .subtractConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .toCompletableFuture()
+          .get();
+      Assertions.assertEquals(
+          "2:1003",
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .get());
+
+      // can't subtract *
+      admin
+          .setConfigs(
+              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*"))
+          .toCompletableFuture()
+          .get();
+
+      Assertions.assertInstanceOf(
+          IllegalArgumentException.class,
+          Assertions.assertThrows(
+                  ExecutionException.class,
+                  () ->
+                      admin
+                          .subtractConfigs(
+                              topic,
+                              Map.of(
+                                  TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                                  "1:1001"))
+                          .toCompletableFuture()
+                          .get())
+              .getCause());
+    }
+  }
+
+  @Test
+  void testValueOfConfigs() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .topics(admin.topicNames(true).toCompletableFuture().get())
+          .toCompletableFuture()
+          .get()
+          .forEach(
+              t ->
+                  t.config()
+                      .raw()
+                      .forEach(
+                          (k, v) -> Assertions.assertNotEquals(0, v.trim().length(), "key: " + k)));
+      admin
+          .brokers()
+          .toCompletableFuture()
+          .get()
+          .forEach(
+              t ->
+                  t.config()
+                      .raw()
+                      .forEach(
+                          (k, v) -> Assertions.assertNotEquals(0, v.trim().length(), "key: " + k)));
+    }
+  }
+
+  @Test
+  void testDynamicTopicConfig() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      admin.unsetConfigs(topic, Set.copyOf(TopicConfigs.ALL_CONFIGS)).toCompletableFuture().get();
     }
   }
 }
