@@ -22,15 +22,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.geometry.Side;
 import javafx.scene.layout.Pane;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
@@ -176,25 +177,18 @@ public class QuotaTab {
   }
 
   private static Tab basicTab(Context context) {
-    var ipKey = "ip";
-    var clientIdKey = "client id";
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .selectBox(SelectBox.single(List.of(ipKey, clientIdKey)))
             .buttonAction(
-                (input, logger) -> {
-                  var target = input.selectedKeys().stream().findFirst().orElse(ipKey);
-                  return context
-                      .admin()
-                      .quotas(
-                          Set.of(target.equals("ip") ? QuotaConfigs.IP : QuotaConfigs.CLIENT_ID))
-                      .thenApply(
-                          quotas ->
-                              quotas.stream()
-                                  .map(QuotaTab::basicResult)
-                                  .collect(Collectors.toList()));
-                })
+                (input, logger) ->
+                    FutureUtils.combine(
+                        context.admin().quotas(Set.of(QuotaConfigs.IP)),
+                        context.admin().quotas(Set.of(QuotaConfigs.CLIENT_ID)),
+                        (q0, q1) ->
+                            Stream.concat(q0.stream(), q1.stream())
+                                .map(QuotaTab::basicResult)
+                                .collect(Collectors.toList())))
             .build());
   }
 

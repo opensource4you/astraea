@@ -98,7 +98,10 @@ public class PaneBuilder {
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
     var queryField =
-        TextInput.singleLine().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
+        TextInput.singleLine()
+            .hint(
+                "press ENTER to query. example: topic=chia && size>10GB || *timestamp*>=2022-10-22T04:57:43.530")
+            .build();
     var sizeLabel = KeyLabel.of("");
 
     tableViewer =

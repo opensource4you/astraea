@@ -34,7 +34,6 @@ import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.text.KeyLabel;
@@ -53,6 +52,7 @@ public class PartitionTab {
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, p.topic());
               result.put(PARTITION_KEY, p.partition());
+              result.put("internal", p.internal());
               p.leader().ifPresent(l -> result.put("leader", l.id()));
               result.put(
                   "replicas",
@@ -79,13 +79,11 @@ public class PartitionTab {
   }
 
   static Tab tab(Context context) {
-    var includeInternal = "internal";
     var moveToKey = "move to brokers";
     var offsetKey = "truncate to offset";
     return Tab.of(
         "partition",
         PaneBuilder.of()
-            .selectBox(SelectBox.single(List.of(includeInternal)))
             .tableViewAction(
                 MapUtils.of(
                     KeyLabel.of(moveToKey),
@@ -171,7 +169,7 @@ public class PartitionTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(input.selectedKeys().contains(includeInternal))
+                        .topicNames(true)
                         .thenCompose(context.admin()::partitions)
                         .thenApply(PartitionTab::basicResult))
             .build());
