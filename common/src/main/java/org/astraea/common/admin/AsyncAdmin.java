@@ -58,6 +58,9 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Set<String>> topicNames(boolean listInternal);
 
+  /** @return names of internal topics */
+  CompletionStage<Set<String>> internalTopicNames();
+
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
   /**

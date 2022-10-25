@@ -40,6 +40,18 @@ public interface Input {
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().get()));
   }
 
+  /**
+   * get the value from user-defined inputs
+   *
+   * @param key to search
+   * @return empty if the key is nonexistent or empty value. Otherwise, it returns value.
+   */
+  default Optional<String> get(String key) {
+    var value = texts().get(key);
+    if (value != null) return value;
+    return Optional.empty();
+  }
+
   /** @return the input key and value. The value could be empty. */
   Map<String, Optional<String>> texts();
 }

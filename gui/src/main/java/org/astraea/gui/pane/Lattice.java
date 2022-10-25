@@ -35,7 +35,7 @@ public interface Lattice {
         column = 0;
         row++;
       }
-      GridPane.setHalignment(node, HPos.RIGHT);
+      GridPane.setHalignment(node, HPos.LEFT);
       GridPane.setMargin(node, new Insets(10, 5, 10, 15));
       pane.add(node, column++, row);
     }

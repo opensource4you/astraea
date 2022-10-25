@@ -30,12 +30,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
-import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
@@ -43,19 +40,17 @@ import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
-import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.BorderPane;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class TopicTab {
 
@@ -69,7 +64,8 @@ public class TopicTab {
                 SelectBox.single(
                     Arrays.stream(ServerMetrics.Topic.values())
                         .map(ServerMetrics.Topic::toString)
-                        .collect(Collectors.toList())))
+                        .collect(Collectors.toList()),
+                    ServerMetrics.Topic.values().length))
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
@@ -134,9 +130,22 @@ public class TopicTab {
                     context
                         .admin()
                         .topicNames(true)
-                        .thenCompose(context.admin()::topics)
-                        .thenApply(
-                            topics -> topics.stream().map(t -> Map.entry(t.name(), t.config())))
+                        .thenCompose(
+                            names ->
+                                context
+                                    .admin()
+                                    .topics(names)
+                                    .thenApply(
+                                        topics ->
+                                            topics.stream()
+                                                .map(t -> Map.entry(t.name(), t.config().raw())))
+                                    .exceptionally(
+                                        e -> {
+                                          // previous kafka does not check topic config. The configs
+                                          // APIs return error if there are corrupted configs
+                                          logger.log(e.getMessage());
+                                          return names.stream().map(n -> Map.entry(n, Map.of()));
+                                        }))
                         .thenApply(
                             items ->
                                 items
@@ -144,16 +153,14 @@ public class TopicTab {
                                         e -> {
                                           var map = new LinkedHashMap<String, Object>();
                                           map.put(TOPIC_NAME_KEY, e.getKey());
-                                          map.putAll(new TreeMap<>(e.getValue().raw()));
+                                          map.putAll(new TreeMap<>(e.getValue()));
                                           return map;
                                         })
                                     .collect(Collectors.toList())))
             .tableViewAction(
                 MapUtils.of(
-                    KeyLabel.highlight("key"),
-                    TextInput.singleLine().build(),
-                    KeyLabel.of("value"),
-                    TextInput.singleLine().build()),
+                    NoneditableText.of(TopicConfigs.ALL_CONFIGS),
+                    EditableText.singleLine().build()),
                 "ALERT",
                 (tables, input, logger) -> {
                   var topicsToAlter =
@@ -170,41 +177,34 @@ public class TopicTab {
                   }
                   return context
                       .admin()
-                      .topics(topicsToAlter)
+                      .internalTopicNames()
                       .thenCompose(
-                          topics -> {
+                          internalTopics -> {
                             var internal =
-                                topics.stream()
-                                    .filter(Topic::internal)
-                                    .map(Topic::name)
+                                topicsToAlter.stream()
+                                    .filter(internalTopics::contains)
                                     .collect(Collectors.toSet());
                             if (!internal.isEmpty())
                               throw new IllegalArgumentException(
                                   "internal topics: " + internal + " can't be deleted");
-                            var key = input.get("key");
-                            var value = input.get("value");
-                            var unsets =
-                                value == null || value.isBlank() ? Set.of(key) : Set.<String>of();
-                            var sets =
-                                value == null || value.isBlank()
-                                    ? Map.<String, String>of()
-                                    : Map.of(key, value);
+                            var unsets = input.emptyValueKeys();
+                            var sets = input.nonEmptyTexts();
                             if (unsets.isEmpty() && sets.isEmpty()) {
                               logger.log("nothing to alter");
                               return CompletableFuture.completedStage(null);
                             }
                             return FutureUtils.sequence(
-                                    topics.stream()
+                                    topicsToAlter.stream()
                                         .flatMap(
                                             topic ->
                                                 Stream.of(
                                                     context
                                                         .admin()
-                                                        .setConfigs(topic.name(), sets)
+                                                        .setConfigs(topic, sets)
                                                         .toCompletableFuture(),
                                                     context
                                                         .admin()
-                                                        .unsetConfigs(topic.name(), unsets)
+                                                        .unsetConfigs(topic, unsets)
                                                         .toCompletableFuture()))
                                         .collect(Collectors.toList()))
                                 .thenAccept(
@@ -219,7 +219,7 @@ public class TopicTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .selectBox(SelectBox.multi(List.of(includeTimestampOfRecord)))
+            .selectBox(SelectBox.multi(List.of(includeTimestampOfRecord), 1))
             .tableViewAction(
                 Map.of(),
                 "DELETE",
@@ -238,21 +238,17 @@ public class TopicTab {
                   }
                   return context
                       .admin()
-                      .topics(topicsToDelete)
+                      .internalTopicNames()
                       .thenCompose(
-                          topics -> {
+                          internalTopics -> {
                             var internal =
-                                topics.stream()
-                                    .filter(Topic::internal)
-                                    .map(Topic::name)
+                                topicsToDelete.stream()
+                                    .filter(internalTopics::contains)
                                     .collect(Collectors.toSet());
                             if (!internal.isEmpty())
                               throw new IllegalArgumentException(
                                   "internal topics: " + internal + " can't be deleted");
-                            return context
-                                .admin()
-                                .deleteTopics(
-                                    topics.stream().map(Topic::name).collect(Collectors.toSet()));
+                            return context.admin().deleteTopics(topicsToDelete);
                           })
                       .thenAccept(
                           ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
@@ -287,92 +283,6 @@ public class TopicTab {
             .build());
   }
 
-  public static Tab alterTab(Context context) {
-    var fixedValueKey = "fixed value";
-    var numberOfPartitions = "number of partitions";
-
-    // Kafka can't return configs when there are corrupted configs.
-    // hence, we generate a simple pane to allow users to fix corrupted configs
-    BiFunction<String, Throwable, Node> simplePane =
-        (name, error) ->
-            PaneBuilder.of()
-                .buttonName("ALTER")
-                .selectBox(SelectBox.single(List.copyOf(TopicConfigs.ALL_CONFIGS)))
-                .input(
-                    KeyLabel.of(fixedValueKey),
-                    TextInput.multiline().hint(error.getMessage()).build())
-                .buttonListener(
-                    (input, logger) ->
-                        Optional.ofNullable(input.nonEmptyTexts().get(fixedValueKey))
-                            .map(
-                                value ->
-                                    context
-                                        .admin()
-                                        .setConfigs(
-                                            name, Map.of(input.selectedKeys().get(0), value)))
-                            .orElseGet(
-                                () ->
-                                    context
-                                        .admin()
-                                        .unsetConfigs(name, Set.of(input.selectedKeys().get(0))))
-                            .thenAccept(ignored -> logger.log("succeed to alter " + name)))
-                .build();
-
-    Function<Topic, Node> fullPane =
-        topic ->
-            PaneBuilder.of()
-                .buttonName("ALTER")
-                .input(
-                    KeyLabel.of(numberOfPartitions),
-                    TextInput.singleLine()
-                        .onlyNumber()
-                        .defaultValue(String.valueOf(topic.topicPartitions().size()))
-                        .build())
-                .input(
-                    TopicConfigs.ALL_CONFIGS.stream()
-                        .collect(
-                            MapUtils.toSortedMap(
-                                KeyLabel::of,
-                                k ->
-                                    TextInput.singleLine()
-                                        .defaultValue(topic.config().value(k).orElse(""))
-                                        .build())))
-                .buttonListener(
-                    (input, logger) -> {
-                      var allConfigs = new HashMap<>(input.nonEmptyTexts());
-                      var partitions = Integer.parseInt(allConfigs.remove(numberOfPartitions));
-                      return context
-                          .admin()
-                          .setConfigs(topic.name(), allConfigs)
-                          .thenCompose(
-                              ignored -> context.admin().unsetConfigs(topic.name(), Set.of()))
-                          .thenCompose(
-                              ignored ->
-                                  partitions == topic.topicPartitions().size()
-                                      ? CompletableFuture.completedFuture(null)
-                                      : context.admin().addPartitions(topic.name(), partitions))
-                          .thenAccept(ignored -> logger.log("succeed to alter " + topic.name()));
-                    })
-                .build();
-    return Tab.dynamic(
-        "alter",
-        () ->
-            context
-                .admin()
-                .topicNames(false)
-                .thenApply(
-                    names ->
-                        BorderPane.dynamic(
-                            names,
-                            name ->
-                                context
-                                    .admin()
-                                    .topics(Set.of(name))
-                                    .thenApply(topics -> topics.get(0))
-                                    .thenApply(fullPane)
-                                    .exceptionally(e -> simplePane.apply(name, e)))));
-  }
-
   public static Tab createTab(Context context) {
     var numberOfPartitionsKey = "number of partitions";
     var numberOfReplicasKey = "number of replicas";
@@ -380,13 +290,20 @@ public class TopicTab {
         "create",
         PaneBuilder.of()
             .buttonName("CREATE")
-            .input(KeyLabel.highlight(TOPIC_NAME_KEY), TextInput.singleLine().build())
-            .input(KeyLabel.of(numberOfPartitionsKey), TextInput.singleLine().onlyNumber().build())
-            .input(KeyLabel.of(numberOfReplicasKey), TextInput.singleLine().onlyNumber().build())
+            .input(
+                NoneditableText.highlight(TOPIC_NAME_KEY),
+                EditableText.singleLine().disallowEmpty().build())
+            .input(
+                NoneditableText.of(numberOfPartitionsKey),
+                EditableText.singleLine().onlyNumber().build())
+            .input(
+                NoneditableText.of(numberOfReplicasKey),
+                EditableText.singleLine().onlyNumber().build())
             .input(
                 TopicConfigs.ALL_CONFIGS.stream()
                     .collect(
-                        Collectors.toMap(KeyLabel::of, ignored -> TextInput.singleLine().build())))
+                        Collectors.toMap(
+                            NoneditableText::of, ignored -> EditableText.singleLine().build())))
             .buttonListener(
                 (input, logger) -> {
                   var allConfigs = new HashMap<>(input.nonEmptyTexts());
@@ -512,7 +429,6 @@ public class TopicTab {
                 ReplicaTab.tab(context),
                 configTab(context),
                 metricsTab(context),
-                createTab(context),
-                alterTab(context))));
+                createTab(context))));
   }
 }

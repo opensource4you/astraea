@@ -27,7 +27,7 @@ import org.astraea.gui.pane.Lattice;
 
 public interface SelectBox {
 
-  static SelectBox single(List<String> keys) {
+  static SelectBox single(List<String> keys, int sizeOfColumns) {
     var group = new ToggleGroup();
     var selectedKeys = Collections.synchronizedCollection(new ArrayList<String>());
     var items =
@@ -46,7 +46,9 @@ public interface SelectBox {
                 })
             .collect(Collectors.toUnmodifiableList());
     items.get(0).setSelected(true);
-    var node = Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), 3).node();
+    var node =
+        Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
+            .node();
     return new SelectBox() {
       @Override
       public List<String> selectedKeys() {
@@ -60,7 +62,7 @@ public interface SelectBox {
     };
   }
 
-  static SelectBox multi(List<String> keys) {
+  static SelectBox multi(List<String> keys, int sizeOfColumns) {
     var selectedKeys = Collections.synchronizedCollection(new ArrayList<String>());
     var items =
         keys.stream()
@@ -76,7 +78,9 @@ public interface SelectBox {
                   return box;
                 })
             .collect(Collectors.toUnmodifiableList());
-    var node = Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), 3).node();
+    var node =
+        Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
+            .node();
     return new SelectBox() {
       @Override
       public List<String> selectedKeys() {

@@ -19,6 +19,7 @@ package org.astraea.common.metrics.broker;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.AppInfo;
@@ -52,8 +53,11 @@ public final class ServerMetrics {
                   }
 
                   @Override
-                  public long startTimeMs() {
-                    return (long) beanObject().attributes().get("StartTimeMs");
+                  public Optional<Long> startTimeMs() {
+                    var t = beanObject().attributes().get("StartTimeMs");
+                    ;
+                    if (t == null) return Optional.empty();
+                    return Optional.of((long) t);
                   }
 
                   @Override

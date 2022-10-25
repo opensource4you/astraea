@@ -107,6 +107,17 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
+  public CompletionStage<Set<String>> internalTopicNames() {
+    return to(kafkaAdmin.listTopics(new ListTopicsOptions().listInternal(true)).namesToListings())
+        .thenApply(
+            ts ->
+                ts.entrySet().stream()
+                    .filter(t -> t.getValue().isInternal())
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toCollection(TreeSet::new)));
+  }
+
+  @Override
   public CompletionStage<List<Topic>> topics(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return FutureUtils.combine(
@@ -835,17 +846,14 @@ class AsyncAdminImpl implements AsyncAdmin {
             .alterClientQuotas(
                 ipAndRate.entrySet().stream()
                     .map(
-                        entry -> {
-                          System.out.println(
-                              "entry.getValue().byteRate(): " + entry.getValue().byteRate());
-                          return new org.apache.kafka.common.quota.ClientQuotaAlteration(
-                              new ClientQuotaEntity(
-                                  Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
-                              List.of(
-                                  new ClientQuotaAlteration.Op(
-                                      QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
-                                      entry.getValue().byteRate())));
-                        })
+                        entry ->
+                            new ClientQuotaAlteration(
+                                new ClientQuotaEntity(
+                                    Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
+                                List.of(
+                                    new ClientQuotaAlteration.Op(
+                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
+                                        entry.getValue().byteRate()))))
                     .collect(Collectors.toList()))
             .all());
   }

@@ -705,6 +705,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   .stream()
                   .filter(Partition::internal)
                   .count());
+
+          // test internal topics
+          Assertions.assertNotEquals(
+              0, admin.internalTopicNames().toCompletableFuture().get().size());
         }
       }
     }

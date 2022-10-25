@@ -59,7 +59,7 @@ public class MetricsTestUtil {
     Assertions.assertNotNull(appInfo.id());
     Assertions.assertNotNull(appInfo.version());
     Assertions.assertNotNull(appInfo.commitId());
-    Assertions.assertTrue(appInfo.startTimeMs() > 0);
+    Assertions.assertTrue(appInfo.startTimeMs().get() > 0);
   }
 
   private static void testGauge(HasGauge<?> hasGauge) {

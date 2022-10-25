@@ -26,18 +26,20 @@ import javafx.scene.Node;
 import javafx.scene.control.TextInputControl;
 import org.astraea.common.Utils;
 
-public interface TextInput {
+public interface EditableText {
 
-  public static Builder multiline() {
+  static Builder multiline() {
     return new Builder(new javafx.scene.control.TextArea());
   }
 
-  public static Builder singleLine() {
+  static Builder singleLine() {
     return new Builder(new javafx.scene.control.TextField());
   }
 
   class Builder {
     private final TextInputControl field;
+
+    private boolean acceptEmpty = true;
 
     private Builder(TextInputControl field) {
       this.field = field;
@@ -74,8 +76,13 @@ public interface TextInput {
       return this;
     }
 
-    public TextInput build() {
-      return new TextInput() {
+    public Builder disallowEmpty() {
+      acceptEmpty = false;
+      return this;
+    }
+
+    public EditableText build() {
+      return new EditableText() {
 
         @Override
         public Node node() {
@@ -86,6 +93,11 @@ public interface TextInput {
         public void text(String text) {
           if (Platform.isFxApplicationThread()) field.setText(text);
           else Platform.runLater(() -> field.setText(text));
+        }
+
+        @Override
+        public boolean valid() {
+          return acceptEmpty || text().isPresent();
         }
 
         @Override
@@ -112,6 +124,19 @@ public interface TextInput {
 
   void text(String text);
 
+  /** @return true if the current value is valid. Otherwise, return false */
+  boolean valid();
+
+  Optional<String> text();
+
+  void disable();
+
+  void enable();
+
+  default void cleanup() {
+    text("");
+  }
+
   default void text(Throwable e) {
     if (e instanceof IllegalArgumentException) {
       // expected error so we just print message
@@ -131,16 +156,6 @@ public interface TextInput {
         text()
             .map(before -> "[" + formatCurrentTime() + "] " + text + "\n" + before)
             .orElseGet(() -> "[" + formatCurrentTime() + "] " + text));
-  }
-
-  Optional<String> text();
-
-  void disable();
-
-  void enable();
-
-  default void cleanup() {
-    text("");
   }
 
   private static String formatCurrentTime() {
