@@ -30,7 +30,7 @@ object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
-      Await.result(createTopic(admin, metaData), Duration(5, TimeUnit.SECONDS))
+      Await.result(createTopic(admin, metaData), Duration.Inf)
       val df = Reader
         .of()
         .spark(metaData.deploymentModel)

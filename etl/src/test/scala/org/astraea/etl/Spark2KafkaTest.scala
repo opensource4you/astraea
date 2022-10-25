@@ -102,7 +102,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   }
 
   @Test def archive(): Unit = {
-    Thread.sleep(Duration(15, TimeUnit.SECONDS).toMillis)
+    Thread.sleep(Duration(10, TimeUnit.SECONDS).toMillis)
     Range
       .inclusive(0, 4)
       .foreach(i => {
