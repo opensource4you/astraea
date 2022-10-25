@@ -20,11 +20,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ToggleGroup;
-import org.astraea.gui.box.HBox;
+import org.astraea.gui.pane.Lattice;
 
 public interface SelectBox {
 
@@ -47,7 +46,7 @@ public interface SelectBox {
                 })
             .collect(Collectors.toUnmodifiableList());
     items.get(0).setSelected(true);
-    var node = HBox.of(Pos.CENTER, items.toArray(Node[]::new));
+    var node = Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), 3).node();
     return new SelectBox() {
       @Override
       public List<String> selectedKeys() {
@@ -77,7 +76,7 @@ public interface SelectBox {
                   return box;
                 })
             .collect(Collectors.toUnmodifiableList());
-    var node = HBox.of(Pos.CENTER, items.toArray(Node[]::new));
+    var node = Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), 3).node();
     return new SelectBox() {
       @Override
       public List<String> selectedKeys() {

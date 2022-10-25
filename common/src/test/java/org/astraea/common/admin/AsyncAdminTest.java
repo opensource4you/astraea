@@ -1728,4 +1728,23 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                           (k, v) -> Assertions.assertNotEquals(0, v.trim().length(), "key: " + k)));
     }
   }
+
+  @Test
+  void testDynamicTopicConfig() throws ExecutionException, InterruptedException {
+    var topic = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .get();
+
+      Utils.sleep(Duration.ofSeconds(3));
+
+      admin.unsetConfigs(topic, Set.copyOf(TopicConfigs.ALL_CONFIGS)).toCompletableFuture().get();
+    }
+  }
 }
