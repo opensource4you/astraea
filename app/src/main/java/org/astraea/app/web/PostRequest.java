@@ -16,21 +16,25 @@
  */
 package org.astraea.app.web;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.astraea.common.json.JsonConverter;
-import org.astraea.common.json.TypeRef;
 
 public interface PostRequest {
 
   PostRequest EMPTY = PostRequest.of(Map.of());
 
+  @SuppressWarnings("unchecked")
   static PostRequest of(String json) {
-    return of(JsonConverter.defaultConverter().fromJson(json, TypeRef.map(Object.class)));
+    return of((Map<String, Object>) new Gson().fromJson(json, Map.class));
   }
 
   static String handle(Object obj) {
@@ -39,12 +43,11 @@ public interface PostRequest {
       var value = (double) obj;
       if (value - Math.floor(value) == 0) return String.valueOf((long) Math.floor(value));
     }
-
     // TODO: handle double in nested type
     // use gson instead of obj.toString in nested type since obj.toString won't add double quote to
     // string and will create invalid json
     if (obj instanceof Map || obj instanceof List) {
-      return JsonConverter.defaultConverter().toJson(obj);
+      return new GsonBuilder().disableHtmlEscaping().create().toJson(obj);
     }
     return obj.toString();
   }
@@ -69,13 +72,11 @@ public interface PostRequest {
   }
 
   default <T> Optional<T> get(String key, Class<T> clz) {
-    return Optional.ofNullable(raw().get(key))
-        .map(v -> JsonConverter.defaultConverter().fromJson(v, TypeRef.of(clz)));
+    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, clz));
   }
 
-  default <T> Optional<T> get(String key, TypeRef<T> typeRef) {
-    return Optional.ofNullable(raw().get(key))
-        .map(v -> JsonConverter.defaultConverter().fromJson(v, typeRef));
+  default <T> Optional<T> get(String key, Type type) {
+    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, type));
   }
 
   default <T> T value(String key, Class<T> clz) {
@@ -162,7 +163,8 @@ public interface PostRequest {
   // -----------------------------[others]-----------------------------//
 
   default <T> List<T> values(String key, Class<T> clz) {
-    return JsonConverter.defaultConverter().fromJson(value(key), TypeRef.array(clz));
+    return new Gson()
+        .fromJson(value(key), TypeToken.getParameterized(ArrayList.class, clz).getType());
   }
 
   default List<PostRequest> requests(String key) {

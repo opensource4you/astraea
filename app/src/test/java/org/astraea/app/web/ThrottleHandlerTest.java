@@ -40,8 +40,6 @@ import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.json.JsonConverter;
-import org.astraea.common.json.TypeRef;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -196,9 +194,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var setting = new ThrottleHandler.ThrottleSetting(set0, set1);
 
     var serialized = setting.json();
-    var deserialized =
-        JsonConverter.defaultConverter()
-            .fromJson(serialized, TypeRef.of(ThrottleHandler.ThrottleSetting.class));
+    var gson = new Gson();
+    var deserialized = gson.fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
 
     Assertions.assertEquals(set0, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(set1, Set.copyOf(deserialized.topics));
@@ -226,9 +223,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             new ThrottleHandler.TopicThrottle("MyTopicC", 3, 1001, null),
             new ThrottleHandler.TopicThrottle("MyTopicD", 4, 1001, leader));
 
-    var deserialized =
-        JsonConverter.defaultConverter()
-            .fromJson(rawJson, TypeRef.of(ThrottleHandler.ThrottleSetting.class));
+    var gson = new Gson();
+    var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
 
     Assertions.assertEquals(expectedBroker, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(expectedTopic, Set.copyOf(deserialized.topics));
@@ -317,9 +313,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
       var post =
           handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().get();
-      var deserialized =
-          JsonConverter.defaultConverter()
-              .fromJson(post.json(), TypeRef.of(ThrottleHandler.ThrottleSetting.class));
+      var deserialized = new Gson().fromJson(post.json(), ThrottleHandler.ThrottleSetting.class);
       Utils.sleep(Duration.ofSeconds(1));
 
       // verify response content is correct

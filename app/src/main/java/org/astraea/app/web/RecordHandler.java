@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
+import com.google.gson.GsonBuilder;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
@@ -45,7 +46,7 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
-import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.JsonConverter.ByteArrayToBase64TypeAdapter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Sender;
@@ -383,7 +384,12 @@ public class RecordHandler implements Handler {
 
     @Override
     public String json() {
-      return JsonConverter.defaultConverter().toJson(this);
+      return new GsonBuilder()
+          // gson will do html escape by default (e.g. convert = to \u003d)
+          .disableHtmlEscaping()
+          .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
+          .create()
+          .toJson(this);
     }
 
     @Override
