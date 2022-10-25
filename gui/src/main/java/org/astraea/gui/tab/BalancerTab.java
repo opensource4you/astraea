@@ -171,12 +171,12 @@ public class BalancerTab {
                                               .allMatch(
                                                   mc -> {
                                                     switch (mc.name()) {
-                                                      case "size":
+                                                      case ReplicaSizeCost.COST_NAME:
                                                         if (replicaSizeLimit.isEmpty()
                                                             || mc.totalCost()
                                                                 <= replicaSizeLimit.get())
                                                           return true;
-                                                      case "leader":
+                                                      case ReplicaLeaderCost.COST_NAME:
                                                         if (leaderNumLimit.isEmpty()
                                                             || mc.totalCost()
                                                                 <= leaderNumLimit.get())

@@ -32,6 +32,7 @@ import org.astraea.common.metrics.collector.Fetcher;
 
 public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCost {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  public static final String COST_NAME = "size";
 
   /** @return the metrics getters. Those getters are used to fetch mbeans. */
   @Override
@@ -50,7 +51,7 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
     return new MoveCost() {
       @Override
       public String name() {
-        return "size";
+        return COST_NAME;
       }
 
       @Override

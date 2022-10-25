@@ -35,6 +35,7 @@ import org.astraea.common.metrics.collector.Fetcher;
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost.Helper {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  public static final String COST_NAME = "leader";
 
   @Override
   public BrokerCost brokerCost(
@@ -95,7 +96,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
       Collection<Replica> addedReplicas,
       ClusterBean clusterBean) {
     return MoveCost.builder()
-        .name("leader")
+        .name(COST_NAME)
         .unit("partition leaders")
         .totalCost(addedReplicas.stream().filter(Replica::isLeader).count())
         .change(
