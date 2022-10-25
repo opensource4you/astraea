@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
@@ -138,6 +139,8 @@ public class PaneBuilder {
       String buttonName,
       Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
           action) {
+    // always disable the input fields
+    inputs.values().forEach(TextInput::disable);
     secondInputKeyAndFields.putAll(inputs);
     tableViewActionButton = Button.disabled(buttonName);
     tableViewAction = action;
@@ -149,10 +152,11 @@ public class PaneBuilder {
     var nodes = new ArrayList<Node>();
     if (selectBox != null) nodes.add(selectBox.node());
     if (!inputKeyAndFields.isEmpty()) {
-      var lattice =
-          inputKeyAndFields.size() <= 3
-              ? Lattice.singleColumn(inputKeyAndFields)
-              : Lattice.of(inputKeyAndFields, 3);
+      var ns =
+          inputKeyAndFields.entrySet().stream()
+              .flatMap(entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
+              .collect(Collectors.toList());
+      var lattice = Lattice.of(ns, inputKeyAndFields.size() <= 3 ? 2 : 6);
       nodes.add(lattice.node());
     }
     nodes.add(actionButton);
@@ -181,6 +185,16 @@ public class PaneBuilder {
                     .collect(Collectors.toMap(e -> e.getKey().key(), Map.Entry::getValue));
             try {
               checkbox.setSelected(false);
+              var requiredNonexistentKeys =
+                  secondInputKeyAndFields.keySet().stream()
+                      .filter(KeyLabel::highlight)
+                      .map(KeyLabel::key)
+                      .filter(k -> !input.containsKey(k))
+                      .collect(Collectors.toSet());
+              if (!requiredNonexistentKeys.isEmpty()) {
+                console.text("Please define required fields: " + requiredNonexistentKeys);
+                return;
+              }
               tableViewAction
                   .apply(items, input, console::append)
                   .whenComplete((data, e) -> console.text(e));
@@ -193,7 +207,13 @@ public class PaneBuilder {
           VBox.of(
               Pos.CENTER,
               checkbox,
-              Lattice.singleColumn(secondInputKeyAndFields).node(),
+              Lattice.of(
+                      secondInputKeyAndFields.entrySet().stream()
+                          .flatMap(
+                              entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
+                          .collect(Collectors.toList()),
+                      6)
+                  .node(),
               tableViewActionButton));
     }
 

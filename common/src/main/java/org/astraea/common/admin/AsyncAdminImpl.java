@@ -1149,8 +1149,7 @@ class AsyncAdminImpl implements AsyncAdmin {
   private CompletionStage<Void> doSetConfigs(
       ConfigResource resource, Map<String, String> override) {
     if (override.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
+    return to(kafkaAdmin
             .incrementalAlterConfigs(
                 Map.of(
                     resource,
@@ -1161,13 +1160,37 @@ class AsyncAdminImpl implements AsyncAdmin {
                                     new ConfigEntry(entry.getKey(), entry.getValue()),
                                     AlterConfigOp.OpType.SET))
                         .collect(Collectors.toList())))
-            .all());
+            .all())
+        .handle(
+            (r, e) -> {
+              if (e != null) {
+                if (e instanceof UnsupportedVersionException
+                    || e.getCause() instanceof UnsupportedVersionException)
+                  // go back to use deprecated APIs for previous Kafka
+                  return to(
+                      kafkaAdmin
+                          .alterConfigs(
+                              Map.of(
+                                  resource,
+                                  new org.apache.kafka.clients.admin.Config(
+                                      override.entrySet().stream()
+                                          .map(
+                                              entry ->
+                                                  new ConfigEntry(entry.getKey(), entry.getValue()))
+                                          .collect(Collectors.toList()))))
+                          .all());
+
+                if (e instanceof RuntimeException) throw (RuntimeException) e;
+                throw new RuntimeException(e);
+              }
+              return CompletableFuture.<Void>completedStage(null);
+            })
+        .thenCompose(s -> s);
   }
 
   private CompletionStage<Void> doUnsetConfigs(ConfigResource resource, Set<String> keys) {
     if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(
-        kafkaAdmin
+    return to(kafkaAdmin
             .incrementalAlterConfigs(
                 Map.of(
                     resource,
@@ -1177,7 +1200,30 @@ class AsyncAdminImpl implements AsyncAdmin {
                                 new AlterConfigOp(
                                     new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
                         .collect(Collectors.toList())))
-            .all());
+            .all())
+        .handle(
+            (r, e) -> {
+              if (e != null) {
+                if (e instanceof UnsupportedVersionException
+                    || e.getCause() instanceof UnsupportedVersionException)
+                  // go back to use deprecated APIs for previous Kafka
+                  return to(
+                      kafkaAdmin
+                          .alterConfigs(
+                              Map.of(
+                                  resource,
+                                  new org.apache.kafka.clients.admin.Config(
+                                      keys.stream()
+                                          .map(key -> new ConfigEntry(key, ""))
+                                          .collect(Collectors.toList()))))
+                          .all());
+
+                if (e instanceof RuntimeException) throw (RuntimeException) e;
+                throw new RuntimeException(e);
+              }
+              return CompletableFuture.<Void>completedStage(null);
+            })
+        .thenCompose(s -> s);
   }
 
   @Override
