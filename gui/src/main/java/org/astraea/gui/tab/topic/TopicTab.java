@@ -291,6 +291,8 @@ public class TopicTab {
     var fixedValueKey = "fixed value";
     var numberOfPartitions = "number of partitions";
 
+    // Kafka can't return configs when there are corrupted configs.
+      // hence, we generate a simple pane to allow users to fix corrupted configs
     BiFunction<String, Throwable, Node> simplePane =
         (name, error) ->
             PaneBuilder.of()
