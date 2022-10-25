@@ -102,7 +102,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   }
 
   @Test def archive(): Unit = {
-    Thread.sleep(Duration(10, TimeUnit.SECONDS).toMillis)
+    Thread.sleep(Duration(20, TimeUnit.SECONDS).toMillis)
     Range
       .inclusive(0, 4)
       .foreach(i => {
@@ -191,7 +191,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(TOPIC_PARTITIONS, "10")
       properties.setProperty(TOPIC_REPLICAS, "2")
       properties.setProperty(TOPIC_CONFIG, "compression.type=lz4")
-      properties.setProperty(DEPLOYMENT_MODEL, "local[2]")
+      properties.setProperty(DEPLOYMENT_MODEL, "local[5]")
 
       properties.store(fileOut, "Favorite Things");
     }
