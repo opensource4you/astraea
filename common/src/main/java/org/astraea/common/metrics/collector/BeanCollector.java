@@ -159,7 +159,7 @@ public class BeanCollector {
               }
 
               private boolean isAutoUpdate() {
-                return updateThread != null;
+                return updateTask != null;
               }
 
               @Override
