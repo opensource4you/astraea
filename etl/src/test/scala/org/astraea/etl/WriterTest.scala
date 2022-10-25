@@ -17,6 +17,7 @@
 package org.astraea.etl
 
 import org.astraea.common.admin.AsyncAdmin
+import org.astraea.etl.Utils.createTopic
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{
@@ -34,14 +35,15 @@ import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-class KafkaWriterTest extends RequireBrokerCluster {
+class WriterTest extends RequireBrokerCluster {
 
   @Test def topicCreatorTest(): Unit = {
+    Thread.sleep(Duration(15, TimeUnit.SECONDS).toMillis)
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-        TimeUnit.SECONDS.sleep(3)
+
         assertTrue(
           admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
         )
@@ -102,7 +104,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, partition),
+                createTopic(admin, partition),
                 Duration.Inf
               )
           ).getCause
@@ -127,7 +129,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, replica),
+                createTopic(admin, replica),
                 Duration.Inf
               )
           ).getCause
@@ -152,7 +154,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, config),
+                createTopic(admin, config),
                 Duration.Inf
               )
           ).getCause
@@ -178,6 +180,6 @@ class KafkaWriterTest extends RequireBrokerCluster {
       config,
       "local[2]"
     )
-    KafkaWriter.createTopic(asyncAdmin, metadata)
+    createTopic(asyncAdmin, metadata)
   }
 }
