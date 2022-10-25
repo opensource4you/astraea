@@ -759,12 +759,15 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       BalancerHandler handler, Channel channel) throws ExecutionException, InterruptedException {
     var post = (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().get();
     Utils.waitFor(
-        () ->
-            Utils.packException(
-                    () ->
-                        (BalancerHandler.PlanExecutionProgress)
-                            handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get())
-                .generated);
+        () -> {
+          var progress =
+              Utils.packException(
+                  () ->
+                      (BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get());
+          Assertions.assertNull(progress.exception, progress.exception);
+          return progress.generated;
+        });
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get();
   }

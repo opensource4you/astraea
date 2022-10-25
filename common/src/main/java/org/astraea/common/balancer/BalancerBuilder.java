@@ -17,22 +17,18 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyAlgorithm;
 import org.astraea.common.balancer.algorithms.RebalanceAlgorithm;
+import org.astraea.common.balancer.algorithms.SingleStepAlgorithm;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
@@ -50,7 +46,7 @@ public class BalancerBuilder {
   private int searchLimit = Integer.MAX_VALUE;
   private Duration executionTime = Duration.ofSeconds(3);
   private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
-  private Configuration algorithmConfig;
+  private Configuration algorithmConfig = Configuration.of(Map.of());
 
   private boolean greedy = false;
 
@@ -187,7 +183,7 @@ public class BalancerBuilder {
       }
 
       @Override
-      public BiPredicate<ClusterCost, ClusterCost> clusterCostConstraint() {
+      public BiPredicate<ClusterCost, ClusterCost> clusterConstraint() {
         return clusterConstraint;
       }
 
@@ -218,85 +214,7 @@ public class BalancerBuilder {
    *     you specified.
    */
   public Balancer build() {
-    if (greedy) return buildGreedy();
-    return buildNormal();
-  }
-
-  private Balancer buildNormal() {
-    return (currentClusterInfo, topicFilter, brokerFolders) -> {
-      final var currentClusterBean = metricSource.get();
-      final var currentCost =
-          clusterCostFunction.clusterCost(currentClusterInfo, currentClusterBean);
-      final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
-
-      var start = System.currentTimeMillis();
-      return planGenerator
-          .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
-          .parallel()
-          .limit(searchLimit)
-          .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime.toMillis())
-          .map(
-              proposal -> {
-                var newClusterInfo =
-                    ClusterInfo.update(
-                        currentClusterInfo, tp -> proposal.rebalancePlan().logPlacements(tp));
-                return new Balancer.Plan(
-                    proposal,
-                    clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
-                    moveCostFunction.stream()
-                        .map(
-                            cf ->
-                                cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
-                        .collect(Collectors.toList()));
-              })
-          .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
-          .filter(plan -> movementConstraint.test(plan.moveCost))
-          .min(Comparator.comparing(plan -> plan.clusterCost.value()));
-    };
-  }
-
-  private Balancer buildGreedy() {
-    return (originClusterInfo, topicFilter, brokerFolders) -> {
-      final var metrics = metricSource.get();
-      final var loop = new AtomicInteger(searchLimit);
-      final var start = System.currentTimeMillis();
-      Supplier<Boolean> moreRoom =
-          () ->
-              System.currentTimeMillis() - start < executionTime.toMillis()
-                  && loop.getAndDecrement() > 0;
-      BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
-          (currentAllocation, currentCost) ->
-              planGenerator
-                  .generate(brokerFolders, currentAllocation)
-                  .takeWhile(ignored -> moreRoom.get())
-                  .map(
-                      proposal -> {
-                        var newClusterInfo =
-                            ClusterInfo.update(
-                                originClusterInfo,
-                                tp -> proposal.rebalancePlan().logPlacements(tp));
-                        return new Balancer.Plan(
-                            proposal,
-                            clusterCostFunction.clusterCost(newClusterInfo, metrics),
-                            moveCostFunction.stream()
-                                .map(cf -> cf.moveCost(originClusterInfo, newClusterInfo, metrics))
-                                .collect(Collectors.toList()));
-                      })
-                  .filter(plan -> clusterConstraint.test(currentCost, plan.clusterCost))
-                  .filter(plan -> movementConstraint.test(plan.moveCost))
-                  .findFirst();
-      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, metrics);
-      var currentAllocation =
-          ClusterLogAllocation.of(ClusterInfo.masked(originClusterInfo, topicFilter));
-      var currentPlan = Optional.<Balancer.Plan>empty();
-      while (true) {
-        var newPlan = next.apply(currentAllocation, currentCost);
-        if (newPlan.isEmpty()) break;
-        currentPlan = newPlan;
-        currentCost = currentPlan.get().clusterCost;
-        currentAllocation = currentPlan.get().proposal().rebalancePlan();
-      }
-      return currentPlan;
-    };
+    if (greedy) return new GreedyAlgorithm().create(toConfig());
+    else return new SingleStepAlgorithm().create(toConfig());
   }
 }

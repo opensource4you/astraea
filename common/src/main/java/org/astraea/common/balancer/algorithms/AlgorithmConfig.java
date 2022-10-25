@@ -38,7 +38,7 @@ public interface AlgorithmConfig {
   List<HasMoveCost> moveCostFunctions();
 
   /** @return the cluster cost constraint that must be complied with by the algorithm solution */
-  BiPredicate<ClusterCost, ClusterCost> clusterCostConstraint();
+  BiPredicate<ClusterCost, ClusterCost> clusterConstraint();
 
   /** @return the movement constraint that must be complied with by the algorithm solution */
   Predicate<List<MoveCost>> movementConstraint();
@@ -46,7 +46,7 @@ public interface AlgorithmConfig {
   /** @return the limit of algorithm execution time */
   Duration executionTime();
 
-  /** @return a {@link Supplier} which offer the fresh state of metrics */
+  /** @return a {@link Supplier} which offer the fresh metrics of the target cluster */
   Supplier<ClusterBean> metricSource();
 
   /** @return the algorithm implementation specific parameters */
