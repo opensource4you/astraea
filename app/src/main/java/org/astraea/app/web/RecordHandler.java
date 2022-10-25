@@ -20,14 +20,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
@@ -54,6 +46,7 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.json.JsonConverter.ByteArrayToBase64TypeAdapter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Sender;
@@ -444,18 +437,6 @@ public class RecordHandler implements Handler {
     Header(org.astraea.common.consumer.Header header) {
       this.key = header.key();
       this.value = header.value();
-    }
-  }
-
-  static class ByteArrayToBase64TypeAdapter
-      implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
-    public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)
-        throws JsonParseException {
-      return Base64.getDecoder().decode(json.getAsString());
-    }
-
-    public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
-      return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
     }
   }
 
