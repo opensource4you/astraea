@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -32,6 +33,8 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 public class BeanCollectorTest {
@@ -154,6 +157,31 @@ public class BeanCollectorTest {
     receivers.forEach(Receiver::close);
     Assertions.assertEquals(1, collector.nodes.size());
     Assertions.assertNull(collector.nodes.entrySet().iterator().next().getValue().mBeanClient);
+  }
+
+  @Test
+  void testCloseAutoReceiver() {
+    var theExecutor = Executors.newScheduledThreadPool(1);
+    try (var ignored =
+        Mockito.mockStatic(
+            Executors.class,
+            (invoke) ->
+                invoke.getMethod().getName().equals("newScheduledThreadPool")
+                    ? theExecutor
+                    : invoke.callRealMethod())) {
+      var collector = BeanCollector.builder().clientCreator(clientCreator).build();
+      Receiver receiver =
+          collector
+              .register()
+              .host("unknown")
+              .port(100)
+              .fetcher(client -> List.of(createBeanObject()))
+              .autoUpdate()
+              .build();
+      Assertions.assertFalse(theExecutor.isShutdown());
+      receiver.close();
+      Assertions.assertTrue(theExecutor.isShutdown());
+    }
   }
 
   @Test
@@ -309,5 +337,26 @@ public class BeanCollectorTest {
         NullPointerException.class, () -> collector.register().port(111).build());
     Assertions.assertThrows(
         NullPointerException.class, () -> collector.register().host("aaa").port(111).build());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1000, 800, 500})
+  void testAutoUpdate(int intervalMs) {
+    var interval = Duration.ofMillis(intervalMs);
+    var collector = BeanCollector.builder().interval(interval).clientCreator(clientCreator).build();
+    try (var receiver =
+        collector
+            .register()
+            .host("unknown")
+            .port(100)
+            .fetcher(client -> List.of(createBeanObject()))
+            .autoUpdate()
+            .build()) {
+      for (int i = 1; i < 5; i++) {
+        Utils.sleep(interval.plusMillis(50));
+        Assertions.assertEquals(
+            i, receiver.current().size(), "Auto update should works, iteration: " + i);
+      }
+    }
   }
 }

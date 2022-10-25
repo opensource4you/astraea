@@ -25,6 +25,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
@@ -87,6 +91,7 @@ public class BeanCollector {
       private String host;
       private int port = -1;
       private Fetcher fetcher;
+      private boolean autoUpdate = false;
 
       @Override
       public Register host(String host) {
@@ -115,6 +120,12 @@ public class BeanCollector {
       }
 
       @Override
+      public Register autoUpdate() {
+        this.autoUpdate = true;
+        return this;
+      }
+
+      @Override
       public Receiver build() {
         if (!local) {
           Utils.requirePositive(port);
@@ -126,6 +137,16 @@ public class BeanCollector {
         var receiver =
             new Receiver() {
               private final Map<Long, HasBeanObject> objects = new ConcurrentSkipListMap<>();
+              private final ScheduledExecutorService updateThread =
+                  autoUpdate ? Executors.newScheduledThreadPool(1) : null;
+              private final ScheduledFuture<?> updateTask =
+                  updateThread != null
+                      ? updateThread.scheduleAtFixedRate(
+                          this::doUpdate,
+                          interval.toMillis(),
+                          interval.toMillis(),
+                          TimeUnit.MILLISECONDS)
+                      : null;
 
               @Override
               public String host() {
@@ -137,14 +158,30 @@ public class BeanCollector {
                 return port;
               }
 
+              private boolean isAutoUpdate() {
+                return updateTask != null;
+              }
+
               @Override
               public Collection<HasBeanObject> current() {
-                tryUpdate();
+                if (!isAutoUpdate()) {
+                  var needUpdate =
+                      objects.keySet().stream()
+                          .max((Long::compare))
+                          .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
+                          .orElse(true);
+                  if (needUpdate) doUpdate();
+                }
                 return Collections.unmodifiableCollection(objects.values());
               }
 
               @Override
               public void close() {
+                if (isAutoUpdate()) {
+                  updateTask.cancel(false);
+                  updateThread.shutdown();
+                  Utils.packException(() -> updateThread.awaitTermination(5, TimeUnit.SECONDS));
+                }
                 node.lock.lock();
                 try {
                   node.receivers.remove(this);
@@ -156,13 +193,8 @@ public class BeanCollector {
                 }
               }
 
-              private synchronized void tryUpdate() {
-                var needUpdate =
-                    objects.keySet().stream()
-                        .max((Long::compare))
-                        .map(last -> last + interval.toMillis() <= System.currentTimeMillis())
-                        .orElse(true);
-                if (needUpdate && node.lock.tryLock()) {
+              private synchronized void doUpdate() {
+                if (node.lock.tryLock()) {
                   try {
                     if (node.mBeanClient == null)
                       node.mBeanClient =
