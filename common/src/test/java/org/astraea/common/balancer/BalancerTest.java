@@ -35,7 +35,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -86,7 +85,6 @@ class BalancerTest extends RequireBrokerCluster {
 
       var plan =
           Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(1, 10))
               .clusterCost(new ReplicaLeaderCost())
               .limit(Duration.ofSeconds(10))
               .greedy(greedy)
@@ -132,7 +130,6 @@ class BalancerTest extends RequireBrokerCluster {
       var brokerFolders = admin.brokerFolders();
       var newAllocation =
           Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(50, 100))
               .clusterCost(randomScore)
               .limit(500)
               .greedy(greedy)
@@ -169,7 +166,6 @@ class BalancerTest extends RequireBrokerCluster {
           CompletableFuture.supplyAsync(
               () ->
                   Balancer.builder()
-                      .planGenerator(new ShufflePlanGenerator(50, 100))
                       .clusterCost((clusterInfo, bean) -> Math::random)
                       .limit(Duration.ofSeconds(3))
                       .greedy(greedy)
@@ -221,7 +217,6 @@ class BalancerTest extends RequireBrokerCluster {
                 }
               };
           Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(50, 100))
               .clusterCost(theCostFunction)
               .metricSource(metricSource)
               .limit(500)

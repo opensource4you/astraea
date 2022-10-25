@@ -42,7 +42,6 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -62,7 +61,6 @@ class BalancerHandler implements Handler {
   static final int TIMEOUT_DEFAULT = 3;
 
   private final Admin admin;
-  private final RebalancePlanGenerator generator;
   private final RebalancePlanExecutor executor;
   final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
@@ -78,24 +76,17 @@ class BalancerHandler implements Handler {
   }
 
   BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
-    this(
-        admin,
-        clusterCostFunction,
-        moveCostFunction,
-        RebalancePlanGenerator.random(30),
-        new StraightPlanExecutor());
+    this(admin, clusterCostFunction, moveCostFunction, new StraightPlanExecutor());
   }
 
   BalancerHandler(
       Admin admin,
       HasClusterCost clusterCostFunction,
       HasMoveCost moveCostFunction,
-      RebalancePlanGenerator generator,
       RebalancePlanExecutor executor) {
     this.admin = admin;
     this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
-    this.generator = generator;
     this.executor = executor;
   }
 
@@ -155,7 +146,6 @@ class BalancerHandler implements Handler {
               var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
               var bestPlan =
                   Balancer.builder()
-                      .planGenerator(generator)
                       .clusterCost(clusterCostFunction)
                       .moveCost(List.of(moveCostFunction))
                       .limit(loop)

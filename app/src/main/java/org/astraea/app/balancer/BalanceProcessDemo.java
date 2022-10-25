@@ -23,7 +23,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ReplicaLeaderCost;
 
 /**
@@ -45,7 +44,6 @@ public class BalanceProcessDemo {
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
           Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(1, 10))
               .clusterCost(new ReplicaLeaderCost())
               .limit(1000)
               .build()

@@ -23,12 +23,13 @@ import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyAlgorithm;
 import org.astraea.common.balancer.algorithms.RebalanceAlgorithm;
 import org.astraea.common.balancer.algorithms.SingleStepAlgorithm;
-import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
@@ -37,7 +38,6 @@ import org.astraea.common.cost.MoveCost;
 
 public class BalancerBuilder {
 
-  private RebalancePlanGenerator planGenerator;
   private HasClusterCost clusterCostFunction;
   private List<HasMoveCost> moveCostFunction = List.of(HasMoveCost.EMPTY);
   private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
@@ -47,19 +47,7 @@ public class BalancerBuilder {
   private Duration executionTime = Duration.ofSeconds(3);
   private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
   private Configuration algorithmConfig = Configuration.of(Map.of());
-
-  private boolean greedy = false;
-
-  /**
-   * Specify the {@link RebalancePlanGenerator} for potential rebalance plan generation.
-   *
-   * @param generator the generator instance.
-   * @return this
-   */
-  public BalancerBuilder planGenerator(RebalancePlanGenerator generator) {
-    this.planGenerator = Objects.requireNonNull(generator);
-    return this;
-  }
+  private RebalanceAlgorithm rebalanceAlgorithm = new SingleStepAlgorithm();
 
   /**
    * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
@@ -117,11 +105,15 @@ public class BalancerBuilder {
    * Specify the maximum number of rebalance plans for evaluation. A higher number means searching &
    * evaluating more potential rebalance plans, which might lead to longer execution time.
    *
+   * @deprecated The meaning of this parameter might change from algorithm to algorithm. Should use
+   *     {@link BalancerBuilder#config} instead.
    * @param limit the maximum number of rebalance plan for evaluation.
    * @return this
    */
+  @Deprecated
   public BalancerBuilder limit(int limit) {
     if (limit <= 0) throw new IllegalArgumentException("invalid search limit: " + limit);
+    // TODO: get rid of this method. It proposes some kind of algorithm implementation details.
     this.searchLimit = limit;
     return this;
   }
@@ -140,11 +132,13 @@ public class BalancerBuilder {
    * advantage is that balancer always try to find a "better" plan. However, it can't generate the
    * best plan if the "first"/"second"/... better plan is not good enough.
    *
+   * @deprecated use {@link BalancerBuilder#algorithm(RebalanceAlgorithm)} instead
    * @return this builder
    */
+  @Deprecated
   public BalancerBuilder greedy(boolean greedy) {
-    this.greedy = greedy;
-    return this;
+    // TODO: replaced by BalancerBuilder#algorithm
+    return algorithm(greedy ? new GreedyAlgorithm() : rebalanceAlgorithm);
   }
 
   /**
@@ -158,6 +152,17 @@ public class BalancerBuilder {
    */
   public BalancerBuilder metricSource(Supplier<ClusterBean> metricSource) {
     this.metricSource = metricSource;
+    return this;
+  }
+
+  /**
+   * The algorithm for rebalance plan search
+   *
+   * @param algorithm the algorithm to use
+   * @return this
+   */
+  public BalancerBuilder algorithm(RebalanceAlgorithm algorithm) {
+    this.rebalanceAlgorithm = algorithm;
     return this;
   }
 
@@ -202,9 +207,16 @@ public class BalancerBuilder {
         return metricSource;
       }
 
+      private final Configuration prepared =
+          Configuration.of(
+              Stream.concat(
+                      algorithmConfig.entrySet().stream(),
+                      Stream.of(Map.entry("iteration", String.valueOf(searchLimit))))
+                  .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)));
+
       @Override
       public Configuration algorithmConfig() {
-        return algorithmConfig;
+        return prepared;
       }
     };
   }
@@ -214,7 +226,6 @@ public class BalancerBuilder {
    *     you specified.
    */
   public Balancer build() {
-    if (greedy) return new GreedyAlgorithm().create(toConfig());
-    else return new SingleStepAlgorithm().create(toConfig());
+    return rebalanceAlgorithm.create(toConfig());
   }
 }

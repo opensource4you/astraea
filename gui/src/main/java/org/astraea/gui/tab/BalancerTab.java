@@ -31,7 +31,6 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -141,7 +140,6 @@ public class BalancerTab {
                           return Map.entry(
                               clusterInfo,
                               Balancer.builder()
-                                  .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
                                       HasClusterCost.of(
                                           input.selectedKeys().stream()

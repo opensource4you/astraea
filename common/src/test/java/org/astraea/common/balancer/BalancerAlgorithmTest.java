@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -44,7 +43,6 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
 
       var planOfGreedy =
           Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(0, 30))
               .clusterCost(new ReplicaNumberCost())
               .limit(Duration.ofSeconds(5))
               .greedy(true)
@@ -54,7 +52,6 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
 
       var plan =
           Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(0, 30))
               .clusterCost(new ReplicaNumberCost())
               .limit(Duration.ofSeconds(5))
               .greedy(false)
