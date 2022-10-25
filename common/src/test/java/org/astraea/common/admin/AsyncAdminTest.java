@@ -1744,7 +1744,31 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       Utils.sleep(Duration.ofSeconds(3));
 
-      admin.unsetConfigs(topic, Set.copyOf(TopicConfigs.ALL_CONFIGS)).toCompletableFuture().get();
+      var sets =
+          admin
+              .topics(Set.of(topic))
+              .toCompletableFuture()
+              .get()
+              .get(0)
+              .config()
+              .raw()
+              .entrySet()
+              .stream()
+              .filter(entry -> TopicConfigs.ALL_CONFIGS.contains(entry.getKey()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      admin.setConfigs(topic, sets).toCompletableFuture().get();
+    }
+  }
+
+  @Test
+  void testDynamicBrokerConfig() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var broker = admin.brokers().toCompletableFuture().get().get(0);
+      var sets =
+          broker.config().raw().entrySet().stream()
+              .filter(entry -> BrokerConfigs.DYNAMICAL_CONFIGS.contains(entry.getKey()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      admin.setConfigs(broker.id(), sets).toCompletableFuture().get();
     }
   }
 }
