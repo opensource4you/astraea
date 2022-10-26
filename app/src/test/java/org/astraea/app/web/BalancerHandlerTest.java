@@ -787,7 +787,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             public synchronized ClusterCost clusterCost(
                 ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
               if (clusterBean.all().get(0).size() < 10)
-                throw new NotEnoughMetricsException(this, "Insufficient metrics");
+                throw new NotEnoughMetricsException(
+                    this, "Insufficient metrics " + clusterBean.all().get(0).size() + " < 10");
               clusterBean
                   .all()
                   .get(0)
@@ -812,7 +813,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           };
       var sock =
           InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort());
-      var jmx = Map.of(0, sock, 1, sock, 2, sock);
+      var jmx = Map.of(0, sock);
       var handler = new BalancerHandler(admin, jmx, cost, new NoMoveCost());
       var channel =
           Channel.ofQueries(
