@@ -16,7 +16,6 @@
  */
 package org.astraea.gui.tab.topic;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -42,6 +41,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
@@ -221,11 +221,13 @@ public class TopicTab {
   }
 
   private static Tab basicTab(Context context) {
-    var includeTimestampOfRecord = "record timestamp";
+    var includeTimestampOfRecord = "max time to wait records";
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .selectBox(SelectBox.multi(List.of(includeTimestampOfRecord), 1))
+            .input(
+                NoneditableText.of(includeTimestampOfRecord),
+                EditableText.singleLine().hint("3s").build())
             .tableViewAction(
                 Map.of(),
                 "DELETE",
@@ -273,18 +275,23 @@ public class TopicTab {
                                         .admin()
                                         .consumerGroupIds()
                                         .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                    input.selectedKeys().contains(includeTimestampOfRecord)
-                                        ? context
-                                            .admin()
-                                            .topicPartitions(topics)
-                                            .thenCompose(
-                                                tps ->
-                                                    context
-                                                        .admin()
-                                                        .timestampOfLatestRecords(
-                                                            tps, Duration.ofSeconds(1)))
-                                        : CompletableFuture.completedFuture(
-                                            Map.<TopicPartition, Long>of()),
+                                    context
+                                        .admin()
+                                        .topicPartitions(topics)
+                                        .thenCompose(
+                                            tps ->
+                                                input
+                                                    .get(includeTimestampOfRecord)
+                                                    .map(DurationField::toDuration)
+                                                    .map(
+                                                        v ->
+                                                            context
+                                                                .admin()
+                                                                .timestampOfLatestRecords(tps, v))
+                                                    .orElseGet(
+                                                        () ->
+                                                            CompletableFuture.completedFuture(
+                                                                Map.<TopicPartition, Long>of()))),
                                     TopicTab::basicResult)))
             .build());
   }
