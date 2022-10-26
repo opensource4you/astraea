@@ -38,7 +38,6 @@ import scala.concurrent.{Await, Future}
 class WriterTest extends RequireBrokerCluster {
 
   @Test def topicCreatorTest(): Unit = {
-    Thread.sleep(Duration(15, TimeUnit.SECONDS).toMillis)
     val TOPIC = "test-topicA"
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
