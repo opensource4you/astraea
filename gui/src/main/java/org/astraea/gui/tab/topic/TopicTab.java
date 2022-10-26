@@ -55,6 +55,7 @@ import org.astraea.gui.text.NoneditableText;
 public class TopicTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
+  private static final String INTERNAL_KEY = "internal";
 
   private static Tab metricsTab(Context context) {
     return Tab.of(
@@ -127,36 +128,41 @@ public class TopicTab {
         PaneBuilder.of()
             .buttonAction(
                 (input, logger) ->
-                    context
-                        .admin()
-                        .topicNames(true)
-                        .thenCompose(
-                            names ->
-                                context
-                                    .admin()
-                                    .topics(names)
-                                    .thenApply(
-                                        topics ->
-                                            topics.stream()
-                                                .map(t -> Map.entry(t.name(), t.config().raw())))
-                                    .exceptionally(
-                                        e -> {
-                                          // previous kafka does not check topic config. The configs
-                                          // APIs return error if there are corrupted configs
-                                          logger.log(e.getMessage());
-                                          return names.stream().map(n -> Map.entry(n, Map.of()));
-                                        }))
-                        .thenApply(
-                            items ->
-                                items
-                                    .map(
-                                        e -> {
-                                          var map = new LinkedHashMap<String, Object>();
-                                          map.put(TOPIC_NAME_KEY, e.getKey());
-                                          map.putAll(new TreeMap<>(e.getValue()));
-                                          return map;
-                                        })
-                                    .collect(Collectors.toList())))
+                    FutureUtils.combine(
+                        context
+                            .admin()
+                            .topicNames(true)
+                            .thenCompose(
+                                names ->
+                                    context
+                                        .admin()
+                                        .topics(names)
+                                        .thenApply(
+                                            topics ->
+                                                topics.stream()
+                                                    .map(
+                                                        t -> Map.entry(t.name(), t.config().raw())))
+                                        .exceptionally(
+                                            e -> {
+                                              // previous kafka does not check topic config. The
+                                              // configs
+                                              // APIs return error if there are corrupted configs
+                                              logger.log(e.getMessage());
+                                              return names.stream()
+                                                  .map(n -> Map.entry(n, Map.of()));
+                                            })),
+                        context.admin().internalTopicNames(),
+                        (topics, internalNames) ->
+                            topics
+                                .map(
+                                    e -> {
+                                      var map = new LinkedHashMap<String, Object>();
+                                      map.put(TOPIC_NAME_KEY, e.getKey());
+                                      map.put(INTERNAL_KEY, internalNames.contains(e.getKey()));
+                                      map.putAll(new TreeMap<>(e.getValue()));
+                                      return map;
+                                    })
+                                .collect(Collectors.toList())))
             .tableViewAction(
                 MapUtils.of(
                     NoneditableText.of(TopicConfigs.ALL_CONFIGS),
@@ -186,7 +192,7 @@ public class TopicTab {
                                     .collect(Collectors.toSet());
                             if (!internal.isEmpty())
                               throw new IllegalArgumentException(
-                                  "internal topics: " + internal + " can't be deleted");
+                                  "internal topics: " + internal + " can't be altered");
                             var unsets = input.emptyValueKeys();
                             var sets = input.nonEmptyTexts();
                             if (unsets.isEmpty() && sets.isEmpty()) {
@@ -386,7 +392,7 @@ public class TopicTab {
               var ps = topicPartitions.getOrDefault(topic, List.of());
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, topic);
-              ps.stream().findFirst().ifPresent(p -> result.put("internal", p.internal()));
+              ps.stream().findFirst().ifPresent(p -> result.put(INTERNAL_KEY, p.internal()));
               result.put("number of partitions", ps.size());
               result.put(
                   "number of replicas", ps.stream().mapToInt(p -> p.replicas().size()).sum());
