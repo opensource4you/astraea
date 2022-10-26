@@ -16,6 +16,8 @@
  */
 package org.astraea.etl
 
+import org.astraea.etl.DataColumn.columnParse
+
 import java.io.File
 import java.util.Properties
 import scala.collection.JavaConverters._
@@ -51,8 +53,7 @@ case class Metadata private (
     var deploymentModel: String,
     var sourcePath: File,
     var sinkPath: File,
-    var column: Map[String, DataType],
-    var primaryKeys: Map[String, DataType],
+    var column: Seq[DataColumn],
     var kafkaBootstrapServers: String,
     var topicName: String,
     var numPartitions: Int,
@@ -95,11 +96,9 @@ object Metadata {
         case SINK_PATH =>
           metadataBuilder = metadataBuilder.sinkPath(SinkPath.process(entry._2))
         case COLUMN_NAME =>
-          metadataBuilder =
-            metadataBuilder.columns(ColumnName.process(entry._2))
-        case PRIMARY_KEYS =>
-          metadataBuilder =
-            metadataBuilder.primaryKey(PrimaryKeys.process(entry._2))
+          metadataBuilder = metadataBuilder.columns(
+            ColumnName.process(entry._2, properties(PRIMARY_KEYS))
+          )
         case KAFKA_BOOTSTRAP_SERVERS =>
           metadataBuilder = metadataBuilder.kafkaBootstrapServers(
             KafkaBootstrapServers.process(entry._2)
@@ -116,6 +115,7 @@ object Metadata {
         case TOPIC_CONFIG =>
           metadataBuilder =
             metadataBuilder.topicConfig(TopicConfig.process(entry._2))
+        case _ =>
       }
     )
     metadataBuilder.build()
@@ -206,17 +206,8 @@ object Metadata {
   }
 
   case object ColumnName extends MetaDataType(COLUMN_NAME, true, "") {
-    def process(str: String): Map[String, DataType] = {
-      columnParse(COLUMN_NAME, parseEmptyStr(str))
-    }
-  }
-
-  case object PrimaryKeys extends MetaDataType(PRIMARY_KEYS, true, "") {
-    def process(str: String): Map[String, DataType] = {
-      primaryKeyParse(
-        parseEmptyStr(str),
-        columnParse(COLUMN_NAME, ColumnName.parseEmptyStr(str))
-      )
+    def process(cols: String, pk: String): Seq[DataColumn] = {
+      columnParse(parseEmptyStr(cols), parseEmptyStr(pk))
     }
   }
 
@@ -278,73 +269,12 @@ object Metadata {
       SourcePath,
       SinkPath,
       ColumnName,
-      PrimaryKeys,
       KafkaBootstrapServers,
       TopicName,
       NumPartitions,
       NumReplicas,
       TopicConfig
     )
-  }
-  def primaryKeyParse(
-      prop: String,
-      columnName: Map[String, DataType]
-  ): Map[String, DataType] = {
-    val cols = columnName.keys.toArray
-    val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
-    val combine = primaryKeys.keys.toArray ++ cols
-    if (combine.distinct.length != columnName.size) {
-      val column = columnName.keys.toArray
-      throw new IllegalArgumentException(
-        s"The ${combine
-          .diff(column)
-          .mkString(
-            PRIMARY_KEYS + "(",
-            ", ",
-            ")"
-          )} not in column. All $PRIMARY_KEYS should be included in the column."
-      )
-    }
-    DataType.of(primaryKeys)
-  }
-
-  def columnParse(
-      key: String,
-      prop: String
-  ): Map[String, DataType] = {
-    requireNonidentical(key, prop)
-    Option(prop)
-      .map(
-        _.split(",")
-          .map(_.split("="))
-          .map { elem =>
-            (elem(0), DataType.of(elem(1)))
-          }
-          .toMap
-      )
-      .get
-  }
-
-  //No duplicate values should be set.
-  def requireNonidentical(
-      string: String,
-      prop: String
-  ): Map[String, String] = {
-    val array = prop.split(",")
-    val map = requirePair(prop)
-    if (map.size != array.length) {
-      val column = map.keys.toArray
-      throw new IllegalArgumentException(
-        s"${array
-          .diff(column)
-          .mkString(
-            string + " (",
-            ", ",
-            ")"
-          )} is duplication. The $string should not be duplicated."
-      )
-    }
-    map
   }
 
   //spark://host:port or local[*]
@@ -361,8 +291,7 @@ object Metadata {
       private var deploymentModel: String,
       private var sourcePath: File,
       private var sinkPath: File,
-      private var column: Map[String, DataType],
-      private var primaryKeys: Map[String, DataType],
+      private var columns: Seq[DataColumn],
       private var kafkaBootstrapServers: String,
       private var topicName: String,
       private var numPartitions: Int,
@@ -373,8 +302,7 @@ object Metadata {
       "deploymentModel",
       new File(""),
       new File(""),
-      Map.empty,
-      Map.empty,
+      Seq.empty,
       "kafkaBootstrapServers",
       "topicName",
       -1,
@@ -397,13 +325,8 @@ object Metadata {
       this
     }
 
-    def columns(map: Map[String, DataType]): MetadataBuilder = {
-      this.column = map
-      this
-    }
-
-    def primaryKey(map: Map[String, DataType]): MetadataBuilder = {
-      this.primaryKeys = map
+    def columns(map: Seq[DataColumn]): MetadataBuilder = {
+      this.columns = map
       this
     }
 
@@ -437,8 +360,7 @@ object Metadata {
         this.deploymentModel,
         this.sourcePath,
         this.sinkPath,
-        this.column,
-        this.primaryKeys,
+        this.columns,
         this.kafkaBootstrapServers,
         this.topicName,
         this.numPartitions,

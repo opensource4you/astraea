@@ -16,12 +16,9 @@
  */
 package org.astraea.etl
 
+import org.astraea.etl.DataColumn.{columnParse, requireNonidentical}
 import org.astraea.etl.DataType.StringType
-import org.astraea.etl.Metadata.{
-  primaryKeyParse,
-  requireNonidentical,
-  requirePair
-}
+import org.astraea.etl.Metadata.requirePair
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
 import org.junit.jupiter.api.{BeforeEach, Test}
 
@@ -45,7 +42,7 @@ class MetadataTest {
     assertEquals(config.sourcePath, new File(file.getParent))
     assertEquals(config.sinkPath, new File(file.getParent))
     assertEquals(
-      config.column,
+      config.column.map(col => (col.name, col.dataType)).toMap,
       Map(
         "ID" -> StringType,
         "KA" -> StringType,
@@ -53,7 +50,13 @@ class MetadataTest {
         "KC" -> StringType
       )
     )
-    assertEquals(config.primaryKeys, Map("ID" -> StringType))
+    assertEquals(
+      config.column
+        .filter(col => col.isPK)
+        .map(col => (col.name, col.dataType))
+        .toMap,
+      Map("ID" -> StringType)
+    )
     assertEquals(config.kafkaBootstrapServers, "0.0.0.0")
     assertEquals(config.numPartitions, 15)
     assertEquals(config.numReplicas, 1.toShort)
@@ -74,15 +77,22 @@ class MetadataTest {
     val config = Metadata(Utils.requireFile(file.getAbsolutePath))
     assertTrue(config.sourcePath.equals(new File(file.getParent)))
     assertTrue(config.sinkPath.equals(new File(file.getParent)))
-    assertTrue(
-      config.column equals Map(
+    assertEquals(
+      config.column.map(col => (col.name, col.dataType)).toMap,
+      Map(
         "ID" -> StringType,
         "KA" -> StringType,
         "KB" -> StringType,
         "KC" -> StringType
       )
     )
-    assertTrue(config.primaryKeys equals Map("ID" -> StringType))
+    assertEquals(
+      config.column
+        .filter(col => col.isPK)
+        .map(col => (col.name, col.dataType))
+        .toMap,
+      Map("ID" -> StringType)
+    )
     assertTrue(config.kafkaBootstrapServers.equals("0.0.0.0"))
     assertTrue(config.numPartitions.equals(30))
     assertTrue(config.numReplicas.equals(3.toShort))
@@ -101,10 +111,7 @@ class MetadataTest {
     assertThrows(
       classOf[IllegalArgumentException],
       () =>
-        primaryKeyParse(
-          "DD",
-          DataType.of(requireNonidentical("data", "ID,KA,KB,KC"))
-        )
+        columnParse("ID=string,KA=string,KB=string,KC=integer", "data=string")
     )
   }
 
@@ -114,11 +121,10 @@ class MetadataTest {
   }
 
   @Test def columnParseTest(): Unit = {
-    Metadata.columnParse("data", "ID=string,KA=string,KB=string,KC=integer")
+//    columnParse("data=string", "ID=string,KA=string,KB=string,KC=integer")
     assertThrows(
       classOf[IllegalArgumentException],
-      () =>
-        Metadata.columnParse("data", "ID=string,KA=string,KB=string,KC=intege")
+      () => columnParse("ID=string,KA=string,KB=string,KC=intege", "ID=string")
     )
   }
 
