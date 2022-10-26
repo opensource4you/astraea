@@ -52,8 +52,8 @@ public class BalancerTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
-  private static final String MAX_MIGRATE_LOG_SIZE = "total max migrate log size";
-  private static final String MAX_MIGRATE_LEADER_NUM = "maximum leader number to migrate";
+  private static final String MAX_SIZE_TO_MOVE = "max size to move";
+  private static final String MAX_LEADERS_TO_MOVE = "max leader to move";
   private static final String PREVIOUS_LEADER_KEY = "previous leader";
   private static final String NEW_LEADER_KEY = "new leader";
   private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
@@ -144,10 +144,10 @@ public class BalancerTab {
                           logger.log("searching better assignments ... ");
                           var converter = new DataSize.Field();
                           var replicaSizeLimit =
-                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LOG_SIZE))
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_SIZE_TO_MOVE))
                                   .map(x -> converter.convert(x).bytes());
                           var leaderNumLimit =
-                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LEADER_NUM))
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_LEADERS_TO_MOVE))
                                   .map(Integer::parseInt);
                           return Map.entry(
                               clusterInfo,
@@ -217,8 +217,8 @@ public class BalancerTab {
             .buttonName("PLAN")
             .input(
                 KeyLabel.of(TOPIC_NAME_KEY), TextInput.singleLine().hint("topic-*,*abc*").build())
-            .input(KeyLabel.of(MAX_MIGRATE_LEADER_NUM), TextInput.singleLine().onlyNumber().build())
-            .input(KeyLabel.of(MAX_MIGRATE_LOG_SIZE), TextInput.singleLine().build())
+            .input(KeyLabel.of(MAX_LEADERS_TO_MOVE), TextInput.singleLine().onlyNumber().build())
+            .input(KeyLabel.of(MAX_SIZE_TO_MOVE), TextInput.singleLine().build())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",
