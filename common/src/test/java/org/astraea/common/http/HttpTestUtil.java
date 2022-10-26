@@ -53,6 +53,15 @@ public class HttpTestUtil {
     }
   }
 
+  public static HttpHandler createErrorHandler(int statusCode, String errorMsg) {
+    return exchange -> {
+      exchange.sendResponseHeaders(statusCode, errorMsg.length());
+      OutputStream os = exchange.getResponseBody();
+      os.write(errorMsg.getBytes());
+      os.close();
+    };
+  }
+
   public static HttpHandler createTextHandler(List<String> requestMethod, String responseText) {
     return createTextHandler(requestMethod, (x) -> {}, responseText);
   }

@@ -187,6 +187,17 @@ public class UtilsTest {
     Assertions.assertTrue(pattern3.matcher("192.168").matches());
   }
 
+  @Test
+  void testIsBlank() {
+    Assertions.assertTrue(Utils.isBlank(null));
+    Assertions.assertTrue(Utils.isBlank(""));
+    Assertions.assertTrue(Utils.isBlank("     "));
+
+    Assertions.assertFalse(Utils.isBlank(" hello "));
+    Assertions.assertFalse(Utils.isBlank("hey  "));
+    Assertions.assertFalse(Utils.isBlank("  hey"));
+  }
+
   private static class TestConfigCostFunction implements CostFunction {
     public TestConfigCostFunction(Configuration configuration) {}
   }

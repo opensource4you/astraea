@@ -235,6 +235,34 @@ class HttpExecutorTest {
         });
   }
 
+  @Test
+  void testException() {
+    var httpExecutor = HttpExecutor.builder().build();
+    HttpTestUtil.testWithServer(
+        httpServer ->
+            httpServer.createContext(
+                "/test", HttpTestUtil.createErrorHandler(405, "don't allow this method to you!!!")),
+        x ->
+            Utils.packException(
+                () -> {
+                  var executionException =
+                      assertThrows(
+                          ExecutionException.class,
+                          () ->
+                              httpExecutor
+                                  .get(getUrl(x, "/test"), TypeRef.of(TestResponse.class))
+                                  .thenApply(Response::body)
+                                  .toCompletableFuture()
+                                  .get());
+                  assertEquals(
+                      StringResponseException.class, executionException.getCause().getClass());
+                  var stringResponseException =
+                      (StringResponseException) executionException.getCause();
+                  assertEquals(405, stringResponseException.statusCode());
+                  assertEquals("don't allow this method to you!!!", stringResponseException.body());
+                }));
+  }
+
   private String getUrl(InetSocketAddress socketAddress, String path) {
     return "http://localhost:" + socketAddress.getPort() + path;
   }

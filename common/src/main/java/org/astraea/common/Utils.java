@@ -115,6 +115,33 @@ public final class Utils {
   }
 
   /**
+   * Wait for `done` to complete without exception. Default is 10 seconds
+   *
+   * @param done the operation should success in timeout.
+   */
+  public static void waitNoException(Runner done) {
+    waitNoException(done, Duration.ofSeconds(10));
+  }
+
+  /**
+   * Wait for `done` to complete without exception.
+   *
+   * @param done the operation should success in timeout.
+   */
+  public static void waitNoException(Runner done, Duration timeout) {
+    waitForNonNull(
+        () -> {
+          try {
+            done.run();
+            return new Object();
+          } catch (Error | Exception e) {
+            return null;
+          }
+        },
+        timeout);
+  }
+
+  /**
    * Wait for procedure.
    *
    * @param done a flag indicating the result.
@@ -269,6 +296,10 @@ public final class Utils {
   public static Pattern wildcardToPattern(String string) {
     return Pattern.compile(
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
+  }
+
+  public static boolean isBlank(String value) {
+    return value == null || value.isBlank();
   }
 
   private Utils() {}

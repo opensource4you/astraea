@@ -14,32 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.http;
+package org.astraea.common.connector;
 
-import java.lang.reflect.Type;
-import java.net.http.HttpResponse;
+public class TaskInfo {
+  private final String connector;
+  private final int task;
 
-public class StringResponseException extends RuntimeException {
-
-  private final HttpResponse<String> httpResponse;
-
-  public StringResponseException(HttpResponse<String> httpResponse) {
-    super(
-        String.format("Failed response: %s, %s.", httpResponse.statusCode(), httpResponse.body()));
-    this.httpResponse = httpResponse;
+  public TaskInfo(String connector, int task) {
+    this.connector = connector;
+    this.task = task;
   }
 
-  public StringResponseException(HttpResponse<String> httpResponse, Type type) {
-    super(
-        String.format("Response json `%s` can't convert to Object %s.", httpResponse.body(), type));
-    this.httpResponse = httpResponse;
+  public String connector() {
+    return connector;
   }
 
-  public int statusCode() {
-    return httpResponse.statusCode();
-  }
-
-  public String body() {
-    return httpResponse.body();
+  public int task() {
+    return task;
   }
 }
