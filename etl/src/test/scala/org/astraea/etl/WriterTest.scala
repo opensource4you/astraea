@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Assertions.{
   assertThrows,
   assertTrue
 }
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{RepeatedTest, Test}
 
 import java.io.File
 import java.util.concurrent.{CompletionException, TimeUnit}
@@ -34,17 +34,21 @@ import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.util.Random
 
 class WriterTest extends RequireBrokerCluster {
 
-  @Test def topicCreatorTest(): Unit = {
-    val TOPIC = "test-topicA"
+  @RepeatedTest(100)
+  def topicCreatorTest(): Unit = {
+    val TOPIC = "test-topicA" + Random.nextInt().toString
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-
+        Thread.sleep(Duration(1, TimeUnit.SECONDS).toMillis)
+        val eventualStrings = Utils.asScala(admin.topicNames(true))
+        Await.result(eventualStrings, Duration.Inf)
         assertTrue(
-          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
+          eventualStrings.value.get.get.contains(TOPIC)
         )
 
         assertEquals(
