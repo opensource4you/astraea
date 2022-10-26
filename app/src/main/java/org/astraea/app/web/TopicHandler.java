@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
@@ -41,6 +43,8 @@ class TopicHandler implements Handler {
   static final String PARTITION_KEY = "partition";
   static final String LIST_INTERNAL = "listInternal";
   static final String PROBABILITY_INTERNAL = "probability";
+
+  static final String POLL_RECORD_TIMEOUT = "poll_timeout";
 
   private final AsyncAdmin admin;
 
@@ -70,6 +74,9 @@ class TopicHandler implements Handler {
             topics ->
                 get(
                     topics,
+                    Optional.ofNullable(channel.queries().get(POLL_RECORD_TIMEOUT))
+                        .map(DurationField::toDuration)
+                        .orElse(null),
                     partition ->
                         !channel.queries().containsKey(PARTITION_KEY)
                             || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY))))
@@ -77,13 +84,27 @@ class TopicHandler implements Handler {
   }
 
   private CompletionStage<Topics> get(
-      Set<String> topicNames, Predicate<Integer> partitionPredicate) {
+      Set<String> topicNames, Duration pollTimeout, Predicate<Integer> partitionPredicate) {
+    var timestampOfRecords =
+        pollTimeout == null
+            ? CompletableFuture.completedStage(Map.<TopicPartition, Long>of())
+            : admin
+                .topicPartitions(topicNames)
+                .thenCompose(
+                    tps ->
+                        admin.timestampOfLatestRecords(
+                            tps.stream()
+                                .filter(p -> partitionPredicate.test(p.partition()))
+                                .collect(Collectors.toSet()),
+                            pollTimeout));
+
     return FutureUtils.combine(
         admin.replicas(topicNames),
         admin.partitions(topicNames),
         admin.topics(topicNames),
         admin.consumerGroupIds().thenCompose(admin::consumerGroups),
-        (replicas, partitions, topics, groups) -> {
+        timestampOfRecords,
+        (replicas, partitions, topics, groups, recordTimestamp) -> {
           var ps =
               partitions.stream()
                   .filter(p -> partitionPredicate.test(p.partition()))
@@ -97,6 +118,7 @@ class TopicHandler implements Handler {
                                       p.earliestOffset(),
                                       p.latestOffset(),
                                       p.maxTimestamp().orElse(null),
+                                      recordTimestamp.get(p.topicPartition()),
                                       replicas.stream()
                                           .filter(replica -> replica.topic().equals(p.topic()))
                                           .filter(replica -> replica.partition() == p.partition())
@@ -185,7 +207,7 @@ class TopicHandler implements Handler {
                           .toCompletableFuture();
                     })
                 .collect(Collectors.toList()))
-        .thenCompose(ignored -> get(topicNames, id -> true))
+        .thenCompose(ignored -> get(topicNames, null, id -> true))
         .exceptionally(
             ignored ->
                 new Topics(
@@ -238,12 +260,22 @@ class TopicHandler implements Handler {
     // previous kafka does not support to query max timestamp
     final Long maxTimestamp;
 
-    Partition(int id, long earliest, long latest, Long maxTimestamp, List<Replica> replicas) {
+    // optional field
+    final Long timestampOfLatestRecord;
+
+    Partition(
+        int id,
+        long earliest,
+        long latest,
+        Long maxTimestamp,
+        Long timestampOfLatestRecord,
+        List<Replica> replicas) {
       this.id = id;
       this.earliest = earliest;
       this.latest = latest;
       this.replicas = replicas;
       this.maxTimestamp = maxTimestamp;
+      this.timestampOfLatestRecord = timestampOfLatestRecord;
     }
   }
 

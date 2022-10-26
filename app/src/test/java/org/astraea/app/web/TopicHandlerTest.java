@@ -326,7 +326,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGroupIds() throws ExecutionException, InterruptedException {
+  void testGroupIdAndTimestamp() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString();
     var groupId = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers());
@@ -351,9 +351,19 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               TopicHandler.TopicInfo.class,
-              handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get());
+              handler
+                  .get(
+                      Channel.builder()
+                          .target(topicName)
+                          .queries(Map.of(TopicHandler.POLL_RECORD_TIMEOUT, "3s"))
+                          .build())
+                  .toCompletableFuture()
+                  .get());
       Assertions.assertEquals(1, response.activeGroupIds.size());
       Assertions.assertEquals(groupId, response.activeGroupIds.iterator().next());
+      Assertions.assertEquals(1, response.partitions.size());
+      Assertions.assertNotNull(response.partitions.get(0).maxTimestamp);
+      Assertions.assertNotNull(response.partitions.get(0).timestampOfLatestRecord);
     }
   }
 }
