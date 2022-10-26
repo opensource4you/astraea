@@ -16,6 +16,9 @@
  */
 package org.astraea.common.cost;
 
+import java.time.Duration;
+import java.util.Objects;
+
 /**
  * Indicate that {@link CostFunction} thinks the metrics on hand cannot be processed. It probably is
  * due to the insufficient amount of metrics or contradiction in the value of the metric. This
@@ -23,18 +26,45 @@ package org.astraea.common.cost;
  * retry later.
  */
 public class NotEnoughMetricsException extends RuntimeException {
-  public NotEnoughMetricsException() {}
 
-  public NotEnoughMetricsException(String message) {
-    super(message);
+  private final CostFunction source;
+  private final Duration suggestedWait;
+
+  public NotEnoughMetricsException(CostFunction source, String message) {
+    this(source, Duration.ZERO, message);
   }
 
-  public NotEnoughMetricsException(String message, Throwable cause) {
-    super(message, cause);
+  public NotEnoughMetricsException(CostFunction source, Duration suggestedWait, String message) {
+    super(composedMessage(source, message));
+    this.source = Objects.requireNonNull(source);
+    this.suggestedWait = Objects.requireNonNull(suggestedWait);
+  }
+
+  public NotEnoughMetricsException(CostFunction source, String message, Throwable cause) {
+    this(source, Duration.ZERO, message, cause);
   }
 
   public NotEnoughMetricsException(
-      String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-    super(message, cause, enableSuppression, writableStackTrace);
+      CostFunction source, Duration suggestedWait, String message, Throwable cause) {
+    super(composedMessage(source, message), cause);
+    this.source = Objects.requireNonNull(source);
+    this.suggestedWait = Objects.requireNonNull(suggestedWait);
+  }
+
+  /** Which cost function cause this exception. */
+  public CostFunction source() {
+    return source;
+  }
+
+  /**
+   * The suggested retry interval. This is just a suggestion so the implementation might wait longer
+   * than the specified duration.
+   */
+  public Duration suggestedWait() {
+    return suggestedWait;
+  }
+
+  private static String composedMessage(CostFunction source, String original) {
+    return "Not enough metrics for " + source.getClass().getName() + ": " + original;
   }
 }

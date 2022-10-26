@@ -78,6 +78,7 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
   private final Map<Integer, InetSocketAddress> brokerJmxAddresses;
+  private final Duration sampleInterval = Duration.ofSeconds(1);
 
   BalancerHandler(Admin admin) {
     this(admin, Map.of());
@@ -217,10 +218,7 @@ class BalancerHandler implements Handler {
       return loop(() -> ClusterBean.EMPTY, timeout, loop, topics);
     } else {
       var collector =
-          BeanCollector.builder()
-              .numberOfObjectsPerNode(1000)
-              .interval(Duration.ofSeconds(1))
-              .build();
+          BeanCollector.builder().numberOfObjectsPerNode(1000).interval(sampleInterval).build();
       var receivers =
           brokerJmxAddresses.entrySet().stream()
               .collect(
@@ -255,9 +253,13 @@ class BalancerHandler implements Handler {
               try {
                 return searchRebalancePlan(metrics, timeout, loop, topics);
               } catch (NotEnoughMetricsException e) {
+                // error message
+                e.printStackTrace();
                 // sleep until the new metrics are available
-                // TODO: fix this
-                Utils.sleep(Duration.ofSeconds(1));
+                Duration wait =
+                    Duration.ofMillis(
+                        Long.max(sampleInterval.toMillis(), e.suggestedWait().toMillis()));
+                Utils.sleep(wait);
                 return null;
               }
             })

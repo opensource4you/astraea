@@ -787,7 +787,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             public synchronized ClusterCost clusterCost(
                 ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
               if (clusterBean.all().get(0).size() < 10)
-                throw new NotEnoughMetricsException("Insufficient metrics");
+                throw new NotEnoughMetricsException(this, "Insufficient metrics");
               clusterBean
                   .all()
                   .get(0)
