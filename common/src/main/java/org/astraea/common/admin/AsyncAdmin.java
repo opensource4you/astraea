@@ -101,7 +101,7 @@ public interface AsyncAdmin extends AutoCloseable {
                       .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
                       .build()) {
                 // TODO: how many records we should take ?
-                return consumer.poll(topicPartitions.size(), timeout).stream()
+                return consumer.poll(Integer.MAX_VALUE, timeout).stream()
                     .collect(
                         Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
                     .entrySet()
