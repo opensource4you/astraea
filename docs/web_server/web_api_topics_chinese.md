@@ -134,6 +134,9 @@ JSON Response 範例
   "topics": [
     {
       "name": "test1",
+      "activeGroupIds": [
+        "groupId-1666757298494"
+      ],
       "partitions": [
         {
           "id": 0,
@@ -149,7 +152,8 @@ JSON Response 範例
               "isFuture": false,
               "path": "/tmp/log-folder-0"
             }
-          ]
+          ],
+          "maxTimestamp": 1666757305832
         }
       ],
       "configs": {
@@ -209,6 +213,9 @@ JSON Response 範例
  ```json
 {
   "name": "test1",
+  "activeGroupIds": [
+    "groupId-1666757298494"
+  ],
   "partitions": [
     {
       "id": 0,
@@ -224,7 +231,8 @@ JSON Response 範例
           "isFuture": false,
           "path": "/tmp/log-folder-0"
         }
-      ]
+      ],
+      "maxTimestamp": 1666757305832
     }
   ],
   "configs": {
