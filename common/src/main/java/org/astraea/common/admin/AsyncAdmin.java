@@ -58,6 +58,9 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Set<String>> topicNames(boolean listInternal);
 
+  /** @return names of internal topics */
+  CompletionStage<Set<String>> internalTopicNames();
+
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
   /**
@@ -98,7 +101,7 @@ public interface AsyncAdmin extends AutoCloseable {
                       .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
                       .build()) {
                 // TODO: how many records we should take ?
-                return consumer.poll(topicPartitions.size(), timeout).stream()
+                return consumer.poll(Integer.MAX_VALUE, timeout).stream()
                     .collect(
                         Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
                     .entrySet()
@@ -279,6 +282,22 @@ public interface AsyncAdmin extends AutoCloseable {
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
   CompletionStage<Void> setConfigs(String topic, Map<String, String> override);
+
+  /**
+   * append the value to config. Noted that it appends nothing if the existent value is "*".
+   *
+   * @param topic to append
+   * @param subtracted values
+   */
+  CompletionStage<Void> appendConfigs(String topic, Map<String, String> subtracted);
+
+  /**
+   * subtract the value to config. Noted that it throws exception if the existent value is "*".
+   *
+   * @param topic to append
+   * @param appended values
+   */
+  CompletionStage<Void> subtractConfigs(String topic, Map<String, String> appended);
 
   /**
    * unset the value associated to given keys. The unset config will become either null of default

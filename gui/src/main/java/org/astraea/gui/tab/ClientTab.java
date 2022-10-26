@@ -36,21 +36,16 @@ import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
 
 public class ClientTab {
 
-  private static final String ACTIVE_KEY = "active";
-
   private static List<Map<String, Object>> consumerResult(
-      List<ConsumerGroup> cgs, List<Partition> partitions, Input input) {
+      List<ConsumerGroup> cgs, List<Partition> partitions) {
     var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
     return cgs.stream()
-        .filter(cg -> !input.selectedKeys().contains(ACTIVE_KEY) || !cg.assignment().isEmpty())
         .flatMap(
             cg ->
                 Stream.concat(
@@ -92,7 +87,6 @@ public class ClientTab {
     return Tab.of(
         "consumer",
         PaneBuilder.of()
-            .selectBox(SelectBox.single(List.of(ACTIVE_KEY)))
             .buttonAction(
                 (input, logger) ->
                     FutureUtils.combine(
@@ -104,7 +98,7 @@ public class ClientTab {
                             .admin()
                             .topicNames(true)
                             .thenCompose(names -> context.admin().partitions(names)),
-                        (cgs, partitions) -> consumerResult(cgs, partitions, input)))
+                        ClientTab::consumerResult))
             .build());
   }
 

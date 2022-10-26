@@ -43,6 +43,13 @@ public interface Register {
    */
   Register fetcher(Fetcher fetcher);
 
+  /**
+   * demand to schedule metric updates periodically.
+   *
+   * @return this register
+   */
+  Register autoUpdate();
+
   /** @return create a Receiver */
   Receiver build();
 }

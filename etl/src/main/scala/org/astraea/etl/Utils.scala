@@ -16,11 +16,14 @@
  */
 package org.astraea.etl
 
+import org.astraea.common.admin.AsyncAdmin
+
 import java.awt.geom.IllegalPathStateException
 import java.io.File
 import java.util.concurrent.CompletionStage
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 
 object Utils {
   def requireFolder(path: String): File = {
@@ -82,5 +85,20 @@ object Utils {
     } else {
       resource.close()
     }
+  }
+
+  def createTopic(
+      admin: AsyncAdmin,
+      metadata: Metadata
+  ): Future[java.lang.Boolean] = {
+    Utils.asScala(
+      admin
+        .creator()
+        .topic(metadata.topicName)
+        .numberOfPartitions(metadata.numPartitions)
+        .numberOfReplicas(metadata.numReplicas)
+        .configs(metadata.topicConfig.asJava)
+        .run()
+    )
   }
 }

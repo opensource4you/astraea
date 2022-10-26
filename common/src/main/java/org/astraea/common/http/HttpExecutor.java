@@ -14,16 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common.http;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import org.astraea.common.json.TypeRef;
 
-public class TopicConfigsTest {
+/** Send json http request. */
+public interface HttpExecutor {
 
-  @Test
-  void testDynamicalConfigs() {
-    TopicConfigs.DYNAMICAL_CONFIGS.forEach(
-        config -> Assertions.assertTrue(TopicConfigs.ALL_CONFIGS.contains(config)));
+  static HttpExecutorBuilder builder() {
+    return new HttpExecutorBuilder();
   }
+
+  <T> CompletionStage<Response<T>> get(String url, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> get(String url, Map<String, String> param, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> post(String url, Object body, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> put(String url, Object body, TypeRef<T> typeRef);
+
+  CompletionStage<Response<Void>> delete(String url);
 }

@@ -130,7 +130,8 @@ public class AboutTab {
         PaneBuilder.of()
             .selectBox(
                 SelectBox.single(
-                    Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList())))
+                    Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
+                    Info.values().length))
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.completedFuture(

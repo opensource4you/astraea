@@ -16,13 +16,15 @@
  */
 package org.astraea.common.metrics;
 
+import java.util.Optional;
+
 public interface AppInfo extends HasBeanObject {
 
   String id();
 
   String commitId();
 
-  long startTimeMs();
+  Optional<Long> startTimeMs();
 
   String version();
 }

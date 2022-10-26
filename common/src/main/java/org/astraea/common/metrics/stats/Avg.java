@@ -14,18 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-object spark2kafka {
+public class Avg implements Stat<Double> {
+  private int counter = 0;
+  private double accumulator = 0.0;
 
-  def main(args: Array[String]): Unit = {
-    val metaData = Metadata(Utils.requireFile(args(0)))
-    val spark = CSVReader.createSpark(metaData.deploymentModel)
-    val userSchema =
-      CSVReader.createSchema(metaData.column, metaData.primaryKeys)
-    val csvDF =
-      CSVReader.readCSV(spark, userSchema, metaData.sourcePath.getPath)
-    //TODO How to start
-    CSVReader.writeKafka(csvDF, metaData).start().awaitTermination()
+  public Avg() {}
+
+  @Override
+  public synchronized void record(Double value) {
+    ++counter;
+    accumulator += value;
+  }
+
+  @Override
+  public synchronized Double measure() {
+    if (counter == 0) throw new RuntimeException("Nothing to measure");
+    return accumulator / counter;
   }
 }

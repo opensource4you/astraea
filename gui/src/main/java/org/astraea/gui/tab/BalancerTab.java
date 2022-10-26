@@ -45,8 +45,8 @@ import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class BalancerTab {
 
@@ -213,12 +213,16 @@ public class BalancerTab {
         PaneBuilder.of()
             .selectBox(
                 SelectBox.multi(
-                    Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList())))
+                    Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
+                    Cost.values().length))
             .buttonName("PLAN")
             .input(
-                KeyLabel.of(TOPIC_NAME_KEY), TextInput.singleLine().hint("topic-*,*abc*").build())
-            .input(KeyLabel.of(MAX_LEADERS_TO_MOVE), TextInput.singleLine().onlyNumber().build())
-            .input(KeyLabel.of(MAX_SIZE_TO_MOVE), TextInput.singleLine().build())
+                NoneditableText.of(TOPIC_NAME_KEY),
+                EditableText.singleLine().hint("topic-*,*abc*").build())
+            .input(
+                NoneditableText.of(MAX_LEADERS_TO_MOVE),
+                EditableText.singleLine().onlyNumber().build())
+            .input(NoneditableText.of(MAX_SIZE_TO_MOVE), EditableText.singleLine().build())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",

@@ -14,26 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-import org.astraea.common.admin.AsyncAdmin
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import scala.concurrent.Future
-import scala.collection.JavaConverters._
+public class AvgTest {
+  @Test
+  void testAvg() {
+    var stat = new Avg();
+    stat.record(2.0);
+    stat.record(7.0);
+    stat.record(6.0);
 
-object KafkaWriter {
-  def createTopic(
-      admin: AsyncAdmin,
-      metadata: Metadata
-  ): Future[java.lang.Boolean] = {
-    Utils.asScala(
-      admin
-        .creator()
-        .topic(metadata.topicName)
-        .numberOfPartitions(metadata.numPartitions)
-        .numberOfReplicas(metadata.numReplicas)
-        .configs(metadata.topicConfig.asJava)
-        .run()
-    )
+    Assertions.assertEquals(5.0, stat.measure());
+  }
+
+  @Test
+  void testException() {
+    var stat = new Avg();
+    Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }
