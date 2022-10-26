@@ -799,14 +799,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   .all()
                   .get(0)
                   .forEach(bean -> Assertions.assertInstanceOf(JvmMemory.class, bean));
-              clusterBean
-                  .all()
-                  .get(1)
-                  .forEach(bean -> Assertions.assertInstanceOf(JvmMemory.class, bean));
-              clusterBean
-                  .all()
-                  .get(2)
-                  .forEach(bean -> Assertions.assertInstanceOf(JvmMemory.class, bean));
               double theValue = value;
               value *= 0.998;
               return () -> theValue;
@@ -835,6 +827,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             var progress =
                 (BalancerHandler.PlanExecutionProgress)
                     handler.get(Channel.ofTarget(planId)).toCompletableFuture().join();
+            Assertions.assertNull(progress.exception, progress.exception);
             return progress.generated;
           },
           Duration.ofSeconds(70));
