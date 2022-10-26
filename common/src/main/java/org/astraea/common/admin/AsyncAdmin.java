@@ -28,7 +28,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Record;
+import org.astraea.common.consumer.SeekStrategy;
 
 public interface AsyncAdmin extends AutoCloseable {
 
@@ -54,6 +58,9 @@ public interface AsyncAdmin extends AutoCloseable {
    */
   CompletionStage<Set<String>> topicNames(boolean listInternal);
 
+  /** @return names of internal topics */
+  CompletionStage<Set<String>> internalTopicNames();
+
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
   /**
@@ -69,6 +76,55 @@ public interface AsyncAdmin extends AutoCloseable {
    * @return all partition belongs to brokers
    */
   CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
+
+  CompletionStage<Map<TopicPartition, Long>> earliestOffsets(Set<TopicPartition> topicPartitions);
+
+  CompletionStage<Map<TopicPartition, Long>> latestOffsets(Set<TopicPartition> topicPartitions);
+
+  /**
+   * find the timestamp of the latest record for given partitions
+   *
+   * @param topicPartitions to search timestamp of the latest record
+   * @param timeout to wait the latest record
+   * @return partition and timestamp of the latest record
+   */
+  default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return brokers()
+        .thenApply(
+            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
+        .thenApply(
+            bootstrap -> {
+              try (var consumer =
+                  Consumer.forPartitions(topicPartitions)
+                      .bootstrapServers(bootstrap)
+                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
+                      .build()) {
+                // TODO: how many records we should take ?
+                return consumer.poll(Integer.MAX_VALUE, timeout).stream()
+                    .collect(
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+                    .entrySet()
+                    .stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                e.getValue().stream()
+                                    .mapToLong(Record::timestamp)
+                                    .max()
+                                    .orElse(-1L)));
+              }
+            });
+  }
+
+  /**
+   * find the max timestamp of existent records for given partitions
+   *
+   * @param topicPartitions to search max timestamp
+   * @return partition and max timestamp
+   */
+  CompletionStage<Map<TopicPartition, Long>> maxTimestamps(Set<TopicPartition> topicPartitions);
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
@@ -107,7 +163,7 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<List<Replica>> replicas(Set<String> topics);
 
   default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return nodeInfos().thenCombine(replicas(topics), ClusterInfo::of);
+    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
   }
 
   default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
@@ -118,7 +174,7 @@ public interface AsyncAdmin extends AutoCloseable {
     return topicNames(false)
         .thenCompose(
             topicNames ->
-                Utils.sequence(
+                FutureUtils.sequence(
                         checkers.stream()
                             .map(
                                 checker ->
@@ -226,6 +282,22 @@ public interface AsyncAdmin extends AutoCloseable {
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
   CompletionStage<Void> setConfigs(String topic, Map<String, String> override);
+
+  /**
+   * append the value to config. Noted that it appends nothing if the existent value is "*".
+   *
+   * @param topic to append
+   * @param subtracted values
+   */
+  CompletionStage<Void> appendConfigs(String topic, Map<String, String> subtracted);
+
+  /**
+   * subtract the value to config. Noted that it throws exception if the existent value is "*".
+   *
+   * @param topic to append
+   * @param appended values
+   */
+  CompletionStage<Void> subtractConfigs(String topic, Map<String, String> appended);
 
   /**
    * unset the value associated to given keys. The unset config will become either null of default

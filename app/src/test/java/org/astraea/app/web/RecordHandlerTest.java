@@ -47,7 +47,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
@@ -56,6 +55,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
+import org.astraea.common.json.JsonConverter.ByteArrayToBase64TypeAdapter;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -802,6 +802,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1")))
               .toCompletableFuture()
               .get());
+      Utils.sleep(Duration.ofSeconds(2));
       var partitions = admin.partitions(Set.of(topicName)).toCompletableFuture().get();
       Assertions.assertEquals(3, partitions.size());
       Assertions.assertEquals(

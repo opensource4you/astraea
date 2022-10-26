@@ -19,26 +19,16 @@ package org.astraea.common;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collector;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.cost.Configuration;
 
@@ -229,18 +219,6 @@ public final class Utils {
     return java.util.UUID.randomUUID().toString().replaceAll("-", "");
   }
 
-  public static <T> CompletableFuture<List<T>> sequence(Collection<CompletableFuture<T>> futures) {
-    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
-        .thenApply(f -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
-  }
-
-  public static <T, U, V> CompletionStage<V> thenCombine(
-      CompletionStage<? extends T> from,
-      CompletionStage<? extends U> other,
-      BiFunction<? super T, ? super U, ? extends CompletionStage<V>> fn) {
-    return from.thenCompose(l -> other.thenCompose(r -> fn.apply(l, r)));
-  }
-
   public static Object staticMember(Class<?> clz, String attribute) {
     return reflectionAttribute(clz, null, attribute);
   }
@@ -272,28 +250,6 @@ public final class Utils {
     throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
   }
 
-  public static <T, K, U> Collector<T, ?, SortedMap<K, U>> toSortedMap(
-      Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
-    return Collectors.toMap(
-        keyMapper,
-        valueMapper,
-        (x, y) -> {
-          throw new IllegalStateException("Duplicate key");
-        },
-        TreeMap::new);
-  }
-
-  public static <T, K, U> Collector<T, ?, LinkedHashMap<K, U>> toLinkedHashMap(
-      Function<? super T, K> keyMapper, Function<? super T, U> valueMapper) {
-    return Collectors.toMap(
-        keyMapper,
-        valueMapper,
-        (x, y) -> {
-          throw new IllegalStateException("Duplicate key");
-        },
-        LinkedHashMap::new);
-  }
-
   public static Set<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
     return Arrays.stream(clz.getFields())
         .filter(field -> variableNameFilter.test(field.getName()))
@@ -310,12 +266,9 @@ public final class Utils {
     return sw.toString();
   }
 
-  public static String format(long timestamp) {
-    if (timestamp > 0) {
-      var format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-      return format.format(new Date(timestamp));
-    }
-    return "unknown";
+  public static Pattern wildcardToPattern(String string) {
+    return Pattern.compile(
+        string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 
   private Utils() {}

@@ -18,9 +18,9 @@ package org.astraea.common.consumer;
 
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.common.consumer.Builder.SeekStrategy.DISTANCE_FROM_BEGINNING;
-import static org.astraea.common.consumer.Builder.SeekStrategy.DISTANCE_FROM_LATEST;
-import static org.astraea.common.consumer.Builder.SeekStrategy.SEEK_TO;
+import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_BEGINNING;
+import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_LATEST;
+import static org.astraea.common.consumer.SeekStrategy.SEEK_TO;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -424,7 +425,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var log = new ConcurrentHashMap<Integer, Integer>();
     var closed = new AtomicBoolean(false);
     var fs =
-        Utils.sequence(
+        FutureUtils.sequence(
             IntStream.range(0, consumers)
                 .mapToObj(
                     index ->

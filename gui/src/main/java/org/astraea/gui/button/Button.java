@@ -20,8 +20,20 @@ import javafx.application.Platform;
 
 public class Button extends javafx.scene.control.Button {
 
+  public static Button disabled(String name) {
+    var btn = new Button(name);
+    btn.disable();
+    return btn;
+  }
+
   public static Button of(String name) {
     return new Button(name);
+  }
+
+  public static Button of(String name, Runnable action) {
+    var btn = new Button(name);
+    btn.setOnAction(ignored -> action.run());
+    return btn;
   }
 
   private Button(String topic) {
