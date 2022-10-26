@@ -29,6 +29,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -321,6 +322,38 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       latestTopicNames = admin.topicNames(true).toCompletableFuture().get();
       Assertions.assertFalse(latestTopicNames.contains(topicNames.get(2)));
       Assertions.assertTrue(latestTopicNames.contains(topicNames.get(1)));
+    }
+  }
+
+  @Test
+  void testGroupIds() throws ExecutionException, InterruptedException {
+    var topicName = Utils.randomString();
+    var groupId = Utils.randomString();
+    try (var admin = AsyncAdmin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers());
+        var consumer =
+            Consumer.forTopics(Set.of(topicName))
+                .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
+                .config(
+                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+                .bootstrapServers(bootstrapServers())
+                .build()) {
+      var handler = new TopicHandler(admin);
+
+      producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().get();
+
+      // try poll
+      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+      consumer.commitOffsets(Duration.ofSeconds(2));
+      Assertions.assertEquals(1, consumer.assignments().size());
+
+      var response =
+          Assertions.assertInstanceOf(
+              TopicHandler.TopicInfo.class,
+              handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get());
+      Assertions.assertEquals(1, response.activeGroupIds.size());
+      Assertions.assertEquals(groupId, response.activeGroupIds.iterator().next());
     }
   }
 }
