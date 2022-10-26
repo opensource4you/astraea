@@ -14,26 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-import org.astraea.common.admin.AsyncAdmin
+public class Avg implements Stat<Double> {
+  private int counter = 0;
+  private double accumulator = 0.0;
 
-import scala.concurrent.Future
-import scala.collection.JavaConverters._
+  public Avg() {}
 
-object KafkaWriter {
-  def createTopic(
-      admin: AsyncAdmin,
-      metadata: Metadata
-  ): Future[java.lang.Boolean] = {
-    Utils.asScala(
-      admin
-        .creator()
-        .topic(metadata.topicName)
-        .numberOfPartitions(metadata.numPartitions)
-        .numberOfReplicas(metadata.numReplicas)
-        .configs(metadata.topicConfig.asJava)
-        .run()
-    )
+  @Override
+  public synchronized void record(Double value) {
+    ++counter;
+    accumulator += value;
+  }
+
+  @Override
+  public synchronized Double measure() {
+    if (counter == 0) throw new RuntimeException("Nothing to measure");
+    return accumulator / counter;
   }
 }

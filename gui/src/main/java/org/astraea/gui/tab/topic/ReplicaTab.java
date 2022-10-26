@@ -16,11 +16,11 @@
  */
 package org.astraea.gui.tab.topic;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
-import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.gui.Context;
@@ -29,119 +29,52 @@ import org.astraea.gui.pane.Tab;
 
 public class ReplicaTab {
 
-  private static List<Map<String, Object>> offlineResult(List<Replica> replicas) {
-    return replicas.stream()
-        .filter(ReplicaInfo::isOffline)
-        .map(
-            replica ->
-                MapUtils.<String, Object>of(
-                    "topic",
-                    replica.topic(),
-                    "partition",
-                    replica.partition(),
-                    "broker",
-                    replica.nodeInfo().id(),
-                    "leader",
-                    replica.isLeader(),
-                    "isPreferredLeader",
-                    replica.isPreferredLeader()))
-        .collect(Collectors.toList());
-  }
-
-  private static List<Map<String, Object>> syncingResult(List<Replica> replicas) {
+  private static List<Map<String, Object>> allResult(List<Replica> replicas) {
     var leaderSizes =
         replicas.stream()
             .filter(ReplicaInfo::isLeader)
             .collect(Collectors.toMap(ReplicaInfo::topicPartition, Replica::size));
     return replicas.stream()
-        .filter(r -> !r.inSync())
-        .filter(r -> r.path() != null)
-        .filter(ReplicaInfo::isOnline)
         .map(
             replica -> {
               var leaderSize = leaderSizes.getOrDefault(replica.topicPartition(), 0L);
-              return MapUtils.<String, Object>of(
-                  "topic",
-                  replica.topic(),
-                  "partition",
-                  replica.partition(),
-                  "broker",
-                  replica.nodeInfo().id(),
-                  "path",
-                  replica.path(),
-                  "leader",
-                  replica.isLeader(),
-                  "isPreferredLeader",
-                  replica.isPreferredLeader(),
-                  "size",
-                  DataSize.Byte.of(replica.size()),
-                  "leader size",
-                  DataSize.Byte.of(leaderSize),
-                  "progress",
-                  String.format(
-                      "%.2f%%",
-                      leaderSize == 0
-                          ? 100D
-                          : ((double) replica.size() / (double) leaderSize) * 100));
+              var result = new LinkedHashMap<String, Object>();
+              result.put("topic", replica.topic());
+              result.put("partition", replica.partition());
+              result.put("broker", replica.nodeInfo().id());
+              if (replica.path() != null) result.put("path", replica.path());
+              result.put("isLeader", replica.isLeader());
+              result.put("isPreferredLeader", replica.isPreferredLeader());
+              result.put("isOffline", replica.isOffline());
+              result.put("isFuture", replica.isFuture());
+              result.put("lag", replica.lag());
+              result.put("size", DataSize.Byte.of(replica.size()));
+              if (leaderSize > replica.size()) {
+                result.put("leader size", DataSize.Byte.of(leaderSize));
+                result.put(
+                    "progress",
+                    String.format(
+                        "%.2f%%",
+                        leaderSize == 0
+                            ? 100D
+                            : ((double) replica.size() / (double) leaderSize) * 100));
+              }
+              return result;
             })
         .collect(Collectors.toList());
   }
 
-  private static List<Map<String, Object>> allResult(List<Replica> replicas) {
-    return replicas.stream()
-        .map(
-            replica ->
-                MapUtils.<String, Object>of(
-                    "topic",
-                    replica.topic(),
-                    "partition",
-                    replica.partition(),
-                    "broker",
-                    replica.nodeInfo().id(),
-                    "path",
-                    replica.path() == null ? "unknown" : replica.path(),
-                    "leader",
-                    replica.isLeader(),
-                    "isPreferredLeader",
-                    replica.isPreferredLeader(),
-                    "offline",
-                    replica.isOffline(),
-                    "future",
-                    replica.isFuture(),
-                    "lag",
-                    replica.lag(),
-                    "size",
-                    DataSize.Byte.of(replica.size())))
-        .collect(Collectors.toList());
-  }
-
   static Tab tab(Context context) {
-    var all = "all";
-    var syncing = "syncing";
-    var offline = "offline";
     return Tab.of(
         "replica",
         PaneBuilder.of()
-            .singleRadioButtons(List.of(all, syncing, offline))
-            .searchField("topic name", "topic-*,*abc*")
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .topicNames(true)
-                        .thenApply(
-                            topics ->
-                                topics.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::replicas)
-                        .thenApply(
-                            replicas -> {
-                              var selected = input.singleSelectedRadio(all);
-                              if (selected.equals(syncing)) return syncingResult(replicas);
-                              if (selected.equals(offline)) return offlineResult(replicas);
-                              return allResult(replicas);
-                            }))
+                        .thenApply(ReplicaTab::allResult))
             .build());
   }
 }

@@ -36,29 +36,21 @@ import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
 
 public class ClientTab {
 
-  private static final String ACTIVE_KEY = "active";
-
   private static List<Map<String, Object>> consumerResult(
-      List<ConsumerGroup> cgs, List<Partition> partitions, Input input) {
+      List<ConsumerGroup> cgs, List<Partition> partitions) {
     var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
     return cgs.stream()
-        .filter(
-            cg ->
-                !input.multiSelectedRadios(List.<String>of()).contains(ACTIVE_KEY)
-                    || !cg.assignment().isEmpty())
         .flatMap(
             cg ->
                 Stream.concat(
                         cg.consumeProgress().keySet().stream(),
                         cg.assignment().values().stream().flatMap(Collection::stream))
-                    .filter(tp -> input.matchSearch(tp.topic()) || input.matchSearch(cg.groupId()))
                     .map(
                         tp -> {
                           var result = new LinkedHashMap<String, Object>();
@@ -95,8 +87,6 @@ public class ClientTab {
     return Tab.of(
         "consumer",
         PaneBuilder.of()
-            .multiRadioButtons(List.of(ACTIVE_KEY))
-            .searchField("group id or topic name", "topic-*,group-*")
             .buttonAction(
                 (input, logger) ->
                     FutureUtils.combine(
@@ -108,12 +98,12 @@ public class ClientTab {
                             .admin()
                             .topicNames(true)
                             .thenCompose(names -> context.admin().partitions(names)),
-                        (cgs, partitions) -> consumerResult(cgs, partitions, input)))
+                        ClientTab::consumerResult))
             .build());
   }
 
-  private static List<Map<String, Object>> transactionResult(Stream<Transaction> transactions) {
-    return transactions
+  private static List<Map<String, Object>> transactionResult(List<Transaction> transactions) {
+    return transactions.stream()
         .map(
             transaction ->
                 MapUtils.<String, Object>of(
@@ -134,21 +124,12 @@ public class ClientTab {
     return Tab.of(
         "transaction",
         PaneBuilder.of()
-            .searchField("topic name or transaction id", "topic-*,trans*")
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .transactionIds()
                         .thenCompose(context.admin()::transactions)
-                        .thenApply(
-                            ts ->
-                                ts.stream()
-                                    .filter(
-                                        transaction ->
-                                            input.matchSearch(transaction.transactionId())
-                                                || transaction.topicPartitions().stream()
-                                                    .anyMatch(tp -> input.matchSearch(tp.topic()))))
                         .thenApply(ClientTab::transactionResult))
             .build());
   }
@@ -178,17 +159,11 @@ public class ClientTab {
     return Tab.of(
         "producer",
         PaneBuilder.of()
-            .searchField("topic name", "topic*,abc*")
             .buttonAction(
                 (input, logger) ->
                     context
                         .admin()
                         .topicNames(true)
-                        .thenApply(
-                            names ->
-                                names.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
                         .thenCompose(context.admin()::topicPartitions)
                         .thenCompose(context.admin()::producerStates)
                         .thenApply(

@@ -14,19 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.box;
+package org.astraea.common.http;
 
-import java.util.Set;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import org.astraea.common.json.TypeRef;
 
-public class ComboBox<T> extends javafx.scene.control.ComboBox<T> {
+/** Send json http request. */
+public interface HttpExecutor {
 
-  public static ComboBox<String> strings(Set<String> items) {
-    return new ComboBox<>(FXCollections.observableArrayList(items.toArray(String[]::new)));
+  static HttpExecutorBuilder builder() {
+    return new HttpExecutorBuilder();
   }
 
-  private ComboBox(ObservableList<T> items) {
-    super(items);
-  }
+  <T> CompletionStage<Response<T>> get(String url, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> get(String url, Map<String, String> param, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> post(String url, Object body, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> put(String url, Object body, TypeRef<T> typeRef);
+
+  CompletionStage<Response<Void>> delete(String url);
 }

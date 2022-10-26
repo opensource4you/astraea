@@ -228,6 +228,6 @@ object Metadata {
         s"${prop { str }} not a supported deployment model. Please check $str."
       )
     }
-    str
+    prop(str)
   }
 }

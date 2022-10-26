@@ -14,16 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common.metrics.stats;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class TopicConfigsTest {
+public class AvgTest {
+  @Test
+  void testAvg() {
+    var stat = new Avg();
+    stat.record(2.0);
+    stat.record(7.0);
+    stat.record(6.0);
+
+    Assertions.assertEquals(5.0, stat.measure());
+  }
 
   @Test
-  void testDynamicalConfigs() {
-    TopicConfigs.DYNAMICAL_CONFIGS.forEach(
-        config -> Assertions.assertTrue(TopicConfigs.ALL_CONFIGS.contains(config)));
+  void testException() {
+    var stat = new Avg();
+    Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }

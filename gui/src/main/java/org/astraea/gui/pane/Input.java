@@ -23,11 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Input {
-  default <T> T singleSelectedRadio(T defaultObj) {
-    return multiSelectedRadios(List.of(defaultObj)).get(0);
-  }
-
-  <T> List<T> multiSelectedRadios(List<T> defaultObjs);
+  List<String> selectedKeys();
 
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {
@@ -44,8 +40,18 @@ public interface Input {
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().get()));
   }
 
+  /**
+   * get the value from user-defined inputs
+   *
+   * @param key to search
+   * @return empty if the key is nonexistent or empty value. Otherwise, it returns value.
+   */
+  default Optional<String> get(String key) {
+    var value = texts().get(key);
+    if (value != null) return value;
+    return Optional.empty();
+  }
+
   /** @return the input key and value. The value could be empty. */
   Map<String, Optional<String>> texts();
-
-  boolean matchSearch(String word);
 }

@@ -14,18 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-object spark2kafka {
+/** This should be thread safe */
+public interface Stat<V> {
+  void record(V value);
 
-  def main(args: Array[String]): Unit = {
-    val metaData = Metadata(Utils.requireFile(args(0)))
-    val spark = CSVReader.createSpark(metaData.deploymentModel)
-    val userSchema =
-      CSVReader.createSchema(metaData.column, metaData.primaryKeys)
-    val csvDF =
-      CSVReader.readCSV(spark, userSchema, metaData.sourcePath.getPath)
-    //TODO How to start
-    CSVReader.writeKafka(csvDF, metaData).start().awaitTermination()
+  V measure();
+
+  /** Make a readonly copy of this object. */
+  default Stat<V> snapshot() {
+    var value = measure();
+    return new Stat<>() {
+      @Override
+      public void record(V ignore) {
+        throw new UnsupportedOperationException("Cannot update snapshot object!");
+      }
+
+      @Override
+      public V measure() {
+        return value;
+      }
+    };
   }
 }

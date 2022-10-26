@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
@@ -38,9 +39,12 @@ import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class BalancerTab {
 
@@ -123,6 +127,16 @@ public class BalancerTab {
                     .brokerFolders()
                     .thenApply(
                         brokerFolders -> {
+                          var patterns =
+                              input
+                                  .texts()
+                                  .get(TOPIC_NAME_KEY)
+                                  .map(
+                                      ss ->
+                                          Arrays.stream(ss.split(","))
+                                              .map(Utils::wildcardToPattern)
+                                              .collect(Collectors.toList()))
+                                  .orElse(List.of());
                           logger.log("searching better assignments ... ");
                           return Map.entry(
                               clusterInfo,
@@ -130,9 +144,11 @@ public class BalancerTab {
                                   .planGenerator(new ShufflePlanGenerator(0, 30))
                                   .clusterCost(
                                       HasClusterCost.of(
-                                          input
-                                              .multiSelectedRadios(Arrays.asList(Cost.values()))
-                                              .stream()
+                                          input.selectedKeys().stream()
+                                              .flatMap(
+                                                  name ->
+                                                      Arrays.stream(Cost.values())
+                                                          .filter(c -> c.toString().equals(name)))
                                               .map(cost -> Map.entry(cost.costFunction, 1.0))
                                               .collect(
                                                   Collectors.toMap(
@@ -141,7 +157,13 @@ public class BalancerTab {
                                   .limit(10000)
                                   .greedy(true)
                                   .build()
-                                  .offer(clusterInfo, input::matchSearch, brokerFolders));
+                                  .offer(
+                                      clusterInfo,
+                                      topic ->
+                                          patterns.isEmpty()
+                                              || patterns.stream()
+                                                  .anyMatch(p -> p.matcher(topic).matches()),
+                                      brokerFolders));
                         }))
         .thenApply(
             entry -> {
@@ -158,9 +180,14 @@ public class BalancerTab {
   public static Tab of(Context context) {
     var pane =
         PaneBuilder.of()
-            .multiRadioButtons(Arrays.stream(Cost.values()).collect(Collectors.toList()))
+            .selectBox(
+                SelectBox.multi(
+                    Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
+                    Cost.values().length))
             .buttonName("PLAN")
-            .searchField("topic name", "topic-*,*abc*")
+            .input(
+                NoneditableText.of(TOPIC_NAME_KEY),
+                EditableText.singleLine().hint("topic-*,*abc*").build())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",
