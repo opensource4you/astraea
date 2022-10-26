@@ -54,8 +54,9 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NotEnoughMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.metrics.collector.BeanCollector;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricSampler;
+import org.astraea.common.metrics.collector.Receiver;
 
 class BalancerHandler implements Handler {
 
@@ -210,22 +211,53 @@ class BalancerHandler implements Handler {
 
   private CompletableFuture<PlanInfo> launchSearchTask(
       Duration timeout, int loop, Set<String> topics) {
-    MetricSampler metricSampler =
-        new MetricSampler(aggregatedFetcher().orElse(null), brokerJmxAddresses);
-    return loop(metricSampler, timeout, loop, topics)
-        .whenComplete((ignore0, ignore1) -> metricSampler.close());
+    final var fetcher = aggregatedFetcher();
+
+    if (fetcher.isEmpty()) {
+      return loop(() -> ClusterBean.EMPTY, timeout, loop, topics);
+    } else {
+      var collector =
+          BeanCollector.builder()
+              .numberOfObjectsPerNode(1000)
+              .interval(Duration.ofSeconds(1))
+              .build();
+      var receivers =
+          brokerJmxAddresses.entrySet().stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey,
+                      entry ->
+                          collector
+                              .register()
+                              .host(entry.getValue().getHostName())
+                              .port(entry.getValue().getPort())
+                              .fetcher(fetcher.get())
+                              .autoUpdate()
+                              .build()));
+      Supplier<ClusterBean> metrics =
+          () ->
+              ClusterBean.of(
+                  receivers.entrySet().stream()
+                      .collect(
+                          Collectors.toUnmodifiableMap(
+                              Map.Entry::getKey,
+                              entry -> List.copyOf(entry.getValue().current()))));
+      return loop(metrics, timeout, loop, topics)
+          .whenComplete((ignore0, ignore1) -> receivers.values().forEach(Receiver::close));
+    }
   }
 
   private CompletableFuture<PlanInfo> loop(
-      MetricSampler sampler, Duration timeout, int loop, Set<String> topics) {
+      Supplier<ClusterBean> metrics, Duration timeout, int loop, Set<String> topics) {
     long startMs = System.currentTimeMillis();
     return CompletableFuture.supplyAsync(
             () -> {
               try {
-                return searchRebalancePlan(sampler::offer, timeout, loop, topics);
+                return searchRebalancePlan(metrics, timeout, loop, topics);
               } catch (NotEnoughMetricsException e) {
                 // sleep until the new metrics are available
-                Utils.sleep(sampler.interval());
+                // TODO: fix this
+                Utils.sleep(Duration.ofSeconds(1));
                 return null;
               }
             })
@@ -235,7 +267,7 @@ class BalancerHandler implements Handler {
               if (planInfo != null) return CompletableFuture.completedFuture(planInfo);
               else if (newTimeout.isNegative())
                 return CompletableFuture.failedFuture(new RuntimeException("Timeout"));
-              else return loop(sampler, newTimeout, loop, topics);
+              else return loop(metrics, newTimeout, loop, topics);
             });
   }
 
