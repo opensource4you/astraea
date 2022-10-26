@@ -19,6 +19,8 @@ package org.astraea.app.balancer;
 import com.beust.jcommander.Parameter;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
@@ -37,10 +39,10 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 public class BalanceProcessDemo {
   public static void main(String[] args) {
     var argument = org.astraea.common.argument.Argument.parse(new Argument(), args);
-    try (var admin = AsyncAdmin.of(argument.configs())) {
-      var clusterInfo =
-          admin.topicNames(true).thenCompose(admin::clusterInfo).toCompletableFuture().join();
-      var brokerFolders = admin.brokerFolders().toCompletableFuture().join();
+    try (var admin = Admin.of(argument.configs())) {
+      var asyncAdmin = (AsyncAdmin) Utils.member(admin, "asyncAdmin");
+      var clusterInfo = admin.clusterInfo();
+      var brokerFolders = admin.brokerFolders();
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
           Balancer.builder()
@@ -52,7 +54,7 @@ public class BalanceProcessDemo {
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()
-                  .run(admin, p.proposal().rebalancePlan())
+                  .run(asyncAdmin, p.proposal().rebalancePlan())
                   .toCompletableFuture()
                   .join());
     }

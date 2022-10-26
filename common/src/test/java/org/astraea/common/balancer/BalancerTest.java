@@ -19,7 +19,6 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -53,12 +52,13 @@ class BalancerTest extends RequireBrokerCluster {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testLeaderCountRebalance(boolean greedy) throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers());
+        var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
               () ->
-                  admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+                  admin.replicas().stream()
                       .filter(Replica::isLeader)
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
@@ -76,7 +76,7 @@ class BalancerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .binomialProbability(0.1)
           .build()
-          .apply(admin)
+          .apply(asyncAdmin)
           .toCompletableFuture()
           .get();
       var imbalanceFactor0 = currentImbalanceFactor.get();
@@ -90,13 +90,10 @@ class BalancerTest extends RequireBrokerCluster {
               .limit(Duration.ofSeconds(10))
               .greedy(greedy)
               .build()
-              .offer(
-                  admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join(),
-                  topic -> topic.equals(topicName),
-                  admin.brokerFolders().toCompletableFuture().join())
+              .offer(admin.clusterInfo(), topic -> topic.equals(topicName), admin.brokerFolders())
               .orElseThrow();
       new StraightPlanExecutor()
-          .run(admin, plan.proposal().rebalancePlan())
+          .run(asyncAdmin, plan.proposal().rebalancePlan())
           .toCompletableFuture()
           .join();
 
