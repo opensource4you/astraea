@@ -194,26 +194,25 @@ public class BeanCollector {
               }
 
               private synchronized void doUpdate() {
-                if (node.lock.tryLock()) {
-                  try {
-                    if (node.mBeanClient == null)
-                      node.mBeanClient =
-                          local ? MBeanClient.local() : clientCreator.apply(host, port);
-                    var beans = fetcher.fetch(node.mBeanClient);
-                    // remove old beans if the queue is full
-                    for (var t : objects.keySet()) {
-                      if (objects.size() + beans.size() <= numberOfObjectsPerNode) break;
-                      objects.remove(t);
-                    }
-                    long now =
-                        beans.stream()
-                            .mapToLong(HasBeanObject::createdTimestamp)
-                            .min()
-                            .orElse(System.currentTimeMillis());
-                    for (var bean : beans) objects.put(now++, bean);
-                  } finally {
-                    node.lock.unlock();
+                try {
+                  Utils.packException(node.lock::lockInterruptibly);
+                  if (node.mBeanClient == null)
+                    node.mBeanClient =
+                        local ? MBeanClient.local() : clientCreator.apply(host, port);
+                  var beans = fetcher.fetch(node.mBeanClient);
+                  // remove old beans if the queue is full
+                  for (var t : objects.keySet()) {
+                    if (objects.size() + beans.size() <= numberOfObjectsPerNode) break;
+                    objects.remove(t);
                   }
+                  long now =
+                      beans.stream()
+                          .mapToLong(HasBeanObject::createdTimestamp)
+                          .min()
+                          .orElse(System.currentTimeMillis());
+                  for (var bean : beans) objects.put(now++, bean);
+                } finally {
+                  node.lock.unlock();
                 }
               }
             };

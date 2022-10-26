@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -358,5 +359,42 @@ public class BeanCollectorTest {
             i, receiver.current().size(), "Auto update should works, iteration: " + i);
       }
     }
+  }
+
+  @Test
+  void testProgress() {
+    var collector = BeanCollector.builder().interval(Duration.ofSeconds(1)).build();
+    var size = 30;
+    var receivers =
+        IntStream.range(0, size)
+            .mapToObj(
+                i ->
+                    collector
+                        .register()
+                        .local()
+                        .fetcher(
+                            (client) -> {
+                              // increase the chance of lock contention
+                              Utils.sleep(Duration.ofMillis(20));
+                              return List.of(HostMetrics.jvmMemory(client));
+                            })
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
+    var pool = Executors.newFixedThreadPool(size);
+    var barrier = new CyclicBarrier(size);
+    var sizes =
+        IntStream.range(0, size)
+            .mapToObj(
+                i ->
+                    pool.submit(
+                        () -> {
+                          Utils.packException(() -> barrier.await());
+                          return receivers.get(i).current().size();
+                        }))
+            .collect(Collectors.toUnmodifiableList());
+
+    sizes.stream()
+        .map(x -> Utils.packException(() -> x.get()))
+        .forEach(x -> Assertions.assertNotEquals(0, x, "Each receiver has its own progress"));
   }
 }
