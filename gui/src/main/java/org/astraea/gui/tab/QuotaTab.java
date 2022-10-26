@@ -35,8 +35,8 @@ import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class QuotaTab {
 
@@ -45,8 +45,10 @@ public class QuotaTab {
     var rateKey = "connections/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(KeyLabel.highlight(ipLabelKey), TextInput.singleLine().build())
-        .input(KeyLabel.of(rateKey), TextInput.singleLine().onlyNumber().build())
+        .input(
+            NoneditableText.highlight(ipLabelKey),
+            EditableText.singleLine().disallowEmpty().build())
+        .input(NoneditableText.of(rateKey), EditableText.singleLine().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
@@ -82,8 +84,10 @@ public class QuotaTab {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(KeyLabel.highlight(clientIdLabelKey), TextInput.singleLine().build())
-        .input(KeyLabel.of(byteRateKey), TextInput.singleLine().onlyNumber().build())
+        .input(
+            NoneditableText.highlight(clientIdLabelKey),
+            EditableText.singleLine().disallowEmpty().build())
+        .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
@@ -119,8 +123,10 @@ public class QuotaTab {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .buttonName("ALTER")
-        .input(KeyLabel.highlight(clientIdLabelKey), TextInput.singleLine().build())
-        .input(KeyLabel.of(byteRateKey), TextInput.singleLine().onlyNumber().build())
+        .input(
+            NoneditableText.highlight(clientIdLabelKey),
+            EditableText.singleLine().disallowEmpty().build())
+        .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
         .buttonAction(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))

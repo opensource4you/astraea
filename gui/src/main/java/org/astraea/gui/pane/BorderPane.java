@@ -25,7 +25,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import org.astraea.common.Utils;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
 
 public class BorderPane extends javafx.scene.layout.BorderPane {
 
@@ -44,7 +44,7 @@ public class BorderPane extends javafx.scene.layout.BorderPane {
                         (r, e) -> {
                           if (e != null)
                             pane.center(
-                                TextInput.multiline()
+                                EditableText.multiline()
                                     .defaultValue(Utils.toString(e))
                                     .build()
                                     .node());

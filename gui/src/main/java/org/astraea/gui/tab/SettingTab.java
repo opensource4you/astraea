@@ -21,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -29,8 +30,8 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class SettingTab {
 
@@ -87,11 +88,14 @@ public class SettingTab {
     var pane =
         PaneBuilder.of()
             .input(
-                KeyLabel.highlight(BOOTSTRAP_SERVERS),
-                TextInput.singleLine().defaultValue(properties.get(bootstrapKey)).build())
+                NoneditableText.highlight(BOOTSTRAP_SERVERS),
+                EditableText.singleLine()
+                    .defaultValue(properties.get(bootstrapKey))
+                    .disallowEmpty()
+                    .build())
             .input(
-                KeyLabel.of(JMX_PORT),
-                TextInput.singleLine()
+                NoneditableText.of(JMX_PORT),
+                EditableText.singleLine()
                     .onlyNumber()
                     .defaultValue(properties.get(jmxPortKey))
                     .build())
@@ -99,6 +103,7 @@ public class SettingTab {
             .buttonListener(
                 (input, logger) -> {
                   var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
+                  Objects.requireNonNull(bootstrapServers);
                   var jmxPort =
                       Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT))
                           .map(Integer::parseInt);

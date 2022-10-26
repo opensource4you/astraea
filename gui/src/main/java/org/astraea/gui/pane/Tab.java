@@ -20,7 +20,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 import javafx.application.Platform;
 import javafx.scene.Node;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
 
 public class Tab extends javafx.scene.control.Tab {
 
@@ -43,7 +43,7 @@ public class Tab extends javafx.scene.control.Tab {
                       (r, e) -> {
                         if (e != null)
                           t.content(
-                              TextInput.singleLine()
+                              EditableText.singleLine()
                                   .defaultValue(e.getCause().getMessage())
                                   .build()
                                   .node());
@@ -51,7 +51,7 @@ public class Tab extends javafx.scene.control.Tab {
                       });
           } catch (IllegalArgumentException e) {
             t.content(
-                TextInput.singleLine().defaultValue(e.getCause().getMessage()).build().node());
+                EditableText.singleLine().defaultValue(e.getCause().getMessage()).build().node());
           }
         });
     return t;
