@@ -21,19 +21,28 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.net.httpserver.HttpServer;
+import java.net.URL;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.connector.impl.TestTextSourceConnector;
-import org.astraea.it.RequireSingleWorkerCluster;
+import org.astraea.common.http.HttpTestUtil;
+import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Test;
 
-class ConnectorClientTest extends RequireSingleWorkerCluster {
+class ConnectorClientTest extends RequireWorkerCluster {
 
   @Test
   void testInfo() throws ExecutionException, InterruptedException {
-    var connectorClient = ConnectorClient.builder().build(workerUrl());
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var info = connectorClient.info().toCompletableFuture().get();
     assertFalse(Utils.isBlank(info.commit()));
     assertFalse(Utils.isBlank(info.version()));
@@ -43,7 +52,7 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
   @Test
   void testConnectors() throws ExecutionException, InterruptedException {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().build(workerUrl());
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var connectors = connectorClient.connectors().toCompletableFuture().get();
     assertFalse(connectors.stream().anyMatch(x -> x.equals(connectorName)));
 
@@ -58,7 +67,7 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
   @Test
   void testConnectorByName() throws ExecutionException, InterruptedException {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().build(workerUrl());
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
 
     var executionException =
         assertThrows(
@@ -80,7 +89,7 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
   @Test
   void testCreateConnector() throws ExecutionException, InterruptedException {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().build(workerUrl());
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var exampleConnector = new HashMap<>(getExampleConnector());
     exampleConnector.put("tasks.max", "3");
 
@@ -114,7 +123,7 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
   @Test
   void testUpdateConnector() throws ExecutionException, InterruptedException {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().build(workerUrl());
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var exampleConnector = getExampleConnector();
 
     var connector =
@@ -144,7 +153,7 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
   @Test
   void testDeleteConnector() throws ExecutionException, InterruptedException {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().build(workerUrl());
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var exampleConnector = getExampleConnector();
 
     connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().get();
@@ -161,7 +170,71 @@ class ConnectorClientTest extends RequireSingleWorkerCluster {
             () -> connectorClient.deleteConnector("unknown").toCompletableFuture().get());
 
     var exception = getWorkerException(executionException);
-    assertEquals(404, exception.errorCode());
+
+    //  single worker throw 404, cluster throw 500 , so we sleep to wait worker become cluster
+    Thread.sleep(5000);
+    assertEquals(500, exception.errorCode());
+    assertTrue(exception.getMessage().contains("unknown not found"));
+  }
+
+  @Test
+  void testUrls() throws ExecutionException, InterruptedException {
+    var connectorName = Utils.randomString(10);
+    var connectorClient = ConnectorClient.builder().urls(new HashSet<>(workerUrls())).build();
+    connectorClient
+        .createConnector(connectorName, getExampleConnector())
+        .toCompletableFuture()
+        .get();
+    IntStream.range(0, 15)
+        .forEach(
+            x ->
+                Utils.packException(
+                    () -> {
+                      var connector =
+                          connectorClient.connector(connectorName).toCompletableFuture().get();
+                      assertEquals(connectorName, connector.name());
+                    }));
+  }
+
+  @Test
+  void testUrlsRoundRobin() {
+    var servers =
+        IntStream.range(0, 3)
+            .mapToObj(x -> mockConnectorsApiServer("S" + x))
+            .collect(Collectors.toList());
+    try {
+      var urls =
+          servers.stream()
+              .map(x -> "http://" + Utils.hostname() + ":" + x.getAddress().getPort())
+              .map(x -> Utils.packException(() -> new URL(x)))
+              .collect(Collectors.toSet());
+
+      var connectorClient = ConnectorClient.builder().urls(urls).build();
+
+      var allFoundConnectorNames =
+          IntStream.range(0, 20)
+              .mapToObj(
+                  x ->
+                      Utils.packException(
+                          () -> connectorClient.connectors().toCompletableFuture().get()))
+              .flatMap(Collection::stream)
+              .collect(Collectors.toSet());
+
+      assertEquals(Set.of("S0", "S1", "S2"), allFoundConnectorNames);
+    } finally {
+      servers.forEach(x -> x.stop(5));
+    }
+  }
+
+  private HttpServer mockConnectorsApiServer(String connectorName) {
+    return Utils.packException(
+        () ->
+            HttpTestUtil.createServer(
+                x ->
+                    x.createContext(
+                        "/connectors",
+                        HttpTestUtil.createTextHandler(
+                            List.of("GET"), "[" + connectorName + "]"))));
   }
 
   private WorkerResponseException getWorkerException(ExecutionException executionException) {

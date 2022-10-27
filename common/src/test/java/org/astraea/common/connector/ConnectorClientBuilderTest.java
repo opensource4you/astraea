@@ -16,32 +16,22 @@
  */
 package org.astraea.common.connector;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletionStage;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Set;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-/**
- * The kafka connect client
- *
- * @see <a
- *     href="https://docs.confluent.io/platform/current/connect/references/restapi.html">Connector
- *     Document</a>
- */
-public interface ConnectorClient {
+class ConnectorClientBuilderTest {
 
-  static Builder builder() {
-    return new Builder();
+  @Test
+  void testUrlShouldSet() throws MalformedURLException {
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> ConnectorClient.builder().build());
+
+    ConnectorClient.builder().url(new URL("https://github.com/skiptests/astraea/")).build();
+    ConnectorClient.builder()
+        .urls(Set.of(new URL("https://github.com/skiptests/astraea/")))
+        .build();
   }
-
-  CompletionStage<WorkerInfo> info();
-
-  CompletionStage<List<String>> connectors();
-
-  CompletionStage<ConnectorInfo> connector(String name);
-
-  CompletionStage<ConnectorInfo> createConnector(String name, Map<String, String> config);
-
-  CompletionStage<ConnectorInfo> updateConnector(String name, Map<String, String> config);
-
-  CompletionStage<Void> deleteConnector(String name);
 }

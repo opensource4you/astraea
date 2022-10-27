@@ -118,16 +118,13 @@ public class HttpExecutorBuilder {
             () -> {
               HttpRequest request = HttpRequest.newBuilder().DELETE().uri(new URI(url)).build();
               return client
-                  .sendAsync(request, HttpResponse.BodyHandlers.discarding())
-                  .thenApply(this::withException)
+                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                  .thenApply(this::toVoidHttpResponse)
                   .thenApply(Response::of);
             });
       }
 
-      /**
-       * if return value is Json , then we can convert it to Object. Or we just simply handle
-       * exception by {@link #withException(HttpResponse)}
-       */
+      /** handle json or void {@link #toVoidHttpResponse(HttpResponse)} */
       private <T> HttpResponse<T> toJsonHttpResponse(
           HttpResponse<String> response, TypeRef<T> typeRef) throws StringResponseException {
         var innerResponse = withException(response);
@@ -142,10 +139,12 @@ public class HttpExecutorBuilder {
             });
       }
 
-      /**
-       * Handle exception with non json type response . If return value is json , we can use {@link
-       * #toJsonHttpResponse(HttpResponse, TypeRef)}
-       */
+      /** handle void or json {@link #toJsonHttpResponse(HttpResponse, TypeRef)} (HttpResponse)} */
+      private HttpResponse<Void> toVoidHttpResponse(HttpResponse<String> response) {
+        var innerResponse = withException(response);
+        return new MappedHttpResponse<>(innerResponse, x -> null);
+      }
+
       private <T> HttpResponse<T> withException(HttpResponse<T> response) {
         if (response.statusCode() >= 400) {
           throw new StringResponseException(toStringResponse(response));

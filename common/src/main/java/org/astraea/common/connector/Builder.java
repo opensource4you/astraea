@@ -18,11 +18,14 @@ package org.astraea.common.connector;
 
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.common.connector.WorkerResponseException.WorkerError;
 import org.astraea.common.http.HttpExecutor;
 import org.astraea.common.http.Response;
@@ -32,7 +35,22 @@ import org.astraea.common.json.TypeRef;
 
 public class Builder {
 
-  public ConnectorClient build(URL url) {
+  private List<URL> urls = List.of();
+
+  public Builder urls(Set<URL> urls) {
+    this.urls = new ArrayList<>(Objects.requireNonNull(urls));
+    return this;
+  }
+
+  public Builder url(URL url) {
+    this.urls = List.of(Objects.requireNonNull(url));
+    return this;
+  }
+
+  public ConnectorClient build() {
+    if (urls.isEmpty()) {
+      throw new IllegalArgumentException("Urls should be set.");
+    }
     var httpExecutor = HttpExecutor.builder().build();
 
     return new ConnectorClient() {
@@ -79,7 +97,8 @@ public class Builder {
 
       private String getURL(String path) {
         try {
-          return url.toURI().resolve(path).toString();
+          var index = ThreadLocalRandom.current().nextInt(0, urls.size());
+          return urls.get(index).toURI().resolve(path).toString();
         } catch (URISyntaxException e) {
           throw new RuntimeException(e);
         }

@@ -31,17 +31,22 @@ import java.util.stream.Collectors;
 
 public class HttpTestUtil {
 
+  public static HttpServer createServer(Consumer<HttpServer> serverSettingsConsumer)
+      throws IOException {
+    var server = HttpServer.create(new InetSocketAddress(0), 0);
+    serverSettingsConsumer.accept(server);
+    server.setExecutor(null);
+    server.start();
+    return server;
+  }
+
   public static void testWithServer(
       Consumer<HttpServer> serverSettingsConsumer,
       Consumer<InetSocketAddress> inetSocketAddressConsumer) {
     HttpServer server = null;
     {
       try {
-        server = HttpServer.create(new InetSocketAddress(0), 0);
-        serverSettingsConsumer.accept(server);
-        server.setExecutor(null);
-        server.start();
-
+        server = createServer(serverSettingsConsumer);
         inetSocketAddressConsumer.accept(server.getAddress());
       } catch (IOException e) {
         e.printStackTrace();
