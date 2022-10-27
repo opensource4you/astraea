@@ -32,7 +32,10 @@ import java.util
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import scala.collection.convert.ImplicitConversions.{`collection AsScalaIterable`, `collection asJava`}
+import scala.collection.convert.ImplicitConversions.{
+  `collection AsScalaIterable`,
+  `collection asJava`
+}
 import scala.concurrent.duration.Duration
 import scala.util.Random
 
