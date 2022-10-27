@@ -24,20 +24,18 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Partition;
-import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
-import org.astraea.gui.text.Label;
-import org.astraea.gui.text.TextField;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class PartitionTab {
 
@@ -52,6 +50,7 @@ public class PartitionTab {
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, p.topic());
               result.put(PARTITION_KEY, p.partition());
+              result.put("internal", p.internal());
               p.leader().ifPresent(l -> result.put("leader", l.id()));
               result.put(
                   "replicas",
@@ -78,20 +77,17 @@ public class PartitionTab {
   }
 
   static Tab tab(Context context) {
-    var includeInternal = "internal";
     var moveToKey = "move to brokers";
     var offsetKey = "truncate to offset";
     return Tab.of(
         "partition",
         PaneBuilder.of()
-            .searchField("topic name", "topic-*,*abc*")
-            .multiRadioButtons(List.of(includeInternal))
             .tableViewAction(
                 MapUtils.of(
-                    Label.of(moveToKey),
-                    TextField.builder().disable().hint("1001,1002").build(),
-                    Label.of(offsetKey),
-                    TextField.builder().disable().build()),
+                    NoneditableText.of(moveToKey),
+                    EditableText.singleLine().disable().hint("1001,1002").build(),
+                    NoneditableText.of(offsetKey),
+                    EditableText.singleLine().disable().build()),
                 "ALTER",
                 (items, inputs, logger) -> {
                   var partitions =
@@ -113,29 +109,27 @@ public class PartitionTab {
                     return CompletableFuture.completedStage(null);
                   }
                   var moveTo =
-                      Optional.ofNullable(inputs.get(moveToKey))
+                      inputs
+                          .get(moveToKey)
                           .map(
                               s ->
                                   Arrays.stream(s.split(","))
                                       .map(Integer::parseInt)
                                       .collect(Collectors.toList()));
-                  var offset = Optional.ofNullable(inputs.get(offsetKey)).map(Long::parseLong);
+                  var offset = inputs.get(offsetKey).map(Long::parseLong);
                   if (moveTo.isEmpty() && offset.isEmpty())
                     throw new IllegalArgumentException(
                         "Please define either \"move to\" or \"offset\"");
 
                   return context
                       .admin()
-                      .topics(
-                          partitions.stream()
-                              .map(TopicPartition::topic)
-                              .collect(Collectors.toSet()))
+                      .internalTopicNames()
                       .thenCompose(
-                          topics -> {
+                          internalTopics -> {
                             var internal =
-                                topics.stream()
-                                    .filter(Topic::internal)
-                                    .map(Topic::name)
+                                partitions.stream()
+                                    .filter(p -> internalTopics.contains(p.topic()))
+                                    .map(TopicPartition::topic)
                                     .collect(Collectors.toSet());
                             if (!internal.isEmpty())
                               throw new IllegalArgumentException(
@@ -171,12 +165,7 @@ public class PartitionTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(input.multiSelectedRadios(List.of()).contains(includeInternal))
-                        .thenApply(
-                            names ->
-                                names.stream()
-                                    .filter(input::matchSearch)
-                                    .collect(Collectors.toSet()))
+                        .topicNames(true)
                         .thenCompose(context.admin()::partitions)
                         .thenApply(PartitionTab::basicResult))
             .build());

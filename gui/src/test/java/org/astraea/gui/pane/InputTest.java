@@ -31,18 +31,13 @@ public class InputTest {
     var input =
         new Input() {
           @Override
-          public <T> List<T> multiSelectedRadios(List<T> defaultObjs) {
+          public List<String> selectedKeys() {
             return List.of();
           }
 
           @Override
           public Map<String, Optional<String>> texts() {
             return texts;
-          }
-
-          @Override
-          public boolean matchSearch(String word) {
-            return false;
           }
         };
 

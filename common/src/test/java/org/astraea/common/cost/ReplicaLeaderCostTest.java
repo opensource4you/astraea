@@ -18,6 +18,8 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class ReplicaLeaderCostTest {
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Test
   void testNoMetrics() {
@@ -39,13 +42,23 @@ public class ReplicaLeaderCostTest {
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
             ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
             ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
-    var clusterInfo = ClusterInfo.of(replicas);
+    var clusterInfo =
+        ClusterInfo.of(
+            Set.of(
+                NodeInfo.of(10, "host1", 8080),
+                NodeInfo.of(11, "host1", 8080),
+                NodeInfo.of(12, "host1", 8080)),
+            replicas);
     var brokerCost = ReplicaLeaderCost.leaderCount(clusterInfo);
-
+    var clusterCost =
+        dispersion.calculate(
+            brokerCost.values().stream().map(x -> (double) x).collect(Collectors.toSet()));
     Assertions.assertTrue(brokerCost.containsKey(10));
     Assertions.assertTrue(brokerCost.containsKey(11));
-    Assertions.assertEquals(2, brokerCost.size());
+    Assertions.assertEquals(3, brokerCost.size());
     Assertions.assertTrue(brokerCost.get(10) > brokerCost.get(11));
+    Assertions.assertEquals(brokerCost.get(12), 0);
+    Assertions.assertEquals(clusterCost, 0.816496580927726);
   }
 
   @Test

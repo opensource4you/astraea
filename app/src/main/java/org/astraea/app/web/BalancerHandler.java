@@ -35,14 +35,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
@@ -67,6 +68,7 @@ class BalancerHandler implements Handler {
   static final int TIMEOUT_DEFAULT = 3;
 
   private final Admin admin;
+  private final AsyncAdmin asyncAdmin;
   private final RebalancePlanGenerator generator;
   private final RebalancePlanExecutor executor;
   HasClusterCost clusterCostFunction;
@@ -98,6 +100,7 @@ class BalancerHandler implements Handler {
       RebalancePlanGenerator generator,
       RebalancePlanExecutor executor) {
     this.admin = admin;
+    this.asyncAdmin = (AsyncAdmin) Utils.member(admin, "asyncAdmin");
     this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
     this.generator = generator;
@@ -178,7 +181,7 @@ class BalancerHandler implements Handler {
                   Balancer.builder()
                       .planGenerator(generator)
                       .clusterCost(clusterCostFunction)
-                      .moveCost(moveCostFunction)
+                      .moveCost(List.of(moveCostFunction))
                       .limit(loop)
                       .limit(timeout)
                       .build()
@@ -222,7 +225,7 @@ class BalancerHandler implements Handler {
                       clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
-                          .map(p -> List.of(new MigrationCost(p.moveCost())))
+                          .map(p -> List.of(new MigrationCost(p.moveCost().iterator().next())))
                           .orElseGet(List::of));
               return new PlanInfo(report, bestPlan.orElseThrow());
             });
@@ -261,8 +264,7 @@ class BalancerHandler implements Handler {
         executedPlans.put(
             thePlanId,
             CompletableFuture.runAsync(
-                () ->
-                    executor.run(RebalanceAdmin.of(admin), theRebalanceProposal.rebalancePlan())));
+                () -> executor.run(asyncAdmin, theRebalanceProposal.rebalancePlan())));
         lastExecutionId.set(thePlanId);
         return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
       }

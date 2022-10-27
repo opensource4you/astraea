@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client.producer;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.metrics.AppInfo;
@@ -51,8 +52,11 @@ public final class ProducerMetrics {
                   }
 
                   @Override
-                  public long startTimeMs() {
-                    return (long) beanObject().attributes().get("start-time-ms");
+                  public Optional<Long> startTimeMs() {
+                    var t = beanObject().attributes().get("start-time-ms");
+                    ;
+                    if (t == null) return Optional.empty();
+                    return Optional.of((long) t);
                   }
 
                   @Override

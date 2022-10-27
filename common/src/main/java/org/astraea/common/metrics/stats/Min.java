@@ -14,26 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-import org.astraea.common.admin.AsyncAdmin
+public class Min<V extends Comparable<V>> implements Stat<V> {
+  private V min;
 
-import scala.concurrent.Future
-import scala.collection.JavaConverters._
+  public Min() {
+    min = null;
+  }
 
-object KafkaWriter {
-  def createTopic(
-      admin: AsyncAdmin,
-      metadata: Metadata
-  ): Future[java.lang.Boolean] = {
-    Utils.asScala(
-      admin
-        .creator()
-        .topic(metadata.topicName)
-        .numberOfPartitions(metadata.numPartitions)
-        .numberOfReplicas(metadata.numReplicas)
-        .configs(metadata.topicConfig.asJava)
-        .run()
-    )
+  @Override
+  public synchronized void record(V value) {
+    min = (min == null || min.compareTo(value) > 0) ? value : min;
+  }
+
+  @Override
+  public V measure() {
+    if (min == null) throw new RuntimeException("Nothing to measure");
+    return min;
   }
 }

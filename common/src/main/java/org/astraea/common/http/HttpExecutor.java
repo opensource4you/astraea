@@ -14,26 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.executor;
+package org.astraea.common.http;
 
-import java.util.concurrent.CompletableFuture;
-import org.astraea.common.admin.TopicPartition;
+import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import org.astraea.common.json.TypeRef;
 
-public class LeaderElectionTask {
+/** Send json http request. */
+public interface HttpExecutor {
 
-  private final TopicPartition topicPartition;
-  private final CompletableFuture<Boolean> completableFuture;
-
-  public LeaderElectionTask(RebalanceAdmin admin, TopicPartition topicPartition) {
-    this.topicPartition = topicPartition;
-    this.completableFuture = admin.waitPreferredLeaderSynced(topicPartition);
+  static HttpExecutorBuilder builder() {
+    return new HttpExecutorBuilder();
   }
 
-  public TopicPartition topicPartition() {
-    return topicPartition;
-  }
+  <T> CompletionStage<Response<T>> get(String url, TypeRef<T> typeRef);
 
-  public CompletableFuture<Boolean> completableFuture() {
-    return completableFuture;
-  }
+  <T> CompletionStage<Response<T>> get(String url, Map<String, String> param, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> post(String url, Object body, TypeRef<T> typeRef);
+
+  <T> CompletionStage<Response<T>> put(String url, Object body, TypeRef<T> typeRef);
+
+  CompletionStage<Response<Void>> delete(String url);
 }

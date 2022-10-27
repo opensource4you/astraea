@@ -14,18 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-object spark2kafka {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-  def main(args: Array[String]): Unit = {
-    val metaData = Metadata(Utils.requireFile(args(0)))
-    val spark = CSVReader.createSpark(metaData.deploymentModel)
-    val userSchema =
-      CSVReader.createSchema(metaData.column, metaData.primaryKeys)
-    val csvDF =
-      CSVReader.readCSV(spark, userSchema, metaData.sourcePath.getPath)
-    //TODO How to start
-    CSVReader.writeKafka(csvDF, metaData).start().awaitTermination()
+public class MaxTest {
+  @Test
+  void testMax() {
+    var stat = new Max<Integer>();
+    stat.record(39);
+    stat.record(20);
+    stat.record(103);
+
+    Assertions.assertEquals(103, stat.measure());
+  }
+
+  @Test
+  void testException() {
+    var stat = new Max<Integer>();
+    Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }

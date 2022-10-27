@@ -245,6 +245,20 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   }
 
   /**
+   * Get the list of replica leaders of given node
+   *
+   * @param broker the broker id
+   * @return A list of {@link ReplicaInfo}.
+   */
+  default List<T> replicaLeaders(int broker) {
+    return replicaStream()
+        .filter(r -> r.nodeInfo().id() == broker)
+        .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
    * Get the list of replica leaders of given topic on the given node
    *
    * @param broker the broker id

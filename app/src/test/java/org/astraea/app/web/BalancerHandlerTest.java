@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
@@ -32,12 +33,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.generator.RebalancePlanGenerator;
@@ -250,8 +251,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .planGenerator(RebalancePlanGenerator.random(30))
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> after.value() <= before.value())
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> true)
+              .moveCost(List.of(moveCostFunction))
+              .movementConstraint(moveCosts -> true)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
 
@@ -265,8 +266,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   .planGenerator(RebalancePlanGenerator.random(30))
                   .clusterCost(clusterCostFunction)
                   .clusterConstraint((before, after) -> true)
-                  .moveCost(moveCostFunction)
-                  .movementConstraint(moveCost -> true)
+                  .moveCost(List.of(moveCostFunction))
+                  .movementConstraint(moveCosts -> true)
                   .limit(0)
                   .build()
                   .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
@@ -278,8 +279,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .planGenerator(RebalancePlanGenerator.random(30))
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> false)
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> true)
+              .moveCost(List.of(moveCostFunction))
+              .movementConstraint(moveCosts -> true)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
@@ -290,8 +291,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .planGenerator(RebalancePlanGenerator.random(30))
               .clusterCost(clusterCostFunction)
               .clusterConstraint((before, after) -> true)
-              .moveCost(moveCostFunction)
-              .movementConstraint(moveCost -> false)
+              .moveCost(List.of(moveCostFunction))
+              .movementConstraint(moveCosts -> false)
               .build()
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
     }
@@ -439,9 +440,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
-              super.run(rebalanceAdmin, targetAllocation);
+            public CompletionStage<Void> run(
+                AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+              super.run(admin, targetAllocation);
               Utils.sleep(Duration.ofSeconds(10));
+              return null;
             }
           };
       var handler =
@@ -559,9 +562,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             final CountDownLatch latch = new CountDownLatch(1);
 
             @Override
-            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
-              super.run(rebalanceAdmin, targetAllocation);
+            public CompletionStage<Void> run(
+                AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+              super.run(admin, targetAllocation);
               Utils.packException(() -> latch.await());
+              return null;
             }
           };
       var handler =
@@ -630,8 +635,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
-              super.run(rebalanceAdmin, targetAllocation);
+            public CompletionStage<Void> run(
+                AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+              super.run(admin, targetAllocation);
               throw new RuntimeException("Boom");
             }
           };
@@ -774,8 +780,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     private final LongAdder executionCounter = new LongAdder();
 
     @Override
-    public void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation) {
+    public CompletionStage<Void> run(AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
       executionCounter.increment();
+      return null;
     }
 
     int count() {

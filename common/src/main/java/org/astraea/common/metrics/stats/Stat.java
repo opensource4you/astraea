@@ -14,26 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.executor;
+package org.astraea.common.metrics.stats;
 
-import java.util.concurrent.CompletableFuture;
-import org.astraea.common.admin.TopicPartitionReplica;
+/** This should be thread safe */
+public interface Stat<V> {
+  void record(V value);
 
-public class ReplicaMigrationTask {
+  V measure();
 
-  private final TopicPartitionReplica log;
-  private final CompletableFuture<Boolean> completableFuture;
+  /** Make a readonly copy of this object. */
+  default Stat<V> snapshot() {
+    var value = measure();
+    return new Stat<>() {
+      @Override
+      public void record(V ignore) {
+        throw new UnsupportedOperationException("Cannot update snapshot object!");
+      }
 
-  public ReplicaMigrationTask(RebalanceAdmin admin, TopicPartitionReplica log) {
-    this.log = log;
-    this.completableFuture = admin.waitLogSynced(log);
-  }
-
-  public TopicPartitionReplica log() {
-    return log;
-  }
-
-  public CompletableFuture<Boolean> completableFuture() {
-    return completableFuture;
+      @Override
+      public V measure() {
+        return value;
+      }
+    };
   }
 }

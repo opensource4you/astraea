@@ -17,6 +17,7 @@
 package org.astraea.etl
 
 import org.astraea.common.admin.AsyncAdmin
+import org.astraea.etl.Utils.createTopic
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{
@@ -25,7 +26,7 @@ import org.junit.jupiter.api.Assertions.{
   assertThrows,
   assertTrue
 }
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{RepeatedTest, Test}
 
 import java.io.File
 import java.util.concurrent.{CompletionException, TimeUnit}
@@ -33,17 +34,20 @@ import scala.collection.JavaConverters._
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.util.Random
 
-class KafkaWriterTest extends RequireBrokerCluster {
-
-  @Test def topicCreatorTest(): Unit = {
-    val TOPIC = "test-topicA"
+class WriterTest extends RequireBrokerCluster {
+  @Test
+  def topicCreatorTest(): Unit = {
+    val TOPIC = "test-topicA" + Random.nextInt().toString
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
-        TimeUnit.SECONDS.sleep(3)
+        Thread.sleep(Duration(1, TimeUnit.SECONDS).toMillis)
+        val eventualStrings = Utils.asScala(admin.topicNames(true))
+        Await.result(eventualStrings, Duration.Inf)
         assertTrue(
-          admin.topicNames(true).toCompletableFuture.get().contains(TOPIC)
+          eventualStrings.value.get.get.contains(TOPIC)
         )
 
         assertEquals(
@@ -102,7 +106,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, partition),
+                createTopic(admin, partition),
                 Duration.Inf
               )
           ).getCause
@@ -127,7 +131,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, replica),
+                createTopic(admin, replica),
                 Duration.Inf
               )
           ).getCause
@@ -152,7 +156,7 @@ class KafkaWriterTest extends RequireBrokerCluster {
             classOf[CompletionException],
             () =>
               Await.result(
-                KafkaWriter.createTopic(admin, config),
+                createTopic(admin, config),
                 Duration.Inf
               )
           ).getCause
@@ -178,6 +182,6 @@ class KafkaWriterTest extends RequireBrokerCluster {
       config,
       "local[2]"
     )
-    KafkaWriter.createTopic(asyncAdmin, metadata)
+    createTopic(asyncAdmin, metadata)
   }
 }

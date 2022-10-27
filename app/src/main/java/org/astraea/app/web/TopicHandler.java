@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.admin.Config;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
@@ -41,6 +43,8 @@ class TopicHandler implements Handler {
   static final String PARTITION_KEY = "partition";
   static final String LIST_INTERNAL = "listInternal";
   static final String PROBABILITY_INTERNAL = "probability";
+
+  static final String POLL_RECORD_TIMEOUT = "poll_timeout";
 
   private final AsyncAdmin admin;
 
@@ -70,6 +74,9 @@ class TopicHandler implements Handler {
             topics ->
                 get(
                     topics,
+                    Optional.ofNullable(channel.queries().get(POLL_RECORD_TIMEOUT))
+                        .map(DurationField::toDuration)
+                        .orElse(null),
                     partition ->
                         !channel.queries().containsKey(PARTITION_KEY)
                             || partition == Integer.parseInt(channel.queries().get(PARTITION_KEY))))
@@ -77,12 +84,27 @@ class TopicHandler implements Handler {
   }
 
   private CompletionStage<Topics> get(
-      Set<String> topicNames, Predicate<Integer> partitionPredicate) {
+      Set<String> topicNames, Duration pollTimeout, Predicate<Integer> partitionPredicate) {
+    var timestampOfRecords =
+        pollTimeout == null
+            ? CompletableFuture.completedStage(Map.<TopicPartition, Long>of())
+            : admin
+                .topicPartitions(topicNames)
+                .thenCompose(
+                    tps ->
+                        admin.timestampOfLatestRecords(
+                            tps.stream()
+                                .filter(p -> partitionPredicate.test(p.partition()))
+                                .collect(Collectors.toSet()),
+                            pollTimeout));
+
     return FutureUtils.combine(
         admin.replicas(topicNames),
         admin.partitions(topicNames),
         admin.topics(topicNames),
-        (replicas, partitions, topics) -> {
+        admin.consumerGroupIds().thenCompose(admin::consumerGroups),
+        timestampOfRecords,
+        (replicas, partitions, topics, groups, recordTimestamp) -> {
           var ps =
               partitions.stream()
                   .filter(p -> partitionPredicate.test(p.partition()))
@@ -95,15 +117,45 @@ class TopicHandler implements Handler {
                                       p.partition(),
                                       p.earliestOffset(),
                                       p.latestOffset(),
+                                      p.maxTimestamp().orElse(null),
+                                      recordTimestamp.get(p.topicPartition()),
                                       replicas.stream()
                                           .filter(replica -> replica.topic().equals(p.topic()))
                                           .filter(replica -> replica.partition() == p.partition())
                                           .map(Replica::new)
                                           .collect(Collectors.toUnmodifiableList())),
                               Collectors.toList())));
+          // topic name -> group ids
+          var gs =
+              groups.stream()
+                  .flatMap(
+                      g ->
+                          g.assignment().entrySet().stream()
+                              .flatMap(
+                                  m ->
+                                      m.getValue().stream()
+                                          .map(TopicPartition::topic)
+                                          .distinct()
+                                          .map(t -> Map.entry(t, g.groupId()))))
+                  .collect(Collectors.groupingBy(Map.Entry::getKey))
+                  .entrySet()
+                  .stream()
+                  .collect(
+                      Collectors.toMap(
+                          Map.Entry::getKey,
+                          e ->
+                              e.getValue().stream()
+                                  .map(Map.Entry::getValue)
+                                  .collect(Collectors.toSet())));
           return new Topics(
               topics.stream()
-                  .map(topic -> new TopicInfo(topic.name(), ps.get(topic.name()), topic.config()))
+                  .map(
+                      topic ->
+                          new TopicInfo(
+                              topic.name(),
+                              gs.getOrDefault(topic.name(), Set.of()),
+                              ps.get(topic.name()),
+                              topic.config().raw()))
                   .collect(Collectors.toUnmodifiableList()));
         });
   }
@@ -155,12 +207,12 @@ class TopicHandler implements Handler {
                           .toCompletableFuture();
                     })
                 .collect(Collectors.toList()))
-        .thenCompose(ignored -> get(topicNames, id -> true))
+        .thenCompose(ignored -> get(topicNames, null, id -> true))
         .exceptionally(
             ignored ->
                 new Topics(
                     topicNames.stream()
-                        .map(t -> new TopicInfo(t, List.of(), Map.of()))
+                        .map(t -> new TopicInfo(t, Set.of(), List.of(), Map.of()))
                         .collect(Collectors.toUnmodifiableList())));
   }
 
@@ -182,15 +234,18 @@ class TopicHandler implements Handler {
 
   static class TopicInfo implements Response {
     final String name;
+
+    final Set<String> activeGroupIds;
     final List<Partition> partitions;
     final Map<String, String> configs;
 
-    private TopicInfo(String name, List<Partition> partitions, Config configs) {
-      this(name, partitions, configs.raw());
-    }
-
-    private TopicInfo(String name, List<Partition> partitions, Map<String, String> configs) {
+    private TopicInfo(
+        String name,
+        Set<String> groupIds,
+        List<Partition> partitions,
+        Map<String, String> configs) {
       this.name = name;
+      this.activeGroupIds = groupIds;
       this.partitions = partitions;
       this.configs = configs;
     }
@@ -202,11 +257,25 @@ class TopicHandler implements Handler {
     final long latest;
     final List<Replica> replicas;
 
-    Partition(int id, long earliest, long latest, List<Replica> replicas) {
+    // previous kafka does not support to query max timestamp
+    final Long maxTimestamp;
+
+    // optional field
+    final Long timestampOfLatestRecord;
+
+    Partition(
+        int id,
+        long earliest,
+        long latest,
+        Long maxTimestamp,
+        Long timestampOfLatestRecord,
+        List<Replica> replicas) {
       this.id = id;
       this.earliest = earliest;
       this.latest = latest;
       this.replicas = replicas;
+      this.maxTimestamp = maxTimestamp;
+      this.timestampOfLatestRecord = timestampOfLatestRecord;
     }
   }
 

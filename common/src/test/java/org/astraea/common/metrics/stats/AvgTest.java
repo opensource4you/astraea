@@ -14,19 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.box;
+package org.astraea.common.metrics.stats;
 
-import java.util.Set;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class ComboBox<T> extends javafx.scene.control.ComboBox<T> {
+public class AvgTest {
+  @Test
+  void testAvg() {
+    var stat = new Avg();
+    stat.record(2.0);
+    stat.record(7.0);
+    stat.record(6.0);
 
-  public static ComboBox<String> strings(Set<String> items) {
-    return new ComboBox<>(FXCollections.observableArrayList(items.toArray(String[]::new)));
+    Assertions.assertEquals(5.0, stat.measure());
   }
 
-  private ComboBox(ObservableList<T> items) {
-    super(items);
+  @Test
+  void testException() {
+    var stat = new Avg();
+    Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }
