@@ -36,7 +36,7 @@ import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.consumer.Header;
@@ -98,7 +98,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   }
 
   @Test
-  void multipleThreadTest() {
+  void multipleThreadTest() throws ExecutionException, InterruptedException {
     var topicName = "address";
     createTopic(topicName);
     var key = "tainan";
@@ -147,7 +147,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   }
 
   @Test
-  void interdependentTest() {
+  void interdependentTest() throws ExecutionException, InterruptedException {
     var topicName = "address";
     createTopic(topicName);
     var key = "tainan";
@@ -207,9 +207,9 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     }
   }
 
-  private void createTopic(String topic) {
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(9).create();
+  private void createTopic(String topic) throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(9).run().toCompletableFuture().get();
     }
   }
 
