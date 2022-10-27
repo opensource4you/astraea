@@ -25,7 +25,7 @@ import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile, mkdir}
 import org.astraea.etl.Reader.createSpark
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{Disabled, Test}
 
 import java.io._
 import java.nio.file.Files
@@ -92,6 +92,7 @@ class ReaderTest extends RequireBrokerCluster {
     )
   }
 
+  @Disabled
   @Test def sparkReadCSVTest(): Unit = {
     val tempPath =
       System.getProperty("java.io.tmpdir") + "/sparkFile-" + Random.nextInt()

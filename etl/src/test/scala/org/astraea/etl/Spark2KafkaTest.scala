@@ -24,7 +24,7 @@ import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
-import org.junit.jupiter.api.{BeforeAll, Test}
+import org.junit.jupiter.api.{BeforeAll, Disabled, Test}
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
@@ -32,10 +32,7 @@ import java.util
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import scala.collection.convert.ImplicitConversions.{
-  `collection AsScalaIterable`,
-  `collection asJava`
-}
+import scala.collection.convert.ImplicitConversions.{`collection AsScalaIterable`, `collection asJava`}
 import scala.concurrent.duration.Duration
 import scala.util.Random
 
@@ -101,6 +98,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     }
   }
 
+  @Disabled
   @Test def archive(): Unit = {
     Thread.sleep(Duration(20, TimeUnit.SECONDS).toMillis)
     Range
