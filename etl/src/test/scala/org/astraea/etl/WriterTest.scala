@@ -37,8 +37,7 @@ import scala.concurrent.{Await, Future}
 import scala.util.Random
 
 class WriterTest extends RequireBrokerCluster {
-
-  @RepeatedTest(100)
+  @Test
   def topicCreatorTest(): Unit = {
     val TOPIC = "test-topicA" + Random.nextInt().toString
     Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
