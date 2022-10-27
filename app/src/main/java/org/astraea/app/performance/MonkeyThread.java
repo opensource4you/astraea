@@ -80,26 +80,32 @@ public class MonkeyThread implements AbstractThread {
           while (!close.get()) {
             if (consumerThreads.size() < param.consumers) {
               System.out.println("add a consumer");
-              var consumer =
-                  ConsumerThread.create(
-                          1,
-                          (clientId, listener) ->
-                              Consumer.forTopics(new HashSet<>(param.topics))
-                                  .configs(param.configs())
-                                  .config(
-                                      ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                                      param.transactionSize > 1
-                                          ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                                          : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                                  .bootstrapServers(param.bootstrapServers())
-                                  .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                                  .seek(param.lastOffsets())
-                                  .consumerRebalanceListener(listener)
-                                  .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                                  .build())
-                      .get(0);
-              consumerThreads.add(consumer);
-              Utils.sleep(frequency);
+              try {
+                var lastOffsets = param.lastOffsets();
+                var consumer =
+                    ConsumerThread.create(
+                            1,
+                            (clientId, listener) ->
+                                Consumer.forTopics(new HashSet<>(param.topics))
+                                    .configs(param.configs())
+                                    .config(
+                                        ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                                        param.transactionSize > 1
+                                            ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                                            : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                                    .bootstrapServers(param.bootstrapServers())
+                                    .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                                    .seek(lastOffsets)
+                                    .consumerRebalanceListener(listener)
+                                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                                    .build())
+                        .get(0);
+                consumerThreads.add(consumer);
+                Utils.sleep(frequency);
+              } catch (Exception e) {
+                System.out.println(
+                    "failed to create consumer for monkey due to: " + e.getMessage());
+              }
             }
           }
         });
