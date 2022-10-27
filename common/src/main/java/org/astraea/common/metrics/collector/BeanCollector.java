@@ -243,7 +243,7 @@ public class BeanCollector implements AutoCloseable {
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     executor.shutdown();
     Utils.packException(() -> executor.awaitTermination(10, TimeUnit.SECONDS));
   }

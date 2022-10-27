@@ -234,5 +234,6 @@ public class StrictCostDispatcher implements Dispatcher {
   public void doClose() {
     receivers.values().forEach(r -> Utils.swallowException(r::close));
     receivers.clear();
+    beanCollector.close();
   }
 }
