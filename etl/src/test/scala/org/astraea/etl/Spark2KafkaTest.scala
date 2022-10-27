@@ -101,7 +101,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     }
   }
 
-  @Test def archive(): Unit = {
+  @Test def archiveTest(): Unit = {
     Thread.sleep(Duration(20, TimeUnit.SECONDS).toMillis)
     assertTrue(
       Files.exists(
