@@ -39,7 +39,7 @@ import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -218,12 +218,18 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testAssignment() {
+  void testAssignment() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var partitionNum = 2;
-      admin.creator().topic(topic).numberOfPartitions(partitionNum).create();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitionNum)
+          .run()
+          .toCompletableFuture()
+          .get();
       Utils.sleep(Duration.ofSeconds(2));
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
@@ -264,11 +270,11 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCommitOffset() {
+  void testCommitOffset() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).create();
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
       producer.sender().topic(topic).value(new byte[10]).run();
       producer.flush();
@@ -284,16 +290,34 @@ public class ConsumerTest extends RequireBrokerCluster {
               .config(ConsumerConfigs.ENABLE_AUTO_COMMIT_CONFIG, "false")
               .build()) {
         Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(4)).size());
-        Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
+        Assertions.assertEquals(
+            1, admin.consumerGroups(Set.of(groupId)).toCompletableFuture().get().size());
         // no offsets are committed, so there is no progress.
         Assertions.assertEquals(
-            0, admin.consumerGroups(Set.of(groupId)).iterator().next().consumeProgress().size());
+            0,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .toCompletableFuture()
+                .get()
+                .iterator()
+                .next()
+                .consumeProgress()
+                .size());
 
         // commit offsets manually, so we can "see" the progress now.
         consumer.commitOffsets(Duration.ofSeconds(3));
-        Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
         Assertions.assertEquals(
-            1, admin.consumerGroups(Set.of(groupId)).iterator().next().consumeProgress().size());
+            1, admin.consumerGroups(Set.of(groupId)).toCompletableFuture().get().size());
+        Assertions.assertEquals(
+            1,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .toCompletableFuture()
+                .get()
+                .iterator()
+                .next()
+                .consumeProgress()
+                .size());
       }
     }
   }
@@ -414,8 +438,8 @@ public class ConsumerTest extends RequireBrokerCluster {
   void testCreateConsumersConcurrent() throws ExecutionException, InterruptedException {
     var partitions = 3;
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(partitions).create();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(partitions).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
     }
 

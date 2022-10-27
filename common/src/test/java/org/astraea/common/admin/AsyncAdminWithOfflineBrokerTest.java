@@ -52,6 +52,7 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
           .run()
           .toCompletableFuture()
           .get();
+      Utils.sleep(Duration.ofSeconds(3));
       var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().get();
       NUMBER_OF_ONLINE_PARTITIONS =
           PARTITIONS

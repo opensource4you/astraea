@@ -20,7 +20,7 @@ import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
@@ -146,9 +146,9 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   @Test
   void testNodeMetrics() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = AsyncAdmin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
       producer
           .sender()

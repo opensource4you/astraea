@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -36,7 +37,7 @@ import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -60,7 +61,8 @@ import org.astraea.common.producer.ProducerConfigs;
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args) throws InterruptedException, IOException {
+  public static void main(String[] args)
+      throws InterruptedException, IOException, ExecutionException {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
@@ -76,7 +78,7 @@ public class Performance {
   }
 
   public static List<String> execute(final Argument param)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, ExecutionException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -145,8 +147,7 @@ public class Performance {
     return param.topics;
   }
 
-  private static List<ConsumerThread> consumers(
-      Argument param, Map<TopicPartition, Long> latestOffsets) {
+  static List<ConsumerThread> consumers(Argument param, Map<TopicPartition, Long> latestOffsets) {
     return ConsumerThread.create(
         param.consumers,
         (clientId, listener) ->
@@ -176,8 +177,9 @@ public class Performance {
     List<String> topics;
 
     void checkTopics() {
-      try (var admin = Admin.of(configs())) {
-        var existentTopics = admin.topicNames();
+      try (var admin = AsyncAdmin.of(configs())) {
+        var existentTopics =
+            Utils.packException(() -> admin.topicNames(false).toCompletableFuture().get());
         var nonexistent =
             topics.stream().filter(t -> !existentTopics.contains(t)).collect(Collectors.toSet());
         if (!nonexistent.isEmpty())
@@ -186,13 +188,11 @@ public class Performance {
     }
 
     Map<TopicPartition, Long> lastOffsets() {
-      try (var admin = Admin.of(configs())) {
-        // the slow zk causes unknown error, so we have to wait it.
-        return Utils.waitForNonNull(
-            () ->
-                admin.partitions(new HashSet<>(topics)).stream()
-                    .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset)),
-            Duration.ofSeconds(30));
+      try (var admin = AsyncAdmin.of(configs())) {
+        return Utils.packException(
+                () -> admin.partitions(Set.copyOf(topics)).toCompletableFuture().get())
+            .stream()
+            .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
       }
     }
 
@@ -324,9 +324,11 @@ public class Performance {
         throw new IllegalArgumentException(
             "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
       else if (specifiedByBroker) {
-        try (Admin admin = Admin.of(configs())) {
+        try (var admin = AsyncAdmin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).stream()
+              Utils.packException(
+                      () -> admin.replicas(Set.copyOf(topics)).toCompletableFuture().get())
+                  .stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -345,15 +347,20 @@ public class Performance {
           throw new IllegalArgumentException(
               "--specify.partitions can't be used in conjunction with partitioner");
         // sanity check, ensure all specified partitions are existed
-        try (Admin admin = Admin.of(configs())) {
-          var allTopics = admin.topicNames();
+        try (var admin = AsyncAdmin.of(configs())) {
+          var allTopics =
+              Utils.packException(() -> admin.topicNames(false).toCompletableFuture().get());
           var allTopicPartitions =
-              admin
-                  .replicas(
-                      specifyPartitions.stream()
-                          .map(TopicPartition::topic)
-                          .filter(allTopics::contains)
-                          .collect(Collectors.toUnmodifiableSet()))
+              Utils.packException(
+                      () ->
+                          admin
+                              .replicas(
+                                  specifyPartitions.stream()
+                                      .map(TopicPartition::topic)
+                                      .filter(allTopics::contains)
+                                      .collect(Collectors.toUnmodifiableSet()))
+                              .toCompletableFuture()
+                              .get())
                   .stream()
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .collect(Collectors.toSet());
