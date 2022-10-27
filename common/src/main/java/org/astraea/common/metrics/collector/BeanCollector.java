@@ -36,7 +36,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
-public class BeanCollector {
+public class BeanCollector implements AutoCloseable {
 
   public static Builder builder() {
     return new Builder();
@@ -46,6 +46,7 @@ public class BeanCollector {
     private BiFunction<String, Integer, MBeanClient> clientCreator = MBeanClient::jndi;
     private Duration interval = Duration.ofSeconds(3);
     private int numberOfObjectsPerNode = 300;
+    private int scheduleThreads = 0;
 
     private Builder() {}
 
@@ -64,14 +65,25 @@ public class BeanCollector {
       return this;
     }
 
+    public Builder scheduleThreads() {
+      return scheduleThreads(Runtime.getRuntime().availableProcessors());
+    }
+
+    public Builder scheduleThreads(int scheduleThreads) {
+      this.scheduleThreads = Utils.requirePositive(scheduleThreads);
+      return this;
+    }
+
     public BeanCollector build() {
-      return new BeanCollector(clientCreator, interval, numberOfObjectsPerNode);
+      return new BeanCollector(clientCreator, interval, numberOfObjectsPerNode, scheduleThreads);
     }
   }
 
   private final BiFunction<String, Integer, MBeanClient> clientCreator;
   private final Duration interval;
   private final int numberOfObjectsPerNode;
+  private final ScheduledExecutorService executor;
+  private final int threadCount;
 
   // visible for testing
   final ConcurrentMap<String, Node> nodes = new ConcurrentSkipListMap<>();
@@ -79,10 +91,13 @@ public class BeanCollector {
   private BeanCollector(
       BiFunction<String, Integer, MBeanClient> clientCreator,
       Duration interval,
-      int numberOfObjectsPerNode) {
+      int numberOfObjectsPerNode,
+      int scheduleThreads) {
     this.clientCreator = clientCreator;
     this.interval = interval;
     this.numberOfObjectsPerNode = numberOfObjectsPerNode;
+    this.threadCount = scheduleThreads;
+    this.executor = Executors.newScheduledThreadPool(scheduleThreads);
   }
 
   public Register register() {
@@ -121,6 +136,8 @@ public class BeanCollector {
 
       @Override
       public Register autoUpdate() {
+        if (BeanCollector.this.threadCount == 0)
+          throw new IllegalStateException("This BeanCollector doesn't support auto update");
         this.autoUpdate = true;
         return this;
       }
@@ -137,11 +154,9 @@ public class BeanCollector {
         var receiver =
             new Receiver() {
               private final Map<Long, HasBeanObject> objects = new ConcurrentSkipListMap<>();
-              private final ScheduledExecutorService updateThread =
-                  autoUpdate ? Executors.newScheduledThreadPool(1) : null;
               private final ScheduledFuture<?> updateTask =
-                  updateThread != null
-                      ? updateThread.scheduleAtFixedRate(
+                  autoUpdate
+                      ? executor.scheduleWithFixedDelay(
                           this::doUpdate,
                           interval.toMillis(),
                           interval.toMillis(),
@@ -179,8 +194,6 @@ public class BeanCollector {
               public void close() {
                 if (isAutoUpdate()) {
                   updateTask.cancel(false);
-                  updateThread.shutdown();
-                  Utils.packException(() -> updateThread.awaitTermination(5, TimeUnit.SECONDS));
                 }
                 node.lock.lock();
                 try {
@@ -227,6 +240,12 @@ public class BeanCollector {
         return receiver;
       }
     };
+  }
+
+  @Override
+  public void close() throws Exception {
+    executor.shutdown();
+    Utils.packException(() -> executor.awaitTermination(10, TimeUnit.SECONDS));
   }
 
   // visible for testing

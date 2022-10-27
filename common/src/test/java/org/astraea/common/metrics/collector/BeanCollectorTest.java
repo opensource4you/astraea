@@ -22,7 +22,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -162,15 +164,25 @@ public class BeanCollectorTest {
 
   @Test
   void testCloseAutoReceiver() {
-    var theExecutor = Executors.newScheduledThreadPool(1);
+    final var ref = new AtomicReference<ScheduledFuture<?>>();
+    final var spy = Mockito.spy(Executors.newScheduledThreadPool(1));
+    Mockito.doAnswer(
+            (invoke) -> {
+              final Object o = invoke.callRealMethod();
+              ref.set((ScheduledFuture<?>) o);
+              return o;
+            })
+        .when(spy)
+        .scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(), Mockito.any());
     try (var ignored =
         Mockito.mockStatic(
             Executors.class,
             (invoke) ->
                 invoke.getMethod().getName().equals("newScheduledThreadPool")
-                    ? theExecutor
+                    ? spy
                     : invoke.callRealMethod())) {
-      var collector = BeanCollector.builder().clientCreator(clientCreator).build();
+      var collector =
+          BeanCollector.builder().scheduleThreads().clientCreator(clientCreator).build();
       Receiver receiver =
           collector
               .register()
@@ -179,9 +191,41 @@ public class BeanCollectorTest {
               .fetcher(client -> List.of(createBeanObject()))
               .autoUpdate()
               .build();
-      Assertions.assertFalse(theExecutor.isShutdown());
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertFalse(ref.get().isCancelled());
       receiver.close();
+      Assertions.assertTrue(ref.get().isCancelled());
+    }
+  }
+
+  @Test
+  void testClose() {
+    final var theExecutor = Executors.newScheduledThreadPool(10);
+    try (var ignored =
+        Mockito.mockStatic(
+            Executors.class,
+            (invoke) ->
+                invoke.getMethod().getName().equals("newScheduledThreadPool")
+                    ? theExecutor
+                    : invoke.callRealMethod())) {
+      var collector =
+          BeanCollector.builder().scheduleThreads().clientCreator(clientCreator).build();
+      IntStream.range(0, 100)
+          .forEach(
+              i ->
+                  collector
+                      .register()
+                      .local()
+                      .autoUpdate()
+                      .fetcher(client -> List.of(HostMetrics.jvmMemory(client)))
+                      .build());
+
+      Assertions.assertFalse(theExecutor.isShutdown());
+      Utils.sleep(Duration.ofSeconds(3));
+      collector.close();
       Assertions.assertTrue(theExecutor.isShutdown());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -344,7 +388,12 @@ public class BeanCollectorTest {
   @ValueSource(ints = {1000, 800, 500})
   void testAutoUpdate(int intervalMs) {
     var interval = Duration.ofMillis(intervalMs);
-    var collector = BeanCollector.builder().interval(interval).clientCreator(clientCreator).build();
+    var collector =
+        BeanCollector.builder()
+            .scheduleThreads()
+            .interval(interval)
+            .clientCreator(clientCreator)
+            .build();
     try (var receiver =
         collector
             .register()
