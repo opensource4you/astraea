@@ -99,6 +99,7 @@ object Utils {
         .numberOfReplicas(metadata.numReplicas)
         .configs(metadata.topicConfig.asJava)
         .run()
+        .toCompletableFuture
     )
   }
 }
