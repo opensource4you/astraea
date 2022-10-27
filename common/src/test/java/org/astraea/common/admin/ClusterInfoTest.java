@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import org.apache.kafka.common.Cluster;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -162,6 +163,11 @@ public class ClusterInfoTest {
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
     var changes = ClusterInfo.diff(before, after);
+
+    // test diff in ReplicaLeaderCost
+    var leaderMoveCost = new ReplicaLeaderCost().moveCost(before, after, ClusterBean.EMPTY);
+    // move 2 leaders
+    Assertions.assertEquals(leaderMoveCost.totalCost(), 2);
 
     Assertions.assertNotEquals(0, after.topics().size());
     Assertions.assertEquals(4, changes.size());
