@@ -170,7 +170,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .limit(Duration.ofSeconds(3))
                       .greedy(greedy)
                       .build()
-                      .offer(admin.clusterInfo(), admin.brokerFolders())
+                      .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders())
                       .get()
                       .proposal()
                       .rebalancePlan());
@@ -222,7 +222,7 @@ class BalancerTest extends RequireBrokerCluster {
               .limit(500)
               .greedy(greedy)
               .build()
-              .offer(ClusterInfo.empty(), Map.of());
+              .offer(ClusterInfo.empty(), ignore -> true, Map.of());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };
 

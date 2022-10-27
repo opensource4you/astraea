@@ -23,28 +23,33 @@ import java.util.Set;
 import java.util.function.Predicate;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 
-public interface Balancer {
+public abstract class Balancer {
 
-  /** @return a rebalance plan */
-  default Optional<Plan> offer(
-      ClusterInfo<Replica> clusterInfo, Map<Integer, Set<String>> brokerFolders) {
-    return offer(clusterInfo, ignore -> true, brokerFolders);
+  private final AlgorithmConfig algorithmConfig;
+
+  public Balancer(AlgorithmConfig algorithmConfig) {
+    this.algorithmConfig = algorithmConfig;
+  }
+
+  public AlgorithmConfig config() {
+    return algorithmConfig;
   }
 
   /** @return a rebalance plan */
-  Optional<Plan> offer(
-      ClusterInfo<Replica> clusterInfo,
+  public abstract Optional<Plan> offer(
+      ClusterInfo<Replica> currentClusterInfo,
       Predicate<String> topicFilter,
       Map<Integer, Set<String>> brokerFolders);
 
-  static BalancerBuilder builder() {
+  public static BalancerBuilder builder() {
     return new BalancerBuilder();
   }
 
-  class Plan {
+  public static class Plan {
     final RebalancePlanProposal proposal;
     final ClusterCost clusterCost;
     final List<MoveCost> moveCost;

@@ -16,13 +16,17 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -33,75 +37,83 @@ import org.astraea.common.cost.ClusterCost;
  * state multiple times, select the ideal tweak among the discovery. This process might take
  * multiple iterations, until no nicer tweak found.
  */
-public class GreedyAlgorithm implements RebalanceAlgorithm {
-  @Override
-  public Balancer create(AlgorithmConfig config) {
-    final var minStep =
-        config
+public class GreedyAlgorithm extends Balancer {
+
+  private final int minStep;
+  private final int maxStep;
+  private final int iteration;
+
+  public GreedyAlgorithm(AlgorithmConfig algorithmConfig) {
+    super(algorithmConfig);
+    minStep =
+        config()
             .algorithmConfig()
             .string("min.step")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(5);
-    final var maxStep =
-        config
+    maxStep =
+        config()
             .algorithmConfig()
             .string("max.step")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(20);
-    final var iteration =
-        config
+    iteration =
+        config()
             .algorithmConfig()
             .string("iteration")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
+  }
 
-    return (originClusterInfo, topicFilter, brokerFolders) -> {
-      final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
-      final var metrics = config.metricSource().get();
-      final var clusterCostFunction = config.clusterCostFunction();
-      final var moveCostFunction = config.moveCostFunctions();
+  @Override
+  public Optional<Plan> offer(
+      ClusterInfo<Replica> currentClusterInfo,
+      Predicate<String> topicFilter,
+      Map<Integer, Set<String>> brokerFolders) {
+    final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
+    final var metrics = config().metricSource().get();
+    final var clusterCostFunction = config().clusterCostFunction();
+    final var moveCostFunction = config().moveCostFunctions();
 
-      final var loop = new AtomicInteger(iteration);
-      final var start = System.currentTimeMillis();
-      final var executionTime = config.executionTime().toMillis();
-      Supplier<Boolean> moreRoom =
-          () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
-      BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
-          (currentAllocation, currentCost) ->
-              planGenerator
-                  .generate(brokerFolders, currentAllocation)
-                  .takeWhile(ignored -> moreRoom.get())
-                  .map(
-                      proposal -> {
-                        var newClusterInfo =
-                            ClusterInfo.update(
-                                originClusterInfo,
-                                tp -> proposal.rebalancePlan().logPlacements(tp));
-                        return new Balancer.Plan(
-                            proposal,
-                            clusterCostFunction.clusterCost(newClusterInfo, metrics),
-                            moveCostFunction.stream()
-                                .map(cf -> cf.moveCost(originClusterInfo, newClusterInfo, metrics))
-                                .collect(Collectors.toList()));
-                      })
-                  .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
-                  .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-                  .findFirst();
-      var currentCost = clusterCostFunction.clusterCost(originClusterInfo, metrics);
-      var currentAllocation =
-          ClusterLogAllocation.of(ClusterInfo.masked(originClusterInfo, topicFilter));
-      var currentPlan = Optional.<Balancer.Plan>empty();
-      while (true) {
-        var newPlan = next.apply(currentAllocation, currentCost);
-        if (newPlan.isEmpty()) break;
-        currentPlan = newPlan;
-        currentCost = currentPlan.get().clusterCost();
-        currentAllocation = currentPlan.get().proposal().rebalancePlan();
-      }
-      return currentPlan;
-    };
+    final var loop = new AtomicInteger(iteration);
+    final var start = System.currentTimeMillis();
+    final var executionTime = config().executionTime().toMillis();
+    Supplier<Boolean> moreRoom =
+        () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
+    BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
+        (currentAllocation, currentCost) ->
+            planGenerator
+                .generate(brokerFolders, currentAllocation)
+                .takeWhile(ignored -> moreRoom.get())
+                .map(
+                    proposal -> {
+                      var newClusterInfo =
+                          ClusterInfo.update(
+                              currentClusterInfo, tp -> proposal.rebalancePlan().logPlacements(tp));
+                      return new Balancer.Plan(
+                          proposal,
+                          clusterCostFunction.clusterCost(newClusterInfo, metrics),
+                          moveCostFunction.stream()
+                              .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))
+                              .collect(Collectors.toList()));
+                    })
+                .filter(plan -> config().clusterConstraint().test(currentCost, plan.clusterCost()))
+                .filter(plan -> config().movementConstraint().test(plan.moveCost()))
+                .findFirst();
+    var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
+    var currentAllocation =
+        ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, topicFilter));
+    var currentPlan = Optional.<Balancer.Plan>empty();
+    while (true) {
+      var newPlan = next.apply(currentAllocation, currentCost);
+      if (newPlan.isEmpty()) break;
+      currentPlan = newPlan;
+      currentCost = currentPlan.get().clusterCost();
+      currentAllocation = currentPlan.get().proposal().rebalancePlan();
+    }
+    return currentPlan;
   }
 }

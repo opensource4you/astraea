@@ -47,7 +47,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
               .limit(Duration.ofSeconds(5))
               .greedy(true)
               .build()
-              .offer(admin.clusterInfo(), admin.brokerFolders())
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders())
               .get();
 
       var plan =
@@ -56,7 +56,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
               .limit(Duration.ofSeconds(5))
               .greedy(false)
               .build()
-              .offer(admin.clusterInfo(), admin.brokerFolders())
+              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders())
               .get();
 
       Assertions.assertTrue(plan.clusterCost.value() > planOfGreedy.clusterCost.value());

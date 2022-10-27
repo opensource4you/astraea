@@ -25,10 +25,10 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyAlgorithm;
-import org.astraea.common.balancer.algorithms.RebalanceAlgorithm;
 import org.astraea.common.balancer.algorithms.SingleStepAlgorithm;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.Configuration;
@@ -47,7 +47,7 @@ public class BalancerBuilder {
   private Duration executionTime = Duration.ofSeconds(3);
   private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
   private Configuration algorithmConfig = Configuration.of(Map.of());
-  private RebalanceAlgorithm rebalanceAlgorithm = new SingleStepAlgorithm();
+  private Class<? extends Balancer> balancer = SingleStepAlgorithm.class;
 
   /**
    * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
@@ -112,9 +112,8 @@ public class BalancerBuilder {
    */
   @Deprecated
   public BalancerBuilder limit(int limit) {
-    if (limit <= 0) throw new IllegalArgumentException("invalid search limit: " + limit);
     // TODO: get rid of this method. It proposes some kind of algorithm implementation details.
-    this.searchLimit = limit;
+    this.searchLimit = Utils.requirePositive(limit);
     return this;
   }
 
@@ -132,13 +131,13 @@ public class BalancerBuilder {
    * advantage is that balancer always try to find a "better" plan. However, it can't generate the
    * best plan if the "first"/"second"/... better plan is not good enough.
    *
-   * @deprecated use {@link BalancerBuilder#algorithm(RebalanceAlgorithm)} instead
+   * @deprecated use {@link BalancerBuilder#balancer(Class)} instead
    * @return this builder
    */
   @Deprecated
   public BalancerBuilder greedy(boolean greedy) {
     // TODO: replaced by BalancerBuilder#algorithm
-    return algorithm(greedy ? new GreedyAlgorithm() : rebalanceAlgorithm);
+    return balancer(greedy ? GreedyAlgorithm.class : balancer);
   }
 
   /**
@@ -158,16 +157,16 @@ public class BalancerBuilder {
   /**
    * The algorithm for rebalance plan search
    *
-   * @param algorithm the algorithm to use
+   * @param balancer the balancer implementation to use
    * @return this
    */
-  public BalancerBuilder algorithm(RebalanceAlgorithm algorithm) {
-    this.rebalanceAlgorithm = algorithm;
+  public BalancerBuilder balancer(Class<? extends Balancer> balancer) {
+    this.balancer = balancer;
     return this;
   }
 
   /**
-   * @param configuration for {@link RebalanceAlgorithm}
+   * @param configuration for {@link Balancer}
    * @return this
    */
   public BalancerBuilder config(Configuration configuration) {
@@ -226,6 +225,7 @@ public class BalancerBuilder {
    *     you specified.
    */
   public Balancer build() {
-    return rebalanceAlgorithm.create(toConfig());
+    return Utils.packException(
+        () -> balancer.getConstructor(AlgorithmConfig.class).newInstance(toConfig()));
   }
 }
