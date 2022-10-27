@@ -52,7 +52,7 @@ public class WebService {
     server.createContext(
         "/reassignments", to(new ReassignmentHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/balancer", to(new BalancerHandler(Admin.of(arg.configs()))));
-    server.createContext("/throttles", to(new ThrottleHandler(Admin.of(arg.configs()))));
+    server.createContext("/throttles", to(new ThrottleHandler(AsyncAdmin.of(arg.configs()))));
     server.start();
   }
 
