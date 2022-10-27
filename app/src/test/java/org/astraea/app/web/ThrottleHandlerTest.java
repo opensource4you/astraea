@@ -434,7 +434,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().get();
       Assertions.assertEquals(202, post.code());
 
-      Utils.sleep(Duration.ofSeconds(2));
+      Utils.sleep(Duration.ofSeconds(3));
       var deserialized = handler.get(Channel.EMPTY).toCompletableFuture().get();
       // verify response content is correct
       Assertions.assertEquals(affectedBrokers, Set.copyOf(deserialized.brokers));
