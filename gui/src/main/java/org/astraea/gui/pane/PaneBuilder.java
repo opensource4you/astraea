@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -181,18 +180,7 @@ public class PaneBuilder {
             var text =
                 secondInputKeyAndFields.entrySet().stream()
                     .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
-            var input =
-                new Input() {
-                  @Override
-                  public List<String> selectedKeys() {
-                    return List.of();
-                  }
-
-                  @Override
-                  public Map<String, Optional<String>> texts() {
-                    return text;
-                  }
-                };
+            var input = Input.of(List.of(), text);
             try {
               checkbox.setSelected(false);
 
@@ -245,19 +233,7 @@ public class PaneBuilder {
           var rawTexts =
               inputKeyAndFields.entrySet().stream()
                   .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
-          var input =
-              new Input() {
-                @Override
-                public List<String> selectedKeys() {
-                  return selectBox == null ? List.of() : selectBox.selectedKeys();
-                }
-
-                @Override
-                public Map<String, Optional<String>> texts() {
-                  return rawTexts;
-                }
-              };
-
+          var input = Input.of(selectBox == null ? List.of() : selectBox.selectedKeys(), rawTexts);
           // nothing to do
           if (buttonAction == null && buttonListener == null) return;
 
