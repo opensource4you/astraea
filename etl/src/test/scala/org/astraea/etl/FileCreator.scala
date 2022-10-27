@@ -35,10 +35,10 @@ object FileCreator {
   }
 
   def generateCSV(sourceDir: File, rows: List[List[String]]): Boolean = {
-        createCSV(sourceDir, rows, 0)
-        Thread.sleep(Duration(12, TimeUnit.SECONDS).toMillis)
-        createCSV(sourceDir, rows, 1)
-        true
+    createCSV(sourceDir, rows, 0)
+    Thread.sleep(Duration(12, TimeUnit.SECONDS).toMillis)
+    createCSV(sourceDir, rows, 1)
+    true
   }
 
   def createCSV(
