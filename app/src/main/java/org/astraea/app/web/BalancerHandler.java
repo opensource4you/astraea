@@ -71,37 +71,26 @@ class BalancerHandler implements Handler {
   private final AsyncAdmin asyncAdmin;
   private final RebalancePlanGenerator generator;
   private final RebalancePlanExecutor executor;
-  HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(
-        admin,
-        HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)),
-        new ReplicaSizeCost());
+    this(admin, new ReplicaSizeCost());
   }
 
-  BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
-    this(
-        admin,
-        clusterCostFunction,
-        moveCostFunction,
-        RebalancePlanGenerator.random(30),
-        new StraightPlanExecutor());
+  BalancerHandler(Admin admin, HasMoveCost moveCostFunction) {
+    this(admin, moveCostFunction, RebalancePlanGenerator.random(30), new StraightPlanExecutor());
   }
 
   BalancerHandler(
       Admin admin,
-      HasClusterCost clusterCostFunction,
       HasMoveCost moveCostFunction,
       RebalancePlanGenerator generator,
       RebalancePlanExecutor executor) {
     this.admin = admin;
     this.asyncAdmin = (AsyncAdmin) Utils.member(admin, "asyncAdmin");
-    this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
     this.generator = generator;
     this.executor = executor;
@@ -143,6 +132,9 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
+    var clusterCostFunction =
+        new AtomicReference<>(
+            HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)));
     var costWeights =
         channel
             .request()
@@ -158,7 +150,7 @@ class BalancerHandler implements Handler {
             .entrySet()
             .stream()
             .collect(Collectors.toMap(cw -> (HasClusterCost) cw.getKey(), Map.Entry::getValue));
-    if (!costWeights.isEmpty()) this.clusterCostFunction = HasClusterCost.of(costWeightMap);
+    if (!costWeights.isEmpty()) clusterCostFunction.set(HasClusterCost.of(costWeightMap));
     var planGeneration =
         CompletableFuture.supplyAsync(
             () -> {
@@ -172,7 +164,10 @@ class BalancerHandler implements Handler {
                       .orElseGet(() -> admin.topicNames(false));
               var currentClusterInfo = admin.clusterInfo();
               var cost =
-                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
+                  clusterCostFunction
+                      .get()
+                      .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
+                      .value();
               var loop =
                   Integer.parseInt(
                       channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
@@ -180,7 +175,7 @@ class BalancerHandler implements Handler {
               var bestPlan =
                   Balancer.builder()
                       .planGenerator(generator)
-                      .clusterCost(clusterCostFunction)
+                      .clusterCost(clusterCostFunction.get())
                       .moveCost(List.of(moveCostFunction))
                       .limit(loop)
                       .limit(timeout)
