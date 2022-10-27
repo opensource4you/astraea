@@ -16,7 +16,6 @@
  */
 package org.astraea.gui.tab.topic;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -30,8 +29,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
@@ -40,23 +39,23 @@ import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
-import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.DurationField;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.BorderPane;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class TopicTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
+  private static final String INTERNAL_KEY = "internal";
 
   private static Tab metricsTab(Context context) {
     return Tab.of(
@@ -66,7 +65,8 @@ public class TopicTab {
                 SelectBox.single(
                     Arrays.stream(ServerMetrics.Topic.values())
                         .map(ServerMetrics.Topic::toString)
-                        .collect(Collectors.toList())))
+                        .collect(Collectors.toList()),
+                    ServerMetrics.Topic.values().length))
             .buttonAction(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
@@ -96,7 +96,7 @@ public class TopicTab {
                               .map(
                                   topic -> {
                                     var map = new LinkedHashMap<String, Object>();
-                                    map.put("topic", topic);
+                                    map.put(TOPIC_NAME_KEY, topic);
                                     nodeMeters.forEach(
                                         (nodeInfo, meters) -> {
                                           var key = String.valueOf(nodeInfo.id());
@@ -128,33 +128,106 @@ public class TopicTab {
         PaneBuilder.of()
             .buttonAction(
                 (input, logger) ->
-                    context
-                        .admin()
-                        .topicNames(true)
-                        .thenCompose(context.admin()::topics)
-                        .thenApply(
-                            topics -> topics.stream().map(t -> Map.entry(t.name(), t.config())))
-                        .thenApply(
-                            items ->
-                                items
-                                    .map(
-                                        e -> {
-                                          var map = new LinkedHashMap<String, Object>();
-                                          map.put("topic", e.getKey());
-                                          map.putAll(new TreeMap<>(e.getValue().raw()));
-                                          return map;
-                                        })
-                                    .collect(Collectors.toList())))
+                    FutureUtils.combine(
+                        context
+                            .admin()
+                            .topicNames(true)
+                            .thenCompose(
+                                names ->
+                                    context
+                                        .admin()
+                                        .topics(names)
+                                        .thenApply(
+                                            topics ->
+                                                topics.stream()
+                                                    .map(
+                                                        t -> Map.entry(t.name(), t.config().raw())))
+                                        .exceptionally(
+                                            e -> {
+                                              // previous kafka does not check topic config. The
+                                              // configs
+                                              // APIs return error if there are corrupted configs
+                                              logger.log(e.getMessage());
+                                              return names.stream()
+                                                  .map(n -> Map.entry(n, Map.of()));
+                                            })),
+                        context.admin().internalTopicNames(),
+                        (topics, internalNames) ->
+                            topics
+                                .map(
+                                    e -> {
+                                      var map = new LinkedHashMap<String, Object>();
+                                      map.put(TOPIC_NAME_KEY, e.getKey());
+                                      map.put(INTERNAL_KEY, internalNames.contains(e.getKey()));
+                                      map.putAll(new TreeMap<>(e.getValue()));
+                                      return map;
+                                    })
+                                .collect(Collectors.toList())))
+            .tableViewAction(
+                MapUtils.of(
+                    NoneditableText.of(TopicConfigs.ALL_CONFIGS),
+                    EditableText.singleLine().build()),
+                "ALERT",
+                (tables, input, logger) -> {
+                  var topicsToAlter =
+                      tables.stream()
+                          .flatMap(
+                              m ->
+                                  Optional.ofNullable(m.get(TOPIC_NAME_KEY))
+                                      .map(Object::toString)
+                                      .stream())
+                          .collect(Collectors.toSet());
+                  if (topicsToAlter.isEmpty()) {
+                    logger.log("nothing to alter");
+                    return CompletableFuture.completedStage(null);
+                  }
+                  return context
+                      .admin()
+                      .internalTopicNames()
+                      .thenCompose(
+                          internalTopics -> {
+                            var internal =
+                                topicsToAlter.stream()
+                                    .filter(internalTopics::contains)
+                                    .collect(Collectors.toSet());
+                            if (!internal.isEmpty())
+                              throw new IllegalArgumentException(
+                                  "internal topics: " + internal + " can't be altered");
+                            var unsets = input.emptyValueKeys();
+                            var sets = input.nonEmptyTexts();
+                            if (unsets.isEmpty() && sets.isEmpty()) {
+                              logger.log("nothing to alter");
+                              return CompletableFuture.completedStage(null);
+                            }
+                            return FutureUtils.sequence(
+                                    topicsToAlter.stream()
+                                        .flatMap(
+                                            topic ->
+                                                Stream.of(
+                                                    context
+                                                        .admin()
+                                                        .setConfigs(topic, sets)
+                                                        .toCompletableFuture(),
+                                                    context
+                                                        .admin()
+                                                        .unsetConfigs(topic, unsets)
+                                                        .toCompletableFuture()))
+                                        .collect(Collectors.toList()))
+                                .thenAccept(
+                                    ignored -> logger.log("succeed to alter: " + topicsToAlter));
+                          });
+                })
             .build());
   }
 
   private static Tab basicTab(Context context) {
-    var includeTimestampOfRecord = "record timestamp";
-    var includeInternal = "internal";
+    var includeTimestampOfRecord = "max time to wait records";
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .selectBox(SelectBox.multi(List.of(includeInternal, includeTimestampOfRecord)))
+            .input(
+                NoneditableText.of(includeTimestampOfRecord),
+                EditableText.singleLine().hint("3s").build())
             .tableViewAction(
                 Map.of(),
                 "DELETE",
@@ -173,21 +246,17 @@ public class TopicTab {
                   }
                   return context
                       .admin()
-                      .topics(topicsToDelete)
+                      .internalTopicNames()
                       .thenCompose(
-                          topics -> {
+                          internalTopics -> {
                             var internal =
-                                topics.stream()
-                                    .filter(Topic::internal)
-                                    .map(Topic::name)
+                                topicsToDelete.stream()
+                                    .filter(internalTopics::contains)
                                     .collect(Collectors.toSet());
                             if (!internal.isEmpty())
                               throw new IllegalArgumentException(
                                   "internal topics: " + internal + " can't be deleted");
-                            return context
-                                .admin()
-                                .deleteTopics(
-                                    topics.stream().map(Topic::name).collect(Collectors.toSet()));
+                            return context.admin().deleteTopics(topicsToDelete);
                           })
                       .thenAccept(
                           ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
@@ -196,7 +265,7 @@ public class TopicTab {
                 (input, logger) ->
                     context
                         .admin()
-                        .topicNames(input.selectedKeys().contains(includeInternal))
+                        .topicNames(true)
                         .thenCompose(
                             topics ->
                                 FutureUtils.combine(
@@ -206,109 +275,52 @@ public class TopicTab {
                                         .admin()
                                         .consumerGroupIds()
                                         .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                    input.selectedKeys().contains(includeTimestampOfRecord)
-                                        ? context
-                                            .admin()
-                                            .topicPartitions(topics)
-                                            .thenCompose(
-                                                tps ->
-                                                    context
-                                                        .admin()
-                                                        .timestampOfLatestRecords(
-                                                            tps, Duration.ofSeconds(1)))
-                                        : CompletableFuture.completedFuture(
-                                            Map.<TopicPartition, Long>of()),
+                                    context
+                                        .admin()
+                                        .topicPartitions(topics)
+                                        .thenCompose(
+                                            tps ->
+                                                input
+                                                    .get(includeTimestampOfRecord)
+                                                    .map(DurationField::toDuration)
+                                                    .map(
+                                                        v ->
+                                                            context
+                                                                .admin()
+                                                                .timestampOfLatestRecords(tps, v))
+                                                    .orElseGet(
+                                                        () ->
+                                                            CompletableFuture.completedFuture(
+                                                                Map.<TopicPartition, Long>of()))),
                                     TopicTab::basicResult)))
             .build());
   }
 
-  public static Tab alterTab(Context context) {
-    var numberOfPartitions = "number of partitions";
-    Function<List<Topic>, BorderPane> toPane =
-        topics ->
-            BorderPane.selectableTop(
-                topics.stream()
-                    .collect(
-                        MapUtils.toSortedMap(
-                            Topic::name,
-                            topic ->
-                                PaneBuilder.of()
-                                    .buttonName("ALTER")
-                                    .input(
-                                        KeyLabel.of(numberOfPartitions),
-                                        TextInput.singleLine()
-                                            .onlyNumber()
-                                            .defaultValue(
-                                                String.valueOf(topic.topicPartitions().size()))
-                                            .build())
-                                    .input(
-                                        TopicConfigs.DYNAMICAL_CONFIGS.stream()
-                                            .collect(
-                                                MapUtils.toSortedMap(
-                                                    KeyLabel::of,
-                                                    k ->
-                                                        TextInput.singleLine()
-                                                            .defaultValue(
-                                                                topic.config().value(k).orElse(""))
-                                                            .build())))
-                                    .buttonListener(
-                                        (input, logger) -> {
-                                          var allConfigs = new HashMap<>(input.nonEmptyTexts());
-                                          var partitions =
-                                              Integer.parseInt(
-                                                  allConfigs.remove(numberOfPartitions));
-                                          return context
-                                              .admin()
-                                              .setConfigs(topic.name(), allConfigs)
-                                              .thenCompose(
-                                                  ignored ->
-                                                      context
-                                                          .admin()
-                                                          .unsetConfigs(
-                                                              topic.name(), input.emptyValueKeys()))
-                                              .thenCompose(
-                                                  ignored ->
-                                                      partitions == topic.topicPartitions().size()
-                                                          ? CompletableFuture.completedFuture(null)
-                                                          : context
-                                                              .admin()
-                                                              .addPartitions(
-                                                                  topic.name(), partitions))
-                                              .thenAccept(
-                                                  ignored ->
-                                                      logger.log(
-                                                          "succeed to alter " + topic.name()));
-                                        })
-                                    .build())));
-    return Tab.dynamic(
-        "alter",
-        () ->
-            context
-                .admin()
-                .topicNames(false)
-                .thenCompose(context.admin()::topics)
-                .thenApply(toPane));
-  }
-
   public static Tab createTab(Context context) {
-    var topicNameKey = "topic";
     var numberOfPartitionsKey = "number of partitions";
     var numberOfReplicasKey = "number of replicas";
     return Tab.of(
         "create",
         PaneBuilder.of()
             .buttonName("CREATE")
-            .input(KeyLabel.highlight(topicNameKey), TextInput.singleLine().build())
-            .input(KeyLabel.of(numberOfPartitionsKey), TextInput.singleLine().onlyNumber().build())
-            .input(KeyLabel.of(numberOfReplicasKey), TextInput.singleLine().onlyNumber().build())
+            .input(
+                NoneditableText.highlight(TOPIC_NAME_KEY),
+                EditableText.singleLine().disallowEmpty().build())
+            .input(
+                NoneditableText.of(numberOfPartitionsKey),
+                EditableText.singleLine().onlyNumber().build())
+            .input(
+                NoneditableText.of(numberOfReplicasKey),
+                EditableText.singleLine().onlyNumber().build())
             .input(
                 TopicConfigs.ALL_CONFIGS.stream()
                     .collect(
-                        Collectors.toMap(KeyLabel::of, ignored -> TextInput.singleLine().build())))
+                        Collectors.toMap(
+                            NoneditableText::of, ignored -> EditableText.singleLine().build())))
             .buttonListener(
                 (input, logger) -> {
                   var allConfigs = new HashMap<>(input.nonEmptyTexts());
-                  var name = allConfigs.remove(topicNameKey);
+                  var name = allConfigs.remove(TOPIC_NAME_KEY);
                   return context
                       .admin()
                       .topicNames(true)
@@ -384,21 +396,15 @@ public class TopicTab {
         .sorted()
         .map(
             topic -> {
+              var ps = topicPartitions.getOrDefault(topic, List.of());
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, topic);
+              ps.stream().findFirst().ifPresent(p -> result.put(INTERNAL_KEY, p.internal()));
+              result.put("number of partitions", ps.size());
               result.put(
-                  "number of partitions", topicPartitions.getOrDefault(topic, List.of()).size());
-              result.put(
-                  "number of replicas",
-                  topicPartitions.getOrDefault(topic, List.of()).stream()
-                      .mapToInt(p -> p.replicas().size())
-                      .sum());
+                  "number of replicas", ps.stream().mapToInt(p -> p.replicas().size()).sum());
               result.put("size", DataSize.Byte.of(topicSize.getOrDefault(topic, 0L)));
-              topicPartitions.getOrDefault(topic, List.of()).stream()
-                  .flatMap(p -> p.maxTimestamp().stream())
-                  .mapToLong(t -> t)
-                  .max()
-                  .stream()
+              ps.stream().flatMap(p -> p.maxTimestamp().stream()).mapToLong(t -> t).max().stream()
                   .mapToObj(
                       t -> LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.systemDefault()))
                   .findFirst()
@@ -412,7 +418,7 @@ public class TopicTab {
                                   Instant.ofEpochMilli(t), ZoneId.systemDefault())));
               result.put(
                   "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
-              topicPartitions.getOrDefault(topic, List.of()).stream()
+              ps.stream()
                   .flatMap(p -> p.replicas().stream())
                   .collect(Collectors.groupingBy(NodeInfo::id))
                   .entrySet()
@@ -427,7 +433,7 @@ public class TopicTab {
 
   public static Tab of(Context context) {
     return Tab.of(
-        "topic",
+        TOPIC_NAME_KEY,
         TabPane.of(
             Side.TOP,
             List.of(
@@ -436,7 +442,6 @@ public class TopicTab {
                 ReplicaTab.tab(context),
                 configTab(context),
                 metricsTab(context),
-                createTab(context),
-                alterTab(context))));
+                createTab(context))));
   }
 }

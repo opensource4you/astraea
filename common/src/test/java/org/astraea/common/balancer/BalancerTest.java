@@ -33,7 +33,6 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
@@ -91,7 +90,10 @@ class BalancerTest extends RequireBrokerCluster {
               .build()
               .offer(admin.clusterInfo(), topic -> topic.equals(topicName), admin.brokerFolders())
               .orElseThrow();
-      new StraightPlanExecutor().run(RebalanceAdmin.of(admin), plan.proposal().rebalancePlan());
+      new StraightPlanExecutor()
+          .run(asyncAdmin, plan.proposal().rebalancePlan())
+          .toCompletableFuture()
+          .join();
 
       var imbalanceFactor1 = currentImbalanceFactor.get();
       Assertions.assertTrue(

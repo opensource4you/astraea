@@ -14,26 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.http;
 
-import org.astraea.common.admin.AsyncAdmin
+import java.net.http.HttpResponse;
 
-import scala.concurrent.Future
-import scala.collection.JavaConverters._
+public interface Response<T> {
 
-object KafkaWriter {
-  def createTopic(
-      admin: AsyncAdmin,
-      metadata: Metadata
-  ): Future[java.lang.Boolean] = {
-    Utils.asScala(
-      admin
-        .creator()
-        .topic(metadata.topicName)
-        .numberOfPartitions(metadata.numPartitions)
-        .numberOfReplicas(metadata.numReplicas)
-        .configs(metadata.topicConfig.asJava)
-        .run()
-    )
+  int statusCode();
+
+  T body();
+
+  static <T> Response<T> of(HttpResponse<T> response) {
+    return new Response<>() {
+      @Override
+      public int statusCode() {
+        return response.statusCode();
+      }
+
+      @Override
+      public T body() {
+        return response.body();
+      }
+    };
   }
 }

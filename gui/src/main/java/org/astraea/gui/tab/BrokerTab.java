@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
@@ -50,16 +51,17 @@ import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.pane.TabPane;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 public class BrokerTab {
+
+  private static final String BROKER_ID_KEY = "broker id";
 
   private static <T> Optional<T> tryToFetch(Supplier<T> function) {
     try {
       return Optional.of(function.get());
     } catch (Exception e) {
-      System.out.println(e.getMessage());
       return Optional.empty();
     }
   }
@@ -71,14 +73,20 @@ public class BrokerTab {
             ServerMetrics.appInfo(client).stream()
                 .findFirst()
                 .map(
-                    appInfo ->
-                        Map.<String, Object>of(
-                            "version", appInfo.version(),
-                            "revision", appInfo.commitId(),
-                            "start time",
-                                LocalDateTime.ofInstant(
-                                    Instant.ofEpochMilli(appInfo.startTimeMs()),
-                                    ZoneId.systemDefault())))
+                    appInfo -> {
+                      Map<String, Object> result = new LinkedHashMap<>();
+                      result.put("version", appInfo.version());
+                      result.put("revision", appInfo.commitId());
+                      appInfo
+                          .startTimeMs()
+                          .ifPresent(
+                              t ->
+                                  result.put(
+                                      "start time",
+                                      LocalDateTime.ofInstant(
+                                          Instant.ofEpochMilli(t), ZoneId.systemDefault())));
+                      return result;
+                    })
                 .orElse(Map.of())),
     ZOOKEEPER_REQUEST(
         "zookeeper request",
@@ -196,7 +204,8 @@ public class BrokerTab {
                 SelectBox.multi(
                     Arrays.stream(MetricType.values())
                         .map(Enum::toString)
-                        .collect(Collectors.toList())))
+                        .collect(Collectors.toList()),
+                    MetricType.values().length / 2))
             .buttonAction(
                 (input, logger) ->
                     context
@@ -223,7 +232,7 @@ public class BrokerTab {
                                     .map(
                                         entry -> {
                                           var result = new LinkedHashMap<String, Object>();
-                                          result.put("broker id", entry.getKey().id());
+                                          result.put(BROKER_ID_KEY, entry.getKey().id());
                                           entry.getValue().stream()
                                               .flatMap(e -> e.getValue().entrySet().stream())
                                               .sorted(
@@ -241,7 +250,7 @@ public class BrokerTab {
         .map(
             broker ->
                 MapUtils.<String, Object>of(
-                    "broker id",
+                    BROKER_ID_KEY,
                     broker.id(),
                     "hostname",
                     broker.host(),
@@ -304,20 +313,70 @@ public class BrokerTab {
                         .admin()
                         .brokers()
                         .thenApply(
-                            brokers ->
-                                brokers.stream()
-                                    .map(t -> Map.entry(String.valueOf(t.id()), t.config())))
+                            brokers -> brokers.stream().map(t -> Map.entry(t.id(), t.config())))
                         .thenApply(
                             items ->
                                 items
                                     .map(
                                         e -> {
                                           var map = new LinkedHashMap<String, Object>();
-                                          map.put("broker id", e.getKey());
+                                          map.put(BROKER_ID_KEY, e.getKey());
                                           map.putAll(new TreeMap<>(e.getValue().raw()));
                                           return map;
                                         })
                                     .collect(Collectors.toList())))
+            .tableViewAction(
+                MapUtils.of(
+                    NoneditableText.of(BrokerConfigs.DYNAMICAL_CONFIGS),
+                    EditableText.singleLine().build()),
+                "ALERT",
+                (tables, input, logger) -> {
+                  var brokerToAlter =
+                      tables.stream()
+                          .flatMap(
+                              m ->
+                                  Optional.ofNullable(m.get(BROKER_ID_KEY))
+                                      .map(o -> (Integer) o)
+                                      .stream())
+                          .collect(Collectors.toSet());
+                  if (brokerToAlter.isEmpty()) {
+                    logger.log("nothing to alter");
+                    return CompletableFuture.completedStage(null);
+                  }
+                  return context
+                      .admin()
+                      .brokers()
+                      .thenApply(
+                          brokers ->
+                              brokers.stream()
+                                  .filter(b -> brokerToAlter.contains(b.id()))
+                                  .collect(Collectors.toList()))
+                      .thenCompose(
+                          brokers -> {
+                            var unsets = input.emptyValueKeys();
+                            var sets = input.nonEmptyTexts();
+                            if (unsets.isEmpty() && sets.isEmpty()) {
+                              logger.log("nothing to alter");
+                              return CompletableFuture.completedStage(null);
+                            }
+                            return FutureUtils.sequence(
+                                    brokers.stream()
+                                        .flatMap(
+                                            broker ->
+                                                Stream.of(
+                                                    context
+                                                        .admin()
+                                                        .setConfigs(broker.id(), sets)
+                                                        .toCompletableFuture(),
+                                                    context
+                                                        .admin()
+                                                        .unsetConfigs(broker.id(), unsets)
+                                                        .toCompletableFuture()))
+                                        .collect(Collectors.toList()))
+                                .thenAccept(
+                                    ignored -> logger.log("succeed to alter: " + brokerToAlter));
+                          });
+                })
             .build());
   }
 
@@ -414,68 +473,12 @@ public class BrokerTab {
     return Tab.dynamic("folder", nodeSupplier);
   }
 
-  private static Tab alterTab(Context context) {
-    return Tab.dynamic(
-        "alter",
-        () ->
-            context
-                .admin()
-                .brokers()
-                .thenApply(
-                    brokers ->
-                        TabPane.of(
-                            Side.TOP,
-                            brokers.stream()
-                                .collect(
-                                    Collectors.toMap(
-                                        b -> String.valueOf(b.id()),
-                                        broker ->
-                                            PaneBuilder.of()
-                                                .buttonName("ALTER")
-                                                .input(
-                                                    BrokerConfigs.DYNAMICAL_CONFIGS.stream()
-                                                        .collect(
-                                                            MapUtils.toSortedMap(
-                                                                KeyLabel::of,
-                                                                k ->
-                                                                    TextInput.singleLine()
-                                                                        .defaultValue(
-                                                                            broker
-                                                                                .config()
-                                                                                .value(k)
-                                                                                .orElse(""))
-                                                                        .build())))
-                                                .buttonListener(
-                                                    (input, logger) ->
-                                                        context
-                                                            .admin()
-                                                            .setConfigs(
-                                                                broker.id(), input.nonEmptyTexts())
-                                                            .thenCompose(
-                                                                ignored ->
-                                                                    context
-                                                                        .admin()
-                                                                        .unsetConfigs(
-                                                                            broker.id(),
-                                                                            input.emptyValueKeys()))
-                                                            .thenAccept(
-                                                                ignored ->
-                                                                    logger.log(
-                                                                        "succeed to alter "
-                                                                            + broker.id())))
-                                                .build())))));
-  }
-
   public static Tab of(Context context) {
     return Tab.of(
         "broker",
         TabPane.of(
             Side.TOP,
             List.of(
-                basicTab(context),
-                configTab(context),
-                metricsTab(context),
-                folderTab(context),
-                alterTab(context))));
+                basicTab(context), configTab(context), metricsTab(context), folderTab(context))));
   }
 }

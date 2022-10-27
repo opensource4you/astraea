@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
@@ -37,8 +38,8 @@ import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Button;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
-import org.astraea.gui.text.KeyLabel;
-import org.astraea.gui.text.TextInput;
+import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.NoneditableText;
 
 /** a template layout for all tabs. */
 public class PaneBuilder {
@@ -51,11 +52,11 @@ public class PaneBuilder {
 
   private SelectBox selectBox;
 
-  private final Map<KeyLabel, TextInput> inputKeyAndFields = new LinkedHashMap<>();
+  private final Map<NoneditableText, EditableText> inputKeyAndFields = new LinkedHashMap<>();
 
   private Button actionButton = Button.of("REFRESH");
 
-  private final TextInput console = TextInput.multiline().build();
+  private final EditableText console = EditableText.multiline().build();
 
   private TableViewer tableViewer = null;
   private Node motherOfTableView = null;
@@ -65,11 +66,11 @@ public class PaneBuilder {
 
   // ---------------------------------[second control]---------------------------------//
 
-  private final Map<KeyLabel, TextInput> secondInputKeyAndFields = new LinkedHashMap<>();
+  private final Map<NoneditableText, EditableText> secondInputKeyAndFields = new LinkedHashMap<>();
 
   private Button tableViewActionButton = Button.disabled("EXECUTE");
 
-  private Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
+  private Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
       tableViewAction = null;
 
   private PaneBuilder() {}
@@ -79,12 +80,12 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder input(KeyLabel key, TextInput value) {
+  public PaneBuilder input(NoneditableText key, EditableText value) {
     inputKeyAndFields.put(key, value);
     return this;
   }
 
-  public PaneBuilder input(Map<KeyLabel, TextInput> inputs) {
+  public PaneBuilder input(Map<NoneditableText, EditableText> inputs) {
     inputKeyAndFields.putAll(inputs);
     return this;
   }
@@ -98,14 +99,16 @@ public class PaneBuilder {
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
     this.buttonAction = buttonAction;
     var queryField =
-        TextInput.singleLine().hint("c0=aa||c1<20||c2>30MB||c3>=2022-10-22T04:57:43.530").build();
-    var sizeLabel = KeyLabel.of("");
+        EditableText.singleLine()
+            .hint(
+                "press ENTER to query. example: topic=chia && size>10GB || *timestamp*>=2022-10-22T04:57:43.530")
+            .build();
 
     tableViewer =
         TableViewer.builder()
             .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
             .filteredDataListener(
-                List.of((ignored, data) -> sizeLabel.text("total: " + data.size())))
+                List.of((ignored, data) -> console.append("total: " + data.size())))
             .build();
 
     queryField
@@ -118,8 +121,6 @@ public class PaneBuilder {
     var borderPane = new BorderPane();
     borderPane.setTop(queryField.node());
     borderPane.setCenter(tableViewer.node());
-    borderPane.setBottom(sizeLabel.node());
-    BorderPane.setAlignment(sizeLabel.node(), Pos.CENTER);
     motherOfTableView = borderPane;
     return this;
   }
@@ -131,10 +132,12 @@ public class PaneBuilder {
   }
 
   public PaneBuilder tableViewAction(
-      Map<KeyLabel, TextInput> inputs,
+      Map<NoneditableText, EditableText> inputs,
       String buttonName,
-      Bi3Function<List<Map<String, Object>>, Map<String, String>, Logger, CompletionStage<Void>>
-          action) {
+      Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>> action) {
+    // always disable the input fields
+    inputs.keySet().forEach(NoneditableText::disable);
+    inputs.values().forEach(EditableText::disable);
     secondInputKeyAndFields.putAll(inputs);
     tableViewActionButton = Button.disabled(buttonName);
     tableViewAction = action;
@@ -146,10 +149,11 @@ public class PaneBuilder {
     var nodes = new ArrayList<Node>();
     if (selectBox != null) nodes.add(selectBox.node());
     if (!inputKeyAndFields.isEmpty()) {
-      var lattice =
-          inputKeyAndFields.size() <= 3
-              ? Lattice.singleColumn(inputKeyAndFields)
-              : Lattice.of(inputKeyAndFields, 3);
+      var ns =
+          inputKeyAndFields.entrySet().stream()
+              .flatMap(entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
+              .collect(Collectors.toList());
+      var lattice = Lattice.of(ns, inputKeyAndFields.size() <= 3 ? 2 : 6);
       nodes.add(lattice.node());
     }
     nodes.add(actionButton);
@@ -163,21 +167,44 @@ public class PaneBuilder {
               (observable, oldValue, newValue) -> {
                 if (checkbox.isSelected()) {
                   tableViewActionButton.enable();
-                  secondInputKeyAndFields.values().forEach(TextInput::enable);
+                  secondInputKeyAndFields.keySet().forEach(NoneditableText::enable);
+                  secondInputKeyAndFields.values().forEach(EditableText::enable);
                 } else {
                   tableViewActionButton.disable();
-                  secondInputKeyAndFields.values().forEach(TextInput::disable);
+                  secondInputKeyAndFields.keySet().forEach(NoneditableText::disable);
+                  secondInputKeyAndFields.values().forEach(EditableText::disable);
                 }
               });
       tableViewActionButton.setOnAction(
           event -> {
             var items = tableViewer.filteredData();
-            var input =
+            var text =
                 secondInputKeyAndFields.entrySet().stream()
-                    .flatMap(e -> e.getValue().text().stream().map(v -> Map.entry(e.getKey(), v)))
-                    .collect(Collectors.toMap(e -> e.getKey().key(), Map.Entry::getValue));
+                    .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
+            var input =
+                new Input() {
+                  @Override
+                  public List<String> selectedKeys() {
+                    return List.of();
+                  }
+
+                  @Override
+                  public Map<String, Optional<String>> texts() {
+                    return text;
+                  }
+                };
             try {
               checkbox.setSelected(false);
+
+              var requiredNonexistentKeys =
+                  secondInputKeyAndFields.entrySet().stream()
+                      .filter(e -> !e.getValue().valid())
+                      .map(e -> e.getKey().text())
+                      .collect(Collectors.toSet());
+              if (!requiredNonexistentKeys.isEmpty()) {
+                console.text("Please define required fields: " + requiredNonexistentKeys);
+                return;
+              }
               tableViewAction
                   .apply(items, input, console::append)
                   .whenComplete((data, e) -> console.text(e));
@@ -190,7 +217,13 @@ public class PaneBuilder {
           VBox.of(
               Pos.CENTER,
               checkbox,
-              Lattice.singleColumn(secondInputKeyAndFields).node(),
+              Lattice.of(
+                      secondInputKeyAndFields.entrySet().stream()
+                          .flatMap(
+                              entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
+                          .collect(Collectors.toList()),
+                      6)
+                  .node(),
               tableViewActionButton));
     }
 
@@ -201,9 +234,8 @@ public class PaneBuilder {
         () -> {
           var requiredNonexistentKeys =
               inputKeyAndFields.entrySet().stream()
-                  .filter(entry -> entry.getKey().highlight())
-                  .filter(entry -> entry.getValue().text().isEmpty())
-                  .map(e -> e.getKey().key())
+                  .filter(e -> !e.getValue().valid())
+                  .map(e -> e.getKey().text())
                   .collect(Collectors.toSet());
           if (!requiredNonexistentKeys.isEmpty()) {
             console.text("Please define required fields: " + requiredNonexistentKeys);
@@ -212,7 +244,7 @@ public class PaneBuilder {
 
           var rawTexts =
               inputKeyAndFields.entrySet().stream()
-                  .collect(Collectors.toMap(e -> e.getKey().key(), e -> e.getValue().text()));
+                  .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
           var input =
               new Input() {
                 @Override

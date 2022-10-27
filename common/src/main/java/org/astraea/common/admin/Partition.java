@@ -28,7 +28,8 @@ public interface Partition {
       List<NodeInfo> isr,
       long earliestOffset,
       long latestOffset,
-      Optional<Long> maxTimestamp) {
+      Optional<Long> maxTimestamp,
+      boolean internal) {
     return new Partition() {
 
       @Override
@@ -70,6 +71,11 @@ public interface Partition {
       public List<NodeInfo> isr() {
         return isr;
       }
+
+      @Override
+      public boolean internal() {
+        return internal;
+      }
     };
   }
 
@@ -99,4 +105,7 @@ public interface Partition {
   List<NodeInfo> replicas();
 
   List<NodeInfo> isr();
+
+  /** @return true if this topic is internal (system) topic */
+  boolean internal();
 }
