@@ -18,8 +18,9 @@ package org.astraea.common.cost;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,12 +28,22 @@ import org.junit.jupiter.api.Test;
 public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
 
   @Test
-  void testQuery() {
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(Utils.randomString()).numberOfPartitions(10).create();
+  void testQuery() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .get();
       Utils.sleep(Duration.ofSeconds(2));
 
-      var clusterInfo = admin.clusterInfo();
+      var clusterInfo =
+          admin
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
+              .toCompletableFuture()
+              .get();
 
       // search by replica
       clusterInfo
