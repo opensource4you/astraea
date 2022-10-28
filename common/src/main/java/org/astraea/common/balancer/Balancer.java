@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -81,7 +82,7 @@ public interface Balancer {
   }
 
   /** The official implementation of {@link Balancer}. */
-  enum Official {
+  enum Official implements EnumInfo {
     SingleStep(SingleStepBalancer.class),
     Greedy(GreedyBalancer.class);
 
@@ -97,6 +98,20 @@ public interface Balancer {
 
     public Balancer create(AlgorithmConfig config) {
       return Balancer.create(theClass(), config);
+    }
+
+    @Override
+    public String alias() {
+      return this.name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public static Official ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Official.class, alias);
     }
   }
 }
