@@ -171,7 +171,7 @@ public class PartitionTab {
                     EditableText.singleLine().disable().build()),
                 "ALTER",
                 tableViewAction(context))
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()

@@ -99,8 +99,8 @@ public class SettingTab {
                     .onlyNumber()
                     .defaultValue(properties.get(jmxPortKey))
                     .build())
-            .buttonName("CHECK")
-            .buttonListener(
+            .clickName("CHECK")
+            .clickListener(
                 (input, logger) -> {
                   var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
                   Objects.requireNonNull(bootstrapServers);

@@ -206,7 +206,7 @@ public class BrokerTab {
                         .map(Enum::toString)
                         .collect(Collectors.toList()),
                     MetricType.values().length / 2))
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()
@@ -298,7 +298,7 @@ public class BrokerTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) -> context.admin().brokers().thenApply(BrokerTab::basicResult))
             .build());
   }
@@ -307,7 +307,7 @@ public class BrokerTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()
@@ -417,7 +417,7 @@ public class BrokerTab {
                 .thenApply(
                     brokers ->
                         PaneBuilder.of()
-                            .buttonAction(
+                            .tableRefresher(
                                 (input, logger) ->
                                     CompletableFuture.supplyAsync(
                                         () ->
