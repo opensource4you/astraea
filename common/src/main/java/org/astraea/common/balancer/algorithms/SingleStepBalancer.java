@@ -54,14 +54,14 @@ public class SingleStepBalancer implements Balancer {
             .string(SHUFFLE_PLAN_GENERATOR_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
-            .orElse(5);
+            .orElse(1);
     maxStep =
         config
             .algorithmConfig()
             .string(SHUFFLE_PLAN_GENERATOR_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
-            .orElse(20);
+            .orElse(30);
     iteration =
         config
             .algorithmConfig()
