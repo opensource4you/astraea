@@ -25,18 +25,18 @@ class SingleStepBalancerTest {
   @Test
   void testConfig() {
     Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
+        SingleStepBalancer.DYNAMICAL_CONFIGS.contains("shuffle.plan.generator.min.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
+        SingleStepBalancer.DYNAMICAL_CONFIGS.contains("shuffle.plan.generator.max.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("iteration"),
+        SingleStepBalancer.DYNAMICAL_CONFIGS.contains("iteration"),
         "Config exists for backward compatability reason");
 
     Assertions.assertEquals(
-        Set.copyOf(SingleStepBalancer.ALL_CONFIGS).size(),
-        SingleStepBalancer.ALL_CONFIGS.size(),
+        Set.copyOf(SingleStepBalancer.DYNAMICAL_CONFIGS).size(),
+        SingleStepBalancer.DYNAMICAL_CONFIGS.size(),
         "No duplicate element");
   }
 }

@@ -37,7 +37,7 @@ public class SingleStepBalancer implements Balancer {
   public static final String SHUFFLE_PLAN_GENERATOR_MAX_STEP_CONFIG =
       "shuffle.plan.generator.max.step";
   public static final String ITERATION_CONFIG = "iteration";
-  public static final Set<String> ALL_CONFIGS =
+  public static final Set<String> DYNAMICAL_CONFIGS =
       Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"));
 
   private final AlgorithmConfig config;
