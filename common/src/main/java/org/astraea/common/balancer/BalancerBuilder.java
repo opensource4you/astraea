@@ -28,8 +28,8 @@ import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
-import org.astraea.common.balancer.algorithms.GreedyAlgorithm;
-import org.astraea.common.balancer.algorithms.SingleStepAlgorithm;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
@@ -47,7 +47,7 @@ public class BalancerBuilder {
   private Duration executionTime = Duration.ofSeconds(3);
   private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
   private Configuration algorithmConfig = Configuration.of(Map.of());
-  private Class<? extends Balancer> balancer = SingleStepAlgorithm.class;
+  private Class<? extends Balancer> balancer = SingleStepBalancer.class;
 
   /**
    * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
@@ -137,7 +137,7 @@ public class BalancerBuilder {
   @Deprecated
   public BalancerBuilder greedy(boolean greedy) {
     // TODO: replaced by BalancerBuilder#algorithm
-    return balancer(greedy ? GreedyAlgorithm.class : balancer);
+    return balancer(greedy ? GreedyBalancer.class : balancer);
   }
 
   /**

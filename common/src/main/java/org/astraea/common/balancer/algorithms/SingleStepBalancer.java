@@ -30,13 +30,13 @@ import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
-public class SingleStepAlgorithm extends Balancer {
+public class SingleStepBalancer extends Balancer {
 
   private final int minStep;
   private final int maxStep;
   private final int iteration;
 
-  public SingleStepAlgorithm(AlgorithmConfig algorithmConfig) {
+  public SingleStepBalancer(AlgorithmConfig algorithmConfig) {
     super(algorithmConfig);
 
     minStep =

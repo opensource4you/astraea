@@ -37,13 +37,13 @@ import org.astraea.common.cost.ClusterCost;
  * state multiple times, select the ideal tweak among the discovery. This process might take
  * multiple iterations, until no nicer tweak found.
  */
-public class GreedyAlgorithm extends Balancer {
+public class GreedyBalancer extends Balancer {
 
   private final int minStep;
   private final int maxStep;
   private final int iteration;
 
-  public GreedyAlgorithm(AlgorithmConfig algorithmConfig) {
+  public GreedyBalancer(AlgorithmConfig algorithmConfig) {
     super(algorithmConfig);
     minStep =
         config()
