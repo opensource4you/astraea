@@ -67,7 +67,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                             r.nodeInfo().id() == beforeReplica.nodeInfo().id()
                                 && r.partition() == beforeReplica.partition()
                                 && r.topic().equals(beforeReplica.topic())
-                                && r.path().equals(beforeReplica.path())))
+                                && r.path().equals(beforeReplica.path())
+                                && r.isLeader() == beforeReplica.isLeader()
+                                && r.isPreferredLeader() == beforeReplica.isPreferredLeader()))
         .collect(Collectors.toSet());
   }
 

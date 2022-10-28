@@ -31,14 +31,15 @@ public class Context {
   private volatile int jmxPort = -1;
   private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
 
+  public Context() {}
+
+  public Context(AsyncAdmin admin) {
+    asyncAdminReference.set(admin);
+  }
+
   public void replace(AsyncAdmin admin) {
     var previous = asyncAdminReference.getAndSet(admin);
     if (previous != null) previous.close();
-  }
-
-  public void replace(AsyncAdmin admin, int jmxPort) {
-
-    this.jmxPort = jmxPort;
   }
 
   public void replace(Set<NodeInfo> nodes, int jmxPort) {

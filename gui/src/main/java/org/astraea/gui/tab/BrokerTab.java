@@ -36,10 +36,10 @@ import java.util.stream.Stream;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
-import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
@@ -353,26 +353,23 @@ public class BrokerTab {
                                   .collect(Collectors.toList()))
                       .thenCompose(
                           brokers -> {
-                            var unsets = input.emptyValueKeys();
-                            var sets = input.nonEmptyTexts();
-                            if (unsets.isEmpty() && sets.isEmpty()) {
+                            var unset =
+                                brokers.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            NodeInfo::id, b -> input.emptyValueKeys()));
+                            var set =
+                                brokers.stream()
+                                    .collect(
+                                        Collectors.toMap(NodeInfo::id, b -> input.nonEmptyTexts()));
+                            if (unset.isEmpty() && set.isEmpty()) {
                               logger.log("nothing to alter");
                               return CompletableFuture.completedStage(null);
                             }
-                            return FutureUtils.sequence(
-                                    brokers.stream()
-                                        .flatMap(
-                                            broker ->
-                                                Stream.of(
-                                                    context
-                                                        .admin()
-                                                        .setConfigs(broker.id(), sets)
-                                                        .toCompletableFuture(),
-                                                    context
-                                                        .admin()
-                                                        .unsetConfigs(broker.id(), unsets)
-                                                        .toCompletableFuture()))
-                                        .collect(Collectors.toList()))
+                            return context
+                                .admin()
+                                .unsetBrokerConfigs(unset)
+                                .thenCompose(ignored -> context.admin().setBrokerConfigs(set))
                                 .thenAccept(
                                     ignored -> logger.log("succeed to alter: " + brokerToAlter));
                           });
