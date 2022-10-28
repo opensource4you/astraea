@@ -25,18 +25,18 @@ class GreedyBalancerTest {
   @Test
   void testConfig() {
     Assertions.assertTrue(
-        GreedyBalancer.DYNAMICAL_CONFIGS.contains("shuffle.plan.generator.min.step"),
+        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
-        GreedyBalancer.DYNAMICAL_CONFIGS.contains("shuffle.plan.generator.max.step"),
+        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
-        GreedyBalancer.DYNAMICAL_CONFIGS.contains("iteration"),
+        GreedyBalancer.ALL_CONFIGS.contains("iteration"),
         "Config exists for backward compatability reason");
 
     Assertions.assertEquals(
-        Set.copyOf(GreedyBalancer.DYNAMICAL_CONFIGS).size(),
-        GreedyBalancer.DYNAMICAL_CONFIGS.size(),
+        Set.copyOf(GreedyBalancer.ALL_CONFIGS).size(),
+        GreedyBalancer.ALL_CONFIGS.size(),
         "No duplicate element");
   }
 }
