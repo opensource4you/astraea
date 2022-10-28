@@ -30,31 +30,32 @@ import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
-public class SingleStepBalancer extends Balancer {
+public class SingleStepBalancer implements Balancer {
 
+  private final AlgorithmConfig config;
   private final int minStep;
   private final int maxStep;
   private final int iteration;
 
   public SingleStepBalancer(AlgorithmConfig algorithmConfig) {
-    super(algorithmConfig);
+    this.config = algorithmConfig;
 
     minStep =
-        config()
+        config
             .algorithmConfig()
             .string("min.step")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(5);
     maxStep =
-        config()
+        config
             .algorithmConfig()
             .string("max.step")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(20);
     iteration =
-        config()
+        config
             .algorithmConfig()
             .string("iteration")
             .map(Integer::parseInt)
@@ -68,15 +69,15 @@ public class SingleStepBalancer extends Balancer {
       Predicate<String> topicFilter,
       Map<Integer, Set<String>> brokerFolders) {
     final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
-    final var currentClusterBean = config().metricSource().get();
-    final var clusterCostFunction = config().clusterCostFunction();
-    final var moveCostFunction = config().moveCostFunctions();
+    final var currentClusterBean = config.metricSource().get();
+    final var clusterCostFunction = config.clusterCostFunction();
+    final var moveCostFunction = config.moveCostFunctions();
     final var currentCost =
-        config().clusterCostFunction().clusterCost(currentClusterInfo, currentClusterBean);
+        config.clusterCostFunction().clusterCost(currentClusterInfo, currentClusterBean);
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
 
     var start = System.currentTimeMillis();
-    var executionTime = config().executionTime().toMillis();
+    var executionTime = config.executionTime().toMillis();
     return planGenerator
         .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
         .parallel()
@@ -95,8 +96,8 @@ public class SingleStepBalancer extends Balancer {
                           cf -> cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
                       .collect(Collectors.toList()));
             })
-        .filter(plan -> config().clusterConstraint().test(currentCost, plan.clusterCost()))
-        .filter(plan -> config().movementConstraint().test(plan.moveCost()))
+        .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+        .filter(plan -> config.movementConstraint().test(plan.moveCost()))
         .min(Comparator.comparing(plan -> plan.clusterCost().value()));
   }
 }

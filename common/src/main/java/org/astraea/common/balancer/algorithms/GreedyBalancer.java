@@ -37,30 +37,31 @@ import org.astraea.common.cost.ClusterCost;
  * state multiple times, select the ideal tweak among the discovery. This process might take
  * multiple iterations, until no nicer tweak found.
  */
-public class GreedyBalancer extends Balancer {
+public class GreedyBalancer implements Balancer {
 
+  private final AlgorithmConfig config;
   private final int minStep;
   private final int maxStep;
   private final int iteration;
 
   public GreedyBalancer(AlgorithmConfig algorithmConfig) {
-    super(algorithmConfig);
+    this.config = algorithmConfig;
     minStep =
-        config()
+        config
             .algorithmConfig()
             .string("min.step")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(5);
     maxStep =
-        config()
+        config
             .algorithmConfig()
             .string("max.step")
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(20);
     iteration =
-        config()
+        config
             .algorithmConfig()
             .string("iteration")
             .map(Integer::parseInt)
@@ -74,13 +75,13 @@ public class GreedyBalancer extends Balancer {
       Predicate<String> topicFilter,
       Map<Integer, Set<String>> brokerFolders) {
     final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
-    final var metrics = config().metricSource().get();
-    final var clusterCostFunction = config().clusterCostFunction();
-    final var moveCostFunction = config().moveCostFunctions();
+    final var metrics = config.metricSource().get();
+    final var clusterCostFunction = config.clusterCostFunction();
+    final var moveCostFunction = config.moveCostFunctions();
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
-    final var executionTime = config().executionTime().toMillis();
+    final var executionTime = config.executionTime().toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
     BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
@@ -100,8 +101,8 @@ public class GreedyBalancer extends Balancer {
                               .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))
                               .collect(Collectors.toList()));
                     })
-                .filter(plan -> config().clusterConstraint().test(currentCost, plan.clusterCost()))
-                .filter(plan -> config().movementConstraint().test(plan.moveCost()))
+                .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+                .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
     var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
     var currentAllocation =
