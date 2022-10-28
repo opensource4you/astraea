@@ -345,7 +345,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
 
       admin
-          .setConfigs(topic, Map.of(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG, "3000"))
+          .setTopicConfigs(Map.of(topic, Map.of(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG, "3000")))
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(2));
@@ -353,7 +353,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
       Assertions.assertEquals("3000", config.value(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG).get());
 
       admin
-          .unsetConfigs(topic, Set.of(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG))
+          .unsetTopicConfigs(Map.of(topic, Set.of(TopicConfigs.FILE_DELETE_DELAY_MS_CONFIG)))
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(2));
@@ -365,14 +365,13 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
   @Test
   void testSetAndUnsetBrokerConfig() throws ExecutionException, InterruptedException {
-    var topic = Utils.randomString();
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var broker = admin.brokers().toCompletableFuture().get().get(0);
       var id = broker.id();
       Assertions.assertEquals("producer", broker.config().value("compression.type").get());
 
       admin
-          .setConfigs(id, Map.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG, "gzip"))
+          .setBrokerConfigs(Map.of(id, Map.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG, "gzip")))
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(2));
@@ -385,7 +384,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           "gzip", broker.config().value(BrokerConfigs.COMPRESSION_TYPE_CONFIG).get());
 
       admin
-          .unsetConfigs(id, Set.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG))
+          .unsetBrokerConfigs(Map.of(id, Set.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG)))
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(2));
@@ -1545,8 +1544,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .config()
               .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG));
       admin
-          .appendConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .appendTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1562,8 +1563,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       // append to existent value
       admin
-          .appendConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002"))
+          .appendTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1579,8 +1582,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       // append duplicate value
       admin
-          .appendConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002"))
+          .appendTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1596,8 +1601,9 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       // append to wildcard
       admin
-          .setConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*"))
+          .setTopicConfigs(
+              Map.of(
+                  topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1611,8 +1617,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
               .get());
       admin
-          .appendConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .appendTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1645,14 +1653,19 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       // subtract existent value
       admin
-          .setConfigs(
-              topic,
-              Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001,2:1003"))
+          .setTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(
+                      TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                      "1:1001,2:1003")))
           .toCompletableFuture()
           .get();
       admin
-          .subtractConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .subtractTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1668,8 +1681,10 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       // subtract nonexistent value
       admin
-          .subtractConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001"))
+          .subtractTopicConfigs(
+              Map.of(
+                  topic,
+                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .get();
       Assertions.assertEquals(
@@ -1685,8 +1700,9 @@ public class AsyncAdminTest extends RequireBrokerCluster {
 
       // can't subtract *
       admin
-          .setConfigs(
-              topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*"))
+          .setTopicConfigs(
+              Map.of(
+                  topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
           .toCompletableFuture()
           .get();
 
@@ -1696,11 +1712,12 @@ public class AsyncAdminTest extends RequireBrokerCluster {
                   ExecutionException.class,
                   () ->
                       admin
-                          .subtractConfigs(
-                              topic,
+                          .subtractTopicConfigs(
                               Map.of(
-                                  TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
-                                  "1:1001"))
+                                  topic,
+                                  Map.of(
+                                      TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                                      "1:1001")))
                           .toCompletableFuture()
                           .get())
               .getCause());
@@ -1760,7 +1777,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
               .stream()
               .filter(entry -> TopicConfigs.ALL_CONFIGS.contains(entry.getKey()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      admin.setConfigs(topic, sets).toCompletableFuture().get();
+      admin.setTopicConfigs(Map.of(topic, sets)).toCompletableFuture().get();
     }
   }
 
@@ -1772,7 +1789,7 @@ public class AsyncAdminTest extends RequireBrokerCluster {
           broker.config().raw().entrySet().stream()
               .filter(entry -> BrokerConfigs.DYNAMICAL_CONFIGS.contains(entry.getKey()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      admin.setConfigs(broker.id(), sets).toCompletableFuture().get();
+      admin.setBrokerConfigs(Map.of(broker.id(), sets)).toCompletableFuture().get();
     }
   }
 }
