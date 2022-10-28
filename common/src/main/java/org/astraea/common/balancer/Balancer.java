@@ -25,6 +25,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 
@@ -36,9 +38,22 @@ public interface Balancer {
       Predicate<String> topicFilter,
       Map<Integer, Set<String>> brokerFolders);
 
+  /**
+   * Initialize an instance of specific Balancer implementation
+   *
+   * @param balancerClass the class of the balancer implementation
+   * @param config the algorithm configuration for the new instance
+   * @return a {@link Balancer} instance of the given class
+   */
   static <T extends Balancer> T create(Class<T> balancerClass, AlgorithmConfig config) {
-    return Utils.packException(
-        () -> balancerClass.getConstructor(AlgorithmConfig.class).newInstance(config));
+    try {
+      // case 0: create the class by the given configuration
+      var constructor = balancerClass.getConstructor(AlgorithmConfig.class);
+      return Utils.packException(() -> constructor.newInstance(config));
+    } catch (NoSuchMethodException e) {
+      // case 1: create the class by empty constructor
+      return Utils.packException(() -> balancerClass.getConstructor().newInstance());
+    }
   }
 
   class Plan {
@@ -62,6 +77,26 @@ public interface Balancer {
       this.proposal = proposal;
       this.clusterCost = clusterCost;
       this.moveCost = moveCost;
+    }
+  }
+
+  /** The official implementation of {@link Balancer}. */
+  enum Official {
+    SingleStep(SingleStepBalancer.class),
+    Greedy(GreedyBalancer.class);
+
+    private final Class<? extends Balancer> balancerClass;
+
+    Official(Class<? extends Balancer> theClass) {
+      this.balancerClass = theClass;
+    }
+
+    public Class<? extends Balancer> theClass() {
+      return balancerClass;
+    }
+
+    public Balancer create(AlgorithmConfig config) {
+      return Balancer.create(theClass(), config);
     }
   }
 }
