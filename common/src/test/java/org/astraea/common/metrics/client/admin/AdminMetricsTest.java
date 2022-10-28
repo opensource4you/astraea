@@ -19,7 +19,7 @@ package org.astraea.common.metrics.client.admin;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.it.RequireBrokerCluster;
@@ -28,10 +28,10 @@ import org.junit.jupiter.api.Test;
 
 public class AdminMetricsTest extends RequireBrokerCluster {
   @Test
-  void testMultiBrokers() {
+  void testMultiBrokers() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics = AdminMetrics.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
@@ -59,8 +59,8 @@ public class AdminMetricsTest extends RequireBrokerCluster {
   @Test
   void testMetrics() throws ExecutionException, InterruptedException {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics =
           AdminMetrics.of(MBeanClient.local()).stream()

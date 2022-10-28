@@ -17,8 +17,9 @@
 package org.astraea.app.balancer;
 
 import java.time.Duration;
+import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ import org.junit.jupiter.api.Test;
 public class BalanceProcessDemoTest extends RequireBrokerCluster {
 
   @Test
-  void run() {
+  void run() throws ExecutionException, InterruptedException {
     // prepare topics
     createTopics();
 
@@ -43,22 +44,29 @@ public class BalanceProcessDemoTest extends RequireBrokerCluster {
     describeCurrentAllocation();
   }
 
-  void describeCurrentAllocation() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var cla = ClusterLogAllocation.of(admin.clusterInfo());
+  void describeCurrentAllocation() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+      var cla =
+          ClusterLogAllocation.of(
+              admin
+                  .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
+                  .toCompletableFuture()
+                  .get());
       System.out.println(ClusterLogAllocation.toString(cla));
       System.out.println();
     }
   }
 
-  void createTopics() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+  void createTopics() throws ExecutionException, InterruptedException {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin
           .creator()
           .topic("TestingTopic")
           .numberOfPartitions(10)
           .numberOfReplicas((short) 2)
-          .create();
+          .run()
+          .toCompletableFuture()
+          .get();
     }
     Utils.sleep(Duration.ofSeconds(1));
   }
