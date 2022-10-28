@@ -39,6 +39,10 @@ import org.astraea.common.cost.ClusterCost;
  */
 public class GreedyBalancer implements Balancer {
 
+  public static final String SHUFFLE_PLAN_GENERATOR_MIN_STEP = "shuffle.plan.generator.min.step";
+  public static final String SHUFFLE_PLAN_GENERATOR_MAX_STEP = "shuffle.plan.generator.max.step";
+  public static final String ITERATION = "iteration";
+
   private final AlgorithmConfig config;
   private final int minStep;
   private final int maxStep;
@@ -49,21 +53,21 @@ public class GreedyBalancer implements Balancer {
     minStep =
         config
             .algorithmConfig()
-            .string("min.step")
+            .string(SHUFFLE_PLAN_GENERATOR_MIN_STEP)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(5);
     maxStep =
         config
             .algorithmConfig()
-            .string("max.step")
+            .string(SHUFFLE_PLAN_GENERATOR_MAX_STEP)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(20);
     iteration =
         config
             .algorithmConfig()
-            .string("iteration")
+            .string(ITERATION)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
