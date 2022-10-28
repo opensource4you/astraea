@@ -67,7 +67,7 @@ public class TopicTab {
                         .map(ServerMetrics.Topic::toString)
                         .collect(Collectors.toList()),
                     ServerMetrics.Topic.values().length))
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
                         () -> {
@@ -126,7 +126,7 @@ public class TopicTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     FutureUtils.combine(
                         context
@@ -259,7 +259,7 @@ public class TopicTab {
                       .thenAccept(
                           ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
                 })
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()
@@ -300,7 +300,7 @@ public class TopicTab {
     return Tab.of(
         "create",
         PaneBuilder.of()
-            .buttonName("CREATE")
+            .clickName("CREATE")
             .input(
                 NoneditableText.highlight(TOPIC_NAME_KEY),
                 EditableText.singleLine().disallowEmpty().build())
@@ -315,7 +315,7 @@ public class TopicTab {
                     .collect(
                         Collectors.toMap(
                             NoneditableText::of, ignored -> EditableText.singleLine().build())))
-            .buttonListener(
+            .clickListener(
                 (input, logger) -> {
                   var allConfigs = new HashMap<>(input.nonEmptyTexts());
                   var name = allConfigs.remove(TOPIC_NAME_KEY);

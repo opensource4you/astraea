@@ -28,13 +28,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
-import org.astraea.gui.Query;
 import org.astraea.gui.box.VBox;
-import org.astraea.gui.button.Button;
+import org.astraea.gui.button.Click;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
@@ -42,6 +40,8 @@ import org.astraea.gui.text.NoneditableText;
 
 /** a template layout for all tabs. */
 public class PaneBuilder {
+
+  private static final String REFRESH_KEY = "REFRESH";
 
   public static PaneBuilder of() {
     return new PaneBuilder();
@@ -53,21 +53,21 @@ public class PaneBuilder {
 
   private final Map<NoneditableText, EditableText> inputKeyAndFields = new LinkedHashMap<>();
 
-  private Button actionButton = Button.of("REFRESH");
+  private Click click = Click.of(REFRESH_KEY);
 
   private final EditableText console = EditableText.multiline().build();
 
   private TableViewer tableViewer = null;
-  private Node motherOfTableView = null;
 
-  private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
-  private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
+  private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher =
+      null;
+  private BiFunction<Input, Logger, CompletionStage<Void>> clickListener = null;
 
   // ---------------------------------[second control]---------------------------------//
 
   private final Map<NoneditableText, EditableText> secondInputKeyAndFields = new LinkedHashMap<>();
 
-  private Button tableViewActionButton = Button.disabled("EXECUTE");
+  private Click tableViewClick = Click.disabled("EXECUTE");
 
   private Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
       tableViewAction = null;
@@ -89,44 +89,23 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder buttonName(String name) {
-    actionButton = Button.of(name);
+  public PaneBuilder clickName(String name) {
+    click = Click.of(name);
     return this;
   }
 
-  public PaneBuilder buttonAction(
-      BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
-    this.buttonAction = buttonAction;
-    var queryField =
-        EditableText.singleLine()
-            .hint(
-                "press ENTER to query. example: topic=chia && size>10GB || *timestamp*>=2022-10-22T04:57:43.530")
-            .build();
-
-    tableViewer =
-        TableViewer.builder()
-            .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
-            .filteredDataListener(
-                List.of((ignored, data) -> console.append("total: " + data.size())))
-            .build();
-
-    queryField
-        .node()
-        .setOnKeyPressed(
-            key -> {
-              if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
-            });
-
-    var borderPane = new BorderPane();
-    borderPane.setTop(queryField.node());
-    borderPane.setCenter(tableViewer.node());
-    motherOfTableView = borderPane;
+  public PaneBuilder tableRefresher(
+      BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    this.tableRefresher = tableRefresher;
+    this.tableViewer = TableViewer.of();
+    this.tableViewer.filteredDataListener(
+        (ignored, data) -> console.append("total: " + data.size()));
     return this;
   }
 
-  public PaneBuilder buttonListener(
+  public PaneBuilder clickListener(
       BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
-    this.buttonListener = buttonListener;
+    this.clickListener = buttonListener;
     return this;
   }
 
@@ -138,7 +117,7 @@ public class PaneBuilder {
     inputs.keySet().forEach(NoneditableText::disable);
     inputs.values().forEach(EditableText::disable);
     secondInputKeyAndFields.putAll(inputs);
-    tableViewActionButton = Button.disabled(buttonName);
+    tableViewClick = Click.disabled(buttonName);
     tableViewAction = action;
     return this;
   }
@@ -155,8 +134,8 @@ public class PaneBuilder {
       var lattice = Lattice.of(ns, inputKeyAndFields.size() <= 3 ? 2 : 6);
       nodes.add(lattice.node());
     }
-    nodes.add(actionButton);
-    if (motherOfTableView != null) nodes.add(motherOfTableView);
+    nodes.add(click.node());
+    if (tableViewer != null) nodes.add(tableViewer.node());
     // ---------------------------------[second control layout]---------------------------------//
     if (tableViewer != null && tableViewAction != null) {
       var checkbox = new CheckBox("enable");
@@ -165,17 +144,17 @@ public class PaneBuilder {
           .addListener(
               (observable, oldValue, newValue) -> {
                 if (checkbox.isSelected()) {
-                  tableViewActionButton.enable();
+                  tableViewClick.enable();
                   secondInputKeyAndFields.keySet().forEach(NoneditableText::enable);
                   secondInputKeyAndFields.values().forEach(EditableText::enable);
                 } else {
-                  tableViewActionButton.disable();
+                  tableViewClick.disable();
                   secondInputKeyAndFields.keySet().forEach(NoneditableText::disable);
                   secondInputKeyAndFields.values().forEach(EditableText::disable);
                 }
               });
-      tableViewActionButton.setOnAction(
-          event -> {
+      tableViewClick.action(
+          () -> {
             var items = tableViewer.filteredData();
             var text =
                 secondInputKeyAndFields.entrySet().stream()
@@ -212,7 +191,7 @@ public class PaneBuilder {
                           .collect(Collectors.toList()),
                       6)
                   .node(),
-              tableViewActionButton));
+              tableViewClick.node()));
     }
 
     nodes.add(console.node());
@@ -235,13 +214,13 @@ public class PaneBuilder {
                   .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
           var input = Input.of(selectBox == null ? List.of() : selectBox.selectedKeys(), rawTexts);
           // nothing to do
-          if (buttonAction == null && buttonListener == null) return;
+          if (tableRefresher == null && clickListener == null) return;
 
           console.cleanup();
-          actionButton.disable();
+          click.disable();
           try {
-            if (buttonAction != null)
-              buttonAction
+            if (tableRefresher != null)
+              tableRefresher
                   .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
@@ -249,28 +228,39 @@ public class PaneBuilder {
                           if (data != null && tableViewer != null) tableViewer.data(data);
                           console.text(e);
                         } finally {
-                          actionButton.enable();
+                          click.enable();
                         }
                       });
-            if (buttonListener != null)
-              buttonListener
+            if (clickListener != null)
+              clickListener
                   .apply(input, console::append)
                   .whenComplete(
                       (data, e) -> {
                         try {
                           console.text(e);
                         } finally {
-                          actionButton.enable();
+                          click.enable();
                         }
                       });
 
           } catch (Exception e) {
             console.text(e);
-            actionButton.enable();
+            click.enable();
           }
         };
 
-    actionButton.setOnAction(ignored -> handler.run());
+    click.action(handler);
+    if (tableViewer != null)
+      tableViewer.keyAction(
+          keyEvent -> {
+            if (keyEvent.getCode() == KeyCode.ENTER) {
+              // TODO: it is unstable to change action according to "string"
+              // If the click action is used to fetch server data, we refresh all data
+              // otherwise, we only filter the current data
+              if (click.name().equals(REFRESH_KEY)) handler.run();
+              else tableViewer.refresh();
+            }
+          });
     return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
   }
 }

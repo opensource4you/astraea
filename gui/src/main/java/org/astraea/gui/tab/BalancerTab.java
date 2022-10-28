@@ -184,7 +184,7 @@ public class BalancerTab {
                 SelectBox.multi(
                     Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
                     Cost.values().length))
-            .buttonName("PLAN")
+            .clickName("PLAN")
             .input(
                 NoneditableText.of(TOPIC_NAME_KEY),
                 EditableText.singleLine().hint("topic-*,*abc*").build())
@@ -279,7 +279,7 @@ public class BalancerTab {
                       .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
                       .thenAccept(ignored -> logger.log("succeed to balance cluster"));
                 })
-            .buttonAction((input, logger) -> generator(context, input, logger))
+            .tableRefresher((input, logger) -> generator(context, input, logger))
             .build();
 
     return Tab.of("balancer", pane);

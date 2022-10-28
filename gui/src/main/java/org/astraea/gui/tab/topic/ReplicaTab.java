@@ -151,7 +151,7 @@ public class ReplicaTab {
     return Tab.of(
         "replica",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()

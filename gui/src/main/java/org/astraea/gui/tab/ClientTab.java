@@ -87,7 +87,7 @@ public class ClientTab {
     return Tab.of(
         "consumer",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     FutureUtils.combine(
                         context
@@ -124,7 +124,7 @@ public class ClientTab {
     return Tab.of(
         "transaction",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()
@@ -159,7 +159,7 @@ public class ClientTab {
     return Tab.of(
         "producer",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()

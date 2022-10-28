@@ -44,12 +44,12 @@ public class QuotaTab {
     var ipLabelKey = "ip address";
     var rateKey = "connections/second";
     return PaneBuilder.of()
-        .buttonName("ALTER")
+        .clickName("ALTER")
         .input(
             NoneditableText.highlight(ipLabelKey),
             EditableText.singleLine().disallowEmpty().build())
         .input(NoneditableText.of(rateKey), EditableText.singleLine().onlyNumber().build())
-        .buttonAction(
+        .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
                     .map(
@@ -83,12 +83,12 @@ public class QuotaTab {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
-        .buttonName("ALTER")
+        .clickName("ALTER")
         .input(
             NoneditableText.highlight(clientIdLabelKey),
             EditableText.singleLine().disallowEmpty().build())
         .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
-        .buttonAction(
+        .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
                     .map(
@@ -122,12 +122,12 @@ public class QuotaTab {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
-        .buttonName("ALTER")
+        .clickName("ALTER")
         .input(
             NoneditableText.highlight(clientIdLabelKey),
             EditableText.singleLine().disallowEmpty().build())
         .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
-        .buttonAction(
+        .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
                     .map(
@@ -186,7 +186,7 @@ public class QuotaTab {
     return Tab.of(
         "basic",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     FutureUtils.combine(
                         context.admin().quotas(Set.of(QuotaConfigs.IP)),
