@@ -24,7 +24,7 @@ import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
-import org.junit.jupiter.api.{BeforeAll, Test}
+import org.junit.jupiter.api.{BeforeAll, Disabled, Test}
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
@@ -101,19 +101,15 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     }
   }
 
-  @Test def archive(): Unit = {
+  @Test def archiveTest(): Unit = {
     Thread.sleep(Duration(20, TimeUnit.SECONDS).toMillis)
-    Range
-      .inclusive(0, 4)
-      .foreach(i => {
-        assertTrue(
-          Files.exists(
-            new File(
-              sinkD + source + "/local_kafka-" + i.toString + ".csv"
-            ).toPath
-          )
-        )
-      })
+    assertTrue(
+      Files.exists(
+        new File(
+          sinkD + source + "/local_kafka-" + "0" + ".csv"
+        ).toPath
+      )
+    )
   }
 
   def s2kType(rows: List[List[String]]): Map[String, String] = {
@@ -191,7 +187,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(TOPIC_PARTITIONS, "10")
       properties.setProperty(TOPIC_REPLICAS, "2")
       properties.setProperty(TOPIC_CONFIG, "compression.type=lz4")
-      properties.setProperty(DEPLOYMENT_MODEL, "local[5]")
+      properties.setProperty(DEPLOYMENT_MODEL, "local[1]")
 
       properties.store(fileOut, "Favorite Things");
     }

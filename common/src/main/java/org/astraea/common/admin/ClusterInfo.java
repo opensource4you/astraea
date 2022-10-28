@@ -67,7 +67,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                             r.nodeInfo().id() == beforeReplica.nodeInfo().id()
                                 && r.partition() == beforeReplica.partition()
                                 && r.topic().equals(beforeReplica.topic())
-                                && r.path().equals(beforeReplica.path())))
+                                && r.path().equals(beforeReplica.path())
+                                && r.isLeader() == beforeReplica.isLeader()
+                                && r.isPreferredLeader() == beforeReplica.isPreferredLeader()))
         .collect(Collectors.toSet());
   }
 
@@ -239,6 +241,20 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   default List<T> replicaLeaders(String topic) {
     return replicaStream()
         .filter(r -> r.topic().equals(topic))
+        .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * Get the list of replica leaders of given node
+   *
+   * @param broker the broker id
+   * @return A list of {@link ReplicaInfo}.
+   */
+  default List<T> replicaLeaders(int broker) {
+    return replicaStream()
+        .filter(r -> r.nodeInfo().id() == broker)
         .filter(ReplicaInfo::isLeader)
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());

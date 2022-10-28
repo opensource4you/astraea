@@ -19,19 +19,22 @@ package org.astraea.gui.tab.topic;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
+import org.astraea.gui.Logger;
+import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Tab;
 import org.astraea.gui.text.EditableText;
@@ -41,6 +44,10 @@ public class PartitionTab {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
+
+  private static final String INCREASE_PARTITION_KEY = "increase partitions to";
+
+  private static final String TRUNCATE_OFFSET_KEY = "truncate offset to";
 
   private static List<Map<String, Object>> basicResult(List<Partition> ps) {
     return ps.stream()
@@ -76,6 +83,80 @@ public class PartitionTab {
         .collect(Collectors.toList());
   }
 
+  static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
+      tableViewAction(Context context) {
+    return (items, inputs, logger) -> {
+      var partitions =
+          items.stream()
+              .flatMap(
+                  item -> {
+                    var topic = item.get(TOPIC_NAME_KEY);
+                    var partition = item.get(PARTITION_KEY);
+                    if (topic != null && partition != null)
+                      return Stream.of(
+                          TopicPartition.of(
+                              topic.toString(), Integer.parseInt(partition.toString())));
+                    return Stream.of();
+                  })
+              .collect(Collectors.toSet());
+      if (partitions.isEmpty()) {
+        logger.log("nothing to alert");
+        return CompletableFuture.completedStage(null);
+      }
+      var increasePartitions = inputs.get(INCREASE_PARTITION_KEY).map(Integer::parseInt);
+      var offset = inputs.get(TRUNCATE_OFFSET_KEY).map(Long::parseLong);
+      if (increasePartitions.isEmpty() && offset.isEmpty()) {
+        logger.log("please define either " + INCREASE_PARTITION_KEY + " or " + TRUNCATE_OFFSET_KEY);
+        return CompletableFuture.completedStage(null);
+      }
+
+      return context
+          .admin()
+          .internalTopicNames()
+          .thenCompose(
+              internalTopics -> {
+                var internal =
+                    partitions.stream()
+                        .map(TopicPartition::topic)
+                        .filter(internalTopics::contains)
+                        .collect(Collectors.toSet());
+                if (!internal.isEmpty()) {
+                  logger.log("internal topics: " + internal + " can't be altered");
+                  return CompletableFuture.completedStage(null);
+                }
+                return FutureUtils.combine(
+                    context
+                        .admin()
+                        .deleteRecords(
+                            offset
+                                .map(
+                                    o ->
+                                        partitions.stream()
+                                            .collect(Collectors.toMap(tp -> tp, tp -> o)))
+                                .orElse(Map.of())),
+                    increasePartitions
+                        .map(
+                            total ->
+                                FutureUtils.sequence(
+                                    partitions.stream()
+                                        .map(TopicPartition::topic)
+                                        .distinct()
+                                        .map(
+                                            t ->
+                                                context
+                                                    .admin()
+                                                    .addPartitions(t, total)
+                                                    .toCompletableFuture())
+                                        .collect(Collectors.toList())))
+                        .orElse(CompletableFuture.completedFuture(List.of())),
+                    (i, j) -> {
+                      logger.log("succeed to alter partitions: " + partitions);
+                      return null;
+                    });
+              });
+    };
+  }
+
   static Tab tab(Context context) {
     var moveToKey = "move to brokers";
     var offsetKey = "truncate to offset";
@@ -84,83 +165,12 @@ public class PartitionTab {
         PaneBuilder.of()
             .tableViewAction(
                 MapUtils.of(
-                    NoneditableText.of(moveToKey),
-                    EditableText.singleLine().disable().hint("1001,1002").build(),
-                    NoneditableText.of(offsetKey),
+                    NoneditableText.of(INCREASE_PARTITION_KEY),
+                    EditableText.singleLine().disable().build(),
+                    NoneditableText.of(TRUNCATE_OFFSET_KEY),
                     EditableText.singleLine().disable().build()),
                 "ALTER",
-                (items, inputs, logger) -> {
-                  var partitions =
-                      items.stream()
-                          .flatMap(
-                              item -> {
-                                var topic = item.get(TOPIC_NAME_KEY);
-                                var partition = item.get(PARTITION_KEY);
-                                if (topic != null && partition != null)
-                                  return Stream.of(
-                                      TopicPartition.of(
-                                          topic.toString(),
-                                          Integer.parseInt(partition.toString())));
-                                return Stream.of();
-                              })
-                          .collect(Collectors.toSet());
-                  if (partitions.isEmpty()) {
-                    logger.log("nothing to alert");
-                    return CompletableFuture.completedStage(null);
-                  }
-                  var moveTo =
-                      inputs
-                          .get(moveToKey)
-                          .map(
-                              s ->
-                                  Arrays.stream(s.split(","))
-                                      .map(Integer::parseInt)
-                                      .collect(Collectors.toList()));
-                  var offset = inputs.get(offsetKey).map(Long::parseLong);
-                  if (moveTo.isEmpty() && offset.isEmpty())
-                    throw new IllegalArgumentException(
-                        "Please define either \"move to\" or \"offset\"");
-
-                  return context
-                      .admin()
-                      .internalTopicNames()
-                      .thenCompose(
-                          internalTopics -> {
-                            var internal =
-                                partitions.stream()
-                                    .filter(p -> internalTopics.contains(p.topic()))
-                                    .map(TopicPartition::topic)
-                                    .collect(Collectors.toSet());
-                            if (!internal.isEmpty())
-                              throw new IllegalArgumentException(
-                                  "internal topics: " + internal + " can't be altered");
-                            return FutureUtils.combine(
-                                context
-                                    .admin()
-                                    .deleteRecords(
-                                        offset
-                                            .map(
-                                                o ->
-                                                    partitions.stream()
-                                                        .collect(
-                                                            Collectors.toMap(tp -> tp, tp -> o)))
-                                            .orElse(Map.of())),
-                                context
-                                    .admin()
-                                    .moveToBrokers(
-                                        moveTo
-                                            .map(
-                                                bks ->
-                                                    partitions.stream()
-                                                        .collect(
-                                                            Collectors.toMap(tp -> tp, tp -> bks)))
-                                            .orElse(Map.of())),
-                                (i, j) -> {
-                                  logger.log("succeed to alter partitions: " + partitions);
-                                  return null;
-                                });
-                          });
-                })
+                tableViewAction(context))
             .buttonAction(
                 (input, logger) ->
                     context

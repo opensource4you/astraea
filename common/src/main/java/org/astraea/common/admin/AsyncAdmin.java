@@ -281,38 +281,36 @@ public interface AsyncAdmin extends AutoCloseable {
   CompletionStage<Void> addPartitions(String topic, int total);
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
-  CompletionStage<Void> setConfigs(String topic, Map<String, String> override);
+  CompletionStage<Void> setTopicConfigs(Map<String, Map<String, String>> override);
 
   /**
    * append the value to config. Noted that it appends nothing if the existent value is "*".
    *
-   * @param topic to append
-   * @param subtracted values
+   * @param appended values
    */
-  CompletionStage<Void> appendConfigs(String topic, Map<String, String> subtracted);
+  CompletionStage<Void> appendTopicConfigs(Map<String, Map<String, String>> appended);
 
   /**
    * subtract the value to config. Noted that it throws exception if the existent value is "*".
    *
-   * @param topic to append
-   * @param appended values
+   * @param subtract values
    */
-  CompletionStage<Void> subtractConfigs(String topic, Map<String, String> appended);
+  CompletionStage<Void> subtractTopicConfigs(Map<String, Map<String, String>> subtract);
 
   /**
    * unset the value associated to given keys. The unset config will become either null of default
    * value. Normally, the default value is defined by server.properties or hardcode in source code.
    */
-  CompletionStage<Void> unsetConfigs(String topic, Set<String> keys);
+  CompletionStage<Void> unsetTopicConfigs(Map<String, Set<String>> unset);
 
   /** @param override defines the key and new value. The other undefined keys won't get changed. */
-  CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override);
+  CompletionStage<Void> setBrokerConfigs(Map<Integer, Map<String, String>> override);
 
   /**
    * unset the value associated to given keys. The unset config will become either null of default
    * value. Normally, the default value is defined by server.properties or hardcode in source code.
    */
-  CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys);
+  CompletionStage<Void> unsetBrokerConfigs(Map<Integer, Set<String>> unset);
 
   /** delete topics by topic names */
   CompletionStage<Void> deleteTopics(Set<String> topics);
