@@ -52,7 +52,8 @@ class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
-  void testLeaderCountRebalance(Class<? extends Balancer> theClass) throws ExecutionException, InterruptedException {
+  void testLeaderCountRebalance(Class<? extends Balancer> theClass)
+      throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers());
         var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
@@ -91,10 +92,12 @@ class BalancerTest extends RequireBrokerCluster {
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
 
       var plan =
-          Balancer.create(theClass, AlgorithmConfig.builder()
-              .clusterCost(new ReplicaLeaderCost())
-              .limit(Duration.ofSeconds(10))
-              .build())
+          Balancer.create(
+                  theClass,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaLeaderCost())
+                      .limit(Duration.ofSeconds(10))
+                      .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
@@ -120,7 +123,8 @@ class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
-  void testFilter(Class<? extends Balancer> theClass) throws ExecutionException, InterruptedException {
+  void testFilter(Class<? extends Balancer> theClass)
+      throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
@@ -148,11 +152,8 @@ class BalancerTest extends RequireBrokerCluster {
               .get();
       var brokerFolders = admin.brokerFolders().toCompletableFuture().get();
       var newAllocation =
-          Balancer.builder()
-              .clusterCost(randomScore)
-              .limit(500)
-              .greedy(greedy)
-              .build()
+          Balancer.create(
+                  theClass, AlgorithmConfig.builder().clusterCost(randomScore).limit(500).build())
               .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
               .get()
               .proposal()
@@ -174,7 +175,8 @@ class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
-  void testExecutionTime(Class<? extends Balancer> theClass) throws ExecutionException, InterruptedException {
+  void testExecutionTime(Class<? extends Balancer> theClass)
+      throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
@@ -190,11 +192,12 @@ class BalancerTest extends RequireBrokerCluster {
               () ->
                   Utils.packException(
                       () ->
-                          Balancer.builder()
-                              .clusterCost((clusterInfo, bean) -> Math::random)
-                              .limit(Duration.ofSeconds(3))
-                              .greedy(greedy)
-                              .build()
+                          Balancer.create(
+                                  theClass,
+                                  AlgorithmConfig.builder()
+                                      .clusterCost((clusterInfo, bean) -> Math::random)
+                                      .limit(Duration.ofSeconds(3))
+                                      .build())
                               .offer(
                                   admin
                                       .clusterInfo(
@@ -248,12 +251,13 @@ class BalancerTest extends RequireBrokerCluster {
                   return () -> 0;
                 }
               };
-          Balancer.builder()
-              .clusterCost(theCostFunction)
-              .metricSource(metricSource)
-              .limit(500)
-              .greedy(greedy)
-              .build()
+          Balancer.create(
+                  theClass,
+                  AlgorithmConfig.builder()
+                      .clusterCost(theCostFunction)
+                      .metricSource(metricSource)
+                      .limit(500)
+                      .build())
               .offer(ClusterInfo.empty(), ignore -> true, Map.of());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };

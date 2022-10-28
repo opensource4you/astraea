@@ -46,10 +46,12 @@ public class BalanceProcessDemo {
       var brokerFolders = admin.brokerFolders();
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
-          Balancer.create(SingleStepBalancer.class, AlgorithmConfig.builder()
-              .clusterCost(new ReplicaLeaderCost())
-              .limit(1000)
-              .build())
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaLeaderCost())
+                      .limit(1000)
+                      .build())
               .offer(clusterInfo, filter, brokerFolders);
       plan.ifPresent(
           p ->
