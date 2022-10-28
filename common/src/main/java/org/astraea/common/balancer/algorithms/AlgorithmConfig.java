@@ -68,10 +68,9 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
-    private int searchLimit = Integer.MAX_VALUE;
     private Duration executionTime = Duration.ofSeconds(3);
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
-    private Map<String, String> config = new HashMap<>();
+    private final Map<String, String> config = new HashMap<>();
 
     /**
      * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
