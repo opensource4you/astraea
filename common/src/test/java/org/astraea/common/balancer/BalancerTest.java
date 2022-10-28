@@ -32,6 +32,9 @@ import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
@@ -48,8 +51,8 @@ import org.mockito.Mockito;
 class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testLeaderCountRebalance(boolean greedy) throws ExecutionException, InterruptedException {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testLeaderCountRebalance(Class<? extends Balancer> theClass) throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers());
         var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
@@ -88,11 +91,10 @@ class BalancerTest extends RequireBrokerCluster {
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
 
       var plan =
-          Balancer.builder()
+          Balancer.create(theClass, AlgorithmConfig.builder()
               .clusterCost(new ReplicaLeaderCost())
               .limit(Duration.ofSeconds(10))
-              .greedy(greedy)
-              .build()
+              .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
@@ -117,8 +119,8 @@ class BalancerTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testFilter(boolean greedy) throws ExecutionException, InterruptedException {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testFilter(Class<? extends Balancer> theClass) throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
@@ -171,8 +173,8 @@ class BalancerTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testExecutionTime(boolean greedy) throws ExecutionException, InterruptedException {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testExecutionTime(Class<? extends Balancer> theClass) throws ExecutionException, InterruptedException {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
@@ -214,8 +216,8 @@ class BalancerTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testWithMetrics(boolean greedy) {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testWithMetrics(Class<? extends Balancer> theClass) {
     var counter = new AtomicLong();
     Supplier<ClusterBean> metricSource =
         () -> {

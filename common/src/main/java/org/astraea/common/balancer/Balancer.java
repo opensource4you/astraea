@@ -21,8 +21,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 
@@ -34,8 +36,9 @@ public interface Balancer {
       Predicate<String> topicFilter,
       Map<Integer, Set<String>> brokerFolders);
 
-  static BalancerBuilder builder() {
-    return new BalancerBuilder();
+  static <T extends Balancer> T create(Class<T> balancerClass, AlgorithmConfig config) {
+    return Utils.packException(
+        () -> balancerClass.getConstructor(AlgorithmConfig.class).newInstance(config));
   }
 
   class Plan {

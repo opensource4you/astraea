@@ -39,6 +39,8 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -246,12 +248,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var balancerHandler =
           new BalancerHandler(admin, MultiplicationCost.decreasing(), new ReplicaSizeCost());
       var Best =
-          Balancer.builder()
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> after.value() <= before.value())
-              .moveCost(List.of(moveCostFunction))
-              .movementConstraint(moveCosts -> true)
-              .build()
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> after.value() <= before.value())
+                      .moveCost(List.of(moveCostFunction))
+                      .movementConstraint(moveCosts -> true)
+                      .build())
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
@@ -260,35 +264,41 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              Balancer.builder()
-                  .clusterCost(clusterCostFunction)
-                  .clusterConstraint((before, after) -> true)
-                  .moveCost(List.of(moveCostFunction))
-                  .movementConstraint(moveCosts -> true)
-                  .limit(0)
-                  .build()
+              Balancer.create(
+                      SingleStepBalancer.class,
+                      AlgorithmConfig.builder()
+                          .clusterCost(clusterCostFunction)
+                          .clusterConstraint((before, after) -> true)
+                          .moveCost(List.of(moveCostFunction))
+                          .movementConstraint(moveCosts -> true)
+                          .limit(0)
+                          .build())
                   .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.builder()
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> false)
-              .moveCost(List.of(moveCostFunction))
-              .movementConstraint(moveCosts -> true)
-              .build()
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> false)
+                      .moveCost(List.of(moveCostFunction))
+                      .movementConstraint(moveCosts -> true)
+                      .build())
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
 
       // test move cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.builder()
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> true)
-              .moveCost(List.of(moveCostFunction))
-              .movementConstraint(moveCosts -> false)
-              .build()
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> true)
+                      .moveCost(List.of(moveCostFunction))
+                      .movementConstraint(moveCosts -> false)
+                      .build())
               .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
     }
   }

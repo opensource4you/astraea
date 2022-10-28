@@ -31,6 +31,8 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -139,22 +141,28 @@ public class BalancerTab {
                           logger.log("searching better assignments ... ");
                           return Map.entry(
                               clusterInfo,
-                              Balancer.builder()
-                                  .clusterCost(
-                                      HasClusterCost.of(
-                                          input.selectedKeys().stream()
-                                              .flatMap(
-                                                  name ->
-                                                      Arrays.stream(Cost.values())
-                                                          .filter(c -> c.toString().equals(name)))
-                                              .map(cost -> Map.entry(cost.costFunction, 1.0))
-                                              .collect(
-                                                  Collectors.toMap(
-                                                      Map.Entry::getKey, Map.Entry::getValue))))
-                                  .limit(Duration.ofSeconds(10))
-                                  .limit(10000)
-                                  .greedy(true)
-                                  .build()
+                              Balancer.create(
+                                      GreedyBalancer.class,
+                                      AlgorithmConfig.builder()
+                                          .clusterCost(
+                                              HasClusterCost.of(
+                                                  input.selectedKeys().stream()
+                                                      .flatMap(
+                                                          name ->
+                                                              Arrays.stream(Cost.values())
+                                                                  .filter(
+                                                                      c ->
+                                                                          c.toString()
+                                                                              .equals(name)))
+                                                      .map(
+                                                          cost -> Map.entry(cost.costFunction, 1.0))
+                                                      .collect(
+                                                          Collectors.toMap(
+                                                              Map.Entry::getKey,
+                                                              Map.Entry::getValue))))
+                                          .limit(Duration.ofSeconds(10))
+                                          .limit(10000)
+                                          .build())
                                   .offer(
                                       clusterInfo,
                                       topic ->

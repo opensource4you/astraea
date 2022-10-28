@@ -41,6 +41,8 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -148,12 +150,14 @@ class BalancerHandler implements Handler {
                       channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
               var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
               var bestPlan =
-                  Balancer.builder()
-                      .clusterCost(clusterCostFunction)
-                      .moveCost(List.of(moveCostFunction))
-                      .limit(loop)
-                      .limit(timeout)
-                      .build()
+                  Balancer.create(
+                          SingleStepBalancer.class,
+                          AlgorithmConfig.builder()
+                              .clusterCost(clusterCostFunction)
+                              .moveCost(List.of(moveCostFunction))
+                              .limit(loop)
+                              .limit(timeout)
+                              .build())
                       .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
               var changes =
                   bestPlan

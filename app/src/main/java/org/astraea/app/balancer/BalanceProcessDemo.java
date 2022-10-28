@@ -23,6 +23,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ReplicaLeaderCost;
 
@@ -44,10 +46,10 @@ public class BalanceProcessDemo {
       var brokerFolders = admin.brokerFolders();
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
-          Balancer.builder()
+          Balancer.create(SingleStepBalancer.class, AlgorithmConfig.builder()
               .clusterCost(new ReplicaLeaderCost())
               .limit(1000)
-              .build()
+              .build())
               .offer(clusterInfo, filter, brokerFolders);
       plan.ifPresent(
           p ->
