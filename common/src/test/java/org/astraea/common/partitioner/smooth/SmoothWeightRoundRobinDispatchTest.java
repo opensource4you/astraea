@@ -34,7 +34,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
@@ -51,7 +51,7 @@ import org.mockito.Mockito;
 
 public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
-  Admin admin = Admin.of(bootstrapServers());
+  private final AsyncAdmin admin = AsyncAdmin.of(bootstrapServers());
 
   private Properties initProConfig() {
     Properties props = new Properties();
@@ -85,9 +85,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPartitioner() {
+  void testPartitioner() throws ExecutionException, InterruptedException {
     var topicName = "address";
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().get();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
@@ -146,7 +146,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   @Test
   void testMultipleProducer() throws ExecutionException, InterruptedException {
     var topicName = "addr";
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().get();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
@@ -198,7 +198,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testJmxConfig() {
+  void testJmxConfig() throws ExecutionException, InterruptedException {
     var props = initProConfig();
     var file =
         new File(
@@ -222,7 +222,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
     var topicName = "addressN";
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().get();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());

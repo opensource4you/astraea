@@ -23,7 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,13 +33,13 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testMigrateToAnotherBroker() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -69,7 +69,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextBroker,
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -81,13 +81,13 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testMigrateToAnotherPath() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get();
@@ -124,7 +124,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextPath,
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -135,13 +135,13 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testExcludeSpecificBroker() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -164,13 +164,15 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(
           currentBroker,
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
               .nodeInfo()
               .id());
-      Assertions.assertEquals(0, admin.topicPartitions(currentBroker).size());
+      Assertions.assertEquals(
+          0,
+          admin.topicPartitionReplicas(Set.of(currentBroker)).toCompletableFuture().get().size());
     }
   }
 
@@ -178,14 +180,14 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   void testExcludeSpecificBrokerTopic() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
     var targetTopic = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(10).create();
-      admin.creator().topic(targetTopic).numberOfPartitions(10).create();
+      admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().get();
+      admin.creator().topic(targetTopic).numberOfPartitions(10).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -212,17 +214,23 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(
           currentBroker,
-          admin.replicas(Set.of(targetTopic)).stream()
+          admin.replicas(Set.of(targetTopic)).toCompletableFuture().get().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
               .nodeInfo()
               .id());
-      Assertions.assertNotEquals(0, admin.topicPartitions(currentBroker).size());
+      Assertions.assertNotEquals(
+          0,
+          admin.topicPartitionReplicas(Set.of(currentBroker)).toCompletableFuture().get().size());
       Assertions.assertEquals(
           0,
           (int)
-              admin.topicPartitions(currentBroker).stream()
+              admin
+                  .topicPartitionReplicas(Set.of(currentBroker))
+                  .toCompletableFuture()
+                  .get()
+                  .stream()
                   .filter(tp -> Objects.equals(tp.topic(), targetTopic))
                   .count());
     }
@@ -231,9 +239,9 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testBadRequest() throws ExecutionException, InterruptedException {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = AsyncAdmin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(3));
       var body = "{\"plans\": []}";
 
