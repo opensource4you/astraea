@@ -22,27 +22,22 @@ import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Files
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 object FileCreator {
   def generateCSVF(
       sourceDir: File,
       rows: List[List[String]]
   ): Future[Boolean] = {
-    val singleThread: Executor = Executors.newSingleThreadExecutor()
-    implicit val singleThreadExecutionContext: ExecutionContext =
-      ExecutionContext.fromExecutor(singleThread)
     Future { generateCSV(sourceDir, rows) }
   }
 
   def generateCSV(sourceDir: File, rows: List[List[String]]): Boolean = {
-    Range
-      .inclusive(0, 5)
-      .foreach(i => {
-        createCSV(sourceDir, rows, i)
-        Thread.sleep(Duration(2, TimeUnit.SECONDS).toMillis)
-      })
+    createCSV(sourceDir, rows, 0)
+    Thread.sleep(Duration(12, TimeUnit.SECONDS).toMillis)
+    createCSV(sourceDir, rows, 1)
     true
   }
 
