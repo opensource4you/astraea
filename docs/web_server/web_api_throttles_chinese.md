@@ -110,6 +110,7 @@ topics 每個資料欄位
 
 topic 描述格式只支援 `name`, `name, partition`, `name, partition, broker`, `name, partition, broker, type` 這四種 key 的組合，目前此 API 不支援其他種類的組合，比如 `name, type`。當給與這類型的組合，API 會回傳錯誤。
 
+**注意：topics 欄位中如果有重複的描述，那麼該些資訊會彼此覆蓋，順序不一定**
 
 ## 刪除 throttle 設定
 

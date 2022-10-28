@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
-import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.BrokerConfigs;
@@ -49,43 +48,34 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     try (var admin = AsyncAdmin.of(bootstrapServers())) {
       admin
           .nodeInfos()
-          .thenCompose(
+          .thenApply(
               ns ->
-                  FutureUtils.sequence(
-                      ns.stream()
-                          .map(
-                              n ->
-                                  admin
-                                      .unsetConfigs(
-                                          n.id(),
-                                          Set.of(
-                                              BrokerConfigs
-                                                  .LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                              BrokerConfigs
-                                                  .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))
-                                      .toCompletableFuture())
-                          .collect(Collectors.toList())))
+                  ns.stream()
+                      .collect(
+                          Collectors.toMap(
+                              NodeInfo::id,
+                              ignored ->
+                                  Set.of(
+                                      BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                      BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))))
+          .thenCompose(admin::unsetBrokerConfigs)
           .toCompletableFuture()
           .get();
 
       admin
           .topicNames(true)
-          .thenCompose(
+          .thenApply(
               names ->
-                  FutureUtils.sequence(
-                      names.stream()
-                          .map(
-                              name ->
-                                  admin
-                                      .unsetConfigs(
-                                          name,
-                                          Set.of(
-                                              TopicConfigs
-                                                  .LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
-                                              TopicConfigs
-                                                  .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
-                                      .toCompletableFuture())
-                          .collect(Collectors.toList())))
+                  names.stream()
+                      .collect(
+                          Collectors.toMap(
+                              n -> n,
+                              ignored ->
+                                  Set.of(
+                                      TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                                      TopicConfigs
+                                          .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG))))
+          .thenCompose(admin::unsetTopicConfigs)
           .toCompletableFuture()
           .get();
     }
@@ -101,35 +91,22 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
 
       admin
-          .setConfigs(
-              0,
+          .setBrokerConfigs(
               Map.of(
-                  BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
-                  String.valueOf(longDataRate)))
-          .toCompletableFuture()
-          .get();
-      admin
-          .setConfigs(
-              1,
-              Map.of(
-                  BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                  String.valueOf(longDataRate)))
-          .toCompletableFuture()
-          .get();
-      admin
-          .setConfigs(
-              2,
-              Map.of(
-                  BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                  String.valueOf(longDataRate)))
-          .toCompletableFuture()
-          .get();
-      admin
-          .setConfigs(
-              2,
-              Map.of(
-                  BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
-                  String.valueOf(longDataRate)))
+                  0,
+                  Map.of(
+                      BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      String.valueOf(longDataRate)),
+                  1,
+                  Map.of(
+                      BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      String.valueOf(longDataRate)),
+                  2,
+                  Map.of(
+                      BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      String.valueOf(longDataRate),
+                      BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      String.valueOf(longDataRate))))
           .toCompletableFuture()
           .get();
 
@@ -174,13 +151,14 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
 
       admin
-          .setConfigs(
-              topicName,
+          .setTopicConfigs(
               Map.of(
-                  TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
-                  "1:2",
-                  TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
-                  "0:1"))
+                  topicName,
+                  Map.of(
+                      TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                      "1:2",
+                      TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                      "0:1")))
           .toCompletableFuture()
           .get();
 
@@ -223,13 +201,14 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
       var value = "0:0,0:1,0:2,1:0,1:1,1:2,2:0,2:1,2:2";
 
       admin
-          .setConfigs(
-              topicName,
+          .setTopicConfigs(
               Map.of(
-                  TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
-                  value,
-                  TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
-                  value))
+                  topicName,
+                  Map.of(
+                      TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                      value,
+                      TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                      value)))
           .toCompletableFuture()
           .get();
       Utils.sleep(Duration.ofSeconds(1));
@@ -434,7 +413,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().get();
       Assertions.assertEquals(202, post.code());
 
-      Utils.sleep(Duration.ofSeconds(3));
+      Utils.sleep(Duration.ofSeconds(5));
       var deserialized = handler.get(Channel.EMPTY).toCompletableFuture().get();
       // verify response content is correct
       Assertions.assertEquals(affectedBrokers, Set.copyOf(deserialized.brokers));
@@ -518,25 +497,22 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                 () ->
                     admin
                         .nodeInfos()
-                        .thenApply(ns -> ns.stream().map(NodeInfo::id).collect(Collectors.toSet()))
-                        .thenCompose(
-                            ids ->
-                                FutureUtils.sequence(
-                                    ids.stream()
-                                        .map(
-                                            id ->
-                                                admin
-                                                    .setConfigs(
-                                                        id,
-                                                        Map.of(
-                                                            BrokerConfigs
-                                                                .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                                            "100",
-                                                            BrokerConfigs
-                                                                .LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                                            "100"))
-                                                    .toCompletableFuture())
-                                        .collect(Collectors.toList())))
+                        .thenApply(
+                            ns ->
+                                ns.stream()
+                                    .map(NodeInfo::id)
+                                    .collect(
+                                        Collectors.toMap(
+                                            n -> n,
+                                            ignored ->
+                                                Map.of(
+                                                    BrokerConfigs
+                                                        .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                                    "100",
+                                                    BrokerConfigs
+                                                        .LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                                    "100"))))
+                        .thenCompose(admin::setBrokerConfigs)
                         .toCompletableFuture()
                         .get());
             Utils.sleep(Duration.ofMillis(500));
