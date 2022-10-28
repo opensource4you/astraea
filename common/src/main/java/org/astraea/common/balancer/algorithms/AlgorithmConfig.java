@@ -17,14 +17,13 @@
 package org.astraea.common.balancer.algorithms;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.Balancer;
@@ -72,7 +71,7 @@ public interface AlgorithmConfig {
     private int searchLimit = Integer.MAX_VALUE;
     private Duration executionTime = Duration.ofSeconds(3);
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
-    private Configuration algorithmConfig = Configuration.of(Map.of());
+    private Map<String, String> config = new HashMap<>();
 
     /**
      * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
@@ -137,7 +136,7 @@ public interface AlgorithmConfig {
     @Deprecated
     public Builder limit(int limit) {
       // TODO: get rid of this method. It proposes some kind of algorithm implementation details.
-      this.searchLimit = Utils.requirePositive(limit);
+      this.config("iteration", String.valueOf(Utils.requirePositive(limit)));
       return this;
     }
 
@@ -170,7 +169,17 @@ public interface AlgorithmConfig {
      * @return this
      */
     public Builder config(Configuration configuration) {
-      this.algorithmConfig = configuration;
+      configuration.entrySet().forEach((e) -> this.config(e.getKey(), e.getValue()));
+      return this;
+    }
+
+    /**
+     * @param key for {@link Balancer} implementation specific config
+     * @param value for {@link Balancer} implementation specific config
+     * @return this
+     */
+    public Builder config(String key, String value) {
+      this.config.put(Objects.requireNonNull(key), Objects.requireNonNull(value));
       return this;
     }
 
@@ -206,12 +215,7 @@ public interface AlgorithmConfig {
           return metricSource;
         }
 
-        private final Configuration prepared =
-            Configuration.of(
-                Stream.concat(
-                        algorithmConfig.entrySet().stream(),
-                        Stream.of(Map.entry("iteration", String.valueOf(searchLimit))))
-                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)));
+        private final Configuration prepared = Configuration.of(Map.copyOf(config));
 
         @Override
         public Configuration algorithmConfig() {
