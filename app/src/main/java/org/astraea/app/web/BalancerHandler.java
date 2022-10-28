@@ -66,6 +66,8 @@ class BalancerHandler implements Handler {
 
   static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
+  static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
+      HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
 
   private final Admin admin;
   private final AsyncAdmin asyncAdmin;
@@ -132,25 +134,7 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
-    var clusterCostFunction =
-        new AtomicReference<>(
-            HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)));
-    var costWeights =
-        channel
-            .request()
-            .<Collection<CostWeight>>get(
-                "costWeights",
-                TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
-            .orElse(List.of());
-    var costWeightMap =
-        StrictCostDispatcher.parseCostFunctionWeight(
-                Configuration.of(
-                    costWeights.stream()
-                        .collect(Collectors.toMap(cw -> cw.cost, cw -> String.valueOf(cw.weight)))))
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(cw -> (HasClusterCost) cw.getKey(), Map.Entry::getValue));
-    if (!costWeights.isEmpty()) clusterCostFunction.set(HasClusterCost.of(costWeightMap));
+    var clusterCostFunction = getClusterCost(channel);
     var planGeneration =
         CompletableFuture.supplyAsync(
             () -> {
@@ -164,10 +148,7 @@ class BalancerHandler implements Handler {
                       .orElseGet(() -> admin.topicNames(false));
               var currentClusterInfo = admin.clusterInfo();
               var cost =
-                  clusterCostFunction
-                      .get()
-                      .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
-                      .value();
+                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
               var loop =
                   Integer.parseInt(
                       channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
@@ -175,7 +156,7 @@ class BalancerHandler implements Handler {
               var bestPlan =
                   Balancer.builder()
                       .planGenerator(generator)
-                      .clusterCost(clusterCostFunction.get())
+                      .clusterCost(clusterCostFunction)
                       .moveCost(List.of(moveCostFunction))
                       .limit(loop)
                       .limit(timeout)
@@ -226,6 +207,26 @@ class BalancerHandler implements Handler {
             });
     generatedPlans.put(newPlanId, planGeneration);
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  HasClusterCost getClusterCost(Channel channel) {
+    var costWeights =
+        channel
+            .request()
+            .<Collection<CostWeight>>get(
+                "costWeights",
+                TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
+            .orElse(List.of());
+    if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
+    var costWeightMap =
+        StrictCostDispatcher.parseCostFunctionWeight(
+                Configuration.of(
+                    costWeights.stream()
+                        .collect(Collectors.toMap(cw -> cw.cost, cw -> String.valueOf(cw.weight)))))
+            .entrySet()
+            .stream()
+            .collect(Collectors.toMap(cw -> (HasClusterCost) cw.getKey(), Map.Entry::getValue));
+    return HasClusterCost.of(costWeightMap);
   }
 
   @Override
