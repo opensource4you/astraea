@@ -22,8 +22,21 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
 
 public interface Lattice {
+
+  static Lattice singleColumn(Node... nodes) {
+    return singleColumn(Pos.CENTER_LEFT, nodes);
+  }
+
+  static Lattice singleColumn(Pos pos, Node... nodes) {
+    var pane = new VBox(10);
+    pane.setPadding(new Insets(15));
+    pane.getChildren().setAll(nodes);
+    pane.setAlignment(pos);
+    return () -> pane;
+  }
 
   static Lattice of(List<Node> nodes, int sizeOfColumns) {
     var pane = new GridPane();

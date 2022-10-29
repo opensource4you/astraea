@@ -28,10 +28,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.Pane;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
-import org.astraea.gui.box.VBox;
 import org.astraea.gui.button.Click;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
@@ -122,7 +120,7 @@ public class PaneBuilder {
     return this;
   }
 
-  public Pane build() {
+  public Node build() {
     // step.1 layout
     var nodes = new ArrayList<Node>();
     if (selectBox != null) nodes.add(selectBox.node());
@@ -181,17 +179,19 @@ public class PaneBuilder {
           });
 
       nodes.add(
-          VBox.of(
-              Pos.CENTER,
-              checkbox,
-              Lattice.of(
-                      secondInputKeyAndFields.entrySet().stream()
-                          .flatMap(
-                              entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
-                          .collect(Collectors.toList()),
-                      6)
-                  .node(),
-              tableViewClick.node()));
+          Lattice.singleColumn(
+                  Pos.CENTER,
+                  checkbox,
+                  Lattice.of(
+                          secondInputKeyAndFields.entrySet().stream()
+                              .flatMap(
+                                  entry ->
+                                      Stream.of(entry.getKey().node(), entry.getValue().node()))
+                              .collect(Collectors.toList()),
+                          6)
+                      .node(),
+                  tableViewClick.node())
+              .node());
     }
 
     nodes.add(console.node());
@@ -261,6 +261,6 @@ public class PaneBuilder {
               else tableViewer.refresh();
             }
           });
-    return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
+    return Lattice.singleColumn(Pos.CENTER, nodes.toArray(Node[]::new)).node();
   }
 }

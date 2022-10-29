@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ConsumerGroup;
@@ -37,10 +38,9 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
-import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.pane.Slide;
 
-public class ClientTab {
+public class ClientNode {
 
   private static List<Map<String, Object>> consumerResult(
       List<ConsumerGroup> cgs, List<Partition> partitions) {
@@ -83,23 +83,18 @@ public class ClientTab {
         .collect(Collectors.toList());
   }
 
-  public static Tab consumerTab(Context context) {
-    return Tab.of(
-        "consumer",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) ->
-                    FutureUtils.combine(
-                        context
-                            .admin()
-                            .consumerGroupIds()
-                            .thenCompose(context.admin()::consumerGroups),
-                        context
-                            .admin()
-                            .topicNames(true)
-                            .thenCompose(names -> context.admin().partitions(names)),
-                        ClientTab::consumerResult))
-            .build());
+  private static Node consumerNode(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                FutureUtils.combine(
+                    context.admin().consumerGroupIds().thenCompose(context.admin()::consumerGroups),
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenCompose(names -> context.admin().partitions(names)),
+                    ClientNode::consumerResult))
+        .build();
   }
 
   private static List<Map<String, Object>> transactionResult(List<Transaction> transactions) {
@@ -120,18 +115,16 @@ public class ClientTab {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Tab transactionTab(Context context) {
-    return Tab.of(
-        "transaction",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .transactionIds()
-                        .thenCompose(context.admin()::transactions)
-                        .thenApply(ClientTab::transactionResult))
-            .build());
+  public static Node transactionNode(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .transactionIds()
+                    .thenCompose(context.admin()::transactions)
+                    .thenApply(ClientNode::transactionResult))
+        .build();
   }
 
   private static List<Map<String, Object>> producerResult(Stream<ProducerState> states) {
@@ -155,32 +148,35 @@ public class ClientTab {
         .collect(Collectors.toList());
   }
 
-  public static Tab producerTab(Context context) {
-    return Tab.of(
-        "producer",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .topicNames(true)
-                        .thenCompose(context.admin()::topicPartitions)
-                        .thenCompose(context.admin()::producerStates)
-                        .thenApply(
-                            ps ->
-                                ps.stream()
-                                    .sorted(
-                                        Comparator.comparing(ProducerState::topic)
-                                            .thenComparing(ProducerState::partition)))
-                        .thenApply(ClientTab::producerResult))
-            .build());
+  public static Node producerNode(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .topicNames(true)
+                    .thenCompose(context.admin()::topicPartitions)
+                    .thenCompose(context.admin()::producerStates)
+                    .thenApply(
+                        ps ->
+                            ps.stream()
+                                .sorted(
+                                    Comparator.comparing(ProducerState::topic)
+                                        .thenComparing(ProducerState::partition)))
+                    .thenApply(ClientNode::producerResult))
+        .build();
   }
 
-  public static Tab of(Context context) {
-    return Tab.of(
-        "client",
-        TabPane.of(
+  public static Node of(Context context) {
+    return Slide.of(
             Side.TOP,
-            List.of(consumerTab(context), producerTab(context), transactionTab(context))));
+            MapUtils.of(
+                "consumer",
+                consumerNode(context),
+                "producer",
+                producerNode(context),
+                "transaction",
+                transactionNode(context)))
+        .node();
   }
 }

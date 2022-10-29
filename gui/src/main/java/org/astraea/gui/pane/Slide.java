@@ -16,31 +16,31 @@
  */
 package org.astraea.gui.pane;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 
-public class TabPane extends javafx.scene.control.TabPane {
-
-  public static TabPane of(Side side, Map<String, Node> nodes) {
-    return of(
-        side,
-        nodes.entrySet().stream()
-            .map(n -> Tab.of(n.getKey(), n.getValue()))
-            .collect(Collectors.toList()));
-  }
-
-  public static TabPane of(Side side, List<Tab> tabs) {
+public interface Slide {
+  static Slide of(Side side, Map<String, Node> nodes) {
     var pane = new TabPane();
-    pane.getTabs().setAll(tabs);
+    pane.getTabs()
+        .setAll(
+            nodes.entrySet().stream()
+                .map(
+                    n -> {
+                      var tab = new Tab(n.getKey());
+                      tab.setContent(n.getValue());
+                      return tab;
+                    })
+                .collect(Collectors.toList()));
     pane.setSide(side);
-    pane.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
-    return pane;
+    pane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+    return () -> pane;
   }
 
-  private TabPane() {
-    super();
-  }
+  Parent node();
 }

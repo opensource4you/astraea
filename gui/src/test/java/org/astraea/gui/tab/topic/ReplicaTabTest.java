@@ -50,7 +50,7 @@ public class ReplicaTabTest extends RequireBrokerCluster {
           .get();
       Utils.sleep(Duration.ofSeconds(2));
 
-      var action = ReplicaTab.tableViewAction(new Context(admin));
+      var action = ReplicaNode.tableViewAction(new Context(admin));
       var log = new AtomicReference<String>();
       var f = action.apply(List.of(), Input.of(List.of(), Map.of()), log::set);
       Assertions.assertTrue(f.toCompletableFuture().isDone());
@@ -58,19 +58,19 @@ public class ReplicaTabTest extends RequireBrokerCluster {
 
       var f2 =
           action.apply(
-              List.of(Map.of(ReplicaTab.TOPIC_NAME_KEY, topicName, ReplicaTab.PARTITION_KEY, 0)),
+              List.of(Map.of(ReplicaNode.TOPIC_NAME_KEY, topicName, ReplicaNode.PARTITION_KEY, 0)),
               Input.of(List.of(), Map.of()),
               log::set);
       Assertions.assertTrue(f2.toCompletableFuture().isDone());
-      Assertions.assertEquals("please define " + ReplicaTab.MOVE_BROKER_KEY, log.get());
+      Assertions.assertEquals("please define " + ReplicaNode.MOVE_BROKER_KEY, log.get());
 
       var f3 =
           action.apply(
-              List.of(Map.of(ReplicaTab.TOPIC_NAME_KEY, topicName, ReplicaTab.PARTITION_KEY, 0)),
+              List.of(Map.of(ReplicaNode.TOPIC_NAME_KEY, topicName, ReplicaNode.PARTITION_KEY, 0)),
               Input.of(
                   List.of(),
                   Map.of(
-                      ReplicaTab.MOVE_BROKER_KEY,
+                      ReplicaNode.MOVE_BROKER_KEY,
                       Optional.of(
                           brokerIds().stream()
                               .map(String::valueOf)
@@ -113,34 +113,34 @@ public class ReplicaTabTest extends RequireBrokerCluster {
                 .nodeInfo(NodeInfo.of(2, "aa", 0))
                 .size(30)
                 .build());
-    var results = ReplicaTab.allResult(replicas);
+    var results = ReplicaNode.allResult(replicas);
     Assertions.assertEquals(3, results.size());
     Assertions.assertEquals(
         1,
         results.stream()
             .filter(
                 m ->
-                    !m.containsKey(ReplicaTab.LEADER_SIZE_KEY)
-                        && !m.containsKey(ReplicaTab.PROGRESS_KEY))
+                    !m.containsKey(ReplicaNode.LEADER_SIZE_KEY)
+                        && !m.containsKey(ReplicaNode.PROGRESS_KEY))
             .count());
     Assertions.assertEquals(
         2,
         results.stream()
             .filter(
                 m ->
-                    m.containsKey(ReplicaTab.LEADER_SIZE_KEY)
-                        && m.containsKey(ReplicaTab.PROGRESS_KEY))
+                    m.containsKey(ReplicaNode.LEADER_SIZE_KEY)
+                        && m.containsKey(ReplicaNode.PROGRESS_KEY))
             .count());
     Assertions.assertEquals(
-        1, results.stream().filter(m -> m.containsKey(ReplicaTab.PATH_KEY)).count());
+        1, results.stream().filter(m -> m.containsKey(ReplicaNode.PATH_KEY)).count());
     Assertions.assertEquals(
         Set.of("30.00%", "20.00%"),
         results.stream()
             .filter(
                 m ->
-                    m.containsKey(ReplicaTab.LEADER_SIZE_KEY)
-                        && m.containsKey(ReplicaTab.PROGRESS_KEY))
-            .map(m -> m.get(ReplicaTab.PROGRESS_KEY))
+                    m.containsKey(ReplicaNode.LEADER_SIZE_KEY)
+                        && m.containsKey(ReplicaNode.PROGRESS_KEY))
+            .map(m -> m.get(ReplicaNode.PROGRESS_KEY))
             .collect(Collectors.toSet()));
   }
 }
