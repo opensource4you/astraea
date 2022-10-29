@@ -21,10 +21,12 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -49,8 +51,10 @@ import org.astraea.gui.text.NoneditableText;
 
 public class BalancerNode {
 
-  private static final String TOPIC_NAME_KEY = "topic";
+  static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
+  private static final String MAX_MIGRATE_LOG_SIZE = "total max migrate log size";
+  private static final String MAX_MIGRATE_LEADER_NUM = "maximum leader number to migrate";
   private static final String PREVIOUS_LEADER_KEY = "previous leader";
   private static final String NEW_LEADER_KEY = "new leader";
   private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
@@ -76,8 +80,7 @@ public class BalancerNode {
     }
   }
 
-  private static List<Map<String, Object>> result(
-      ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
+  static List<Map<String, Object>> result(ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
     return ClusterLogAllocation.findNonFulfilledAllocation(
             ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
         .stream()
@@ -115,7 +118,7 @@ public class BalancerNode {
         .collect(Collectors.toList());
   }
 
-  private static CompletionStage<List<Map<String, Object>>> generator(
+  static CompletionStage<List<Map<String, Object>>> generator(
       Context context, Input input, Logger logger) {
     return context
         .admin()
@@ -139,6 +142,13 @@ public class BalancerNode {
                                               .collect(Collectors.toList()))
                                   .orElse(List.of());
                           logger.log("searching better assignments ... ");
+                          var converter = new DataSize.Field();
+                          var replicaSizeLimit =
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LOG_SIZE))
+                                  .map(x -> converter.convert(x).bytes());
+                          var leaderNumLimit =
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LEADER_NUM))
+                                  .map(Integer::parseInt);
                           return Map.entry(
                               clusterInfo,
                               Balancer.create(
@@ -160,6 +170,30 @@ public class BalancerNode {
                                                           Collectors.toMap(
                                                               Map.Entry::getKey,
                                                               Map.Entry::getValue))))
+                                          .moveCost(
+                                              List.of(
+                                                  new ReplicaSizeCost(), new ReplicaLeaderCost()))
+                                          .movementConstraint(
+                                              moveCosts ->
+                                                  moveCosts.stream()
+                                                      .allMatch(
+                                                          mc -> {
+                                                            switch (mc.name()) {
+                                                              case ReplicaSizeCost.COST_NAME:
+                                                                if (replicaSizeLimit.isEmpty()
+                                                                    || mc.totalCost()
+                                                                        <= replicaSizeLimit.get())
+                                                                  return true;
+                                                                break;
+                                                              case ReplicaLeaderCost.COST_NAME:
+                                                                if (leaderNumLimit.isEmpty()
+                                                                    || mc.totalCost()
+                                                                        <= leaderNumLimit.get())
+                                                                  return true;
+                                                                break;
+                                                            }
+                                                            return false;
+                                                          }))
                                           .limit(Duration.ofSeconds(10))
                                           .topicFilter(
                                               topic ->
@@ -193,6 +227,12 @@ public class BalancerNode {
         .input(
             NoneditableText.of(TOPIC_NAME_KEY),
             EditableText.singleLine().hint("topic-*,*abc*").build())
+        .input(
+            NoneditableText.of(MAX_MIGRATE_LEADER_NUM),
+            EditableText.singleLine().onlyNumber().build())
+        .input(
+            NoneditableText.of(MAX_MIGRATE_LOG_SIZE),
+            EditableText.singleLine().hint("30KB,200MB,1GB").build())
         .tableViewAction(
             Map.of(),
             "EXECUTE",
