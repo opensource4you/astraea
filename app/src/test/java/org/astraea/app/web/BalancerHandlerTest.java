@@ -256,7 +256,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> true)
                       .build())
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
+              .offer(admin.clusterInfo(), admin.brokerFolders());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -273,7 +273,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                           .movementConstraint(moveCosts -> true)
                           .limit(0)
                           .build())
-                  .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+                  .offer(admin.clusterInfo(), admin.brokerFolders()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
@@ -286,7 +286,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> true)
                       .build())
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+              .offer(admin.clusterInfo(), admin.brokerFolders()));
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -299,7 +299,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> false)
                       .build())
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+              .offer(admin.clusterInfo(), admin.brokerFolders()));
     }
   }
 

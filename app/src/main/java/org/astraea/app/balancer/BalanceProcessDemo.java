@@ -48,9 +48,10 @@ public class BalanceProcessDemo {
           Balancer.Official.SingleStep.create(
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
+                      .topicFilter(filter)
                       .limit(1000)
                       .build())
-              .offer(clusterInfo, filter, brokerFolders);
+              .offer(clusterInfo, brokerFolders);
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()

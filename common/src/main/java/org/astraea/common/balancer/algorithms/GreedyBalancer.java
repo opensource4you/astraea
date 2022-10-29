@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -79,9 +78,7 @@ public class GreedyBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo,
-      Predicate<String> topicFilter,
-      Map<Integer, Set<String>> brokerFolders) {
+      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
     final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -114,7 +111,7 @@ public class GreedyBalancer implements Balancer {
                 .findFirst();
     var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
     var currentAllocation =
-        ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, topicFilter));
+        ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, config.topicFilter()));
     var currentPlan = Optional.<Balancer.Plan>empty();
     while (true) {
       var newPlan = next.apply(currentAllocation, currentCost);

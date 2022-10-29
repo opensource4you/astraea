@@ -55,6 +55,9 @@ public interface AlgorithmConfig {
   /** @return the limit of algorithm execution time */
   Duration executionTime();
 
+  /** @return a {@link Predicate} that can indicate which topic is eligible for rebalance. */
+  Predicate<String> topicFilter();
+
   /** @return a {@link Supplier} which offer the fresh metrics of the target cluster */
   Supplier<ClusterBean> metricSource();
 
@@ -70,6 +73,7 @@ public interface AlgorithmConfig {
     private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
     private Duration executionTime = Duration.ofSeconds(3);
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
+    private Predicate<String> topicFilter = ignore -> true;
     private final Map<String, String> config = new HashMap<>();
 
     /**
@@ -164,6 +168,18 @@ public interface AlgorithmConfig {
     }
 
     /**
+     * Specify the topics that are eligible for rebalance.
+     *
+     * @param topicFilter the {@link Predicate} what can indicate which topic is eligible for
+     *     rebalance.
+     * @return this
+     */
+    public Builder topicFilter(Predicate<String> topicFilter) {
+      this.topicFilter = topicFilter;
+      return this;
+    }
+
+    /**
      * @param configuration for {@link Balancer}
      * @return this
      */
@@ -207,6 +223,11 @@ public interface AlgorithmConfig {
         @Override
         public Duration executionTime() {
           return executionTime;
+        }
+
+        @Override
+        public Predicate<String> topicFilter() {
+          return topicFilter;
         }
 
         @Override

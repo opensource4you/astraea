@@ -155,10 +155,11 @@ class BalancerHandler implements Handler {
                           AlgorithmConfig.builder()
                               .clusterCost(clusterCostFunction)
                               .moveCost(List.of(moveCostFunction))
+                              .topicFilter(topics::contains)
                               .limit(loop)
                               .limit(timeout)
                               .build())
-                      .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+                      .offer(currentClusterInfo, admin.brokerFolders());
               var changes =
                   bestPlan
                       .map(

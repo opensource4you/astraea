@@ -96,6 +96,7 @@ class BalancerTest extends RequireBrokerCluster {
                   theClass,
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
+                      .topicFilter(topic -> topic.equals(topicName))
                       .limit(Duration.ofSeconds(10))
                       .build())
               .offer(
@@ -103,7 +104,6 @@ class BalancerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
                       .toCompletableFuture()
                       .get(),
-                  topic -> topic.equals(topicName),
                   admin.brokerFolders().toCompletableFuture().get())
               .orElseThrow();
       new StraightPlanExecutor()
@@ -153,8 +153,13 @@ class BalancerTest extends RequireBrokerCluster {
       var brokerFolders = admin.brokerFolders().toCompletableFuture().get();
       var newAllocation =
           Balancer.create(
-                  theClass, AlgorithmConfig.builder().clusterCost(randomScore).limit(500).build())
-              .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
+                  theClass,
+                  AlgorithmConfig.builder()
+                      .topicFilter(t -> t.equals(theTopic))
+                      .clusterCost(randomScore)
+                      .limit(500)
+                      .build())
+              .offer(clusterInfo, brokerFolders)
               .get()
               .proposal()
               .rebalancePlan();
@@ -204,7 +209,6 @@ class BalancerTest extends RequireBrokerCluster {
                                           admin.topicNames(false).toCompletableFuture().get())
                                       .toCompletableFuture()
                                       .get(),
-                                  ignore -> true,
                                   admin.brokerFolders().toCompletableFuture().get())
                               .get()
                               .proposal()
@@ -258,7 +262,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .metricSource(metricSource)
                       .limit(500)
                       .build())
-              .offer(ClusterInfo.empty(), ignore -> true, Map.of());
+              .offer(ClusterInfo.empty(), Map.of());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };
 

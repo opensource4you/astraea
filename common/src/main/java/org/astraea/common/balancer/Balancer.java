@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -35,9 +34,7 @@ public interface Balancer {
 
   /** @return a rebalance plan */
   Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo,
-      Predicate<String> topicFilter,
-      Map<Integer, Set<String>> brokerFolders);
+      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
 
   /**
    * Initialize an instance of specific Balancer implementation

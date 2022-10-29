@@ -20,7 +20,6 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -73,16 +72,14 @@ public class SingleStepBalancer implements Balancer {
 
   @Override
   public Optional<Balancer.Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo,
-      Predicate<String> topicFilter,
-      Map<Integer, Set<String>> brokerFolders) {
+      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
     final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunctions();
     final var currentCost =
         config.clusterCostFunction().clusterCost(currentClusterInfo, currentClusterBean);
-    final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, topicFilter);
+    final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
 
     var start = System.currentTimeMillis();
     var executionTime = config.executionTime().toMillis();
