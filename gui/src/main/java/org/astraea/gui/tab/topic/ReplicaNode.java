@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
@@ -34,11 +35,10 @@ import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.NoneditableText;
 
-public class ReplicaTab {
+public class ReplicaNode {
 
   static final String TOPIC_NAME_KEY = "topic";
   static final String PARTITION_KEY = "partition";
@@ -147,23 +147,21 @@ public class ReplicaTab {
     };
   }
 
-  static Tab tab(Context context) {
-    return Tab.of(
-        "replica",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .topicNames(true)
-                        .thenCompose(context.admin()::replicas)
-                        .thenApply(ReplicaTab::allResult))
-            .tableViewAction(
-                MapUtils.of(
-                    NoneditableText.of(MOVE_BROKER_KEY),
-                    EditableText.singleLine().disable().hint("1001,1002").build()),
-                "ALTER",
-                tableViewAction(context))
-            .build());
+  static Node of(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .topicNames(true)
+                    .thenCompose(context.admin()::replicas)
+                    .thenApply(ReplicaNode::allResult))
+        .tableViewAction(
+            MapUtils.of(
+                NoneditableText.of(MOVE_BROKER_KEY),
+                EditableText.singleLine().disable().hint("1001,1002").build()),
+            "ALTER",
+            tableViewAction(context))
+        .build();
   }
 }
