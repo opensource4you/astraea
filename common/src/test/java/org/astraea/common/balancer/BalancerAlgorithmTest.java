@@ -96,7 +96,6 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
                       .toCompletableFuture()
                       .get(),
-                  ignore -> true,
                   admin.brokerFolders().toCompletableFuture().get())
               .get();
 
@@ -112,7 +111,6 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
                       .toCompletableFuture()
                       .get(),
-                  ignore -> true,
                   admin.brokerFolders().toCompletableFuture().get())
               .get();
 

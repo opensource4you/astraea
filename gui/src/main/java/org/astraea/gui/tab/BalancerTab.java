@@ -161,15 +161,15 @@ public class BalancerTab {
                                                               Map.Entry::getKey,
                                                               Map.Entry::getValue))))
                                           .limit(Duration.ofSeconds(10))
+                                          .topicFilter(
+                                              topic ->
+                                                  patterns.isEmpty()
+                                                      || patterns.stream()
+                                                          .anyMatch(
+                                                              p -> p.matcher(topic).matches()))
                                           .limit(10000)
                                           .build())
-                                  .offer(
-                                      clusterInfo,
-                                      topic ->
-                                          patterns.isEmpty()
-                                              || patterns.stream()
-                                                  .anyMatch(p -> p.matcher(topic).matches()),
-                                      brokerFolders));
+                                  .offer(clusterInfo, brokerFolders));
                         }))
         .thenApply(
             entry -> {
