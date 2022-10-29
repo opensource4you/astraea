@@ -57,13 +57,21 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
               .partitions.stream()
                   .flatMap(p -> p.replicas.stream())
                   .collect(Collectors.groupingBy(r -> r.broker));
-      // those brokers should host different number of partitions, broker0 holds the most replicas,
-      // followed by broker1, and lastly broker2
       var numberOfReplicas =
           groupByBroker.values().stream().map(List::size).collect(Collectors.toList());
-      Assertions.assertTrue(numberOfReplicas.get(0) > numberOfReplicas.get(1));
+      Assertions.assertTrue(
+          numberOfReplicas.get(0) > numberOfReplicas.get(1),
+          "First broker takes the majority of replicas: "
+              + numberOfReplicas.get(0)
+              + " > "
+              + numberOfReplicas.get(1));
       if (numberOfReplicas.size() == 3)
-        Assertions.assertTrue(numberOfReplicas.get(1) > numberOfReplicas.get(2));
+        Assertions.assertTrue(
+            numberOfReplicas.get(0) > numberOfReplicas.get(2),
+            "First broker takes the majority of replicas: "
+                + numberOfReplicas.get(0)
+                + " > "
+                + numberOfReplicas.get(2));
     }
   }
 }
