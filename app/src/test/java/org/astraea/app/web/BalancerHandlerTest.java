@@ -16,8 +16,10 @@
  */
 package org.astraea.app.web;
 
+import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,14 +36,18 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -54,13 +60,25 @@ import org.junit.jupiter.api.Test;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
+  private static final String defaultDecreasing =
+      new Gson()
+          .toJson(
+              Collections.singleton(
+                  new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
+
   @Test
   void testReport() throws ExecutionException, InterruptedException {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new ReplicaSizeCost());
       var report =
-          submitPlanGeneration(handler, Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "3000")))
+          submitPlanGeneration(
+                  handler,
+                  Map.of(
+                      BalancerHandler.LOOP_KEY,
+                      "3000",
+                      BalancerHandler.COST_WEIGHT_KEY,
+                      defaultDecreasing))
               .report;
       Assertions.assertNotNull(report.id);
       Assertions.assertEquals(3000, report.limit);
@@ -91,12 +109,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           submitPlanGeneration(
                   handler,
-                  Channel.ofQueries(
-                      Map.of(
-                          BalancerHandler.LOOP_KEY,
-                          "30",
-                          BalancerHandler.TOPICS_KEY,
-                          topicNames.get(0))))
+                  Map.of(
+                      BalancerHandler.LOOP_KEY,
+                      "30",
+                      BalancerHandler.TOPICS_KEY,
+                      topicNames.get(0),
+                      BalancerHandler.COST_WEIGHT_KEY,
+                      defaultDecreasing))
               .report;
       var actual =
           report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
@@ -119,12 +138,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report =
           submitPlanGeneration(
                   handler,
-                  Channel.ofQueries(
-                      Map.of(
-                          BalancerHandler.LOOP_KEY,
-                          "30",
-                          BalancerHandler.TOPICS_KEY,
-                          topicNames.get(0) + "," + topicNames.get(1))))
+                  Map.of(
+                      BalancerHandler.LOOP_KEY,
+                      "30",
+                      BalancerHandler.TOPICS_KEY,
+                      topicNames.get(0) + "," + topicNames.get(1),
+                      BalancerHandler.COST_WEIGHT_KEY,
+                      defaultDecreasing))
               .report;
       var actual =
           report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
@@ -220,14 +240,15 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       var balancerHandler = new BalancerHandler(admin, new ReplicaSizeCost());
       var Best =
-          Balancer.builder()
-              .planGenerator(RebalancePlanGenerator.random(30))
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> after.value() <= before.value())
-              .moveCost(List.of(moveCostFunction))
-              .movementConstraint(moveCosts -> true)
-              .build()
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders());
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> after.value() <= before.value())
+                      .moveCost(List.of(moveCostFunction))
+                      .movementConstraint(moveCosts -> true)
+                      .build())
+              .offer(admin.clusterInfo(), admin.brokerFolders());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -235,39 +256,42 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              Balancer.builder()
-                  .planGenerator(RebalancePlanGenerator.random(30))
-                  .clusterCost(clusterCostFunction)
-                  .clusterConstraint((before, after) -> true)
-                  .moveCost(List.of(moveCostFunction))
-                  .movementConstraint(moveCosts -> true)
-                  .limit(0)
-                  .build()
-                  .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+              Balancer.create(
+                      SingleStepBalancer.class,
+                      AlgorithmConfig.builder()
+                          .clusterCost(clusterCostFunction)
+                          .clusterConstraint((before, after) -> true)
+                          .moveCost(List.of(moveCostFunction))
+                          .movementConstraint(moveCosts -> true)
+                          .limit(0)
+                          .build())
+                  .offer(admin.clusterInfo(), admin.brokerFolders()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.builder()
-              .planGenerator(RebalancePlanGenerator.random(30))
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> false)
-              .moveCost(List.of(moveCostFunction))
-              .movementConstraint(moveCosts -> true)
-              .build()
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> false)
+                      .moveCost(List.of(moveCostFunction))
+                      .movementConstraint(moveCosts -> true)
+                      .build())
+              .offer(admin.clusterInfo(), admin.brokerFolders()));
 
       // test move cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.builder()
-              .planGenerator(RebalancePlanGenerator.random(30))
-              .clusterCost(clusterCostFunction)
-              .clusterConstraint((before, after) -> true)
-              .moveCost(List.of(moveCostFunction))
-              .movementConstraint(moveCosts -> false)
-              .build()
-              .offer(admin.clusterInfo(), ignore -> true, admin.brokerFolders()));
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> true)
+                      .moveCost(List.of(moveCostFunction))
+                      .movementConstraint(moveCosts -> false)
+                      .build())
+              .offer(admin.clusterInfo(), admin.brokerFolders()));
     }
   }
 
@@ -282,7 +306,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
               handler
-                  .post(Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "0")))
+                  .post(Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.LOOP_KEY, "0"))))
                   .toCompletableFuture()
                   .get());
       Utils.sleep(Duration.ofSeconds(5));
@@ -303,11 +327,15 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), theExecutor);
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
       var progress =
-          submitPlanGeneration(handler, Channel.ofQueries(Map.of(BalancerHandler.LOOP_KEY, "100")));
+          submitPlanGeneration(
+              handler,
+              Map.of(
+                  BalancerHandler.COST_WEIGHT_KEY,
+                  defaultDecreasing,
+                  BalancerHandler.LOOP_KEY,
+                  "100"));
       var thePlanId = progress.id;
 
       // act
@@ -331,9 +359,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
 
       // no id offered
       Assertions.assertThrows(
@@ -357,10 +383,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testSubmitRebalancePlanThreadSafe() throws ExecutionException, InterruptedException {
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), theExecutor);
-      var progress = submitPlanGeneration(handler, Channel.EMPTY);
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var progress = submitPlanGeneration(handler, Map.of());
 
       // use many threads to increase the chance to trigger a data race
       final int threadCount = Runtime.getRuntime().availableProcessors() * 3;
@@ -408,11 +432,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               return null;
             }
           };
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), theExecutor);
-      var plan0 = submitPlanGeneration(handler, Channel.EMPTY);
-      var plan1 = submitPlanGeneration(handler, Channel.EMPTY);
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var plan0 = submitPlanGeneration(handler, Map.of());
+      var plan1 = submitPlanGeneration(handler, Map.of());
 
       Assertions.assertDoesNotThrow(
           () ->
@@ -443,12 +465,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
       var theReport =
           submitPlanGeneration(
-              handler, Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, theTopic)));
+              handler,
+              Map.of(
+                  BalancerHandler.TOPICS_KEY, theTopic,
+                  BalancerHandler.COST_WEIGHT_KEY, defaultDecreasing));
 
       // create an ongoing reassignment
       Assertions.assertEquals(1, admin.replicas(Set.of(theTopic)).size());
@@ -477,12 +500,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), theExecutor);
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
       var theReport =
           submitPlanGeneration(
-                  handler, Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, topic)))
+                  handler,
+                  Map.of(
+                      BalancerHandler.COST_WEIGHT_KEY, defaultDecreasing,
+                      BalancerHandler.TOPICS_KEY, topic))
               .report;
 
       // pick a partition and alter its placement
@@ -518,10 +542,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               return null;
             }
           };
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), theExecutor);
-      var progress = submitPlanGeneration(handler, Channel.EMPTY);
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var progress = submitPlanGeneration(handler, Map.of());
       Assertions.assertTrue(progress.generated, "The plan should be generated");
 
       // not scheduled yet
@@ -586,9 +608,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               throw new RuntimeException("Boom");
             }
           };
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), theExecutor);
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -635,9 +655,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBadLookupRequest() throws ExecutionException, InterruptedException {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler =
-          new BalancerHandler(
-              admin, new ReplicaSizeCost(), RebalancePlanGenerator.random(30), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
 
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().get().code());
@@ -658,16 +676,15 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testPutIdempotent() throws ExecutionException, InterruptedException {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler =
-          new BalancerHandler(
-              admin,
-              new ReplicaSizeCost(),
-              RebalancePlanGenerator.random(30),
-              new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new StraightPlanExecutor());
       var progress =
           submitPlanGeneration(
               handler,
-              Channel.ofQueries(Map.of(BalancerHandler.TOPICS_KEY, String.join(",", topics))));
+              Map.of(
+                  BalancerHandler.COST_WEIGHT_KEY,
+                  defaultDecreasing,
+                  BalancerHandler.TOPICS_KEY,
+                  String.join(",", topics)));
 
       Assertions.assertDoesNotThrow(
           () ->
@@ -698,15 +715,24 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
-      BalancerHandler handler, Channel channel) throws ExecutionException, InterruptedException {
-    var post = (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().get();
+      BalancerHandler handler, Map<String, Object> requestBody)
+      throws ExecutionException, InterruptedException {
+    var post =
+        (BalancerHandler.PostPlanResponse)
+            handler
+                .post(Channel.ofRequest(PostRequest.of(requestBody)))
+                .toCompletableFuture()
+                .get();
     Utils.waitFor(
-        () ->
-            Utils.packException(
-                    () ->
-                        (BalancerHandler.PlanExecutionProgress)
-                            handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get())
-                .generated);
+        () -> {
+          var progress =
+              Utils.packException(
+                  () ->
+                      (BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get());
+          Assertions.assertNull(progress.exception, progress.exception);
+          return progress.generated;
+        });
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get();
   }
@@ -723,6 +749,21 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
     int count() {
       return executionCounter.intValue();
+    }
+  }
+
+  public static class DecreasingCost implements HasClusterCost {
+
+    public DecreasingCost(Configuration configuration) {}
+
+    private double value0 = 1.0;
+
+    @Override
+    public synchronized ClusterCost clusterCost(
+        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      double theCost = value0;
+      value0 = value0 * 0.998;
+      return () -> theCost;
     }
   }
 }

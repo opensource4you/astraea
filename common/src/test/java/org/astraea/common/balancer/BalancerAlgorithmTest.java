@@ -22,7 +22,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -83,12 +85,12 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
 
       var planOfGreedy =
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(0, 30))
-              .clusterCost(new ReplicaNumberCost())
-              .limit(Duration.ofSeconds(5))
-              .greedy(true)
-              .build()
+          Balancer.create(
+                  GreedyBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaNumberCost())
+                      .limit(Duration.ofSeconds(5))
+                      .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
@@ -98,12 +100,12 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
               .get();
 
       var plan =
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(0, 30))
-              .clusterCost(new ReplicaNumberCost())
-              .limit(Duration.ofSeconds(5))
-              .greedy(false)
-              .build()
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaNumberCost())
+                      .limit(Duration.ofSeconds(5))
+                      .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
