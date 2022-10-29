@@ -21,14 +21,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javafx.scene.Node;
 import org.astraea.common.MapUtils;
 import org.astraea.common.VersionUtils;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
 
-public class AboutTab {
+public class AboutNode {
 
   private enum Info {
     Version(
@@ -125,25 +125,22 @@ public class AboutTab {
     }
   }
 
-  public static Tab of(Context ignored) {
-    var pane =
-        PaneBuilder.of()
-            .selectBox(
-                SelectBox.single(
-                    Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
-                    Info.values().length))
-            .tableRefresher(
-                (input, logger) ->
-                    CompletableFuture.completedFuture(
-                        input.selectedKeys().stream()
-                            .flatMap(
-                                name ->
-                                    Arrays.stream(Info.values())
-                                        .filter(c -> c.toString().equals(name)))
-                            .findFirst()
-                            .orElse(Info.Version)
-                            .tables))
-            .build();
-    return Tab.of("about", pane);
+  public static Node of(Context ignored) {
+    return PaneBuilder.of()
+        .selectBox(
+            SelectBox.single(
+                Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
+                Info.values().length))
+        .tableRefresher(
+            (input, logger) ->
+                CompletableFuture.completedFuture(
+                    input.selectedKeys().stream()
+                        .flatMap(
+                            name ->
+                                Arrays.stream(Info.values()).filter(c -> c.toString().equals(name)))
+                        .findFirst()
+                        .orElse(Info.Version)
+                        .tables))
+        .build();
   }
 }

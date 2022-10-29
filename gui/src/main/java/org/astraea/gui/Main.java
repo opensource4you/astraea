@@ -16,19 +16,19 @@
  */
 package org.astraea.gui;
 
-import java.util.List;
 import javafx.application.Application;
 import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import org.astraea.gui.pane.TabPane;
-import org.astraea.gui.tab.AboutTab;
-import org.astraea.gui.tab.BalancerTab;
-import org.astraea.gui.tab.BrokerTab;
-import org.astraea.gui.tab.ClientTab;
-import org.astraea.gui.tab.QuotaTab;
-import org.astraea.gui.tab.SettingTab;
-import org.astraea.gui.tab.topic.TopicTab;
+import org.astraea.common.MapUtils;
+import org.astraea.gui.pane.Slide;
+import org.astraea.gui.tab.AboutNode;
+import org.astraea.gui.tab.BalancerNode;
+import org.astraea.gui.tab.BrokerNode;
+import org.astraea.gui.tab.ClientNode;
+import org.astraea.gui.tab.QuotaNode;
+import org.astraea.gui.tab.SettingNode;
+import org.astraea.gui.tab.topic.TopicNode;
 
 /**
  * Since the Java launcher checks if the main class extends javafx.application.Application, and in
@@ -52,16 +52,24 @@ public class Main {
       stage.setWidth(1200);
       stage.setScene(
           new Scene(
-              TabPane.of(
-                  Side.BOTTOM,
-                  List.of(
-                      SettingTab.of(context),
-                      BrokerTab.of(context),
-                      TopicTab.of(context),
-                      ClientTab.of(context),
-                      QuotaTab.of(context),
-                      BalancerTab.of(context),
-                      AboutTab.of(context))),
+              Slide.of(
+                      Side.BOTTOM,
+                      MapUtils.of(
+                          "setting",
+                          SettingNode.of(context),
+                          "broker",
+                          BrokerNode.of(context),
+                          "topic",
+                          TopicNode.of(context),
+                          "client",
+                          ClientNode.of(context),
+                          "quota",
+                          QuotaNode.of(context),
+                          "balancer",
+                          BalancerNode.of(context),
+                          "about",
+                          AboutNode.of(context)))
+                  .node(),
               300,
               300));
       stage.show();
