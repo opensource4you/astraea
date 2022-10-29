@@ -29,9 +29,9 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
   @RepeatedTest(2)
   void testCreateTopicByProbability() throws ExecutionException, InterruptedException {
     int repeat = 5;
-    int replica0 = 0;
-    int replica1 = 0;
-    int replica2 = 0;
+    double replica0 = 0;
+    double replica1 = 0;
+    double replica2 = 0;
     for (int i = 0; i < repeat; i++) {
       var topicName = Utils.randomString(10);
       try (var admin = AsyncAdmin.of(bootstrapServers())) {
@@ -74,8 +74,9 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
     replica2 /= repeat;
     Assertions.assertTrue(
         replica0 > replica1,
-        "First broker takes the majority of replicas: " + replica0 + " > " + replica1);
+        "First broker takes the majority of average replicas: " + replica0 + " > " + replica1);
     Assertions.assertTrue(
-        replica1 > replica2, "Second broker takes more replicas: " + replica1 + " > " + replica2);
+        replica1 > replica2,
+        "Second broker takes more average replicas: " + replica1 + " > " + replica2);
   }
 }
