@@ -17,9 +17,8 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -40,10 +39,10 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
   }
 
   @Test
-  void testFetcher() throws ExecutionException, InterruptedException {
+  void testFetcher() {
     // create topic partition to get metrics
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().get();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().join();
     }
     var cost1 = new ReplicaSizeCost();
     var cost2 = new ReplicaLeaderCost();

@@ -21,13 +21,13 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 
 class TransactionHandler implements Handler {
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  TransactionHandler(AsyncAdmin admin) {
+  TransactionHandler(Admin admin) {
     this.admin = admin;
   }
 

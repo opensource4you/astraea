@@ -21,24 +21,24 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
-  private final AtomicReference<AsyncAdmin> asyncAdminReference = new AtomicReference<>();
+  private final AtomicReference<Admin> adminReference = new AtomicReference<>();
 
   private volatile int jmxPort = -1;
   private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
 
   public Context() {}
 
-  public Context(AsyncAdmin admin) {
-    asyncAdminReference.set(admin);
+  public Context(Admin admin) {
+    adminReference.set(admin);
   }
 
-  public void replace(AsyncAdmin admin) {
-    var previous = asyncAdminReference.getAndSet(admin);
+  public void replace(Admin admin) {
+    var previous = adminReference.getAndSet(admin);
     if (previous != null) previous.close();
   }
 
@@ -71,8 +71,8 @@ public class Context {
     return Map.copyOf(clients);
   }
 
-  public AsyncAdmin admin() {
-    var admin = asyncAdminReference.get();
+  public Admin admin() {
+    var admin = adminReference.get();
     if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
     return admin;
   }

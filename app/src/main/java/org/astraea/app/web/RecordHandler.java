@@ -36,7 +36,7 @@ import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
@@ -74,9 +74,9 @@ public class RecordHandler implements Handler {
   final Producer<byte[], byte[]> producer;
   private final Cache<String, Producer<byte[], byte[]>> transactionalProducerCache;
 
-  final AsyncAdmin admin;
+  final Admin admin;
 
-  RecordHandler(AsyncAdmin admin, String bootstrapServers) {
+  RecordHandler(Admin admin, String bootstrapServers) {
     this.admin = admin;
     this.bootstrapServers = requireNonNull(bootstrapServers);
     this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();

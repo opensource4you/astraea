@@ -21,12 +21,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -45,9 +44,9 @@ import org.junit.jupiter.api.Test;
 class BalancerTabTest extends RequireBrokerCluster {
 
   @Test
-  void testGenerator() throws ExecutionException, InterruptedException {
+  void testGenerator() {
     var topicName = Utils.randomString();
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
@@ -55,7 +54,7 @@ class BalancerTabTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
       var log = new AtomicReference<String>();
       var f =
@@ -63,23 +62,23 @@ class BalancerTabTest extends RequireBrokerCluster {
               new Context(admin),
               Input.of(List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
               log::set);
-      f.toCompletableFuture().get();
+      f.toCompletableFuture().join();
       Assertions.assertTrue(f.toCompletableFuture().isDone());
       Assertions.assertEquals(log.get(), "there is no better assignments");
 
       // migrate all replica to broker 0
       var tps =
-          admin.topicPartitions(Set.of(topicName)).toCompletableFuture().get().stream()
+          admin.topicPartitions(Set.of(topicName)).toCompletableFuture().join().stream()
               .map(tp -> Map.entry(tp, List.of(0)))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      admin.moveToBrokers(tps).toCompletableFuture().get();
+      admin.moveToBrokers(tps).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var s =
           BalancerNode.generator(
               new Context(admin),
               Input.of(List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
               log::set);
-      s.toCompletableFuture().get();
+      s.toCompletableFuture().join();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
       Assertions.assertTrue(
           log.get()
