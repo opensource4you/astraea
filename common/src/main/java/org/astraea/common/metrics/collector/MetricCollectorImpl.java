@@ -42,13 +42,12 @@ public class MetricCollectorImpl implements MetricCollector {
 
   private final Map<Integer, InetSocketAddress> jmx;
   private final Map<Integer, ManagedMBeanClient> mBeanClients;
+  private final Duration cleanerInterval = Duration.ofSeconds(30);
   private final Duration expiration;
   private final Duration interval;
   private final Map<Class<?>, MetricStorage<?>> storages;
   private final ScheduledExecutorService executorService;
   private final Set<ScheduledFuture<?>> scheduledTasks;
-
-  // TODO: finish the cleanup path
 
   public MetricCollectorImpl(
       Map<Integer, InetSocketAddress> jmx,
@@ -66,6 +65,14 @@ public class MetricCollectorImpl implements MetricCollector {
                 Collectors.toConcurrentMap(
                     Map.Entry::getKey, entry -> new ManagedMBeanClient(entry.getValue())));
     this.scheduledTasks = new ConcurrentSkipListSet<>();
+
+    // TODO: if the task failed, will it stop or keep on scheduling?
+    this.scheduledTasks.add(
+        executorService.scheduleWithFixedDelay(
+            this::cleaning,
+            cleanerInterval.toMillis(),
+            cleanerInterval.toMillis(),
+            TimeUnit.MILLISECONDS));
   }
 
   @Override
@@ -104,6 +111,11 @@ public class MetricCollectorImpl implements MetricCollector {
                 .computeIfAbsent(
                     metric.getClass(), (ignore) -> new MetricStorage<>(metric.getClass()))
                 .put(broker, metric));
+  }
+
+  private void cleaning() {
+    var before = System.currentTimeMillis() - expiration.toMillis();
+    this.storages.values().forEach(storage -> storage.clear(before));
   }
 
   @Override
@@ -157,10 +169,12 @@ public class MetricCollectorImpl implements MetricCollector {
     private final Class<T> theClass;
     private final Map<Integer, ConcurrentSkipListMap<Long, T>> storage;
     private final Map<Integer, AtomicLong> top;
+    private final ReentrantLock cleanerLock;
 
     public MetricStorage(Class<T> theClass) {
       this.theClass = theClass;
       this.top = new ConcurrentHashMap<>();
+      this.cleanerLock = new ReentrantLock();
       this.storage = new ConcurrentHashMap<>();
       MetricCollectorImpl.this
           .jmx
@@ -169,7 +183,7 @@ public class MetricCollectorImpl implements MetricCollector {
     }
 
     private long nextIndex(int broker) {
-      return top.computeIfAbsent(broker, (ignore) -> new AtomicLong(-1)).incrementAndGet();
+      return top.computeIfAbsent(broker, (ignore) -> new AtomicLong(0)).getAndIncrement();
     }
 
     @SuppressWarnings("unchecked")
@@ -177,6 +191,20 @@ public class MetricCollectorImpl implements MetricCollector {
       storage
           .computeIfAbsent(broker, (ignore) -> new ConcurrentSkipListMap<>())
           .put(nextIndex(broker), (T) metric);
+    }
+
+    /** Scanning from the last metrics, delete any metrics that is sampled before the given time. */
+    public void clear(long before) {
+      try {
+        Utils.packException(cleanerLock::lockInterruptibly);
+        storage.forEach(
+            (broker, map) ->
+                map.entrySet().stream()
+                    .takeWhile(entry -> entry.getValue().createdTimestamp() < before)
+                    .forEach(entry -> map.remove(entry.getKey())));
+      } finally {
+        cleanerLock.unlock();
+      }
     }
 
     public Class<T> metricClass() {
