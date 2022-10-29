@@ -43,9 +43,10 @@ import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class BalancerNode {
 
@@ -190,11 +191,13 @@ public class BalancerNode {
                 Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
                 Cost.values().length))
         .clickName("PLAN")
-        .input(
-            NoneditableText.of(TOPIC_NAME_KEY),
-            EditableText.singleLine().hint("topic-*,*abc*").build())
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()))))
         .tableViewAction(
-            Map.of(),
+            null,
             "EXECUTE",
             (items, inputs, logger) -> {
               logger.log("applying better assignments ... ");

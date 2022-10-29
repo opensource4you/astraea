@@ -47,10 +47,11 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class BrokerNode {
 
@@ -314,9 +315,11 @@ public class BrokerNode {
                                     })
                                 .collect(Collectors.toList())))
         .tableViewAction(
-            MapUtils.of(
-                NoneditableText.of(BrokerConfigs.DYNAMICAL_CONFIGS),
-                EditableText.singleLine().build()),
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        BrokerConfigs.DYNAMICAL_CONFIGS,
+                        EditableText.singleLine().disable().build()))),
             "ALERT",
             (tables, input, logger) -> {
               var brokerToAlter =

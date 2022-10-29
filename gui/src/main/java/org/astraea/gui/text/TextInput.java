@@ -17,36 +17,83 @@
 package org.astraea.gui.text;
 
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.scene.Node;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
 public interface TextInput {
 
-  static TextInput of(String key) {
+  static TextInput required(String key, EditableText text) {
+    var label = new Label(key + "*");
+    label.setFont(Font.font("Verdana", FontWeight.EXTRA_BOLD, 12));
+    return of(label, () -> key, text.node(), text::text, true);
+  }
+
+  static TextInput of(Set<String> keys, EditableText text) {
+    return of(keys.iterator().next(), keys, text);
+  }
+
+  static TextInput of(String selected, Set<String> keys, EditableText text) {
+    var box = new ComboBox<>(FXCollections.observableArrayList(keys.toArray(String[]::new)));
+    box.getSelectionModel().selectFirst();
+    box.setValue(selected);
+    var current = new AtomicReference<>(box.getValue());
+    box.valueProperty().addListener((o, previous, now) -> current.set(now));
+    return of(box, current::get, text.node(), text::text, false);
+  }
+
+  static TextInput of(String key, EditableText text) {
     var label = new Label(key);
-    var textField = new TextField();
-    return of(
-        label,
-        label::getText,
-        textField,
-        () -> Optional.ofNullable(textField.getText()).filter(s -> !s.isBlank()));
+    return of(label, () -> key, text.node(), text::text, false);
   }
 
   private static TextInput of(
-      Node keyNode, Supplier<String> key, Node valueNode, Supplier<Optional<String>> value) {
-    var pane = new GridPane();
-    GridPane.setHalignment(keyNode, HPos.RIGHT);
-    GridPane.setMargin(keyNode, new Insets(10, 5, 10, 15));
-    pane.add(keyNode, 0, 0);
-    GridPane.setHalignment(valueNode, HPos.LEFT);
-    GridPane.setMargin(valueNode, new Insets(10, 5, 10, 15));
-    pane.add(valueNode, 1, 0);
+      Node keyNode,
+      Supplier<String> key,
+      Node valueNode,
+      Supplier<Optional<String>> value,
+      boolean required) {
     return new TextInput() {
+      @Override
+      public void disable() {
+        if (Platform.isFxApplicationThread()) {
+          keyNode.setDisable(true);
+          valueNode.setDisable(true);
+        } else {
+          Platform.runLater(
+              () -> {
+                keyNode.setDisable(true);
+                valueNode.setDisable(true);
+              });
+        }
+      }
+
+      @Override
+      public void enable() {
+        if (Platform.isFxApplicationThread()) {
+          keyNode.setDisable(false);
+          valueNode.setDisable(false);
+        } else {
+          Platform.runLater(
+              () -> {
+                keyNode.setDisable(false);
+                valueNode.setDisable(false);
+              });
+        }
+      }
+
+      @Override
+      public boolean required() {
+        return required;
+      }
+
       @Override
       public String key() {
         return key.get();
@@ -58,15 +105,28 @@ public interface TextInput {
       }
 
       @Override
-      public Node node() {
-        return pane;
+      public Node keyNode() {
+        return keyNode;
+      }
+
+      @Override
+      public Node valueNode() {
+        return valueNode;
       }
     };
   }
+
+  void disable();
+
+  void enable();
+
+  boolean required();
 
   String key();
 
   Optional<String> value();
 
-  Node node();
+  Node keyNode();
+
+  Node valueNode();
 }

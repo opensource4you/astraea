@@ -29,16 +29,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class PartitionNode {
 
@@ -162,11 +162,12 @@ public class PartitionNode {
     var offsetKey = "truncate to offset";
     return PaneBuilder.of()
         .tableViewAction(
-            MapUtils.of(
-                NoneditableText.of(INCREASE_PARTITION_KEY),
-                EditableText.singleLine().disable().build(),
-                NoneditableText.of(TRUNCATE_OFFSET_KEY),
-                EditableText.singleLine().disable().build()),
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
+                    TextInput.of(
+                        TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build()))),
             "ALTER",
             tableViewAction(context))
         .tableRefresher(
