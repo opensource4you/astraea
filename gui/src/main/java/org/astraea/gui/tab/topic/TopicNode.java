@@ -158,7 +158,8 @@ public class TopicNode {
                             .collect(Collectors.toList())))
         .tableViewAction(
             MapUtils.of(
-                NoneditableText.of(TopicConfigs.ALL_CONFIGS), EditableText.singleLine().build()),
+                NoneditableText.of(Set.copyOf(TopicConfigs.ALL_CONFIGS)),
+                EditableText.singleLine().build()),
             "ALERT",
             (tables, input, logger) -> {
               var topicsToAlter =
