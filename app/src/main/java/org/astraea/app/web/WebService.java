@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
-import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.argument.NonNegativeIntegerField;
 import org.astraea.common.argument.StringMapField;
@@ -51,7 +50,7 @@ public class WebService {
         "/records", to(new RecordHandler(AsyncAdmin.of(arg.configs()), arg.bootstrapServers())));
     server.createContext(
         "/reassignments", to(new ReassignmentHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/balancer", to(new BalancerHandler(Admin.of(arg.configs()))));
+    server.createContext("/balancer", to(new BalancerHandler(AsyncAdmin.of(arg.configs()))));
     server.createContext("/throttles", to(new ThrottleHandler(AsyncAdmin.of(arg.configs()))));
     server.start();
   }
