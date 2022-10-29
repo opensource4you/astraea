@@ -16,12 +16,15 @@
  */
 package org.astraea.app.web;
 
+import com.google.gson.reflect.TypeToken;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -41,10 +44,12 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.generator.RebalancePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -59,46 +64,33 @@ class BalancerHandler implements Handler {
 
   static final String TIMEOUT_KEY = "timeout";
 
+  static final String COST_WEIGHT_KEY = "costWeights";
+
   static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
+  static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
+      HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
 
   private final Admin admin;
   private final AsyncAdmin asyncAdmin;
-  private final RebalancePlanGenerator generator;
   private final RebalancePlanExecutor executor;
-  final HasClusterCost clusterCostFunction;
   final HasMoveCost moveCostFunction;
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(
-        admin,
-        HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0)),
-        new ReplicaSizeCost());
+    this(admin, new ReplicaSizeCost());
   }
 
-  BalancerHandler(Admin admin, HasClusterCost clusterCostFunction, HasMoveCost moveCostFunction) {
-    this(
-        admin,
-        clusterCostFunction,
-        moveCostFunction,
-        RebalancePlanGenerator.random(30),
-        new StraightPlanExecutor());
+  BalancerHandler(Admin admin, HasMoveCost moveCostFunction) {
+    this(admin, moveCostFunction, new StraightPlanExecutor());
   }
 
-  BalancerHandler(
-      Admin admin,
-      HasClusterCost clusterCostFunction,
-      HasMoveCost moveCostFunction,
-      RebalancePlanGenerator generator,
-      RebalancePlanExecutor executor) {
+  BalancerHandler(Admin admin, HasMoveCost moveCostFunction, RebalancePlanExecutor executor) {
     this.admin = admin;
     this.asyncAdmin = (AsyncAdmin) Utils.member(admin, "asyncAdmin");
-    this.clusterCostFunction = clusterCostFunction;
     this.moveCostFunction = moveCostFunction;
-    this.generator = generator;
     this.executor = executor;
   }
 
@@ -138,15 +130,20 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
+    var clusterCostFunction = getClusterCost(channel);
     var planGeneration =
         CompletableFuture.supplyAsync(
             () -> {
               var timeout =
-                  Optional.ofNullable(channel.queries().get(TIMEOUT_KEY))
+                  channel
+                      .request()
+                      .get(TIMEOUT_KEY)
                       .map(DurationField::toDuration)
                       .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
               var topics =
-                  Optional.ofNullable(channel.queries().get(TOPICS_KEY))
+                  channel
+                      .request()
+                      .get(TOPICS_KEY)
                       .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
                       .orElseGet(() -> admin.topicNames(false));
               var currentClusterInfo = admin.clusterInfo();
@@ -154,17 +151,19 @@ class BalancerHandler implements Handler {
                   clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
               var loop =
                   Integer.parseInt(
-                      channel.queries().getOrDefault(LOOP_KEY, String.valueOf(LOOP_DEFAULT)));
+                      channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
               var targetAllocations = ClusterLogAllocation.of(admin.clusterInfo(topics));
               var bestPlan =
-                  Balancer.builder()
-                      .planGenerator(generator)
-                      .clusterCost(clusterCostFunction)
-                      .moveCost(List.of(moveCostFunction))
-                      .limit(loop)
-                      .limit(timeout)
-                      .build()
-                      .offer(currentClusterInfo, topics::contains, admin.brokerFolders());
+                  Balancer.create(
+                          SingleStepBalancer.class,
+                          AlgorithmConfig.builder()
+                              .clusterCost(clusterCostFunction)
+                              .moveCost(List.of(moveCostFunction))
+                              .topicFilter(topics::contains)
+                              .limit(loop)
+                              .limit(timeout)
+                              .build())
+                      .offer(currentClusterInfo, admin.brokerFolders());
               var changes =
                   bestPlan
                       .map(
@@ -210,6 +209,48 @@ class BalancerHandler implements Handler {
             });
     generatedPlans.put(newPlanId, planGeneration);
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  @SuppressWarnings("unchecked")
+  public static Map<HasClusterCost, Double> parseCostFunctionWeight(Configuration config) {
+    return config.entrySet().stream()
+        .map(
+            nameAndWeight -> {
+              Class<?> clz;
+              try {
+                clz = Class.forName(nameAndWeight.getKey());
+              } catch (ClassNotFoundException ignore) {
+                // this config is not cost function, so we just skip it.
+                return null;
+              }
+              var weight = Double.parseDouble(nameAndWeight.getValue());
+              if (weight < 0.0)
+                throw new IllegalArgumentException("Cost-function weight should not be negative");
+              return Map.entry(clz, weight);
+            })
+        .filter(Objects::nonNull)
+        .filter(e -> HasClusterCost.class.isAssignableFrom(e.getKey()))
+        .collect(
+            Collectors.toMap(
+                e -> Utils.construct((Class<HasClusterCost>) e.getKey(), config),
+                Map.Entry::getValue));
+  }
+
+  HasClusterCost getClusterCost(Channel channel) {
+    var costWeights =
+        channel
+            .request()
+            .<Collection<CostWeight>>get(
+                BalancerHandler.COST_WEIGHT_KEY,
+                TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
+            .orElse(List.of());
+    if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
+    var costWeightMap =
+        parseCostFunctionWeight(
+            Configuration.of(
+                costWeights.stream()
+                    .collect(Collectors.toMap(cw -> cw.cost, cw -> String.valueOf(cw.weight)))));
+    return HasClusterCost.of(costWeightMap);
   }
 
   @Override
@@ -443,6 +484,24 @@ class BalancerHandler implements Handler {
       this.done = done;
       this.exception = exception;
       this.report = report;
+    }
+  }
+
+  static class CostWeight {
+    final String cost;
+    final double weight;
+
+    CostWeight(String cost, double weight) {
+      this.cost = cost;
+      this.weight = weight;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      CostWeight that = (CostWeight) o;
+      return Objects.equals(cost, that.cost) && weight == that.weight;
     }
   }
 }

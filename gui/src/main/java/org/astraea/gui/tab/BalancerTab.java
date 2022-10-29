@@ -33,7 +33,8 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -50,10 +51,10 @@ import org.astraea.gui.text.NoneditableText;
 
 public class BalancerTab {
 
-  private static final String TOPIC_NAME_KEY = "topic";
+  static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
-  private static final String MAX_SIZE_TO_MOVE = "max size to move";
-  private static final String MAX_LEADERS_TO_MOVE = "max leader to move";
+  private static final String MAX_MIGRATE_LOG_SIZE = "total max migrate log size";
+  private static final String MAX_MIGRATE_LEADER_NUM = "maximum leader number to migrate";
   private static final String PREVIOUS_LEADER_KEY = "previous leader";
   private static final String NEW_LEADER_KEY = "new leader";
   private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
@@ -79,8 +80,7 @@ public class BalancerTab {
     }
   }
 
-  private static List<Map<String, Object>> result(
-      ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
+  static List<Map<String, Object>> result(ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
     return ClusterLogAllocation.findNonFulfilledAllocation(
             ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
         .stream()
@@ -118,7 +118,7 @@ public class BalancerTab {
         .collect(Collectors.toList());
   }
 
-  private static CompletionStage<List<Map<String, Object>>> generator(
+  static CompletionStage<List<Map<String, Object>>> generator(
       Context context, Input input, Logger logger) {
     return context
         .admin()
@@ -144,57 +144,66 @@ public class BalancerTab {
                           logger.log("searching better assignments ... ");
                           var converter = new DataSize.Field();
                           var replicaSizeLimit =
-                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_SIZE_TO_MOVE))
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LOG_SIZE))
                                   .map(x -> converter.convert(x).bytes());
                           var leaderNumLimit =
-                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_LEADERS_TO_MOVE))
+                              Optional.ofNullable(input.nonEmptyTexts().get(MAX_MIGRATE_LEADER_NUM))
                                   .map(Integer::parseInt);
                           return Map.entry(
                               clusterInfo,
-                              Balancer.builder()
-                                  .planGenerator(new ShufflePlanGenerator(0, 30))
-                                  .clusterCost(
-                                      HasClusterCost.of(
-                                          input.selectedKeys().stream()
-                                              .flatMap(
-                                                  name ->
-                                                      Arrays.stream(Cost.values())
-                                                          .filter(c -> c.toString().equals(name)))
-                                              .map(cost -> Map.entry(cost.costFunction, 1.0))
-                                              .collect(
-                                                  Collectors.toMap(
-                                                      Map.Entry::getKey, Map.Entry::getValue))))
-                                  .moveCost(List.of(new ReplicaSizeCost(), new ReplicaLeaderCost()))
-                                  .movementConstraint(
-                                      moveCosts ->
-                                          moveCosts.stream()
-                                              .allMatch(
-                                                  mc -> {
-                                                    switch (mc.name()) {
-                                                      case ReplicaSizeCost.COST_NAME:
-                                                        if (replicaSizeLimit.isEmpty()
-                                                            || mc.totalCost()
-                                                                <= replicaSizeLimit.get())
-                                                          return true;
-                                                      case ReplicaLeaderCost.COST_NAME:
-                                                        if (leaderNumLimit.isEmpty()
-                                                            || mc.totalCost()
-                                                                <= leaderNumLimit.get())
-                                                          return true;
-                                                    }
-                                                    return false;
-                                                  }))
-                                  .limit(Duration.ofSeconds(10))
-                                  .limit(10000)
-                                  .greedy(true)
-                                  .build()
-                                  .offer(
-                                      clusterInfo,
-                                      topic ->
-                                          patterns.isEmpty()
-                                              || patterns.stream()
-                                                  .anyMatch(p -> p.matcher(topic).matches()),
-                                      brokerFolders));
+                              Balancer.create(
+                                      GreedyBalancer.class,
+                                      AlgorithmConfig.builder()
+                                          .clusterCost(
+                                              HasClusterCost.of(
+                                                  input.selectedKeys().stream()
+                                                      .flatMap(
+                                                          name ->
+                                                              Arrays.stream(Cost.values())
+                                                                  .filter(
+                                                                      c ->
+                                                                          c.toString()
+                                                                              .equals(name)))
+                                                      .map(
+                                                          cost -> Map.entry(cost.costFunction, 1.0))
+                                                      .collect(
+                                                          Collectors.toMap(
+                                                              Map.Entry::getKey,
+                                                              Map.Entry::getValue))))
+                                          .moveCost(
+                                              List.of(
+                                                  new ReplicaSizeCost(), new ReplicaLeaderCost()))
+                                          .movementConstraint(
+                                              moveCosts ->
+                                                  moveCosts.stream()
+                                                      .allMatch(
+                                                          mc -> {
+                                                            switch (mc.name()) {
+                                                              case ReplicaSizeCost.COST_NAME:
+                                                                if (replicaSizeLimit.isEmpty()
+                                                                    || mc.totalCost()
+                                                                        <= replicaSizeLimit.get())
+                                                                  return true;
+                                                                break;
+                                                              case ReplicaLeaderCost.COST_NAME:
+                                                                if (leaderNumLimit.isEmpty()
+                                                                    || mc.totalCost()
+                                                                        <= leaderNumLimit.get())
+                                                                  return true;
+                                                                break;
+                                                            }
+                                                            return false;
+                                                          }))
+                                          .limit(Duration.ofSeconds(10))
+                                          .topicFilter(
+                                              topic ->
+                                                  patterns.isEmpty()
+                                                      || patterns.stream()
+                                                          .anyMatch(
+                                                              p -> p.matcher(topic).matches()))
+                                          .limit(10000)
+                                          .build())
+                                  .offer(clusterInfo, brokerFolders));
                         }))
         .thenApply(
             entry -> {
@@ -215,14 +224,16 @@ public class BalancerTab {
                 SelectBox.multi(
                     Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
                     Cost.values().length))
-            .buttonName("PLAN")
+            .clickName("PLAN")
             .input(
                 NoneditableText.of(TOPIC_NAME_KEY),
                 EditableText.singleLine().hint("topic-*,*abc*").build())
             .input(
-                NoneditableText.of(MAX_LEADERS_TO_MOVE),
+                NoneditableText.of(MAX_MIGRATE_LEADER_NUM),
                 EditableText.singleLine().onlyNumber().build())
-            .input(NoneditableText.of(MAX_SIZE_TO_MOVE), EditableText.singleLine().build())
+            .input(
+                NoneditableText.of(MAX_MIGRATE_LOG_SIZE),
+                EditableText.singleLine().hint("30KB,200MB,1GB").build())
             .tableViewAction(
                 Map.of(),
                 "EXECUTE",
@@ -314,7 +325,7 @@ public class BalancerTab {
                       .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
                       .thenAccept(ignored -> logger.log("succeed to balance cluster"));
                 })
-            .buttonAction((input, logger) -> generator(context, input, logger))
+            .tableRefresher((input, logger) -> generator(context, input, logger))
             .build();
 
     return Tab.of("balancer", pane);

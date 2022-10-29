@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import org.apache.kafka.common.Cluster;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -32,6 +33,7 @@ public class ClusterInfoTest {
     test-1-0 : change only the data folder
     test-1-1 : change the data folder and host
     test-1-2 : no change
+    test-2-0 : only change leader, not change the data folder and host
      */
     var beforeReplicas =
         List.of(
@@ -70,6 +72,30 @@ public class ClusterInfoTest {
                 false,
                 false,
                 false,
+                "/data-folder-01"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
+                "/data-folder-01"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(1, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                true,
                 "/data-folder-01"));
     var afterReplicas =
         List.of(
@@ -108,14 +134,43 @@ public class ClusterInfoTest {
                 false,
                 false,
                 false,
+                "/data-folder-01"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(0, "", -1),
+                -1,
+                -1,
+                false,
+                true,
+                false,
+                false,
+                true,
+                "/data-folder-01"),
+            Replica.of(
+                "test-2",
+                0,
+                NodeInfo.of(1, "", -1),
+                -1,
+                -1,
+                true,
+                true,
+                false,
+                false,
+                false,
                 "/data-folder-01"));
     var nodeInfos = Set.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
     var changes = ClusterInfo.diff(before, after);
 
+    // test diff in ReplicaLeaderCost
+    var leaderMoveCost = new ReplicaLeaderCost().moveCost(before, after, ClusterBean.EMPTY);
+    // move 2 leaders
+    Assertions.assertEquals(leaderMoveCost.totalCost(), 2);
+
     Assertions.assertNotEquals(0, after.topics().size());
-    Assertions.assertEquals(2, changes.size());
+    Assertions.assertEquals(4, changes.size());
     Assertions.assertEquals(
         1,
         changes.stream()
@@ -130,6 +185,11 @@ public class ClusterInfoTest {
         0,
         changes.stream()
             .filter(replica -> replica.topic().equals("test-1") && replica.partition() == 2)
+            .count());
+    Assertions.assertEquals(
+        2,
+        changes.stream()
+            .filter(replica -> replica.topic().equals("test-2") && replica.partition() == 0)
             .count());
   }
 

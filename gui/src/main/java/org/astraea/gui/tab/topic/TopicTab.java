@@ -29,8 +29,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javafx.geometry.Side;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
@@ -67,7 +67,7 @@ public class TopicTab {
                         .map(ServerMetrics.Topic::toString)
                         .collect(Collectors.toList()),
                     ServerMetrics.Topic.values().length))
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     CompletableFuture.supplyAsync(
                         () -> {
@@ -126,7 +126,7 @@ public class TopicTab {
     return Tab.of(
         "config",
         PaneBuilder.of()
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     FutureUtils.combine(
                         context
@@ -193,26 +193,24 @@ public class TopicTab {
                             if (!internal.isEmpty())
                               throw new IllegalArgumentException(
                                   "internal topics: " + internal + " can't be altered");
-                            var unsets = input.emptyValueKeys();
-                            var sets = input.nonEmptyTexts();
-                            if (unsets.isEmpty() && sets.isEmpty()) {
+                            var unset =
+                                topicsToAlter.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            Function.identity(), b -> input.emptyValueKeys()));
+                            var set =
+                                topicsToAlter.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            Function.identity(), b -> input.nonEmptyTexts()));
+                            if (unset.isEmpty() && set.isEmpty()) {
                               logger.log("nothing to alter");
                               return CompletableFuture.completedStage(null);
                             }
-                            return FutureUtils.sequence(
-                                    topicsToAlter.stream()
-                                        .flatMap(
-                                            topic ->
-                                                Stream.of(
-                                                    context
-                                                        .admin()
-                                                        .setConfigs(topic, sets)
-                                                        .toCompletableFuture(),
-                                                    context
-                                                        .admin()
-                                                        .unsetConfigs(topic, unsets)
-                                                        .toCompletableFuture()))
-                                        .collect(Collectors.toList()))
+                            return context
+                                .admin()
+                                .unsetTopicConfigs(unset)
+                                .thenCompose(ignored -> context.admin().setTopicConfigs(set))
                                 .thenAccept(
                                     ignored -> logger.log("succeed to alter: " + topicsToAlter));
                           });
@@ -261,7 +259,7 @@ public class TopicTab {
                       .thenAccept(
                           ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
                 })
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     context
                         .admin()
@@ -302,7 +300,7 @@ public class TopicTab {
     return Tab.of(
         "create",
         PaneBuilder.of()
-            .buttonName("CREATE")
+            .clickName("CREATE")
             .input(
                 NoneditableText.highlight(TOPIC_NAME_KEY),
                 EditableText.singleLine().disallowEmpty().build())
@@ -317,7 +315,7 @@ public class TopicTab {
                     .collect(
                         Collectors.toMap(
                             NoneditableText::of, ignored -> EditableText.singleLine().build())))
-            .buttonListener(
+            .clickListener(
                 (input, logger) -> {
                   var allConfigs = new HashMap<>(input.nonEmptyTexts());
                   var name = allConfigs.remove(TOPIC_NAME_KEY);

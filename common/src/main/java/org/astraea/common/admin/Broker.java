@@ -28,10 +28,10 @@ public interface Broker extends NodeInfo {
   static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
-      org.apache.kafka.clients.admin.Config kafkaConfig,
+      Map<String, String> configs,
       Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
-    var config = Config.of(kafkaConfig);
+    var config = Config.of(configs);
     var partitionsFromTopicDesc =
         topics.stream()
             .flatMap(

@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AlterConfigOp;
+import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
@@ -120,23 +123,16 @@ class AsyncAdminImpl implements AsyncAdmin {
   @Override
   public CompletionStage<List<Topic>> topics(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
+
     return FutureUtils.combine(
-        to(
-            kafkaAdmin
-                .describeConfigs(
-                    topics.stream()
-                        .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
-                        .collect(Collectors.toList()))
-                .all()),
+        doGetConfigs(
+            topics.stream()
+                .map(topic -> new ConfigResource(ConfigResource.Type.TOPIC, topic))
+                .collect(Collectors.toList())),
         to(kafkaAdmin.describeTopics(topics).all()),
         (configs, desc) ->
             configs.entrySet().stream()
-                .map(
-                    entry ->
-                        Topic.of(
-                            entry.getKey().name(),
-                            desc.get(entry.getKey().name()),
-                            entry.getValue()))
+                .map(entry -> Topic.of(entry.getKey(), desc.get(entry.getKey()), entry.getValue()))
                 .sorted(Comparator.comparing(Topic::name))
                 .collect(Collectors.toUnmodifiableList()));
   }
@@ -466,25 +462,15 @@ class AsyncAdminImpl implements AsyncAdmin {
                     kafkaAdmin
                         .describeLogDirs(nodes.stream().map(Node::id).collect(Collectors.toList()))
                         .all())),
-        nodeFuture
-            .thenCompose(
-                nodes ->
-                    to(
-                        kafkaAdmin
-                            .describeConfigs(
-                                nodes.stream()
-                                    .map(
-                                        n ->
-                                            new ConfigResource(
-                                                ConfigResource.Type.BROKER, String.valueOf(n.id())))
-                                    .collect(Collectors.toList()))
-                            .all()))
-            .thenApply(
-                configs ->
-                    configs.entrySet().stream()
-                        .collect(
-                            Collectors.toMap(
-                                e -> Integer.valueOf(e.getKey().name()), Map.Entry::getValue))),
+        nodeFuture.thenCompose(
+            nodes ->
+                doGetConfigs(
+                    nodes.stream()
+                        .map(
+                            n ->
+                                new ConfigResource(
+                                    ConfigResource.Type.BROKER, String.valueOf(n.id())))
+                        .collect(Collectors.toList()))),
         nodeFuture,
         (controller, topics, logDirs, configs, nodes) ->
             nodes.stream()
@@ -493,7 +479,7 @@ class AsyncAdminImpl implements AsyncAdmin {
                         Broker.of(
                             node.id() == controller.id(),
                             node,
-                            configs.get(node.id()),
+                            configs.get(String.valueOf(node.id())),
                             logDirs.get(node.id()),
                             topics.values()))
                 .sorted(Comparator.comparing(NodeInfo::id))
@@ -1030,201 +1016,309 @@ class AsyncAdminImpl implements AsyncAdmin {
   }
 
   @Override
-  public CompletionStage<Void> setConfigs(String topic, Map<String, String> override) {
-    return doSetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), override);
-  }
-
-  @Override
-  public CompletionStage<Void> appendConfigs(String topic, Map<String, String> appended) {
-    return doAppendConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), appended);
-  }
-
-  @Override
-  public CompletionStage<Void> subtractConfigs(String topic, Map<String, String> subtracted) {
-    return doSubtractConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), subtracted);
-  }
-
-  @Override
-  public CompletionStage<Void> unsetConfigs(String topic, Set<String> keys) {
-    return doUnsetConfigs(new ConfigResource(ConfigResource.Type.TOPIC, topic), keys);
-  }
-
-  @Override
-  public CompletionStage<Void> setConfigs(int brokerId, Map<String, String> override) {
+  public CompletionStage<Void> setTopicConfigs(Map<String, Map<String, String>> override) {
     return doSetConfigs(
-        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), override);
+        override.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.TOPIC, e.getKey()),
+                    Map.Entry::getValue)));
   }
 
   @Override
-  public CompletionStage<Void> unsetConfigs(int brokerId, Set<String> keys) {
-    return doUnsetConfigs(
-        new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId)), keys);
+  public CompletionStage<Void> appendTopicConfigs(Map<String, Map<String, String>> appended) {
+    return doAppendConfigs(
+        appended.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.TOPIC, e.getKey()),
+                    Map.Entry::getValue)));
   }
 
-  private CompletionStage<Void> doAppendConfigs(
-      ConfigResource resource, Map<String, String> appended) {
-    if (appended.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(kafkaAdmin.describeConfigs(List.of(resource)).all())
+  @Override
+  public CompletionStage<Void> subtractTopicConfigs(Map<String, Map<String, String>> subtracted) {
+    return doSubtractConfigs(
+        subtracted.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.TOPIC, e.getKey()),
+                    Map.Entry::getValue)));
+  }
+
+  @Override
+  public CompletionStage<Void> unsetTopicConfigs(Map<String, Set<String>> unset) {
+    return doUnsetConfigs(
+        unset.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.TOPIC, e.getKey()),
+                    Map.Entry::getValue)));
+  }
+
+  @Override
+  public CompletionStage<Void> setBrokerConfigs(Map<Integer, Map<String, String>> override) {
+    return doSetConfigs(
+        override.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(e.getKey())),
+                    Map.Entry::getValue)));
+  }
+
+  @Override
+  public CompletionStage<Void> unsetBrokerConfigs(Map<Integer, Set<String>> unset) {
+    return doUnsetConfigs(
+        unset.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(e.getKey())),
+                    Map.Entry::getValue)));
+  }
+
+  private CompletionStage<Map<String, Map<String, String>>> doGetConfigs(
+      Collection<ConfigResource> resources) {
+    return to(kafkaAdmin.describeConfigs(resources).all())
         .thenApply(
-            map ->
-                map.get(resource).entries().stream()
-                    .filter(e -> e.value() != null && !e.value().isBlank())
-                    .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))
+            allConfigs ->
+                allConfigs.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> e.getKey().name(),
+                            e ->
+                                e.getValue().entries().stream()
+                                    .filter(
+                                        entry -> entry.value() != null && !entry.value().isBlank())
+                                    .collect(
+                                        Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))));
+  }
+
+  private CompletionStage<Void> doAppendConfigs(Map<ConfigResource, Map<String, String>> append) {
+
+    var nonEmptyAppend =
+        append.entrySet().stream()
+            .filter(r -> !r.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (nonEmptyAppend.isEmpty()) return CompletableFuture.completedFuture(null);
+
+    return doGetConfigs(nonEmptyAppend.keySet())
         .thenCompose(
-            configs -> {
+            allConfigs -> {
               // append to empty will cause bug (see https://github.com/apache/kafka/pull/12503)
               var requestToSet =
-                  appended.entrySet().stream()
-                      .filter(entry -> !configs.containsKey(entry.getKey()))
+                  nonEmptyAppend.entrySet().stream()
+                      .map(
+                          config ->
+                              Map.entry(
+                                  config.getKey(),
+                                  config.getValue().entrySet().stream()
+                                      .filter(
+                                          entry ->
+                                              !allConfigs
+                                                  .getOrDefault(config.getKey().name(), Map.of())
+                                                  .containsKey(entry.getKey()))
+                                      .collect(
+                                          Collectors.toMap(
+                                              Map.Entry::getKey, Map.Entry::getValue))))
                       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
               // append value only if 1) it is not wildcard, 2) it is not empty
-              var requestToAppend =
-                  appended.entrySet().stream()
-                      .filter(
-                          entry ->
-                              configs.containsKey(entry.getKey())
-                                  && Arrays.stream(configs.get(entry.getKey()).split(","))
-                                      .noneMatch(s -> s.equals("*") || s.equals(entry.getValue())))
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              Map<ConfigResource, Collection<AlterConfigOp>> requestToAppend =
+                  nonEmptyAppend.entrySet().stream()
+                      .map(
+                          config ->
+                              Map.entry(
+                                  config.getKey(),
+                                  config.getValue().entrySet().stream()
+                                      .filter(
+                                          entry ->
+                                              allConfigs
+                                                      .getOrDefault(
+                                                          config.getKey().name(), Map.of())
+                                                      .containsKey(entry.getKey())
+                                                  && Arrays.stream(
+                                                          allConfigs
+                                                              .getOrDefault(
+                                                                  config.getKey().name(), Map.of())
+                                                              .get(entry.getKey())
+                                                              .split(","))
+                                                      .noneMatch(
+                                                          s ->
+                                                              s.equals("*")
+                                                                  || s.equals(entry.getValue())))
+                                      .collect(
+                                          Collectors.toMap(
+                                              Map.Entry::getKey, Map.Entry::getValue))))
+                      .filter(r -> !r.getValue().isEmpty())
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey,
+                              e ->
+                                  e.getValue().entrySet().stream()
+                                      .map(
+                                          r ->
+                                              new AlterConfigOp(
+                                                  new ConfigEntry(r.getKey(), r.getValue()),
+                                                  AlterConfigOp.OpType.APPEND))
+                                      .collect(Collectors.toList())));
 
-              return doSetConfigs(resource, requestToSet)
+              return doSetConfigs(requestToSet)
                   .thenCompose(
-                      ignored ->
-                          to(
-                              kafkaAdmin
-                                  .incrementalAlterConfigs(
-                                      Map.of(
-                                          resource,
-                                          requestToAppend.entrySet().stream()
-                                              .map(
-                                                  entry ->
-                                                      new AlterConfigOp(
-                                                          new ConfigEntry(
-                                                              entry.getKey(), entry.getValue()),
-                                                          AlterConfigOp.OpType.APPEND))
-                                              .collect(Collectors.toList())))
-                                  .all()));
+                      ignored -> to(kafkaAdmin.incrementalAlterConfigs(requestToAppend).all()));
             });
   }
 
   private CompletionStage<Void> doSubtractConfigs(
-      ConfigResource resource, Map<String, String> appended) {
-    if (appended.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(kafkaAdmin.describeConfigs(List.of(resource)).all())
-        .thenApply(
-            map ->
-                map.get(resource).entries().stream()
-                    .filter(e -> e.value() != null && !e.value().isBlank())
-                    .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value)))
+      Map<ConfigResource, Map<String, String>> subtract) {
+
+    var nonEmptySubtract =
+        subtract.entrySet().stream()
+            .filter(r -> !r.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    if (nonEmptySubtract.isEmpty()) return CompletableFuture.completedFuture(null);
+
+    return doGetConfigs(nonEmptySubtract.keySet())
         .thenCompose(
             configs -> {
-              var requestToSubtract =
-                  appended.entrySet().stream()
-                      .filter(
-                          entry -> {
-                            // nothing to subtract
-                            if (!configs.containsKey(entry.getKey())) return false;
-                            var values =
-                                Arrays.stream(configs.get(entry.getKey()).split(","))
-                                    .collect(Collectors.toList());
-                            // disable to subtract from *
-                            if (values.contains("*"))
-                              throw new IllegalArgumentException(
-                                  "Can't subtract config from \"*\", key: "
-                                      + entry.getKey()
-                                      + ", value: "
-                                      + configs.containsKey(entry.getKey()));
-                            return values.contains(entry.getValue());
-                          })
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-              return to(
-                  kafkaAdmin
-                      .incrementalAlterConfigs(
-                          Map.of(
-                              resource,
-                              requestToSubtract.entrySet().stream()
-                                  .map(
-                                      entry ->
-                                          new AlterConfigOp(
-                                              new ConfigEntry(entry.getKey(), entry.getValue()),
-                                              AlterConfigOp.OpType.SUBTRACT))
-                                  .collect(Collectors.toList())))
-                      .all());
+              Map<ConfigResource, Collection<AlterConfigOp>> requestToSubtract =
+                  nonEmptySubtract.entrySet().stream()
+                      .map(
+                          e ->
+                              Map.entry(
+                                  e.getKey(),
+                                  e.getValue().entrySet().stream()
+                                      .filter(
+                                          entry -> {
+                                            // nothing to subtract
+                                            if (!configs
+                                                .getOrDefault(e.getKey().name(), Map.of())
+                                                .containsKey(entry.getKey())) return false;
+                                            var values =
+                                                Arrays.stream(
+                                                        configs
+                                                            .getOrDefault(
+                                                                e.getKey().name(), Map.of())
+                                                            .getOrDefault(entry.getKey(), "")
+                                                            .split(","))
+                                                    .collect(Collectors.toList());
+                                            // disable to subtract from *
+                                            if (values.contains("*"))
+                                              throw new IllegalArgumentException(
+                                                  "Can't subtract config from \"*\", key: "
+                                                      + entry.getKey()
+                                                      + ", value: "
+                                                      + configs.containsKey(entry.getKey()));
+                                            return values.contains(entry.getValue());
+                                          })
+                                      .collect(
+                                          Collectors.toMap(
+                                              Map.Entry::getKey, Map.Entry::getValue))))
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey,
+                              r ->
+                                  r.getValue().entrySet().stream()
+                                      .map(
+                                          e ->
+                                              new AlterConfigOp(
+                                                  new ConfigEntry(e.getKey(), e.getValue()),
+                                                  AlterConfigOp.OpType.SUBTRACT))
+                                      .collect(Collectors.toList())));
+              return to(kafkaAdmin.incrementalAlterConfigs(requestToSubtract).all());
             });
   }
 
-  private CompletionStage<Void> doSetConfigs(
-      ConfigResource resource, Map<String, String> override) {
-    if (override.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(kafkaAdmin
-            .incrementalAlterConfigs(
-                Map.of(
-                    resource,
-                    override.entrySet().stream()
-                        .map(
-                            entry ->
-                                new AlterConfigOp(
-                                    new ConfigEntry(entry.getKey(), entry.getValue()),
-                                    AlterConfigOp.OpType.SET))
-                        .collect(Collectors.toList())))
-            .all())
-        .handle(
-            (r, e) -> {
-              if (e != null) {
-                if (e instanceof UnsupportedVersionException
-                    || e.getCause() instanceof UnsupportedVersionException)
-                  // go back to use deprecated APIs for previous Kafka
-                  return to(
-                      kafkaAdmin
-                          .alterConfigs(
-                              Map.of(
-                                  resource,
-                                  new org.apache.kafka.clients.admin.Config(
-                                      override.entrySet().stream()
-                                          .map(
-                                              entry ->
-                                                  new ConfigEntry(entry.getKey(), entry.getValue()))
-                                          .collect(Collectors.toList()))))
-                          .all());
+  private CompletionStage<Void> doSetConfigs(Map<ConfigResource, Map<String, String>> override) {
 
-                if (e instanceof RuntimeException) throw (RuntimeException) e;
-                throw new RuntimeException(e);
-              }
-              return CompletableFuture.<Void>completedStage(null);
-            })
-        .thenCompose(s -> s);
+    var nonEmptyOverride =
+        override.entrySet().stream()
+            .filter(e -> !e.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    if (nonEmptyOverride.isEmpty()) return CompletableFuture.completedFuture(null);
+
+    Supplier<Map<ConfigResource, Collection<AlterConfigOp>>> newVersion =
+        () ->
+            nonEmptyOverride.entrySet().stream()
+                .map(
+                    e ->
+                        Map.entry(
+                            e.getKey(),
+                            e.getValue().entrySet().stream()
+                                .map(
+                                    entry ->
+                                        new AlterConfigOp(
+                                            new ConfigEntry(entry.getKey(), entry.getValue()),
+                                            AlterConfigOp.OpType.SET))
+                                .collect(Collectors.toList())))
+                .filter(e -> !e.getValue().isEmpty())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    Supplier<Map<ConfigResource, Config>> previousVersion =
+        () ->
+            nonEmptyOverride.entrySet().stream()
+                .map(
+                    e ->
+                        Map.entry(
+                            e.getKey(),
+                            new org.apache.kafka.clients.admin.Config(
+                                e.getValue().entrySet().stream()
+                                    .map(entry -> new ConfigEntry(entry.getKey(), entry.getValue()))
+                                    .collect(Collectors.toList()))))
+                .filter(e -> !e.getValue().entries().isEmpty())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    return doChangeConfigs(newVersion, previousVersion);
   }
 
-  private CompletionStage<Void> doUnsetConfigs(ConfigResource resource, Set<String> keys) {
-    if (keys.isEmpty()) return CompletableFuture.completedFuture(null);
-    return to(kafkaAdmin
-            .incrementalAlterConfigs(
-                Map.of(
-                    resource,
-                    keys.stream()
-                        .map(
-                            key ->
-                                new AlterConfigOp(
-                                    new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
-                        .collect(Collectors.toList())))
-            .all())
+  private CompletionStage<Void> doUnsetConfigs(Map<ConfigResource, Set<String>> unset) {
+    var nonEmptyUnset =
+        unset.entrySet().stream()
+            .filter(e -> !e.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    if (nonEmptyUnset.isEmpty()) return CompletableFuture.completedFuture(null);
+
+    Supplier<Map<ConfigResource, Collection<AlterConfigOp>>> newVersion =
+        () ->
+            nonEmptyUnset.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e ->
+                            e.getValue().stream()
+                                .map(
+                                    key ->
+                                        new AlterConfigOp(
+                                            new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
+                                .collect(Collectors.toList())));
+
+    Supplier<Map<ConfigResource, Config>> previousVersion =
+        () ->
+            nonEmptyUnset.entrySet().stream()
+                .map(
+                    e ->
+                        Map.entry(
+                            e.getKey(),
+                            new org.apache.kafka.clients.admin.Config(
+                                e.getValue().stream()
+                                    .map(key -> new ConfigEntry(key, ""))
+                                    .collect(Collectors.toList()))))
+                .filter(e -> !e.getValue().entries().isEmpty())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    return doChangeConfigs(newVersion, previousVersion);
+  }
+
+  private CompletionStage<Void> doChangeConfigs(
+      Supplier<Map<ConfigResource, Collection<AlterConfigOp>>> newVersion,
+      Supplier<Map<ConfigResource, Config>> previousVersion) {
+    return to(kafkaAdmin.incrementalAlterConfigs(newVersion.get()).all())
         .handle(
             (r, e) -> {
               if (e != null) {
                 if (e instanceof UnsupportedVersionException
                     || e.getCause() instanceof UnsupportedVersionException)
                   // go back to use deprecated APIs for previous Kafka
-                  return to(
-                      kafkaAdmin
-                          .alterConfigs(
-                              Map.of(
-                                  resource,
-                                  new org.apache.kafka.clients.admin.Config(
-                                      keys.stream()
-                                          .map(key -> new ConfigEntry(key, ""))
-                                          .collect(Collectors.toList()))))
-                          .all());
+                  return to(kafkaAdmin.alterConfigs(previousVersion.get()).all());
 
                 if (e instanceof RuntimeException) throw (RuntimeException) e;
                 throw new RuntimeException(e);

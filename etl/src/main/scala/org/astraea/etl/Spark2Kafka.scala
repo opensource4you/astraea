@@ -30,15 +30,20 @@ object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
+      val pk = metaData.column.filter(col => col.isPK).map(col => col.name)
       Await.result(createTopic(admin, metaData), Duration.Inf)
       val df = Reader
         .of()
         .spark(metaData.deploymentModel)
-        .schema(createSchema(metaData.column))
+        .schema(
+          createSchema(
+            metaData.column.map(col => (col.name, col.dataType)).toMap
+          )
+        )
         .sinkPath(metaData.sinkPath.getPath)
-        .primaryKeys(metaData.primaryKeys.keys.toSeq)
+        .primaryKeys(pk)
         .readCSV(metaData.sourcePath.getPath)
-        .csvToJSON(metaData.primaryKeys.keys.toSeq)
+        .csvToJSON(pk)
 
       Writer
         .of()

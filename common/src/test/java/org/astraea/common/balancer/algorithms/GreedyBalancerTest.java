@@ -14,26 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.balancer.algorithms;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class InputTest {
+class GreedyBalancerTest {
 
   @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input = Input.of(List.of(), texts);
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+  void testConfig() {
+    Assertions.assertTrue(
+        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
+        "Config exists for backward compatability reason");
+    Assertions.assertTrue(
+        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
+        "Config exists for backward compatability reason");
+    Assertions.assertTrue(
+        GreedyBalancer.ALL_CONFIGS.contains("iteration"),
+        "Config exists for backward compatability reason");
 
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+    Assertions.assertEquals(
+        Set.copyOf(GreedyBalancer.ALL_CONFIGS).size(),
+        GreedyBalancer.ALL_CONFIGS.size(),
+        "No duplicate element");
   }
 }
