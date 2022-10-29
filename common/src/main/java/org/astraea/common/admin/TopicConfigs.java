@@ -16,7 +16,7 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Set;
+import java.util.List;
 import org.astraea.common.Utils;
 
 public final class TopicConfigs {
@@ -56,7 +56,7 @@ public final class TopicConfigs {
   public static final String FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
       "follower.replication.throttled.replicas";
 
-  public static final Set<String> ALL_CONFIGS =
+  public static final List<String> ALL_CONFIGS =
       Utils.constants(TopicConfigs.class, name -> name.endsWith("CONFIG"));
 
   // ---------------------------------[values]---------------------------------//

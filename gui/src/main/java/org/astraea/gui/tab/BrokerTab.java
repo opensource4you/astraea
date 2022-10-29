@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -327,7 +328,7 @@ public class BrokerTab {
                                     .collect(Collectors.toList())))
             .tableViewAction(
                 MapUtils.of(
-                    NoneditableText.of(BrokerConfigs.DYNAMICAL_CONFIGS),
+                    NoneditableText.of(Set.copyOf(BrokerConfigs.DYNAMICAL_CONFIGS)),
                     EditableText.singleLine().build()),
                 "ALERT",
                 (tables, input, logger) -> {

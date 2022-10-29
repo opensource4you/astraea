@@ -16,7 +16,7 @@
  */
 package org.astraea.common.producer;
 
-import java.util.Set;
+import java.util.List;
 import org.astraea.common.Utils;
 
 public final class ProducerConfigs {
@@ -65,7 +65,7 @@ public final class ProducerConfigs {
   public static final String TRANSACTIONAL_ID_CONFIG = "transactional.id";
   public static final String SECURITY_PROVIDERS_CONFIG = "security.providers";
 
-  public static final Set<String> ALL_CONFIGS =
+  public static final List<String> ALL_CONFIGS =
       Utils.constants(ProducerConfigs.class, name -> name.endsWith("CONFIG"));
 
   // ---------------------------------[values]---------------------------------//

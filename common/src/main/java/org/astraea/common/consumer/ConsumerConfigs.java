@@ -16,7 +16,7 @@
  */
 package org.astraea.common.consumer;
 
-import java.util.Set;
+import java.util.List;
 import org.astraea.common.Utils;
 
 public final class ConsumerConfigs {
@@ -65,7 +65,7 @@ public final class ConsumerConfigs {
   public static final String ISOLATION_LEVEL_CONFIG = "isolation.level";
   public static final String ALLOW_AUTO_CREATE_TOPICS_CONFIG = "allow.auto.create.topics";
 
-  public static final Set<String> ALL_CONFIGS =
+  public static final List<String> ALL_CONFIGS =
       Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG"));
 
   // ---------------------------------[Values]---------------------------------//
