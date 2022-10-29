@@ -48,9 +48,9 @@ public interface SelectBox {
                 })
             .collect(Collectors.toUnmodifiableList());
     items.get(0).setSelected(true);
+
     var node =
-        Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
-            .node();
+        Lattice.grid(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns);
     return of(() -> selectedKeys, node);
   }
 
@@ -71,8 +71,7 @@ public interface SelectBox {
                 })
             .collect(Collectors.toUnmodifiableList());
     var node =
-        Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
-            .node();
+        Lattice.grid(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns);
     return of(() -> selectedKeys, node);
   }
 

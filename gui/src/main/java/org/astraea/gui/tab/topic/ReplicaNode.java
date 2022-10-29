@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
-import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -34,9 +33,10 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class ReplicaNode {
 
@@ -157,9 +157,11 @@ public class ReplicaNode {
                     .thenCompose(context.admin()::replicas)
                     .thenApply(ReplicaNode::allResult))
         .tableViewAction(
-            MapUtils.of(
-                NoneditableText.of(MOVE_BROKER_KEY),
-                EditableText.singleLine().disable().hint("1001,1002").build()),
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        MOVE_BROKER_KEY,
+                        EditableText.singleLine().disable().hint("1001,1002").build()))),
             "ALTER",
             tableViewAction(context))
         .build();
