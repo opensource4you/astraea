@@ -132,7 +132,7 @@ public class AboutTab {
                 SelectBox.single(
                     Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
                     Info.values().length))
-            .buttonAction(
+            .tableRefresher(
                 (input, logger) ->
                     CompletableFuture.completedFuture(
                         input.selectedKeys().stream()
