@@ -37,7 +37,7 @@ public interface TopicCreator {
   /** start to create topic. */
   @Deprecated
   default void create() {
-    Utils.packException(() -> run().toCompletableFuture().get());
+    Utils.packException(() -> run().toCompletableFuture().join());
   }
 
   CompletionStage<Boolean> run();

@@ -16,7 +16,7 @@
  */
 package org.astraea.etl
 
-import org.astraea.common.admin.AsyncAdmin
+import org.astraea.common.admin.Admin
 import org.astraea.etl.Utils.createTopic
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
@@ -40,7 +40,7 @@ class WriterTest extends RequireBrokerCluster {
   @Test
   def topicCreatorTest(): Unit = {
     val TOPIC = "test-topicA" + Random.nextInt().toString
-    Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
+    Utils.Using(Admin.of(bootstrapServers)) { admin =>
       {
         Await.result(testTopicCreator(admin, TOPIC), Duration.Inf)
         Thread.sleep(Duration(1, TimeUnit.SECONDS).toMillis)
@@ -85,7 +85,7 @@ class WriterTest extends RequireBrokerCluster {
   @Test def IllegalArgumentTopicCreatorTest(): Unit = {
     val TOPIC = "test-topicB"
 
-    Utils.Using(AsyncAdmin.of(bootstrapServers)) { admin =>
+    Utils.Using(Admin.of(bootstrapServers)) { admin =>
       {
         val partition = Metadata
           .builder()
@@ -167,7 +167,7 @@ class WriterTest extends RequireBrokerCluster {
   }
 
   def testTopicCreator(
-      asyncAdmin: AsyncAdmin,
+      admin: Admin,
       TOPIC: String
   ): Future[java.lang.Boolean] = {
     val metadata = Metadata
@@ -183,6 +183,6 @@ class WriterTest extends RequireBrokerCluster {
       .topicConfig(Map("compression.type" -> "gzip"))
       .build()
 
-    createTopic(asyncAdmin, metadata)
+    createTopic(admin, metadata)
   }
 }

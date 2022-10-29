@@ -17,19 +17,18 @@
 package org.astraea.app.web;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 
 public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
   @RepeatedTest(2)
-  void testCreateTopicByProbability() throws ExecutionException, InterruptedException {
+  void testCreateTopicByProbability() {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request =
           Channel.ofRequest(
@@ -37,23 +36,17 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
                   String.format(
                       "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
                       topicName)));
-      var topics = handler.post(request).toCompletableFuture().get();
+      var topics = handler.post(request).toCompletableFuture().join();
       Assertions.assertEquals(1, topics.topics.size());
       Utils.waitFor(
           () ->
-              Utils.packException(
-                          () ->
-                              (TopicHandler.TopicInfo)
-                                  handler
-                                      .get(Channel.ofTarget(topicName))
-                                      .toCompletableFuture()
-                                      .get())
-                      .partitions
-                      .size()
+              ((TopicHandler.TopicInfo)
+                          handler.get(Channel.ofTarget(topicName)).toCompletableFuture().join())
+                      .partitions.size()
                   == 30);
       var groupByBroker =
           ((TopicHandler.TopicInfo)
-                  handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get())
+                  handler.get(Channel.ofTarget(topicName)).toCompletableFuture().join())
               .partitions.stream()
                   .flatMap(p -> p.replicas.stream())
                   .collect(Collectors.groupingBy(r -> r.broker));

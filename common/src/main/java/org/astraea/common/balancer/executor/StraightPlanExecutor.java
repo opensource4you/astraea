@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -39,7 +39,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   public StraightPlanExecutor() {}
 
   @Override
-  public CompletionStage<Void> run(AsyncAdmin admin, ClusterLogAllocation logAllocation) {
+  public CompletionStage<Void> run(Admin admin, ClusterLogAllocation logAllocation) {
     return admin
         .topicNames(true)
         .thenCompose(

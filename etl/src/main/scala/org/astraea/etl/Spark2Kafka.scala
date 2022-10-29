@@ -16,7 +16,7 @@
  */
 package org.astraea.etl
 
-import org.astraea.common.admin.AsyncAdmin
+import org.astraea.common.admin.Admin
 import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
 
@@ -29,7 +29,7 @@ import scala.util.{Failure, Success}
 object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
-    Utils.Using(AsyncAdmin.of(metaData.kafkaBootstrapServers)) { admin =>
+    Utils.Using(Admin.of(metaData.kafkaBootstrapServers)) { admin =>
       val pk = metaData.column.filter(col => col.isPK).map(col => col.name)
       Await.result(createTopic(admin, metaData), Duration.Inf)
       val df = Reader

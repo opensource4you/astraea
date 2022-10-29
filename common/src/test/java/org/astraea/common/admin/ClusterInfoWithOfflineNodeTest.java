@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.common.Utils;
 import org.astraea.it.RequireBrokerCluster;
@@ -27,8 +26,8 @@ import org.junit.jupiter.api.Test;
 
 public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
   @Test
-  void testClusterInfoWithOfflineNode() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testClusterInfoWithOfflineNode() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var topicName = "ClusterInfo_Offline_" + Utils.randomString();
       var partitionCount = 30;
       var replicaCount = (short) 3;
@@ -41,7 +40,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       // before node offline
-      var before = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().get();
+      var before = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
       Assertions.assertEquals(
           partitionCount * replicaCount,
           before.replicas(topicName).stream().filter(x -> !x.isOffline()).count());
@@ -55,7 +54,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
 
       // after node offline
-      var after = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().get();
+      var after = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
       Assertions.assertEquals(
           partitionCount * (replicaCount - 1),
           after.replicas(topicName).stream().filter(x -> !x.isOffline()).count());

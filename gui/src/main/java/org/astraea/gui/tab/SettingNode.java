@@ -28,7 +28,7 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
@@ -116,7 +116,7 @@ public class SettingNode {
                       bootstrapServers,
                       jmxPortKey,
                       jmxPort.map(String::valueOf).orElse("")));
-              var newAdmin = AsyncAdmin.of(bootstrapServers);
+              var newAdmin = Admin.of(bootstrapServers);
               return newAdmin
                   .nodeInfos()
                   .thenAccept(

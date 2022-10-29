@@ -61,20 +61,20 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 
-class AsyncAdminImpl implements AsyncAdmin {
+class AdminImpl implements Admin {
 
   private final org.apache.kafka.clients.admin.Admin kafkaAdmin;
   private final String clientId;
   private final AtomicInteger runningRequests = new AtomicInteger(0);
 
-  AsyncAdminImpl(Map<String, String> props) {
+  AdminImpl(Map<String, String> props) {
     this(
         KafkaAdminClient.create(
             props.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
 
-  AsyncAdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
+  AdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     this.kafkaAdmin = kafkaAdmin;
     this.clientId = (String) Utils.member(kafkaAdmin, "clientId");
   }
