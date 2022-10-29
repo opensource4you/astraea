@@ -17,8 +17,10 @@
 package org.astraea.gui.button;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
@@ -49,17 +51,7 @@ public interface SelectBox {
     var node =
         Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
             .node();
-    return new SelectBox() {
-      @Override
-      public List<String> selectedKeys() {
-        return List.copyOf(selectedKeys);
-      }
-
-      @Override
-      public Node node() {
-        return node;
-      }
-    };
+    return of(() -> selectedKeys, node);
   }
 
   static SelectBox multi(List<String> keys, int sizeOfColumns) {
@@ -81,10 +73,14 @@ public interface SelectBox {
     var node =
         Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
             .node();
+    return of(() -> selectedKeys, node);
+  }
+
+  private static SelectBox of(Supplier<Collection<String>> selectedKeysSupplier, Node node) {
     return new SelectBox() {
       @Override
       public List<String> selectedKeys() {
-        return List.copyOf(selectedKeys);
+        return List.copyOf(selectedKeysSupplier.get());
       }
 
       @Override

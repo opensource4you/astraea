@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -45,11 +46,10 @@ import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Input;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.NoneditableText;
 
-public class BalancerTab {
+public class BalancerNode {
 
   static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
@@ -217,117 +217,112 @@ public class BalancerTab {
             });
   }
 
-  public static Tab of(Context context) {
-    var pane =
-        PaneBuilder.of()
-            .selectBox(
-                SelectBox.multi(
-                    Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
-                    Cost.values().length))
-            .clickName("PLAN")
-            .input(
-                NoneditableText.of(TOPIC_NAME_KEY),
-                EditableText.singleLine().hint("topic-*,*abc*").build())
-            .input(
-                NoneditableText.of(MAX_MIGRATE_LEADER_NUM),
-                EditableText.singleLine().onlyNumber().build())
-            .input(
-                NoneditableText.of(MAX_MIGRATE_LOG_SIZE),
-                EditableText.singleLine().hint("30KB,200MB,1GB").build())
-            .tableViewAction(
-                Map.of(),
-                "EXECUTE",
-                (items, inputs, logger) -> {
-                  logger.log("applying better assignments ... ");
-                  var reassignments =
-                      items.stream()
-                          .flatMap(
-                              item -> {
-                                var topic = item.get(TOPIC_NAME_KEY);
-                                var partition = item.get(PARTITION_KEY);
-                                var assignments = item.get(NEW_ASSIGNMENT_KEY);
-                                if (topic != null && partition != null && assignments != null)
-                                  return Stream.of(
-                                      Map.entry(
-                                          TopicPartition.of(
-                                              topic.toString(),
-                                              Integer.parseInt(partition.toString())),
-                                          Arrays.stream(assignments.toString().split(","))
-                                              .map(
-                                                  assignment ->
-                                                      Map.entry(
-                                                          Integer.parseInt(
-                                                              assignment.split(":")[0]),
-                                                          assignment.split(":")[1]))
-                                              .collect(Collectors.toList())));
-                                return Stream.of();
-                              })
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-                  var moveBrokerRequest =
-                      reassignments.entrySet().stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey,
-                                  e ->
-                                      e.getValue().stream()
-                                          .map(Map.Entry::getKey)
+  public static Node of(Context context) {
+    return PaneBuilder.of()
+        .selectBox(
+            SelectBox.multi(
+                Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
+                Cost.values().length))
+        .clickName("PLAN")
+        .input(
+            NoneditableText.of(TOPIC_NAME_KEY),
+            EditableText.singleLine().hint("topic-*,*abc*").build())
+        .input(
+            NoneditableText.of(MAX_MIGRATE_LEADER_NUM),
+            EditableText.singleLine().onlyNumber().build())
+        .input(
+            NoneditableText.of(MAX_MIGRATE_LOG_SIZE),
+            EditableText.singleLine().hint("30KB,200MB,1GB").build())
+        .tableViewAction(
+            Map.of(),
+            "EXECUTE",
+            (items, inputs, logger) -> {
+              logger.log("applying better assignments ... ");
+              var reassignments =
+                  items.stream()
+                      .flatMap(
+                          item -> {
+                            var topic = item.get(TOPIC_NAME_KEY);
+                            var partition = item.get(PARTITION_KEY);
+                            var assignments = item.get(NEW_ASSIGNMENT_KEY);
+                            if (topic != null && partition != null && assignments != null)
+                              return Stream.of(
+                                  Map.entry(
+                                      TopicPartition.of(
+                                          topic.toString(), Integer.parseInt(partition.toString())),
+                                      Arrays.stream(assignments.toString().split(","))
+                                          .map(
+                                              assignment ->
+                                                  Map.entry(
+                                                      Integer.parseInt(assignment.split(":")[0]),
+                                                      assignment.split(":")[1]))
                                           .collect(Collectors.toList())));
-                  var moveFolderRequest =
-                      reassignments.entrySet().stream()
-                          .flatMap(
+                            return Stream.of();
+                          })
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              var moveBrokerRequest =
+                  reassignments.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(
+                              Map.Entry::getKey,
                               e ->
                                   e.getValue().stream()
-                                      .map(
-                                          idAndPath ->
-                                              Map.entry(
-                                                  TopicPartitionReplica.of(
-                                                      e.getKey().topic(),
-                                                      e.getKey().partition(),
-                                                      idAndPath.getKey()),
-                                                  idAndPath.getValue())))
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-                  var expectedReplicas =
-                      moveBrokerRequest.entrySet().stream()
-                          .flatMap(
-                              e ->
-                                  e.getValue().stream()
-                                      .map(
-                                          id ->
+                                      .map(Map.Entry::getKey)
+                                      .collect(Collectors.toList())));
+              var moveFolderRequest =
+                  reassignments.entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().stream()
+                                  .map(
+                                      idAndPath ->
+                                          Map.entry(
                                               TopicPartitionReplica.of(
-                                                  e.getKey().topic(), e.getKey().partition(), id)))
-                          .collect(Collectors.toList());
-                  return context
-                      .admin()
-                      .moveToBrokers(moveBrokerRequest)
-                      // wait assignment
-                      .thenCompose(
-                          ignored ->
-                              context
-                                  .admin()
-                                  .waitCluster(
-                                      moveBrokerRequest.keySet().stream()
-                                          .map(TopicPartition::topic)
-                                          .collect(Collectors.toSet()),
-                                      clusterInfo ->
-                                          expectedReplicas.stream()
-                                              .allMatch(
-                                                  r ->
-                                                      clusterInfo
-                                                          .replicaStream()
-                                                          .anyMatch(
-                                                              replica ->
-                                                                  replica
-                                                                      .topicPartitionReplica()
-                                                                      .equals(r))),
-                                      Duration.ofSeconds(15),
-                                      2))
-                      .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
-                      .thenAccept(ignored -> logger.log("succeed to balance cluster"));
-                })
-            .tableRefresher((input, logger) -> generator(context, input, logger))
-            .build();
+                                                  e.getKey().topic(),
+                                                  e.getKey().partition(),
+                                                  idAndPath.getKey()),
+                                              idAndPath.getValue())))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    return Tab.of("balancer", pane);
+              var expectedReplicas =
+                  moveBrokerRequest.entrySet().stream()
+                      .flatMap(
+                          e ->
+                              e.getValue().stream()
+                                  .map(
+                                      id ->
+                                          TopicPartitionReplica.of(
+                                              e.getKey().topic(), e.getKey().partition(), id)))
+                      .collect(Collectors.toList());
+              return context
+                  .admin()
+                  .moveToBrokers(moveBrokerRequest)
+                  // wait assignment
+                  .thenCompose(
+                      ignored ->
+                          context
+                              .admin()
+                              .waitCluster(
+                                  moveBrokerRequest.keySet().stream()
+                                      .map(TopicPartition::topic)
+                                      .collect(Collectors.toSet()),
+                                  clusterInfo ->
+                                      expectedReplicas.stream()
+                                          .allMatch(
+                                              r ->
+                                                  clusterInfo
+                                                      .replicaStream()
+                                                      .anyMatch(
+                                                          replica ->
+                                                              replica
+                                                                  .topicPartitionReplica()
+                                                                  .equals(r))),
+                                  Duration.ofSeconds(15),
+                                  2))
+                  .thenCompose(ignored -> context.admin().moveToFolders(moveFolderRequest))
+                  .thenAccept(ignored -> logger.log("succeed to balance cluster"));
+            })
+        .tableRefresher((input, logger) -> generator(context, input, logger))
+        .build();
   }
 }

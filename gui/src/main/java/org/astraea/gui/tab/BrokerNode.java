@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
@@ -47,12 +48,11 @@ import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
-import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.NoneditableText;
 
-public class BrokerTab {
+public class BrokerNode {
 
   private static final String BROKER_ID_KEY = "broker id";
 
@@ -194,53 +194,48 @@ public class BrokerTab {
     }
   }
 
-  static Tab metricsTab(Context context) {
-    return Tab.of(
-        "metrics",
-        PaneBuilder.of()
-            .selectBox(
-                SelectBox.multi(
-                    Arrays.stream(MetricType.values())
-                        .map(Enum::toString)
-                        .collect(Collectors.toList()),
-                    MetricType.values().length / 2))
-            .tableRefresher(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .nodeInfos()
-                        .thenApply(
-                            nodes ->
-                                context.clients(nodes).entrySet().stream()
-                                    .flatMap(
-                                        entry ->
-                                            input.selectedKeys().stream()
-                                                .flatMap(
-                                                    name ->
-                                                        Arrays.stream(MetricType.values())
-                                                            .filter(m -> m.toString().equals(name)))
-                                                .map(
-                                                    m ->
-                                                        Map.entry(
-                                                            entry.getKey(),
-                                                            m.fetcher.apply(entry.getValue()))))
-                                    .collect(Collectors.groupingBy(Map.Entry::getKey))
-                                    .entrySet()
-                                    .stream()
-                                    .map(
-                                        entry -> {
-                                          var result = new LinkedHashMap<String, Object>();
-                                          result.put(BROKER_ID_KEY, entry.getKey().id());
-                                          entry.getValue().stream()
-                                              .flatMap(e -> e.getValue().entrySet().stream())
-                                              .sorted(
-                                                  Comparator.comparing(
-                                                      e -> e.getKey().toLowerCase()))
-                                              .forEach(e -> result.put(e.getKey(), e.getValue()));
-                                          return result;
-                                        })
-                                    .collect(Collectors.toList())))
-            .build());
+  static Node metricsNode(Context context) {
+    return PaneBuilder.of()
+        .selectBox(
+            SelectBox.multi(
+                Arrays.stream(MetricType.values()).map(Enum::toString).collect(Collectors.toList()),
+                MetricType.values().length / 2))
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .nodeInfos()
+                    .thenApply(
+                        nodes ->
+                            context.clients(nodes).entrySet().stream()
+                                .flatMap(
+                                    entry ->
+                                        input.selectedKeys().stream()
+                                            .flatMap(
+                                                name ->
+                                                    Arrays.stream(MetricType.values())
+                                                        .filter(m -> m.toString().equals(name)))
+                                            .map(
+                                                m ->
+                                                    Map.entry(
+                                                        entry.getKey(),
+                                                        m.fetcher.apply(entry.getValue()))))
+                                .collect(Collectors.groupingBy(Map.Entry::getKey))
+                                .entrySet()
+                                .stream()
+                                .map(
+                                    entry -> {
+                                      var result = new LinkedHashMap<String, Object>();
+                                      result.put(BROKER_ID_KEY, entry.getKey().id());
+                                      entry.getValue().stream()
+                                          .flatMap(e -> e.getValue().entrySet().stream())
+                                          .sorted(
+                                              Comparator.comparing(e -> e.getKey().toLowerCase()))
+                                          .forEach(e -> result.put(e.getKey(), e.getValue()));
+                                      return result;
+                                    })
+                                .collect(Collectors.toList())))
+        .build();
   }
 
   private static List<Map<String, Object>> basicResult(List<Broker> brokers) {
@@ -292,90 +287,84 @@ public class BrokerTab {
         .collect(Collectors.toList());
   }
 
-  private static Tab basicTab(Context context) {
-    return Tab.of(
-        "basic",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) -> context.admin().brokers().thenApply(BrokerTab::basicResult))
-            .build());
+  private static Node basicNode(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) -> context.admin().brokers().thenApply(BrokerNode::basicResult))
+        .build();
   }
 
-  private static Tab configTab(Context context) {
-    return Tab.of(
-        "config",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .brokers()
-                        .thenApply(
-                            brokers -> brokers.stream().map(t -> Map.entry(t.id(), t.config())))
-                        .thenApply(
-                            items ->
-                                items
-                                    .map(
-                                        e -> {
-                                          var map = new LinkedHashMap<String, Object>();
-                                          map.put(BROKER_ID_KEY, e.getKey());
-                                          map.putAll(new TreeMap<>(e.getValue().raw()));
-                                          return map;
-                                        })
-                                    .collect(Collectors.toList())))
-            .tableViewAction(
-                MapUtils.of(
-                    NoneditableText.of(BrokerConfigs.DYNAMICAL_CONFIGS),
-                    EditableText.singleLine().build()),
-                "ALERT",
-                (tables, input, logger) -> {
-                  var brokerToAlter =
-                      tables.stream()
-                          .flatMap(
-                              m ->
-                                  Optional.ofNullable(m.get(BROKER_ID_KEY))
-                                      .map(o -> (Integer) o)
-                                      .stream())
-                          .collect(Collectors.toSet());
-                  if (brokerToAlter.isEmpty()) {
-                    logger.log("nothing to alter");
-                    return CompletableFuture.completedStage(null);
-                  }
-                  return context
-                      .admin()
-                      .brokers()
-                      .thenApply(
-                          brokers ->
-                              brokers.stream()
-                                  .filter(b -> brokerToAlter.contains(b.id()))
-                                  .collect(Collectors.toList()))
-                      .thenCompose(
-                          brokers -> {
-                            var unset =
-                                brokers.stream()
-                                    .collect(
-                                        Collectors.toMap(
-                                            NodeInfo::id, b -> input.emptyValueKeys()));
-                            var set =
-                                brokers.stream()
-                                    .collect(
-                                        Collectors.toMap(NodeInfo::id, b -> input.nonEmptyTexts()));
-                            if (unset.isEmpty() && set.isEmpty()) {
-                              logger.log("nothing to alter");
-                              return CompletableFuture.completedStage(null);
-                            }
-                            return context
-                                .admin()
-                                .unsetBrokerConfigs(unset)
-                                .thenCompose(ignored -> context.admin().setBrokerConfigs(set))
-                                .thenAccept(
-                                    ignored -> logger.log("succeed to alter: " + brokerToAlter));
-                          });
-                })
-            .build());
+  private static Node configNode(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .brokers()
+                    .thenApply(brokers -> brokers.stream().map(t -> Map.entry(t.id(), t.config())))
+                    .thenApply(
+                        items ->
+                            items
+                                .map(
+                                    e -> {
+                                      var map = new LinkedHashMap<String, Object>();
+                                      map.put(BROKER_ID_KEY, e.getKey());
+                                      map.putAll(new TreeMap<>(e.getValue().raw()));
+                                      return map;
+                                    })
+                                .collect(Collectors.toList())))
+        .tableViewAction(
+            MapUtils.of(
+                NoneditableText.of(BrokerConfigs.DYNAMICAL_CONFIGS),
+                EditableText.singleLine().build()),
+            "ALERT",
+            (tables, input, logger) -> {
+              var brokerToAlter =
+                  tables.stream()
+                      .flatMap(
+                          m ->
+                              Optional.ofNullable(m.get(BROKER_ID_KEY))
+                                  .map(o -> (Integer) o)
+                                  .stream())
+                      .collect(Collectors.toSet());
+              if (brokerToAlter.isEmpty()) {
+                logger.log("nothing to alter");
+                return CompletableFuture.completedStage(null);
+              }
+              return context
+                  .admin()
+                  .brokers()
+                  .thenApply(
+                      brokers ->
+                          brokers.stream()
+                              .filter(b -> brokerToAlter.contains(b.id()))
+                              .collect(Collectors.toList()))
+                  .thenCompose(
+                      brokers -> {
+                        var unset =
+                            brokers.stream()
+                                .collect(
+                                    Collectors.toMap(NodeInfo::id, b -> input.emptyValueKeys()));
+                        var set =
+                            brokers.stream()
+                                .collect(
+                                    Collectors.toMap(NodeInfo::id, b -> input.nonEmptyTexts()));
+                        if (unset.isEmpty() && set.isEmpty()) {
+                          logger.log("nothing to alter");
+                          return CompletableFuture.completedStage(null);
+                        }
+                        return context
+                            .admin()
+                            .unsetBrokerConfigs(unset)
+                            .thenCompose(ignored -> context.admin().setBrokerConfigs(set))
+                            .thenAccept(
+                                ignored -> logger.log("succeed to alter: " + brokerToAlter));
+                      });
+            })
+        .build();
   }
 
-  private static Tab folderTab(Context context) {
+  private static Node folderNode(Context context) {
     BiFunction<Integer, String, Map<String, Object>> metrics =
         (id, path) ->
             context.hasMetrics()
@@ -406,62 +395,62 @@ public class BrokerTab {
                                                 : m.value())))
                     .orElse(Map.of())
                 : Map.of();
-    return Tab.of(
-        "folder",
-        PaneBuilder.of()
-            .tableRefresher(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .brokers()
-                        .thenApply(
-                            brokers ->
-                                brokers.stream()
-                                    .flatMap(
-                                        broker ->
-                                            broker.dataFolders().stream()
-                                                .sorted(
-                                                    Comparator.comparing(Broker.DataFolder::path))
-                                                .map(
-                                                    d -> {
-                                                      Map<String, Object> result =
-                                                          new LinkedHashMap<>();
-                                                      result.put("broker id", broker.id());
-                                                      result.put("path", d.path());
-                                                      result.put(
-                                                          "partitions", d.partitionSizes().size());
-                                                      result.put(
-                                                          "size",
-                                                          DataSize.Byte.of(
-                                                              d.partitionSizes().values().stream()
-                                                                  .mapToLong(s -> s)
-                                                                  .sum()));
-                                                      result.put(
-                                                          "orphan partitions",
-                                                          d.orphanPartitionSizes().size());
-                                                      result.put(
-                                                          "orphan size",
-                                                          DataSize.Byte.of(
-                                                              d
-                                                                  .orphanPartitionSizes()
-                                                                  .values()
-                                                                  .stream()
-                                                                  .mapToLong(s -> s)
-                                                                  .sum()));
-                                                      result.putAll(
-                                                          metrics.apply(broker.id(), d.path()));
-                                                      return result;
-                                                    }))
-                                    .collect(Collectors.toList())))
-            .build());
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .brokers()
+                    .thenApply(
+                        brokers ->
+                            brokers.stream()
+                                .flatMap(
+                                    broker ->
+                                        broker.dataFolders().stream()
+                                            .sorted(Comparator.comparing(Broker.DataFolder::path))
+                                            .map(
+                                                d -> {
+                                                  Map<String, Object> result =
+                                                      new LinkedHashMap<>();
+                                                  result.put("broker id", broker.id());
+                                                  result.put("path", d.path());
+                                                  result.put(
+                                                      "partitions", d.partitionSizes().size());
+                                                  result.put(
+                                                      "size",
+                                                      DataSize.Byte.of(
+                                                          d.partitionSizes().values().stream()
+                                                              .mapToLong(s -> s)
+                                                              .sum()));
+                                                  result.put(
+                                                      "orphan partitions",
+                                                      d.orphanPartitionSizes().size());
+                                                  result.put(
+                                                      "orphan size",
+                                                      DataSize.Byte.of(
+                                                          d.orphanPartitionSizes().values().stream()
+                                                              .mapToLong(s -> s)
+                                                              .sum()));
+                                                  result.putAll(
+                                                      metrics.apply(broker.id(), d.path()));
+                                                  return result;
+                                                }))
+                                .collect(Collectors.toList())))
+        .build();
   }
 
-  public static Tab of(Context context) {
-    return Tab.of(
-        "broker",
-        TabPane.of(
+  public static Node of(Context context) {
+    return Slide.of(
             Side.TOP,
-            List.of(
-                basicTab(context), configTab(context), metricsTab(context), folderTab(context))));
+            MapUtils.of(
+                "basic",
+                basicNode(context),
+                "config",
+                configNode(context),
+                "metrics",
+                metricsNode(context),
+                "folder",
+                folderNode(context)))
+        .node();
   }
 }

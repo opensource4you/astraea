@@ -59,9 +59,9 @@ class BalancerTabTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var log = new AtomicReference<String>();
       var f =
-          BalancerTab.generator(
+          BalancerNode.generator(
               new Context(admin),
-              Input.of(List.of("leader"), Map.of(BalancerTab.TOPIC_NAME_KEY, Optional.empty())),
+              Input.of(List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
               log::set);
       f.toCompletableFuture().get();
       Assertions.assertTrue(f.toCompletableFuture().isDone());
@@ -75,9 +75,9 @@ class BalancerTabTest extends RequireBrokerCluster {
       admin.moveToBrokers(tps).toCompletableFuture().get();
       Utils.sleep(Duration.ofSeconds(2));
       var s =
-          BalancerTab.generator(
+          BalancerNode.generator(
               new Context(admin),
-              Input.of(List.of("leader"), Map.of(BalancerTab.TOPIC_NAME_KEY, Optional.empty())),
+              Input.of(List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
               log::set);
       s.toCompletableFuture().get();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
@@ -144,7 +144,7 @@ class BalancerTabTest extends RequireBrokerCluster {
           }
         };
     var results =
-        BalancerTab.result(
+        BalancerNode.result(
             beforeClusterInfo,
             new Balancer.Plan(
                 RebalancePlanProposal.builder()
