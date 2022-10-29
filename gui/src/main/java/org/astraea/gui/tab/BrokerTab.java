@@ -27,14 +27,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
-import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
@@ -408,66 +406,54 @@ public class BrokerTab {
                                                 : m.value())))
                     .orElse(Map.of())
                 : Map.of();
-
-    Supplier<CompletionStage<Node>> nodeSupplier =
-        () ->
-            context
-                .admin()
-                .brokers()
-                .thenApply(
-                    brokers ->
-                        PaneBuilder.of()
-                            .tableRefresher(
-                                (input, logger) ->
-                                    CompletableFuture.supplyAsync(
-                                        () ->
-                                            brokers.stream()
-                                                .flatMap(
-                                                    broker ->
-                                                        broker.dataFolders().stream()
-                                                            .sorted(
-                                                                Comparator.comparing(
-                                                                    Broker.DataFolder::path))
-                                                            .map(
-                                                                d -> {
-                                                                  Map<String, Object> result =
-                                                                      new LinkedHashMap<>();
-                                                                  result.put(
-                                                                      "broker id", broker.id());
-                                                                  result.put("path", d.path());
-                                                                  result.put(
-                                                                      "partitions",
-                                                                      d.partitionSizes().size());
-                                                                  result.put(
-                                                                      "size",
-                                                                      DataSize.Byte.of(
-                                                                          d
-                                                                              .partitionSizes()
-                                                                              .values()
-                                                                              .stream()
-                                                                              .mapToLong(s -> s)
-                                                                              .sum()));
-                                                                  result.put(
-                                                                      "orphan partitions",
-                                                                      d.orphanPartitionSizes()
-                                                                          .size());
-                                                                  result.put(
-                                                                      "orphan size",
-                                                                      DataSize.Byte.of(
-                                                                          d
-                                                                              .orphanPartitionSizes()
-                                                                              .values()
-                                                                              .stream()
-                                                                              .mapToLong(s -> s)
-                                                                              .sum()));
-                                                                  result.putAll(
-                                                                      metrics.apply(
-                                                                          broker.id(), d.path()));
-                                                                  return result;
-                                                                }))
-                                                .collect(Collectors.toList())))
-                            .build());
-    return Tab.dynamic("folder", nodeSupplier);
+    return Tab.of(
+        "folder",
+        PaneBuilder.of()
+            .tableRefresher(
+                (input, logger) ->
+                    context
+                        .admin()
+                        .brokers()
+                        .thenApply(
+                            brokers ->
+                                brokers.stream()
+                                    .flatMap(
+                                        broker ->
+                                            broker.dataFolders().stream()
+                                                .sorted(
+                                                    Comparator.comparing(Broker.DataFolder::path))
+                                                .map(
+                                                    d -> {
+                                                      Map<String, Object> result =
+                                                          new LinkedHashMap<>();
+                                                      result.put("broker id", broker.id());
+                                                      result.put("path", d.path());
+                                                      result.put(
+                                                          "partitions", d.partitionSizes().size());
+                                                      result.put(
+                                                          "size",
+                                                          DataSize.Byte.of(
+                                                              d.partitionSizes().values().stream()
+                                                                  .mapToLong(s -> s)
+                                                                  .sum()));
+                                                      result.put(
+                                                          "orphan partitions",
+                                                          d.orphanPartitionSizes().size());
+                                                      result.put(
+                                                          "orphan size",
+                                                          DataSize.Byte.of(
+                                                              d
+                                                                  .orphanPartitionSizes()
+                                                                  .values()
+                                                                  .stream()
+                                                                  .mapToLong(s -> s)
+                                                                  .sum()));
+                                                      result.putAll(
+                                                          metrics.apply(broker.id(), d.path()));
+                                                      return result;
+                                                    }))
+                                    .collect(Collectors.toList())))
+            .build());
   }
 
   public static Tab of(Context context) {
