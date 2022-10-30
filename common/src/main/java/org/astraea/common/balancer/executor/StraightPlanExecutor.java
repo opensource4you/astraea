@@ -46,11 +46,10 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
             topicNames ->
                 admin
                     .clusterInfo(topicNames)
-                    .thenApply(ClusterLogAllocation::of)
                     .thenApply(
-                        currentLogAllocation ->
+                        clusterInfo ->
                             ClusterLogAllocation.findNonFulfilledAllocation(
-                                currentLogAllocation, logAllocation)))
+                                clusterInfo, logAllocation)))
         .thenCompose(
             topicPartitions -> {
               Map<TopicPartition, List<Integer>> move2BrokerItems =

@@ -39,11 +39,9 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -154,8 +152,6 @@ class BalancerHandler implements Handler {
               var loop =
                   Integer.parseInt(
                       channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
-              var targetAllocations =
-                  ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, topics::contains));
               var bestPlan =
                   Balancer.create(
                           SingleStepBalancer.class,
@@ -172,7 +168,7 @@ class BalancerHandler implements Handler {
                       .map(
                           p ->
                               ClusterLogAllocation.findNonFulfilledAllocation(
-                                      targetAllocations, p.proposal().rebalancePlan())
+                                      currentClusterInfo, p.proposal().rebalancePlan())
                                   .stream()
                                   .map(
                                       tp ->
@@ -180,20 +176,16 @@ class BalancerHandler implements Handler {
                                               tp.topic(),
                                               tp.partition(),
                                               // only log the size from source replicas
-                                              placements(
-                                                  targetAllocations.logPlacements(tp),
-                                                  l ->
-                                                      currentClusterInfo
-                                                          .replica(
-                                                              TopicPartitionReplica.of(
-                                                                  tp.topic(),
-                                                                  tp.partition(),
-                                                                  l.nodeInfo().id()))
-                                                          .map(Replica::size)
-                                                          .orElse(null)),
-                                              placements(
-                                                  p.proposal().rebalancePlan().logPlacements(tp),
-                                                  ignored -> null)))
+                                              currentClusterInfo.replicas(tp).stream()
+                                                  .map(r -> new Placement(r, r.size()))
+                                                  .collect(Collectors.toList()),
+                                              p
+                                                  .proposal()
+                                                  .rebalancePlan()
+                                                  .logPlacements(tp)
+                                                  .stream()
+                                                  .map(r -> new Placement(r, null))
+                                                  .collect(Collectors.toList())))
                                   .collect(Collectors.toUnmodifiableList()))
                       .orElse(List.of());
               var report =
@@ -354,7 +346,7 @@ class BalancerHandler implements Handler {
         });
   }
 
-  static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
+  static List<Placement> placements(Collection<Replica> lps, Function<Replica, Long> size) {
     return lps.stream()
         .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
         .map(p -> new Placement(p, size.apply(p)))

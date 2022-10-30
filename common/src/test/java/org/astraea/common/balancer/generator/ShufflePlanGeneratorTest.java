@@ -92,8 +92,7 @@ class ShufflePlanGeneratorTest {
 
     System.out.println(proposal);
     Assertions.assertTrue(
-        ClusterLogAllocation.findNonFulfilledAllocation(
-                ClusterLogAllocation.of(fakeCluster), proposal.rebalancePlan())
+        ClusterLogAllocation.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan())
             .isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
@@ -138,8 +137,7 @@ class ShufflePlanGeneratorTest {
 
     System.out.println(proposal);
     Assertions.assertTrue(
-        ClusterLogAllocation.findNonFulfilledAllocation(
-                ClusterLogAllocation.of(fakeCluster), proposal.rebalancePlan())
+        ClusterLogAllocation.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan())
             .isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
