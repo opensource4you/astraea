@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Test;
@@ -223,13 +224,13 @@ class HttpExecutorTest {
                 () -> {
                   var executionException =
                       assertThrows(
-                          ExecutionException.class,
+                          CompletionException.class,
                           () ->
                               httpExecutor
                                   .get(getUrl(x, "/test"), TypeRef.of(TestResponse.class))
                                   .thenApply(Response::body)
                                   .toCompletableFuture()
-                                  .get());
+                                  .join());
                   assertEquals(
                       StringResponseException.class, executionException.getCause().getClass());
                   var stringResponseException =
