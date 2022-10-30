@@ -193,7 +193,7 @@ public class ReplicaNode {
                                                 entry ->
                                                     rs.replicas(entry.getKey()).stream()
                                                         .map(r -> r.nodeInfo().id())
-                                                        .collect(Collectors.toList())
+                                                        .collect(Collectors.toSet())
                                                         .containsAll(entry.getValue())),
                                     Duration.ofSeconds(10),
                                     1))
