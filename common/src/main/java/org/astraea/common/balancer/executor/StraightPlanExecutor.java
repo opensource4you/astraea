@@ -59,7 +59,6 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                             admin
                                 .moveToBrokers(toReplicaMap(replicaList))
                                 .thenCompose(i -> waitStart(admin, replicaList))
-                                .thenAccept(c -> assertion(c, "Failed to sync " + replicaList))
                                 .thenCompose(i -> admin.moveToFolders(toPathMap(replicaList)))
                                 .thenCompose(
                                     i ->
@@ -104,6 +103,6 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
         Set.of(replicas.get(0).topic()),
         (cluster) -> cluster.replicas().stream().anyMatch(x -> !x.inSync()),
         Duration.ofSeconds(5),
-        3);
+        2);
   }
 }
