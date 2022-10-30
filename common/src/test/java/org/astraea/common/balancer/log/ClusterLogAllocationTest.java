@@ -520,4 +520,41 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     Assertions.assertEquals(
         200L, ClusterLogAllocation.update(replica, newNodeInfo, "/other").size());
   }
+
+  @Test
+  void testFuture() {
+    Replica future =
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/future")
+            .isPreferredLeader(true)
+            .leader(true)
+            .isFuture(true)
+            .nodeInfo(NodeInfo.of(1000, "host", 0))
+            .offline(false)
+            .inSync(true)
+            .lag(0)
+            .size(0)
+            .build();
+    Replica origin = Replica.builder(future).isFuture(false).build();
+    Replica other1 =
+        Replica.builder(future)
+            .isFuture(false)
+            .isPreferredLeader(false)
+            .leader(false)
+            .nodeInfo(NodeInfo.of(1001, "host2", 0))
+            .build();
+    Replica other2 = Replica.builder(future).topic("another-topic").isFuture(false).build();
+
+    ClusterLogAllocation allocation =
+        Assertions.assertDoesNotThrow(
+            () -> ClusterLogAllocation.of(List.of(future, origin, other1, other2)),
+            "ClusterLogAllocation is ok with future replicas");
+    Assertions.assertTrue(allocation.logPlacements().contains(future), "Future replica still here");
+    Assertions.assertFalse(
+        allocation.logPlacements().contains(origin), "Remove duplicated non-future replica");
+    Assertions.assertTrue(allocation.logPlacements().contains(other1), "You are fine");
+    Assertions.assertTrue(allocation.logPlacements().contains(other2), "You are fine");
+  }
 }

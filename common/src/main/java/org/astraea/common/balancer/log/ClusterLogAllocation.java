@@ -176,25 +176,46 @@ public interface ClusterLogAllocation {
           allocation.stream()
               .collect(
                   Collectors.groupingBy(
-                      ReplicaInfo::topicPartition, Collectors.toUnmodifiableSet()));
+                      ReplicaInfo::topicPartition,
+                      Collectors.collectingAndThen(
+                          Collectors.toUnmodifiableSet(),
+                          (replicas) -> {
+                            var hasFuture =
+                                replicas.stream()
+                                    .filter(Replica::isFuture)
+                                    .map(ReplicaInfo::nodeInfo)
+                                    .collect(Collectors.toUnmodifiableList());
+                            return replicas.stream()
+                                .filter(
+                                    replica ->
+                                        replica.isFuture()
+                                            || !hasFuture.contains(replica.nodeInfo()))
+                                .collect(Collectors.toUnmodifiableSet());
+                          })));
 
       this.allocation.forEach(
           (topicPartition, replicas) -> {
             // sanity check: no duplicate preferred leader
             var preferredLeaderCount = replicas.stream().filter(Replica::isPreferredLeader).count();
             if (preferredLeaderCount > 1)
-              throw new IllegalArgumentException("Duplicate preferred leader in " + topicPartition);
+              throw new IllegalArgumentException(
+                  "Duplicate preferred leader in " + topicPartition + ". " + replicas);
             if (preferredLeaderCount < 1)
               throw new IllegalArgumentException(
                   "Illegal preferred leader count in "
                       + topicPartition
                       + ": "
-                      + preferredLeaderCount);
+                      + preferredLeaderCount
+                      + ". "
+                      + replicas);
             // sanity check: no duplicate node info
             if (replicas.stream().map(ReplicaInfo::nodeInfo).map(NodeInfo::id).distinct().count()
                 != replicas.size())
               throw new IllegalArgumentException(
-                  "Duplicate replica inside the replica list of " + topicPartition);
+                  "Duplicate replica inside the replica list of "
+                      + topicPartition
+                      + ". "
+                      + replicas);
           });
     }
 
