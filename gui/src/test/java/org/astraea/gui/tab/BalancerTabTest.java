@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -130,24 +129,14 @@ class BalancerTabTest extends RequireBrokerCluster {
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo =
-        new ClusterInfo<Replica>() {
-          @Override
-          public Set<NodeInfo> nodes() {
-            return Set.of();
-          }
+    var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
 
-          @Override
-          public Stream<Replica> replicaStream() {
-            return beforeReplicas.stream();
-          }
-        };
     var results =
         BalancerNode.result(
             beforeClusterInfo,
             new Balancer.Plan(
                 RebalancePlanProposal.builder()
-                    .clusterLogAllocation(ClusterLogAllocation.of(afterReplicas))
+                    .clusterLogAllocation(ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)))
                     .build(),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 List.of(MoveCost.builder().build())));
