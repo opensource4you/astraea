@@ -88,7 +88,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // "before" should record size
       report.changes.stream()
           .flatMap(c -> c.before.stream())
-          .forEach(p -> Assertions.assertNotEquals(0, p.size));
+          .forEach(p -> Assertions.assertNotNull(p.size));
       // "after" should NOT record size
       report.changes.stream()
           .flatMap(c -> c.after.stream())
