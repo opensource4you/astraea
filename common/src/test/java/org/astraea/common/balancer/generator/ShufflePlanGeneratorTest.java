@@ -24,6 +24,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -70,10 +71,9 @@ class ShufflePlanGeneratorTest {
               final var thatTps = that.topicPartitions();
               final var thisMap =
                   thisTps.stream()
-                      .collect(Collectors.toUnmodifiableMap(x -> x, allocation::logPlacements));
+                      .collect(Collectors.toUnmodifiableMap(x -> x, allocation::replicas));
               final var thatMap =
-                  thatTps.stream()
-                      .collect(Collectors.toUnmodifiableMap(x -> x, that::logPlacements));
+                  thatTps.stream().collect(Collectors.toUnmodifiableMap(x -> x, that::replicas));
               Assertions.assertEquals(thisTps, thatTps);
               Assertions.assertNotEquals(thisMap, thatMap);
             });
@@ -92,8 +92,7 @@ class ShufflePlanGeneratorTest {
 
     System.out.println(proposal);
     Assertions.assertTrue(
-        ClusterLogAllocation.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan())
-            .isEmpty());
+        ClusterInfo.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan()).isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
         1,
@@ -137,8 +136,7 @@ class ShufflePlanGeneratorTest {
 
     System.out.println(proposal);
     Assertions.assertTrue(
-        ClusterLogAllocation.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan())
-            .isEmpty());
+        ClusterInfo.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan()).isEmpty());
     Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
         1,
@@ -245,34 +243,34 @@ class ShufflePlanGeneratorTest {
     var base = Replica.of("topic", 0, nodeA, 0, 0, false, true, false, false, false, "/a");
     var allocation =
         ClusterLogAllocation.of(
-            List.of(
-                Replica.builder(base)
-                    .topic("normal-topic")
-                    .leader(true)
-                    .isPreferredLeader(true)
-                    .build(),
-                Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
-                Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
-                Replica.builder(base)
-                    .topic("offline-single")
-                    .isPreferredLeader(true)
-                    .offline(true)
-                    .build(),
-                Replica.builder(base)
-                    .topic("no-leader")
-                    .isPreferredLeader(true)
-                    .nodeInfo(nodeA)
-                    .build(),
-                Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
-                Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build()));
+            ClusterInfo.of(
+                List.of(
+                    Replica.builder(base)
+                        .topic("normal-topic")
+                        .leader(true)
+                        .isPreferredLeader(true)
+                        .build(),
+                    Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
+                    Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
+                    Replica.builder(base)
+                        .topic("offline-single")
+                        .isPreferredLeader(true)
+                        .offline(true)
+                        .build(),
+                    Replica.builder(base)
+                        .topic("no-leader")
+                        .isPreferredLeader(true)
+                        .nodeInfo(nodeA)
+                        .build(),
+                    Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
+                    Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build())));
     shufflePlanGenerator
         .generate(dataDir, allocation)
         .limit(30)
         .map(RebalancePlanProposal::rebalancePlan)
         .forEach(
             newAllocation -> {
-              var notFulfilled =
-                  ClusterLogAllocation.findNonFulfilledAllocation(allocation, newAllocation);
+              var notFulfilled = ClusterInfo.findNonFulfilledAllocation(allocation, newAllocation);
               Assertions.assertTrue(
                   notFulfilled.stream()
                       .map(TopicPartition::topic)

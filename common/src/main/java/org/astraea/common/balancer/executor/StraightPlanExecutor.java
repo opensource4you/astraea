@@ -16,7 +16,7 @@
  */
 package org.astraea.common.balancer.executor;
 
-import static org.astraea.common.balancer.log.ClusterLogAllocation.findNonFulfilledAllocation;
+import static org.astraea.common.admin.ClusterInfo.findNonFulfilledAllocation;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -51,7 +51,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                 topicPartitions.stream()
                     .map(
                         tp ->
-                            logAllocation.logPlacements(tp).stream()
+                            logAllocation.replicas(tp).stream()
                                 .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
                                 .collect(Collectors.toUnmodifiableList()))
                     .map(

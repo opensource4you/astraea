@@ -92,7 +92,7 @@ public class SingleStepBalancer implements Balancer {
             proposal -> {
               var newClusterInfo =
                   ClusterInfo.update(
-                      currentClusterInfo, tp -> proposal.rebalancePlan().logPlacements(tp));
+                      currentClusterInfo, tp -> proposal.rebalancePlan().replicas(tp));
               return new Balancer.Plan(
                   proposal,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
