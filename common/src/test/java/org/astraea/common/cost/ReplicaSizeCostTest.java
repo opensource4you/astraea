@@ -37,7 +37,7 @@ class ReplicaSizeCostTest {
   void testBrokerCost() {
     var meter = new LogMetrics.Log.Gauge(bean);
     var cost = new ReplicaSizeCost();
-    var result = cost.brokerCost(ClusterInfo.EMPTY, ClusterBean.of(Map.of(1, List.of(meter))));
+    var result = cost.brokerCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter))));
     Assertions.assertEquals(1, result.value().size());
     Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
   }
