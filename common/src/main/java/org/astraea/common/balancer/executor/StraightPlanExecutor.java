@@ -80,7 +80,6 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                                             ChronoUnit.DECADES.getDuration()))
                                 .thenAccept(c -> assertion(c, "Failed to sync " + replicaList)))
                     .map(CompletionStage::toCompletableFuture)
-                    .collect(Collectors.toList())
                     .toArray(CompletableFuture[]::new))
         .thenCompose(CompletableFuture::allOf);
   }
