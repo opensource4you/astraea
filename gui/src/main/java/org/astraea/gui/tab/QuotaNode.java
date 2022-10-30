@@ -17,6 +17,7 @@
 package org.astraea.gui.tab;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -31,10 +32,11 @@ import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class QuotaNode {
 
@@ -43,10 +45,12 @@ public class QuotaNode {
     var rateKey = "connections/second";
     return PaneBuilder.of()
         .clickName("ALTER")
-        .input(
-            NoneditableText.highlight(ipLabelKey),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(NoneditableText.of(rateKey), EditableText.singleLine().onlyNumber().build())
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build()))))
         .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
@@ -82,10 +86,12 @@ public class QuotaNode {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .clickName("ALTER")
-        .input(
-            NoneditableText.highlight(clientIdLabelKey),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()))))
         .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
@@ -121,10 +127,12 @@ public class QuotaNode {
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
         .clickName("ALTER")
-        .input(
-            NoneditableText.highlight(clientIdLabelKey),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()))))
         .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))

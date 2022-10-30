@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -210,10 +209,10 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
   @EnumSource(ServerMetrics.Topic.class)
-  void testTopic(ServerMetrics.Topic topic) throws ExecutionException, InterruptedException {
+  void testTopic(ServerMetrics.Topic topic) {
     var name = Utils.randomString();
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(name).key(new byte[10]).run().toCompletableFuture().get();
+      producer.sender().topic(name).key(new byte[10]).run().toCompletableFuture().join();
     }
     try (var consumer =
         Consumer.forTopics(Set.of(name))

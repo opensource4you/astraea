@@ -17,14 +17,12 @@
 package org.astraea.gui.pane;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
@@ -34,7 +32,6 @@ import org.astraea.gui.button.Click;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
 
 /** a template layout for all tabs. */
 public class PaneBuilder {
@@ -49,7 +46,7 @@ public class PaneBuilder {
 
   private SelectBox selectBox;
 
-  private final Map<NoneditableText, EditableText> inputKeyAndFields = new LinkedHashMap<>();
+  private Lattice lattice = null;
 
   private Click click = Click.of(REFRESH_KEY);
 
@@ -63,7 +60,7 @@ public class PaneBuilder {
 
   // ---------------------------------[second control]---------------------------------//
 
-  private final Map<NoneditableText, EditableText> secondInputKeyAndFields = new LinkedHashMap<>();
+  private Lattice secondLattice = null;
 
   private Click tableViewClick = Click.disabled("EXECUTE");
 
@@ -77,13 +74,8 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder input(NoneditableText key, EditableText value) {
-    inputKeyAndFields.put(key, value);
-    return this;
-  }
-
-  public PaneBuilder input(Map<NoneditableText, EditableText> inputs) {
-    inputKeyAndFields.putAll(inputs);
+  public PaneBuilder lattice(Lattice lattice) {
+    this.lattice = lattice;
     return this;
   }
 
@@ -108,13 +100,10 @@ public class PaneBuilder {
   }
 
   public PaneBuilder tableViewAction(
-      Map<NoneditableText, EditableText> inputs,
+      Lattice lattice,
       String buttonName,
       Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>> action) {
-    // always disable the input fields
-    inputs.keySet().forEach(NoneditableText::disable);
-    inputs.values().forEach(EditableText::disable);
-    secondInputKeyAndFields.putAll(inputs);
+    this.secondLattice = lattice;
     tableViewClick = Click.disabled(buttonName);
     tableViewAction = action;
     return this;
@@ -124,14 +113,7 @@ public class PaneBuilder {
     // step.1 layout
     var nodes = new ArrayList<Node>();
     if (selectBox != null) nodes.add(selectBox.node());
-    if (!inputKeyAndFields.isEmpty()) {
-      var ns =
-          inputKeyAndFields.entrySet().stream()
-              .flatMap(entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
-              .collect(Collectors.toList());
-      var lattice = Lattice.of(ns, inputKeyAndFields.size() <= 3 ? 2 : 6);
-      nodes.add(lattice.node());
-    }
+    if (lattice != null) nodes.add(lattice.node());
     nodes.add(click.node());
     if (tableViewer != null) nodes.add(tableViewer.node());
     // ---------------------------------[second control layout]---------------------------------//
@@ -143,31 +125,23 @@ public class PaneBuilder {
               (observable, oldValue, newValue) -> {
                 if (checkbox.isSelected()) {
                   tableViewClick.enable();
-                  secondInputKeyAndFields.keySet().forEach(NoneditableText::enable);
-                  secondInputKeyAndFields.values().forEach(EditableText::enable);
+                  if (secondLattice != null) secondLattice.enable();
                 } else {
                   tableViewClick.disable();
-                  secondInputKeyAndFields.keySet().forEach(NoneditableText::disable);
-                  secondInputKeyAndFields.values().forEach(EditableText::disable);
+                  if (secondLattice != null) secondLattice.disable();
                 }
               });
       tableViewClick.action(
           () -> {
             var items = tableViewer.filteredData();
-            var text =
-                secondInputKeyAndFields.entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
+            var text = secondLattice.contents();
             var input = Input.of(List.of(), text);
             try {
               checkbox.setSelected(false);
 
-              var requiredNonexistentKeys =
-                  secondInputKeyAndFields.entrySet().stream()
-                      .filter(e -> !e.getValue().valid())
-                      .map(e -> e.getKey().text())
-                      .collect(Collectors.toSet());
-              if (!requiredNonexistentKeys.isEmpty()) {
-                console.text("Please define required fields: " + requiredNonexistentKeys);
+              var invalidKeys = secondLattice.invalidKeys();
+              if (!invalidKeys.isEmpty()) {
+                console.text("please check fields: " + invalidKeys);
                 return;
               }
               tableViewAction
@@ -177,21 +151,8 @@ public class PaneBuilder {
               console.text(e);
             }
           });
-
-      nodes.add(
-          Lattice.singleColumn(
-                  Pos.CENTER,
-                  checkbox,
-                  Lattice.of(
-                          secondInputKeyAndFields.entrySet().stream()
-                              .flatMap(
-                                  entry ->
-                                      Stream.of(entry.getKey().node(), entry.getValue().node()))
-                              .collect(Collectors.toList()),
-                          6)
-                      .node(),
-                  tableViewClick.node())
-              .node());
+      if (secondLattice == null) nodes.add(Lattice.vbox(List.of(checkbox, tableViewClick.node())));
+      else nodes.add(Lattice.vbox(List.of(checkbox, secondLattice.node(), tableViewClick.node())));
     }
 
     nodes.add(console.node());
@@ -199,22 +160,17 @@ public class PaneBuilder {
     // step.2 event
     Runnable handler =
         () -> {
-          var requiredNonexistentKeys =
-              inputKeyAndFields.entrySet().stream()
-                  .filter(e -> !e.getValue().valid())
-                  .map(e -> e.getKey().text())
-                  .collect(Collectors.toSet());
-          if (!requiredNonexistentKeys.isEmpty()) {
-            console.text("Please define required fields: " + requiredNonexistentKeys);
+          // nothing to do
+          if (tableRefresher == null && clickListener == null) return;
+
+          var invalidKeys = lattice == null ? Set.of() : lattice.invalidKeys();
+          if (!invalidKeys.isEmpty()) {
+            console.text("please check fields: " + invalidKeys);
             return;
           }
 
-          var rawTexts =
-              inputKeyAndFields.entrySet().stream()
-                  .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
+          var rawTexts = lattice == null ? Map.<String, Optional<String>>of() : lattice.contents();
           var input = Input.of(selectBox == null ? List.of() : selectBox.selectedKeys(), rawTexts);
-          // nothing to do
-          if (tableRefresher == null && clickListener == null) return;
 
           console.cleanup();
           click.disable();
@@ -261,6 +217,6 @@ public class PaneBuilder {
               else tableViewer.refresh();
             }
           });
-    return Lattice.singleColumn(Pos.CENTER, nodes.toArray(Node[]::new)).node();
+    return Lattice.vbox(nodes);
   }
 }

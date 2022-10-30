@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,11 +28,12 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class SettingNode {
 
@@ -86,15 +88,21 @@ public class SettingNode {
     var jmxPortKey = "jmx";
     var properties = loadProperty();
     return PaneBuilder.of()
-        .input(
-            NoneditableText.highlight(BOOTSTRAP_SERVERS),
-            EditableText.singleLine()
-                .defaultValue(properties.get(bootstrapKey))
-                .disallowEmpty()
-                .build())
-        .input(
-            NoneditableText.of(JMX_PORT),
-            EditableText.singleLine().onlyNumber().defaultValue(properties.get(jmxPortKey)).build())
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        BOOTSTRAP_SERVERS,
+                        EditableText.singleLine()
+                            .defaultValue(properties.get(bootstrapKey))
+                            .disallowEmpty()
+                            .build()),
+                    TextInput.of(
+                        JMX_PORT,
+                        EditableText.singleLine()
+                            .onlyNumber()
+                            .defaultValue(properties.get(jmxPortKey))
+                            .build()))))
         .clickName("CHECK")
         .clickListener(
             (input, logger) -> {
@@ -108,7 +116,7 @@ public class SettingNode {
                       bootstrapServers,
                       jmxPortKey,
                       jmxPort.map(String::valueOf).orElse("")));
-              var newAdmin = AsyncAdmin.of(bootstrapServers);
+              var newAdmin = Admin.of(bootstrapServers);
               return newAdmin
                   .nodeInfos()
                   .thenAccept(

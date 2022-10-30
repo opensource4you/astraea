@@ -21,11 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
@@ -37,9 +36,9 @@ import org.junit.jupiter.api.Test;
 public class ReplicaTabTest extends RequireBrokerCluster {
 
   @Test
-  void testTableAction() throws ExecutionException, InterruptedException {
+  void testTableAction() {
     var topicName = Utils.randomString();
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
@@ -47,7 +46,7 @@ public class ReplicaTabTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
 
       var action = ReplicaNode.tableViewAction(new Context(admin));
@@ -76,11 +75,11 @@ public class ReplicaTabTest extends RequireBrokerCluster {
                               .map(String::valueOf)
                               .collect(Collectors.joining(","))))),
               log::set);
-      f3.toCompletableFuture().get();
+      f3.toCompletableFuture().join();
       Assertions.assertEquals("succeed to alter partitions: [" + topicName + "-0]", log.get());
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
-          3, admin.replicas(Set.of(topicName)).toCompletableFuture().get().size());
+          3, admin.replicas(Set.of(topicName)).toCompletableFuture().join().size());
     }
   }
 

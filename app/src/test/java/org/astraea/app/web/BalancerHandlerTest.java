@@ -24,22 +24,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -67,7 +68,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
 
   @Test
-  void testReport() throws ExecutionException, InterruptedException {
+  void testReport() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new ReplicaSizeCost());
@@ -102,7 +103,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTopic() throws ExecutionException, InterruptedException {
+  void testTopic() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new ReplicaSizeCost());
@@ -131,7 +132,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTopics() throws ExecutionException, InterruptedException {
+  void testTopics() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new ReplicaSizeCost());
@@ -177,7 +178,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                 .toCompletableFuture()
                 .join();
             Utils.sleep(Duration.ofSeconds(1));
-            admin.migrator().topic(topic).moveTo(List.of(1));
+            admin
+                .moveToBrokers(
+                    admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
+                        .collect(Collectors.toMap(tp -> tp, ignored -> List.of(1))))
+                .toCompletableFuture()
+                .join();
           });
       Utils.sleep(Duration.ofSeconds(3));
       try (var producer = Producer.of(bootstrapServers())) {
@@ -248,7 +254,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> true)
                       .build())
-              .offer(admin.clusterInfo(), admin.brokerFolders());
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  admin.brokerFolders().toCompletableFuture().join());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -265,7 +276,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                           .movementConstraint(moveCosts -> true)
                           .limit(0)
                           .build())
-                  .offer(admin.clusterInfo(), admin.brokerFolders()));
+                  .offer(
+                      admin
+                          .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                          .toCompletableFuture()
+                          .join(),
+                      admin.brokerFolders().toCompletableFuture().join()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
@@ -278,7 +294,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> true)
                       .build())
-              .offer(admin.clusterInfo(), admin.brokerFolders()));
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  admin.brokerFolders().toCompletableFuture().join()));
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -291,12 +312,17 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> false)
                       .build())
-              .offer(admin.clusterInfo(), admin.brokerFolders()));
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  admin.brokerFolders().toCompletableFuture().join()));
     }
   }
 
   @Test
-  void testNoReport() throws ExecutionException, InterruptedException {
+  void testNoReport() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
@@ -308,12 +334,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .post(Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.LOOP_KEY, "0"))))
                   .toCompletableFuture()
-                  .get());
+                  .join());
       Utils.sleep(Duration.ofSeconds(5));
       var progress =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get());
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertNotNull(post.id);
       Assertions.assertEquals(post.id, progress.id);
       Assertions.assertFalse(progress.generated);
@@ -322,7 +348,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPut() throws ExecutionException, InterruptedException {
+  void testPut() {
     // arrange
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -345,7 +371,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", thePlanId))))
                   .toCompletableFuture()
-                  .get());
+                  .join());
       Utils.sleep(Duration.ofSeconds(1));
 
       // assert
@@ -364,7 +390,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // no id offered
       Assertions.assertThrows(
           IllegalArgumentException.class,
-          () -> handler.put(Channel.EMPTY).toCompletableFuture().get(),
+          () -> handler.put(Channel.EMPTY).toCompletableFuture().join(),
           "The 'id' field is required");
 
       // no such plan id
@@ -374,14 +400,24 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan"))))
                   .toCompletableFuture()
-                  .get(),
+                  .join(),
           "The requested plan doesn't exists");
     }
   }
 
   @RepeatedTest(value = 10)
-  void testSubmitRebalancePlanThreadSafe() throws ExecutionException, InterruptedException {
+  void testSubmitRebalancePlanThreadSafe() {
+    var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(30).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(3));
+      admin
+          .moveToBrokers(
+              admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
+                  .collect(Collectors.toMap(Function.identity(), ignored -> List.of(1))))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(3));
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
@@ -403,7 +439,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                         // use cyclic barrier to ensure all threads are ready to work
                         Utils.packException(() -> barrier.await());
                         // send the put request
-                        Utils.packException(() -> handler.put(request).toCompletableFuture().get());
+                        handler.put(request).toCompletableFuture().join();
                       }));
 
       // await work done
@@ -419,14 +455,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testRebalanceOnePlanAtATime() throws ExecutionException, InterruptedException {
+  void testRebalanceOnePlanAtATime() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public CompletionStage<Void> run(
-                AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+            public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
               super.run(admin, targetAllocation);
               Utils.sleep(Duration.ofSeconds(10));
               return null;
@@ -441,19 +476,22 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", plan0.id))))
                   .toCompletableFuture()
-                  .get());
-      Assertions.assertThrows(
+                  .join());
+      Assertions.assertInstanceOf(
           IllegalStateException.class,
-          () ->
-              handler
-                  .put(Channel.ofRequest(PostRequest.of(Map.of("id", plan1.id))))
-                  .toCompletableFuture()
-                  .get());
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      handler
+                          .put(Channel.ofRequest(PostRequest.of(Map.of("id", plan1.id))))
+                          .toCompletableFuture()
+                          .join())
+              .getCause());
     }
   }
 
   @Test
-  void testRebalanceDetectOngoing() throws ExecutionException, InterruptedException {
+  void testRebalanceDetectOngoing() {
     try (var admin = Admin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
@@ -474,29 +512,36 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   BalancerHandler.COST_WEIGHT_KEY, defaultDecreasing));
 
       // create an ongoing reassignment
-      Assertions.assertEquals(1, admin.replicas(Set.of(theTopic)).size());
-      admin.migrator().partition(theTopic, 0).moveTo(List.of(0, 1, 2));
+      Assertions.assertEquals(
+          1, admin.replicas(Set.of(theTopic)).toCompletableFuture().join().size());
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(theTopic, 0), List.of(0, 1, 2)))
+          .toCompletableFuture()
+          .join();
 
       // debounce wait
       for (int i = 0; i < 2; i++) {
         Utils.waitForNonNull(
-            () -> !admin.addingReplicas(Set.of(theTopic)).isEmpty(),
+            () -> !admin.addingReplicas(Set.of(theTopic)).toCompletableFuture().join().isEmpty(),
             Duration.ofSeconds(10),
             Duration.ofMillis(10));
       }
 
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           IllegalStateException.class,
-          () ->
-              handler
-                  .put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id))))
-                  .toCompletableFuture()
-                  .get());
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      handler
+                          .put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id))))
+                          .toCompletableFuture()
+                          .join())
+              .getCause());
     }
   }
 
   @Test
-  void testPutSanityCheck() throws ExecutionException, InterruptedException {
+  void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
@@ -511,23 +556,30 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       // pick a partition and alter its placement
       var theChange = theReport.changes.stream().findAny().orElseThrow();
-      admin.migrator().partition(theChange.topic, theChange.partition).moveTo(List.of(0, 1, 2));
+      admin
+          .moveToBrokers(
+              Map.of(TopicPartition.of(theChange.topic, theChange.partition), List.of(0, 1, 2)))
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(10));
 
       // assert
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           IllegalStateException.class,
-          () ->
-              handler
-                  .put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id))))
-                  .toCompletableFuture()
-                  .get(),
-          "The cluster state has changed, prevent the plan from execution");
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      handler
+                          .put(Channel.ofRequest(PostRequest.of(Map.of("id", theReport.id))))
+                          .toCompletableFuture()
+                          .join(),
+                  "The cluster state has changed, prevent the plan from execution")
+              .getCause());
     }
   }
 
   @Test
-  void testLookupRebalanceProgress() throws ExecutionException, InterruptedException {
+  void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor =
@@ -535,8 +587,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             final CountDownLatch latch = new CountDownLatch(1);
 
             @Override
-            public CompletionStage<Void> run(
-                AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+            public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
               super.run(admin, targetAllocation);
               Utils.packException(() -> latch.await());
               return null;
@@ -551,7 +602,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress0 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().get());
+              handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress0.id);
       Assertions.assertTrue(progress0.generated);
       Assertions.assertFalse(progress0.scheduled);
@@ -565,7 +616,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", progress.id))))
                   .toCompletableFuture()
-                  .get());
+                  .join());
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // not done yet
@@ -573,7 +624,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress1 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().get());
+              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress1.id);
       Assertions.assertTrue(progress1.generated);
       Assertions.assertTrue(progress1.scheduled);
@@ -586,7 +637,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress2 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().get());
+              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress2.id);
       Assertions.assertTrue(progress2.generated);
       Assertions.assertTrue(progress2.scheduled);
@@ -596,14 +647,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testLookupBadExecutionProgress() throws ExecutionException, InterruptedException {
+  void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public CompletionStage<Void> run(
-                AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+            public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
               super.run(admin, targetAllocation);
               throw new RuntimeException("Boom");
             }
@@ -612,17 +662,15 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.EMPTY).toCompletableFuture().get());
+              handler.post(Channel.EMPTY).toCompletableFuture().join());
       Utils.waitFor(
           () ->
-              Utils.packException(
-                      () ->
-                          (BalancerHandler.PlanExecutionProgress)
-                              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get())
+              ((BalancerHandler.PlanExecutionProgress)
+                      handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
                   .generated);
       var generated =
           ((BalancerHandler.PlanExecutionProgress)
-                  handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get())
+                  handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
               .generated;
       Assertions.assertTrue(generated, "The plan should be generated");
 
@@ -633,7 +681,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", post.id))))
                   .toCompletableFuture()
-                  .get());
+                  .join());
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // exception
@@ -641,7 +689,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().get());
+              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
       Assertions.assertTrue(progress.generated);
       Assertions.assertTrue(progress.scheduled);
@@ -652,13 +700,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testBadLookupRequest() throws ExecutionException, InterruptedException {
+  void testBadLookupRequest() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
 
       Assertions.assertEquals(
-          404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().get().code());
+          404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
 
       // plan doesn't exists
       Assertions.assertThrows(
@@ -667,13 +715,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", "no such plan"))))
                   .toCompletableFuture()
-                  .get(),
+                  .join(),
           "This plan doesn't exists");
     }
   }
 
   @Test
-  void testPutIdempotent() throws ExecutionException, InterruptedException {
+  void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new StraightPlanExecutor());
@@ -691,14 +739,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", progress.id))))
                   .toCompletableFuture()
-                  .get(),
+                  .join(),
           "Schedule the rebalance task");
 
       // Wait until the migration occurred
       try {
         Utils.waitFor(
             () ->
-                admin.replicas(Set.copyOf(topics)).stream()
+                admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
                     .anyMatch(replica -> replica.isFuture() || !replica.inSync()));
       } catch (Exception ignore) {
       }
@@ -708,33 +756,30 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler
                   .put(Channel.ofRequest(PostRequest.of(Map.of("id", progress.id))))
                   .toCompletableFuture()
-                  .get(),
+                  .join(),
           "Idempotent behavior");
     }
   }
 
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
-      BalancerHandler handler, Map<String, Object> requestBody)
-      throws ExecutionException, InterruptedException {
+      BalancerHandler handler, Map<String, Object> requestBody) {
     var post =
         (BalancerHandler.PostPlanResponse)
             handler
                 .post(Channel.ofRequest(PostRequest.of(requestBody)))
                 .toCompletableFuture()
-                .get();
+                .join();
     Utils.waitFor(
         () -> {
           var progress =
-              Utils.packException(
-                  () ->
-                      (BalancerHandler.PlanExecutionProgress)
-                          handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get());
+              (BalancerHandler.PlanExecutionProgress)
+                  handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
           return progress.generated;
         });
     return (BalancerHandler.PlanExecutionProgress)
-        handler.get(Channel.ofTarget(post.id)).toCompletableFuture().get();
+        handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
   }
 
   private static class NoOpExecutor implements RebalancePlanExecutor {
@@ -742,7 +787,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     private final LongAdder executionCounter = new LongAdder();
 
     @Override
-    public CompletionStage<Void> run(AsyncAdmin admin, ClusterLogAllocation targetAllocation) {
+    public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
       executionCounter.increment();
       return null;
     }

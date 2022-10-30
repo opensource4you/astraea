@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 
 class ProducerHandler implements Handler {
@@ -31,9 +31,9 @@ class ProducerHandler implements Handler {
   static final String TOPIC_KEY = "topic";
   static final String PARTITION_KEY = "partition";
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  ProducerHandler(AsyncAdmin admin) {
+  ProducerHandler(Admin admin) {
     this.admin = admin;
   }
 

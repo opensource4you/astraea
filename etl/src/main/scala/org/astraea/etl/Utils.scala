@@ -16,8 +16,7 @@
  */
 package org.astraea.etl
 
-import org.astraea.common.admin.AsyncAdmin
-
+import org.astraea.common.admin.Admin
 import java.awt.geom.IllegalPathStateException
 import java.io.File
 import java.util.concurrent.CompletionStage
@@ -88,7 +87,7 @@ object Utils {
   }
 
   def createTopic(
-      admin: AsyncAdmin,
+      admin: Admin,
       metadata: Metadata
   ): Future[java.lang.Boolean] = {
     Utils.asScala(

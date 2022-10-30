@@ -47,10 +47,11 @@ import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
 public class TopicNode {
 
@@ -157,9 +158,10 @@ public class TopicNode {
                                 })
                             .collect(Collectors.toList())))
         .tableViewAction(
-            MapUtils.of(
-                NoneditableText.of(Set.copyOf(TopicConfigs.ALL_CONFIGS)),
-                EditableText.singleLine().build()),
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        TopicConfigs.ALL_CONFIGS, EditableText.singleLine().disable().build()))),
             "ALERT",
             (tables, input, logger) -> {
               var topicsToAlter =
@@ -214,11 +216,13 @@ public class TopicNode {
   private static Node basicNode(Context context) {
     var includeTimestampOfRecord = "max time to wait records";
     return PaneBuilder.of()
-        .input(
-            NoneditableText.of(includeTimestampOfRecord),
-            EditableText.singleLine().hint("3s").build())
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        includeTimestampOfRecord, EditableText.singleLine().hint("3s").build()))))
         .tableViewAction(
-            Map.of(),
+            null,
             "DELETE",
             (items, inputs, logger) -> {
               var topicsToDelete =
@@ -289,19 +293,27 @@ public class TopicNode {
     var numberOfReplicasKey = "number of replicas";
     return PaneBuilder.of()
         .clickName("CREATE")
-        .input(
-            NoneditableText.highlight(TOPIC_NAME_KEY),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(
-            NoneditableText.of(numberOfPartitionsKey),
-            EditableText.singleLine().onlyNumber().build())
-        .input(
-            NoneditableText.of(numberOfReplicasKey), EditableText.singleLine().onlyNumber().build())
-        .input(
-            TopicConfigs.ALL_CONFIGS.stream()
-                .collect(
-                    Collectors.toMap(
-                        NoneditableText::of, ignored -> EditableText.singleLine().build())))
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(
+                        numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
+                    TextInput.of(
+                        numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
+                    TextInput.of(
+                        TopicConfigs.CLEANUP_POLICY_CONFIG,
+                        TopicConfigs.ALL_CONFIGS,
+                        EditableText.singleLine().build()),
+                    TextInput.of(
+                        TopicConfigs.COMPRESSION_TYPE_CONFIG,
+                        TopicConfigs.ALL_CONFIGS,
+                        EditableText.singleLine().build()),
+                    TextInput.of(
+                        TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
+                        TopicConfigs.ALL_CONFIGS,
+                        EditableText.singleLine().build()))))
         .clickListener(
             (input, logger) -> {
               var allConfigs = new HashMap<>(input.nonEmptyTexts());

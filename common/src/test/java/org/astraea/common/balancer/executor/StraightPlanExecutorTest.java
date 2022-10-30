@@ -20,12 +20,11 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -37,8 +36,8 @@ import org.junit.jupiter.api.Test;
 class StraightPlanExecutorTest extends RequireBrokerCluster {
 
   @Test
-  void testAsyncRun() throws ExecutionException, InterruptedException {
-    try (AsyncAdmin admin = AsyncAdmin.of(bootstrapServers())) {
+  void testAsyncRun() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
 
       admin
@@ -48,7 +47,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 2)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
 
       Utils.sleep(Duration.ofSeconds(2));
 
