@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -37,7 +36,7 @@ import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -61,8 +60,7 @@ import org.astraea.common.producer.ProducerConfigs;
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args)
-      throws InterruptedException, IOException, ExecutionException {
+  public static void main(String[] args) throws IOException {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
@@ -77,8 +75,7 @@ public class Performance {
         argument.throughput);
   }
 
-  public static List<String> execute(final Argument param)
-      throws InterruptedException, IOException, ExecutionException {
+  public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -177,9 +174,8 @@ public class Performance {
     List<String> topics;
 
     void checkTopics() {
-      try (var admin = AsyncAdmin.of(configs())) {
-        var existentTopics =
-            Utils.packException(() -> admin.topicNames(false).toCompletableFuture().get());
+      try (var admin = Admin.of(configs())) {
+        var existentTopics = admin.topicNames(false).toCompletableFuture().join();
         var nonexistent =
             topics.stream().filter(t -> !existentTopics.contains(t)).collect(Collectors.toSet());
         if (!nonexistent.isEmpty())
@@ -188,10 +184,8 @@ public class Performance {
     }
 
     Map<TopicPartition, Long> lastOffsets() {
-      try (var admin = AsyncAdmin.of(configs())) {
-        return Utils.packException(
-                () -> admin.partitions(Set.copyOf(topics)).toCompletableFuture().get())
-            .stream()
+      try (var admin = Admin.of(configs())) {
+        return admin.partitions(Set.copyOf(topics)).toCompletableFuture().join().stream()
             .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
       }
     }
@@ -324,11 +318,9 @@ public class Performance {
         throw new IllegalArgumentException(
             "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
       else if (specifiedByBroker) {
-        try (var admin = AsyncAdmin.of(configs())) {
+        try (var admin = Admin.of(configs())) {
           final var selections =
-              Utils.packException(
-                      () -> admin.replicas(Set.copyOf(topics)).toCompletableFuture().get())
-                  .stream()
+              admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -347,20 +339,17 @@ public class Performance {
           throw new IllegalArgumentException(
               "--specify.partitions can't be used in conjunction with partitioner");
         // sanity check, ensure all specified partitions are existed
-        try (var admin = AsyncAdmin.of(configs())) {
-          var allTopics =
-              Utils.packException(() -> admin.topicNames(false).toCompletableFuture().get());
+        try (var admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames(false).toCompletableFuture().join();
           var allTopicPartitions =
-              Utils.packException(
-                      () ->
-                          admin
-                              .replicas(
-                                  specifyPartitions.stream()
-                                      .map(TopicPartition::topic)
-                                      .filter(allTopics::contains)
-                                      .collect(Collectors.toUnmodifiableSet()))
-                              .toCompletableFuture()
-                              .get())
+              admin
+                  .replicas(
+                      specifyPartitions.stream()
+                          .map(TopicPartition::topic)
+                          .filter(allTopics::contains)
+                          .collect(Collectors.toUnmodifiableSet()))
+                  .toCompletableFuture()
+                  .join()
                   .stream()
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .collect(Collectors.toSet());

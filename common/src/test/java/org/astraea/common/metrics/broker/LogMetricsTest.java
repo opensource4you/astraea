@@ -21,10 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
@@ -41,7 +40,7 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(LogMetrics.LogCleanerManager.class)
   void testLogCleanerManager(LogMetrics.LogCleanerManager log) {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var beans =
           log.fetch(MBeanClient.local()).stream()
               .collect(Collectors.groupingBy(LogMetrics.LogCleanerManager.Gauge::path));
@@ -63,10 +62,10 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
   @EnumSource(LogMetrics.Log.class)
-  void testMetrics(LogMetrics.Log log) throws ExecutionException, InterruptedException {
+  void testMetrics(LogMetrics.Log log) {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().get();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var beans =
           log.fetch(MBeanClient.local()).stream()
@@ -105,9 +104,8 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest()
   @EnumSource(value = LogMetrics.Log.class)
-  void testTopicPartitionMetrics(LogMetrics.Log request)
-      throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testTopicPartitionMetrics(LogMetrics.Log request) {
+    try (var admin = Admin.of(bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
       admin
           .creator()
@@ -115,7 +113,7 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
           .numberOfPartitions(10)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
     }
 
     // wait for topic creation

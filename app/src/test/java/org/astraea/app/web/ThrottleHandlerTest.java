@@ -24,14 +24,13 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
@@ -44,8 +43,8 @@ import org.junit.jupiter.api.Test;
 public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @BeforeEach
-  public void cleanup() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  public void cleanup() {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .nodeInfos()
           .thenApply(
@@ -60,7 +59,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                                       BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))))
           .thenCompose(admin::unsetBrokerConfigs)
           .toCompletableFuture()
-          .get();
+          .join();
 
       admin
           .topicNames(true)
@@ -77,13 +76,13 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                                           .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG))))
           .thenCompose(admin::unsetTopicConfigs)
           .toCompletableFuture()
-          .get();
+          .join();
     }
   }
 
   @Test
-  void testThrottleBandwidth() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testThrottleBandwidth() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var dataRate = DataRate.MiB.of(500).perSecond();
       var longDataRate = (long) dataRate.byteRate();
@@ -108,14 +107,14 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                       BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
                       String.valueOf(longDataRate))))
           .toCompletableFuture()
-          .get();
+          .join();
 
       Utils.sleep(Duration.ofSeconds(1));
 
       var throttleSetting =
           Assertions.assertInstanceOf(
               ThrottleHandler.ThrottleSetting.class,
-              handler.get(Channel.EMPTY).toCompletableFuture().get());
+              handler.get(Channel.EMPTY).toCompletableFuture().join());
 
       Assertions.assertEquals(3, throttleSetting.brokers.size());
       var brokerThrottle =
@@ -136,8 +135,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testThrottleSomeLogs() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testThrottleSomeLogs() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicName = Utils.randomString();
       admin
@@ -147,7 +146,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(1));
 
       admin
@@ -160,12 +159,12 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                       TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
                       "0:1")))
           .toCompletableFuture()
-          .get();
+          .join();
 
       var throttleSetting =
           Assertions.assertInstanceOf(
               ThrottleHandler.ThrottleSetting.class,
-              handler.get(Channel.EMPTY).toCompletableFuture().get());
+              handler.get(Channel.EMPTY).toCompletableFuture().join());
 
       var topic =
           throttleSetting.topics.stream()
@@ -184,8 +183,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testThrottleEveryLog() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testThrottleEveryLog() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicName = Utils.randomString();
       admin
@@ -195,7 +194,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(1));
 
       var value = "0:0,0:1,0:2,1:0,1:1,1:2,2:0,2:1,2:2";
@@ -210,13 +209,13 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                       TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
                       value)))
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(1));
 
       var throttleSetting =
           Assertions.assertInstanceOf(
               ThrottleHandler.ThrottleSetting.class,
-              handler.get(Channel.EMPTY).toCompletableFuture().get());
+              handler.get(Channel.EMPTY).toCompletableFuture().join());
       var topic =
           throttleSetting.topics.stream()
               .filter(t -> t.name.equals(topicName))
@@ -303,8 +302,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPost() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testPost() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicA = Utils.randomString();
       var topicB = Utils.randomString();
@@ -317,7 +316,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       admin
           .creator()
           .topic(topicB)
@@ -325,7 +324,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       admin
           .creator()
           .topic(topicC)
@@ -333,7 +332,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       admin
           .creator()
           .topic(topicD)
@@ -341,7 +340,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(1));
       admin
           .moveToBrokers(
@@ -357,7 +356,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   TopicPartition.of(topicD, 4),
                   List.of(0, 1, 2)))
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(1));
       admin
           .preferredLeaderElection(
@@ -368,7 +367,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   TopicPartition.of(topicC, 3),
                   TopicPartition.of(topicD, 4)))
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(1));
       var rawJson =
           "{\"brokers\":["
@@ -410,11 +409,11 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               new ThrottleHandler.TopicThrottle(topicD, 4, 0, leader));
 
       var post =
-          handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().get();
+          handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().join();
       Assertions.assertEquals(202, post.code());
 
       Utils.sleep(Duration.ofSeconds(5));
-      var deserialized = handler.get(Channel.EMPTY).toCompletableFuture().get();
+      var deserialized = handler.get(Channel.EMPTY).toCompletableFuture().join();
       // verify response content is correct
       Assertions.assertEquals(affectedBrokers, Set.copyOf(deserialized.brokers));
       Assertions.assertEquals(affectedTopics, Set.copyOf(deserialized.topics));
@@ -422,8 +421,8 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDelete() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testDelete() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topic = Utils.randomString();
       admin
@@ -433,7 +432,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofMillis(500));
       admin
           .moveToBrokers(
@@ -445,7 +444,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   TopicPartition.of(topic, 2),
                   List.of(0, 1, 2)))
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofMillis(500));
       admin
           .preferredLeaderElection(
@@ -454,26 +453,32 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   TopicPartition.of(topic, 1),
                   TopicPartition.of(topic, 2)))
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofMillis(500));
 
       Supplier<String> leaderConfig =
           () ->
-              Utils.packException(() -> admin.topics(Set.of(topic)).toCompletableFuture().get())
+              admin
+                  .topics(Set.of(topic))
+                  .toCompletableFuture()
+                  .join()
                   .get(0)
                   .config()
                   .value(TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                   .orElse("");
       Supplier<String> followerConfig =
           () ->
-              Utils.packException(() -> admin.topics(Set.of(topic)).toCompletableFuture().get())
+              admin
+                  .topics(Set.of(topic))
+                  .toCompletableFuture()
+                  .join()
                   .get(0)
                   .config()
                   .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                   .orElse("");
       Function<Integer, Long> egressRate =
           (id) ->
-              Utils.packException(() -> admin.brokers().toCompletableFuture().get()).stream()
+              admin.brokers().toCompletableFuture().join().stream()
                   .filter(n -> n.id() == id)
                   .findFirst()
                   .get()
@@ -483,7 +488,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .orElse(-1L);
       Function<Integer, Long> ingressRate =
           (id) ->
-              Utils.packException(() -> admin.brokers().toCompletableFuture().get()).stream()
+              admin.brokers().toCompletableFuture().join().stream()
                   .filter(n -> n.id() == id)
                   .findFirst()
                   .get()
@@ -493,28 +498,25 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                   .orElse(-1L);
       Runnable setThrottle =
           () -> {
-            Utils.packException(
-                () ->
-                    admin
-                        .nodeInfos()
-                        .thenApply(
-                            ns ->
-                                ns.stream()
-                                    .map(NodeInfo::id)
-                                    .collect(
-                                        Collectors.toMap(
-                                            n -> n,
-                                            ignored ->
-                                                Map.of(
-                                                    BrokerConfigs
-                                                        .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                                    "100",
-                                                    BrokerConfigs
-                                                        .LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                                    "100"))))
-                        .thenCompose(admin::setBrokerConfigs)
-                        .toCompletableFuture()
-                        .get());
+            admin
+                .nodeInfos()
+                .thenApply(
+                    ns ->
+                        ns.stream()
+                            .map(NodeInfo::id)
+                            .collect(
+                                Collectors.toMap(
+                                    n -> n,
+                                    ignored ->
+                                        Map.of(
+                                            BrokerConfigs
+                                                .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                            "100",
+                                            BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                            "100"))))
+                .thenCompose(admin::setBrokerConfigs)
+                .toCompletableFuture()
+                .join();
             Utils.sleep(Duration.ofMillis(500));
           };
 
@@ -524,7 +526,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           handler
               .delete(Channel.ofQueries(Map.of("topic", topic)))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code0);
@@ -537,7 +539,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
           handler
               .delete(Channel.ofQueries(Map.of("topic", topic, "partition", "0")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code1);
@@ -555,7 +557,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "partition", "0",
                           "replica", "0")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code2);
@@ -574,7 +576,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "replica", "0",
                           "type", "leader")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       int code4 =
           handler
@@ -586,7 +588,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "replica", "1",
                           "type", "follower")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code3);
@@ -604,7 +606,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "broker", "0",
                           "type", "follower")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code5);
@@ -621,7 +623,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "broker", "0",
                           "type", "leader")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code6);
@@ -638,7 +640,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                           "broker", "0",
                           "type", "follower+leader")))
               .toCompletableFuture()
-              .get()
+              .join()
               .code();
       Utils.sleep(Duration.ofMillis(500));
       Assertions.assertEquals(202, code7);

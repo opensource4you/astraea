@@ -18,10 +18,9 @@ package org.astraea.common.metrics.client.consumer;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
@@ -33,12 +32,12 @@ import org.junit.jupiter.api.Test;
 public class ConsumerMetricsTest extends RequireBrokerCluster {
 
   @Test
-  void testAppInfo() throws ExecutionException, InterruptedException {
+  void testAppInfo() {
     var topic = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var consumer =
             Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
-      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
       ConsumerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
@@ -46,12 +45,12 @@ public class ConsumerMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMultiBrokers() throws ExecutionException, InterruptedException {
+  void testMultiBrokers() {
     var topic = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var consumer =
             Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
-      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().get();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
       var metrics = ConsumerMetrics.nodes(MBeanClient.local());

@@ -21,12 +21,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -91,9 +90,9 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
   @ParameterizedTest
   @DisplayName("Create CLA from ClusterInfo")
   @ValueSource(shorts = {1, 2, 3})
-  void testOfClusterInfo(short replicas) throws ExecutionException, InterruptedException {
+  void testOfClusterInfo(short replicas) {
     // arrange
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var topic0 = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
@@ -111,7 +110,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
 
       // act
       final var cla =
-          ClusterLogAllocation.of(admin.clusterInfo(topics).toCompletableFuture().get());
+          ClusterLogAllocation.of(admin.clusterInfo(topics).toCompletableFuture().join());
 
       // assert
       final var expectedPartitions =

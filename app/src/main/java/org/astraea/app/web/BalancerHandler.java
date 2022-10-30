@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -73,22 +73,22 @@ class BalancerHandler implements Handler {
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
   private final RebalancePlanExecutor executor;
   final HasMoveCost moveCostFunction;
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
-  BalancerHandler(AsyncAdmin admin) {
+  BalancerHandler(Admin admin) {
     this(admin, new ReplicaSizeCost());
   }
 
-  BalancerHandler(AsyncAdmin admin, HasMoveCost moveCostFunction) {
+  BalancerHandler(Admin admin, HasMoveCost moveCostFunction) {
     this(admin, moveCostFunction, new StraightPlanExecutor());
   }
 
-  BalancerHandler(AsyncAdmin admin, HasMoveCost moveCostFunction, RebalancePlanExecutor executor) {
+  BalancerHandler(Admin admin, HasMoveCost moveCostFunction, RebalancePlanExecutor executor) {
     this.admin = admin;
     this.moveCostFunction = moveCostFunction;
     this.executor = executor;

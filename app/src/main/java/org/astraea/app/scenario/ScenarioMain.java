@@ -20,7 +20,7 @@ import com.beust.jcommander.Parameter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.scenario.Scenario;
@@ -47,7 +47,7 @@ public class ScenarioMain extends Argument {
 
   public void execute(Scenario scenario) {
     System.out.println("Accept scenario: " + scenario.getClass().getName());
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       System.out.println(gson.toJson(scenario.apply(admin)));
     }
   }
