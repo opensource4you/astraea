@@ -105,7 +105,9 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
                   .topic(topic)
                   .numberOfPartitions(partitions)
                   .numberOfReplicas(replicas)
-                  .create());
+                  .run()
+                  .toCompletableFuture()
+                  .join());
       Utils.sleep(Duration.ofSeconds(1));
 
       // act
