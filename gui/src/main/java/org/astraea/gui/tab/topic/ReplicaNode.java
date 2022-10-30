@@ -16,19 +16,23 @@
  */
 package org.astraea.gui.tab.topic;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
+import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
@@ -109,12 +113,45 @@ public class ReplicaNode {
               .map(
                   s ->
                       Arrays.stream(s.split(","))
-                          .map(Integer::parseInt)
-                          .collect(Collectors.toList()));
+                          .map(
+                              idAndPath -> {
+                                var ss = idAndPath.split(":");
+                                if (ss.length == 1)
+                                  return Map.entry(
+                                      Integer.parseInt(ss[0]), Optional.<String>empty());
+                                else return Map.entry(Integer.parseInt(ss[0]), Optional.of(ss[1]));
+                              })
+                          .collect(
+                              MapUtils.toLinkedHashMap(Map.Entry::getKey, Map.Entry::getValue)));
       if (moveTo.isEmpty()) {
         logger.log("please define " + MOVE_BROKER_KEY);
         return CompletableFuture.completedStage(null);
       }
+
+      var requestToMoveBrokers =
+          partitions.stream()
+              .collect(Collectors.toMap(tp -> tp, tp -> List.copyOf(moveTo.get().keySet())));
+
+      var requestToMoveFolders =
+          requestToMoveBrokers.entrySet().stream()
+              .flatMap(
+                  entry ->
+                      entry.getValue().stream()
+                          .flatMap(
+                              id ->
+                                  moveTo
+                                      .get()
+                                      .getOrDefault(id, Optional.empty())
+                                      .map(
+                                          path ->
+                                              Map.entry(
+                                                  TopicPartitionReplica.of(
+                                                      entry.getKey().topic(),
+                                                      entry.getKey().partition(),
+                                                      id),
+                                                  path))
+                                      .stream()))
+              .collect(MapUtils.toLinkedHashMap(Map.Entry::getKey, Map.Entry::getValue));
 
       return context
           .admin()
@@ -130,15 +167,30 @@ public class ReplicaNode {
                   logger.log("internal topics: " + internal + " can't be altered");
                   return CompletableFuture.completedStage(null);
                 }
+
                 return context
                     .admin()
                     .moveToBrokers(
                         moveTo
                             .map(
-                                bks ->
+                                bkAndPaths ->
                                     partitions.stream()
-                                        .collect(Collectors.toMap(tp -> tp, tp -> bks)))
+                                        .collect(
+                                            Collectors.toMap(
+                                                tp -> tp, tp -> List.copyOf(bkAndPaths.keySet()))))
                             .orElse(Map.of()))
+                    .thenCompose(
+                        ignored ->
+                            context
+                                .admin()
+                                .waitCluster(
+                                    partitions.stream()
+                                        .map(TopicPartition::topic)
+                                        .collect(Collectors.toSet()),
+                                    rs -> true,
+                                    Duration.ofSeconds(10),
+                                    1))
+                    .thenCompose(ignored -> context.admin().moveToFolders(requestToMoveFolders))
                     .thenAccept(
                         ignored -> {
                           logger.log("succeed to alter partitions: " + partitions);
@@ -161,7 +213,7 @@ public class ReplicaNode {
                 List.of(
                     TextInput.of(
                         MOVE_BROKER_KEY,
-                        EditableText.singleLine().disable().hint("1001,1002").build()))),
+                        EditableText.multiline().disable().hint("1001:/path,1002").build()))),
             "ALTER",
             tableViewAction(context))
         .build();
