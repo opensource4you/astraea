@@ -114,14 +114,14 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
     return currentAllocation -> {
       final var selectedPartition =
           currentAllocation.topicPartitions().stream()
-              .filter(tp -> eligiblePartition((currentAllocation.logPlacements(tp))))
+              .filter(tp -> eligiblePartition((currentAllocation.replicas(tp))))
               .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
               .min(Map.Entry.comparingByValue())
               .map(Map.Entry::getKey)
               .orElseThrow();
 
       // [valid operation 1] change leader/follower identity
-      final var currentReplicas = currentAllocation.logPlacements(selectedPartition);
+      final var currentReplicas = currentAllocation.replicas(selectedPartition);
       final var candidates0 =
           currentReplicas.stream()
               .skip(1)
@@ -183,8 +183,8 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
         .orElseThrow();
   }
 
-  private static boolean eligiblePartition(Set<Replica> replicas) {
-    return Stream.<Predicate<Set<Replica>>>of(
+  private static boolean eligiblePartition(Collection<Replica> replicas) {
+    return Stream.<Predicate<Collection<Replica>>>of(
             // only one replica and it is offline
             r -> r.size() == 1 && r.stream().findFirst().orElseThrow().isOffline(),
             // no leader
