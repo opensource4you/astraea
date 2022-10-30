@@ -21,7 +21,6 @@ import static org.astraea.app.web.ReassignmentHandler.progressInPercentage;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.RequireBrokerCluster;
@@ -31,15 +30,15 @@ import org.junit.jupiter.api.Test;
 public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testMigrateToAnotherBroker() throws ExecutionException, InterruptedException {
+  void testMigrateToAnotherBroker() {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -60,16 +59,16 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().get());
+          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
-      var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().get();
+      var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().join();
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextBroker,
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -79,15 +78,15 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMigrateToAnotherPath() throws ExecutionException, InterruptedException {
+  void testMigrateToAnotherPath() {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get();
@@ -115,16 +114,16 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().get());
+          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
-      var reassignments = handler.get(Channel.ofTarget(topicName)).toCompletableFuture().get();
+      var reassignments = handler.get(Channel.ofTarget(topicName)).toCompletableFuture().join();
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertEquals(
           nextPath,
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -133,15 +132,15 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testExcludeSpecificBroker() throws ExecutionException, InterruptedException {
+  void testExcludeSpecificBroker() {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(10).create();
+      admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -155,37 +154,39 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().get());
+          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
-      var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().get();
+      var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().join();
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertNotEquals(
           currentBroker,
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
               .nodeInfo()
               .id());
-      Assertions.assertEquals(0, admin.topicPartitions(currentBroker).size());
+      Assertions.assertEquals(
+          0,
+          admin.topicPartitionReplicas(Set.of(currentBroker)).toCompletableFuture().join().size());
     }
   }
 
   @Test
-  void testExcludeSpecificBrokerTopic() throws ExecutionException, InterruptedException {
+  void testExcludeSpecificBrokerTopic() {
     var topicName = Utils.randomString(10);
     var targetTopic = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(10).create();
-      admin.creator().topic(targetTopic).numberOfPartitions(10).create();
+      admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(targetTopic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -203,43 +204,49 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().get());
+          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
-      var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().get();
+      var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().join();
       // the reassignment should be completed
       Assertions.assertEquals(0, reassignments.addingReplicas.size());
 
       Assertions.assertNotEquals(
           currentBroker,
-          admin.replicas(Set.of(targetTopic)).stream()
+          admin.replicas(Set.of(targetTopic)).toCompletableFuture().join().stream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
               .nodeInfo()
               .id());
-      Assertions.assertNotEquals(0, admin.topicPartitions(currentBroker).size());
+      Assertions.assertNotEquals(
+          0,
+          admin.topicPartitionReplicas(Set.of(currentBroker)).toCompletableFuture().join().size());
       Assertions.assertEquals(
           0,
           (int)
-              admin.topicPartitions(currentBroker).stream()
+              admin
+                  .topicPartitionReplicas(Set.of(currentBroker))
+                  .toCompletableFuture()
+                  .join()
+                  .stream()
                   .filter(tp -> Objects.equals(tp.topic(), targetTopic))
                   .count());
     }
   }
 
   @Test
-  void testBadRequest() throws ExecutionException, InterruptedException {
+  void testBadRequest() {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
-      admin.creator().topic(topicName).numberOfPartitions(1).create();
+      admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var body = "{\"plans\": []}";
 
       Assertions.assertEquals(
           Response.BAD_REQUEST,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().get());
+          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
     }
   }
 

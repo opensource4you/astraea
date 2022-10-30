@@ -9,6 +9,7 @@ repositories {
 }
 
 def versions = [
+        kafka       : project.properties['kafka.version'] ?: "3.2.1",
         junit: project.properties['junit.version'] ?: "5.8.2",
         jcommander  : project.properties['jcommander.version'] ?: "1.82",
 ]
@@ -32,7 +33,9 @@ mainClassName = 'org.astraea.gui.Main'
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+    testImplementation project(':it')
     implementation project(':common')
+    implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
 }
 

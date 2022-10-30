@@ -17,31 +17,26 @@
 package org.astraea.common.admin;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
-  ClusterInfo<ReplicaInfo> EMPTY =
-      new ClusterInfo<>() {
+  static <T extends ReplicaInfo> ClusterInfo<T> empty() {
+    return of(Set.of(), List.of());
+  }
 
-        @Override
-        public Set<NodeInfo> nodes() {
-          return Set.of();
-        }
-
-        @Override
-        public Stream<ReplicaInfo> replicaStream() {
-          return Stream.of();
-        }
-      };
+  // ---------------------[helpers]---------------------//
 
   /**
    * find the changed replicas between `before` and `after`. The diff is based on following
@@ -67,7 +62,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                             r.nodeInfo().id() == beforeReplica.nodeInfo().id()
                                 && r.partition() == beforeReplica.partition()
                                 && r.topic().equals(beforeReplica.topic())
-                                && r.path().equals(beforeReplica.path())))
+                                && r.path().equals(beforeReplica.path())
+                                && r.isLeader() == beforeReplica.isLeader()
+                                && r.isPreferredLeader() == beforeReplica.isPreferredLeader()))
         .collect(Collectors.toSet());
   }
 
@@ -79,18 +76,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         clusterInfo
             .replicaStream()
             .filter(replica -> topicFilter.test(replica.topic()))
-            .collect(Collectors.toList());
-    return new ClusterInfo<>() {
-      @Override
-      public Set<NodeInfo> nodes() {
-        return nodes;
-      }
-
-      @Override
-      public Stream<T> replicaStream() {
-        return replicas.stream();
-      }
-    };
+            .collect(Collectors.toUnmodifiableList());
+    return of(nodes, replicas);
   }
 
   /**
@@ -108,7 +95,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return new cluster info
    */
   static ClusterInfo<Replica> update(
-      ClusterInfo<Replica> clusterInfo, Function<TopicPartition, Set<Replica>> replacement) {
+      ClusterInfo<Replica> clusterInfo, Function<TopicPartition, Collection<Replica>> replacement) {
     var newReplicas =
         clusterInfo.replicas().stream()
             .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
@@ -126,10 +113,94 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
   }
 
-  @SuppressWarnings("unchecked")
-  static <T extends ReplicaInfo> ClusterInfo<T> empty() {
-    return (ClusterInfo<T>) EMPTY;
+  /**
+   * Find a subset of topic/partitions in the source allocation, that has any non-fulfilled log
+   * placement in the given target allocation. Note that the given two allocations must have the
+   * exactly same topic/partitions set. Otherwise, an {@link IllegalArgumentException} will be
+   * raised.
+   */
+  static Set<TopicPartition> findNonFulfilledAllocation(
+      ClusterInfo<Replica> source, ClusterInfo<Replica> target) {
+
+    final var sourceTopicPartition =
+        source.replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toSet());
+    final var targetTopicPartition = target.topicPartitions();
+    final var unknownTopicPartitions =
+        targetTopicPartition.stream()
+            .filter(tp -> !sourceTopicPartition.contains(tp))
+            .collect(Collectors.toUnmodifiableSet());
+
+    if (!unknownTopicPartitions.isEmpty())
+      throw new IllegalArgumentException(
+          "target topic/partition should be a subset of source topic/partition: "
+              + unknownTopicPartitions);
+
+    return targetTopicPartition.stream()
+        .filter(tp -> !placementMatch(source.replicas(tp), target.replicas(tp)))
+        .collect(Collectors.toUnmodifiableSet());
   }
+
+  /**
+   * Determine if both of the replicas can be considered as equal in terms of its placement.
+   *
+   * @param sourceReplicas the source replicas. null value of {@link Replica#path()} will be
+   *     interpreted as the actual location doesn't matter.
+   * @param targetReplicas the target replicas. null value of {@link Replica#path()} will be
+   *     interpreted as the actual location is unknown.
+   * @return true if both replicas of specific topic/partitions can be considered as equal in terms
+   *     of its placement.
+   */
+  static boolean placementMatch(
+      Collection<Replica> sourceReplicas, Collection<Replica> targetReplicas) {
+    if (sourceReplicas.size() != targetReplicas.size()) return false;
+    final var sourceIds =
+        sourceReplicas.stream()
+            .sorted(
+                Comparator.comparing(Replica::isPreferredLeader)
+                    .reversed()
+                    .thenComparing(r -> r.nodeInfo().id()))
+            .collect(Collectors.toUnmodifiableList());
+    final var targetIds =
+        targetReplicas.stream()
+            .sorted(
+                Comparator.comparing(Replica::isPreferredLeader)
+                    .reversed()
+                    .thenComparing(r -> r.nodeInfo().id()))
+            .collect(Collectors.toUnmodifiableList());
+    return IntStream.range(0, sourceIds.size())
+        .allMatch(
+            index -> {
+              final var source = sourceIds.get(index);
+              final var target = targetIds.get(index);
+              return source.isPreferredLeader() == target.isPreferredLeader()
+                  && source.nodeInfo().id() == target.nodeInfo().id()
+                  && Objects.equals(source.path(), target.path());
+            });
+  }
+
+  static String toString(ClusterInfo<Replica> allocation) {
+    StringBuilder stringBuilder = new StringBuilder();
+
+    allocation.topicPartitions().stream()
+        .sorted()
+        .forEach(
+            tp -> {
+              stringBuilder.append("[").append(tp).append("] ");
+
+              allocation
+                  .replicas(tp)
+                  .forEach(
+                      log ->
+                          stringBuilder.append(
+                              String.format("(%s, %s) ", log.nodeInfo().id(), log.path())));
+
+              stringBuilder.append(System.lineSeparator());
+            });
+
+    return stringBuilder.toString();
+  }
+
+  // ---------------------[constructor]---------------------//
 
   /**
    * convert the kafka Cluster to our ClusterInfo. Noted: this method is used by {@link
@@ -141,7 +212,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    */
   static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
     return of(
-        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toSet()),
+        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableSet()),
         cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
@@ -156,64 +227,13 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param <T> ReplicaInfo or Replica
    */
   static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
-    return of(replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toSet()), replicas);
+    return of(
+        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableSet()),
+        replicas);
   }
 
   static <T extends ReplicaInfo> ClusterInfo<T> of(Set<NodeInfo> nodes, List<T> replicas) {
-    var topics = replicas.stream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
-    var replicasForTopic = replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topic));
-    var availableReplicasForTopic =
-        replicas.stream()
-            .filter(ReplicaInfo::isOnline)
-            .collect(Collectors.groupingBy(ReplicaInfo::topic));
-    var availableReplicaLeadersForTopics =
-        replicas.stream()
-            .filter(ReplicaInfo::isOnline)
-            .filter(ReplicaInfo::isLeader)
-            .collect(Collectors.groupingBy(ReplicaInfo::topic));
-    // This group is used commonly, so we cache it.
-    var availableLeaderReplicasForBrokersTopics =
-        replicas.stream()
-            .filter(ReplicaInfo::isOnline)
-            .filter(ReplicaInfo::isLeader)
-            .collect(Collectors.groupingBy(r -> Map.entry(r.nodeInfo().id(), r.topic())));
-
-    return new ClusterInfo<>() {
-      @Override
-      public Set<NodeInfo> nodes() {
-        return nodes;
-      }
-
-      public Set<String> topics() {
-        return topics;
-      }
-
-      @Override
-      public List<T> replicaLeaders(String topic) {
-        return availableReplicaLeadersForTopics.getOrDefault(topic, List.of());
-      }
-
-      @Override
-      public List<T> replicaLeaders(int broker, String topic) {
-        return availableLeaderReplicasForBrokersTopics.getOrDefault(
-            Map.entry(broker, topic), List.of());
-      }
-
-      @Override
-      public List<T> availableReplicas(String topic) {
-        return availableReplicasForTopic.getOrDefault(topic, List.of());
-      }
-
-      @Override
-      public List<T> replicas(String topic) {
-        return replicasForTopic.getOrDefault(topic, List.of());
-      }
-
-      @Override
-      public Stream<T> replicaStream() {
-        return replicas.stream();
-      }
-    };
+    return new Optimized<>(nodes, replicas);
   }
 
   // ---------------------[for leader]---------------------//
@@ -237,8 +257,20 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> replicaLeaders(String topic) {
-    return replicaStream()
-        .filter(r -> r.topic().equals(topic))
+    return replicaStream(topic)
+        .filter(ReplicaInfo::isLeader)
+        .filter(ReplicaInfo::isOnline)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * Get the list of replica leaders of given node
+   *
+   * @param broker the broker id
+   * @return A list of {@link ReplicaInfo}.
+   */
+  default List<T> replicaLeaders(int broker) {
+    return replicaStream(broker)
         .filter(ReplicaInfo::isLeader)
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
@@ -252,9 +284,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> replicaLeaders(int broker, String topic) {
-    return replicaStream()
+    return replicaStream(broker, topic)
         .filter(r -> r.nodeInfo().id() == broker)
-        .filter(r -> r.topic().equals(topic))
         .filter(ReplicaInfo::isLeader)
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
@@ -267,8 +298,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return {@link ReplicaInfo} or empty if there is no leader
    */
   default Optional<T> replicaLeader(TopicPartition topicPartition) {
-    return replicaStream()
-        .filter(r -> r.topicPartition().equals(topicPartition))
+    return replicaStream(topicPartition)
         .filter(ReplicaInfo::isLeader)
         .filter(ReplicaInfo::isOnline)
         .findFirst();
@@ -283,8 +313,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> availableReplicas(String topic) {
-    return replicaStream()
-        .filter(r -> r.topic().equals(topic))
+    return replicaStream(topic)
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
@@ -303,23 +332,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> replicas(String topic) {
-    return replicaStream()
-        .filter(r -> r.topic().equals(topic))
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  /**
-   * Get the list of replica information of each partition/replica pair for the given topic on given
-   * broker
-   *
-   * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}.
-   */
-  default List<T> replicas(int broker, String topic) {
-    return replicaStream()
-        .filter(r -> r.nodeInfo().id() == broker)
-        .filter(r -> r.topic().equals(topic))
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).collect(Collectors.toUnmodifiableList());
   }
 
   /**
@@ -330,9 +343,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return A list of {@link ReplicaInfo}.
    */
   default List<T> replicas(TopicPartition topicPartition) {
-    return replicaStream()
-        .filter(r -> r.topicPartition().equals(topicPartition))
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(topicPartition).collect(Collectors.toUnmodifiableList());
   }
 
   /**
@@ -340,7 +351,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return the replica matched to input replica
    */
   default Optional<T> replica(TopicPartitionReplica replica) {
-    return replicaStream().filter(r -> r.topicPartitionReplica().equals(replica)).findFirst();
+    return replicaStream(replica).findFirst();
   }
 
   // ---------------------[others]---------------------//
@@ -352,6 +363,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    */
   default Set<String> topics() {
     return replicaStream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
+  }
+
+  default Set<TopicPartition> topicPartitions() {
+    return replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toUnmodifiableSet());
   }
 
   /**
@@ -368,6 +383,30 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
   }
 
+  // ---------------------[streams methods]---------------------//
+  // implements following methods by smart index to speed up the queries
+
+  default Stream<T> replicaStream(int broker) {
+    return replicaStream().filter(r -> r.nodeInfo().id() == broker);
+  }
+
+  default Stream<T> replicaStream(String topic) {
+    return replicaStream().filter(r -> r.topic().equals(topic));
+  }
+
+  default Stream<T> replicaStream(int broker, String topic) {
+    return replicaStream(topic).filter(r -> r.nodeInfo().id() == broker);
+  }
+
+  default Stream<T> replicaStream(TopicPartition partition) {
+    return replicaStream(partition.topic()).filter(r -> r.partition() == partition.partition());
+  }
+
+  default Stream<T> replicaStream(TopicPartitionReplica replica) {
+    return replicaStream(replica.topicPartition())
+        .filter(r -> r.nodeInfo().id() == replica.brokerId());
+  }
+
   // ---------------------[abstract methods]---------------------//
 
   /** @return The known set of nodes */
@@ -375,4 +414,126 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   /** @return replica stream to offer effective way to operate a bunch of replicas */
   Stream<T> replicaStream();
+
+  /** It optimizes all queries by pre-allocated Map collection. */
+  class Optimized<T extends ReplicaInfo> implements ClusterInfo<T> {
+    private final Set<NodeInfo> nodeInfos;
+    private final List<T> all;
+
+    private volatile Map<Map.Entry<Integer, String>, List<T>> byBrokerTopic;
+    private volatile Map<Integer, List<T>> byBroker;
+    private volatile Map<String, List<T>> byTopic;
+    private volatile Map<TopicPartition, List<T>> byPartition;
+    private volatile Map<TopicPartitionReplica, List<T>> byReplica;
+
+    protected Optimized(Set<NodeInfo> nodeInfos, List<T> replicas) {
+      this.nodeInfos = nodeInfos;
+      this.all = replicas;
+    }
+
+    @Override
+    public Stream<T> replicaStream(String topic) {
+      indexTopic();
+      return byTopic.getOrDefault(topic, List.of()).stream();
+    }
+
+    @Override
+    public Stream<T> replicaStream(TopicPartition partition) {
+      indexPartition();
+      return byPartition.getOrDefault(partition, List.of()).stream();
+    }
+
+    @Override
+    public Stream<T> replicaStream(TopicPartitionReplica replica) {
+      if (byReplica == null) {
+        synchronized (this) {
+          if (byReplica == null)
+            byReplica =
+                all.stream()
+                    .collect(
+                        Collectors.groupingBy(
+                            ReplicaInfo::topicPartitionReplica, Collectors.toUnmodifiableList()));
+        }
+      }
+      return byReplica.getOrDefault(replica, List.of()).stream();
+    }
+
+    @Override
+    public Stream<T> replicaStream(int broker) {
+      if (byBroker == null) {
+        synchronized (this) {
+          if (byBroker == null)
+            byBroker =
+                all.stream()
+                    .collect(
+                        Collectors.groupingBy(
+                            r -> r.nodeInfo().id(), Collectors.toUnmodifiableList()));
+        }
+      }
+      return byBroker.getOrDefault(broker, List.of()).stream();
+    }
+
+    @Override
+    public Stream<T> replicaStream(int broker, String topic) {
+      if (byBrokerTopic == null) {
+        synchronized (this) {
+          if (byBrokerTopic == null)
+            byBrokerTopic =
+                all.stream()
+                    .collect(
+                        Collectors.groupingBy(
+                            r -> Map.entry(r.nodeInfo().id(), r.topic()),
+                            Collectors.toUnmodifiableList()));
+        }
+      }
+      return byBrokerTopic.getOrDefault(Map.entry(broker, topic), List.of()).stream();
+    }
+
+    @Override
+    public Set<TopicPartition> topicPartitions() {
+      indexPartition();
+      return byPartition.keySet();
+    }
+
+    @Override
+    public Set<String> topics() {
+      indexTopic();
+      return byTopic.keySet();
+    }
+
+    @Override
+    public Set<NodeInfo> nodes() {
+      return nodeInfos;
+    }
+
+    @Override
+    public Stream<T> replicaStream() {
+      return all.stream();
+    }
+
+    private void indexTopic() {
+      if (byTopic == null) {
+        synchronized (this) {
+          if (byTopic == null)
+            byTopic =
+                all.stream()
+                    .collect(
+                        Collectors.groupingBy(ReplicaInfo::topic, Collectors.toUnmodifiableList()));
+        }
+      }
+    }
+
+    private void indexPartition() {
+      if (byPartition == null) {
+        synchronized (this) {
+          if (byPartition == null)
+            byPartition =
+                all.stream()
+                    .collect(
+                        Collectors.groupingBy(
+                            ReplicaInfo::topicPartition, Collectors.toUnmodifiableList()));
+        }
+      }
+    }
+  }
 }

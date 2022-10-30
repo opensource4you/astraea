@@ -23,6 +23,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Input {
+
+  static Input of(List<String> selectedKeys, Map<String, Optional<String>> texts) {
+    return new Input() {
+      @Override
+      public List<String> selectedKeys() {
+        return selectedKeys;
+      }
+
+      @Override
+      public Map<String, Optional<String>> texts() {
+        return texts;
+      }
+    };
+  }
+
   List<String> selectedKeys();
 
   /** @return the keys having empty/blank value. */

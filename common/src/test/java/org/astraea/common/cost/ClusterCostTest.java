@@ -42,7 +42,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
   void testFetcher() {
     // create topic partition to get metrics
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic("testFetcher").numberOfPartitions(2).create();
+      admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().join();
     }
     var cost1 = new ReplicaSizeCost();
     var cost2 = new ReplicaLeaderCost();

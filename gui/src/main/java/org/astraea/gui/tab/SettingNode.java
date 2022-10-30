@@ -20,20 +20,22 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
+import javafx.scene.Node;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
-public class SettingTab {
+public class SettingNode {
 
   private static final String BOOTSTRAP_SERVERS = "bootstrap servers";
   private static final String JMX_PORT = "jmx port";
@@ -81,58 +83,58 @@ public class SettingTab {
             });
   }
 
-  public static Tab of(Context context) {
+  public static Node of(Context context) {
     var bootstrapKey = "bootstrap";
     var jmxPortKey = "jmx";
     var properties = loadProperty();
-    var pane =
-        PaneBuilder.of()
-            .input(
-                NoneditableText.highlight(BOOTSTRAP_SERVERS),
-                EditableText.singleLine()
-                    .defaultValue(properties.get(bootstrapKey))
-                    .disallowEmpty()
-                    .build())
-            .input(
-                NoneditableText.of(JMX_PORT),
-                EditableText.singleLine()
-                    .onlyNumber()
-                    .defaultValue(properties.get(jmxPortKey))
-                    .build())
-            .buttonName("CHECK")
-            .buttonListener(
-                (input, logger) -> {
-                  var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
-                  Objects.requireNonNull(bootstrapServers);
-                  var jmxPort =
-                      Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT))
-                          .map(Integer::parseInt);
-                  saveProperty(
-                      Map.of(
-                          bootstrapKey,
-                          bootstrapServers,
-                          jmxPortKey,
-                          jmxPort.map(String::valueOf).orElse("")));
-                  var newAdmin = AsyncAdmin.of(bootstrapServers);
-                  return newAdmin
-                      .nodeInfos()
-                      .thenAccept(
-                          nodeInfos -> {
-                            context.replace(newAdmin);
-                            if (jmxPort.isEmpty()) {
-                              logger.log("succeed to connect to " + bootstrapServers);
-                              return;
-                            }
-                            context.replace(nodeInfos, jmxPort.get());
-                            logger.log(
-                                "succeed to connect to "
-                                    + bootstrapServers
-                                    + ", and jmx: "
-                                    + jmxPort.get()
-                                    + " works well");
-                          });
-                })
-            .build();
-    return Tab.of("setting", pane);
+    return PaneBuilder.of()
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        BOOTSTRAP_SERVERS,
+                        EditableText.singleLine()
+                            .defaultValue(properties.get(bootstrapKey))
+                            .disallowEmpty()
+                            .build()),
+                    TextInput.of(
+                        JMX_PORT,
+                        EditableText.singleLine()
+                            .onlyNumber()
+                            .defaultValue(properties.get(jmxPortKey))
+                            .build()))))
+        .clickName("CHECK")
+        .clickListener(
+            (input, logger) -> {
+              var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
+              Objects.requireNonNull(bootstrapServers);
+              var jmxPort =
+                  Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT)).map(Integer::parseInt);
+              saveProperty(
+                  Map.of(
+                      bootstrapKey,
+                      bootstrapServers,
+                      jmxPortKey,
+                      jmxPort.map(String::valueOf).orElse("")));
+              var newAdmin = Admin.of(bootstrapServers);
+              return newAdmin
+                  .nodeInfos()
+                  .thenAccept(
+                      nodeInfos -> {
+                        context.replace(newAdmin);
+                        if (jmxPort.isEmpty()) {
+                          logger.log("succeed to connect to " + bootstrapServers);
+                          return;
+                        }
+                        context.replace(nodeInfos, jmxPort.get());
+                        logger.log(
+                            "succeed to connect to "
+                                + bootstrapServers
+                                + ", and jmx: "
+                                + jmxPort.get()
+                                + " works well");
+                      });
+            })
+        .build();
   }
 }

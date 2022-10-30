@@ -18,10 +18,12 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -31,35 +33,84 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
 
   @RepeatedTest(5)
   void test() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      IntStream.range(0, 5)
-          .forEach(
-              ignored ->
-                  admin.creator().topic(Utils.randomString()).numberOfPartitions(10).create());
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
       admin
-          .topicNames()
-          .forEach(tp -> admin.migrator().topic(tp).moveTo(List.of(brokerIds().iterator().next())));
+          .moveToBrokers(
+              admin
+                  .topicPartitions(admin.topicNames(false).toCompletableFuture().join())
+                  .toCompletableFuture()
+                  .join()
+                  .stream()
+                  .collect(
+                      Collectors.toMap(tp -> tp, tp -> List.of(brokerIds().iterator().next()))))
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
 
       var planOfGreedy =
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(0, 30))
-              .clusterCost(new ReplicaNumberCost())
-              .limit(Duration.ofSeconds(5))
-              .greedy(true)
-              .build()
-              .offer(admin.clusterInfo(), admin.brokerFolders())
+          Balancer.create(
+                  GreedyBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaNumberCost())
+                      .limit(Duration.ofSeconds(5))
+                      .build())
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  admin.brokerFolders().toCompletableFuture().join())
               .get();
 
       var plan =
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(0, 30))
-              .clusterCost(new ReplicaNumberCost())
-              .limit(Duration.ofSeconds(5))
-              .greedy(false)
-              .build()
-              .offer(admin.clusterInfo(), admin.brokerFolders())
+          Balancer.create(
+                  SingleStepBalancer.class,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaNumberCost())
+                      .limit(Duration.ofSeconds(5))
+                      .build())
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  admin.brokerFolders().toCompletableFuture().join())
               .get();
 
       Assertions.assertTrue(plan.clusterCost.value() > planOfGreedy.clusterCost.value());

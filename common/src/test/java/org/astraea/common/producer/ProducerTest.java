@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -43,7 +42,7 @@ import org.mockito.Mockito;
 public class ProducerTest extends RequireBrokerCluster {
 
   @Test
-  void testSender() throws ExecutionException, InterruptedException {
+  void testSender() {
     var topicName = "testSender-" + System.currentTimeMillis();
     var key = "key";
     var timestamp = System.currentTimeMillis() + 10;
@@ -63,7 +62,7 @@ public class ProducerTest extends RequireBrokerCluster {
               .headers(List.of(header))
               .run()
               .toCompletableFuture()
-              .get();
+              .join();
       Assertions.assertEquals(topicName, metadata.topic());
       Assertions.assertEquals(timestamp, metadata.timestamp());
     }
@@ -141,11 +140,10 @@ public class ProducerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("offerProducers")
-  void testSingleSend(Producer<byte[], byte[]> producer)
-      throws ExecutionException, InterruptedException {
+  void testSingleSend(Producer<byte[], byte[]> producer) {
     var topic = Utils.randomString(10);
 
-    producer.sender().topic(topic).value(new byte[10]).run().toCompletableFuture().get();
+    producer.sender().topic(topic).value(new byte[10]).run().toCompletableFuture().join();
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
@@ -239,7 +237,7 @@ public class ProducerTest extends RequireBrokerCluster {
         ProducerConfigs.COMPRESSION_TYPE_SNAPPY,
         ProducerConfigs.COMPRESSION_TYPE_ZSTD
       })
-  void testCompression(String compression) throws ExecutionException, InterruptedException {
+  void testCompression(String compression) {
     try (var producer =
         Producer.builder()
             .bootstrapServers(bootstrapServers())
@@ -251,7 +249,7 @@ public class ProducerTest extends RequireBrokerCluster {
           .key(new byte[10])
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
     }
   }
 }

@@ -152,9 +152,9 @@ public class UtilsTest {
   }
 
   @Test
-  void testEmptySequence() throws ExecutionException, InterruptedException {
+  void testEmptySequence() {
     var f = FutureUtils.sequence(List.of()).thenApply(ignored -> "yes");
-    Assertions.assertEquals("yes", f.get());
+    Assertions.assertEquals("yes", f.join());
   }
 
   @Test

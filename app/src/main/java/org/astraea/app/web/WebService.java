@@ -26,7 +26,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.argument.NonNegativeIntegerField;
 import org.astraea.common.argument.StringMapField;
 
@@ -38,17 +37,16 @@ public class WebService {
 
   private static void execute(Argument arg) throws IOException {
     var server = HttpServer.create(new InetSocketAddress(arg.port), 0);
-    server.createContext("/topics", to(new TopicHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/groups", to(new GroupHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/brokers", to(new BrokerHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/producers", to(new ProducerHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/quotas", to(new QuotaHandler(AsyncAdmin.of(arg.configs()))));
-    server.createContext("/transactions", to(new TransactionHandler(AsyncAdmin.of(arg.configs()))));
+    server.createContext("/topics", to(new TopicHandler(Admin.of(arg.configs()))));
+    server.createContext("/groups", to(new GroupHandler(Admin.of(arg.configs()))));
+    server.createContext("/brokers", to(new BrokerHandler(Admin.of(arg.configs()))));
+    server.createContext("/producers", to(new ProducerHandler(Admin.of(arg.configs()))));
+    server.createContext("/quotas", to(new QuotaHandler(Admin.of(arg.configs()))));
+    server.createContext("/transactions", to(new TransactionHandler(Admin.of(arg.configs()))));
     if (arg.needJmx())
-      server.createContext(
-          "/beans", to(new BeanHandler(AsyncAdmin.of(arg.configs()), arg.jmxPorts())));
+      server.createContext("/beans", to(new BeanHandler(Admin.of(arg.configs()), arg.jmxPorts())));
     server.createContext(
-        "/records", to(new RecordHandler(AsyncAdmin.of(arg.configs()), arg.bootstrapServers())));
+        "/records", to(new RecordHandler(Admin.of(arg.configs()), arg.bootstrapServers())));
     server.createContext("/reassignments", to(new ReassignmentHandler(Admin.of(arg.configs()))));
     server.createContext("/balancer", to(new BalancerHandler(Admin.of(arg.configs()))));
     server.createContext("/throttles", to(new ThrottleHandler(Admin.of(arg.configs()))));

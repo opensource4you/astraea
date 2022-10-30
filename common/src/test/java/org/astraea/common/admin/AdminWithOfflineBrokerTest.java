@@ -19,7 +19,6 @@ package org.astraea.common.admin;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -29,7 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
+public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   private static final String TOPIC_NAME = Utils.randomString();
   private static final int PARTITIONS = 10;
@@ -43,16 +42,17 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
   private static int NUMBER_OF_ONLINE_PARTITIONS = -1;
 
   @BeforeAll
-  static void closeOneBroker() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  static void closeOneBroker() {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(TOPIC_NAME)
           .numberOfPartitions(PARTITIONS)
           .run()
           .toCompletableFuture()
-          .get();
-      var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().get();
+          .join();
+      Utils.sleep(Duration.ofSeconds(3));
+      var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       NUMBER_OF_ONLINE_PARTITIONS =
           PARTITIONS
               - (int) allPs.stream().filter(p -> p.leader().get().id() == CLOSED_BROKER_ID).count();
@@ -64,9 +64,9 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   @Timeout(10)
   @Test
-  void testNodeInfos() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      var nodeInfos = admin.nodeInfos().toCompletableFuture().get();
+  void testNodeInfos() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var nodeInfos = admin.nodeInfos().toCompletableFuture().join();
       Assertions.assertEquals(2, nodeInfos.size());
       var offlineNodeInfos =
           nodeInfos.stream().filter(NodeInfo::offline).collect(Collectors.toList());
@@ -76,9 +76,9 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   @Timeout(10)
   @Test
-  void testBrokers() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      var brokers = admin.brokers().toCompletableFuture().get();
+  void testBrokers() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var brokers = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(2, brokers.size());
       brokers.forEach(
           b ->
@@ -91,9 +91,9 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   @Timeout(10)
   @Test
-  void testPartitions() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().get();
+  void testPartitions() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       Assertions.assertEquals(PARTITIONS, partitions.size());
       var offlinePartitions =
           partitions.stream().filter(p -> p.leader().isEmpty()).collect(Collectors.toList());
@@ -114,9 +114,9 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   @Timeout(10)
   @Test
-  void testReplicas() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      var replicas = admin.replicas(Set.of(TOPIC_NAME)).toCompletableFuture().get();
+  void testReplicas() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var replicas = admin.replicas(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       Assertions.assertEquals(PARTITIONS, replicas.size());
       var offlineReplicas =
           replicas.stream().filter(ReplicaInfo::isOffline).collect(Collectors.toList());
@@ -134,61 +134,61 @@ public class AsyncAdminWithOfflineBrokerTest extends RequireBrokerCluster {
 
   @Timeout(10)
   @Test
-  void testTopicPartitions() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testTopicPartitions() {
+    try (var admin = Admin.of(bootstrapServers())) {
       Assertions.assertNotEquals(
           0,
           admin
               .topicPartitionReplicas(Set.of(CLOSED_BROKER_ID))
               .toCompletableFuture()
-              .get()
+              .join()
               .size());
       Assertions.assertNotEquals(
-          0, admin.topicPartitions(Set.of(TOPIC_NAME)).toCompletableFuture().get().size());
+          0, admin.topicPartitions(Set.of(TOPIC_NAME)).toCompletableFuture().join().size());
     }
   }
 
   @Timeout(10)
   @Test
-  void testTopicNames() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      Assertions.assertEquals(1, admin.topicNames(false).toCompletableFuture().get().size());
+  void testTopicNames() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      Assertions.assertEquals(1, admin.topicNames(false).toCompletableFuture().join().size());
     }
   }
 
   @Timeout(10)
   @Test
-  void testTopics() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testTopics() {
+    try (var admin = Admin.of(bootstrapServers())) {
       Assertions.assertEquals(
-          1, admin.topics(Set.of(TOPIC_NAME)).toCompletableFuture().get().size());
+          1, admin.topics(Set.of(TOPIC_NAME)).toCompletableFuture().join().size());
     }
   }
 
   @Timeout(10)
   @Test
-  void testEarliest() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testEarliest() {
+    try (var admin = Admin.of(bootstrapServers())) {
       Assertions.assertEquals(
-          0, admin.earliestOffsets(TOPIC_PARTITIONS).toCompletableFuture().get().size());
+          0, admin.earliestOffsets(TOPIC_PARTITIONS).toCompletableFuture().join().size());
     }
   }
 
   @Timeout(10)
   @Test
-  void testLatest() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testLatest() {
+    try (var admin = Admin.of(bootstrapServers())) {
       Assertions.assertEquals(
-          0, admin.latestOffsets(TOPIC_PARTITIONS).toCompletableFuture().get().size());
+          0, admin.latestOffsets(TOPIC_PARTITIONS).toCompletableFuture().join().size());
     }
   }
 
   @Timeout(10)
   @Test
-  void testMaxTimestamp() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testMaxTimestamp() {
+    try (var admin = Admin.of(bootstrapServers())) {
       Assertions.assertEquals(
-          0, admin.maxTimestamps(TOPIC_PARTITIONS).toCompletableFuture().get().size());
+          0, admin.maxTimestamps(TOPIC_PARTITIONS).toCompletableFuture().join().size());
     }
   }
 }

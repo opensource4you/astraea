@@ -27,7 +27,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 
@@ -35,9 +35,9 @@ public class GroupHandler implements Handler {
   static final String TOPIC_KEY = "topic";
   static final String INSTANCE_KEY = "instance";
   static final String GROUP_KEY = "group";
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  GroupHandler(AsyncAdmin admin) {
+  GroupHandler(Admin admin) {
     this.admin = admin;
   }
 

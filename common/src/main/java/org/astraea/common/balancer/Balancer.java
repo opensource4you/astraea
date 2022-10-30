@@ -20,28 +20,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
+import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 
 public interface Balancer {
 
   /** @return a rebalance plan */
-  default Optional<Plan> offer(
-      ClusterInfo<Replica> clusterInfo, Map<Integer, Set<String>> brokerFolders) {
-    return offer(clusterInfo, ignore -> true, brokerFolders);
-  }
-
-  /** @return a rebalance plan */
   Optional<Plan> offer(
-      ClusterInfo<Replica> clusterInfo,
-      Predicate<String> topicFilter,
-      Map<Integer, Set<String>> brokerFolders);
+      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
 
-  static BalancerBuilder builder() {
-    return new BalancerBuilder();
+  /**
+   * Initialize an instance of specific Balancer implementation
+   *
+   * @param balancerClass the class of the balancer implementation
+   * @param config the algorithm configuration for the new instance
+   * @return a {@link Balancer} instance of the given class
+   */
+  static <T extends Balancer> T create(Class<T> balancerClass, AlgorithmConfig config) {
+    try {
+      // case 0: create the class by the given configuration
+      var constructor = balancerClass.getConstructor(AlgorithmConfig.class);
+      return Utils.packException(() -> constructor.newInstance(config));
+    } catch (NoSuchMethodException e) {
+      // case 1: create the class by empty constructor
+      return Utils.packException(() -> balancerClass.getConstructor().newInstance());
+    }
   }
 
   class Plan {
@@ -65,6 +75,40 @@ public interface Balancer {
       this.proposal = proposal;
       this.clusterCost = clusterCost;
       this.moveCost = moveCost;
+    }
+  }
+
+  /** The official implementation of {@link Balancer}. */
+  enum Official implements EnumInfo {
+    SingleStep(SingleStepBalancer.class),
+    Greedy(GreedyBalancer.class);
+
+    private final Class<? extends Balancer> balancerClass;
+
+    Official(Class<? extends Balancer> theClass) {
+      this.balancerClass = theClass;
+    }
+
+    public Class<? extends Balancer> theClass() {
+      return balancerClass;
+    }
+
+    public Balancer create(AlgorithmConfig config) {
+      return Balancer.create(theClass(), config);
+    }
+
+    @Override
+    public String alias() {
+      return this.name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public static Official ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Official.class, alias);
     }
   }
 }

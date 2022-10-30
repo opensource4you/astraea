@@ -16,6 +16,8 @@
  */
 package org.astraea.etl
 
+import org.astraea.etl.DataColumn.columnParse
+
 import java.io.File
 import java.util.Properties
 import scala.collection.JavaConverters._
@@ -47,17 +49,16 @@ import scala.collection.JavaConverters._
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
   */
-case class Metadata(
-    sourcePath: File,
-    sinkPath: File,
-    column: Map[String, DataType],
-    primaryKeys: Map[String, DataType],
-    kafkaBootstrapServers: String,
-    topicName: String,
-    numPartitions: Int,
-    numReplicas: Short,
-    topicConfig: Map[String, String],
-    deploymentModel: String
+case class Metadata private (
+    var deploymentModel: String,
+    var sourcePath: File,
+    var sinkPath: File,
+    var column: Seq[DataColumn],
+    var kafkaBootstrapServers: String,
+    var topicName: String,
+    var numPartitions: Int,
+    var numReplicas: Short,
+    var topicConfig: Map[String, String]
 )
 
 object Metadata {
@@ -72,64 +73,52 @@ object Metadata {
   private[this] val TOPIC_CONFIG = "topic.config"
   private[this] val DEPLOYMENT_MODEL = "deployment.model"
 
-  private[this] val DEFAULT_PARTITIONS = 15
-  private[this] val DEFAULT_REPLICAS = 1
+  private[this] val DEFAULT_PARTITIONS = "15"
+  private[this] val DEFAULT_REPLICAS = "1"
+
+  def builder(): MetadataBuilder = {
+    MetadataBuilder.of()
+  }
 
   //Parameters needed to configure ETL.
   def apply(path: File): Metadata = {
-    val properties = readProp(path).asScala.filter(_._2.nonEmpty).toMap
+    val properties = readProp(path).asScala
 
-    val sourcePath = Utils.requireFolder(
-      properties.getOrElse(
-        SOURCE_PATH,
-        throw new NullPointerException(
-          s"$SOURCE_PATH is null. You must configure $SOURCE_PATH."
-        )
-      )
+    var metadataBuilder = Metadata.builder()
+    properties.foreach(entry =>
+      entry._1 match {
+        case DEPLOYMENT_MODEL =>
+          metadataBuilder =
+            metadataBuilder.deploymentMode(DeployModel.process(entry._2))
+        case SOURCE_PATH =>
+          metadataBuilder =
+            metadataBuilder.sourcePath(SourcePath.process(entry._2))
+        case SINK_PATH =>
+          metadataBuilder = metadataBuilder.sinkPath(SinkPath.process(entry._2))
+        case COLUMN_NAME =>
+          metadataBuilder = metadataBuilder.columns(
+            ColumnName.process(entry._2, properties(PRIMARY_KEYS))
+          )
+        case KAFKA_BOOTSTRAP_SERVERS =>
+          metadataBuilder = metadataBuilder.kafkaBootstrapServers(
+            KafkaBootstrapServers.process(entry._2)
+          )
+        case TOPIC_NAME =>
+          metadataBuilder =
+            metadataBuilder.topicName(TopicName.process(entry._2))
+        case TOPIC_PARTITIONS =>
+          metadataBuilder =
+            metadataBuilder.numPartitions(NumPartitions.process(entry._2))
+        case TOPIC_REPLICAS =>
+          metadataBuilder =
+            metadataBuilder.numReplicas(NumReplicas.process(entry._2))
+        case TOPIC_CONFIG =>
+          metadataBuilder =
+            metadataBuilder.topicConfig(TopicConfig.process(entry._2))
+        case _ =>
+      }
     )
-    val sinkPath = Utils.requireFolder(
-      properties.getOrElse(
-        SINK_PATH,
-        throw new NullPointerException(
-          s"$SINK_PATH + is null.You must configure $SINK_PATH."
-        )
-      )
-    )
-    val column = columnParse(COLUMN_NAME, properties)
-    val pKeys = primaryKeyParse(properties, column)
-    //TODO check the format after linking Kafka
-    val bootstrapServer = properties(KAFKA_BOOTSTRAP_SERVERS)
-    val topicName = properties.getOrElse(
-      TOPIC_NAME,
-      throw new NullPointerException(
-        s"$TOPIC_NAME is null.You must configure $TOPIC_NAME."
-      )
-    )
-    val topicPartitions = properties
-      .get(TOPIC_PARTITIONS)
-      .map(_.toInt)
-      .getOrElse(DEFAULT_PARTITIONS)
-    val topicReplicas = properties
-      .get(TOPIC_REPLICAS)
-      .map(_.toInt)
-      .getOrElse(DEFAULT_REPLICAS)
-      .toShort
-    val topicConfig = requirePair(properties.getOrElse(TOPIC_CONFIG, null))
-
-    val deploymentModel = requireDeployMode(DEPLOYMENT_MODEL, properties)
-
-    Metadata(
-      sourcePath,
-      sinkPath,
-      column,
-      pKeys,
-      bootstrapServer,
-      topicName,
-      topicPartitions,
-      topicReplicas,
-      topicConfig,
-      deploymentModel
-    )
+    metadataBuilder.build()
   }
 
   //Handling the topic.parameters parameter.
@@ -159,75 +148,231 @@ object Metadata {
     properties
   }
 
-  def primaryKeyParse(
-      prop: Map[String, String],
-      columnName: Map[String, DataType]
-  ): Map[String, DataType] = {
-    val cols = columnName.keys.toArray
-    val primaryKeys = requireNonidentical(PRIMARY_KEYS, prop)
-    val combine = primaryKeys.keys.toArray ++ cols
-    if (combine.distinct.length != columnName.size) {
-      val column = columnName.keys.toArray
-      throw new IllegalArgumentException(
-        s"The ${combine
-          .diff(column)
-          .mkString(
-            PRIMARY_KEYS + "(",
-            ", ",
-            ")"
-          )} not in column. All $PRIMARY_KEYS should be included in the column."
-      )
+  /** Store information related to ETL properties metadata.
+    *
+    * @param metaType
+    *   MetaData name
+    * @param require
+    *   Is this a required field
+    * @param default
+    *   When not required, return default if the user does not fill in the
+    *   fields.
+    */
+  sealed abstract class MetaDataType(
+      metaType: String,
+      require: Boolean,
+      default: String
+  ) {
+    def value: String = {
+      metaType
     }
 
-    DataType.of(primaryKeys)
+    def require(): Boolean = {
+      require
+    }
+
+    def default(): String = {
+      default
+    }
+
+    def parseEmptyStr(str: String): String = {
+      var ans = str
+      if (str.isEmpty) {
+        if (require)
+          throw new NullPointerException(
+            s"$value}+ is null.You must configure $metaType."
+          )
+        else
+          ans = default()
+      }
+      ans
+    }
   }
 
-  def columnParse(
-      key: String,
-      prop: Map[String, String]
-  ): Map[String, DataType] = {
-    requireNonidentical(key, prop)
-    Option(prop(key))
-      .map(
-        _.split(",")
-          .map(_.split("="))
-          .map { elem =>
-            (elem(0), DataType.of(elem(1)))
-          }
-          .toMap
-      )
-      .get
-  }
-
-  //No duplicate values should be set.
-  def requireNonidentical(
-      string: String,
-      prop: Map[String, String]
-  ): Map[String, String] = {
-    val array = prop(string).split(",")
-    val map = requirePair(prop(string))
-    if (map.size != array.length) {
-      val column = map.keys.toArray
-      throw new IllegalArgumentException(
-        s"${array
-          .diff(column)
-          .mkString(
-            string + " (",
-            ", ",
-            ")"
-          )} is duplication. The $string should not be duplicated."
+  case object SourcePath extends MetaDataType(SOURCE_PATH, true, "") {
+    def process(str: String): File = {
+      Utils.requireFolder(
+        parseEmptyStr(str)
       )
     }
-    map
+  }
+
+  case object SinkPath extends MetaDataType(SINK_PATH, true, "") {
+    def process(str: String): File = {
+      Utils.requireFolder(
+        parseEmptyStr(str)
+      )
+    }
+  }
+
+  case object ColumnName extends MetaDataType(COLUMN_NAME, true, "") {
+    def process(cols: String, pk: String): Seq[DataColumn] = {
+      columnParse(parseEmptyStr(cols), parseEmptyStr(pk))
+    }
+  }
+
+  case object KafkaBootstrapServers
+      extends MetaDataType(KAFKA_BOOTSTRAP_SERVERS, true, "") {
+    def process(str: String): String = {
+      parseEmptyStr(str)
+    }
+  }
+
+  case object TopicName extends MetaDataType(TOPIC_NAME, true, "") {
+    def process(str: String): String = {
+      parseEmptyStr(str)
+    }
+  }
+
+  case object DeployModel extends MetaDataType(DEPLOYMENT_MODEL, true, "") {
+    def process(str: String): String = {
+      requireDeployMode(DEPLOYMENT_MODEL, parseEmptyStr(str))
+    }
+  }
+
+  case object NumPartitions
+      extends MetaDataType(TOPIC_PARTITIONS, false, DEFAULT_PARTITIONS) {
+    def process(str: String): Integer = {
+      parseEmptyStr(str).toInt
+    }
+  }
+
+  case object NumReplicas
+      extends MetaDataType(TOPIC_REPLICAS, false, DEFAULT_REPLICAS) {
+    def process(str: String): Short = {
+      parseEmptyStr(str).toShort
+    }
+  }
+
+  case object TopicConfig extends MetaDataType(TOPIC_CONFIG, false, null) {
+    def process(str: String): Map[String, String] = {
+      requirePair(parseEmptyStr(str))
+    }
+  }
+
+  def of(meta: String): MetaDataType = {
+    val value = all.filter(tp => tp.value != meta)
+    if (value.isEmpty) {
+      throw new IllegalArgumentException(
+        s"$meta is not supported Metadata type in properties.The data types supported ${all.mkString(",")}."
+      )
+    }
+    value.head
+  }
+
+  /** @return
+    *   All supported metaData types.
+    */
+  def all: Seq[MetaDataType] = {
+    Seq(
+      DeployModel,
+      SourcePath,
+      SinkPath,
+      ColumnName,
+      KafkaBootstrapServers,
+      TopicName,
+      NumPartitions,
+      NumReplicas,
+      TopicConfig
+    )
   }
 
   //spark://host:port or local[*]
-  def requireDeployMode(str: String, prop: Map[String, String]): String = {
-    if (!DeployMode.deployMatch(prop(str))) {
+  def requireDeployMode(str: String, prop: String): String = {
+    if (!DeployMode.deployMatch(prop)) {
       throw new IllegalArgumentException(
-        s"${prop { str }} not a supported deployment model. Please check $str."
+        s"$prop not a supported deployment model. Please check $str."
       )
     }
-    prop(str)
+    prop
+  }
+
+  class MetadataBuilder private (
+      private var deploymentModel: String,
+      private var sourcePath: File,
+      private var sinkPath: File,
+      private var columns: Seq[DataColumn],
+      private var kafkaBootstrapServers: String,
+      private var topicName: String,
+      private var numPartitions: Int,
+      private var numReplicas: Short,
+      private var topicConfig: Map[String, String]
+  ) {
+    protected def this() = this(
+      "deploymentModel",
+      new File(""),
+      new File(""),
+      Seq.empty,
+      "kafkaBootstrapServers",
+      "topicName",
+      -1,
+      -1,
+      Map.empty
+    )
+
+    def deploymentMode(str: String): MetadataBuilder = {
+      this.deploymentModel = str
+      this
+    }
+
+    def sourcePath(file: File): MetadataBuilder = {
+      this.sourcePath = file
+      this
+    }
+
+    def sinkPath(file: File): MetadataBuilder = {
+      this.sinkPath = file
+      this
+    }
+
+    def columns(map: Seq[DataColumn]): MetadataBuilder = {
+      this.columns = map
+      this
+    }
+
+    def kafkaBootstrapServers(str: String): MetadataBuilder = {
+      this.kafkaBootstrapServers = str
+      this
+    }
+
+    def topicName(str: String): MetadataBuilder = {
+      this.topicName = str
+      this
+    }
+
+    def numPartitions(num: Int): MetadataBuilder = {
+      this.numPartitions = num
+      this
+    }
+
+    def numReplicas(num: Short): MetadataBuilder = {
+      this.numReplicas = num
+      this
+    }
+
+    def topicConfig(map: Map[String, String]): MetadataBuilder = {
+      this.topicConfig = map
+      this
+    }
+
+    def build(): Metadata = {
+      Metadata(
+        this.deploymentModel,
+        this.sourcePath,
+        this.sinkPath,
+        this.columns,
+        this.kafkaBootstrapServers,
+        this.topicName,
+        this.numPartitions,
+        this.numReplicas,
+        this.topicConfig
+      )
+    }
+  }
+
+  object MetadataBuilder {
+    private[Metadata] def of(): MetadataBuilder = {
+      new MetadataBuilder()
+    }
   }
 }

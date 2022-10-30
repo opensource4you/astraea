@@ -19,6 +19,7 @@ package org.astraea.app.balancer;
 import java.time.Duration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Test;
@@ -44,21 +45,28 @@ public class BalanceProcessDemoTest extends RequireBrokerCluster {
   }
 
   void describeCurrentAllocation() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var cla = ClusterLogAllocation.of(admin.clusterInfo());
-      System.out.println(ClusterLogAllocation.toString(cla));
+    try (var admin = Admin.of(bootstrapServers())) {
+      var cla =
+          ClusterLogAllocation.of(
+              admin
+                  .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                  .toCompletableFuture()
+                  .join());
+      System.out.println(ClusterInfo.toString(cla));
       System.out.println();
     }
   }
 
   void createTopics() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic("TestingTopic")
           .numberOfPartitions(10)
           .numberOfReplicas((short) 2)
-          .create();
+          .run()
+          .toCompletableFuture()
+          .join();
     }
     Utils.sleep(Duration.ofSeconds(1));
   }

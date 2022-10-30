@@ -60,7 +60,7 @@ import org.astraea.common.producer.ProducerConfigs;
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args) throws InterruptedException, IOException {
+  public static void main(String[] args) throws IOException {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
@@ -75,8 +75,7 @@ public class Performance {
         argument.throughput);
   }
 
-  public static List<String> execute(final Argument param)
-      throws InterruptedException, IOException {
+  public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -145,8 +144,7 @@ public class Performance {
     return param.topics;
   }
 
-  private static List<ConsumerThread> consumers(
-      Argument param, Map<TopicPartition, Long> latestOffsets) {
+  static List<ConsumerThread> consumers(Argument param, Map<TopicPartition, Long> latestOffsets) {
     return ConsumerThread.create(
         param.consumers,
         (clientId, listener) ->
@@ -177,7 +175,7 @@ public class Performance {
 
     void checkTopics() {
       try (var admin = Admin.of(configs())) {
-        var existentTopics = admin.topicNames();
+        var existentTopics = admin.topicNames(false).toCompletableFuture().join();
         var nonexistent =
             topics.stream().filter(t -> !existentTopics.contains(t)).collect(Collectors.toSet());
         if (!nonexistent.isEmpty())
@@ -187,12 +185,8 @@ public class Performance {
 
     Map<TopicPartition, Long> lastOffsets() {
       try (var admin = Admin.of(configs())) {
-        // the slow zk causes unknown error, so we have to wait it.
-        return Utils.waitForNonNull(
-            () ->
-                admin.partitions(new HashSet<>(topics)).stream()
-                    .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset)),
-            Duration.ofSeconds(30));
+        return admin.partitions(Set.copyOf(topics)).toCompletableFuture().join().stream()
+            .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
       }
     }
 
@@ -324,9 +318,9 @@ public class Performance {
         throw new IllegalArgumentException(
             "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
       else if (specifiedByBroker) {
-        try (Admin admin = Admin.of(configs())) {
+        try (var admin = Admin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).stream()
+              admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -345,8 +339,8 @@ public class Performance {
           throw new IllegalArgumentException(
               "--specify.partitions can't be used in conjunction with partitioner");
         // sanity check, ensure all specified partitions are existed
-        try (Admin admin = Admin.of(configs())) {
-          var allTopics = admin.topicNames();
+        try (var admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames(false).toCompletableFuture().join();
           var allTopicPartitions =
               admin
                   .replicas(
@@ -354,6 +348,8 @@ public class Performance {
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)
                           .collect(Collectors.toUnmodifiableSet()))
+                  .toCompletableFuture()
+                  .join()
                   .stream()
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .collect(Collectors.toSet());

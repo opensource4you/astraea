@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,12 +28,13 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.AsyncAdmin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -50,15 +50,18 @@ import org.mockito.Mockito;
 class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testLeaderCountRebalance(boolean greedy) throws ExecutionException, InterruptedException {
-    try (var admin = Admin.of(bootstrapServers());
-        var asyncAdmin = AsyncAdmin.of(bootstrapServers())) {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testLeaderCountRebalance(Class<? extends Balancer> theClass) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
               () ->
-                  admin.replicas().stream()
+                  admin
+                      .replicas(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join()
+                      .stream()
                       .filter(Replica::isLeader)
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
@@ -76,24 +79,30 @@ class BalancerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .binomialProbability(0.1)
           .build()
-          .apply(asyncAdmin)
+          .apply(admin)
           .toCompletableFuture()
-          .get();
+          .join();
       var imbalanceFactor0 = currentImbalanceFactor.get();
       Assertions.assertNotEquals(
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
 
       var plan =
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(1, 10))
-              .clusterCost(new ReplicaLeaderCost())
-              .limit(Duration.ofSeconds(10))
-              .greedy(greedy)
-              .build()
-              .offer(admin.clusterInfo(), topic -> topic.equals(topicName), admin.brokerFolders())
+          Balancer.create(
+                  theClass,
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaLeaderCost())
+                      .topicFilter(topic -> topic.equals(topicName))
+                      .limit(Duration.ofSeconds(10))
+                      .build())
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  admin.brokerFolders().toCompletableFuture().join())
               .orElseThrow();
       new StraightPlanExecutor()
-          .run(asyncAdmin, plan.proposal().rebalancePlan())
+          .run(admin, plan.proposal().rebalancePlan())
           .toCompletableFuture()
           .join();
 
@@ -108,17 +117,17 @@ class BalancerTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testFilter(boolean greedy) {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testFilter(Class<? extends Balancer> theClass) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
       var topic3 = Utils.randomString();
-      admin.creator().topic(theTopic).numberOfPartitions(10).create();
-      admin.creator().topic(topic1).numberOfPartitions(10).create();
-      admin.creator().topic(topic2).numberOfPartitions(10).create();
-      admin.creator().topic(topic3).numberOfPartitions(10).create();
+      admin.creator().topic(theTopic).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(topic1).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(topic2).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(topic3).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       var randomScore =
@@ -130,22 +139,31 @@ class BalancerTest extends RequireBrokerCluster {
             }
           };
 
-      var clusterInfo = admin.clusterInfo();
-      var brokerFolders = admin.brokerFolders();
+      var clusterInfo =
+          admin
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join();
+      var brokerFolders = admin.brokerFolders().toCompletableFuture().join();
       var newAllocation =
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(50, 100))
-              .clusterCost(randomScore)
-              .limit(500)
-              .greedy(greedy)
-              .build()
-              .offer(clusterInfo, t -> t.equals(theTopic), brokerFolders)
+          Balancer.create(
+                  theClass,
+                  AlgorithmConfig.builder()
+                      .topicFilter(t -> t.equals(theTopic))
+                      .clusterCost(randomScore)
+                      .limit(500)
+                      .build())
+              .offer(clusterInfo, brokerFolders)
               .get()
               .proposal()
               .rebalancePlan();
 
-      var currentCluster = admin.clusterInfo();
-      var newCluster = ClusterInfo.update(currentCluster, newAllocation::logPlacements);
+      var currentCluster =
+          admin
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join();
+      var newCluster = ClusterInfo.update(currentCluster, newAllocation::replicas);
 
       Assertions.assertTrue(
           ClusterInfo.diff(currentCluster, newCluster).stream()
@@ -155,28 +173,33 @@ class BalancerTest extends RequireBrokerCluster {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testExecutionTime(boolean greedy) throws ExecutionException, InterruptedException {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testExecutionTime(Class<? extends Balancer> theClass) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
       var topic3 = Utils.randomString();
-      admin.creator().topic(theTopic).numberOfPartitions(10).create();
-      admin.creator().topic(topic1).numberOfPartitions(10).create();
-      admin.creator().topic(topic2).numberOfPartitions(10).create();
-      admin.creator().topic(topic3).numberOfPartitions(10).create();
+      admin.creator().topic(theTopic).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(topic1).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(topic2).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin.creator().topic(topic3).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var future =
           CompletableFuture.supplyAsync(
               () ->
-                  Balancer.builder()
-                      .planGenerator(new ShufflePlanGenerator(50, 100))
-                      .clusterCost((clusterInfo, bean) -> Math::random)
-                      .limit(Duration.ofSeconds(3))
-                      .greedy(greedy)
-                      .build()
-                      .offer(admin.clusterInfo(), admin.brokerFolders())
+                  Balancer.create(
+                          theClass,
+                          AlgorithmConfig.builder()
+                              .clusterCost((clusterInfo, bean) -> Math::random)
+                              .limit(Duration.ofSeconds(3))
+                              .build())
+                      .offer(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join(),
+                          admin.brokerFolders().toCompletableFuture().join())
                       .get()
                       .proposal()
                       .rebalancePlan());
@@ -185,13 +208,13 @@ class BalancerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofMillis(2500));
       Assertions.assertTrue(future.isDone());
       Assertions.assertFalse(future.isCompletedExceptionally());
-      Assertions.assertNotNull(future.get());
+      Assertions.assertNotNull(future.join());
     }
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testWithMetrics(boolean greedy) {
+  @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
+  void testWithMetrics(Class<? extends Balancer> theClass) {
     var counter = new AtomicLong();
     Supplier<ClusterBean> metricSource =
         () -> {
@@ -222,13 +245,13 @@ class BalancerTest extends RequireBrokerCluster {
                   return () -> 0;
                 }
               };
-          Balancer.builder()
-              .planGenerator(new ShufflePlanGenerator(50, 100))
-              .clusterCost(theCostFunction)
-              .metricSource(metricSource)
-              .limit(500)
-              .greedy(greedy)
-              .build()
+          Balancer.create(
+                  theClass,
+                  AlgorithmConfig.builder()
+                      .clusterCost(theCostFunction)
+                      .metricSource(metricSource)
+                      .limit(500)
+                      .build())
               .offer(ClusterInfo.empty(), Map.of());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };

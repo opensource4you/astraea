@@ -28,7 +28,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.scenario.Scenario;
@@ -46,9 +46,9 @@ class TopicHandler implements Handler {
 
   static final String POLL_RECORD_TIMEOUT = "poll_timeout";
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  TopicHandler(AsyncAdmin admin) {
+  TopicHandler(Admin admin) {
     this.admin = admin;
   }
 
