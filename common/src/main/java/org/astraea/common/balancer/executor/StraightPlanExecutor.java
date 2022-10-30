@@ -17,18 +17,18 @@
 package org.astraea.common.balancer.executor;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -38,90 +38,82 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
 
   public StraightPlanExecutor() {}
 
+  private Map<TopicPartitionReplica, String> toPathMap(List<Replica> replicas) {
+    return replicas.stream()
+        .collect(Collectors.toMap(ReplicaInfo::topicPartitionReplica, Replica::path));
+  }
+
+  private Map<TopicPartition, List<Integer>> toReplicaMap(List<Replica> replicas) {
+    return Map.of(
+        replicas.get(0).topicPartition(),
+        replicas.stream().map(Replica::nodeInfo).map(NodeInfo::id).collect(Collectors.toList()));
+  }
+
+  private void assertion(boolean condition, String info) {
+    if (!condition) throw new IllegalStateException(info);
+  }
+
   @Override
   public CompletionStage<Void> run(Admin admin, ClusterLogAllocation logAllocation) {
     return admin
         .topicNames(true)
-        .thenCompose(
-            topicNames ->
-                admin
-                    .clusterInfo(topicNames)
-                    .thenApply(
-                        clusterInfo ->
-                            ClusterLogAllocation.findNonFulfilledAllocation(
-                                clusterInfo, logAllocation)))
+        .thenCompose(admin::clusterInfo)
+        .thenApply(
+            clusterInfo ->
+                ClusterLogAllocation.findNonFulfilledAllocation(clusterInfo, logAllocation))
         .thenCompose(
             topicPartitions -> {
-              Map<TopicPartition, List<Integer>> move2BrokerItems =
-                  new java.util.HashMap<>(Collections.emptyMap());
-              Map<TopicPartitionReplica, String> move2FolderItems =
-                  new java.util.HashMap<>(Collections.emptyMap());
-
-              topicPartitions.forEach(
-                  topicPartition -> {
-                    var expectedPlacement =
-                        logAllocation.logPlacements(topicPartition).stream()
-                            .sorted(
-                                Comparator.comparing(Replica::isPreferredLeader)
-                                    .<Replica>reversed())
-                            .collect(
-                                Collectors.toMap(
-                                    e -> e.nodeInfo().id(),
-                                    Replica::path,
-                                    (e1, e2) -> e1,
-                                    LinkedHashMap::new));
-
-                    var currentReplicaBrokerPath =
-                        admin
-                            .replicas(Set.of(topicPartition.topic()))
-                            .thenApply(
-                                replicas ->
-                                    replicas.stream()
-                                        .filter(
-                                            replica ->
-                                                replica.partition() == topicPartition.partition())
-                                        .collect(
-                                            Collectors.toMap(
-                                                replica -> replica.nodeInfo().id(),
-                                                Replica::path)));
-
-                    // to find out which replica needs to move data folder
-                    var forCrossDirMigration =
-                        currentReplicaBrokerPath
-                            .thenApply(
-                                currentBrokerPath ->
-                                    expectedPlacement.entrySet().stream()
-                                        .filter(
-                                            entry ->
-                                                !(currentBrokerPath.containsKey(entry.getKey())
-                                                    && currentBrokerPath.containsValue(
-                                                        entry.getValue())))
-                                        .collect(
-                                            Collectors.toMap(
-                                                idAndPath ->
-                                                    TopicPartitionReplica.of(
-                                                        topicPartition.topic(),
-                                                        topicPartition.partition(),
-                                                        idAndPath.getKey()),
-                                                Map.Entry::getValue)))
-                            .toCompletableFuture()
-                            .join();
-
-                    move2BrokerItems.put(
-                        TopicPartition.of(topicPartition.topic(), topicPartition.partition()),
-                        new ArrayList<>(expectedPlacement.keySet()));
-                    move2FolderItems.putAll(forCrossDirMigration);
-                  });
-              return admin
-                  .moveToBrokers(move2BrokerItems)
-                  .thenRun(
-                      () -> {
-                        // wait until the whole cluster knows the replica list just changed
-                        Utils.sleep(Duration.ofMillis(500));
-
-                        admin.moveToFolders(move2FolderItems).toCompletableFuture().join();
-                        admin.preferredLeaderElection(topicPartitions).toCompletableFuture().join();
-                      });
+              var allMigrations =
+                  topicPartitions.stream()
+                      .map(
+                          tp ->
+                              logAllocation.logPlacements(tp).stream()
+                                  .sorted(
+                                      Comparator.comparing(Replica::isPreferredLeader).reversed())
+                                  .collect(Collectors.toUnmodifiableList()))
+                      .map(
+                          replicaList ->
+                              admin
+                                  // perform broker migration
+                                  .moveToBrokers(toReplicaMap(replicaList))
+                                  // wait until the cluster knows the replica list is changed
+                                  .thenCompose(
+                                      i ->
+                                          admin.waitCluster(
+                                              Set.of(replicaList.get(0).topic()),
+                                              (cluster) ->
+                                                  cluster.replicas().stream()
+                                                      .anyMatch(x -> !x.inSync()),
+                                              Duration.ofSeconds(5),
+                                              3))
+                                  // perform folder migration
+                                  .thenCompose(i -> admin.moveToFolders(toPathMap(replicaList)))
+                                  // wait until the migration finished
+                                  .thenCompose(
+                                      i ->
+                                          admin.waitReplicasSynced(
+                                              replicaList.stream()
+                                                  .map(ReplicaInfo::topicPartitionReplica)
+                                                  .collect(Collectors.toSet()),
+                                              ChronoUnit.DECADES.getDuration()))
+                                  .thenAccept(
+                                      done -> assertion(done, "Failed to sync " + replicaList))
+                                  // perform preferred leader election
+                                  .thenCompose(
+                                      i ->
+                                          admin.preferredLeaderElection(
+                                              Set.of(replicaList.get(0).topicPartition())))
+                                  // wait until the preferred leader is ready
+                                  .thenCompose(
+                                      i ->
+                                          admin.waitPreferredLeaderSynced(
+                                              Set.of(replicaList.get(0).topicPartition()),
+                                              ChronoUnit.DECADES.getDuration()))
+                                  .thenAccept(
+                                      done -> assertion(done, "Failed to sync " + replicaList)))
+                      .map(CompletionStage::toCompletableFuture)
+                      .collect(Collectors.toList());
+              return CompletableFuture.allOf(allMigrations.toArray(CompletableFuture[]::new));
             });
   }
 }

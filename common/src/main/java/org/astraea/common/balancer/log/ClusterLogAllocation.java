@@ -182,8 +182,8 @@ public interface ClusterLogAllocation {
             tp -> {
               stringBuilder.append("[").append(tp).append("] ");
 
-              allocation
-                  .logPlacements(tp)
+              allocation.logPlacements(tp).stream()
+                  .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
                   .forEach(
                       log ->
                           stringBuilder.append(
