@@ -49,7 +49,7 @@ public interface ClusterLogAllocation extends ClusterInfo<Replica> {
               // sanity check: no future
               if (replicas.stream().anyMatch(Replica::isFuture))
                 throw new IllegalArgumentException(
-                    "Some replica has future flag. Is there a ongoing rebalance? "
+                    "Some replicas have future flag. Is there an ongoing rebalance? "
                         + replicas.stream().filter(Replica::isFuture).collect(Collectors.toList()));
               // sanity check: no duplicate preferred leader
               var preferredLeaderCount =
