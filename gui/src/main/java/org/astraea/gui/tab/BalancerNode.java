@@ -83,7 +83,7 @@ public class BalancerNode {
 
   static List<Map<String, Object>> result(ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
     return ClusterLogAllocation.findNonFulfilledAllocation(
-            ClusterLogAllocation.of(clusterInfo), plan.proposal().rebalancePlan())
+            clusterInfo, plan.proposal().rebalancePlan())
         .stream()
         .map(
             tp -> {
