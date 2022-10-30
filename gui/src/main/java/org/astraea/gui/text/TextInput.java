@@ -16,8 +16,8 @@
  */
 package org.astraea.gui.text;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javafx.application.Platform;
@@ -36,11 +36,11 @@ public interface TextInput {
     return of(label, () -> key, text.node(), text::text, true);
   }
 
-  static TextInput of(Set<String> keys, EditableText text) {
+  static TextInput of(List<String> keys, EditableText text) {
     return of(keys.iterator().next(), keys, text);
   }
 
-  static TextInput of(String selected, Set<String> keys, EditableText text) {
+  static TextInput of(String selected, List<String> keys, EditableText text) {
     var box = new ComboBox<>(FXCollections.observableArrayList(keys.toArray(String[]::new)));
     box.getSelectionModel().selectFirst();
     box.setValue(selected);
