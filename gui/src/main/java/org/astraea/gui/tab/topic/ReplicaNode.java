@@ -187,7 +187,14 @@ public class ReplicaNode {
                                     partitions.stream()
                                         .map(TopicPartition::topic)
                                         .collect(Collectors.toSet()),
-                                    rs -> true,
+                                    rs ->
+                                        requestToMoveBrokers.entrySet().stream()
+                                            .allMatch(
+                                                entry ->
+                                                    rs.replicas(entry.getKey()).stream()
+                                                        .map(r -> r.nodeInfo().id())
+                                                        .collect(Collectors.toList())
+                                                        .containsAll(entry.getValue())),
                                     Duration.ofSeconds(10),
                                     1))
                     .thenCompose(ignored -> context.admin().moveToFolders(requestToMoveFolders))
