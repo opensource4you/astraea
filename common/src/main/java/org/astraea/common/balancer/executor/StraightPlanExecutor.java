@@ -16,6 +16,8 @@
  */
 package org.astraea.common.balancer.executor;
 
+import static org.astraea.common.balancer.log.ClusterLogAllocation.findNonFulfilledAllocation;
+
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -38,6 +40,51 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
 
   public StraightPlanExecutor() {}
 
+  @Override
+  public CompletionStage<Void> run(Admin admin, ClusterLogAllocation logAllocation) {
+    return admin
+        .topicNames(true)
+        .thenCompose(admin::clusterInfo)
+        .thenApply(clusterInfo -> findNonFulfilledAllocation(clusterInfo, logAllocation))
+        .thenApply(
+            topicPartitions ->
+                topicPartitions.stream()
+                    .map(
+                        tp ->
+                            logAllocation.logPlacements(tp).stream()
+                                .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
+                                .collect(Collectors.toUnmodifiableList()))
+                    .map(
+                        replicaList ->
+                            admin
+                                .moveToBrokers(toReplicaMap(replicaList))
+                                .thenCompose(i -> waitStart(admin, replicaList))
+                                .thenAccept(c -> assertion(c, "Failed to sync " + replicaList))
+                                .thenCompose(i -> admin.moveToFolders(toPathMap(replicaList)))
+                                .thenCompose(
+                                    i ->
+                                        admin.waitReplicasSynced(
+                                            replicaList.stream()
+                                                .map(ReplicaInfo::topicPartitionReplica)
+                                                .collect(Collectors.toSet()),
+                                            ChronoUnit.DECADES.getDuration()))
+                                .thenAccept(c -> assertion(c, "Failed to sync " + replicaList))
+                                .thenCompose(
+                                    i ->
+                                        admin.preferredLeaderElection(
+                                            Set.of(replicaList.get(0).topicPartition())))
+                                .thenCompose(
+                                    i ->
+                                        admin.waitPreferredLeaderSynced(
+                                            Set.of(replicaList.get(0).topicPartition()),
+                                            ChronoUnit.DECADES.getDuration()))
+                                .thenAccept(c -> assertion(c, "Failed to sync " + replicaList)))
+                    .map(CompletionStage::toCompletableFuture)
+                    .collect(Collectors.toList())
+                    .toArray(CompletableFuture[]::new))
+        .thenCompose(CompletableFuture::allOf);
+  }
+
   private Map<TopicPartitionReplica, String> toPathMap(List<Replica> replicas) {
     return replicas.stream()
         .collect(Collectors.toMap(ReplicaInfo::topicPartitionReplica, Replica::path));
@@ -53,67 +100,11 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
     if (!condition) throw new IllegalStateException(info);
   }
 
-  @Override
-  public CompletionStage<Void> run(Admin admin, ClusterLogAllocation logAllocation) {
-    return admin
-        .topicNames(true)
-        .thenCompose(admin::clusterInfo)
-        .thenApply(
-            clusterInfo ->
-                ClusterLogAllocation.findNonFulfilledAllocation(clusterInfo, logAllocation))
-        .thenCompose(
-            topicPartitions -> {
-              var allMigrations =
-                  topicPartitions.stream()
-                      .map(
-                          tp ->
-                              logAllocation.logPlacements(tp).stream()
-                                  .sorted(
-                                      Comparator.comparing(Replica::isPreferredLeader).reversed())
-                                  .collect(Collectors.toUnmodifiableList()))
-                      .map(
-                          replicaList ->
-                              admin
-                                  // perform broker migration
-                                  .moveToBrokers(toReplicaMap(replicaList))
-                                  // wait until the cluster knows the replica list is changed
-                                  .thenCompose(
-                                      i ->
-                                          admin.waitCluster(
-                                              Set.of(replicaList.get(0).topic()),
-                                              (cluster) ->
-                                                  cluster.replicas().stream()
-                                                      .anyMatch(x -> !x.inSync()),
-                                              Duration.ofSeconds(5),
-                                              3))
-                                  // perform folder migration
-                                  .thenCompose(i -> admin.moveToFolders(toPathMap(replicaList)))
-                                  // wait until the migration finished
-                                  .thenCompose(
-                                      i ->
-                                          admin.waitReplicasSynced(
-                                              replicaList.stream()
-                                                  .map(ReplicaInfo::topicPartitionReplica)
-                                                  .collect(Collectors.toSet()),
-                                              ChronoUnit.DECADES.getDuration()))
-                                  .thenAccept(
-                                      done -> assertion(done, "Failed to sync " + replicaList))
-                                  // perform preferred leader election
-                                  .thenCompose(
-                                      i ->
-                                          admin.preferredLeaderElection(
-                                              Set.of(replicaList.get(0).topicPartition())))
-                                  // wait until the preferred leader is ready
-                                  .thenCompose(
-                                      i ->
-                                          admin.waitPreferredLeaderSynced(
-                                              Set.of(replicaList.get(0).topicPartition()),
-                                              ChronoUnit.DECADES.getDuration()))
-                                  .thenAccept(
-                                      done -> assertion(done, "Failed to sync " + replicaList)))
-                      .map(CompletionStage::toCompletableFuture)
-                      .collect(Collectors.toList());
-              return CompletableFuture.allOf(allMigrations.toArray(CompletableFuture[]::new));
-            });
+  private CompletionStage<Boolean> waitStart(Admin admin, List<Replica> replicas) {
+    return admin.waitCluster(
+        Set.of(replicas.get(0).topic()),
+        (cluster) -> cluster.replicas().stream().anyMatch(x -> !x.inSync()),
+        Duration.ofSeconds(5),
+        3);
   }
 }
