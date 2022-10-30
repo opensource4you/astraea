@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.client.admin;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
@@ -31,7 +30,7 @@ public class AdminMetricsTest extends RequireBrokerCluster {
   void testMultiBrokers() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics = AdminMetrics.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
@@ -57,10 +56,10 @@ public class AdminMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMetrics() throws ExecutionException, InterruptedException {
+  void testMetrics() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics =
           AdminMetrics.of(MBeanClient.local()).stream()

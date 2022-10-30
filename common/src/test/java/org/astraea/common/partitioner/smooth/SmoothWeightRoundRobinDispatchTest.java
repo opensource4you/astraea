@@ -27,17 +27,18 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
 import org.astraea.common.producer.Producer;
@@ -49,7 +50,7 @@ import org.mockito.Mockito;
 
 public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
-  Admin admin = Admin.of(bootstrapServers());
+  private final Admin admin = Admin.of(bootstrapServers());
 
   private Properties initProConfig() {
     Properties props = new Properties();
@@ -85,7 +86,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   @Test
   void testPartitioner() {
     var topicName = "address";
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
@@ -108,19 +109,19 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
                 .headers(List.of(header))
                 .run()
                 .toCompletableFuture()
-                .get();
+                .join();
         assertEquals(topicName, metadata.topic());
         assertEquals(timestamp, metadata.timestamp());
         i++;
       }
-    } catch (ExecutionException | InterruptedException e) {
-      e.printStackTrace();
     }
     Utils.sleep(Duration.ofSeconds(1));
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
@@ -140,14 +141,14 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testMultipleProducer() throws ExecutionException, InterruptedException {
+  void testMultipleProducer() {
     var topicName = "addr";
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
 
-    Utils.sequence(
+    FutureUtils.sequence(
             IntStream.range(0, 10)
                 .mapToObj(
                     ignored ->
@@ -167,12 +168,14 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
                                 header,
                                 timestamp)))
                 .collect(Collectors.toUnmodifiableList()))
-        .get();
+        .join();
 
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
             .bootstrapServers(bootstrapServers())
-            .fromBeginning()
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .keyDeserializer(Deserializer.STRING)
             .build()) {
       var records = consumer.poll(Duration.ofSeconds(20));
@@ -216,7 +219,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
       e.printStackTrace();
     }
     var topicName = "addressN";
-    admin.creator().topic(topicName).numberOfPartitions(10).create();
+    admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
     var key = "tainan";
     var timestamp = System.currentTimeMillis() + 10;
     var header = Header.of("a", "b".getBytes());
@@ -238,11 +241,9 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
               .headers(List.of(header))
               .run()
               .toCompletableFuture()
-              .get();
+              .join();
       assertEquals(topicName, metadata.topic());
       assertEquals(timestamp, metadata.timestamp());
-    } catch (ExecutionException | InterruptedException e) {
-      e.printStackTrace();
     }
   }
 

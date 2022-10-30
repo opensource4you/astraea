@@ -19,14 +19,194 @@ package org.astraea.common.metrics.broker;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public final class ServerMetrics {
+
+  public static List<AppInfo> appInfo(MBeanClient client) {
+    return client
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.server")
+                .property("type", "app-info")
+                .property("id", "*")
+                .build())
+        .stream()
+        .map(
+            obj ->
+                new AppInfo() {
+                  @Override
+                  public String id() {
+                    return beanObject().properties().get("id");
+                  }
+
+                  @Override
+                  public String commitId() {
+                    return (String) beanObject().attributes().get("CommitId");
+                  }
+
+                  @Override
+                  public Optional<Long> startTimeMs() {
+                    var t = beanObject().attributes().get("StartTimeMs");
+                    ;
+                    if (t == null) return Optional.empty();
+                    return Optional.of((long) t);
+                  }
+
+                  @Override
+                  public String version() {
+                    return (String) beanObject().attributes().get("Version");
+                  }
+
+                  @Override
+                  public BeanObject beanObject() {
+                    return obj;
+                  }
+                })
+        .collect(Collectors.toList());
+  }
+
+  public enum ZooKeeperClientMetrics implements EnumInfo {
+    ZOOKEEPER_REQUEST_LATENCY_MS("ZooKeeperRequestLatencyMs");
+
+    private final String metricName;
+
+    ZooKeeperClientMetrics(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public static ZooKeeperClientMetrics ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(ZooKeeperClientMetrics.class, alias);
+    }
+
+    public Histogram fetch(MBeanClient mBeanClient) {
+      return new Histogram(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "ZooKeeperClientMetrics")
+                  .property("name", metricName)
+                  .build()));
+    }
+
+    public static class Histogram implements HasHistogram {
+
+      private final BeanObject beanObject;
+
+      public Histogram(BeanObject beanObject) {
+        this.beanObject = beanObject;
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public ZooKeeperClientMetrics type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
+  public enum SessionExpireListener implements EnumInfo {
+    ZOOKEEPER_DISCONNECTS_PER_SEC("ZooKeeperDisconnectsPerSec"),
+    ZOOKEEPER_AUTH_FAILURES_PER_SEC("ZooKeeperAuthFailuresPerSec"),
+    ZOOKEEPER_EXPIRES_PER_SEC("ZooKeeperExpiresPerSec"),
+    ZOOKEEPER_READ_ONLY_CONNECTS_PER_SEC("ZooKeeperReadOnlyConnectsPerSec"),
+    ZOOKEEPER_SASL_AUTHENTICATIONS_PER_SEC("ZooKeeperSaslAuthenticationsPerSec"),
+    ZOOKEEPER_SYNC_CONNECTS_PER_SEC("ZooKeeperSyncConnectsPerSec");
+
+    private final String metricName;
+
+    SessionExpireListener(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public Meter fetch(MBeanClient mBeanClient) {
+      return new Meter(
+          mBeanClient.queryBean(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "SessionExpireListener")
+                  .property("name", metricName)
+                  .build()));
+    }
+
+    public static SessionExpireListener ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(SessionExpireListener.class, alias);
+    }
+
+    public static class Meter implements HasMeter {
+
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public SessionExpireListener type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
 
   public enum KafkaServer implements EnumInfo {
     YAMMER_METRICS_COUNT("yammer-metrics-count"),
@@ -136,21 +316,18 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public Collection<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .queryBeans(
+    public Gauge fetch(MBeanClient mBeanClient) {
+      return new Gauge(
+          mBeanClient.queryBean(
               BeanQuery.builder()
                   .domainName("kafka.server")
                   .property("type", "DelayedOperationPurgatory")
                   .property("delayedOperation", metricName)
                   .property("name", "PurgatorySize")
-                  .build())
-          .stream()
-          .map(Gauge::new)
-          .collect(Collectors.toUnmodifiableList());
+                  .build()));
     }
 
-    public static class Gauge implements HasGauge<Long> {
+    public static class Gauge implements HasGauge<Integer> {
       private final BeanObject beanObject;
 
       public Gauge(BeanObject beanObject) {
@@ -173,6 +350,83 @@ public final class ServerMetrics {
   }
 
   public enum Topic implements EnumInfo {
+    BYTES_IN_PER_SEC("BytesInPerSec"),
+    BYTES_OUT_PER_SEC("BytesOutPerSec"),
+    MESSAGES_IN_PER_SEC("MessagesInPerSec"),
+    TOTAL_FETCH_REQUESTS_PER_SEC("TotalFetchRequestsPerSec"),
+    TOTAL_PRODUCE_REQUESTS_PER_SEC("TotalProduceRequestsPerSec");
+
+    public static Topic ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Topic.class, alias);
+    }
+
+    private final String metricName;
+
+    Topic(String name) {
+      this.metricName = name;
+    }
+
+    public String metricName() {
+      return metricName;
+    }
+
+    @Override
+    public String alias() {
+      return metricName();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public List<Topic.Meter> fetch(MBeanClient mBeanClient) {
+      return mBeanClient
+          .queryBeans(
+              BeanQuery.builder()
+                  .domainName("kafka.server")
+                  .property("type", "BrokerTopicMetrics")
+                  .property("topic", "*")
+                  .property("name", this.metricName())
+                  .build())
+          .stream()
+          .map(Topic.Meter::new)
+          .collect(Collectors.toList());
+    }
+
+    public static class Meter implements HasMeter {
+
+      private final BeanObject beanObject;
+
+      public Meter(BeanObject beanObject) {
+        this.beanObject = Objects.requireNonNull(beanObject);
+      }
+
+      public String metricsName() {
+        return beanObject().properties().get("name");
+      }
+
+      public String topic() {
+        return beanObject().properties().get("topic");
+      }
+
+      public Topic type() {
+        return ofAlias(metricsName());
+      }
+
+      @Override
+      public String toString() {
+        return beanObject().toString();
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+  }
+
+  public enum BrokerTopic implements EnumInfo {
     /** Message validation failure rate due to non-continuous offset or sequence number in batch */
     INVALID_OFFSET_OR_SEQUENCE_RECORDS_PER_SEC("InvalidOffsetOrSequenceRecordsPerSec"),
 
@@ -220,13 +474,13 @@ public final class ServerMetrics {
     /** Byte out rate to clients. */
     BYTES_OUT_PER_SEC("BytesOutPerSec");
 
-    public static Topic ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(Topic.class, alias);
+    public static BrokerTopic ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(BrokerTopic.class, alias);
     }
 
     private final String metricName;
 
-    Topic(String name) {
+    BrokerTopic(String name) {
       this.metricName = name;
     }
 
@@ -281,7 +535,7 @@ public final class ServerMetrics {
         return beanObject().properties().get("name");
       }
 
-      public Topic type() {
+      public BrokerTopic type() {
         return ofAlias(metricsName());
       }
 
@@ -340,7 +594,7 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public static class Gauge implements HasGauge<Long> {
+    public static class Gauge implements HasGauge<Integer> {
 
       private final BeanObject beanObject;
 

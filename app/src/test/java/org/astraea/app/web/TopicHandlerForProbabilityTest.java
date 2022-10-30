@@ -27,33 +27,55 @@ import org.junit.jupiter.api.RepeatedTest;
 public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
   @RepeatedTest(2)
   void testCreateTopicByProbability() {
-    var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var handler = new TopicHandler(admin);
-      var request =
-          Channel.ofRequest(
-              PostRequest.of(
-                  String.format(
-                      "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
-                      topicName)));
-      var topics = handler.post(request);
-      Assertions.assertEquals(1, topics.topics.size());
-      Utils.waitFor(
-          () ->
-              ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName))).partitions.size()
-                  == 30);
-      var groupByBroker =
-          ((TopicHandler.TopicInfo) handler.get(Channel.ofTarget(topicName)))
-              .partitions.stream()
-                  .flatMap(p -> p.replicas.stream())
-                  .collect(Collectors.groupingBy(r -> r.broker));
-      // those brokers should host different number of partitions, broker0 holds the most replicas,
-      // followed by broker1, and lastly broker2
-      var numberOfReplicas =
-          groupByBroker.values().stream().map(List::size).collect(Collectors.toList());
-      Assertions.assertTrue(numberOfReplicas.get(0) > numberOfReplicas.get(1));
-      if (numberOfReplicas.size() == 3)
-        Assertions.assertTrue(numberOfReplicas.get(1) > numberOfReplicas.get(2));
+    int repeat = 5;
+    double replica0 = 0;
+    double replica1 = 0;
+    double replica2 = 0;
+    for (int i = 0; i < repeat; i++) {
+      var topicName = Utils.randomString(10);
+      try (var admin = Admin.of(bootstrapServers())) {
+        var handler = new TopicHandler(admin);
+        var request =
+            Channel.ofRequest(
+                PostRequest.of(
+                    String.format(
+                        "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
+                        topicName)));
+        var topics = handler.post(request).toCompletableFuture().join();
+        Assertions.assertEquals(1, topics.topics.size());
+        Utils.waitFor(
+            () ->
+                Utils.packException(
+                            () ->
+                                (TopicHandler.TopicInfo)
+                                    handler
+                                        .get(Channel.ofTarget(topicName))
+                                        .toCompletableFuture()
+                                        .get())
+                        .partitions
+                        .size()
+                    == 30);
+        var groupByBroker =
+            ((TopicHandler.TopicInfo)
+                    handler.get(Channel.ofTarget(topicName)).toCompletableFuture().join())
+                .partitions.stream()
+                    .flatMap(p -> p.replicas.stream())
+                    .collect(Collectors.groupingBy(r -> r.broker));
+        var numberOfReplicas =
+            groupByBroker.values().stream().map(List::size).collect(Collectors.toList());
+        replica0 += numberOfReplicas.get(0);
+        replica1 += numberOfReplicas.get(1);
+        replica2 += numberOfReplicas.size() == 3 ? numberOfReplicas.get(2) : 0;
+      }
     }
+    replica0 /= repeat;
+    replica1 /= repeat;
+    replica2 /= repeat;
+    Assertions.assertTrue(
+        replica0 > replica1,
+        "First broker takes the majority of average replicas: " + replica0 + " > " + replica1);
+    Assertions.assertTrue(
+        replica1 > replica2,
+        "Second broker takes more average replicas: " + replica1 + " > " + replica2);
   }
 }

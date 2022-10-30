@@ -49,8 +49,8 @@ class SkewedPartitionScenarioTest extends RequireBrokerCluster {
   void test(int partitions, short replicas) {
     var topicName = Utils.randomString();
     var scenario = new SkewedPartitionScenario(topicName, partitions, replicas, 0.5);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      var result = scenario.apply(admin);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var result = scenario.apply(admin).toCompletableFuture().join();
       Assertions.assertEquals(topicName, result.topicName());
       Assertions.assertEquals(partitions, result.numberOfPartitions());
       Assertions.assertEquals(replicas, result.numberOfReplicas());

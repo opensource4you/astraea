@@ -36,14 +36,30 @@ import org.junit.jupiter.api.Test;
 class StraightPlanExecutorTest extends RequireBrokerCluster {
 
   @Test
-  void testRun() {
-    // arrange
+  void testAsyncRun() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
-      admin.creator().topic(topicName).numberOfPartitions(10).numberOfReplicas((short) 2).create();
+
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 2)
+          .run()
+          .toCompletableFuture()
+          .join();
+
       Utils.sleep(Duration.ofSeconds(2));
-      final var originalAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
+
+      var originalAllocation =
+          admin
+              .clusterInfo(Set.of(topicName))
+              .thenApply(ClusterLogAllocation::of)
+              .toCompletableFuture()
+              .join();
+
       Utils.sleep(Duration.ofSeconds(3));
+
       final var broker0 = 0;
       final var broker1 = 1;
       final var logFolder0 = logFolders().get(broker0).stream().findAny().orElseThrow();
@@ -70,7 +86,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
                           NodeInfo.of(broker1, "", -1),
                           0,
                           0,
-                          true,
+                          false,
                           true,
                           false,
                           false,
@@ -86,28 +102,34 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
               .collect(Collectors.toUnmodifiableList());
       final var expectedAllocation = ClusterLogAllocation.of(allocation);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
-      final var rebalanceAdmin = RebalanceAdmin.of(admin);
 
-      // act
-      new StraightPlanExecutor().run(rebalanceAdmin, expectedAllocation);
+      var execute = new StraightPlanExecutor().run(admin, expectedAllocation);
 
-      // assert
-      final var currentAllocation = ClusterLogAllocation.of(admin.clusterInfo(Set.of(topicName)));
-      final var currentTopicPartition = currentAllocation.topicPartitions();
-      Assertions.assertEquals(expectedTopicPartition, currentTopicPartition);
+      execute.toCompletableFuture().join();
+
+      final var CurrentAllocation =
+          admin
+              .clusterInfo(Set.of(topicName))
+              .thenApply(ClusterLogAllocation::of)
+              .toCompletableFuture()
+              .join();
+
+      final var CurrentTopicPartition = CurrentAllocation.topicPartitions();
+
+      System.out.println("Expected:");
+      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
+      System.out.println("Current:");
+      System.out.println(ClusterLogAllocation.toString(CurrentAllocation));
+      System.out.println("Original:");
+      System.out.println(ClusterLogAllocation.toString(originalAllocation));
+
+      Assertions.assertEquals(expectedTopicPartition, CurrentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->
               Assertions.assertTrue(
                   ClusterLogAllocation.placementMatch(
                       expectedAllocation.logPlacements(topicPartition),
-                      currentAllocation.logPlacements(topicPartition))));
-
-      System.out.println("Expected:");
-      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
-      System.out.println("Current:");
-      System.out.println(ClusterLogAllocation.toString(currentAllocation));
-      System.out.println("Original:");
-      System.out.println(ClusterLogAllocation.toString(originalAllocation));
+                      CurrentAllocation.logPlacements(topicPartition))));
     }
   }
 }

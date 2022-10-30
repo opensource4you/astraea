@@ -17,7 +17,7 @@
 package org.astraea.app.web;
 
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.producer.Producer;
@@ -28,20 +28,21 @@ import org.junit.jupiter.api.Test;
 public class TransactionHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListTransactions() throws ExecutionException, InterruptedException {
+  void testListTransactions() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
       // wait for all transactions are completed
       Utils.waitFor(
           () -> {
             var result =
                 Assertions.assertInstanceOf(
-                    TransactionHandler.Transactions.class, handler.get(Channel.EMPTY));
+                    TransactionHandler.Transactions.class,
+                    handler.get(Channel.EMPTY).toCompletableFuture().join());
             var transaction =
                 result.transactions.stream()
                     .filter(t -> t.id.equals(producer.transactionId().get()))
@@ -53,13 +54,13 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQueryTransactionId() throws ExecutionException, InterruptedException {
+  void testQueryTransactionId() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
       // wait for all transactions are completed
       Utils.waitFor(
@@ -67,24 +68,34 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
             var transaction =
                 Assertions.assertInstanceOf(
                     TransactionHandler.Transaction.class,
-                    handler.get(Channel.ofTarget(producer.transactionId().get())));
+                    handler
+                        .get(Channel.ofTarget(producer.transactionId().get()))
+                        .toCompletableFuture()
+                        .join());
             return transaction.topicPartitions.isEmpty();
           });
     }
   }
 
   @Test
-  void queryNonexistentTransactionId() throws ExecutionException, InterruptedException {
+  void queryNonexistentTransactionId() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
-      Assertions.assertThrows(
+      Assertions.assertInstanceOf(
           NoSuchElementException.class,
-          () -> handler.get(Channel.ofTarget(Utils.randomString(10))));
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      handler
+                          .get(Channel.ofTarget(Utils.randomString(10)))
+                          .toCompletableFuture()
+                          .join())
+              .getCause());
     }
   }
 }

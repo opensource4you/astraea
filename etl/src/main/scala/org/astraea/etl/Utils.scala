@@ -16,8 +16,13 @@
  */
 package org.astraea.etl
 
+import org.astraea.common.admin.Admin
 import java.awt.geom.IllegalPathStateException
 import java.io.File
+import java.util.concurrent.CompletionStage
+import scala.concurrent.{Future, Promise}
+import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 
 object Utils {
   def requireFolder(path: String): File = {
@@ -38,5 +43,62 @@ object Utils {
       )
     }
     file
+  }
+
+  /** Lack of means of try with resource in scala 2.12.So replace it with the
+    * following method.
+    */
+  def Using[T <: AutoCloseable, V](r: => T)(f: T => V): V = {
+    val resource: T = r
+    require(resource != null, "resource is null")
+    var exception: Throwable = null
+    try f(resource)
+    catch {
+      case NonFatal(e) =>
+        exception = e
+        throw e
+    } finally closeAndAddSuppressed(exception, resource)
+  }
+
+  /** convert java future to scala in scala 2.12.
+    */
+  def asScala[T](f: CompletionStage[T]): Future[T] = {
+    val promise = Promise[T]
+    f.whenComplete { (r, e) =>
+      if (e != null) promise.failure(e) else promise.success(r)
+    }
+    promise.future
+  }
+
+  private def closeAndAddSuppressed(
+      e: Throwable,
+      resource: AutoCloseable
+  ): Unit = {
+    if (e != null) {
+      try {
+        resource.close()
+      } catch {
+        case NonFatal(suppressed) =>
+          e.addSuppressed(suppressed)
+      }
+    } else {
+      resource.close()
+    }
+  }
+
+  def createTopic(
+      admin: Admin,
+      metadata: Metadata
+  ): Future[java.lang.Boolean] = {
+    Utils.asScala(
+      admin
+        .creator()
+        .topic(metadata.topicName)
+        .numberOfPartitions(metadata.numPartitions)
+        .numberOfReplicas(metadata.numReplicas)
+        .configs(metadata.topicConfig.asJava)
+        .run()
+        .toCompletableFuture
+    )
   }
 }

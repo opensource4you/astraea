@@ -28,12 +28,14 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost.Helper {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  public static final String COST_NAME = "leader";
 
   @Override
   public BrokerCost brokerCost(
@@ -71,16 +73,14 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                         .map(x -> (ServerMetrics.ReplicaManager.Gauge) x)
                         .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
                         .limit(1)
-                        .mapToInt(v -> v.value().intValue())
+                        .mapToInt(HasGauge::value)
                         .sum()));
   }
 
   static Map<Integer, Integer> leaderCount(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
-    return clusterInfo.replicaLeaders().stream()
-        .collect(Collectors.groupingBy(r -> r.nodeInfo().id()))
-        .entrySet()
-        .stream()
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().size()));
+    return clusterInfo.nodes().stream()
+        .map(nodeInfo -> Map.entry(nodeInfo.id(), clusterInfo.replicaLeaders(nodeInfo.id()).size()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
@@ -94,7 +94,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
       Collection<Replica> addedReplicas,
       ClusterBean clusterBean) {
     return MoveCost.builder()
-        .name("Replica Leader")
+        .name(COST_NAME)
         .unit("partition leaders")
         .totalCost(addedReplicas.stream().filter(Replica::isLeader).count())
         .change(

@@ -34,12 +34,12 @@ public abstract class RequireSingleBrokerCluster extends RequireJmxServer {
     return BROKER_CLUSTER.bootstrapServers();
   }
 
-  protected static Map<Integer, Set<String>> logFolders() {
-    return BROKER_CLUSTER.logFolders();
+  protected static Map<Integer, Set<String>> dataFolders() {
+    return BROKER_CLUSTER.dataFolders();
   }
 
   protected static int brokerId() {
-    return logFolders().keySet().iterator().next();
+    return dataFolders().keySet().iterator().next();
   }
 
   @AfterAll

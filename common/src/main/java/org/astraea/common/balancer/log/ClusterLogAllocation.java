@@ -87,6 +87,7 @@ public interface ClusterLogAllocation {
    * exactly same topic/partitions set. Otherwise, an {@link IllegalArgumentException} will be
    * raised.
    */
+  @Deprecated
   static Set<TopicPartition> findNonFulfilledAllocation(
       ClusterLogAllocation source, ClusterLogAllocation target) {
 
@@ -108,16 +109,44 @@ public interface ClusterLogAllocation {
   }
 
   /**
+   * Find a subset of topic/partitions in the source allocation, that has any non-fulfilled log
+   * placement in the given target allocation. Note that the given two allocations must have the
+   * exactly same topic/partitions set. Otherwise, an {@link IllegalArgumentException} will be
+   * raised.
+   */
+  static Set<TopicPartition> findNonFulfilledAllocation(
+      ClusterInfo<Replica> source, ClusterLogAllocation target) {
+
+    final var sourceTopicPartition =
+        source.replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toSet());
+    final var targetTopicPartition = target.topicPartitions();
+    final var unknownTopicPartitions =
+        targetTopicPartition.stream()
+            .filter(tp -> !sourceTopicPartition.contains(tp))
+            .collect(Collectors.toUnmodifiableSet());
+
+    if (!unknownTopicPartitions.isEmpty())
+      throw new IllegalArgumentException(
+          "target topic/partition should be a subset of source topic/partition: "
+              + unknownTopicPartitions);
+
+    return targetTopicPartition.stream()
+        .filter(tp -> !placementMatch(source.replicas(tp), target.logPlacements(tp)))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  /**
    * Determine if both of the replicas can be considered as equal in terms of its placement.
    *
-   * @param sourceReplicas the source replicas. null value of {@link Replica#dataFolder()} will be
+   * @param sourceReplicas the source replicas. null value of {@link Replica#path()} will be
    *     interpreted as the actual location doesn't matter.
-   * @param targetReplicas the target replicas. null value of {@link Replica#dataFolder()} will be
+   * @param targetReplicas the target replicas. null value of {@link Replica#path()} will be
    *     interpreted as the actual location is unknown.
    * @return true if both replicas of specific topic/partitions can be considered as equal in terms
    *     of its placement.
    */
-  static boolean placementMatch(Set<Replica> sourceReplicas, Set<Replica> targetReplicas) {
+  static boolean placementMatch(
+      Collection<Replica> sourceReplicas, Collection<Replica> targetReplicas) {
     if (sourceReplicas.size() != targetReplicas.size()) return false;
     final var sourceIds =
         sourceReplicas.stream()
@@ -140,7 +169,7 @@ public interface ClusterLogAllocation {
               final var target = targetIds.get(index);
               return source.isPreferredLeader() == target.isPreferredLeader()
                   && source.nodeInfo().id() == target.nodeInfo().id()
-                  && Objects.equals(source.dataFolder(), target.dataFolder());
+                  && Objects.equals(source.path(), target.path());
             });
   }
 
@@ -158,7 +187,7 @@ public interface ClusterLogAllocation {
                   .forEach(
                       log ->
                           stringBuilder.append(
-                              String.format("(%s, %s) ", log.nodeInfo().id(), log.dataFolder())));
+                              String.format("(%s, %s) ", log.nodeInfo().id(), log.path())));
 
               stringBuilder.append(System.lineSeparator());
             });
@@ -293,7 +322,7 @@ public interface ClusterLogAllocation {
           source.isFuture(),
           source.isOffline(),
           isPreferredLeader,
-          source.dataFolder());
+          source.path());
     }
   }
 
@@ -303,6 +332,6 @@ public interface ClusterLogAllocation {
   }
 
   static Replica update(Replica source, NodeInfo newBroker, String newDir) {
-    return Replica.builder(source).nodeInfo(newBroker).dataFolder(newDir).build();
+    return Replica.builder(source).nodeInfo(newBroker).path(newDir).build();
   }
 }

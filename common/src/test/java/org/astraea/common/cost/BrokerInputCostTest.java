@@ -32,23 +32,19 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
 
   @Test
   void testCost() {
+    // testBrokerCost
     var brokerInputCost = new BrokerInputCost();
-    var scores =
-        brokerInputCost
-            .brokerCost(
-                ClusterInfo.empty(),
-                ClusterBean.of(
-                    Map.of(
-                        1,
-                        List.of(meter(10000D)),
-                        2,
-                        List.of(meter(20000D)),
-                        3,
-                        List.of(meter(5000D)))))
-            .value();
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(1, List.of(meter(10000D)), 2, List.of(meter(20000D)), 3, List.of(meter(5000D))));
+    var scores = brokerInputCost.brokerCost(ClusterInfo.empty(), clusterBean).value();
     Assertions.assertEquals(10000D, scores.get(1));
     Assertions.assertEquals(20000D, scores.get(2));
     Assertions.assertEquals(5000D, scores.get(3));
+
+    // testClusterCost
+    var clusterCost = brokerInputCost.clusterCost(ClusterInfo.empty(), clusterBean).value();
+    Assertions.assertEquals(0.535, Math.round(clusterCost * 1000.0) / 1000.0);
   }
 
   @Test
@@ -68,24 +64,24 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
           receiver.current().stream()
               .allMatch(
                   o ->
-                      (o instanceof ServerMetrics.Topic.Meter)
-                          && (ServerMetrics.Topic.BYTES_IN_PER_SEC
+                      (o instanceof ServerMetrics.BrokerTopic.Meter)
+                          && (ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC
                               .metricName()
                               .equals(o.beanObject().properties().get("name")))));
 
       // Test the fetched object's value.
       Assertions.assertTrue(
           receiver.current().stream()
-              .map(o -> (ServerMetrics.Topic.Meter) o)
+              .map(o -> (ServerMetrics.BrokerTopic.Meter) o)
               .allMatch(result -> result.count() == 0));
     }
   }
 
-  private static ServerMetrics.Topic.Meter meter(double value) {
-    return new ServerMetrics.Topic.Meter(
+  private static ServerMetrics.BrokerTopic.Meter meter(double value) {
+    return new ServerMetrics.BrokerTopic.Meter(
         new BeanObject(
             "object",
-            Map.of("name", ServerMetrics.Topic.BYTES_IN_PER_SEC.metricName()),
+            Map.of("name", ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName()),
             Map.of("OneMinuteRate", value)));
   }
 }

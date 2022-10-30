@@ -16,11 +16,13 @@
  */
 package org.astraea.common.balancer.executor;
 
+import java.util.concurrent.CompletionStage;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
 
   /** This method responsible for fulfill a rebalance plan. */
-  void run(RebalanceAdmin rebalanceAdmin, ClusterLogAllocation targetAllocation);
+  CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation);
 }

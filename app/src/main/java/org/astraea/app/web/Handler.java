@@ -19,6 +19,8 @@ package org.astraea.app.web;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 interface Handler {
@@ -29,7 +31,7 @@ interface Handler {
     return target.map(Set::of).orElse(all);
   }
 
-  default Response process(Channel channel) {
+  default CompletionStage<? extends Response> process(Channel channel) {
     var start = System.currentTimeMillis();
     try {
       switch (channel.type()) {
@@ -39,12 +41,14 @@ interface Handler {
           return post(channel);
         case DELETE:
           return delete(channel);
+        case PUT:
+          return put(channel);
         default:
-          return Response.NOT_FOUND;
+          return CompletableFuture.completedFuture(Response.NOT_FOUND);
       }
     } catch (Exception e) {
       e.printStackTrace();
-      return Response.of(e);
+      return CompletableFuture.completedFuture(Response.of(e));
     } finally {
       System.out.println(
           "take "
@@ -56,9 +60,13 @@ interface Handler {
     }
   }
 
-  default Response handle(Channel channel) {
+  default CompletionStage<? extends Response> handle(Channel channel) {
     var response = process(channel);
-    channel.send(response);
+    response.whenComplete(
+        (r, e) -> {
+          if (e != null) channel.send(Response.of(e));
+          else channel.send(r);
+        });
     return response;
   }
 
@@ -67,15 +75,15 @@ interface Handler {
    *
    * @return json object to return
    */
-  Response get(Channel channel);
+  CompletionStage<? extends Response> get(Channel channel);
 
   /**
    * handle the post request.
    *
    * @return json object to return
    */
-  default Response post(Channel channel) {
-    return Response.NOT_FOUND;
+  default CompletionStage<? extends Response> post(Channel channel) {
+    return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 
   /**
@@ -83,7 +91,16 @@ interface Handler {
    *
    * @return json object to return
    */
-  default Response delete(Channel channel) {
-    return Response.NOT_FOUND;
+  default CompletionStage<? extends Response> delete(Channel channel) {
+    return CompletableFuture.completedFuture(Response.NOT_FOUND);
+  }
+
+  /**
+   * handle the put request.
+   *
+   * @return json object to return
+   */
+  default CompletionStage<? extends Response> put(Channel channel) {
+    return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 }

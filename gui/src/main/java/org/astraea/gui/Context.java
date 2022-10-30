@@ -16,28 +16,74 @@
  */
 package org.astraea.gui;
 
-import java.util.Optional;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
-  private final AtomicReference<Admin> atomicReference = new AtomicReference<>();
+  private final AtomicReference<Admin> adminReference = new AtomicReference<>();
 
-  public Optional<Admin> replace(Admin admin) {
-    return Optional.ofNullable(atomicReference.getAndSet(admin));
+  private volatile int jmxPort = -1;
+  private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
+
+  public Context() {}
+
+  public Context(Admin admin) {
+    adminReference.set(admin);
   }
 
-  public <T> T submit(Function<Admin, T> executor) {
-    var admin = atomicReference.get();
-    if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
-    return executor.apply(admin);
+  public void replace(Admin admin) {
+    var previous = adminReference.getAndSet(admin);
+    if (previous != null) previous.close();
   }
 
-  public void execute(Consumer<Admin> executor) {
-    var admin = atomicReference.get();
+  public void replace(Set<NodeInfo> nodes, int jmxPort) {
+    var copy = Map.copyOf(this.clients);
+    this.jmxPort = jmxPort;
+    this.clients.clear();
+    this.clients.putAll(
+        nodes.stream().collect(Collectors.toMap(n -> n, n -> MBeanClient.jndi(n.host(), jmxPort))));
+    copy.values().forEach(MBeanClient::close);
+  }
+
+  public Map<NodeInfo, MBeanClient> clients(Set<NodeInfo> nodeInfos) {
+    if (jmxPort < 0) throw new IllegalArgumentException("Please define jmxPort");
+    clients.keySet().stream()
+        .filter(n -> !nodeInfos.contains(n))
+        .collect(Collectors.toList())
+        .forEach(
+            n -> {
+              var previous = clients.remove(n);
+              if (previous != null) previous.close();
+            });
+    nodeInfos.stream()
+        .filter(n -> !clients.containsKey(n))
+        .forEach(
+            n -> {
+              var previous = clients.put(n, MBeanClient.jndi(n.host(), jmxPort));
+              if (previous != null) previous.close();
+            });
+    return Map.copyOf(clients);
+  }
+
+  public Admin admin() {
+    var admin = adminReference.get();
     if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
-    executor.accept(admin);
+    return admin;
+  }
+
+  public Map<NodeInfo, MBeanClient> clients() {
+    var copy = Map.copyOf(clients);
+    if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmx port");
+    return copy;
+  }
+
+  public boolean hasMetrics() {
+    return !clients.isEmpty();
   }
 }

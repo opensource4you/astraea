@@ -23,19 +23,34 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ConsumerMetricsTest extends RequireBrokerCluster {
+
+  @Test
+  void testAppInfo() {
+    var topic = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers());
+        var consumer =
+            Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(3));
+      consumer.poll(Duration.ofSeconds(5));
+      ConsumerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    }
+  }
+
   @Test
   void testMultiBrokers() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var consumer =
             Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
       var metrics = ConsumerMetrics.nodes(MBeanClient.local());

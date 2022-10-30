@@ -17,11 +17,11 @@
 package org.astraea.common.metrics.client.producer;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -31,10 +31,19 @@ import org.junit.jupiter.api.Test;
 public class ProducerMetricsTest extends RequireBrokerCluster {
 
   @Test
-  void testMetrics() throws ExecutionException, InterruptedException {
+  void testAppInfo() {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(topic).run().toCompletableFuture().get();
+      producer.sender().topic(topic).run().toCompletableFuture().join();
+      ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    }
+  }
+
+  @Test
+  void testMetrics() {
+    var topic = Utils.randomString(10);
+    try (var producer = Producer.of(bootstrapServers())) {
+      producer.sender().topic(topic).run().toCompletableFuture().join();
       var metrics =
           ProducerMetrics.of(MBeanClient.local()).stream()
               .filter(m -> m.clientId().equals(producer.clientId()))
@@ -113,10 +122,10 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTopicMetrics() throws ExecutionException, InterruptedException {
+  void testTopicMetrics() {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(topic).run().toCompletableFuture().get();
+      producer.sender().topic(topic).run().toCompletableFuture().join();
       var metrics = ProducerMetrics.topics(MBeanClient.local());
       Assertions.assertNotEquals(0, metrics.stream().filter(m -> m.topic().equals(topic)).count());
       var producerTopicMetrics =
@@ -134,11 +143,11 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testNodeMetrics() throws ExecutionException, InterruptedException {
+  void testNodeMetrics() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(3).create();
+      admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       producer
           .sender()
@@ -147,7 +156,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
           .partition(0)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       producer
           .sender()
           .topic(topic)
@@ -155,7 +164,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
           .partition(1)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       producer
           .sender()
           .topic(topic)
@@ -163,7 +172,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
           .partition(2)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       var metrics = ProducerMetrics.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(

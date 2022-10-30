@@ -19,16 +19,20 @@ package org.astraea.app.web;
 import com.google.gson.reflect.TypeToken;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartitionReplica;
 
 public class ThrottleHandler implements Handler {
@@ -39,171 +43,269 @@ public class ThrottleHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
-    return get();
-  }
-
-  private Response get() {
-    final var brokers =
-        admin.brokers().stream()
-            .map(
-                node -> {
-                  final var egress =
-                      node.config()
-                          .value("leader.replication.throttled.rate")
-                          .map(Long::valueOf)
-                          .orElse(null);
-                  final var ingress =
-                      node.config()
-                          .value("follower.replication.throttled.rate")
-                          .map(Long::valueOf)
-                          .orElse(null);
-                  return new BrokerThrottle(node.id(), ingress, egress);
-                })
-            .collect(Collectors.toUnmodifiableSet());
-    final var topicConfigs = admin.topics(admin.topicNames());
-    final var leaderTargets =
-        topicConfigs.stream()
-            .map(
-                topic ->
-                    toReplicaSet(
-                        topic.name(),
-                        topic.config().value("leader.replication.throttled.replicas").orElse("")))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toUnmodifiableSet());
-    final var followerTargets =
-        topicConfigs.stream()
-            .map(
-                topic ->
-                    toReplicaSet(
-                        topic.name(),
-                        topic.config().value("follower.replication.throttled.replicas").orElse("")))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toUnmodifiableSet());
-
-    return new ThrottleSetting(brokers, simplify(leaderTargets, followerTargets));
+  public CompletionStage<ThrottleSetting> get(Channel channel) {
+    return FutureUtils.combine(
+        admin.brokers(),
+        admin.topicNames(false).thenCompose(admin::topics),
+        (brokers, topics) ->
+            new ThrottleSetting(
+                brokers.stream()
+                    .map(
+                        node ->
+                            new BrokerThrottle(
+                                node.id(),
+                                node.config()
+                                    .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                    .map(Long::valueOf)
+                                    .orElse(null),
+                                node.config()
+                                    .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                    .map(Long::valueOf)
+                                    .orElse(null)))
+                    .filter(b -> b.leader != null || b.follower != null)
+                    .collect(Collectors.toUnmodifiableSet()),
+                simplify(
+                    topics.stream()
+                        .map(
+                            topic ->
+                                toReplicaSet(
+                                    topic.name(),
+                                    topic
+                                        .config()
+                                        .value(
+                                            TopicConfigs
+                                                .LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+                                        .orElse("")))
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toUnmodifiableSet()),
+                    topics.stream()
+                        .map(
+                            topic ->
+                                toReplicaSet(
+                                    topic.name(),
+                                    topic
+                                        .config()
+                                        .value(
+                                            TopicConfigs
+                                                .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+                                        .orElse("")))
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toUnmodifiableSet()))));
   }
 
   @Override
-  public Response post(Channel channel) {
-    var brokerToUpdate =
+  public CompletionStage<Response> post(Channel channel) {
+    var topicToAppends =
+        admin
+            .nodeInfos()
+            .thenApply(
+                nodeInfos -> nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toSet()))
+            .thenCompose(admin::topicPartitionReplicas)
+            .thenApply(
+                replicas ->
+                    channel
+                        .request()
+                        .<Collection<TopicThrottle>>get(
+                            "topics",
+                            TypeToken.getParameterized(Collection.class, TopicThrottle.class)
+                                .getType())
+                        .orElse(List.of())
+                        .stream()
+                        .flatMap(
+                            t -> {
+                              var keys =
+                                  Stream.of(
+                                          TopicConfigs
+                                              .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                                          TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+                                      .filter(
+                                          key ->
+                                              t.type == null
+                                                  || (t.type.equals("leader")
+                                                      && key.equals(
+                                                          TopicConfigs
+                                                              .LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
+                                                  || (t.type.equals("follower")
+                                                      && key.equals(
+                                                          TopicConfigs
+                                                              .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)))
+                                      .collect(Collectors.toSet());
+                              return replicas.stream()
+                                  .filter(
+                                      r ->
+                                          (t.name == null || r.topic().equals(t.name))
+                                              && (t.partition == null
+                                                  || r.partition() == t.partition)
+                                              && (t.broker == null || r.brokerId() == t.broker))
+                                  .collect(Collectors.groupingBy(TopicPartitionReplica::topic))
+                                  .entrySet()
+                                  .stream()
+                                  .map(
+                                      entry ->
+                                          Map.entry(
+                                              entry.getKey(),
+                                              keys.stream()
+                                                  .collect(
+                                                      Collectors.toMap(
+                                                          key -> key,
+                                                          ignored ->
+                                                              entry.getValue().stream()
+                                                                  .map(
+                                                                      r ->
+                                                                          r.partition()
+                                                                              + ":"
+                                                                              + r.brokerId())
+                                                                  .collect(
+                                                                      Collectors.joining(","))))));
+                            })
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                (l, r) -> {
+                                  // Merge the duplicate topic requests by order
+                                  var merged = new HashMap<>(l);
+                                  merged.putAll(r);
+                                  return merged;
+                                })));
+
+    Map<Integer, Map<String, String>> brokerToSets =
         channel
             .request()
             .<Collection<BrokerThrottle>>get(
                 "brokers",
                 TypeToken.getParameterized(Collection.class, BrokerThrottle.class).getType())
-            .orElse(List.of());
-    var topics =
-        channel
-            .request()
-            .<Collection<TopicThrottle>>get(
-                "topics",
-                TypeToken.getParameterized(Collection.class, TopicThrottle.class).getType())
-            .orElse(List.of());
-
-    final var throttler = admin.replicationThrottler();
-    // ingress
-    throttler.ingress(
-        brokerToUpdate.stream()
-            .filter(broker -> broker.ingress != null)
+            .orElse(List.of())
+            .stream()
             .collect(
-                Collectors.toUnmodifiableMap(
-                    broker -> broker.id, broker -> DataRate.Byte.of(broker.ingress).perSecond())));
-    // egress
-    throttler.egress(
-        brokerToUpdate.stream()
-            .filter(broker -> broker.egress != null)
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    broker -> broker.id, broker -> DataRate.Byte.of(broker.egress).perSecond())));
+                Collectors.toMap(
+                    b -> b.id,
+                    b -> {
+                      var result = new HashMap<String, String>();
+                      if (b.follower != null)
+                        result.put(
+                            BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                            String.valueOf(b.follower));
+                      if (b.leader != null)
+                        result.put(
+                            BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                            String.valueOf(b.leader));
+                      return result;
+                    }));
 
-    topics.forEach(
-        topic -> {
-          //noinspection ConstantConditions, the deserialization result must leave this value null
-          if (topic.name == null)
-            throw new IllegalArgumentException("The 'name' key of topic throttle must be given");
-          else if (topic.partition == null && topic.broker == null && topic.type == null) {
-            throttler.throttle(topic.name);
-          } else if (topic.partition != null && topic.broker == null && topic.type == null) {
-            throttler.throttle(TopicPartition.of(topic.name, topic.partition));
-          } else if (topic.partition != null && topic.broker != null && topic.type == null) {
-            throttler.throttle(TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
-          } else if (topic.partition != null && topic.broker != null && topic.type != null) {
-            var replica = TopicPartitionReplica.of(topic.name, topic.partition, topic.broker);
-            if (topic.type.equals("leader")) throttler.throttleLeader(replica);
-            else if (topic.type.equals("follower")) throttler.throttleFollower(replica);
-            else throw new IllegalArgumentException("Unknown throttle type: " + topic.type);
-          } else {
-            throw new IllegalArgumentException(
-                "The TopicThrottle argument is not supported: " + topic);
-          }
-        });
-
-    var affectedResources = throttler.apply();
-    var affectedBrokers =
-        Stream.concat(
-                affectedResources.ingress().keySet().stream(),
-                affectedResources.egress().keySet().stream())
-            .distinct()
-            .map(
-                broker ->
-                    BrokerThrottle.of(
-                        broker,
-                        affectedResources.ingress().get(broker),
-                        affectedResources.egress().get(broker)))
-            .collect(Collectors.toUnmodifiableList());
-    var affectedTopics = simplify(affectedResources.leaders(), affectedResources.followers());
-    return new ThrottleSetting(affectedBrokers, affectedTopics);
+    return topicToAppends
+        .thenCompose(admin::appendTopicConfigs)
+        .thenCompose(ignored -> admin.setBrokerConfigs(brokerToSets))
+        .thenApply(ignored -> Response.ACCEPT);
   }
 
   @Override
-  public Response delete(Channel channel) {
-    if (channel.queries().containsKey("topic")) {
-      var topic =
-          new TopicThrottle(
-              channel.queries().get("topic"),
-              Optional.ofNullable(channel.queries().get("partition"))
-                  .map(Integer::parseInt)
-                  .orElse(null),
-              Optional.ofNullable(channel.queries().get("replica"))
-                  .map(Integer::parseInt)
-                  .orElse(null),
-              channel.queries().get("type") == null
-                  ? null
-                  : Arrays.stream(LogIdentity.values())
-                      .filter(x -> x.name().equals(channel.queries().get("type")))
-                      .findFirst()
-                      .orElseThrow(IllegalArgumentException::new));
+  public CompletionStage<Response> delete(Channel channel) {
 
-      if (topic.partition == null && topic.broker == null && topic.type == null)
-        admin.clearReplicationThrottle(topic.name);
-      else if (topic.partition != null && topic.broker == null && topic.type == null)
-        admin.clearReplicationThrottle(TopicPartition.of(topic.name, topic.partition));
-      else if (topic.partition != null && topic.broker != null && topic.type == null)
-        admin.clearReplicationThrottle(
-            TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
-      else if (topic.partition != null && topic.broker != null && topic.type.equals("leader"))
-        admin.clearLeaderReplicationThrottle(
-            TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
-      else if (topic.partition != null && topic.broker != null && topic.type.equals("follower"))
-        admin.clearFollowerReplicationThrottle(
-            TopicPartitionReplica.of(topic.name, topic.partition, topic.broker));
-      else
-        throw new IllegalArgumentException("The argument is not supported: " + channel.queries());
+    var topicToSubtracts =
+        admin
+            .nodeInfos()
+            .thenApply(
+                nodeInfos -> nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toSet()))
+            .thenCompose(admin::topicPartitionReplicas)
+            .thenApply(
+                replicas -> {
+                  var keys =
+                      Stream.of(
+                              TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG,
+                              TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+                          .filter(
+                              key ->
+                                  !channel.queries().containsKey("type")
+                                      || (channel.queries().get("type").equals("follower")
+                                          && key.equals(
+                                              TopicConfigs
+                                                  .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
+                                      || (channel.queries().get("type").equals("leader")
+                                          && key.equals(
+                                              TopicConfigs
+                                                  .LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)))
+                          .collect(Collectors.toSet());
 
-      return Response.ACCEPT;
-    } else if (channel.queries().containsKey("broker")) {
-      var broker = Integer.parseInt(channel.queries().get("broker"));
-      var bandwidth = channel.queries().get("type").split("\\+");
-      for (String target : bandwidth) {
-        if (target.equals("ingress")) admin.clearIngressReplicationThrottle(Set.of(broker));
-        else if (target.equals("egress")) admin.clearEgressReplicationThrottle(Set.of(broker));
-        else throw new IllegalArgumentException("Unknown clear target: " + target);
-      }
-      return Response.ACCEPT;
-    } else {
-      return Response.BAD_REQUEST;
-    }
+                  return replicas.stream()
+                      .filter(
+                          r ->
+                              (!channel.queries().containsKey("topic")
+                                      || channel.queries().get("topic").equals(r.topic()))
+                                  && (!channel.queries().containsKey("partition")
+                                      || Integer.parseInt(channel.queries().get("partition"))
+                                          == r.partition())
+                                  && (!channel.queries().containsKey("replica")
+                                      || Integer.parseInt(channel.queries().get("replica"))
+                                          == r.brokerId()))
+                      .collect(Collectors.groupingBy(TopicPartitionReplica::topic))
+                      .entrySet()
+                      .stream()
+                      .map(
+                          entry ->
+                              Map.entry(
+                                  entry.getKey(),
+                                  keys.stream()
+                                      .collect(
+                                          Collectors.toMap(
+                                              key -> key,
+                                              ignored ->
+                                                  entry.getValue().stream()
+                                                      .map(r -> r.partition() + ":" + r.brokerId())
+                                                      .collect(Collectors.joining(","))))))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                });
+
+    var brokerToUnset =
+        admin
+            .nodeInfos()
+            .thenApply(
+                ns ->
+                    ns.stream()
+                        .map(NodeInfo::id)
+                        .filter(
+                            id ->
+                                !channel.queries().containsKey("broker")
+                                    || Integer.parseInt(channel.queries().get("broker")) == id)
+                        .collect(Collectors.toSet()))
+            .thenApply(
+                ids ->
+                    ids.stream()
+                        .collect(
+                            Collectors.toMap(
+                                id -> id,
+                                id ->
+                                    Stream.of(
+                                            BrokerConfigs
+                                                .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                            BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                        .filter(
+                                            key ->
+                                                !channel.queries().containsKey("type")
+                                                    || Arrays.stream(
+                                                            channel
+                                                                .queries()
+                                                                .get("type")
+                                                                .split("\\+"))
+                                                        .flatMap(
+                                                            t ->
+                                                                t.equals("follower")
+                                                                    ? Stream.of(
+                                                                        BrokerConfigs
+                                                                            .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                                                    : t.equals("leader")
+                                                                        ? Stream.of(
+                                                                            BrokerConfigs
+                                                                                .LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                                                        : Stream.of())
+                                                        .collect(Collectors.toSet())
+                                                        .contains(key))
+                                        .collect(Collectors.toSet()))));
+
+    return topicToSubtracts
+        .thenCompose(admin::subtractTopicConfigs)
+        .thenCompose(ignored -> brokerToUnset.thenCompose(admin::unsetBrokerConfigs))
+        .thenApply(ignored -> Response.ACCEPT);
   }
 
   /**
@@ -261,20 +363,13 @@ public class ThrottleHandler implements Handler {
 
   static class BrokerThrottle {
     final int id;
-    final Long ingress;
-    final Long egress;
-
-    static BrokerThrottle of(int id, DataRate ingress, DataRate egress) {
-      return new BrokerThrottle(
-          id,
-          (ingress != null) ? ((long) ingress.byteRate()) : (null),
-          (egress != null) ? ((long) egress.byteRate()) : (null));
-    }
+    final Long follower;
+    final Long leader;
 
     BrokerThrottle(int id, Long ingress, Long egress) {
       this.id = id;
-      this.ingress = ingress;
-      this.egress = egress;
+      this.follower = ingress;
+      this.leader = egress;
     }
 
     @Override
@@ -283,13 +378,13 @@ public class ThrottleHandler implements Handler {
       if (o == null || getClass() != o.getClass()) return false;
       BrokerThrottle that = (BrokerThrottle) o;
       return id == that.id
-          && Objects.equals(ingress, that.ingress)
-          && Objects.equals(egress, that.egress);
+          && Objects.equals(follower, that.follower)
+          && Objects.equals(leader, that.leader);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(id, ingress, egress);
+      return Objects.hash(id, follower, leader);
     }
 
     @Override
@@ -298,9 +393,9 @@ public class ThrottleHandler implements Handler {
           + "broker="
           + id
           + ", ingress="
-          + ingress
+          + follower
           + ", egress="
-          + egress
+          + leader
           + '}';
     }
   }

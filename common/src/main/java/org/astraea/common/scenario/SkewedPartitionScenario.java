@@ -20,18 +20,19 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.util.Pair;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.balancer.executor.RebalanceAdmin;
 
 public class SkewedPartitionScenario implements Scenario {
 
@@ -49,67 +50,66 @@ public class SkewedPartitionScenario implements Scenario {
   }
 
   @Override
-  public Result apply(Admin admin) {
-    // retrieve online brokers
-    var brokers = admin.brokerIds().stream().sorted().collect(Collectors.toUnmodifiableList());
-
-    // create topic
-    admin
+  public CompletionStage<Result> apply(Admin admin) {
+    return admin
         .creator()
         .topic(topicName)
         .numberOfPartitions(partitions)
         .numberOfReplicas(replicas)
-        .create();
-    Utils.sleep(Duration.ofSeconds(1));
-
-    var distribution = new BinomialDistribution(brokers.size() - 1, binomialProbability);
-    var replicaLists =
-        IntStream.range(0, partitions)
-            .boxed()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    p -> TopicPartition.of(topicName, p),
-                    ignore -> sampledReplicaList(brokers, replicas, distribution)));
-
-    replicaLists.entrySet().parallelStream()
-        .forEach(
-            entry -> {
-              final var topicPartition = entry.getKey();
-              final var newReplicas = entry.getValue();
-              admin
-                  .migrator()
-                  .partition(topicPartition.topic(), topicPartition.partition())
-                  .moveTo(newReplicas);
+        .run()
+        .thenCompose(
+            ignored ->
+                admin.waitPartitionLeaderSynced(
+                    Map.of(topicName, partitions), Duration.ofSeconds(4)))
+        .thenCompose(ignored -> admin.brokers())
+        .thenApply(
+            brokers -> brokers.stream().map(NodeInfo::id).sorted().collect(Collectors.toList()))
+        .thenCompose(
+            brokerIds -> {
+              var distribution =
+                  new BinomialDistribution(brokerIds.size() - 1, binomialProbability);
+              var replicaLists =
+                  IntStream.range(0, partitions)
+                      .boxed()
+                      .collect(
+                          Collectors.toUnmodifiableMap(
+                              p -> TopicPartition.of(topicName, p),
+                              ignore -> sampledReplicaList(brokerIds, replicas, distribution)));
+              return admin
+                  .moveToBrokers(replicaLists)
+                  .thenCompose(
+                      ignored ->
+                          admin.waitReplicasSynced(
+                              replicaLists.entrySet().stream()
+                                  .flatMap(
+                                      e ->
+                                          e.getValue().stream()
+                                              .map(
+                                                  id ->
+                                                      TopicPartitionReplica.of(
+                                                          e.getKey().topic(),
+                                                          e.getKey().partition(),
+                                                          id)))
+                                  .collect(Collectors.toSet()),
+                              Duration.ofSeconds(30)))
+                  .thenCompose(ignored -> admin.preferredLeaderElection(replicaLists.keySet()))
+                  .thenCompose(
+                      ignored ->
+                          admin.waitPreferredLeaderSynced(
+                              replicaLists.keySet(), Duration.ofSeconds(30)))
+                  .thenApply(
+                      ignored ->
+                          new Result(
+                              topicName,
+                              partitions,
+                              replicas,
+                              replicaLists.values().stream()
+                                  .map(list -> list.get(0))
+                                  .collect(Collectors.groupingBy(x -> x, Collectors.counting())),
+                              replicaLists.values().stream()
+                                  .flatMap(Collection::stream)
+                                  .collect(Collectors.groupingBy(x -> x, Collectors.counting()))));
             });
-    replicaLists.entrySet().parallelStream()
-        .flatMap(
-            entry ->
-                entry.getValue().stream()
-                    .map(
-                        id ->
-                            TopicPartitionReplica.of(
-                                entry.getKey().topic(), entry.getKey().partition(), id)))
-        .forEach(
-            tpr -> Utils.packException(() -> RebalanceAdmin.of(admin).waitLogSynced(tpr).get()));
-
-    // elect leader
-    replicaLists.keySet().forEach(admin::preferredLeaderElection);
-    replicaLists.keySet().parallelStream()
-        .forEach(
-            tp ->
-                Utils.packException(
-                    () -> RebalanceAdmin.of(admin).waitPreferredLeaderSynced(tp).get()));
-
-    return new Result(
-        topicName,
-        partitions,
-        replicas,
-        replicaLists.values().stream()
-            .map(list -> list.get(0))
-            .collect(Collectors.groupingBy(x -> x, Collectors.counting())),
-        replicaLists.values().stream()
-            .flatMap(Collection::stream)
-            .collect(Collectors.groupingBy(x -> x, Collectors.counting())));
   }
 
   /** Sample a random replica list from the given probability distribution. */

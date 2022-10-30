@@ -47,10 +47,19 @@ public class MetricsTestUtil {
       testHistogram((HasHistogram) hasBeanObject);
     } else if (hasBeanObject instanceof HasGauge) {
       testGauge((HasGauge<?>) hasBeanObject);
+    } else if (hasBeanObject instanceof AppInfo) {
+      testAppInfo((AppInfo) hasBeanObject);
     } else {
       throw new UnsupportedOperationException(
           String.format("Not implement. %s", hasBeanObject.getClass()));
     }
+  }
+
+  private static void testAppInfo(AppInfo appInfo) {
+    Assertions.assertNotNull(appInfo.id());
+    Assertions.assertNotNull(appInfo.version());
+    Assertions.assertNotNull(appInfo.commitId());
+    Assertions.assertTrue(appInfo.startTimeMs().get() > 0);
   }
 
   private static void testGauge(HasGauge<?> hasGauge) {

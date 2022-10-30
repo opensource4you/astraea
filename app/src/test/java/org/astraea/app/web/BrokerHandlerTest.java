@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.RequireBrokerCluster;
@@ -31,12 +32,13 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   @Test
   void testListBrokers() {
     var topic = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(10).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var response =
-          Assertions.assertInstanceOf(BrokerHandler.Brokers.class, handler.get(Channel.EMPTY));
+          Assertions.assertInstanceOf(
+              BrokerHandler.Brokers.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertEquals(brokerIds().size(), response.brokers.size());
       brokerIds()
           .forEach(
@@ -50,19 +52,27 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentBroker() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.get(Channel.ofTarget("99999")));
+      Assertions.assertInstanceOf(
+          NoSuchElementException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () -> handler.get(Channel.ofTarget("99999")).toCompletableFuture().join())
+              .getCause());
     }
   }
 
   @Test
   void testQueryInvalidBroker() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.get(Channel.ofTarget("abc")));
+      Assertions.assertInstanceOf(
+          NoSuchElementException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () -> handler.get(Channel.ofTarget("abc")).toCompletableFuture().join())
+              .getCause());
     }
   }
 
@@ -70,13 +80,14 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   void testQuerySingleBroker() {
     var topic = Utils.randomString(10);
     var brokerId = brokerIds().iterator().next();
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(10).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var broker =
           Assertions.assertInstanceOf(
-              BrokerHandler.Broker.class, handler.get(Channel.ofTarget(String.valueOf(brokerId))));
+              BrokerHandler.Broker.class,
+              handler.get(Channel.ofTarget(String.valueOf(brokerId))).toCompletableFuture().join());
       Assertions.assertEquals(brokerId, broker.id);
       Assertions.assertNotEquals(0, broker.configs.size());
       Assertions.assertTrue(broker.topics.stream().anyMatch(t -> t.topic.equals(topic)));
@@ -85,14 +96,19 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testBrokers() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertEquals(
           Set.of(brokerIds().iterator().next()),
-          handler.brokers(Optional.of(String.valueOf(brokerIds().iterator().next()))));
-      Assertions.assertEquals(brokerIds(), handler.brokers(Optional.empty()));
+          handler
+              .brokers(Optional.of(String.valueOf(brokerIds().iterator().next())))
+              .toCompletableFuture()
+              .join());
+      Assertions.assertEquals(
+          brokerIds(), handler.brokers(Optional.empty()).toCompletableFuture().join());
       Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.brokers(Optional.of("aaa")));
+          CompletionException.class,
+          () -> handler.brokers(Optional.of("aaa")).toCompletableFuture().join());
     }
   }
 }

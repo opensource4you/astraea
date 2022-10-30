@@ -19,13 +19,14 @@ package org.astraea.app.web;
 import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -37,19 +38,20 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testListGroups() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         var handler = new GroupHandler(admin);
         var response =
-            Assertions.assertInstanceOf(GroupHandler.Groups.class, handler.get(Channel.EMPTY));
+            Assertions.assertInstanceOf(
+                GroupHandler.Groups.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
         var group = response.groups.stream().filter(g -> g.groupId.equals(groupId)).findAny().get();
         Assertions.assertEquals(1, group.members.size());
         group.members.forEach(m -> Assertions.assertNull(m.groupInstanceId));
@@ -59,10 +61,15 @@ public class GroupHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentGroup() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    var group = Utils.randomString();
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
-      Assertions.assertThrows(
-          NoSuchElementException.class, () -> handler.get(Channel.ofTarget("unknown")));
+      Assertions.assertInstanceOf(
+          NoSuchElementException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () -> handler.get(Channel.ofTarget(group)).toCompletableFuture().join())
+              .getCause());
     }
   }
 
@@ -70,18 +77,19 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testQuerySingleGroup() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         var group =
             Assertions.assertInstanceOf(
-                GroupHandler.Group.class, handler.get(Channel.ofTarget(groupId)));
+                GroupHandler.Group.class,
+                handler.get(Channel.ofTarget(groupId)).toCompletableFuture().join());
         Assertions.assertEquals(groupId, group.groupId);
         Assertions.assertEquals(1, group.members.size());
       }
@@ -92,20 +100,15 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testGroups() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .groupId(groupId)
+              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
               .bootstrapServers(bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-        Assertions.assertEquals(Set.of(groupId), handler.groupIds(Optional.of(groupId)));
-        Assertions.assertThrows(
-            NoSuchElementException.class,
-            () -> handler.groupIds(Optional.of(Utils.randomString(10))));
-        Assertions.assertTrue(handler.groupIds(Optional.empty()).contains(groupId));
       }
     }
   }
@@ -115,14 +118,16 @@ public class GroupHandlerTest extends RequireBrokerCluster {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);
     var groupId0 = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       try (var consumer0 =
               Consumer.forTopics(Set.of(topicName0))
-                  .groupId(groupId0)
+                  .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId0)
                   .bootstrapServers(bootstrapServers())
-                  .fromBeginning()
+                  .config(
+                      ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                      ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                   .build();
           var consumer1 =
               Consumer.forTopics(Set.of(topicName1)).bootstrapServers(bootstrapServers()).build();
@@ -139,13 +144,17 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         var response =
             Assertions.assertInstanceOf(
                 GroupHandler.Groups.class,
-                handler.get(Channel.ofQueries(Map.of(GroupHandler.TOPIC_KEY, topicName0))));
+                handler
+                    .get(Channel.ofQueries(Map.of(GroupHandler.TOPIC_KEY, topicName0)))
+                    .toCompletableFuture()
+                    .join());
         Assertions.assertEquals(1, response.groups.size());
         Assertions.assertEquals(groupId0, response.groups.get(0).groupId);
 
         // query all
         var all =
-            Assertions.assertInstanceOf(GroupHandler.Groups.class, handler.get(Channel.EMPTY));
+            Assertions.assertInstanceOf(
+                GroupHandler.Groups.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
         Assertions.assertNotEquals(1, all.groups.size());
       }
     }
@@ -154,7 +163,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   @Test
   void testDeleteMembers() {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       // test 0: delete all members
@@ -163,17 +172,17 @@ public class GroupHandlerTest extends RequireBrokerCluster {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         Assertions.assertEquals(
             1,
-            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+            admin.consumerGroups(Set.of(consumer.groupId())).toCompletableFuture().join().stream()
                 .filter(g -> g.groupId().equals(consumer.groupId()))
                 .findFirst()
                 .get()
                 .assignment()
                 .size());
 
-        handler.delete(Channel.ofTarget(consumer.groupId()));
+        handler.delete(Channel.ofTarget(consumer.groupId())).toCompletableFuture().join();
         Assertions.assertEquals(
             0,
-            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+            admin.consumerGroups(Set.of(consumer.groupId())).toCompletableFuture().join().stream()
                 .filter(g -> g.groupId().equals(consumer.groupId()))
                 .findFirst()
                 .get()
@@ -188,25 +197,28 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .bootstrapServers(bootstrapServers())
-              .groupInstanceId(Utils.randomString(10))
+              .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         Assertions.assertEquals(
             1,
-            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+            admin.consumerGroups(Set.of(consumer.groupId())).toCompletableFuture().join().stream()
                 .filter(g -> g.groupId().equals(consumer.groupId()))
                 .findFirst()
                 .get()
                 .assignment()
                 .size());
 
-        handler.delete(
-            Channel.ofQueries(
-                consumer.groupId(),
-                Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get())));
+        handler
+            .delete(
+                Channel.ofQueries(
+                    consumer.groupId(),
+                    Map.of(GroupHandler.INSTANCE_KEY, consumer.groupInstanceId().get())))
+            .toCompletableFuture()
+            .join();
         Assertions.assertEquals(
             0,
-            admin.consumerGroups(Set.of(consumer.groupId())).stream()
+            admin.consumerGroups(Set.of(consumer.groupId())).toCompletableFuture().join().stream()
                 .filter(g -> g.groupId().equals(consumer.groupId()))
                 .findFirst()
                 .get()
@@ -225,53 +237,66 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   @Test
   void testDeleteGroup() {
     var topicName = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       var groupIds =
           IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
       groupIds.forEach(
-          x -> {
+          groupId -> {
             try (var consumer =
                 Consumer.forTopics(Set.of(topicName))
                     .bootstrapServers(bootstrapServers())
-                    .groupInstanceId(Utils.randomString(10))
-                    .groupId(x)
+                    .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
+                    .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                     .build()) {
               Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
             }
           });
 
-      var currentGroupIds = admin.consumerGroupIds();
+      var currentGroupIds = admin.consumerGroupIds().toCompletableFuture().join();
       Assertions.assertTrue(currentGroupIds.contains(groupIds.get(0)));
       Assertions.assertTrue(currentGroupIds.contains(groupIds.get(1)));
       Assertions.assertTrue(currentGroupIds.contains(groupIds.get(2)));
 
-      handler.delete(Channel.ofTarget(groupIds.get(2)));
-      Assertions.assertTrue(admin.consumerGroupIds().contains(groupIds.get(2)));
+      handler.delete(Channel.ofTarget(groupIds.get(2))).toCompletableFuture().join();
+      Assertions.assertTrue(
+          admin.consumerGroupIds().toCompletableFuture().join().contains(groupIds.get(2)));
 
-      handler.delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false")));
-      Assertions.assertTrue(admin.consumerGroupIds().contains(groupIds.get(2)));
+      handler
+          .delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "false")))
+          .toCompletableFuture()
+          .join();
+      Assertions.assertTrue(
+          admin.consumerGroupIds().toCompletableFuture().join().contains(groupIds.get(2)));
 
-      handler.delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true")));
-      Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(2)));
+      handler
+          .delete(Channel.ofQueries(groupIds.get(2), Map.of(GroupHandler.GROUP_KEY, "true")))
+          .toCompletableFuture()
+          .join();
+      Assertions.assertFalse(
+          admin.consumerGroupIds().toCompletableFuture().join().contains(groupIds.get(2)));
 
       var group1Members =
-          admin.consumerGroups(Set.of(groupIds.get(1))).stream()
+          admin.consumerGroups(Set.of(groupIds.get(1))).toCompletableFuture().join().stream()
               .filter(g -> g.groupId().equals(groupIds.get(1)))
               .findFirst()
               .get()
               .assignment()
               .keySet();
-      handler.delete(
-          Channel.ofQueries(
-              groupIds.get(1),
-              Map.of(
-                  GroupHandler.GROUP_KEY,
-                  "true",
-                  GroupHandler.INSTANCE_KEY,
-                  group1Members.iterator().next().groupInstanceId().get())));
-      Assertions.assertFalse(admin.consumerGroupIds().contains(groupIds.get(1)));
+      handler
+          .delete(
+              Channel.ofQueries(
+                  groupIds.get(1),
+                  Map.of(
+                      GroupHandler.GROUP_KEY,
+                      "true",
+                      GroupHandler.INSTANCE_KEY,
+                      group1Members.iterator().next().groupInstanceId().get())))
+          .toCompletableFuture()
+          .join();
+      Assertions.assertFalse(
+          admin.consumerGroupIds().toCompletableFuture().join().contains(groupIds.get(1)));
     }
   }
 }

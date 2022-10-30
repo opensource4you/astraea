@@ -47,7 +47,7 @@ public class ScenarioMain extends Argument {
 
   public void execute(Scenario scenario) {
     System.out.println("Accept scenario: " + scenario.getClass().getName());
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       System.out.println(gson.toJson(scenario.apply(admin)));
     }
   }

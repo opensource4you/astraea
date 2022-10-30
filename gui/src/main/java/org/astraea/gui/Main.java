@@ -19,8 +19,16 @@ package org.astraea.gui;
 import javafx.application.Application;
 import javafx.geometry.Side;
 import javafx.scene.Scene;
-import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
+import org.astraea.common.MapUtils;
+import org.astraea.gui.pane.Slide;
+import org.astraea.gui.tab.AboutNode;
+import org.astraea.gui.tab.BalancerNode;
+import org.astraea.gui.tab.BrokerNode;
+import org.astraea.gui.tab.ClientNode;
+import org.astraea.gui.tab.QuotaNode;
+import org.astraea.gui.tab.SettingNode;
+import org.astraea.gui.tab.topic.TopicNode;
 
 /**
  * Since the Java launcher checks if the main class extends javafx.application.Application, and in
@@ -39,28 +47,31 @@ public class Main {
     @Override
     public void start(Stage stage) {
       var context = new Context();
-      var rootPane =
-          new TabPane(
-              SettingTab.of(context),
-              BrokerTab.of(context),
-              TopicTab.of(context),
-              PartitionTab.of(context),
-              ConfigTab.of(context),
-              ConsumerTab.of(context),
-              ProducerTab.of(context),
-              TransactionTab.of(context),
-              AddingReplicaTab.of(context),
-              CreateTopicTab.of(context),
-              ReassignReplicaTab.of(context),
-              BalancerTab.of(context),
-              AboutTab.of(context));
-      rootPane.setSide(Side.TOP);
-      rootPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-      var scene = new Scene(rootPane, 300, 300);
       stage.setTitle("Astraea");
-      stage.setHeight(1000);
-      stage.setWidth(1000);
-      stage.setScene(scene);
+      stage.setHeight(900);
+      stage.setWidth(1200);
+      stage.setScene(
+          new Scene(
+              Slide.of(
+                      Side.BOTTOM,
+                      MapUtils.of(
+                          "setting",
+                          SettingNode.of(context),
+                          "broker",
+                          BrokerNode.of(context),
+                          "topic",
+                          TopicNode.of(context),
+                          "client",
+                          ClientNode.of(context),
+                          "quota",
+                          QuotaNode.of(context),
+                          "balancer",
+                          BalancerNode.of(context),
+                          "about",
+                          AboutNode.of(context)))
+                  .node(),
+              300,
+              300));
       stage.show();
     }
 

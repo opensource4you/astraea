@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -31,15 +30,17 @@ import org.junit.jupiter.api.Test;
 public class ProducerHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListProducers() throws ExecutionException, InterruptedException {
+  void testListProducers() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var handler = new ProducerHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
       var result =
-          Assertions.assertInstanceOf(ProducerHandler.Partitions.class, handler.get(Channel.EMPTY));
+          Assertions.assertInstanceOf(
+              ProducerHandler.Partitions.class,
+              handler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertNotEquals(0, result.partitions.size());
 
       var partitions =
@@ -53,11 +54,11 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQuerySinglePartition() throws ExecutionException, InterruptedException {
+  void testQuerySinglePartition() {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(2).create();
+      admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new ProducerHandler(admin);
       producer
@@ -67,7 +68,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
           .value(new byte[1])
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       producer
           .sender()
           .topic(topicName)
@@ -75,7 +76,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
           .value(new byte[1])
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
 
       Assertions.assertEquals(
@@ -83,29 +84,42 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
           handler
               .partitions(
                   Map.of(ProducerHandler.TOPIC_KEY, topicName, ProducerHandler.PARTITION_KEY, "0"))
+              .toCompletableFuture()
+              .join()
               .size());
 
       var result0 =
           Assertions.assertInstanceOf(
               ProducerHandler.Partitions.class,
-              handler.get(
-                  Channel.ofQueries(
-                      Map.of(
-                          ProducerHandler.TOPIC_KEY,
-                          topicName,
-                          ProducerHandler.PARTITION_KEY,
-                          "0"))));
+              handler
+                  .get(
+                      Channel.ofQueries(
+                          Map.of(
+                              ProducerHandler.TOPIC_KEY,
+                              topicName,
+                              ProducerHandler.PARTITION_KEY,
+                              "0")))
+                  .toCompletableFuture()
+                  .join());
       Assertions.assertEquals(1, result0.partitions.size());
       Assertions.assertEquals(topicName, result0.partitions.iterator().next().topic);
       Assertions.assertEquals(0, result0.partitions.iterator().next().partition);
 
       Assertions.assertEquals(
-          2, handler.partitions(Map.of(ProducerHandler.TOPIC_KEY, topicName)).size());
+          2,
+          handler
+              .partitions(Map.of(ProducerHandler.TOPIC_KEY, topicName))
+              .toCompletableFuture()
+              .join()
+              .size());
 
       var result1 =
           Assertions.assertInstanceOf(
               ProducerHandler.Partitions.class,
-              handler.get(Channel.ofQueries(Map.of(ProducerHandler.TOPIC_KEY, topicName))));
+              handler
+                  .get(Channel.ofQueries(Map.of(ProducerHandler.TOPIC_KEY, topicName)))
+                  .toCompletableFuture()
+                  .join());
       Assertions.assertEquals(2, result1.partitions.size());
       Assertions.assertEquals(topicName, result1.partitions.iterator().next().topic);
       Assertions.assertEquals(
@@ -119,16 +133,22 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new ProducerHandler(admin);
-      Assertions.assertEquals(admin.topicPartitions(), handler.partitions(Map.of()));
-      var target = admin.topicPartitions().iterator().next();
+      var topics = admin.topicNames(false).toCompletableFuture().join();
+      Assertions.assertEquals(
+          admin.topicPartitions(topics).toCompletableFuture().join(),
+          handler.partitions(Map.of()).toCompletableFuture().join());
+      var target = admin.topicPartitions(topics).toCompletableFuture().join().iterator().next();
       Assertions.assertEquals(
           Set.of(target),
-          handler.partitions(
-              Map.of(
-                  ProducerHandler.TOPIC_KEY,
-                  target.topic(),
-                  ProducerHandler.PARTITION_KEY,
-                  String.valueOf(target.partition()))));
+          handler
+              .partitions(
+                  Map.of(
+                      ProducerHandler.TOPIC_KEY,
+                      target.topic(),
+                      ProducerHandler.PARTITION_KEY,
+                      String.valueOf(target.partition())))
+              .toCompletableFuture()
+              .join());
 
       Assertions.assertThrows(
           IllegalArgumentException.class,
@@ -140,11 +160,16 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
                       ProducerHandler.PARTITION_KEY,
                       "a")));
 
-      admin.creator().topic(topicName).numberOfPartitions(3).create();
+      admin.creator().topic(topicName).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
 
       Assertions.assertEquals(
-          3, handler.partitions(Map.of(ProducerHandler.TOPIC_KEY, topicName)).size());
+          3,
+          handler
+              .partitions(Map.of(ProducerHandler.TOPIC_KEY, topicName))
+              .toCompletableFuture()
+              .join()
+              .size());
     }
   }
 }

@@ -46,22 +46,25 @@ public class BeanHandlerTest extends RequireBrokerCluster {
   @Test
   void testBeans() {
     var topic = Utils.randomString(10);
-    try (Admin admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(10).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BeanHandler(admin, name -> jmxServiceURL().getPort());
       var response =
-          Assertions.assertInstanceOf(BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY));
+          Assertions.assertInstanceOf(
+              BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response.nodeBeans.size());
 
       var response1 =
           Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class, handler.get(Channel.ofTarget("kafka.server")));
+              BeanHandler.NodeBeans.class,
+              handler.get(Channel.ofTarget("kafka.server")).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response1.nodeBeans.size());
 
       var response2 =
           Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class, handler.get(Channel.ofQueries(Map.of("topic", topic))));
+              BeanHandler.NodeBeans.class,
+              handler.get(Channel.ofQueries(Map.of("topic", topic))).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response2.nodeBeans.size());
     }
   }

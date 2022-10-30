@@ -19,6 +19,7 @@ package org.astraea.common.metrics.broker;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -36,11 +37,35 @@ import org.mockito.Mockito;
 public class LogMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
+  @EnumSource(LogMetrics.LogCleanerManager.class)
+  void testLogCleanerManager(LogMetrics.LogCleanerManager log) {
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var beans =
+          log.fetch(MBeanClient.local()).stream()
+              .collect(Collectors.groupingBy(LogMetrics.LogCleanerManager.Gauge::path));
+      Assertions.assertEquals(
+          dataFolders().values().stream().flatMap(Collection::stream).distinct().count(),
+          beans.size());
+      dataFolders().values().stream()
+          .flatMap(Collection::stream)
+          .distinct()
+          .forEach(
+              d ->
+                  Assertions.assertTrue(
+                      beans.containsKey(d), "beans: " + beans.keySet() + " d:" + d));
+      //      dataFolders().values().forEach(ds ->
+      // Assertions.assertTrue(beans.keySet().containsAll(ds), "beans: " + beans.keySet() + " ds: "
+      // + ds));
+    }
+  }
+
+  @ParameterizedTest
   @EnumSource(LogMetrics.Log.class)
   void testMetrics(LogMetrics.Log log) {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(2).create();
+      admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var beans =
           log.fetch(MBeanClient.local()).stream()
@@ -82,7 +107,13 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
   void testTopicPartitionMetrics(LogMetrics.Log request) {
     try (var admin = Admin.of(bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
-      admin.creator().topic(Utils.randomString(5)).numberOfPartitions(10).create();
+      admin
+          .creator()
+          .topic(Utils.randomString(5))
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
     }
 
     // wait for topic creation

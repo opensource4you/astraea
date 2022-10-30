@@ -122,6 +122,7 @@ GET /topics
 |--------------|------------------------------------------------------------------------------------------------|--------------------|
 | partition    | (選填) 指定要查看哪一個 partition                                                                        | 無，代表全部 partitions  |
 | listInternal | (選填) 為 boolean 值。若填寫 true，則會列出 kafka 內部所使用的 topics，如 __commit_offsets。若設為 false，則不會列出此種 topics | true，代表列出所有 topics |
+| poll_timeout | (選填) 拉取最新資料時間戳記的等待時間，當沒有指定時回傳內容將不包含最新資料時間戳記                                                    | 無，代表不拉取最新資料的時間戳記   |
 
 cURL 範例
 ```shell
@@ -134,6 +135,9 @@ JSON Response 範例
   "topics": [
     {
       "name": "test1",
+      "activeGroupIds": [
+        "groupId-1666757298494"
+      ],
       "partitions": [
         {
           "id": 0,
@@ -149,7 +153,9 @@ JSON Response 範例
               "isFuture": false,
               "path": "/tmp/log-folder-0"
             }
-          ]
+          ],
+          "maxTimestamp": 1666757305832,
+          "timestampOfLatestRecord": 1666757554723
         }
       ],
       "configs": {
@@ -209,6 +215,9 @@ JSON Response 範例
  ```json
 {
   "name": "test1",
+  "activeGroupIds": [
+    "groupId-1666757298494"
+  ],
   "partitions": [
     {
       "id": 0,
@@ -224,7 +233,8 @@ JSON Response 範例
           "isFuture": false,
           "path": "/tmp/log-folder-0"
         }
-      ]
+      ],
+      "maxTimestamp": 1666757305832
     }
   ],
   "configs": {

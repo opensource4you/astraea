@@ -92,7 +92,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
   @ValueSource(shorts = {1, 2, 3})
   void testOfClusterInfo(short replicas) {
     // arrange
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var topic0 = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
@@ -105,11 +105,14 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
                   .topic(topic)
                   .numberOfPartitions(partitions)
                   .numberOfReplicas(replicas)
-                  .create());
+                  .run()
+                  .toCompletableFuture()
+                  .join());
       Utils.sleep(Duration.ofSeconds(1));
 
       // act
-      final var cla = ClusterLogAllocation.of(admin.clusterInfo(topics));
+      final var cla =
+          ClusterLogAllocation.of(admin.clusterInfo(topics).toCompletableFuture().join());
 
       // assert
       final var expectedPartitions =
@@ -211,7 +214,7 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
             .filter(replica -> replica.nodeInfo().id() == 9999)
             .findFirst()
             .orElseThrow()
-            .dataFolder());
+            .path());
   }
 
   @ParameterizedTest
@@ -505,13 +508,13 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
             "/tmp/default/dir");
 
     Assertions.assertEquals(
-        "/other", ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").dataFolder());
+        "/other", ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").path());
     Assertions.assertEquals(
         nodeInfo, ClusterLogAllocation.update(replica, nodeInfo.id(), "/other").nodeInfo());
     Assertions.assertEquals(
         5566, ClusterLogAllocation.update(replica, 5566, "/other").nodeInfo().id());
     Assertions.assertEquals(
-        "/other", ClusterLogAllocation.update(replica, newNodeInfo, "/other").dataFolder());
+        "/other", ClusterLogAllocation.update(replica, newNodeInfo, "/other").path());
     Assertions.assertEquals(
         newNodeInfo, ClusterLogAllocation.update(replica, newNodeInfo, "/other").nodeInfo());
     Assertions.assertEquals(

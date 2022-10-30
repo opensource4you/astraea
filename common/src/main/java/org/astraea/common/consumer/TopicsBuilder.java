@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
@@ -37,14 +36,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
 
   TopicsBuilder(Set<String> topics) {
     this.topics = requireNonNull(topics);
-  }
-
-  public TopicsBuilder<Key, Value> groupId(String groupId) {
-    return config(ConsumerConfig.GROUP_ID_CONFIG, requireNonNull(groupId));
-  }
-
-  public TopicsBuilder<Key, Value> groupInstanceId(String groupInstanceId) {
-    return config(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, requireNonNull(groupInstanceId));
   }
 
   public TopicsBuilder<Key, Value> consumerRebalanceListener(ConsumerRebalanceListener listener) {
@@ -64,28 +55,6 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
-  /**
-   * make the consumer read data from beginning. By default, it reads the latest data.
-   *
-   * @return this builder
-   */
-  @Override
-  public TopicsBuilder<Key, Value> fromBeginning() {
-    super.fromBeginning();
-    return this;
-  }
-
-  /**
-   * make the consumer read data from latest. this is default setting.
-   *
-   * @return this builder
-   */
-  @Override
-  public TopicsBuilder<Key, Value> fromLatest() {
-    super.fromLatest();
-    return this;
-  }
-
   @Override
   public <NewKey> TopicsBuilder<NewKey, Value> keyDeserializer(
       Deserializer<NewKey> keyDeserializer) {
@@ -99,12 +68,12 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   }
 
   public TopicsBuilder<Key, Value> config(String key, String value) {
-    this.configs.put(key, value);
+    super.config(key, value);
     return this;
   }
 
   public TopicsBuilder<Key, Value> configs(Map<String, String> configs) {
-    this.configs.putAll(configs);
+    super.configs(configs);
     return this;
   }
 
@@ -114,27 +83,11 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     return this;
   }
 
-  @Override
-  public TopicsBuilder<Key, Value> isolation(Isolation isolation) {
-    super.isolation(isolation);
-    return this;
-  }
-
-  public TopicsBuilder<Key, Value> disableAutoCommitOffsets() {
-    return config(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-  }
-
-  @Override
-  public TopicsBuilder<Key, Value> clientId(String clientId) {
-    super.clientId(clientId);
-    return this;
-  }
-
   @SuppressWarnings("unchecked")
   @Override
   public SubscribedConsumer<Key, Value> build() {
     // generate group id if it is empty
-    configs.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
+    configs.putIfAbsent(ConsumerConfigs.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
 
     var kafkaConsumer =
         new KafkaConsumer<>(

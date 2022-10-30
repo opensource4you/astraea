@@ -42,7 +42,6 @@ public class WebService {
     server.createContext("/brokers", to(new BrokerHandler(Admin.of(arg.configs()))));
     server.createContext("/producers", to(new ProducerHandler(Admin.of(arg.configs()))));
     server.createContext("/quotas", to(new QuotaHandler(Admin.of(arg.configs()))));
-    server.createContext("/pipelines", to(new PipelineHandler(Admin.of(arg.configs()))));
     server.createContext("/transactions", to(new TransactionHandler(Admin.of(arg.configs()))));
     if (arg.needJmx())
       server.createContext("/beans", to(new BeanHandler(Admin.of(arg.configs()), arg.jmxPorts())));

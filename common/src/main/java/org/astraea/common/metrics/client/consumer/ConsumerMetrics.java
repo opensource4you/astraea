@@ -17,13 +17,60 @@
 package org.astraea.common.metrics.client.consumer;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.metrics.AppInfo;
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 
 public class ConsumerMetrics {
+
+  public static List<AppInfo> appInfo(MBeanClient client) {
+    return client
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.consumer")
+                .property("type", "app-info")
+                .property("client-id", "*")
+                .build())
+        .stream()
+        .map(
+            obj ->
+                new AppInfo() {
+                  @Override
+                  public String id() {
+                    return beanObject().properties().get("client-id");
+                  }
+
+                  @Override
+                  public String commitId() {
+                    return (String) beanObject().attributes().get("commit-id");
+                  }
+
+                  @Override
+                  public Optional<Long> startTimeMs() {
+                    var t = beanObject().attributes().get("start-time-ms");
+                    if (t == null) return Optional.empty();
+                    return Optional.of((long) t);
+                  }
+
+                  @Override
+                  public String version() {
+                    return (String) beanObject().attributes().get("version");
+                  }
+
+                  @Override
+                  public BeanObject beanObject() {
+                    return obj;
+                  }
+                })
+        .collect(Collectors.toList());
+  }
+
   /**
    * collect HasNodeMetrics from all consumers.
    *

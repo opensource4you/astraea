@@ -66,7 +66,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).create();
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       producer.sender().topic(Utils.randomString(10)).value(new byte[100]).run();
       producer.flush();

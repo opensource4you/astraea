@@ -20,14 +20,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
@@ -42,6 +34,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
@@ -49,9 +42,13 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.json.JsonConverter.ByteArrayToBase64TypeAdapter;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Sender;
 import org.astraea.common.producer.Serializer;
 
@@ -87,7 +84,7 @@ public class RecordHandler implements Handler {
         Cache.<String, Producer<byte[], byte[]>>builder(
                 transactionId ->
                     Producer.builder()
-                        .transactionId(transactionId)
+                        .config(ProducerConfigs.TRANSACTIONAL_ID_CONFIG, transactionId)
                         .bootstrapServers(bootstrapServers)
                         .buildTransactional())
             .maxCapacity(MAX_CACHE_SIZE)
@@ -97,15 +94,13 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public Response get(Channel channel) {
-    if (channel.target().isEmpty())
-      return Response.of(new IllegalArgumentException("topic must be set"));
+  public CompletionStage<Response> get(Channel channel) {
+    if (channel.target().isEmpty()) throw new IllegalArgumentException("topic must be set");
 
     var topic = channel.target().get();
     var seekStrategies = Set.of(DISTANCE_FROM_LATEST, DISTANCE_FROM_BEGINNING, SEEK_TO);
-    if (channel.queries().keySet().stream().filter(seekStrategies::contains).count() > 1) {
+    if (channel.queries().keySet().stream().filter(seekStrategies::contains).count() > 1)
       throw new IllegalArgumentException("only one seek strategy is allowed");
-    }
 
     var limit = Integer.parseInt(channel.queries().getOrDefault(LIMIT, "1"));
     var timeout =
@@ -123,8 +118,12 @@ public class RecordHandler implements Handler {
             .orElseGet(
                 () -> {
                   // disable auto commit here since we commit manually in Records#onComplete
-                  var builder = Consumer.forTopics(Set.of(topic)).disableAutoCommitOffsets();
-                  Optional.ofNullable(channel.queries().get(GROUP_ID)).ifPresent(builder::groupId);
+                  var builder =
+                      Consumer.forTopics(Set.of(topic))
+                          .config(ConsumerConfigs.ENABLE_AUTO_COMMIT_CONFIG, "false");
+                  Optional.ofNullable(channel.queries().get(GROUP_ID))
+                      .ifPresent(
+                          groupId -> builder.config(ConsumerConfigs.GROUP_ID_CONFIG, groupId));
                   return builder;
                 });
 
@@ -147,21 +146,19 @@ public class RecordHandler implements Handler {
         .map(Long::parseLong)
         .ifPresent(
             distanceFromLatest ->
-                consumerBuilder.seek(
-                    Builder.SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
+                consumerBuilder.seek(SeekStrategy.DISTANCE_FROM_LATEST, distanceFromLatest));
 
     Optional.ofNullable(channel.queries().get(DISTANCE_FROM_BEGINNING))
         .map(Long::parseLong)
         .ifPresent(
             distanceFromBeginning ->
-                consumerBuilder.seek(
-                    Builder.SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
+                consumerBuilder.seek(SeekStrategy.DISTANCE_FROM_BEGINNING, distanceFromBeginning));
 
     Optional.ofNullable(channel.queries().get(SEEK_TO))
         .map(Long::parseLong)
-        .ifPresent(seekTo -> consumerBuilder.seek(Builder.SeekStrategy.SEEK_TO, seekTo));
+        .ifPresent(seekTo -> consumerBuilder.seek(SeekStrategy.SEEK_TO, seekTo));
 
-    return get(consumerBuilder.build(), limit, timeout);
+    return CompletableFuture.completedFuture(get(consumerBuilder.build(), limit, timeout));
   }
 
   // visible for testing
@@ -176,14 +173,13 @@ public class RecordHandler implements Handler {
   }
 
   @Override
-  public Response post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     var async = channel.request().getBoolean(ASYNC).orElse(false);
     var timeout =
         channel.request().get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
     var records = channel.request().values(RECORDS, PostRecord.class);
-    if (records.isEmpty()) {
+    if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");
-    }
 
     var producer =
         channel
@@ -208,7 +204,7 @@ public class RecordHandler implements Handler {
                 })
             .thenCompose(
                 senderFutures ->
-                    Utils.sequence(
+                    FutureUtils.sequence(
                         senderFutures.stream()
                             .map(
                                 s ->
@@ -223,39 +219,51 @@ public class RecordHandler implements Handler {
                             .map(CompletionStage::toCompletableFuture)
                             .collect(toList())));
 
-    if (async) return Response.ACCEPT;
-    return Utils.packException(
-        () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS)));
+    if (async) return CompletableFuture.completedFuture(Response.ACCEPT);
+    return CompletableFuture.completedFuture(
+        Utils.packException(
+            () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS))));
   }
 
   @Override
-  public Response delete(Channel channel) {
-    if (channel.target().isEmpty()) return Response.NOT_FOUND;
+  public CompletionStage<Response> delete(Channel channel) {
+    if (channel.target().isEmpty()) return CompletableFuture.completedFuture(Response.NOT_FOUND);
     var topic = channel.target().get();
     var partitions =
         Optional.ofNullable(channel.queries().get(PARTITION))
-            .map(x -> Set.of(TopicPartition.of(topic, x)))
+            .map(x -> CompletableFuture.completedStage(Set.of(TopicPartition.of(topic, x))))
             .orElseGet(() -> admin.topicPartitions(Set.of(topic)));
 
-    var deletedOffsets =
-        Optional.ofNullable(channel.queries().get(OFFSET))
-            .map(Long::parseLong)
-            .map(
-                offset ->
-                    partitions.stream().collect(Collectors.toMap(Function.identity(), x -> offset)))
-            .orElseGet(
-                () -> {
-                  var currentPartitions =
-                      admin.partitions(Set.of(topic)).stream()
-                          .collect(
-                              Collectors.toMap(Partition::topicPartition, Function.identity()));
-                  return partitions.stream()
-                      .collect(
-                          Collectors.toMap(
-                              Function.identity(), x -> currentPartitions.get(x).latestOffset()));
-                });
-    admin.deleteRecords(deletedOffsets);
-    return Response.OK;
+    return Optional.ofNullable(channel.queries().get(OFFSET))
+        .map(Long::parseLong)
+        .map(
+            offset ->
+                partitions.thenApply(
+                    p -> p.stream().collect(Collectors.toMap(Function.identity(), x -> offset))))
+        .orElseGet(
+            () ->
+                admin
+                    .partitions(Set.of(topic))
+                    .thenApply(
+                        p ->
+                            p.stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        Partition::topicPartition, Function.identity())))
+                    .thenCompose(
+                        topicPartitionPartitionMap ->
+                            partitions.thenApply(
+                                p ->
+                                    p.stream()
+                                        .collect(
+                                            Collectors.toMap(
+                                                Function.identity(),
+                                                x ->
+                                                    topicPartitionPartitionMap
+                                                        .get(x)
+                                                        .latestOffset())))))
+        .thenCompose(admin::deleteRecords)
+        .thenApply(records -> Response.OK);
   }
 
   enum SerDe implements EnumInfo {
@@ -429,18 +437,6 @@ public class RecordHandler implements Handler {
     Header(org.astraea.common.consumer.Header header) {
       this.key = header.key();
       this.value = header.value();
-    }
-  }
-
-  static class ByteArrayToBase64TypeAdapter
-      implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
-    public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)
-        throws JsonParseException {
-      return Base64.getDecoder().decode(json.getAsString());
-    }
-
-    public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
-      return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
     }
   }
 

@@ -21,26 +21,45 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 
 public interface Broker extends NodeInfo {
 
   static Broker of(
       boolean isController,
-      org.astraea.common.admin.NodeInfo nodeInfo,
-      org.apache.kafka.clients.admin.Config kafkaConfig,
-      Map<String, org.apache.kafka.clients.admin.LogDirDescription> dirs,
+      org.apache.kafka.common.Node nodeInfo,
+      Map<String, String> configs,
+      Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
-    var config = Config.of(kafkaConfig);
+    var config = Config.of(configs);
+    var partitionsFromTopicDesc =
+        topics.stream()
+            .flatMap(
+                t ->
+                    t.partitions().stream()
+                        .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == nodeInfo.id()))
+                        .map(p -> TopicPartition.of(t.name(), p.partition())))
+            .collect(Collectors.toUnmodifiableSet());
     var folders =
         dirs.entrySet().stream()
             .map(
                 entry -> {
                   var path = entry.getKey();
-                  var tpAndSize =
-                      entry.getValue().replicaInfos().entrySet().stream()
+                  var allPartitionAndSize =
+                      entry.getValue().replicaInfos.entrySet().stream()
                           .collect(
                               Collectors.toUnmodifiableMap(
-                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size()));
+                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size));
+                  var partitionSizes =
+                      allPartitionAndSize.entrySet().stream()
+                          .filter(tpAndSize -> partitionsFromTopicDesc.contains(tpAndSize.getKey()))
+                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                  var orphanPartitionSizes =
+                      allPartitionAndSize.entrySet().stream()
+                          .filter(
+                              tpAndSize -> !partitionsFromTopicDesc.contains(tpAndSize.getKey()))
+                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
                   return (DataFolder)
                       new DataFolder() {
 
@@ -51,17 +70,22 @@ public interface Broker extends NodeInfo {
 
                         @Override
                         public Map<TopicPartition, Long> partitionSizes() {
-                          return tpAndSize;
+                          return partitionSizes;
+                        }
+
+                        @Override
+                        public Map<TopicPartition, Long> orphanPartitionSizes() {
+                          return orphanPartitionSizes;
                         }
                       };
                 })
             .collect(Collectors.toList());
-    var partitions =
+    var topicPartitionLeaders =
         topics.stream()
             .flatMap(
                 topic ->
                     topic.partitions().stream()
-                        .filter(p -> p.leader().id() == nodeInfo.id())
+                        .filter(p -> p.leader() != null && p.leader().id() == nodeInfo.id())
                         .map(p -> TopicPartition.of(topic.name(), p.partition())))
             .collect(Collectors.toUnmodifiableSet());
     return new Broker() {
@@ -91,13 +115,18 @@ public interface Broker extends NodeInfo {
       }
 
       @Override
-      public List<DataFolder> folders() {
+      public List<DataFolder> dataFolders() {
         return folders;
       }
 
       @Override
+      public Set<TopicPartition> topicPartitions() {
+        return partitionsFromTopicDesc;
+      }
+
+      @Override
       public Set<TopicPartition> topicPartitionLeaders() {
-        return partitions;
+        return topicPartitionLeaders;
       }
     };
   }
@@ -108,7 +137,9 @@ public interface Broker extends NodeInfo {
   Config config();
 
   /** @return the disk folder used to stored data by this node */
-  List<DataFolder> folders();
+  List<DataFolder> dataFolders();
+
+  Set<TopicPartition> topicPartitions();
 
   /** @return partition leaders hosted by this broker */
   Set<TopicPartition> topicPartitionLeaders();
@@ -120,5 +151,8 @@ public interface Broker extends NodeInfo {
 
     /** @return topic partition hosed by this node and size of files */
     Map<TopicPartition, Long> partitionSizes();
+
+    /** @return topic partition located by this node but not traced by cluster */
+    Map<TopicPartition, Long> orphanPartitionSizes();
   }
 }

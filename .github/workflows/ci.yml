@@ -16,8 +16,8 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: '11'
-          distribution: 'adopt'
+          distribution: 'zulu'
       - name: build
-        run: ./gradlew clean build -x test --no-daemon
+        run: ./gradlew clean build testClasses -x test --no-daemon
       - name: unit tests
-        run: ./gradlew clean test --no-daemon --console plain -PmaxParallelForks=1
+        run: ./gradlew clean test --no-daemon --console plain -PmaxParallelForks=3 --continue

@@ -29,10 +29,20 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
   @Test
   void testQuery() {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(Utils.randomString()).numberOfPartitions(10).create();
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
 
-      var clusterInfo = admin.clusterInfo();
+      var clusterInfo =
+          admin
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join();
 
       // search by replica
       clusterInfo

@@ -17,6 +17,7 @@
 package org.astraea.common.scenario;
 
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 
@@ -64,7 +65,7 @@ public interface Scenario {
   }
 
   /** Apply this scenario to the Kafka cluster */
-  Result apply(Admin admin);
+  CompletionStage<Result> apply(Admin admin);
 
   class Result {
 

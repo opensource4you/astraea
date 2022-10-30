@@ -30,12 +30,30 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
     String topicName1 = "testOfflineTopic-1";
     String topicName2 = "testOfflineTopic-2";
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topicName1).numberOfPartitions(4).numberOfReplicas((short) 1).create();
-      admin.creator().topic(topicName2).numberOfPartitions(4).numberOfReplicas((short) 1).create();
+      admin
+          .creator()
+          .topic(topicName1)
+          .numberOfPartitions(4)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(topicName2)
+          .numberOfPartitions(4)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
       // wait for topic creation
       Utils.sleep(Duration.ofSeconds(3));
       var replicaOnBroker0 =
-          admin.replicas(admin.topicNames()).stream()
+          admin
+              .replicas(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .stream()
               .filter(replica -> replica.nodeInfo().id() == 0)
               .collect(
                   Collectors.groupingBy(
@@ -46,7 +64,11 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       Assertions.assertNotNull(logFolders().get(1));
       Assertions.assertNotNull(logFolders().get(2));
       var offlineReplicaOnBroker0 =
-          admin.replicas(admin.topicNames()).stream()
+          admin
+              .replicas(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .stream()
               .filter(replica -> replica.nodeInfo().id() == 0)
               .collect(
                   Collectors.groupingBy(
@@ -58,7 +80,7 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
                 Assertions.assertTrue(replica.isOffline());
                 Assertions.assertEquals(-1, replica.size());
                 Assertions.assertEquals(-1, replica.lag());
-                Assertions.assertNull(replica.dataFolder());
+                Assertions.assertNull(replica.path());
               });
     }
   }
