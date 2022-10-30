@@ -39,6 +39,7 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -48,7 +49,6 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -167,7 +167,7 @@ class BalancerHandler implements Handler {
                   bestPlan
                       .map(
                           p ->
-                              ClusterLogAllocation.findNonFulfilledAllocation(
+                              ClusterInfo.findNonFulfilledAllocation(
                                       currentClusterInfo, p.proposal().rebalancePlan())
                                   .stream()
                                   .map(
@@ -179,11 +179,7 @@ class BalancerHandler implements Handler {
                                               currentClusterInfo.replicas(tp).stream()
                                                   .map(r -> new Placement(r, r.size()))
                                                   .collect(Collectors.toList()),
-                                              p
-                                                  .proposal()
-                                                  .rebalancePlan()
-                                                  .logPlacements(tp)
-                                                  .stream()
+                                              p.proposal().rebalancePlan().replicas(tp).stream()
                                                   .map(r -> new Placement(r, null))
                                                   .collect(Collectors.toList())))
                                   .collect(Collectors.toUnmodifiableList()))

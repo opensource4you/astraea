@@ -717,7 +717,7 @@ class AdminImpl implements Admin {
                     Comparator.comparing(Replica::topic)
                         .thenComparing(Replica::partition)
                         .thenComparing(r -> r.nodeInfo().id()))
-                .collect(Collectors.toList()));
+                .collect(Collectors.toUnmodifiableList()));
   }
 
   @Override

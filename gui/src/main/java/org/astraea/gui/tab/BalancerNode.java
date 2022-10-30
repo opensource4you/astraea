@@ -36,7 +36,6 @@ import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
@@ -82,13 +81,12 @@ public class BalancerNode {
   }
 
   static List<Map<String, Object>> result(ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
-    return ClusterLogAllocation.findNonFulfilledAllocation(
-            clusterInfo, plan.proposal().rebalancePlan())
+    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal().rebalancePlan())
         .stream()
         .map(
             tp -> {
               var previousAssignments = clusterInfo.replicas(tp);
-              var newAssignments = plan.proposal().rebalancePlan().logPlacements(tp);
+              var newAssignments = plan.proposal().rebalancePlan().replicas(tp);
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, tp.topic());
               result.put(PARTITION_KEY, tp.partition());
