@@ -80,6 +80,26 @@ public class ReplicaTabTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           3, admin.replicas(Set.of(topicName)).toCompletableFuture().join().size());
+
+      var id = brokerIds().iterator().next();
+      var path = List.copyOf(logFolders().get(id)).get(2);
+
+      var f4 =
+          action.apply(
+              List.of(Map.of(ReplicaNode.TOPIC_NAME_KEY, topicName, ReplicaNode.PARTITION_KEY, 0)),
+              Input.of(
+                  List.of(), Map.of(ReplicaNode.MOVE_BROKER_KEY, Optional.of(id + ":" + path))),
+              log::set);
+      f4.toCompletableFuture().join();
+      Assertions.assertEquals("succeed to alter partitions: [" + topicName + "-0]", log.get());
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(
+          1, admin.replicas(Set.of(topicName)).toCompletableFuture().join().size());
+      Assertions.assertEquals(
+          id,
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().get(0).nodeInfo().id());
+      Assertions.assertEquals(
+          path, admin.replicas(Set.of(topicName)).toCompletableFuture().join().get(0).path());
     }
   }
 
