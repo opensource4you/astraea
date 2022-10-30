@@ -46,6 +46,6 @@ public class TestTextSourceTask extends SourceTask {
 
   @Override
   public String version() {
-    return null;
+    return "0.1.0";
   }
 }

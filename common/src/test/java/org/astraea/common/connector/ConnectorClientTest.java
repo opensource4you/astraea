@@ -53,14 +53,14 @@ class ConnectorClientTest extends RequireWorkerCluster {
   void testConnectors() throws ExecutionException, InterruptedException {
     var connectorName = Utils.randomString(10);
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
-    var connectors = connectorClient.connectors().toCompletableFuture().get();
+    var connectors = connectorClient.connectorNames().toCompletableFuture().get();
     assertFalse(connectors.stream().anyMatch(x -> x.equals(connectorName)));
 
     connectorClient
         .createConnector(connectorName, getExampleConnector())
         .toCompletableFuture()
         .get();
-    connectors = connectorClient.connectors().toCompletableFuture().get();
+    connectors = connectorClient.connectorNames().toCompletableFuture().get();
     assertTrue(connectors.stream().anyMatch(x -> x.equals(connectorName)));
   }
 
@@ -133,7 +133,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
             .get();
     assertEquals("1", connector.config().get("tasks.max"));
     assertEquals("myTopic", connector.config().get("topics"));
-    var connectors = connectorClient.connectors().toCompletableFuture().get();
+    var connectors = connectorClient.connectorNames().toCompletableFuture().get();
     assertTrue(connectors.stream().anyMatch(x -> x.equals(connectorName)));
 
     var updateConfig = new HashMap<>(exampleConnector);
@@ -157,11 +157,11 @@ class ConnectorClientTest extends RequireWorkerCluster {
     var exampleConnector = getExampleConnector();
 
     connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().get();
-    var connectors = connectorClient.connectors().toCompletableFuture().get();
+    var connectors = connectorClient.connectorNames().toCompletableFuture().get();
     assertTrue(connectors.stream().anyMatch(x -> x.equals(connectorName)));
 
     connectorClient.deleteConnector(connectorName).toCompletableFuture().get();
-    connectors = connectorClient.connectors().toCompletableFuture().get();
+    connectors = connectorClient.connectorNames().toCompletableFuture().get();
     assertFalse(connectors.stream().anyMatch(x -> x.equals(connectorName)));
 
     var executionException =
@@ -171,10 +171,16 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     var exception = getWorkerException(executionException);
 
-    //  single worker throw 404, cluster throw 500 , so we sleep to wait worker become cluster
-    Thread.sleep(5000);
-    assertEquals(500, exception.errorCode());
+    // In distribution mode, Request forward to another node will throw 500, otherwise 404.
     assertTrue(exception.getMessage().contains("unknown not found"));
+  }
+
+  @Test
+  void testPlugin() throws ExecutionException, InterruptedException {
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var plugins = connectorClient.plugins().toCompletableFuture().get();
+    assertTrue(
+        plugins.stream().anyMatch(x -> TestTextSourceConnector.class.getName().equals(x.clz())));
   }
 
   @Test
@@ -216,7 +222,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
               .mapToObj(
                   x ->
                       Utils.packException(
-                          () -> connectorClient.connectors().toCompletableFuture().get()))
+                          () -> connectorClient.connectorNames().toCompletableFuture().get()))
               .flatMap(Collection::stream)
               .collect(Collectors.toSet());
 

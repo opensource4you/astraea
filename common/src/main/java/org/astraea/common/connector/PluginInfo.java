@@ -18,43 +18,17 @@ package org.astraea.common.connector;
 
 import com.google.gson.annotations.SerializedName;
 
-public class WorkerInfo {
-  private final String version;
-  private final String commit;
+public class PluginInfo {
 
-  @SerializedName(value = "kafkaClusterId", alternate = "kafka_cluster_id")
-  private final String kafkaClusterId;
+  /** connector plugin class name */
+  @SerializedName(value = "class")
+  private String clz;
 
-  public WorkerInfo(String version, String commit, String kafkaClusterId) {
-    this.version = version;
-    this.commit = commit;
-    this.kafkaClusterId = kafkaClusterId;
+  public PluginInfo(String clz) {
+    this.clz = clz;
   }
 
-  public String version() {
-    return version;
-  }
-
-  public String commit() {
-    return commit;
-  }
-
-  public String kafkaClusterId() {
-    return kafkaClusterId;
-  }
-
-  @Override
-  public String toString() {
-    return "WorkerInfo{"
-        + "version='"
-        + version
-        + '\''
-        + ", commit='"
-        + commit
-        + '\''
-        + ", kafkaClusterId='"
-        + kafkaClusterId
-        + '\''
-        + '}';
+  public String clz() {
+    return clz;
   }
 }

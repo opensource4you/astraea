@@ -22,8 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.common.connector.WorkerResponseException.WorkerError;
@@ -36,6 +36,7 @@ import org.astraea.common.json.TypeRef;
 public class Builder {
 
   private List<URL> urls = List.of();
+  private HttpExecutor builderHttpExecutor;
 
   public Builder urls(Set<URL> urls) {
     this.urls = new ArrayList<>(Objects.requireNonNull(urls));
@@ -47,11 +48,23 @@ public class Builder {
     return this;
   }
 
+  /**
+   * custom httpExecutor, please make sure that the httpExecutor can convert some special {@link
+   * TypeRef} of beans whose response contains java keyword or kebab-case For example, {@link
+   * PluginInfo}, {@link WorkerInfo}
+   */
+  public Builder httpExecutor(HttpExecutor httpExecutor) {
+    this.builderHttpExecutor = Objects.requireNonNull(httpExecutor);
+    return this;
+  }
+
   public ConnectorClient build() {
     if (urls.isEmpty()) {
       throw new IllegalArgumentException("Urls should be set.");
     }
-    var httpExecutor = HttpExecutor.builder().build();
+
+    var httpExecutor =
+        Optional.ofNullable(builderHttpExecutor).orElseGet(() -> HttpExecutor.builder().build());
 
     return new ConnectorClient() {
       @Override
@@ -60,22 +73,22 @@ public class Builder {
       }
 
       @Override
-      public CompletionStage<List<String>> connectors() {
+      public CompletionStage<Set<String>> connectorNames() {
         return httpExecutor
-            .get(getURL("/connectors"), TypeRef.array(String.class))
+            .get(getURL("/connectors"), TypeRef.set(String.class))
             .handle(this::getBody);
       }
 
       @Override
-      public CompletionStage<ConnectorInfo> connector(String name) throws WorkerResponseException {
+      public CompletionStage<ConnectorInfo> connector(String name) {
         return httpExecutor
             .get(getURL("/connectors/" + name), TypeRef.of(ConnectorInfo.class))
             .handle(this::getBody);
       }
 
       @Override
-      public CompletionStage<ConnectorInfo> createConnector(String name, Map<String, String> config)
-          throws WorkerResponseException {
+      public CompletionStage<ConnectorInfo> createConnector(
+          String name, Map<String, String> config) {
         var connectorReq = new ConnectorReq(name, config);
         return httpExecutor
             .post(getURL("/connectors"), connectorReq, TypeRef.of(ConnectorInfo.class))
@@ -83,16 +96,23 @@ public class Builder {
       }
 
       @Override
-      public CompletionStage<ConnectorInfo> updateConnector(String name, Map<String, String> config)
-          throws WorkerResponseException {
+      public CompletionStage<ConnectorInfo> updateConnector(
+          String name, Map<String, String> config) {
         return httpExecutor
             .put(getURL("/connectors/" + name + "/config"), config, TypeRef.of(ConnectorInfo.class))
             .handle(this::getBody);
       }
 
       @Override
-      public CompletionStage<Void> deleteConnector(String name) throws WorkerResponseException {
+      public CompletionStage<Void> deleteConnector(String name) {
         return httpExecutor.delete(getURL("/connectors/" + name)).handle(this::getBody);
+      }
+
+      @Override
+      public CompletionStage<Set<PluginInfo>> plugins() {
+        return httpExecutor
+            .get(getURL("/connector-plugins"), TypeRef.set(PluginInfo.class))
+            .handle(this::getBody);
       }
 
       private String getURL(String path) {
@@ -105,7 +125,9 @@ public class Builder {
       }
 
       private <R> R getBody(Response<R> response, Throwable e) {
-        if (e instanceof CompletionException && e.getCause() instanceof StringResponseException) {
+        if (Objects.nonNull(e)
+            && (e instanceof StringResponseException
+                || e.getCause() instanceof StringResponseException)) {
           var stringResponseException = (StringResponseException) e.getCause();
           var workerError =
               Objects.isNull(stringResponseException.body())

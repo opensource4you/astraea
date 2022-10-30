@@ -19,8 +19,14 @@ package org.astraea.common.connector;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import org.astraea.common.http.HttpExecutor;
+import org.astraea.common.http.Response;
+import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class ConnectorClientBuilderTest {
 
@@ -33,5 +39,33 @@ class ConnectorClientBuilderTest {
     ConnectorClient.builder()
         .urls(Set.of(new URL("https://github.com/skiptests/astraea/")))
         .build();
+  }
+
+  @Test
+  void testExecutor() throws MalformedURLException, ExecutionException, InterruptedException {
+    var httpExecutor = Mockito.mock(HttpExecutor.class);
+    Mockito.when(httpExecutor.get(Mockito.any(), Mockito.eq(TypeRef.set(String.class))))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new Response<>() {
+                  @Override
+                  public int statusCode() {
+                    return 200;
+                  }
+
+                  @Override
+                  public Set<String> body() {
+                    return Set.of("SpecialConnectorName");
+                  }
+                }));
+
+    var connectorClient =
+        ConnectorClient.builder()
+            .url(new URL("http://localhost"))
+            .httpExecutor(httpExecutor)
+            .build();
+    var connectorNames = connectorClient.connectorNames().toCompletableFuture().get();
+    Assertions.assertEquals(1, connectorNames.size());
+    Assertions.assertTrue(connectorNames.contains("SpecialConnectorName"));
   }
 }

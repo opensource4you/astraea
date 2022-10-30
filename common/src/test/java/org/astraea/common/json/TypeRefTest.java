@@ -60,4 +60,18 @@ class TypeRefTest {
         "java.util.Map<java.lang.String, java.lang.Integer>",
         TypeRef.map(Integer.class).getType().toString());
   }
+
+  @Test
+  void testSet() {
+    assertEquals("java.util.Set<java.lang.String>", TypeRef.set(String.class).getType().toString());
+    assertEquals(
+        "java.util.Set<java.lang.Integer>", TypeRef.set(Integer.class).getType().toString());
+  }
+
+  @Test
+  void testEquals() {
+    assertEquals(TypeRef.set(String.class), TypeRef.set(String.class));
+    assertEquals(TypeRef.map(Integer.class), TypeRef.map(Integer.class));
+    assertEquals(TypeRef.array(Integer.class), TypeRef.array(Integer.class));
+  }
 }

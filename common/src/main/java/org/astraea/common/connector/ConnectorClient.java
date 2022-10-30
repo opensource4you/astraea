@@ -16,8 +16,8 @@
  */
 package org.astraea.common.connector;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -35,7 +35,7 @@ public interface ConnectorClient {
 
   CompletionStage<WorkerInfo> info();
 
-  CompletionStage<List<String>> connectors();
+  CompletionStage<Set<String>> connectorNames();
 
   CompletionStage<ConnectorInfo> connector(String name);
 
@@ -44,4 +44,6 @@ public interface ConnectorClient {
   CompletionStage<ConnectorInfo> updateConnector(String name, Map<String, String> config);
 
   CompletionStage<Void> deleteConnector(String name);
+
+  CompletionStage<Set<PluginInfo>> plugins();
 }

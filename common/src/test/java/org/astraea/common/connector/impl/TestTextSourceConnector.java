@@ -51,6 +51,6 @@ public class TestTextSourceConnector extends SourceConnector {
 
   @Override
   public String version() {
-    return null;
+    return "0.1.0";
   }
 }

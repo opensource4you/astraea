@@ -21,6 +21,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** ParentType didn't erase , use reflection to get that type */
 public abstract class TypeRef<T> {
@@ -46,6 +47,10 @@ public abstract class TypeRef<T> {
     return of(TypeToken.getParameterized(Map.class, String.class, clz).getType());
   }
 
+  public static <T> TypeRef<Set<T>> set(Class<T> clz) {
+    return of(TypeToken.getParameterized(Set.class, clz).getType());
+  }
+
   protected final Type type;
 
   protected TypeRef() {
@@ -54,5 +59,24 @@ public abstract class TypeRef<T> {
 
   public Type getType() {
     return type;
+  }
+
+  @Override
+  public int hashCode() {
+    return type != null ? type.hashCode() : 0;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    TypeRef<?> typeRef = (TypeRef<?>) o;
+
+    return type != null ? type.equals(typeRef.type) : typeRef.type == null;
   }
 }
