@@ -10,7 +10,7 @@ repositories {
 
 def versions = [
         kafka     : project.properties['kafka.version'] ?: "3.3.1",
-        junit     : project.properties['junit.version'] ?: "5.8.2",
+        junit     : project.properties['junit.version'] ?: "5.9.1",
         jcommander: project.properties['jcommander.version'] ?: "1.82",
 ]
 

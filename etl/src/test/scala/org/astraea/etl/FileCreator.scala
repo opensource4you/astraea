@@ -68,7 +68,8 @@ object FileCreator {
       (csvWriter: CSVWriter) =>
         Try {
           csvWriter.writeAll(
-            rows.map(_.toArray).asJava,
+            // avoid ambiguous reference
+            rows.toIterable.map(_.toArray).asJava,
             true
           )
           csvWriter.close()
