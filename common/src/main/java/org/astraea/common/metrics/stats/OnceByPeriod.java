@@ -19,8 +19,8 @@ package org.astraea.common.metrics.stats;
 import java.time.Duration;
 import java.util.Optional;
 
-/** Return a value */
-public class OnceByPeriod<V> implements RangedDataCalculator<V> {
+/** Return the given value if the time between last returned value exceed the given period. */
+public class OnceByPeriod<V> implements Debounce<V> {
   private final long periodMillis;
   private long lastTimestamp = -1;
 

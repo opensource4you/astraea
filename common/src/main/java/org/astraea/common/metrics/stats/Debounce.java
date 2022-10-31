@@ -22,6 +22,6 @@ import java.util.Optional;
  * Not all data should be used in statistic. Gauge like "topic size" is a time related data, many
  * records recorded at the same time should be considered as one record.
  */
-public interface RangedDataCalculator<V> {
+public interface Debounce<V> {
   Optional<V> record(V value, long timestamp);
 }

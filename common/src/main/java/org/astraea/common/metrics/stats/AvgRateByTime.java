@@ -23,20 +23,20 @@ public class AvgRateByTime implements Stat<Double> {
 
   private long count = 0;
 
-  private final RangedDataCalculator<Double> rangedDataCalculator;
+  private final Debounce<Double> debounce;
 
   public AvgRateByTime(Duration period) {
-    this.rangedDataCalculator = new OnceByPeriod<>(period);
+    this.debounce = new OnceByPeriod<>(period);
   }
 
   @Override
   public synchronized void record(Double value) {
     long current = System.currentTimeMillis();
-    rangedDataCalculator
+    debounce
         .record(value, current)
         .ifPresent(
-            rangedValue -> {
-              accumulate += rangedValue;
+            debouncedValue -> {
+              accumulate += debouncedValue;
               ++count;
             });
   }

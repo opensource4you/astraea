@@ -23,22 +23,22 @@ public class RateByTime implements Stat<Double> {
 
   private final Double[] oldValue = new Double[2];
 
-  private final RangedDataCalculator<Double> rangedDataCalculator;
+  private final Debounce<Double> debounce;
 
   public RateByTime(Duration period) {
-    this.rangedDataCalculator = new OnceByPeriod<>(period);
+    this.debounce = new OnceByPeriod<>(period);
   }
 
   @Override
   public synchronized void record(Double value) {
     long current = System.currentTimeMillis();
     // Update when a new record occurred
-    rangedDataCalculator
+    debounce
         .record(value, current)
         .ifPresent(
-            rangedValue -> {
+            debouncedValue -> {
               oldValue[0] = oldValue[1];
-              oldValue[1] = rangedValue;
+              oldValue[1] = debouncedValue;
             });
   }
 
