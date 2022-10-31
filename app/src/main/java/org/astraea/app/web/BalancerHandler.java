@@ -43,19 +43,18 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
@@ -72,25 +71,21 @@ class BalancerHandler implements Handler {
   static final int TIMEOUT_DEFAULT = 3;
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
+  static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
+      List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost());
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
-  final HasMoveCost moveCostFunction;
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaSizeCost());
+    this(admin, new StraightPlanExecutor());
   }
 
-  BalancerHandler(Admin admin, HasMoveCost moveCostFunction) {
-    this(admin, moveCostFunction, new StraightPlanExecutor());
-  }
-
-  BalancerHandler(Admin admin, HasMoveCost moveCostFunction, RebalancePlanExecutor executor) {
+  BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
     this.admin = admin;
-    this.moveCostFunction = moveCostFunction;
     this.executor = executor;
   }
 
@@ -154,14 +149,12 @@ class BalancerHandler implements Handler {
               var loop =
                   Integer.parseInt(
                       channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
-              var targetAllocations =
-                  ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, topics::contains));
               var bestPlan =
                   Balancer.create(
                           SingleStepBalancer.class,
                           AlgorithmConfig.builder()
                               .clusterCost(clusterCostFunction)
-                              .moveCost(List.of(moveCostFunction))
+                              .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
                               .topicFilter(topics::contains)
                               .limit(loop)
                               .limit(timeout)
@@ -171,8 +164,8 @@ class BalancerHandler implements Handler {
                   bestPlan
                       .map(
                           p ->
-                              ClusterLogAllocation.findNonFulfilledAllocation(
-                                      targetAllocations, p.proposal().rebalancePlan())
+                              ClusterInfo.findNonFulfilledAllocation(
+                                      currentClusterInfo, p.proposal().rebalancePlan())
                                   .stream()
                                   .map(
                                       tp ->
@@ -180,20 +173,12 @@ class BalancerHandler implements Handler {
                                               tp.topic(),
                                               tp.partition(),
                                               // only log the size from source replicas
-                                              placements(
-                                                  targetAllocations.logPlacements(tp),
-                                                  l ->
-                                                      currentClusterInfo
-                                                          .replica(
-                                                              TopicPartitionReplica.of(
-                                                                  tp.topic(),
-                                                                  tp.partition(),
-                                                                  l.nodeInfo().id()))
-                                                          .map(Replica::size)
-                                                          .orElse(null)),
-                                              placements(
-                                                  p.proposal().rebalancePlan().logPlacements(tp),
-                                                  ignored -> null)))
+                                              currentClusterInfo.replicas(tp).stream()
+                                                  .map(r -> new Placement(r, r.size()))
+                                                  .collect(Collectors.toList()),
+                                              p.proposal().rebalancePlan().replicas(tp).stream()
+                                                  .map(r -> new Placement(r, null))
+                                                  .collect(Collectors.toList())))
                                   .collect(Collectors.toUnmodifiableList()))
                       .orElse(List.of());
               var report =
@@ -206,7 +191,11 @@ class BalancerHandler implements Handler {
                       clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
-                          .map(p -> List.of(new MigrationCost(p.moveCost().iterator().next())))
+                          .map(
+                              p ->
+                                  p.moveCost().stream()
+                                      .map(MigrationCost::new)
+                                      .collect(Collectors.toList()))
                           .orElseGet(List::of));
               return new PlanInfo(report, bestPlan);
             });
@@ -354,7 +343,7 @@ class BalancerHandler implements Handler {
         });
   }
 
-  static List<Placement> placements(Set<Replica> lps, Function<Replica, Long> size) {
+  static List<Placement> placements(Collection<Replica> lps, Function<Replica, Long> size) {
     return lps.stream()
         .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
         .map(p -> new Placement(p, size.apply(p)))

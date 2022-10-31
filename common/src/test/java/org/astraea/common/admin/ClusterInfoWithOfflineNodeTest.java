@@ -36,7 +36,9 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
           .topic(topicName)
           .numberOfPartitions(partitionCount)
           .numberOfReplicas(replicaCount)
-          .create();
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(3));
 
       // before node offline

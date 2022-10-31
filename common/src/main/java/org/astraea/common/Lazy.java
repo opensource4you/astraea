@@ -14,28 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common;
 
-import java.util.Map;
-import java.util.concurrent.CompletionStage;
+import java.util.Objects;
+import java.util.function.Supplier;
 
-public interface TopicCreator {
+public interface Lazy<T> {
 
-  TopicCreator topic(String topic);
+  static <T> Lazy<T> of(Supplier<T> supplier) {
+    return new Lazy<T>() {
+      private volatile T obj;
 
-  TopicCreator numberOfPartitions(int numberOfPartitions);
-
-  TopicCreator numberOfReplicas(short numberOfReplicas);
+      @Override
+      public T get() {
+        if (obj == null) {
+          synchronized (this) {
+            if (obj == null) obj = Objects.requireNonNull(supplier.get());
+          }
+        }
+        return obj;
+      }
+    };
+  }
 
   /**
-   * @param configs used to create new topic
-   * @return this creator
+   * the object will get created when this method is called the first time
+   *
+   * @return object
    */
-  TopicCreator configs(Map<String, String> configs);
-
-  /**
-   * @return true if it sends creation request indeed. Otherwise, false if there is an existent
-   *     topic already
-   */
-  CompletionStage<Boolean> run();
+  T get();
 }

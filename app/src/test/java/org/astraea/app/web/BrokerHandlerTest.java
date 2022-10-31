@@ -81,7 +81,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var brokerId = brokerIds().iterator().next();
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(10).create();
+      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var broker =

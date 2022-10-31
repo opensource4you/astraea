@@ -28,6 +28,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -46,11 +47,9 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
             topicNames ->
                 admin
                     .clusterInfo(topicNames)
-                    .thenApply(ClusterLogAllocation::of)
                     .thenApply(
-                        currentLogAllocation ->
-                            ClusterLogAllocation.findNonFulfilledAllocation(
-                                currentLogAllocation, logAllocation)))
+                        clusterInfo ->
+                            ClusterInfo.findNonFulfilledAllocation(clusterInfo, logAllocation)))
         .thenCompose(
             topicPartitions -> {
               Map<TopicPartition, List<Integer>> move2BrokerItems =
@@ -61,7 +60,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
               topicPartitions.forEach(
                   topicPartition -> {
                     var expectedPlacement =
-                        logAllocation.logPlacements(topicPartition).stream()
+                        logAllocation.replicas(topicPartition).stream()
                             .sorted(
                                 Comparator.comparing(Replica::isPreferredLeader)
                                     .<Replica>reversed())

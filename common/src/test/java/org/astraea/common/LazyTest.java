@@ -14,28 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common;
 
-import java.util.Map;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface TopicCreator {
+public class LazyTest {
 
-  TopicCreator topic(String topic);
-
-  TopicCreator numberOfPartitions(int numberOfPartitions);
-
-  TopicCreator numberOfReplicas(short numberOfReplicas);
-
-  /**
-   * @param configs used to create new topic
-   * @return this creator
-   */
-  TopicCreator configs(Map<String, String> configs);
-
-  /**
-   * @return true if it sends creation request indeed. Otherwise, false if there is an existent
-   *     topic already
-   */
-  CompletionStage<Boolean> run();
+  @Test
+  void testCountOfGet() {
+    var count = new AtomicInteger();
+    Supplier<String> s =
+        () -> {
+          count.incrementAndGet();
+          return "ss";
+        };
+    var lazy = Lazy.of(s);
+    IntStream.range(0, 10)
+        .mapToObj(
+            ignored -> CompletableFuture.runAsync(() -> Assertions.assertEquals("ss", lazy.get())))
+        .forEach(CompletableFuture::join);
+    Assertions.assertEquals(1, count.get());
+  }
 }

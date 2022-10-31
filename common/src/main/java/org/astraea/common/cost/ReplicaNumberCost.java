@@ -29,7 +29,7 @@ import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replicas migrate -> higher cost */
 public class ReplicaNumberCost implements HasClusterCost, HasMoveCost.Helper {
-  public static final String COST_NAME = "Replica Number";
+  public static final String COST_NAME = "replica number";
 
   @Override
   public Optional<Fetcher> fetcher() {
