@@ -148,6 +148,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin);
+      // For all 5 topics, we only allow the first two topics can be altered
       var allowedTopics = topicNames.subList(0, 2);
       var report =
           submitPlanGeneration(
@@ -161,8 +162,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       defaultDecreasing))
               .report;
       Assertions.assertTrue(
-          report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains));
-      Assertions.assertTrue(report.cost >= report.newCost);
+          report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
+          "Only allowed topics been altered");
+      Assertions.assertTrue(
+          report.cost >= report.newCost,
+          "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
