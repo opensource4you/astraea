@@ -19,7 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
-declare -r VERSION=${REVISION:-${VERSION:-3.2.1}}
+declare -r VERSION=${REVISION:-${VERSION:-3.3.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/worker.dockerfile
 declare -r CONFLUENT_WORKER=${CONFLUENT_WORKER:-false}
 declare -r CONFLUENT_VERSION=${CONFLUENT_VERSION:-7.0.1}
@@ -48,7 +48,7 @@ function showHelp() {
   echo "    ACCOUNT=skiptests                        set the github account"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set worker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.2.1                            set version of kafka distribution"
+  echo "    VERSION=3.3.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    WORKER_PLUGIN_PATH=/tmp/worker-plugins   set plugin path to kafka worker"
