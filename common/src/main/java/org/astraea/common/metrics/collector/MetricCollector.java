@@ -27,7 +27,7 @@ public interface MetricCollector extends AutoCloseable {
   void addFetcher(Fetcher fetcher);
 
   /** Register a JMX server. */
-  void registerJmx(int broker, InetSocketAddress socketAddress);
+  void registerJmx(int identity, InetSocketAddress socketAddress);
 
   /**
    * Retrieve metrics with specific class from all brokers.
