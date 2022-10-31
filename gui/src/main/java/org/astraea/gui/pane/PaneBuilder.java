@@ -134,12 +134,15 @@ public class PaneBuilder {
       tableViewClick.action(
           () -> {
             var items = tableViewer.filteredData();
-            var text = secondLattice.contents();
+            var text =
+                secondLattice == null
+                    ? Map.<String, Optional<String>>of()
+                    : secondLattice.contents();
             var input = Input.of(List.of(), text);
             try {
               checkbox.setSelected(false);
 
-              var invalidKeys = secondLattice.invalidKeys();
+              var invalidKeys = secondLattice == null ? Set.of() : secondLattice.invalidKeys();
               if (!invalidKeys.isEmpty()) {
                 console.text("please check fields: " + invalidKeys);
                 return;
