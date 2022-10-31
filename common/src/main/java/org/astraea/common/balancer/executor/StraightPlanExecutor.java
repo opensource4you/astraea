@@ -101,8 +101,13 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   private CompletionStage<Boolean> waitStart(Admin admin, List<Replica> replicas) {
     return admin.waitCluster(
         Set.of(replicas.get(0).topic()),
-        (cluster) -> cluster.replicas().stream().anyMatch(x -> !x.inSync()),
+        (cluster) ->
+            replicas.stream()
+                .allMatch(
+                    r ->
+                        cluster.replicas(r.topicPartition()).stream()
+                            .anyMatch(rr -> rr.nodeInfo().id() == r.nodeInfo().id())),
         Duration.ofSeconds(5),
-        2);
+        3);
   }
 }
