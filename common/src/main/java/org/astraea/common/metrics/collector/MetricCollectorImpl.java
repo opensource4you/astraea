@@ -43,7 +43,7 @@ import org.astraea.common.metrics.MBeanClient;
 public class MetricCollectorImpl implements MetricCollector {
 
   private final Map<Integer, MBeanClient> mBeanClients;
-  private final CopyOnWriteArrayList<Map.Entry<Set<Integer>, Fetcher>> fetchers;
+  private final CopyOnWriteArrayList<Map.Entry<Fetcher, Set<Integer>>> fetchers;
   private final Duration expiration;
   private final Duration interval;
   private final Map<Class<?>, MetricStorage<?>> storages;
@@ -68,7 +68,7 @@ public class MetricCollectorImpl implements MetricCollector {
 
   @Override
   public void addFetcher(Set<Integer> identities, Fetcher fetcher) {
-    this.fetchers.add(Map.entry(identities, fetcher));
+    this.fetchers.add(Map.entry(fetcher, identities));
   }
 
   @Override
@@ -93,6 +93,17 @@ public class MetricCollectorImpl implements MetricCollector {
             "Attempt to register identity "
                 + identity
                 + " with the local JMX server. But this id is already registered");
+  }
+
+  @Override
+  public Map<Fetcher, Set<Integer>> listFetchers() {
+    return fetchers.stream()
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public Set<Integer> listIdentities() {
+    return mBeanClients.keySet();
   }
 
   @SuppressWarnings("resource")
@@ -138,8 +149,8 @@ public class MetricCollectorImpl implements MetricCollector {
 
           // for each fetcher, perform the fetching and store the metrics
           fetchers.stream()
-              .filter(entry -> entry.getKey().contains(id))
-              .map(Map.Entry::getValue)
+              .filter(entry -> entry.getValue().contains(id))
+              .map(Map.Entry::getKey)
               .map(f -> f.fetch(client))
               .forEach(metrics -> store(id, metrics));
         } catch (InterruptedException e) {

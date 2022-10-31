@@ -45,6 +45,12 @@ public interface MetricCollector extends AutoCloseable {
   /** Register the JMX server on this JVM instance. */
   void registerLocalJmx(int identity);
 
+  /** @return the current registered fetchers. */
+  Map<Fetcher, Set<Integer>> listFetchers();
+
+  /** @return the current registered identities. */
+  Set<Integer> listIdentities();
+
   /**
    * Retrieve metrics with specific class from all brokers.
    *
