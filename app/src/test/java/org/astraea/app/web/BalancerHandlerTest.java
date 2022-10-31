@@ -145,9 +145,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testTopics() {
-    var topicNames = createAndProduceTopic(3);
+    var topicNames = createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin);
+      // For all 5 topics, we only allow the first two topics can be altered.
+      // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
+      var allowedTopics = topicNames.subList(0, 2);
       var report =
           submitPlanGeneration(
                   handler,
@@ -155,16 +158,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       BalancerHandler.LOOP_KEY,
                       "30",
                       BalancerHandler.TOPICS_KEY,
-                      topicNames.get(0) + "," + topicNames.get(1),
+                      String.join(",", allowedTopics),
                       BalancerHandler.COST_WEIGHT_KEY,
                       defaultDecreasing))
               .report;
-      var actual =
-          report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
-      Assertions.assertEquals(2, actual.size());
-      Assertions.assertTrue(actual.contains(topicNames.get(0)));
-      Assertions.assertTrue(actual.contains(topicNames.get(1)));
-      Assertions.assertTrue(report.cost >= report.newCost);
+      Assertions.assertTrue(
+          report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
+          "Only allowed topics been altered");
+      Assertions.assertTrue(
+          report.cost >= report.newCost,
+          "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
