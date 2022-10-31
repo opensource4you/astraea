@@ -22,11 +22,6 @@ repositories {
     mavenCentral()
 }
 
-repositories {
-    // Use Maven Central for resolving dependencies.
-    mavenCentral()
-}
-
 spotless {
     java {
         licenseHeaderFile(file("$rootDir/checkstyle/apache.header"))
