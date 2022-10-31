@@ -31,12 +31,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
-import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -67,7 +66,6 @@ public class BalancerNode {
   private static final String NEW_LEADER_KEY = "new leader";
   private static final String PREVIOUS_FOLLOWER_KEY = "previous follower";
   private static final String NEW_FOLLOWER_KEY = "new follower";
-  private static final String NEW_ASSIGNMENT_KEY = "new assignments";
 
   enum Cost {
     REPLICA("replica", new ReplicaNumberCost()),
@@ -222,36 +220,34 @@ public class BalancerNode {
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
       logger.log("applying better assignments ... ");
-      var selectedReplicas =
+      var selectedPartitions =
           items.stream()
               .flatMap(
                   item -> {
                     var topic = item.get(TOPIC_NAME_KEY);
                     var partition = item.get(PARTITION_KEY);
-                    var assignments = item.get(NEW_ASSIGNMENT_KEY);
-                    if (topic != null && partition != null && assignments != null)
-                      return Arrays.stream(assignments.toString().split(","))
-                          .map(
-                              assignment ->
-                                  Map.entry(
-                                      TopicPartitionReplica.of(
-                                          topic.toString(),
-                                          Integer.parseInt(partition.toString()),
-                                          Integer.parseInt(assignment.split(":")[0])),
-                                      assignment.split(":")[1]));
+                    if (topic != null && partition != null)
+                      return Stream.of(
+                          TopicPartition.of(
+                              topic.toString(), Integer.parseInt(partition.toString())));
                     return Stream.of();
                   })
-              .collect(MapUtils.toLinkedHashMap(Map.Entry::getKey, Map.Entry::getValue));
+              .collect(Collectors.toSet());
       // remove previous plan so users can't run it again
       var plan = LAST_PLAN.getAndSet(null);
       if (plan != null) {
         var replicas =
             plan.proposal().rebalancePlan().replicas().stream()
-                .filter(r -> selectedReplicas.containsKey(r.topicPartitionReplica()))
+                .filter(r -> selectedPartitions.contains(r.topicPartition()))
                 .collect(Collectors.toList());
         return new StraightPlanExecutor()
             .run(context.admin(), replicas)
-            .thenAccept(ignored -> logger.log("succeed to balance cluster"));
+            .thenAccept(
+                ignored ->
+                    logger.log(
+                        "succeed to balance cluster by moving "
+                            + selectedPartitions.size()
+                            + " partitions"));
       }
       return CompletableFuture.completedFuture(null);
     };
