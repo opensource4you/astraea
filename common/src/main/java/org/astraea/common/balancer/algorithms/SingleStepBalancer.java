@@ -17,7 +17,6 @@
 package org.astraea.common.balancer.algorithms;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -37,8 +36,8 @@ public class SingleStepBalancer implements Balancer {
   public static final String SHUFFLE_PLAN_GENERATOR_MAX_STEP_CONFIG =
       "shuffle.plan.generator.max.step";
   public static final String ITERATION_CONFIG = "iteration";
-  public static final List<String> ALL_CONFIGS =
-      Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"));
+  public static final Set<String> ALL_CONFIGS =
+      Set.copyOf(Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG")));
 
   private final AlgorithmConfig config;
   private final int minStep;
