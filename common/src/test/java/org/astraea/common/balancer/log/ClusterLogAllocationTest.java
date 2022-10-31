@@ -154,11 +154,20 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     Replica base =
         Replica.of(
             topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
-    Replica leader0 = update(base, Map.of("broker", 3, "preferred", true));
-    Replica leader1 = update(base, Map.of("broker", 4, "preferred", true));
-    Replica follower2 = update(base, Map.of("broker", 4, "preferred", false));
+    Replica leader0 =
+        Replica.builder(base).nodeInfo(NodeInfo.of(3, "", -1)).isPreferredLeader(true).build();
+    Replica leader1 =
+        Replica.builder(base).nodeInfo(NodeInfo.of(4, "", -1)).isPreferredLeader(true).build();
+    Replica follower2 =
+        Replica.builder(base).nodeInfo(NodeInfo.of(4, "", -1)).isPreferredLeader(false).build();
+    Replica isFuture = Replica.builder(base).isFuture(true).build();
+    Replica notFuture = Replica.builder(base).isFuture(false).build();
 
     // act, assert
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> ClusterLogAllocation.of(ClusterInfo.of(List.of(isFuture, notFuture))),
+        "No ongoing rebalance");
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> ClusterLogAllocation.of(ClusterInfo.of(List.of(leader0, leader1))),
