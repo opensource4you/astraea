@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -35,23 +34,13 @@ import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeThroughputCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.Receiver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class StrictCostDispatcherTest {
-
-  @Test
-  void testClose() {
-    var dispatcher = new StrictCostDispatcher();
-    var receiver = Mockito.mock(Receiver.class);
-    dispatcher.receivers.put(10, receiver);
-    dispatcher.close();
-    Mockito.verify(receiver, Mockito.times(1)).close();
-    Assertions.assertEquals(0, dispatcher.receivers.size());
-  }
 
   @Test
   void testJmxPort() {
@@ -173,58 +162,8 @@ public class StrictCostDispatcherTest {
           Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
       dispatcher.partition(
           "topic", new byte[0], new byte[0], ClusterInfo.of(List.of(replicaInfo0, replicaInfo1)));
-      Assertions.assertEquals(0, dispatcher.receivers.size());
+      Assertions.assertEquals(0, dispatcher.metricCollector.listFetchers().size());
     }
-  }
-
-  @Test
-  void testReceivers() {
-    var costFunction =
-        new HasBrokerCost() {
-          @Override
-          public BrokerCost brokerCost(
-              ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-            return Mockito.mock(BrokerCost.class);
-          }
-
-          @Override
-          public Optional<Fetcher> fetcher() {
-            return Optional.of(Mockito.mock(Fetcher.class));
-          }
-        };
-    var jmxPort = 12345;
-    var count = new AtomicInteger();
-    var dispatcher =
-        new StrictCostDispatcher() {
-          @Override
-          Receiver receiver(String host, int port, Fetcher fetcher) {
-            Assertions.assertEquals(jmxPort, port);
-            count.incrementAndGet();
-            return Mockito.mock(Receiver.class);
-          }
-        };
-    dispatcher.configure(
-        Map.of(costFunction, 1D), Optional.of(jmxPort), Map.of(), Duration.ofSeconds(10));
-    var replicaInfo0 =
-        ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, false);
-    var replicaInfo1 =
-        ReplicaInfo.of("topic", 1, NodeInfo.of(10, "host", 11111), true, true, false);
-    var replicaInfo2 =
-        ReplicaInfo.of("topic", 1, NodeInfo.of(11, "host2", 11111), true, true, true);
-    var clusterInfo = ClusterInfo.of(List.of(replicaInfo0, replicaInfo1, replicaInfo2));
-    // there is one local receiver by default
-    Assertions.assertEquals(1, dispatcher.receivers.size());
-    Assertions.assertEquals(-1, dispatcher.receivers.keySet().iterator().next());
-
-    // generate two receivers since there are two brokers (hosting three replicas)
-    dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
-    Assertions.assertEquals(3, dispatcher.receivers.size());
-    Assertions.assertEquals(2, count.get());
-
-    // all brokers have receivers already so no new receiver is born
-    dispatcher.partition("topic", new byte[0], new byte[0], clusterInfo);
-    Assertions.assertEquals(3, dispatcher.receivers.size());
-    Assertions.assertEquals(2, count.get());
   }
 
   @Test
@@ -284,7 +223,7 @@ public class StrictCostDispatcherTest {
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.of(Map.of()));
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
-      Assertions.assertEquals(1, dispatcher.receivers.size());
+      Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
     }
   }
 
@@ -321,41 +260,41 @@ public class StrictCostDispatcherTest {
 
   @Test
   void testTryToUpdateFetcher() {
-    var receiverCount = new AtomicInteger(0);
-    try (var dispatcher =
-        new StrictCostDispatcher() {
-          @Override
-          Receiver receiver(String host, int port, Fetcher fetcher) {
-            receiverCount.incrementAndGet();
-            return Mockito.mock(Receiver.class);
-          }
-        }) {
-      var nodeInfo = NodeInfo.of(10, "host", 2222);
-      var clusterInfo =
-          ClusterInfo.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
+    try (MBeanClient local = MBeanClient.local()) {
+      try (var ignore =
+          Mockito.mockStatic(
+              MBeanClient.class,
+              (invoke) ->
+                  invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
+        try (var dispatcher = new StrictCostDispatcher()) {
+          var nodeInfo = NodeInfo.of(10, "host", 2222);
+          var clusterInfo =
+              ClusterInfo.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
 
-      Assertions.assertEquals(0, dispatcher.receivers.size());
-      dispatcher.costFunction =
-          new HasBrokerCost() {
-            @Override
-            public BrokerCost brokerCost(
-                ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-              return Map::of;
-            }
+          Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
+          dispatcher.costFunction =
+              new HasBrokerCost() {
+                @Override
+                public BrokerCost brokerCost(
+                    ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+                  return Map::of;
+                }
 
-            @Override
-            public Optional<Fetcher> fetcher() {
-              return Optional.of(Mockito.mock(Fetcher.class));
-            }
-          };
-      dispatcher.jmxPortGetter = id -> Optional.of(1111);
-      dispatcher.tryToUpdateFetcher(clusterInfo);
-      Assertions.assertEquals(1, dispatcher.receivers.size());
-      Assertions.assertEquals(1, receiverCount.get());
+                @Override
+                public Optional<Fetcher> fetcher() {
+                  return Optional.of(Mockito.mock(Fetcher.class));
+                }
+              };
+          dispatcher.jmxPortGetter = id -> Optional.of(1111);
+          dispatcher.tryToUpdateFetcher(clusterInfo);
+          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
 
-      dispatcher.tryToUpdateFetcher(clusterInfo);
-      Assertions.assertEquals(1, dispatcher.receivers.size());
-      Assertions.assertEquals(1, receiverCount.get());
+          dispatcher.tryToUpdateFetcher(clusterInfo);
+          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
+        }
+      }
     }
   }
 }
