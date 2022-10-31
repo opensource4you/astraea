@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -69,22 +70,38 @@ public class MetricCollectorImpl implements MetricCollector {
     this.fetchers.add(fetcher);
   }
 
-  @SuppressWarnings("resource")
   @Override
   public void registerJmx(int identity, InetSocketAddress socketAddress) {
+    this.registerJmx(
+        identity,
+        () -> MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort()),
+        () ->
+            "Attempt to register identity "
+                + identity
+                + " with address "
+                + socketAddress
+                + ". But this id is already registered");
+  }
+
+  @Override
+  public void registerLocalJmx(int identity) {
+    this.registerJmx(
+        identity,
+        MBeanClient::local,
+        () ->
+            "Attempt to register identity "
+                + identity
+                + " with the local JMX server. But this id is already registered");
+  }
+
+  @SuppressWarnings("resource")
+  private void registerJmx(
+      int identity, Supplier<MBeanClient> clientSupplier, Supplier<String> errorMessage) {
     mBeanClients.compute(
         identity,
         (id, client) -> {
-          if (client != null) {
-            throw new IllegalStateException(
-                "Attempt to register identity "
-                    + identity
-                    + " with address "
-                    + socketAddress
-                    + ". But this id is already registered");
-          } else {
-            return MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort());
-          }
+          if (client != null) throw new IllegalStateException(errorMessage.get());
+          else return clientSupplier.get();
         });
     this.delayedWorks.put(new DelayedIdentity(interval, identity));
   }
