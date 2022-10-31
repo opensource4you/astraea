@@ -97,7 +97,7 @@ public final class Services {
       @Override
       public List<URL> workerUrls() {
         return connects.stream()
-            .map(Connect::restUrl)
+            .map(c -> c.rest().advertisedUrl())
             .map(
                 uri -> {
                   try {
