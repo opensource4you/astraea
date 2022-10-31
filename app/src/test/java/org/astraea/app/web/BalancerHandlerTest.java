@@ -148,7 +148,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topicNames = createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new BalancerHandler(admin);
-      // For all 5 topics, we only allow the first two topics can be altered
+      // For all 5 topics, we only allow the first two topics can be altered.
+      // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
       var allowedTopics = topicNames.subList(0, 2);
       var report =
           submitPlanGeneration(
