@@ -16,6 +16,7 @@
  */
 package org.astraea.common.metrics.collector;
 
+import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
 import org.astraea.common.metrics.HasBeanObject;
@@ -23,7 +24,10 @@ import org.astraea.common.metrics.HasBeanObject;
 public interface MetricCollector extends AutoCloseable {
 
   /** Register a {@link Fetcher}. */
-  void register(Fetcher fetcher);
+  void addFetcher(Fetcher fetcher);
+
+  /** Register a JMX server. */
+  void registerJmx(int broker, InetSocketAddress socketAddress);
 
   /**
    * Retrieve metrics with specific class from all brokers.

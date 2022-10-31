@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.Executors;
@@ -40,31 +41,28 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class MetricCollectorImpl implements MetricCollector {
 
-  private final Map<Integer, InetSocketAddress> jmx;
   private final Map<Integer, ManagedMBeanClient> mBeanClients;
-  private final Duration cleanerInterval = Duration.ofSeconds(30);
+  private final Collection<Fetcher> fetchers;
   private final Duration expiration;
   private final Duration interval;
   private final Map<Class<?>, MetricStorage<?>> storages;
   private final ScheduledExecutorService executorService;
   private final Set<ScheduledFuture<?>> scheduledTasks;
+  private final ReentrantLock registrationLock;
 
   public MetricCollectorImpl(
-      Map<Integer, InetSocketAddress> jmx,
       ScheduledExecutorService executorService,
       Duration expiration,
-      Duration interval) {
-    this.jmx = Map.copyOf(jmx);
+      Duration interval,
+      Duration cleanerInterval) {
     this.expiration = expiration;
+    this.fetchers = new ConcurrentLinkedQueue<>();
     this.interval = interval;
     this.storages = new ConcurrentHashMap<>();
     this.executorService = executorService;
-    this.mBeanClients =
-        jmx.entrySet().stream()
-            .collect(
-                Collectors.toConcurrentMap(
-                    Map.Entry::getKey, entry -> new ManagedMBeanClient(entry.getValue())));
+    this.mBeanClients = new ConcurrentHashMap<>();
     this.scheduledTasks = new ConcurrentSkipListSet<>();
+    this.registrationLock = new ReentrantLock();
 
     // TODO: if the task failed, will it stop or keep on scheduling?
     this.scheduledTasks.add(
@@ -76,23 +74,52 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void register(Fetcher fetcher) {
-    var firstDelay = ThreadLocalRandom.current().nextLong(0, interval.toMillis());
+  public void addFetcher(Fetcher fetcher) {
+    try {
+      Utils.packException(registrationLock::lockInterruptibly);
+      this.fetchers.add(fetcher);
+      this.mBeanClients.forEach(
+          (id, client) ->
+              schedule(
+                  () -> {
+                    Collection<? extends HasBeanObject> metrics;
+                    try (ManagedMBeanClient.Ownership ownership = client.claim()) {
+                      metrics = fetcher.fetch(ownership.client());
+                    }
+                    store(id, metrics);
+                  }));
+    } finally {
+      registrationLock.unlock();
+    }
+  }
 
-    this.mBeanClients.forEach(
-        (id, client) ->
-            this.scheduledTasks.add(
-                executorService.scheduleWithFixedDelay(
-                    () -> {
-                      Collection<? extends HasBeanObject> metrics;
-                      try (ManagedMBeanClient.Ownership ownership = client.claim()) {
-                        metrics = fetcher.fetch(ownership.client());
-                      }
-                      store(id, metrics);
-                    },
-                    firstDelay,
-                    interval.toMillis(),
-                    TimeUnit.MILLISECONDS)));
+  @Override
+  public void registerJmx(int broker, InetSocketAddress socketAddress) {
+    try {
+      Utils.packException(registrationLock::lockInterruptibly);
+      // already registered
+      if (this.mBeanClients.containsKey(broker))
+        throw new IllegalStateException(
+            "Attempt to register broker "
+                + broker
+                + " with address "
+                + socketAddress
+                + ". But this broker is already registered");
+      this.mBeanClients.put(broker, new ManagedMBeanClient(socketAddress));
+      this.fetchers.forEach(
+          fetcher ->
+              schedule(
+                  () -> {
+                    Collection<? extends HasBeanObject> metrics;
+                    try (ManagedMBeanClient.Ownership ownership =
+                        this.mBeanClients.get(broker).claim()) {
+                      metrics = fetcher.fetch(ownership.client());
+                    }
+                    store(broker, metrics);
+                  }));
+    } finally {
+      registrationLock.unlock();
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -113,9 +140,18 @@ public class MetricCollectorImpl implements MetricCollector {
                 .put(broker, metric));
   }
 
+  /** Clear old metric */
   private void cleaning() {
     var before = System.currentTimeMillis() - expiration.toMillis();
     this.storages.values().forEach(storage -> storage.clear(before));
+  }
+
+  /** Schedule the given task. The start delay is randomly chosen to avoid collision in sampling */
+  private void schedule(Runnable run) {
+    var firstDelay = ThreadLocalRandom.current().nextLong(0, interval.toMillis());
+    this.scheduledTasks.add(
+        executorService.scheduleWithFixedDelay(
+            run, firstDelay, interval.toMillis(), TimeUnit.MILLISECONDS));
   }
 
   @Override
@@ -127,10 +163,13 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   private static class ManagedMBeanClient implements AutoCloseable {
+
+    private InetSocketAddress address;
     private final MBeanClient client;
     private final ReentrantLock lock;
 
     ManagedMBeanClient(InetSocketAddress socketAddress) {
+      this.address = socketAddress;
       this.client = MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort());
       this.lock = new ReentrantLock();
     }
@@ -143,6 +182,10 @@ public class MetricCollectorImpl implements MetricCollector {
     public Ownership claim() {
       Utils.packException(lock::lockInterruptibly);
       return new Ownership();
+    }
+
+    public InetSocketAddress address() {
+      return address;
     }
 
     @Override
@@ -165,7 +208,7 @@ public class MetricCollectorImpl implements MetricCollector {
     }
   }
 
-  private class MetricStorage<T extends HasBeanObject> {
+  private static class MetricStorage<T extends HasBeanObject> {
     private final Class<T> theClass;
     private final Map<Integer, ConcurrentSkipListMap<Long, T>> storage;
     private final Map<Integer, AtomicLong> top;
@@ -176,10 +219,6 @@ public class MetricCollectorImpl implements MetricCollector {
       this.top = new ConcurrentHashMap<>();
       this.cleanerLock = new ReentrantLock();
       this.storage = new ConcurrentHashMap<>();
-      MetricCollectorImpl.this
-          .jmx
-          .keySet()
-          .forEach(id -> storage.putIfAbsent(id, new ConcurrentSkipListMap<>()));
     }
 
     private long nextIndex(int broker) {
@@ -222,18 +261,13 @@ public class MetricCollectorImpl implements MetricCollector {
 
   public static class Builder {
 
-    private Map<Integer, InetSocketAddress> brokerJmxAddresses;
     private int threadCount = Runtime.getRuntime().availableProcessors();
     private ScheduledExecutorService executorService = null;
     private Duration expiration = Duration.ofMinutes(3);
     private Duration interval = Duration.ofSeconds(1);
+    private Duration cleanerInterval = Duration.ofSeconds(30);
 
     Builder() {}
-
-    public Builder jmx(Map<Integer, InetSocketAddress> address) {
-      this.brokerJmxAddresses = Objects.requireNonNull(address);
-      return this;
-    }
 
     public Builder executor(ScheduledExecutorService executorService) {
       this.executorService = executorService;
@@ -255,11 +289,16 @@ public class MetricCollectorImpl implements MetricCollector {
       return this;
     }
 
+    public Builder cleanerInterval(Duration interval) {
+      this.cleanerInterval = Objects.requireNonNull(interval);
+      return this;
+    }
+
     public MetricCollector build() {
       if (executorService == null)
         this.executorService = Executors.newScheduledThreadPool(threadCount);
 
-      return new MetricCollectorImpl(brokerJmxAddresses, executorService, expiration, interval);
+      return new MetricCollectorImpl(executorService, expiration, interval, cleanerInterval);
     }
   }
 }
