@@ -94,13 +94,17 @@ public interface JsonConverter {
     };
   }
 
-  /** @deprecated astraea-974 replace gson with jackson */
+  /**
+   * @deprecated astraea-974 replace gson with jackson
+   */
   @Deprecated
   static JsonConverter gson() {
     return gson((builder) -> {});
   }
 
-  /** @deprecated astraea-974 replace gson with jackson */
+  /**
+   * @deprecated astraea-974 replace gson with jackson
+   */
   @Deprecated
   static JsonConverter gson(Consumer<GsonBuilder> builderConsumer) {
     var gsonBuilder =
@@ -146,7 +150,9 @@ public interface JsonConverter {
     };
   }
 
-  /** @deprecated astraea-974 replace gson with jackson */
+  /**
+   * @deprecated astraea-974 replace gson with jackson
+   */
   @Deprecated
   class ByteArrayToBase64TypeAdapter implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
     public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)

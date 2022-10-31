@@ -40,28 +40,44 @@ public interface AlgorithmConfig {
     return new Builder();
   }
 
-  /** @return the cluster cost function for this problem. */
+  /**
+   * @return the cluster cost function for this problem.
+   */
   HasClusterCost clusterCostFunction();
 
-  /** @return the movement cost functions for this problem */
+  /**
+   * @return the movement cost functions for this problem
+   */
   List<HasMoveCost> moveCostFunctions();
 
-  /** @return the cluster cost constraint that must be complied with by the algorithm solution */
+  /**
+   * @return the cluster cost constraint that must be complied with by the algorithm solution
+   */
   BiPredicate<ClusterCost, ClusterCost> clusterConstraint();
 
-  /** @return the movement constraint that must be complied with by the algorithm solution */
+  /**
+   * @return the movement constraint that must be complied with by the algorithm solution
+   */
   Predicate<List<MoveCost>> movementConstraint();
 
-  /** @return the limit of algorithm execution time */
+  /**
+   * @return the limit of algorithm execution time
+   */
   Duration executionTime();
 
-  /** @return a {@link Predicate} that can indicate which topic is eligible for rebalance. */
+  /**
+   * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
+   */
   Predicate<String> topicFilter();
 
-  /** @return a {@link Supplier} which offer the fresh metrics of the target cluster */
+  /**
+   * @return a {@link Supplier} which offer the fresh metrics of the target cluster
+   */
   Supplier<ClusterBean> metricSource();
 
-  /** @return the algorithm implementation specific parameters */
+  /**
+   * @return the algorithm implementation specific parameters
+   */
   Configuration algorithmConfig();
 
   class Builder {

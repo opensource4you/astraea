@@ -121,10 +121,12 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         (
           s"${rows(i).head},${rows(i)(1)}",
           s"""{"${colNames.head}":${i + 1},"${colNames(1)}":"${rows(
-            i
-          ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(i)(
-            2
-          )}}"""
+              i
+            ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(
+              i
+            )(
+              2
+            )}}"""
         )
       )
       .toMap

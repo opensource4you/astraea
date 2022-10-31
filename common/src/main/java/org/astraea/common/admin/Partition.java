@@ -87,10 +87,14 @@ public interface Partition {
 
   int partition();
 
-  /** @return existent earliest offset */
+  /**
+   * @return existent earliest offset
+   */
   long earliestOffset();
 
-  /** @return existent latest offset */
+  /**
+   * @return existent latest offset
+   */
   long latestOffset();
 
   /**
@@ -99,13 +103,17 @@ public interface Partition {
    */
   Optional<Long> maxTimestamp();
 
-  /** @return null if the node gets offline. otherwise, it returns node info. */
+  /**
+   * @return null if the node gets offline. otherwise, it returns node info.
+   */
   Optional<NodeInfo> leader();
 
   List<NodeInfo> replicas();
 
   List<NodeInfo> isr();
 
-  /** @return true if this topic is internal (system) topic */
+  /**
+   * @return true if this topic is internal (system) topic
+   */
   boolean internal();
 }

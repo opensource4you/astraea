@@ -44,7 +44,9 @@ interface Response {
     return 400;
   }
 
-  /** @return http code */
+  /**
+   * @return http code
+   */
   default int code() {
     return 200;
   }

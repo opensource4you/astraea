@@ -34,7 +34,9 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
   public static final String COST_NAME = "size";
 
-  /** @return the metrics getters. Those getters are used to fetch mbeans. */
+  /**
+   * @return the metrics getters. Those getters are used to fetch mbeans.
+   */
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(LogMetrics.Log.SIZE::fetch);

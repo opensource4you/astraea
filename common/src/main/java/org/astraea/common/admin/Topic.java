@@ -55,13 +55,19 @@ public interface Topic {
     };
   }
 
-  /** @return topic name */
+  /**
+   * @return topic name
+   */
   String name();
 
-  /** @return config used by this topic */
+  /**
+   * @return config used by this topic
+   */
   Config config();
 
-  /** @return true if this topic is internal (system) topic */
+  /**
+   * @return true if this topic is internal (system) topic
+   */
   boolean internal();
 
   Set<TopicPartition> topicPartitions();
