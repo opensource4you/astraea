@@ -52,7 +52,6 @@ import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -78,7 +77,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .join()
           .replicaStream()
           .forEach(r -> Assertions.assertNotEquals(0, r.size()));
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost());
+      var handler = new BalancerHandler(admin);
       var report =
           submitPlanGeneration(
                   handler,
@@ -119,7 +118,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testTopic() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost());
+      var handler = new BalancerHandler(admin);
       var report =
           submitPlanGeneration(
                   handler,
@@ -146,9 +145,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testTopics() {
-    var topicNames = createAndProduceTopic(3);
+    var topicNames = createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost());
+      var handler = new BalancerHandler(admin);
+      // For all 5 topics, we only allow the first two topics can be altered.
+      // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
+      var allowedTopics = topicNames.subList(0, 2);
       var report =
           submitPlanGeneration(
                   handler,
@@ -156,16 +158,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       BalancerHandler.LOOP_KEY,
                       "30",
                       BalancerHandler.TOPICS_KEY,
-                      topicNames.get(0) + "," + topicNames.get(1),
+                      String.join(",", allowedTopics),
                       BalancerHandler.COST_WEIGHT_KEY,
                       defaultDecreasing))
               .report;
-      var actual =
-          report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
-      Assertions.assertEquals(2, actual.size());
-      Assertions.assertTrue(actual.contains(topicNames.get(0)));
-      Assertions.assertTrue(actual.contains(topicNames.get(1)));
-      Assertions.assertTrue(report.cost >= report.newCost);
+      Assertions.assertTrue(
+          report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
+          "Only allowed topics been altered");
+      Assertions.assertTrue(
+          report.cost >= report.newCost,
+          "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
@@ -257,7 +259,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           (originClusterInfo, newClusterInfo, clusterBean) ->
               MoveCost.builder().totalCost(100).build();
 
-      var balancerHandler = new BalancerHandler(admin, new ReplicaSizeCost());
+      var balancerHandler = new BalancerHandler(admin);
       var Best =
           Balancer.create(
                   SingleStepBalancer.class,
@@ -340,7 +342,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost());
+      var handler = new BalancerHandler(admin);
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -366,7 +368,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var progress =
           submitPlanGeneration(
               handler,
@@ -398,7 +400,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new NoOpExecutor());
 
       // no id offered
       Assertions.assertThrows(
@@ -432,7 +434,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .join();
       Utils.sleep(Duration.ofSeconds(3));
       var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
 
       // use many threads to increase the chance to trigger a data race
@@ -480,7 +482,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               return null;
             }
           };
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var plan0 = submitPlanGeneration(handler, Map.of());
       var plan1 = submitPlanGeneration(handler, Map.of());
 
@@ -516,7 +518,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new NoOpExecutor());
       var theReport =
           submitPlanGeneration(
               handler,
@@ -558,7 +560,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var theReport =
           submitPlanGeneration(
                   handler,
@@ -606,7 +608,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               return null;
             }
           };
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
       Assertions.assertTrue(progress.generated, "The plan should be generated");
 
@@ -671,7 +673,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               throw new RuntimeException("Boom");
             }
           };
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -716,7 +718,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBadLookupRequest() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new NoOpExecutor());
 
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
@@ -737,7 +739,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new ReplicaSizeCost(), new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin, new StraightPlanExecutor());
       var progress =
           submitPlanGeneration(
               handler,

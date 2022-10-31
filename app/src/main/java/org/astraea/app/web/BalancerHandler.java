@@ -54,6 +54,7 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
@@ -70,25 +71,21 @@ class BalancerHandler implements Handler {
   static final int TIMEOUT_DEFAULT = 3;
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
+  static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
+      List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost());
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
-  final HasMoveCost moveCostFunction;
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
 
   BalancerHandler(Admin admin) {
-    this(admin, new ReplicaSizeCost());
+    this(admin, new StraightPlanExecutor());
   }
 
-  BalancerHandler(Admin admin, HasMoveCost moveCostFunction) {
-    this(admin, moveCostFunction, new StraightPlanExecutor());
-  }
-
-  BalancerHandler(Admin admin, HasMoveCost moveCostFunction, RebalancePlanExecutor executor) {
+  BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
     this.admin = admin;
-    this.moveCostFunction = moveCostFunction;
     this.executor = executor;
   }
 
@@ -157,7 +154,7 @@ class BalancerHandler implements Handler {
                           SingleStepBalancer.class,
                           AlgorithmConfig.builder()
                               .clusterCost(clusterCostFunction)
-                              .moveCost(List.of(moveCostFunction))
+                              .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
                               .topicFilter(topics::contains)
                               .limit(loop)
                               .limit(timeout)
@@ -194,7 +191,11 @@ class BalancerHandler implements Handler {
                       clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
-                          .map(p -> List.of(new MigrationCost(p.moveCost().iterator().next())))
+                          .map(
+                              p ->
+                                  p.moveCost().stream()
+                                      .map(MigrationCost::new)
+                                      .collect(Collectors.toList()))
                           .orElseGet(List::of));
               return new PlanInfo(report, bestPlan);
             });

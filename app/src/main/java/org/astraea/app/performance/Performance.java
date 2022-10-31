@@ -310,7 +310,9 @@ public class Performance {
         converter = TopicPartitionField.class)
     List<TopicPartition> specifyPartitions = List.of();
 
-    /** @return a supplier that randomly return a sending target */
+    /**
+     * @return a supplier that randomly return a sending target
+     */
     Supplier<TopicPartition> topicPartitionSelector() {
       var specifiedByBroker = !specifyBrokers.isEmpty();
       var specifiedByPartition = !specifyPartitions.isEmpty();

@@ -33,12 +33,12 @@ object DataColumn {
       val column = colsMap.keys.toArray
       throw new IllegalArgumentException(
         s"The ${combine
-          .diff(column)
-          .mkString(
-            PRIMARY_KEYS + "(",
-            ", ",
-            ")"
-          )} not in column. All $PRIMARY_KEYS should be included in the column."
+            .diff(column)
+            .mkString(
+              PRIMARY_KEYS + "(",
+              ", ",
+              ")"
+            )} not in column. All $PRIMARY_KEYS should be included in the column."
       )
     }
     val colsSeq = colsMap
@@ -53,7 +53,7 @@ object DataColumn {
     colsSeq
   }
 
-  //No duplicate values should be set.
+  // No duplicate values should be set.
   def requireNonidentical(
       string: String,
       prop: String
@@ -64,12 +64,12 @@ object DataColumn {
       val column = map.keys.toArray
       throw new IllegalArgumentException(
         s"${array
-          .diff(column)
-          .mkString(
-            string + " (",
-            ", ",
-            ")"
-          )} is duplication. The $string should not be duplicated."
+            .diff(column)
+            .mkString(
+              string + " (",
+              ", ",
+              ")"
+            )} is duplication. The $string should not be duplicated."
       )
     }
     map

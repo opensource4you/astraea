@@ -65,16 +65,24 @@ public interface NodeInfo extends Comparable<NodeInfo> {
     };
   }
 
-  /** @return The host name for this node */
+  /**
+   * @return The host name for this node
+   */
   String host();
 
-  /** @return The client (kafka data, jmx, etc.) port for this node */
+  /**
+   * @return The client (kafka data, jmx, etc.) port for this node
+   */
   int port();
 
-  /** @return id of broker node. it must be unique. */
+  /**
+   * @return id of broker node. it must be unique.
+   */
   int id();
 
-  /** @return true if the node is offline. An offline node can't offer host or port information. */
+  /**
+   * @return true if the node is offline. An offline node can't offer host or port information.
+   */
   default boolean offline() {
     return host() == null || host().isEmpty() || port() < 0;
   }

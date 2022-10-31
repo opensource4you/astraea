@@ -14,44 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.collector;
+package org.astraea.common;
 
-public interface Register {
+import java.util.Objects;
+import java.util.function.Supplier;
+
+public interface Lazy<T> {
+
+  static <T> Lazy<T> of(Supplier<T> supplier) {
+    return new Lazy<T>() {
+      private volatile T obj;
+
+      @Override
+      public T get() {
+        if (obj == null) {
+          synchronized (this) {
+            if (obj == null) obj = Objects.requireNonNull(supplier.get());
+          }
+        }
+        return obj;
+      }
+    };
+  }
 
   /**
-   * @param host of jmx server
-   * @return this register
-   */
-  Register host(String host);
-
-  /**
-   * @param port of jmx server
-   * @return this register
-   */
-  Register port(int port);
-
-  /**
-   * declare a receiver based on local metrics client
+   * the object will get created when this method is called the first time
    *
-   * @return this register
+   * @return object
    */
-  Register local();
-
-  /**
-   * @param fetcher to get metrics from MBeanClient
-   * @return this register
-   */
-  Register fetcher(Fetcher fetcher);
-
-  /**
-   * demand to schedule metric updates periodically.
-   *
-   * @return this register
-   */
-  Register autoUpdate();
-
-  /**
-   * @return create a Receiver
-   */
-  Receiver build();
+  T get();
 }

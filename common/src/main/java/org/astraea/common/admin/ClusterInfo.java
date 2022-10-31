@@ -29,6 +29,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Lazy;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
@@ -320,7 +321,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[for replicas]---------------------//
 
-  /** @return all replicas cached by this cluster info. */
+  /**
+   * @return all replicas cached by this cluster info.
+   */
   default List<T> replicas() {
     return replicaStream().collect(Collectors.toUnmodifiableList());
   }
@@ -409,10 +412,14 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[abstract methods]---------------------//
 
-  /** @return The known set of nodes */
+  /**
+   * @return The known set of nodes
+   */
   Set<NodeInfo> nodes();
 
-  /** @return replica stream to offer effective way to operate a bunch of replicas */
+  /**
+   * @return replica stream to offer effective way to operate a bunch of replicas
+   */
   Stream<T> replicaStream();
 
   /** It optimizes all queries by pre-allocated Map collection. */
@@ -420,85 +427,90 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     private final Set<NodeInfo> nodeInfos;
     private final List<T> all;
 
-    private volatile Map<Map.Entry<Integer, String>, List<T>> byBrokerTopic;
-    private volatile Map<Integer, List<T>> byBroker;
-    private volatile Map<String, List<T>> byTopic;
-    private volatile Map<TopicPartition, List<T>> byPartition;
-    private volatile Map<TopicPartitionReplica, List<T>> byReplica;
+    private final Lazy<Map<Map.Entry<Integer, String>, List<T>>> byBrokerTopic;
+    private final Lazy<Map<Integer, List<T>>> byBroker;
+    private final Lazy<Map<String, List<T>>> byTopic;
+    private final Lazy<Map<TopicPartition, List<T>>> byPartition;
+    private final Lazy<Map<TopicPartitionReplica, List<T>>> byReplica;
 
     protected Optimized(Set<NodeInfo> nodeInfos, List<T> replicas) {
       this.nodeInfos = nodeInfos;
       this.all = replicas;
+      this.byBrokerTopic =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              r -> Map.entry(r.nodeInfo().id(), r.topic()),
+                              Collectors.toUnmodifiableList())));
+      this.byBroker =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              r -> r.nodeInfo().id(), Collectors.toUnmodifiableList())));
+
+      this.byTopic =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              ReplicaInfo::topic, Collectors.toUnmodifiableList())));
+
+      this.byPartition =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              ReplicaInfo::topicPartition, Collectors.toUnmodifiableList())));
+
+      this.byReplica =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              ReplicaInfo::topicPartitionReplica,
+                              Collectors.toUnmodifiableList())));
     }
 
     @Override
     public Stream<T> replicaStream(String topic) {
-      indexTopic();
-      return byTopic.getOrDefault(topic, List.of()).stream();
+      return byTopic.get().getOrDefault(topic, List.of()).stream();
     }
 
     @Override
     public Stream<T> replicaStream(TopicPartition partition) {
-      indexPartition();
-      return byPartition.getOrDefault(partition, List.of()).stream();
+      return byPartition.get().getOrDefault(partition, List.of()).stream();
     }
 
     @Override
     public Stream<T> replicaStream(TopicPartitionReplica replica) {
-      if (byReplica == null) {
-        synchronized (this) {
-          if (byReplica == null)
-            byReplica =
-                all.stream()
-                    .collect(
-                        Collectors.groupingBy(
-                            ReplicaInfo::topicPartitionReplica, Collectors.toUnmodifiableList()));
-        }
-      }
-      return byReplica.getOrDefault(replica, List.of()).stream();
+      return byReplica.get().getOrDefault(replica, List.of()).stream();
     }
 
     @Override
     public Stream<T> replicaStream(int broker) {
-      if (byBroker == null) {
-        synchronized (this) {
-          if (byBroker == null)
-            byBroker =
-                all.stream()
-                    .collect(
-                        Collectors.groupingBy(
-                            r -> r.nodeInfo().id(), Collectors.toUnmodifiableList()));
-        }
-      }
-      return byBroker.getOrDefault(broker, List.of()).stream();
+      return byBroker.get().getOrDefault(broker, List.of()).stream();
     }
 
     @Override
     public Stream<T> replicaStream(int broker, String topic) {
-      if (byBrokerTopic == null) {
-        synchronized (this) {
-          if (byBrokerTopic == null)
-            byBrokerTopic =
-                all.stream()
-                    .collect(
-                        Collectors.groupingBy(
-                            r -> Map.entry(r.nodeInfo().id(), r.topic()),
-                            Collectors.toUnmodifiableList()));
-        }
-      }
-      return byBrokerTopic.getOrDefault(Map.entry(broker, topic), List.of()).stream();
+      return byBrokerTopic.get().getOrDefault(Map.entry(broker, topic), List.of()).stream();
     }
 
     @Override
     public Set<TopicPartition> topicPartitions() {
-      indexPartition();
-      return byPartition.keySet();
+      return byPartition.get().keySet();
     }
 
     @Override
     public Set<String> topics() {
-      indexTopic();
-      return byTopic.keySet();
+      return byTopic.get().keySet();
     }
 
     @Override
@@ -509,31 +521,6 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     @Override
     public Stream<T> replicaStream() {
       return all.stream();
-    }
-
-    private void indexTopic() {
-      if (byTopic == null) {
-        synchronized (this) {
-          if (byTopic == null)
-            byTopic =
-                all.stream()
-                    .collect(
-                        Collectors.groupingBy(ReplicaInfo::topic, Collectors.toUnmodifiableList()));
-        }
-      }
-    }
-
-    private void indexPartition() {
-      if (byPartition == null) {
-        synchronized (this) {
-          if (byPartition == null)
-            byPartition =
-                all.stream()
-                    .collect(
-                        Collectors.groupingBy(
-                            ReplicaInfo::topicPartition, Collectors.toUnmodifiableList()));
-        }
-      }
     }
   }
 }

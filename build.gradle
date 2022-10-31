@@ -15,7 +15,11 @@
  * limitations under the License.
  */
 plugins {
-    id "com.diffplug.spotless" version "5.14.3"
+    id "com.diffplug.spotless" version "6.11.0"
+}
+
+repositories {
+    mavenCentral()
 }
 
 repositories {

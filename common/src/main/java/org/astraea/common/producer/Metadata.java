@@ -77,17 +77,23 @@ public final class Metadata {
     return serializedValueSize;
   }
 
-  /** @return the timestamp of the record */
+  /**
+   * @return the timestamp of the record
+   */
   public long timestamp() {
     return timestamp;
   }
 
-  /** @return The topic the record was appended to */
+  /**
+   * @return The topic the record was appended to
+   */
   public String topic() {
     return topic;
   }
 
-  /** @return The partition the record was sent to */
+  /**
+   * @return The partition the record was sent to
+   */
   public int partition() {
     return partition;
   }

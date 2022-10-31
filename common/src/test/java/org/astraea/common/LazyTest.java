@@ -14,44 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.collector;
+package org.astraea.common;
 
-public interface Register {
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-  /**
-   * @param host of jmx server
-   * @return this register
-   */
-  Register host(String host);
+public class LazyTest {
 
-  /**
-   * @param port of jmx server
-   * @return this register
-   */
-  Register port(int port);
-
-  /**
-   * declare a receiver based on local metrics client
-   *
-   * @return this register
-   */
-  Register local();
-
-  /**
-   * @param fetcher to get metrics from MBeanClient
-   * @return this register
-   */
-  Register fetcher(Fetcher fetcher);
-
-  /**
-   * demand to schedule metric updates periodically.
-   *
-   * @return this register
-   */
-  Register autoUpdate();
-
-  /**
-   * @return create a Receiver
-   */
-  Receiver build();
+  @Test
+  void testCountOfGet() {
+    var count = new AtomicInteger();
+    Supplier<String> s =
+        () -> {
+          count.incrementAndGet();
+          return "ss";
+        };
+    var lazy = Lazy.of(s);
+    IntStream.range(0, 10)
+        .mapToObj(
+            ignored -> CompletableFuture.runAsync(() -> Assertions.assertEquals("ss", lazy.get())))
+        .forEach(CompletableFuture::join);
+    Assertions.assertEquals(1, count.get());
+  }
 }

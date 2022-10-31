@@ -98,21 +98,31 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
 
   interface Data {
 
-    /** @return true if there is no data. */
+    /**
+     * @return true if there is no data.
+     */
     boolean done();
 
-    /** @return true if there are some data, but it is throttled now. */
+    /**
+     * @return true if there are some data, but it is throttled now.
+     */
     boolean throttled();
 
-    /** @return true if there is accessible data */
+    /**
+     * @return true if there is accessible data
+     */
     default boolean hasData() {
       return !done() && !throttled();
     }
 
-    /** @return key or throw exception if there is no data, or it is throttled now */
+    /**
+     * @return key or throw exception if there is no data, or it is throttled now
+     */
     byte[] key();
 
-    /** @return value or throw exception if there is no data, or it is throttled now */
+    /**
+     * @return value or throw exception if there is no data, or it is throttled now
+     */
     byte[] value();
   }
 
