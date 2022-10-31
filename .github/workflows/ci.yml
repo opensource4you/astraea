@@ -14,6 +14,7 @@ jobs:
       image: ghcr.io/skiptests/astraea/deps
       options: --cpus 2
     steps:
+      - uses: actions/checkout@v2
       - name: build
         run: ./gradlew clean build testClasses -x test --no-daemon
       - name: unit tests
