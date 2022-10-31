@@ -20,6 +20,7 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface MetricCollector extends AutoCloseable {
@@ -57,6 +58,9 @@ public interface MetricCollector extends AutoCloseable {
    * @return a readonly view of underlying storage map
    */
   <T extends HasBeanObject> Map<Integer, Collection<T>> metrics(Class<T> metricClass);
+
+  /** @return the {@link ClusterBean}. */
+  ClusterBean clusterBean();
 
   @Override
   void close();
