@@ -62,12 +62,16 @@ public interface Replica extends ReplicaInfo {
    */
   boolean isFuture();
 
-  /** @return true if this is current log of replica. */
+  /**
+   * @return true if this is current log of replica.
+   */
   default boolean isCurrent() {
     return !isFuture();
   }
 
-  /** @return true if the replica is the preferred leader */
+  /**
+   * @return true if the replica is the preferred leader
+   */
   boolean isPreferredLeader();
 
   /**

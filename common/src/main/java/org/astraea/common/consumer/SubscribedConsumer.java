@@ -34,12 +34,18 @@ public interface SubscribedConsumer<Key, Value> extends Consumer<Key, Value> {
    */
   void commitOffsets(Duration timeout);
 
-  /** @return the group id including this consumer */
+  /**
+   * @return the group id including this consumer
+   */
   String groupId();
 
-  /** @return the member id used by this consumer */
+  /**
+   * @return the member id used by this consumer
+   */
   String memberId();
 
-  /** @return group instance id (static member) */
+  /**
+   * @return group instance id (static member)
+   */
   Optional<String> groupInstanceId();
 }

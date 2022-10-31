@@ -28,7 +28,9 @@ public class ExecutionRuntimeException extends RuntimeException {
     this.executionException = executionException;
   }
 
-  /** @return the root cause of ExecutionException */
+  /**
+   * @return the root cause of ExecutionException
+   */
   public Throwable getRootCause() {
     return executionException.getCause();
   }

@@ -23,7 +23,9 @@ public interface AbstractThread extends Closeable {
   /** wait this thread to be completed. */
   void waitForDone();
 
-  /** @return true if this thread is done */
+  /**
+   * @return true if this thread is done
+   */
   boolean closed();
 
   /** wakeup and then wait this thread to complete */

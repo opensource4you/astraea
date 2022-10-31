@@ -57,10 +57,14 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   /** unsubscribe all partitions. */
   void unsubscribe();
 
-  /** @return current partitions assigned to this consumer */
+  /**
+   * @return current partitions assigned to this consumer
+   */
   Set<TopicPartition> assignments();
 
-  /** @return client id of this consumer */
+  /**
+   * @return client id of this consumer
+   */
   String clientId();
 
   /**

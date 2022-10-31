@@ -155,10 +155,14 @@ public interface MBeanClient extends AutoCloseable {
    */
   List<String> listDomains();
 
-  /** @return the host address of jmx server */
+  /**
+   * @return the host address of jmx server
+   */
   String host();
 
-  /** @return the port listened by jmx server */
+  /**
+   * @return the port listened by jmx server
+   */
   int port();
 
   @Override

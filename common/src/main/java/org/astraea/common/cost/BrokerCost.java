@@ -36,6 +36,8 @@ public interface BrokerCost {
     return () -> map;
   }
 
-  /** @return broker-id and its "cost" */
+  /**
+   * @return broker-id and its "cost"
+   */
   Map<Integer, Double> value();
 }

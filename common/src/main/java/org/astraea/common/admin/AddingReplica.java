@@ -62,9 +62,13 @@ public interface AddingReplica {
 
   String path();
 
-  /** @return current data size of this adding replica */
+  /**
+   * @return current data size of this adding replica
+   */
   long size();
 
-  /** @return size (of topic partition leader) to sync */
+  /**
+   * @return size (of topic partition leader) to sync
+   */
   long leaderSize();
 }

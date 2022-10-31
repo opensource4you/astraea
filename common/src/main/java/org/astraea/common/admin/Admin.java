@@ -47,7 +47,9 @@ public interface Admin extends AutoCloseable {
   // ---------------------------------[internal]---------------------------------//
   String clientId();
 
-  /** @return the number of pending requests. */
+  /**
+   * @return the number of pending requests.
+   */
   int runningRequests();
 
   // ---------------------------------[readonly]---------------------------------//
@@ -58,7 +60,9 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Set<String>> topicNames(boolean listInternal);
 
-  /** @return names of internal topics */
+  /**
+   * @return names of internal topics
+   */
   CompletionStage<Set<String>> internalTopicNames();
 
   CompletionStage<List<Topic>> topics(Set<String> topics);
@@ -128,10 +132,14 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
-  /** @return online node information */
+  /**
+   * @return online node information
+   */
   CompletionStage<Set<NodeInfo>> nodeInfos();
 
-  /** @return online broker information */
+  /**
+   * @return online broker information
+   */
   CompletionStage<List<Broker>> brokers();
 
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
@@ -257,7 +265,9 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds);
 
-  /** @return a topic creator to set all topic configs and then run the procedure. */
+  /**
+   * @return a topic creator to set all topic configs and then run the procedure.
+   */
   TopicCreator creator();
 
   CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments);
@@ -280,7 +290,9 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> addPartitions(String topic, int total);
 
-  /** @param override defines the key and new value. The other undefined keys won't get changed. */
+  /**
+   * @param override defines the key and new value. The other undefined keys won't get changed.
+   */
   CompletionStage<Void> setTopicConfigs(Map<String, Map<String, String>> override);
 
   /**
@@ -303,7 +315,9 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> unsetTopicConfigs(Map<String, Set<String>> unset);
 
-  /** @param override defines the key and new value. The other undefined keys won't get changed. */
+  /**
+   * @param override defines the key and new value. The other undefined keys won't get changed.
+   */
   CompletionStage<Void> setBrokerConfigs(Map<Integer, Map<String, String>> override);
 
   /**

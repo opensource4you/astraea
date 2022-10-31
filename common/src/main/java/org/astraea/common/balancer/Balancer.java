@@ -32,7 +32,9 @@ import org.astraea.common.cost.MoveCost;
 
 public interface Balancer {
 
-  /** @return a rebalance plan */
+  /**
+   * @return a rebalance plan
+   */
   Optional<Plan> offer(
       ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
 

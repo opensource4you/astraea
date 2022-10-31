@@ -24,7 +24,9 @@ import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 public interface RebalancePlanProposal {
 
-  /** @return the index of this proposal in stream */
+  /**
+   * @return the index of this proposal in stream
+   */
   int index();
 
   ClusterLogAllocation rebalancePlan();

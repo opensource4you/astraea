@@ -49,7 +49,7 @@ class DataFrameOp(dataFrame: DataFrame) {
     * @return
     *   json df
     */
-  //TODO unitized JSON
+  // TODO unitized JSON
   def csvToJSON(pk: Seq[String]): DataFrameOp = {
     new DataFrameOp(
       dataFrame

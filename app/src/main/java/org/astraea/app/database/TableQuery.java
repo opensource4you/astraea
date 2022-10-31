@@ -42,6 +42,8 @@ public interface TableQuery {
    */
   TableQuery tableName(String tableName);
 
-  /** @return the tables matched to this query. */
+  /**
+   * @return the tables matched to this query.
+   */
   Collection<TableInfo> run();
 }
