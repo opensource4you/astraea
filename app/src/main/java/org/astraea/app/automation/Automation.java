@@ -81,7 +81,7 @@ public class Automation {
         }
         System.out.println("=============== " + i + " time Performance Complete! ===============");
       }
-    } catch (IOException | InterruptedException e) {
+    } catch (IOException e) {
       e.printStackTrace();
     }
   }

@@ -22,11 +22,13 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
@@ -110,15 +112,16 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
   private static Function<ClusterLogAllocation, ClusterLogAllocation> allocationGenerator(
       Map<Integer, Set<String>> brokerFolders, RebalancePlanProposal.Build rebalancePlanBuilder) {
     return currentAllocation -> {
-      final var topicPartitions = currentAllocation.topicPartitions();
       final var selectedPartition =
-          topicPartitions.stream()
-              .skip(ThreadLocalRandom.current().nextInt(topicPartitions.size()))
-              .findFirst()
+          currentAllocation.topicPartitions().stream()
+              .filter(tp -> eligiblePartition((currentAllocation.replicas(tp))))
+              .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
+              .min(Map.Entry.comparingByValue())
+              .map(Map.Entry::getKey)
               .orElseThrow();
 
       // [valid operation 1] change leader/follower identity
-      final var currentReplicas = currentAllocation.logPlacements(selectedPartition);
+      final var currentReplicas = currentAllocation.replicas(selectedPartition);
       final var candidates0 =
           currentReplicas.stream()
               .skip(1)
@@ -178,5 +181,14 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
         .skip(ThreadLocalRandom.current().nextInt(0, collection.size()))
         .findFirst()
         .orElseThrow();
+  }
+
+  private static boolean eligiblePartition(Collection<Replica> replicas) {
+    return Stream.<Predicate<Collection<Replica>>>of(
+            // only one replica and it is offline
+            r -> r.size() == 1 && r.stream().findFirst().orElseThrow().isOffline(),
+            // no leader
+            r -> r.stream().noneMatch(ReplicaInfo::isLeader))
+        .noneMatch(p -> p.test(replicas));
   }
 }

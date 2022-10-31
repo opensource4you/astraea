@@ -18,16 +18,16 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.astraea.common.FutureUtils;
 
 /**
- * Argument for {@link AsyncAdmin#idleTopic(List)}. This interface will check for the given set of
- * topic names, and filter out the "idle" topics.
+ * Argument for {@link Admin#idleTopic(List)}. This interface will check for the given set of topic
+ * names, and filter out the "idle" topics.
  *
  * <p>For example, the definition of "idle" can be "the topic that is not consumed by any consumer".
  * Like {@link #ASSIGNMENT} filter out the topics that/(whose partitions) are not assigned by any
@@ -41,7 +41,7 @@ public interface TopicChecker {
    * @param topics names of topics this checker will check
    * @return the set of topic names that is not idle
    */
-  CompletionStage<Set<String>> usedTopics(AsyncAdmin admin, Set<String> topics);
+  CompletionStage<Set<String>> usedTopics(Admin admin, Set<String> topics);
 
   /** Find topics which is assigned by any consumer. */
   TopicChecker ASSIGNMENT =
@@ -61,36 +61,53 @@ public interface TopicChecker {
                     .collect(Collectors.toUnmodifiableSet()));
       };
 
-  /** Find topics whose latest record timestamp is not older than the given duration. */
-  // TODO: Timestamp may custom by producer, maybe check the time by idempotent state. See:
-  // https://github.com/skiptests/astraea/issues/739#issuecomment-1254838359
-  static TopicChecker latestTimestamp(Duration duration) {
+  /**
+   * Find topics whose max(the latest record timestamp, producer timestamp, max timestamp of
+   * records) is not older than the given duration.
+   *
+   * @param expired to search expired topics
+   * @param timeout to wait the latest record
+   */
+  static TopicChecker latestTimestamp(Duration expired, Duration timeout) {
     return (admin, topics) -> {
-      long now = System.currentTimeMillis();
-      return admin
-          .partitions(topics)
+      long end = System.currentTimeMillis() - expired.toMillis();
+      var tpsFuture = admin.topicPartitions(topics);
+      return FutureUtils.combine(
+              tpsFuture,
+              tpsFuture.thenCompose(tps -> admin.timestampOfLatestRecords(tps, timeout)),
+              tpsFuture.thenCompose(admin::producerStates),
+              tpsFuture.thenCompose(admin::maxTimestamps),
+              (tps, timestampOfLatestRecords, producerStates, maxTimestamps) -> {
+                var tpTimeFromState =
+                    producerStates.stream()
+                        .collect(Collectors.groupingBy(ProducerState::topicPartition))
+                        .entrySet()
+                        .stream()
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    e.getValue().stream()
+                                        .mapToLong(ProducerState::lastTimestamp)
+                                        .max()
+                                        .orElse(-1)));
+                return tps.stream()
+                    .collect(
+                        Collectors.toMap(
+                            tp -> tp,
+                            tp ->
+                                Math.max(
+                                    timestampOfLatestRecords.getOrDefault(tp, -1L),
+                                    Math.max(
+                                        tpTimeFromState.getOrDefault(tp, -1L),
+                                        maxTimestamps.getOrDefault(tp, -1L)))));
+              })
           .thenApply(
-              partitions ->
-                  // Filtering the topic to get the topic that
-                  // 1. offset of each partition are not 0
-                  // 2. the max timestamp is not smaller than the given time
-                  //    or
-                  //    the topic does not support max timestamp
-                  partitions.stream()
-                      .filter(p -> p.latestOffset() > 0)
-                      .collect(
-                          Collectors.groupingBy(
-                              Partition::topic,
-                              Collectors.maxBy(Comparator.comparingLong(Partition::maxTimestamp))))
-                      .values()
-                      .stream()
-                      .flatMap(Optional::stream)
-                      .filter(
-                          p ->
-                              now - duration.toMillis() < p.maxTimestamp()
-                                  || p.maxTimestamp() == -1)
-                      .map(Partition::topic)
-                      .collect(Collectors.toUnmodifiableSet()));
+              ts ->
+                  ts.entrySet().stream()
+                      .filter(e -> e.getValue() >= end)
+                      .map(e -> e.getKey().topic())
+                      .collect(Collectors.toSet()));
     };
   }
 }

@@ -26,7 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.FutureUtils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 
@@ -34,9 +35,9 @@ public class GroupHandler implements Handler {
   static final String TOPIC_KEY = "topic";
   static final String INSTANCE_KEY = "instance";
   static final String GROUP_KEY = "group";
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  GroupHandler(AsyncAdmin admin) {
+  GroupHandler(Admin admin) {
     this.admin = admin;
   }
 
@@ -68,91 +69,90 @@ public class GroupHandler implements Handler {
         .orElseGet(() -> admin.topicNames(true))
         .thenCompose(
             topics ->
-                admin
-                    .consumerGroupIds()
-                    .thenApply(
-                        groupIds -> {
-                          var availableIds =
-                              channel
-                                  .target()
-                                  .map(
-                                      r ->
-                                          groupIds.stream()
-                                              .filter(id -> id.equals(r))
-                                              .collect(Collectors.toSet()))
-                                  .orElse(groupIds);
-                          if (availableIds.isEmpty() && channel.target().isPresent())
-                            throw new NoSuchElementException(
-                                "group: " + channel.target().get() + " is nonexistent");
-                          return availableIds;
-                        })
-                    .thenCompose(admin::consumerGroups)
-                    .thenCombine(
-                        admin
-                            .partitions(topics)
-                            .thenApply(
-                                partitions ->
-                                    partitions.stream()
-                                        .collect(
-                                            Collectors.toMap(
-                                                Partition::topicPartition, Function.identity()))),
-                        (groups, partitions) ->
-                            groups.stream()
-                                // if users want to search groups for specify topic only, we remove
-                                // the group having no offsets related to specify topic
-                                .filter(
-                                    g ->
-                                        !channel.queries().containsKey(TOPIC_KEY)
-                                            || g.consumeProgress().keySet().stream()
-                                                .map(TopicPartition::topic)
-                                                .anyMatch(topics::contains))
-                                .map(
-                                    group ->
-                                        new Group(
-                                            group.groupId(),
-                                            group.assignment().entrySet().stream()
-                                                .map(
-                                                    entry ->
-                                                        new Member(
-                                                            entry.getKey().memberId(),
-                                                            // gson does not support Optional see
-                                                            // https://github.com/google/gson/issues/1102
-                                                            entry
-                                                                .getKey()
-                                                                .groupInstanceId()
-                                                                .orElse(null),
-                                                            entry.getKey().clientId(),
-                                                            entry.getKey().host(),
-                                                            entry.getValue().stream()
-                                                                .map(
-                                                                    tp ->
-                                                                        partitions.containsKey(tp)
-                                                                                && group
+                FutureUtils.combine(
+                    admin
+                        .consumerGroupIds()
+                        .thenApply(
+                            groupIds -> {
+                              var availableIds =
+                                  channel
+                                      .target()
+                                      .map(
+                                          r ->
+                                              groupIds.stream()
+                                                  .filter(id -> id.equals(r))
+                                                  .collect(Collectors.toSet()))
+                                      .orElse(groupIds);
+                              if (availableIds.isEmpty() && channel.target().isPresent())
+                                throw new NoSuchElementException(
+                                    "group: " + channel.target().get() + " is nonexistent");
+                              return availableIds;
+                            })
+                        .thenCompose(admin::consumerGroups),
+                    admin
+                        .partitions(topics)
+                        .thenApply(
+                            partitions ->
+                                partitions.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            Partition::topicPartition, Function.identity()))),
+                    (groups, partitions) ->
+                        groups.stream()
+                            // if users want to search groups for specify topic only, we remove
+                            // the group having no offsets related to specify topic
+                            .filter(
+                                g ->
+                                    !channel.queries().containsKey(TOPIC_KEY)
+                                        || g.consumeProgress().keySet().stream()
+                                            .map(TopicPartition::topic)
+                                            .anyMatch(topics::contains))
+                            .map(
+                                group ->
+                                    new Group(
+                                        group.groupId(),
+                                        group.assignment().entrySet().stream()
+                                            .map(
+                                                entry ->
+                                                    new Member(
+                                                        entry.getKey().memberId(),
+                                                        // gson does not support Optional see
+                                                        // https://github.com/google/gson/issues/1102
+                                                        entry
+                                                            .getKey()
+                                                            .groupInstanceId()
+                                                            .orElse(null),
+                                                        entry.getKey().clientId(),
+                                                        entry.getKey().host(),
+                                                        entry.getValue().stream()
+                                                            .map(
+                                                                tp ->
+                                                                    partitions.containsKey(tp)
+                                                                            && group
+                                                                                .consumeProgress()
+                                                                                .containsKey(tp)
+                                                                        ? Optional.of(
+                                                                            new OffsetProgress(
+                                                                                tp.topic(),
+                                                                                tp.partition(),
+                                                                                partitions
+                                                                                    .get(tp)
+                                                                                    .earliestOffset(),
+                                                                                group
                                                                                     .consumeProgress()
-                                                                                    .containsKey(tp)
-                                                                            ? Optional.of(
-                                                                                new OffsetProgress(
-                                                                                    tp.topic(),
-                                                                                    tp.partition(),
-                                                                                    partitions
-                                                                                        .get(tp)
-                                                                                        .earliestOffset(),
-                                                                                    group
-                                                                                        .consumeProgress()
-                                                                                        .get(tp),
-                                                                                    partitions
-                                                                                        .get(tp)
-                                                                                        .latestOffset()))
-                                                                            : Optional
-                                                                                .<OffsetProgress>
-                                                                                    empty())
-                                                                .filter(Optional::isPresent)
-                                                                .map(Optional::get)
-                                                                .collect(
-                                                                    Collectors
-                                                                        .toUnmodifiableList())))
-                                                .collect(Collectors.toUnmodifiableList())))
-                                .collect(Collectors.toUnmodifiableList())))
+                                                                                    .get(tp),
+                                                                                partitions
+                                                                                    .get(tp)
+                                                                                    .latestOffset()))
+                                                                        : Optional
+                                                                            .<OffsetProgress>
+                                                                                empty())
+                                                            .filter(Optional::isPresent)
+                                                            .map(Optional::get)
+                                                            .collect(
+                                                                Collectors.toUnmodifiableList())))
+                                            .collect(Collectors.toUnmodifiableList())))
+                            .collect(Collectors.toUnmodifiableList())))
         .thenApply(
             groups -> {
               if (channel.target().isPresent() && groups.size() == 1) return groups.get(0);

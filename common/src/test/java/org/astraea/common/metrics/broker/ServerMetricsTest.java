@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -42,6 +41,26 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 public class ServerMetricsTest extends RequireSingleBrokerCluster {
+  @Test
+  void testAppInfo() {
+    ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+  }
+
+  @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.ZooKeeperClientMetrics.class)
+  void testSessionExpireListener(ServerMetrics.ZooKeeperClientMetrics request) {
+    var m = request.fetch(MBeanClient.local());
+    Assertions.assertDoesNotThrow(m::type);
+    MetricsTestUtil.validate(m);
+  }
+
+  @ParameterizedTest()
+  @EnumSource(value = ServerMetrics.SessionExpireListener.class)
+  void testSessionExpireListener(ServerMetrics.SessionExpireListener request) {
+    var m = request.fetch(MBeanClient.local());
+    Assertions.assertDoesNotThrow(m::type);
+    MetricsTestUtil.validate(m);
+  }
 
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
@@ -190,10 +209,10 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
 
   @ParameterizedTest
   @EnumSource(ServerMetrics.Topic.class)
-  void testTopic(ServerMetrics.Topic topic) throws ExecutionException, InterruptedException {
+  void testTopic(ServerMetrics.Topic topic) {
     var name = Utils.randomString();
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(name).key(new byte[10]).run().toCompletableFuture().get();
+      producer.sender().topic(name).key(new byte[10]).run().toCompletableFuture().join();
     }
     try (var consumer =
         Consumer.forTopics(Set.of(name))

@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -209,7 +208,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
   private void createTopic(String topic) {
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(9).create();
+      admin.creator().topic(topic).numberOfPartitions(9).run().toCompletableFuture().join();
     }
   }
 
@@ -220,20 +219,16 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
       String value,
       long timestamp,
       Header header) {
-    try {
-      return producer
-          .sender()
-          .topic(topicName)
-          .key(key)
-          .value(value.getBytes())
-          .timestamp(timestamp)
-          .headers(List.of(header))
-          .run()
-          .toCompletableFuture()
-          .get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
-    }
+    return producer
+        .sender()
+        .topic(topicName)
+        .key(key)
+        .value(value.getBytes())
+        .timestamp(timestamp)
+        .headers(List.of(header))
+        .run()
+        .toCompletableFuture()
+        .join();
   }
 
   @SuppressWarnings("unchecked")

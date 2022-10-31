@@ -21,6 +21,8 @@ import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,7 @@ import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
+import org.astraea.common.argument.DurationMapField;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.NonNegativeShortField;
 import org.astraea.common.argument.PathField;
@@ -59,7 +62,7 @@ import org.astraea.common.producer.ProducerConfigs;
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args) throws InterruptedException, IOException {
+  public static void main(String[] args) throws IOException {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
@@ -74,8 +77,7 @@ public class Performance {
         argument.throughput);
   }
 
-  public static List<String> execute(final Argument param)
-      throws InterruptedException, IOException {
+  public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -93,25 +95,9 @@ public class Performance {
             param::createProducer,
             param.interdependent);
     var consumerThreads =
-        ConsumerThread.create(
-            param.consumers,
-            (clientId, listener) ->
-                (param.pattern == null
-                        ? Consumer.forTopics(new HashSet<>(param.topics))
-                        : Consumer.forTopics(param.pattern))
-                    .configs(param.configs())
-                    .config(
-                        ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
-                        param.transactionSize > 1
-                            ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
-                            : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
-                    .bootstrapServers(param.bootstrapServers())
-                    .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
-                    .seek(latestOffsets)
-                    .consumerRebalanceListener(listener)
-                    .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
-                    .build());
-
+        param.monkeys != null
+            ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
+            : consumers(param, latestOffsets);
     System.out.println("creating tracker");
     var tracker =
         TrackerThread.create(
@@ -131,19 +117,7 @@ public class Performance {
     var fileWriterFuture =
         fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
 
-    var chaos =
-        param.chaosDuration == null
-            ? CompletableFuture.completedFuture(null)
-            : CompletableFuture.runAsync(
-                () -> {
-                  while (!consumerThreads.stream().allMatch(AbstractThread::closed)) {
-                    var thread =
-                        consumerThreads.get((int) (Math.random() * consumerThreads.size()));
-                    thread.unsubscribe();
-                    Utils.sleep(param.chaosDuration);
-                    thread.resubscribe();
-                  }
-                });
+    var monkeys = MonkeyThread.play(consumerThreads, param);
 
     CompletableFuture.runAsync(
         () -> {
@@ -158,16 +132,36 @@ public class Performance {
             }
             if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
               consumerThreads.forEach(AbstractThread::close);
+              monkeys.forEach(AbstractThread::close);
               return;
             }
             Utils.sleep(Duration.ofSeconds(1));
           }
         });
+    monkeys.forEach(AbstractThread::waitForDone);
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
     fileWriterFuture.join();
-    chaos.join();
     return param.topics;
+  }
+
+  static List<ConsumerThread> consumers(Argument param, Map<TopicPartition, Long> latestOffsets) {
+    return ConsumerThread.create(
+        param.consumers,
+        (clientId, listener) ->
+            Consumer.forTopics(new HashSet<>(param.topics))
+                .configs(param.configs())
+                .config(
+                    ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
+                    param.transactionSize > 1
+                        ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
+                        : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
+                .bootstrapServers(param.bootstrapServers())
+                .config(ConsumerConfigs.GROUP_ID_CONFIG, param.groupId)
+                .seek(latestOffsets)
+                .consumerRebalanceListener(listener)
+                .config(ConsumerConfigs.CLIENT_ID_CONFIG, clientId)
+                .build());
   }
 
   public static class Argument extends org.astraea.common.argument.Argument {
@@ -188,7 +182,7 @@ public class Performance {
 
     void checkTopics() {
       try (var admin = Admin.of(configs())) {
-        var existentTopics = admin.topicNames();
+        var existentTopics = admin.topicNames(false).toCompletableFuture().join();
         var nonexistent =
             topics.stream().filter(t -> !existentTopics.contains(t)).collect(Collectors.toSet());
         if (!nonexistent.isEmpty())
@@ -198,12 +192,8 @@ public class Performance {
 
     Map<TopicPartition, Long> lastOffsets() {
       try (var admin = Admin.of(configs())) {
-        // the slow zk causes unknown error, so we have to wait it.
-        return Utils.waitForNonNull(
-            () ->
-                admin.partitions(new HashSet<>(topics)).stream()
-                    .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset)),
-            Duration.ofSeconds(30));
+        return admin.partitions(Set.copyOf(topics)).toCompletableFuture().join().stream()
+            .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
       }
     }
 
@@ -335,9 +325,9 @@ public class Performance {
         throw new IllegalArgumentException(
             "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
       else if (specifiedByBroker) {
-        try (Admin admin = Admin.of(configs())) {
+        try (var admin = Admin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).stream()
+              admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -356,8 +346,8 @@ public class Performance {
           throw new IllegalArgumentException(
               "--specify.partitions can't be used in conjunction with partitioner");
         // sanity check, ensure all specified partitions are existed
-        try (Admin admin = Admin.of(configs())) {
-          var allTopics = admin.topicNames();
+        try (var admin = Admin.of(configs())) {
+          var allTopics = admin.topicNames(false).toCompletableFuture().join();
           var allTopicPartitions =
               admin
                   .replicas(
@@ -365,6 +355,8 @@ public class Performance {
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)
                           .collect(Collectors.toUnmodifiableSet()))
+                  .toCompletableFuture()
+                  .join()
                   .stream()
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .collect(Collectors.toSet());
@@ -411,12 +403,12 @@ public class Performance {
     ReportFormat reportFormat = ReportFormat.CSV;
 
     @Parameter(
-        names = {"--chaos.frequency"},
+        names = {"--monkeys"},
         description =
-            "time to run the chaos monkey. It will kill consumer arbitrarily. There is no monkey by default",
-        validateWith = DurationField.class,
-        converter = DurationField.class)
-    Duration chaosDuration = null;
+            "Set the frequency of chaos monkeys. Here are offering three monkeys - kill, add, unsubscribe. There is no monkey by default.",
+        converter = DurationMapField.class,
+        validateWith = DurationMapField.class)
+    Map<String, Duration> monkeys = null;
 
     @Parameter(
         names = {"--group.id"},

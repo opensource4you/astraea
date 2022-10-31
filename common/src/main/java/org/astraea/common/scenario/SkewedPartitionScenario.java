@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -28,7 +29,7 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.util.Pair;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -49,13 +50,17 @@ public class SkewedPartitionScenario implements Scenario {
   }
 
   @Override
-  public CompletionStage<Result> apply(AsyncAdmin admin) {
+  public CompletionStage<Result> apply(Admin admin) {
     return admin
         .creator()
         .topic(topicName)
         .numberOfPartitions(partitions)
         .numberOfReplicas(replicas)
         .run()
+        .thenCompose(
+            ignored ->
+                admin.waitPartitionLeaderSynced(
+                    Map.of(topicName, partitions), Duration.ofSeconds(4)))
         .thenCompose(ignored -> admin.brokers())
         .thenApply(
             brokers -> brokers.stream().map(NodeInfo::id).sorted().collect(Collectors.toList()))

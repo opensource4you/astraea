@@ -18,9 +18,9 @@ package org.astraea.common.consumer;
 
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.common.consumer.Builder.SeekStrategy.DISTANCE_FROM_BEGINNING;
-import static org.astraea.common.consumer.Builder.SeekStrategy.DISTANCE_FROM_LATEST;
-import static org.astraea.common.consumer.Builder.SeekStrategy.SEEK_TO;
+import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_BEGINNING;
+import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_LATEST;
+import static org.astraea.common.consumer.SeekStrategy.SEEK_TO;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +28,6 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,6 +36,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.errors.WakeupException;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -222,7 +222,13 @@ public class ConsumerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var partitionNum = 2;
-      admin.creator().topic(topic).numberOfPartitions(partitionNum).create();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitionNum)
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
@@ -267,7 +273,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).create();
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       producer.sender().topic(topic).value(new byte[10]).run();
       producer.flush();
@@ -283,16 +289,34 @@ public class ConsumerTest extends RequireBrokerCluster {
               .config(ConsumerConfigs.ENABLE_AUTO_COMMIT_CONFIG, "false")
               .build()) {
         Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(4)).size());
-        Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
+        Assertions.assertEquals(
+            1, admin.consumerGroups(Set.of(groupId)).toCompletableFuture().join().size());
         // no offsets are committed, so there is no progress.
         Assertions.assertEquals(
-            0, admin.consumerGroups(Set.of(groupId)).iterator().next().consumeProgress().size());
+            0,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .toCompletableFuture()
+                .join()
+                .iterator()
+                .next()
+                .consumeProgress()
+                .size());
 
         // commit offsets manually, so we can "see" the progress now.
         consumer.commitOffsets(Duration.ofSeconds(3));
-        Assertions.assertEquals(1, admin.consumerGroups(Set.of(groupId)).size());
         Assertions.assertEquals(
-            1, admin.consumerGroups(Set.of(groupId)).iterator().next().consumeProgress().size());
+            1, admin.consumerGroups(Set.of(groupId)).toCompletableFuture().join().size());
+        Assertions.assertEquals(
+            1,
+            admin
+                .consumerGroups(Set.of(groupId))
+                .toCompletableFuture()
+                .join()
+                .iterator()
+                .next()
+                .consumeProgress()
+                .size());
       }
     }
   }
@@ -410,11 +434,17 @@ public class ConsumerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCreateConsumersConcurrent() throws ExecutionException, InterruptedException {
+  void testCreateConsumersConcurrent() {
     var partitions = 3;
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(partitions).create();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitions)
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(3));
     }
 
@@ -424,7 +454,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var log = new ConcurrentHashMap<Integer, Integer>();
     var closed = new AtomicBoolean(false);
     var fs =
-        Utils.sequence(
+        FutureUtils.sequence(
             IntStream.range(0, consumers)
                 .mapToObj(
                     index ->
@@ -445,7 +475,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     Utils.waitFor(
         () -> log.values().stream().filter(ps -> ps == 0).count() == 1, Duration.ofSeconds(15));
     closed.set(true);
-    fs.get();
+    fs.join();
   }
 
   @Test

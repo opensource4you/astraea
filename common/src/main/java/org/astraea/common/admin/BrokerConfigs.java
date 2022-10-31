@@ -47,8 +47,6 @@ public final class BrokerConfigs {
   public static final String MAX_CONNECTIONS_PER_IP_CONFIG = "max.connections.per.ip";
   public static final String MAX_CONNECTIONS_PER_IP_OVERRIDES_CONFIG =
       "max.connections.per.ip.overrides";
-  public static final String MAX_CONNECTION_CREATION_RATE_PR_CONFIG =
-      "max.connection.creation.rate";
   public static final String LOG_SEGMENT_BYTES_CONFIG = "log.segment.bytes";
   public static final String LOG_ROLL_TIME_MILLIS_CONFIG = "log.roll.ms";
   public static final String LOG_ROLL_TIME_JITTER_MILLIS_CONFIG = "log.roll.jitter.ms";
@@ -83,10 +81,6 @@ public final class BrokerConfigs {
       "follower.replication.throttled.rate";
   public static final String REPLICA_ALTER_LOG_DIRS_IO_MAX_BYTES_PER_SECOND_CONFIG =
       "replica.alter.log.dirs.io.max.bytes.per.second";
-  public static final String LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
-      "leader.replication.throttled.replicas";
-  public static final String FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG =
-      "follower.replication.throttled.replicas";
   public static final Set<String> DYNAMICAL_CONFIGS =
       Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"));
   // ---------------------------------[values]---------------------------------//

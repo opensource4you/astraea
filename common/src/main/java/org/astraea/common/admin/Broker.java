@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 
@@ -29,10 +28,10 @@ public interface Broker extends NodeInfo {
   static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
-      org.apache.kafka.clients.admin.Config kafkaConfig,
+      Map<String, String> configs,
       Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
-    var config = Config.of(kafkaConfig);
+    var config = Config.of(configs);
     var partitionsFromTopicDesc =
         topics.stream()
             .flatMap(
@@ -52,11 +51,9 @@ public interface Broker extends NodeInfo {
                               Collectors.toUnmodifiableMap(
                                   e -> TopicPartition.from(e.getKey()), e -> e.getValue().size));
                   var partitionSizes =
-                      partitionsFromTopicDesc.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Function.identity(),
-                                  tp -> allPartitionAndSize.getOrDefault(tp, 0L)));
+                      allPartitionAndSize.entrySet().stream()
+                          .filter(tpAndSize -> partitionsFromTopicDesc.contains(tpAndSize.getKey()))
+                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
                   var orphanPartitionSizes =
                       allPartitionAndSize.entrySet().stream()
                           .filter(
@@ -118,7 +115,7 @@ public interface Broker extends NodeInfo {
       }
 
       @Override
-      public List<DataFolder> folders() {
+      public List<DataFolder> dataFolders() {
         return folders;
       }
 
@@ -140,7 +137,7 @@ public interface Broker extends NodeInfo {
   Config config();
 
   /** @return the disk folder used to stored data by this node */
-  List<DataFolder> folders();
+  List<DataFolder> dataFolders();
 
   Set<TopicPartition> topicPartitions();
 

@@ -17,8 +17,7 @@
 package org.astraea.app.web;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -27,9 +26,9 @@ import org.junit.jupiter.api.Test;
 public class QuotaHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testCreateQuota() throws ExecutionException, InterruptedException {
+  void testCreateQuota() {
     var ip = "192.168.10.11";
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new QuotaHandler(admin);
 
       var result =
@@ -45,7 +44,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                                   QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
                                   "10"))))
                   .toCompletableFuture()
-                  .get());
+                  .join());
       Assertions.assertEquals(1, result.quotas.size());
       Assertions.assertEquals(QuotaConfigs.IP, result.quotas.iterator().next().target.name);
       Assertions.assertEquals(ip, result.quotas.iterator().next().target.value);
@@ -56,10 +55,10 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQuery() throws ExecutionException, InterruptedException {
+  void testQuery() {
     var ip0 = "192.168.10.11";
     var ip1 = "192.168.10.12";
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new QuotaHandler(admin);
 
       handler
@@ -68,20 +67,20 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                   PostRequest.of(
                       Map.of(QuotaConfigs.IP, ip0, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "10"))))
           .toCompletableFuture()
-          .get();
+          .join();
       handler
           .post(
               Channel.ofRequest(
                   PostRequest.of(
                       Map.of(QuotaConfigs.IP, ip1, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "20"))))
           .toCompletableFuture()
-          .get();
+          .join();
       Assertions.assertEquals(
           1,
           handler
               .get(Channel.ofQueries(Map.of(QuotaConfigs.IP, ip0)))
               .toCompletableFuture()
-              .get()
+              .join()
               .quotas
               .size());
       Assertions.assertEquals(
@@ -89,15 +88,15 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           handler
               .get(Channel.ofQueries(Map.of(QuotaConfigs.IP, ip1)))
               .toCompletableFuture()
-              .get()
+              .join()
               .quotas
               .size());
     }
   }
 
   @Test
-  void testQueryNonexistentQuota() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testQueryNonexistentQuota() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var handler = new QuotaHandler(admin);
       Assertions.assertEquals(
           0,
@@ -106,7 +105,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                   handler
                       .get(Channel.ofQueries(Map.of(QuotaConfigs.IP, "unknown")))
                       .toCompletableFuture()
-                      .get())
+                      .join())
               .quotas
               .size());
 
@@ -117,7 +116,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                   handler
                       .get(Channel.ofQueries(Map.of(QuotaConfigs.CLIENT_ID, "unknown")))
                       .toCompletableFuture()
-                      .get())
+                      .join())
               .quotas
               .size());
     }

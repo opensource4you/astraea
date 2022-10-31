@@ -19,7 +19,6 @@ package org.astraea.common.admin;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -28,7 +27,7 @@ import org.junit.jupiter.api.Test;
 public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
   @Test
   void testClusterInfoWithOfflineNode() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       var topicName = "ClusterInfo_Offline_" + Utils.randomString();
       var partitionCount = 30;
       var replicaCount = (short) 3;
@@ -37,11 +36,13 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
           .topic(topicName)
           .numberOfPartitions(partitionCount)
           .numberOfReplicas(replicaCount)
-          .create();
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(3));
 
       // before node offline
-      var before = admin.clusterInfo(Set.of(topicName));
+      var before = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
       Assertions.assertEquals(
           partitionCount * replicaCount,
           before.replicas(topicName).stream().filter(x -> !x.isOffline()).count());
@@ -55,7 +56,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(1));
 
       // after node offline
-      var after = admin.clusterInfo(Set.of(topicName));
+      var after = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
       Assertions.assertEquals(
           partitionCount * (replicaCount - 1),
           after.replicas(topicName).stream().filter(x -> !x.isOffline()).count());
@@ -71,12 +72,6 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
       Assertions.assertTrue(
           after.replicaLeaders(topicName).stream()
               .allMatch(x -> x.nodeInfo().id() != brokerToClose));
-      System.out.println(
-          "[CHIA] "
-              + after.replicas(topicName).stream()
-                  .filter(ReplicaInfo::isOffline)
-                  .map(r -> r.nodeInfo().id())
-                  .collect(Collectors.toList()));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
               .filter(ReplicaInfo::isOffline)

@@ -16,18 +16,34 @@
  */
 package org.astraea.gui.pane;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface Input {
-  Optional<Object> selectedRadio();
+
+  static Input of(List<String> selectedKeys, Map<String, Optional<String>> texts) {
+    return new Input() {
+      @Override
+      public List<String> selectedKeys() {
+        return selectedKeys;
+      }
+
+      @Override
+      public Map<String, Optional<String>> texts() {
+        return texts;
+      }
+    };
+  }
+
+  List<String> selectedKeys();
 
   /** @return the keys having empty/blank value. */
   default Set<String> emptyValueKeys() {
     return texts().entrySet().stream()
-        .filter(entry -> entry.getValue().isBlank())
+        .filter(entry -> entry.getValue().isEmpty())
         .map(Map.Entry::getKey)
         .collect(Collectors.toUnmodifiableSet());
   }
@@ -35,12 +51,22 @@ public interface Input {
   /** @return the input key and value. The value is not empty. */
   default Map<String, String> nonEmptyTexts() {
     return texts().entrySet().stream()
-        .filter(entry -> !entry.getValue().isBlank())
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        .filter(entry -> entry.getValue().isPresent())
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().get()));
+  }
+
+  /**
+   * get the value from user-defined inputs
+   *
+   * @param key to search
+   * @return empty if the key is nonexistent or empty value. Otherwise, it returns value.
+   */
+  default Optional<String> get(String key) {
+    var value = texts().get(key);
+    if (value != null) return value;
+    return Optional.empty();
   }
 
   /** @return the input key and value. The value could be empty. */
-  Map<String, String> texts();
-
-  boolean matchSearch(String word);
+  Map<String, Optional<String>> texts();
 }

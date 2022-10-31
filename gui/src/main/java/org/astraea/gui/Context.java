@@ -21,24 +21,25 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
-  private final AtomicReference<AsyncAdmin> asyncAdminReference = new AtomicReference<>();
+  private final AtomicReference<Admin> adminReference = new AtomicReference<>();
 
   private volatile int jmxPort = -1;
   private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
 
-  public void replace(AsyncAdmin admin) {
-    var previous = asyncAdminReference.getAndSet(admin);
-    if (previous != null) previous.close();
+  public Context() {}
+
+  public Context(Admin admin) {
+    adminReference.set(admin);
   }
 
-  public void replace(AsyncAdmin admin, int jmxPort) {
-
-    this.jmxPort = jmxPort;
+  public void replace(Admin admin) {
+    var previous = adminReference.getAndSet(admin);
+    if (previous != null) previous.close();
   }
 
   public void replace(Set<NodeInfo> nodes, int jmxPort) {
@@ -70,8 +71,8 @@ public class Context {
     return Map.copyOf(clients);
   }
 
-  public AsyncAdmin admin() {
-    var admin = asyncAdminReference.get();
+  public Admin admin() {
+    var admin = adminReference.get();
     if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
     return admin;
   }
@@ -80,5 +81,9 @@ public class Context {
     var copy = Map.copyOf(clients);
     if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmx port");
     return copy;
+  }
+
+  public boolean hasMetrics() {
+    return !clients.isEmpty();
   }
 }

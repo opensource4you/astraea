@@ -42,9 +42,7 @@ class RebalancePlanProposalTest {
     final var thatTps = thatAllocation.topicPartitions();
     Assertions.assertEquals(thisTps, thatTps);
     thisTps.forEach(
-        tp ->
-            Assertions.assertEquals(
-                thisAllocation.logPlacements(tp), thatAllocation.logPlacements(tp)));
+        tp -> Assertions.assertEquals(thisAllocation.replicas(tp), thatAllocation.replicas(tp)));
     Assertions.assertEquals("Info0", build.info().get(0));
     Assertions.assertEquals("Info1", build.info().get(1));
     Assertions.assertEquals("Info2", build.info().get(2));
