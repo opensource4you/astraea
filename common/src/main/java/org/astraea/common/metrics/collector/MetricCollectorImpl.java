@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -42,7 +43,7 @@ import org.astraea.common.metrics.MBeanClient;
 public class MetricCollectorImpl implements MetricCollector {
 
   private final Map<Integer, MBeanClient> mBeanClients;
-  private final CopyOnWriteArrayList<Fetcher> fetchers;
+  private final CopyOnWriteArrayList<Map.Entry<Set<Integer>, Fetcher>> fetchers;
   private final Duration expiration;
   private final Duration interval;
   private final Map<Class<?>, MetricStorage<?>> storages;
@@ -66,8 +67,8 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void addFetcher(Fetcher fetcher) {
-    this.fetchers.add(fetcher);
+  public void addFetcher(Set<Integer> identities, Fetcher fetcher) {
+    this.fetchers.add(Map.entry(identities, fetcher));
   }
 
   @Override
@@ -136,7 +137,11 @@ public class MetricCollectorImpl implements MetricCollector {
           var client = mBeanClients.get(id);
 
           // for each fetcher, perform the fetching and store the metrics
-          fetchers.stream().map(f -> f.fetch(client)).forEach(metrics -> store(id, metrics));
+          fetchers.stream()
+              .filter(entry -> entry.getKey().contains(id))
+              .map(Map.Entry::getValue)
+              .map(f -> f.fetch(client))
+              .forEach(metrics -> store(id, metrics));
         } catch (InterruptedException e) {
           // swallow the interrupt exception and exit immediately
           Thread.currentThread().interrupt();
