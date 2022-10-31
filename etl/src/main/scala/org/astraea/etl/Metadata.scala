@@ -80,7 +80,7 @@ object Metadata {
     MetadataBuilder.of()
   }
 
-  //Parameters needed to configure ETL.
+  // Parameters needed to configure ETL.
   def apply(path: File): Metadata = {
     val properties = readProp(path).asScala
 
@@ -121,7 +121,7 @@ object Metadata {
     metadataBuilder.build()
   }
 
-  //Handling the topic.parameters parameter.
+  // Handling the topic.parameters parameter.
   def requirePair(tConfig: String): Map[String, String] = {
     Option(tConfig)
       .map(
@@ -277,7 +277,7 @@ object Metadata {
     )
   }
 
-  //spark://host:port or local[*]
+  // spark://host:port or local[*]
   def requireDeployMode(str: String, prop: String): String = {
     if (!DeployMode.deployMatch(prop)) {
       throw new IllegalArgumentException(

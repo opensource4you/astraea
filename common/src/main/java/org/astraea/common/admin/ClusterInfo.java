@@ -321,7 +321,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[for replicas]---------------------//
 
-  /** @return all replicas cached by this cluster info. */
+  /**
+   * @return all replicas cached by this cluster info.
+   */
   default List<T> replicas() {
     return replicaStream().collect(Collectors.toUnmodifiableList());
   }
@@ -410,10 +412,14 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[abstract methods]---------------------//
 
-  /** @return The known set of nodes */
+  /**
+   * @return The known set of nodes
+   */
   Set<NodeInfo> nodes();
 
-  /** @return replica stream to offer effective way to operate a bunch of replicas */
+  /**
+   * @return replica stream to offer effective way to operate a bunch of replicas
+   */
   Stream<T> replicaStream();
 
   /** It optimizes all queries by pre-allocated Map collection. */

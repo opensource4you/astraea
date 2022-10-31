@@ -104,7 +104,9 @@ public abstract class Builder<Key, Value> {
     return this;
   }
 
-  /** @return consumer instance. The different builders may return inherited consumer interface. */
+  /**
+   * @return consumer instance. The different builders may return inherited consumer interface.
+   */
   public abstract Consumer<Key, Value> build();
 
   protected abstract static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
