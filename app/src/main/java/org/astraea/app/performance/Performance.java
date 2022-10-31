@@ -150,7 +150,7 @@ public class Performance {
         param.consumers,
         (clientId, listener) ->
             (param.pattern == null
-                    ? Consumer.forTopics(new HashSet<>(param.topics))
+                    ? Consumer.forTopics(Set.copyOf(param.topics))
                     : Consumer.forTopics(param.pattern))
                 .configs(param.configs())
                 .config(

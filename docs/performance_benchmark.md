@@ -20,6 +20,7 @@
 | :-----------------: | :----------------------------------------------------------- | :----------------------: |
 |  bootstrap.servers  | (必填) 欲連接的Kafka server address                          |            無            |
 |       topics        | (必填) 指定要用來測試讀寫的 topics <br />例如 : --topics test,test1,test2 |            無            |
+|       pattern       | (選填) 利用正則表達式來指定 consumers 訂閱的 pattern topics，使用此參數後 consumers 只會用 pattern 訂閱<br />例如：--pattern p.*<br />若要訂閱多個 pattern 可用 `||` 來分隔 ，例如：--pattern a.\|\|p. |            無            |
 |      consumers      | (選填) 欲開啟的consumer thread(s)數量                        |            1             |
 |      producers      | (選填) 欲開啟的producer thread(s)數量                        |            1             |
 |      run.until      | (選填) 可選擇兩種結束執行的模式，一種是發送records數量達到設定值，另一種則是執行時間達到設定值，格式為`數值`+`單位`<br />1. 選擇producers要送多少records，範例：發送89000 records 後結束，"--run.until 89000records"<br />2. 選擇producer在給定時間內發送資料，時間單位可以選擇`days`, `day`, `h`, `m`, `s`, `ms`, `us`, `ns`，範例：執行一分鐘後結束， "--run.until 1m"。 |       1000records        |
