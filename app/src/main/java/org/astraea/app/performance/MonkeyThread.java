@@ -84,7 +84,9 @@ public class MonkeyThread implements AbstractThread {
                   ConsumerThread.create(
                           1,
                           (clientId, listener) ->
-                              Consumer.forTopics(new HashSet<>(param.topics))
+                              (param.pattern == null
+                                      ? Consumer.forTopics(new HashSet<>(param.topics))
+                                      : Consumer.forTopics(param.pattern))
                                   .configs(param.configs())
                                   .config(
                                       ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
