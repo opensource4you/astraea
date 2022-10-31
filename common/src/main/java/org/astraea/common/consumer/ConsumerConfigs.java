@@ -17,6 +17,7 @@
 package org.astraea.common.consumer;
 
 import java.util.Set;
+import java.util.TreeSet;
 import org.astraea.common.Utils;
 
 public final class ConsumerConfigs {
@@ -66,7 +67,7 @@ public final class ConsumerConfigs {
   public static final String ALLOW_AUTO_CREATE_TOPICS_CONFIG = "allow.auto.create.topics";
 
   public static final Set<String> ALL_CONFIGS =
-      Set.copyOf(Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG")));
 
   // ---------------------------------[Values]---------------------------------//
   public static final String AUTO_OFFSET_RESET_LATEST = "latest";

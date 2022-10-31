@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.util.Set;
+import java.util.TreeSet;
 import org.astraea.common.Utils;
 
 public final class BrokerConfigs {
@@ -82,7 +83,7 @@ public final class BrokerConfigs {
   public static final String REPLICA_ALTER_LOG_DIRS_IO_MAX_BYTES_PER_SECOND_CONFIG =
       "replica.alter.log.dirs.io.max.bytes.per.second";
   public static final Set<String> DYNAMICAL_CONFIGS =
-      Set.copyOf(Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG")));
   // ---------------------------------[values]---------------------------------//
 
   private BrokerConfigs() {}
