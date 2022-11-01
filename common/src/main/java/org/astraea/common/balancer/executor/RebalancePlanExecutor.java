@@ -16,13 +16,68 @@
  */
 package org.astraea.common.balancer.executor;
 
+import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
 
-  /** This method responsible for fulfill a rebalance plan. */
-  CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation);
+  default CompletionStage<Void> submit(Admin admin, ClusterInfo<Replica> targetAllocation) {
+    return submit(admin, targetAllocation, Duration.ofSeconds(15));
+  }
+
+  /**
+   * submit the migration request to servers. Noted that this method get completed when all requests
+   * are accepted. The data syncing will keep running on the server side. Hence, there is no
+   * guarantee that the leader re-election is invoked ( Kafka requires re-election can happen only
+   * if related replicas are get synced). Please call {@link RebalancePlanExecutor#execute(Admin,
+   * ClusterInfo, Duration)} to add extra check/wait for data sync and re-election
+   *
+   * @param admin to process request
+   * @param targetAllocation the expected assignments
+   * @param timeout to wait metadata sync for each phase. The plan could be divided into many
+   *     requests. This timeout could stop the infinite waiting for Kafka metadata. It causes
+   *     IllegalStateException if the metadata can't get synced and timeout is expired.
+   * @return a background running thread
+   */
+  CompletionStage<Void> submit(
+      Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout);
+
+  /**
+   * this method compose of {@link RebalancePlanExecutor#submit(Admin, ClusterInfo, Duration)} and
+   * data sync waiting. It makes sure all migrated replicas get synced and all new leaders get
+   * ready. The timeout to wait sync and re-election can be "large" and "unpredictable", so it is up
+   * to caller to give a "suitable" timeout.
+   *
+   * @param admin to process request
+   * @param targetAllocation the expected assignments
+   * @param timeout to wait metadata sync for each phase. The plan could be divided into many
+   *     requests. This timeout could stop the infinite waiting for Kafka metadata. It causes
+   *     IllegalStateException if the metadata can't get synced and timeout is expired.
+   * @return a background running thread
+   */
+  default CompletionStage<Void> execute(
+      Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+    return submit(admin, targetAllocation, timeout)
+        .thenCompose(
+            replicas ->
+                admin.waitReplicasSynced(targetAllocation.topicPartitionReplicas(), timeout))
+        // step.3 re-elect leaders
+        .thenCompose(
+            topicPartitions ->
+                admin
+                    .preferredLeaderElection(targetAllocation.topicPartitions())
+                    .thenCompose(
+                        ignored ->
+                            admin.waitPreferredLeaderSynced(
+                                targetAllocation.topicPartitions(), timeout))
+                    .thenAccept(c -> assertion(c, "Failed to re-election for " + topicPartitions)));
+  }
+
+  static void assertion(boolean condition, String info) {
+    if (!condition) throw new IllegalStateException(info);
+  }
 }

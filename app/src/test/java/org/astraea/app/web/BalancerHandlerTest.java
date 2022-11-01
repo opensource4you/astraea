@@ -476,8 +476,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
-              super.run(admin, targetAllocation);
+            public CompletionStage<Void> submit(
+                Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+              super.submit(admin, targetAllocation);
               Utils.sleep(Duration.ofSeconds(10));
               return null;
             }
@@ -602,8 +603,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             final CountDownLatch latch = new CountDownLatch(1);
 
             @Override
-            public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
-              super.run(admin, targetAllocation);
+            public CompletionStage<Void> submit(
+                Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+              super.submit(admin, targetAllocation);
               Utils.packException(() -> latch.await());
               return null;
             }
@@ -668,8 +670,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
-              super.run(admin, targetAllocation);
+            public CompletionStage<Void> submit(
+                Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+              super.submit(admin, targetAllocation);
               throw new RuntimeException("Boom");
             }
           };
@@ -802,7 +805,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     private final LongAdder executionCounter = new LongAdder();
 
     @Override
-    public CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation) {
+    public CompletionStage<Void> submit(
+        Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
       executionCounter.increment();
       return null;
     }

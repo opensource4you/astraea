@@ -350,11 +350,13 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   }
 
   /**
+   * find the synced replica. Noted that the future replica is excluded
+   *
    * @param replica to search
    * @return the replica matched to input replica
    */
   default Optional<T> replica(TopicPartitionReplica replica) {
-    return replicaStream(replica).findFirst();
+    return replicaStream(replica).filter(ReplicaInfo::inSync).findFirst();
   }
 
   // ---------------------[others]---------------------//
@@ -370,6 +372,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   default Set<TopicPartition> topicPartitions() {
     return replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toUnmodifiableSet());
+  }
+
+  default Set<TopicPartitionReplica> topicPartitionReplicas() {
+    return replicaStream()
+        .map(ReplicaInfo::topicPartitionReplica)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   /**
@@ -506,6 +514,11 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     @Override
     public Set<TopicPartition> topicPartitions() {
       return byPartition.get().keySet();
+    }
+
+    @Override
+    public Set<TopicPartitionReplica> topicPartitionReplicas() {
+      return byReplica.get().keySet();
     }
 
     @Override

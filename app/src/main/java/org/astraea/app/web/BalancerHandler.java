@@ -277,7 +277,7 @@ class BalancerHandler implements Handler {
                       executedPlans.put(
                           thePlanId,
                           CompletableFuture.runAsync(
-                              () -> executor.run(admin, p.proposal().rebalancePlan())));
+                              () -> executor.submit(admin, p.proposal().rebalancePlan())));
                       lastExecutionId.set(thePlanId);
                     });
                 return new PutPlanResponse(thePlanId);

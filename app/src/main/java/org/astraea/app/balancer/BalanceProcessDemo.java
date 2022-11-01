@@ -56,7 +56,7 @@ public class BalanceProcessDemo {
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()
-                  .run(admin, p.proposal().rebalancePlan())
+                  .submit(admin, p.proposal().rebalancePlan())
                   .toCompletableFuture()
                   .join());
     }
