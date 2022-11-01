@@ -16,7 +16,7 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.util.Set;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -35,8 +35,8 @@ class GreedyBalancerTest {
         "Config exists for backward compatability reason");
 
     Assertions.assertEquals(
-        Set.copyOf(GreedyBalancer.ALL_CONFIGS).size(),
         GreedyBalancer.ALL_CONFIGS.size(),
+        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
         "No duplicate element");
   }
 }
