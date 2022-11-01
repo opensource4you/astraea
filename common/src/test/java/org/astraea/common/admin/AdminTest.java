@@ -150,9 +150,9 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin =
         new AdminImpl(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
       try (var producer = Producer.of(bootstrapServers())) {
-        producer.sender().topic(Utils.randomString()).key(new byte[100]).partition(0).run();
-        producer.sender().topic(Utils.randomString()).key(new byte[55]).partition(1).run();
-        producer.sender().topic(Utils.randomString()).key(new byte[33]).partition(2).run();
+        producer.sender().topic(Utils.randomString()).key(new byte[100]).run();
+        producer.sender().topic(Utils.randomString()).key(new byte[55]).run();
+        producer.sender().topic(Utils.randomString()).key(new byte[33]).run();
       }
       try (var consumer =
           Consumer.forTopics(admin.topicNames(false).toCompletableFuture().join())
