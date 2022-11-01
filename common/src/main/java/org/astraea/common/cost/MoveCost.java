@@ -21,16 +21,24 @@ import java.util.Map;
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
 public interface MoveCost {
 
-  /** @return the function name of MoveCost */
+  /**
+   * @return the function name of MoveCost
+   */
   String name();
 
-  /** @return cost of migrate plan */
+  /**
+   * @return cost of migrate plan
+   */
   long totalCost();
 
-  /** @return unit of cost */
+  /**
+   * @return unit of cost
+   */
   String unit();
 
-  /** @return Changes per broker, negative if brokers moved out, positive if brokers moved in */
+  /**
+   * @return Changes per broker, negative if brokers moved out, positive if brokers moved in
+   */
   Map<Integer, Long> changes();
 
   static Build builder() {

@@ -19,10 +19,9 @@ package org.astraea.common.cost;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
@@ -62,12 +61,12 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCost() throws ExecutionException, InterruptedException {
+  void testCost() {
     var brokerId = brokerIds().iterator().next();
     var topic = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().get();
+      admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       producer.sender().topic(Utils.randomString(10)).value(new byte[100]).run();
       producer.flush();

@@ -21,6 +21,8 @@ import java.util.List;
 
 public interface WorkerCluster extends AutoCloseable {
 
-  /** @return worker information. the form is "http://host_a:port_a" */
+  /**
+   * @return worker information. the form is "http://host_a:port_a"
+   */
   List<URL> workerUrls();
 }

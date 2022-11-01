@@ -29,16 +29,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartitionReplica;
 
 public class ThrottleHandler implements Handler {
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  public ThrottleHandler(AsyncAdmin admin) {
+  public ThrottleHandler(Admin admin) {
     this.admin = admin;
   }
 

@@ -60,7 +60,9 @@ public interface PostRequest {
     return () -> raw;
   }
 
-  /** @return body represented by key-value */
+  /**
+   * @return body represented by key-value
+   */
   Map<String, String> raw();
 
   /**

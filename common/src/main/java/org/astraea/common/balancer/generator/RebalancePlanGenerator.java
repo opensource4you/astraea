@@ -19,7 +19,6 @@ package org.astraea.common.balancer.generator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
@@ -31,20 +30,15 @@ public interface RebalancePlanGenerator {
   }
 
   /**
-   * Generate a rebalance proposal, noted that this function doesn't require proposing exactly the
-   * same plan for the same input argument. There can be some randomization that takes part in this
-   * process.
+   * Given a {@link ClusterLogAllocation}, tweak it by certain implementation specific logic.
    *
-   * <p>If the generator implementation thinks it can't find any rebalance proposal(which the plan
-   * might improve the cluster). Then the implementation should return a Stream with exactly one
-   * rebalance plan proposal in it, where the proposed allocation will be exactly the same as the
-   * {@code baseAllocation} parameter. This means there is no movement or alteration that will
-   * occur. And The implementation should place some detailed information in the info/warning/error
-   * string, to indicate the reason for no meaningful plan.
+   * <p>In a nutshell. This function takes a {@link ClusterLogAllocation} and return another
+   * modified version of the given {@link ClusterLogAllocation}. The caller can use this method for
+   * browsing the space of possible {@link ClusterLogAllocation}.
    *
    * @param brokerFolders key is the broker id, and the value is the folder used to keep data
    * @param baseAllocation the cluster log allocation as the based of proposal generation.
-   * @return a {@link Stream} generating rebalance plan regarding the given {@link ClusterInfo}
+   * @return a {@link Stream} of possible tweaked {@link ClusterLogAllocation}.
    */
   Stream<RebalancePlanProposal> generate(
       Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation);

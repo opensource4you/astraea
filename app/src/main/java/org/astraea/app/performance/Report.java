@@ -110,15 +110,23 @@ public interface Report {
         .collect(Collectors.toList());
   }
 
-  /** @return Get the number of records. */
+  /**
+   * @return Get the number of records.
+   */
   long records();
-  /** @return Get the maximum of latency put. */
+  /**
+   * @return Get the maximum of latency put.
+   */
   long maxLatency();
 
-  /** @return Get the average latency. */
+  /**
+   * @return Get the average latency.
+   */
   double avgLatency();
 
-  /** @return total send/received bytes */
+  /**
+   * @return total send/received bytes
+   */
   long totalBytes();
 
   double avgThroughput();

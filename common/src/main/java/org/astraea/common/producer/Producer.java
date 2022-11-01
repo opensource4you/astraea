@@ -41,12 +41,16 @@ public interface Producer<Key, Value> extends AutoCloseable {
 
   void close();
 
-  /** @return true if the producer supports transactional. */
+  /**
+   * @return true if the producer supports transactional.
+   */
   default boolean transactional() {
     return transactionId().isPresent();
   }
 
-  /** @return the transaction id or empty if the producer does not support transaction. */
+  /**
+   * @return the transaction id or empty if the producer does not support transaction.
+   */
   Optional<String> transactionId();
 
   static Builder<byte[], byte[]> builder() {

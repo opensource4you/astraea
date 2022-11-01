@@ -14,33 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import javafx.geometry.Side;
-import javafx.scene.Node;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class TabPane extends javafx.scene.control.TabPane {
+public class LazyTest {
 
-  public static TabPane of(Side side, Map<String, Node> nodes) {
-    return of(
-        side,
-        nodes.entrySet().stream()
-            .map(n -> Tab.of(n.getKey(), n.getValue()))
-            .collect(Collectors.toList()));
-  }
-
-  public static TabPane of(Side side, List<Tab> tabs) {
-    var pane = new TabPane();
-    pane.getTabs().setAll(tabs);
-    pane.setSide(side);
-    pane.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
-    return pane;
-  }
-
-  private TabPane() {
-    super();
+  @Test
+  void testCountOfGet() {
+    var count = new AtomicInteger();
+    Supplier<String> s =
+        () -> {
+          count.incrementAndGet();
+          return "ss";
+        };
+    var lazy = Lazy.of(s);
+    IntStream.range(0, 10)
+        .mapToObj(
+            ignored -> CompletableFuture.runAsync(() -> Assertions.assertEquals("ss", lazy.get())))
+        .forEach(CompletableFuture::join);
+    Assertions.assertEquals(1, count.get());
   }
 }

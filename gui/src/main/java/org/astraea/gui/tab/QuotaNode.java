@@ -24,7 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
-import javafx.scene.layout.Pane;
+import javafx.scene.Node;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
@@ -32,24 +32,26 @@ import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
-import org.astraea.gui.pane.TabPane;
+import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
-public class QuotaTab {
+public class QuotaNode {
 
-  private static Pane connectionPane(Context context) {
+  private static Node connectionNode(Context context) {
     var ipLabelKey = "ip address";
     var rateKey = "connections/second";
     return PaneBuilder.of()
-        .buttonName("ALTER")
-        .input(
-            NoneditableText.highlight(ipLabelKey),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(NoneditableText.of(rateKey), EditableText.singleLine().onlyNumber().build())
-        .buttonAction(
+        .clickName("ALTER")
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build()))))
+        .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
                     .map(
@@ -74,21 +76,23 @@ public class QuotaTab {
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
-                                            .map(QuotaTab::basicResult)
+                                            .map(QuotaNode::basicResult)
                                             .collect(Collectors.toList()))))
         .build();
   }
 
-  private static Pane producerPane(Context context) {
+  private static Node producerNode(Context context) {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
-        .buttonName("ALTER")
-        .input(
-            NoneditableText.highlight(clientIdLabelKey),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
-        .buttonAction(
+        .clickName("ALTER")
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()))))
+        .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
                     .map(
@@ -113,21 +117,23 @@ public class QuotaTab {
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
-                                            .map(QuotaTab::basicResult)
+                                            .map(QuotaNode::basicResult)
                                             .collect(Collectors.toList()))))
         .build();
   }
 
-  private static Pane consumerPane(Context context) {
+  private static Node consumerNode(Context context) {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
-        .buttonName("ALTER")
-        .input(
-            NoneditableText.highlight(clientIdLabelKey),
-            EditableText.singleLine().disallowEmpty().build())
-        .input(NoneditableText.of(byteRateKey), EditableText.singleLine().onlyNumber().build())
-        .buttonAction(
+        .clickName("ALTER")
+        .lattice(
+            Lattice.of(
+                List.of(
+                    TextInput.required(
+                        clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+                    TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()))))
+        .tableRefresher(
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
                     .map(
@@ -152,23 +158,9 @@ public class QuotaTab {
                                 .thenApply(
                                     quotas ->
                                         quotas.stream()
-                                            .map(QuotaTab::basicResult)
+                                            .map(QuotaNode::basicResult)
                                             .collect(Collectors.toList()))))
         .build();
-  }
-
-  public static Tab alterTab(Context context) {
-    return Tab.of(
-        "alter",
-        TabPane.of(
-            Side.TOP,
-            Map.of(
-                "connection",
-                connectionPane(context),
-                "producer",
-                producerPane(context),
-                "consumer",
-                consumerPane(context))));
   }
 
   static LinkedHashMap<String, Object> basicResult(Quota quota) {
@@ -182,23 +174,32 @@ public class QuotaTab {
             : quota.limitValue());
   }
 
-  private static Tab basicTab(Context context) {
-    return Tab.of(
-        "basic",
-        PaneBuilder.of()
-            .buttonAction(
-                (input, logger) ->
-                    FutureUtils.combine(
-                        context.admin().quotas(Set.of(QuotaConfigs.IP)),
-                        context.admin().quotas(Set.of(QuotaConfigs.CLIENT_ID)),
-                        (q0, q1) ->
-                            Stream.concat(q0.stream(), q1.stream())
-                                .map(QuotaTab::basicResult)
-                                .collect(Collectors.toList())))
-            .build());
+  private static Node basicNode(Context context) {
+    return PaneBuilder.of()
+        .tableRefresher(
+            (input, logger) ->
+                FutureUtils.combine(
+                    context.admin().quotas(Set.of(QuotaConfigs.IP)),
+                    context.admin().quotas(Set.of(QuotaConfigs.CLIENT_ID)),
+                    (q0, q1) ->
+                        Stream.concat(q0.stream(), q1.stream())
+                            .map(QuotaNode::basicResult)
+                            .collect(Collectors.toList())))
+        .build();
   }
 
-  public static Tab of(Context context) {
-    return Tab.of("quota", TabPane.of(Side.TOP, List.of(basicTab(context), alterTab(context))));
+  public static Node of(Context context) {
+    return Slide.of(
+            Side.TOP,
+            MapUtils.of(
+                "basic",
+                basicNode(context),
+                "connection",
+                connectionNode(context),
+                "producer",
+                producerNode(context),
+                "consumer",
+                consumerNode(context)))
+        .node();
   }
 }

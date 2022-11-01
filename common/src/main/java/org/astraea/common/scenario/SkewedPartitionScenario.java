@@ -29,7 +29,7 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.util.Pair;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -50,7 +50,7 @@ public class SkewedPartitionScenario implements Scenario {
   }
 
   @Override
-  public CompletionStage<Result> apply(AsyncAdmin admin) {
+  public CompletionStage<Result> apply(Admin admin) {
     return admin
         .creator()
         .topic(topicName)

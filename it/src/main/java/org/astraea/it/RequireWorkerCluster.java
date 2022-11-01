@@ -42,7 +42,9 @@ public abstract class RequireWorkerCluster extends RequireJmxServer {
     return WORKER_CLUSTER.workerUrls();
   }
 
-  /** @return url of any worker */
+  /**
+   * @return url of any worker
+   */
   protected static URL workerUrl() {
     var urls = WORKER_CLUSTER.workerUrls();
     int randomNum = ThreadLocalRandom.current().nextInt(0, urls.size());

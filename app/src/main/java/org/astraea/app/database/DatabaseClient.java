@@ -36,7 +36,9 @@ public interface DatabaseClient extends AutoCloseable {
    */
   TableCreator tableCreator();
 
-  /** @param name to delete */
+  /**
+   * @param name to delete
+   */
   void deleteTable(String name);
 
   @Override

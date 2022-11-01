@@ -28,7 +28,9 @@ import org.astraea.common.metrics.collector.Fetcher;
  */
 public interface CostFunction {
 
-  /** @return the metrics getters. Those getters are used to fetch mbeans. */
+  /**
+   * @return the metrics getters. Those getters are used to fetch mbeans.
+   */
   default Optional<Fetcher> fetcher() {
     return Optional.empty();
   }

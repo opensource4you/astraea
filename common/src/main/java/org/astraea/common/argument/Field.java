@@ -22,7 +22,9 @@ import com.beust.jcommander.ParameterException;
 
 public abstract class Field<T> implements IStringConverter<T>, IParameterValidator {
 
-  /** @return an object of type T created from the parameter value. */
+  /**
+   * @return an object of type T created from the parameter value.
+   */
   @Override
   public abstract T convert(String value);
 

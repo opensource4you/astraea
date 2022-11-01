@@ -40,7 +40,9 @@ public interface Input {
 
   List<String> selectedKeys();
 
-  /** @return the keys having empty/blank value. */
+  /**
+   * @return the keys having empty/blank value.
+   */
   default Set<String> emptyValueKeys() {
     return texts().entrySet().stream()
         .filter(entry -> entry.getValue().isEmpty())
@@ -48,7 +50,9 @@ public interface Input {
         .collect(Collectors.toUnmodifiableSet());
   }
 
-  /** @return the input key and value. The value is not empty. */
+  /**
+   * @return the input key and value. The value is not empty.
+   */
   default Map<String, String> nonEmptyTexts() {
     return texts().entrySet().stream()
         .filter(entry -> entry.getValue().isPresent())
@@ -67,6 +71,8 @@ public interface Input {
     return Optional.empty();
   }
 
-  /** @return the input key and value. The value could be empty. */
+  /**
+   * @return the input key and value. The value could be empty.
+   */
   Map<String, Optional<String>> texts();
 }

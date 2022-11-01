@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -31,20 +32,19 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.BorderPane;
 import org.astraea.common.MapUtils;
 import org.astraea.gui.Query;
+import org.astraea.gui.text.EditableText;
 
 public interface TableViewer {
-
-  static Builder builder() {
-    return new Builder();
-  }
 
   void refresh();
 
@@ -53,6 +53,21 @@ public interface TableViewer {
   void data(List<Map<String, Object>> data);
 
   List<Map<String, Object>> filteredData();
+
+  /**
+   * invoked when the data is updated
+   *
+   * @param filteredDataListener the filtered data (by query)
+   */
+  void filteredDataListener(
+      BiConsumer<Set<String>, List<Map<String, Object>>> filteredDataListener);
+
+  /**
+   * invoked by query field.
+   *
+   * @param keyAction the pressed key on the query field
+   */
+  void keyAction(Consumer<KeyEvent> keyAction);
 
   class CopyableEvent implements EventHandler<KeyEvent> {
     private static final List<KeyCodeCombination> COPY_CELL =
@@ -107,125 +122,125 @@ public interface TableViewer {
     }
   }
 
-  class Builder {
+  static TableViewer of() {
+    var table = new TableView<Map<String, Object>>();
+    table.getSelectionModel().setCellSelectionEnabled(true);
+    table.setOnKeyPressed(new CopyableEvent());
+    var queryField =
+        EditableText.singleLine()
+            .hint(
+                "press ENTER to query. example: topic=chia && size>10GB || *timestamp*>=2022-10-22T04:57:43.530")
+            .build();
+    Supplier<Query> querySupplier = () -> queryField.text().map(Query::of).orElse(Query.ALL);
+    var borderPane = new BorderPane();
+    borderPane.setTop(queryField.node());
+    borderPane.setCenter(table);
+    Function<List<Map<String, Object>>, Set<String>> toKey =
+        data ->
+            data.stream()
+                .map(Map::keySet)
+                .sorted(Comparator.comparingInt((Set<String> o) -> o.size()).reversed())
+                .flatMap(Collection::stream)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
-    private List<BiConsumer<Set<String>, List<Map<String, Object>>>> filteredDataListener =
-        List.of();
-    private Supplier<Query> querySupplier = () -> Query.ALL;
+    return new TableViewer() {
+      private volatile List<Map<String, Object>> data = List.of();
+      private volatile List<Map<String, Object>> filteredData = List.of();
 
-    private Builder() {}
+      private volatile BiConsumer<Set<String>, List<Map<String, Object>>> filteredDataListener =
+          (i, j) -> {};
 
-    public Builder filteredDataListener(
-        List<BiConsumer<Set<String>, List<Map<String, Object>>>> filteredDataListener) {
-      this.filteredDataListener = filteredDataListener;
-      return this;
-    }
+      @Override
+      public void refresh() {
+        var query = querySupplier.get();
+        List<Map<String, Object>> result =
+            data.stream()
+                .filter(query::required)
+                .map(
+                    item -> {
+                      var requiredKeys = new LinkedHashSet<String>();
+                      item.keySet().stream().findFirst().ifPresent(requiredKeys::add);
+                      item.keySet().stream()
+                          .skip(0)
+                          .filter(query::required)
+                          .forEach(requiredKeys::add);
+                      item.keySet().stream()
+                          .filter(k -> !query.required(k))
+                          .forEach(requiredKeys::add);
+                      return requiredKeys.stream()
+                          .collect(MapUtils.toLinkedHashMap(k -> k, item::get));
+                    })
+                .collect(Collectors.toUnmodifiableList());
+        filteredData = result;
+        filteredDataListener.accept(toKey.apply(filteredData), filteredData);
+        var sortName =
+            table.getSortOrder().isEmpty()
+                ? result.isEmpty() ? null : result.get(0).entrySet().iterator().next().getKey()
+                : table.getSortOrder().get(0).getText();
+        var sortType =
+            table.getSortOrder().isEmpty()
+                ? TableColumn.SortType.ASCENDING
+                : table.getSortOrder().get(0).getSortType();
+        var columns =
+            result.stream()
+                .map(Map::keySet)
+                .sorted(Comparator.comparingInt((Set<String> o) -> o.size()).reversed())
+                .flatMap(Collection::stream)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .map(
+                    key -> {
+                      var col = new TableColumn<Map<String, Object>, Object>(key);
+                      col.setCellValueFactory(
+                          param ->
+                              new ReadOnlyObjectWrapper<>(param.getValue().getOrDefault(key, "")));
+                      return col;
+                    })
+                .collect(Collectors.toUnmodifiableList());
+        Runnable updater =
+            () -> {
+              table.getColumns().setAll(columns);
+              table.getItems().setAll(result);
+              columns.stream()
+                  .filter(c -> sortName != null && c.getText().equals(sortName))
+                  .findFirst()
+                  .ifPresent(
+                      c -> {
+                        table.getSortOrder().add(c);
+                        c.setSortType(sortType);
+                        c.setSortable(true);
+                      });
+            };
+        if (Platform.isFxApplicationThread()) updater.run();
+        else Platform.runLater(updater);
+      }
 
-    public Builder querySupplier(Supplier<Query> querySupplier) {
-      this.querySupplier = querySupplier;
-      return this;
-    }
+      @Override
+      public Node node() {
+        return borderPane;
+      }
 
-    public TableViewer build() {
-      var table = new javafx.scene.control.TableView<Map<String, Object>>();
-      table.getSelectionModel().setCellSelectionEnabled(true);
-      table.setOnKeyPressed(new CopyableEvent());
-      var filteredDataListener = List.copyOf(Builder.this.filteredDataListener);
+      @Override
+      public void data(List<Map<String, Object>> data) {
+        this.data = List.copyOf(data);
+        refresh();
+      }
 
-      Function<List<Map<String, Object>>, Set<String>> toKey =
-          data ->
-              data.stream()
-                  .map(Map::keySet)
-                  .sorted(Comparator.comparingInt((Set<String> o) -> o.size()).reversed())
-                  .flatMap(Collection::stream)
-                  .collect(Collectors.toCollection(LinkedHashSet::new));
+      @Override
+      public List<Map<String, Object>> filteredData() {
+        return filteredData;
+      }
 
-      return new TableViewer() {
-        private volatile List<Map<String, Object>> data = List.of();
-        private volatile List<Map<String, Object>> filteredData = List.of();
+      @Override
+      public void filteredDataListener(
+          BiConsumer<Set<String>, List<Map<String, Object>>> filteredDataListener) {
+        this.filteredDataListener = filteredDataListener;
+      }
 
-        @Override
-        public void refresh() {
-          var query = querySupplier.get();
-          List<Map<String, Object>> result =
-              data.stream()
-                  .filter(query::required)
-                  .map(
-                      item -> {
-                        var requiredKeys = new LinkedHashSet<String>();
-                        item.keySet().stream().findFirst().ifPresent(requiredKeys::add);
-                        item.keySet().stream()
-                            .skip(0)
-                            .filter(query::required)
-                            .forEach(requiredKeys::add);
-                        item.keySet().stream()
-                            .filter(k -> !query.required(k))
-                            .forEach(requiredKeys::add);
-                        return requiredKeys.stream()
-                            .collect(MapUtils.toLinkedHashMap(k -> k, item::get));
-                      })
-                  .collect(Collectors.toUnmodifiableList());
-          filteredData = result;
-          filteredDataListener.forEach(c -> c.accept(toKey.apply(filteredData), filteredData));
-          var sortName =
-              table.getSortOrder().isEmpty()
-                  ? result.isEmpty() ? null : result.get(0).entrySet().iterator().next().getKey()
-                  : table.getSortOrder().get(0).getText();
-          var sortType =
-              table.getSortOrder().isEmpty()
-                  ? TableColumn.SortType.ASCENDING
-                  : table.getSortOrder().get(0).getSortType();
-          var columns =
-              result.stream()
-                  .map(Map::keySet)
-                  .sorted(Comparator.comparingInt((Set<String> o) -> o.size()).reversed())
-                  .flatMap(Collection::stream)
-                  .collect(Collectors.toCollection(LinkedHashSet::new))
-                  .stream()
-                  .map(
-                      key -> {
-                        var col = new TableColumn<Map<String, Object>, Object>(key);
-                        col.setCellValueFactory(
-                            param ->
-                                new ReadOnlyObjectWrapper<>(
-                                    param.getValue().getOrDefault(key, "")));
-                        return col;
-                      })
-                  .collect(Collectors.toUnmodifiableList());
-          Runnable updater =
-              () -> {
-                table.getColumns().setAll(columns);
-                table.getItems().setAll(result);
-                columns.stream()
-                    .filter(c -> sortName != null && c.getText().equals(sortName))
-                    .findFirst()
-                    .ifPresent(
-                        c -> {
-                          table.getSortOrder().add(c);
-                          c.setSortType(sortType);
-                          c.setSortable(true);
-                        });
-              };
-          if (Platform.isFxApplicationThread()) updater.run();
-          else Platform.runLater(updater);
-        }
-
-        @Override
-        public Node node() {
-          return table;
-        }
-
-        @Override
-        public void data(List<Map<String, Object>> data) {
-          this.data = List.copyOf(data);
-          refresh();
-        }
-
-        @Override
-        public List<Map<String, Object>> filteredData() {
-          return filteredData;
-        }
-      };
-    }
+      @Override
+      public void keyAction(Consumer<KeyEvent> keyAction) {
+        queryField.keyAction(keyAction);
+      }
+    };
   }
 }

@@ -27,20 +27,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Lattice;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.Tab;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
+import org.astraea.gui.text.TextInput;
 
-public class PartitionTab {
+public class PartitionNode {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
@@ -157,27 +157,26 @@ public class PartitionTab {
     };
   }
 
-  static Tab tab(Context context) {
+  static Node of(Context context) {
     var moveToKey = "move to brokers";
     var offsetKey = "truncate to offset";
-    return Tab.of(
-        "partition",
-        PaneBuilder.of()
-            .tableViewAction(
-                MapUtils.of(
-                    NoneditableText.of(INCREASE_PARTITION_KEY),
-                    EditableText.singleLine().disable().build(),
-                    NoneditableText.of(TRUNCATE_OFFSET_KEY),
-                    EditableText.singleLine().disable().build()),
-                "ALTER",
-                tableViewAction(context))
-            .buttonAction(
-                (input, logger) ->
-                    context
-                        .admin()
-                        .topicNames(true)
-                        .thenCompose(context.admin()::partitions)
-                        .thenApply(PartitionTab::basicResult))
-            .build());
+    return PaneBuilder.of()
+        .tableViewAction(
+            Lattice.of(
+                List.of(
+                    TextInput.of(
+                        INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
+                    TextInput.of(
+                        TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build()))),
+            "ALTER",
+            tableViewAction(context))
+        .tableRefresher(
+            (input, logger) ->
+                context
+                    .admin()
+                    .topicNames(true)
+                    .thenCompose(context.admin()::partitions)
+                    .thenApply(PartitionNode::basicResult))
+        .build();
   }
 }

@@ -21,9 +21,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.control.TextInputControl;
+import javafx.scene.input.KeyEvent;
 import org.astraea.common.Utils;
 
 public interface EditableText {
@@ -85,6 +87,11 @@ public interface EditableText {
       return new EditableText() {
 
         @Override
+        public void keyAction(Consumer<KeyEvent> consumer) {
+          field.setOnKeyPressed(consumer::accept);
+        }
+
+        @Override
         public Node node() {
           return field;
         }
@@ -120,11 +127,15 @@ public interface EditableText {
     }
   }
 
+  void keyAction(Consumer<KeyEvent> consumer);
+
   Node node();
 
   void text(String text);
 
-  /** @return true if the current value is valid. Otherwise, return false */
+  /**
+   * @return true if the current value is valid. Otherwise, return false
+   */
   boolean valid();
 
   Optional<String> text();

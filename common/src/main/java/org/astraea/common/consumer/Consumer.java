@@ -18,7 +18,9 @@ package org.astraea.common.consumer;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.astraea.common.admin.TopicPartition;
 
 /** An interface for polling records. */
@@ -55,10 +57,14 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   /** unsubscribe all partitions. */
   void unsubscribe();
 
-  /** @return current partitions assigned to this consumer */
+  /**
+   * @return current partitions assigned to this consumer
+   */
   Set<TopicPartition> assignments();
 
-  /** @return client id of this consumer */
+  /**
+   * @return client id of this consumer
+   */
   String clientId();
 
   /**
@@ -71,6 +77,15 @@ public interface Consumer<Key, Value> extends AutoCloseable {
     return new TopicsBuilder<>(topics);
   }
 
+  /**
+   * Create a consumer builder by setting specific pattern.
+   *
+   * @param patternTopics patterns of topic name
+   * @return consumer builder for pattern topics
+   */
+  static TopicsBuilder<byte[], byte[]> forTopics(Pattern patternTopics) {
+    return new TopicsBuilder<>(Objects.requireNonNull(patternTopics));
+  }
   /**
    * Create a consumer builder by setting specific topic partitions
    *

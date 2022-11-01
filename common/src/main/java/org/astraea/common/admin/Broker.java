@@ -133,26 +133,38 @@ public interface Broker extends NodeInfo {
 
   boolean isController();
 
-  /** @return config used by this node */
+  /**
+   * @return config used by this node
+   */
   Config config();
 
-  /** @return the disk folder used to stored data by this node */
+  /**
+   * @return the disk folder used to stored data by this node
+   */
   List<DataFolder> dataFolders();
 
   Set<TopicPartition> topicPartitions();
 
-  /** @return partition leaders hosted by this broker */
+  /**
+   * @return partition leaders hosted by this broker
+   */
   Set<TopicPartition> topicPartitionLeaders();
 
   interface DataFolder {
 
-    /** @return the path on the local disk */
+    /**
+     * @return the path on the local disk
+     */
     String path();
 
-    /** @return topic partition hosed by this node and size of files */
+    /**
+     * @return topic partition hosed by this node and size of files
+     */
     Map<TopicPartition, Long> partitionSizes();
 
-    /** @return topic partition located by this node but not traced by cluster */
+    /**
+     * @return topic partition located by this node but not traced by cluster
+     */
     Map<TopicPartition, Long> orphanPartitionSizes();
   }
 }
