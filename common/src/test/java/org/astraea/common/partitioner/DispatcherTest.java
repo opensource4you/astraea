@@ -46,7 +46,6 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class DispatcherTest extends RequireSingleBrokerCluster {
