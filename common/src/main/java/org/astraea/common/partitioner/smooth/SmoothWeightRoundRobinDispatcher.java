@@ -16,6 +16,7 @@
  */
 package org.astraea.common.partitioner.smooth;
 
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -39,9 +41,7 @@ import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.cost.Periodic;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.BeanCollector;
-import org.astraea.common.metrics.collector.Receiver;
+import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.partitioner.PartitionerUtils;
 
@@ -49,15 +49,13 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
     implements Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final ConcurrentMap<String, BrokerNextCounter> topicCounter = new ConcurrentHashMap<>();
-  private final BeanCollector beanCollector =
-      BeanCollector.builder()
+  private final MetricCollector metricCollector =
+      MetricCollector.builder()
           .interval(Duration.ofSeconds(1))
-          .numberOfObjectsPerNode(1)
-          .clientCreator(MBeanClient::jndi)
+          .expiration(Duration.ofSeconds(10))
           .build();
   private final Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
-  private final Map<Integer, Receiver> receivers = new TreeMap<>();
 
   private final Map<Integer, List<Integer>> hasPartitions = new TreeMap<>();
 
@@ -78,9 +76,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         () -> {
           refreshPartitionMetaData(clusterInfo, topic);
           // fetch the latest beans for each node
-          beans =
-              receivers.entrySet().stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
+          beans = metricCollector.clusterBean().all();
 
           var compoundScore =
               neutralIntegratedCost.brokerCost(clusterInfo, ClusterBean.of(beans)).value();
@@ -113,8 +109,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
 
   @Override
   public void doClose() {
-    receivers.values().forEach(r -> Utils.swallowException(r::close));
-    receivers.clear();
+    metricCollector.close();
   }
 
   @Override
@@ -150,16 +145,6 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
         () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
 
-  Receiver receiver(String host, int port) {
-    return beanCollector
-        .register()
-        .host(host)
-        .port(port)
-        // TODO: handle the empty fetcher
-        .fetcher(neutralIntegratedCost.fetcher().get())
-        .build();
-  }
-
   private int nextValue(String topic, ClusterInfo<ReplicaInfo> clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
@@ -176,12 +161,25 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
                 .computeIfAbsent(p.nodeInfo().id(), k -> new ArrayList<>())
                 .add(p.partition()));
 
-    partitions.stream()
-        .filter(p -> !receivers.containsKey(p.nodeInfo().id()))
-        .forEach(
-            p ->
-                receivers.put(
-                    p.nodeInfo().id(), receiver(p.nodeInfo().host(), jmxPort(p.nodeInfo().id()))));
+    neutralIntegratedCost
+        .fetcher()
+        .ifPresent(
+            fetcher -> {
+              partitions.stream()
+                  .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
+                  .forEach(
+                      p -> {
+                        metricCollector.registerJmx(
+                            p.nodeInfo().id(),
+                            InetSocketAddress.createUnresolved(
+                                p.nodeInfo().host(), jmxPort(p.nodeInfo().id())));
+                        metricCollector.addFetcher(Set.of(p.nodeInfo().id()), fetcher);
+                        while (metricCollector.storageSize(p.nodeInfo().id()) == 0) {
+                          // Wait until the initial value of metrics is exists.
+                          Utils.sleep(Duration.ofMillis(5));
+                        }
+                      });
+            });
   }
 
   private static class BrokerNextCounter {

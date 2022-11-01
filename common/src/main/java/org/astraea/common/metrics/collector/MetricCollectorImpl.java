@@ -118,7 +118,7 @@ public class MetricCollectorImpl implements MetricCollector {
           if (client != null) throw new IllegalStateException(errorMessage.get());
           else return clientSupplier.get();
         });
-    this.delayedWorks.put(new DelayedIdentity(interval, identity));
+    this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, identity));
   }
 
   @SuppressWarnings("unchecked")
@@ -127,6 +127,15 @@ public class MetricCollectorImpl implements MetricCollector {
     return ((MetricStorage<T>)
             storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
         .view();
+  }
+
+  @Override
+  public long storageSize(int identity) {
+    return storages.values().stream()
+        .map(x -> x.storage.getOrDefault(identity, null))
+        .filter(Objects::nonNull)
+        .mapToLong(ConcurrentSkipListMap::size)
+        .sum();
   }
 
   @Override
@@ -183,7 +192,7 @@ public class MetricCollectorImpl implements MetricCollector {
           e.printStackTrace();
         } finally {
           // if we pull out an identity, we must put it back
-          if (identity != null) delayedWorks.put(identity.next());
+          if (identity != null) delayedWorks.put(new DelayedIdentity(interval, identity.id()));
         }
       }
     };
@@ -293,12 +302,10 @@ public class MetricCollectorImpl implements MetricCollector {
 
   private static class DelayedIdentity implements Delayed {
 
-    private final Duration delay;
     private final long deadlineNs;
 
     private DelayedIdentity(Duration delay, int id) {
       this.deadlineNs = delay.toNanos() + System.nanoTime();
-      this.delay = delay;
       this.id = id;
     }
 
@@ -306,10 +313,6 @@ public class MetricCollectorImpl implements MetricCollector {
 
     public int id() {
       return id;
-    }
-
-    public DelayedIdentity next() {
-      return new DelayedIdentity(delay, id);
     }
 
     @Override

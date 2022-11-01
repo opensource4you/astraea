@@ -46,10 +46,14 @@ public interface MetricCollector extends AutoCloseable {
   /** Register the JMX server on this JVM instance. */
   void registerLocalJmx(int identity);
 
-  /** @return the current registered fetchers. */
+  /**
+   * @return the current registered fetchers.
+   */
   Map<Fetcher, Set<Integer>> listFetchers();
 
-  /** @return the current registered identities. */
+  /**
+   * @return the current registered identities.
+   */
   Set<Integer> listIdentities();
 
   /**
@@ -59,7 +63,19 @@ public interface MetricCollector extends AutoCloseable {
    */
   <T extends HasBeanObject> Map<Integer, Collection<T>> metrics(Class<T> metricClass);
 
-  /** @return the {@link ClusterBean}. */
+  /**
+   * Look up the metric count of specific identity's storage. This method offer no concurrency
+   * guarantee for the number it return. Since the number of item is a moving target. Trace such
+   * information might be expensive and meaningless. The initial motivation behind this method is:
+   * offer a way to let user know the metrics just updated.
+   *
+   * @return the number of metrics store in specific identity's storage
+   */
+  long storageSize(int identity);
+
+  /**
+   * @return the {@link ClusterBean}.
+   */
   ClusterBean clusterBean();
 
   @Override
