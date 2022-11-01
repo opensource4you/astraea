@@ -247,7 +247,7 @@ class ShufflePlanGeneratorTest {
                 List.of(
                     Replica.builder(base)
                         .topic("normal-topic")
-                        .leader(true)
+                        .isLeader(true)
                         .isPreferredLeader(true)
                         .build(),
                     Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
@@ -255,7 +255,7 @@ class ShufflePlanGeneratorTest {
                     Replica.builder(base)
                         .topic("offline-single")
                         .isPreferredLeader(true)
-                        .offline(true)
+                        .isOffline(true)
                         .build(),
                     Replica.builder(base)
                         .topic("no-leader")
