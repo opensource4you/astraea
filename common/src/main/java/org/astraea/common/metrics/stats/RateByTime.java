@@ -26,7 +26,7 @@ public class RateByTime implements Stat<Double> {
   private final Debounce<Double> debounce;
 
   public RateByTime(Duration period) {
-    this.debounce = new OnceByPeriod<>(period);
+    this.debounce = Debounce.of(Double.class, period);
   }
 
   @Override

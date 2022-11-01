@@ -16,6 +16,7 @@
  */
 package org.astraea.common.metrics.stats;
 
+import java.time.Duration;
 import java.util.Optional;
 
 /**
@@ -24,4 +25,19 @@ import java.util.Optional;
  */
 public interface Debounce<V> {
   Optional<V> record(V value, long timestamp);
+
+  static <V> Debounce<V> of(Class<V> cls, Duration duration) {
+    return new Debounce<>() {
+      private long lastTimestamp = -1;
+
+      @Override
+      public Optional<V> record(V value, long timestamp) {
+        if (lastTimestamp != -1 && timestamp < lastTimestamp + duration.toMillis()) {
+          return Optional.empty();
+        }
+        lastTimestamp = timestamp;
+        return Optional.of(value);
+      }
+    };
+  }
 }

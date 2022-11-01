@@ -26,7 +26,7 @@ public class AvgRateByTime implements Stat<Double> {
   private final Debounce<Double> debounce;
 
   public AvgRateByTime(Duration period) {
-    this.debounce = new OnceByPeriod<>(period);
+    this.debounce = Debounce.of(Double.class, period);
   }
 
   @Override

@@ -21,12 +21,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class OnceByPeriodTest {
+public class DebounceTest {
   @Test
   void testRecord() {
-    var rangedDataCalculator = new OnceByPeriod<Double>(Duration.ofMillis(500));
-    Assertions.assertEquals(Optional.of(20.0), rangedDataCalculator.record(20.0, 100));
-    Assertions.assertEquals(Optional.empty(), rangedDataCalculator.record(21.0, 110));
-    Assertions.assertEquals(Optional.of(60.0), rangedDataCalculator.record(60.0, 601));
+    var debounce = Debounce.of(Double.class, Duration.ofMillis(500));
+
+    Assertions.assertEquals(Optional.of(20.0), debounce.record(20.0, 100));
+    Assertions.assertEquals(Optional.empty(), debounce.record(21.0, 110));
+    Assertions.assertEquals(Optional.of(60.0), debounce.record(60.0, 601));
   }
 }
