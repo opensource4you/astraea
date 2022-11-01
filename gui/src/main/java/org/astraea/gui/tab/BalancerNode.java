@@ -241,7 +241,7 @@ public class BalancerNode {
                 .filter(r -> selectedPartitions.contains(r.topicPartition()))
                 .collect(Collectors.toList());
         return new StraightPlanExecutor()
-            .submit(context.admin(), ClusterInfo.of(replicas))
+            .submit(context.admin(), ClusterInfo.of(replicas), Duration.ofSeconds(15))
             .thenAccept(
                 ignored ->
                     logger.log(

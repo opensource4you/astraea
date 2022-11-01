@@ -24,11 +24,6 @@ import org.astraea.common.admin.Replica;
 
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
-
-  default CompletionStage<Void> submit(Admin admin, ClusterInfo<Replica> targetAllocation) {
-    return submit(admin, targetAllocation, Duration.ofSeconds(15));
-  }
-
   /**
    * submit the migration request to servers. Noted that this method get completed when all requests
    * are accepted. The data syncing will keep running on the server side. Hence, there is no

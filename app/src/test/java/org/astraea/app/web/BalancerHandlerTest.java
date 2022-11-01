@@ -478,7 +478,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             @Override
             public CompletionStage<Void> submit(
                 Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
-              super.submit(admin, targetAllocation);
+              super.submit(admin, targetAllocation, Duration.ofSeconds(5));
               Utils.sleep(Duration.ofSeconds(10));
               return null;
             }
@@ -605,7 +605,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             @Override
             public CompletionStage<Void> submit(
                 Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
-              super.submit(admin, targetAllocation);
+              super.submit(admin, targetAllocation, Duration.ofSeconds(5));
               Utils.packException(() -> latch.await());
               return null;
             }
@@ -672,7 +672,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             @Override
             public CompletionStage<Void> submit(
                 Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
-              super.submit(admin, targetAllocation);
+              super.submit(admin, targetAllocation, Duration.ofSeconds(5));
               throw new RuntimeException("Boom");
             }
           };

@@ -17,6 +17,7 @@
 package org.astraea.app.balancer;
 
 import com.beust.jcommander.Parameter;
+import java.time.Duration;
 import java.util.Set;
 import java.util.function.Predicate;
 import org.astraea.common.admin.Admin;
@@ -56,7 +57,7 @@ public class BalanceProcessDemo {
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()
-                  .submit(admin, p.proposal().rebalancePlan())
+                  .execute(admin, p.proposal().rebalancePlan(), Duration.ofHours(1))
                   .toCompletableFuture()
                   .join());
     }
