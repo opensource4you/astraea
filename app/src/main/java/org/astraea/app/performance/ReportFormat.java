@@ -30,11 +30,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
+import org.astraea.common.metrics.stats.SetDifference;
 
 public enum ReportFormat implements EnumInfo {
   CSV("csv"),
@@ -213,12 +213,13 @@ public enum ReportFormat implements EnumInfo {
                       "Consumer[" + i + "] partition difference",
                       () ->
                           Integer.toString(
-                              (ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS
-                                      .getOrDefault(consumerReports.get(i).clientId(), Set.of())
-                                      .size()
-                                  - ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS
-                                      .getOrDefault(consumerReports.get(i).clientId(), Set.of())
-                                      .size()))));
+                              ((SetDifference.Result)
+                                      ConsumerThread.CLIENT_ID_PARTITION_SENSOR
+                                          .get(consumerReports.get(i).clientId())
+                                          .measure("set difference")
+                                          .measure())
+                                  .increased()
+                                  .size())));
             });
     return elements;
   }

@@ -16,7 +16,7 @@
  */
 package org.astraea.common.metrics.stats;
 
-public class Avg implements Stat<Double> {
+public class Avg implements Stat<Double, Double> {
   private int counter = 0;
   private double accumulator = 0.0;
 

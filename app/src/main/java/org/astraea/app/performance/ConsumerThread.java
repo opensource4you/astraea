@@ -34,13 +34,14 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.SensorBuilder;
+import org.astraea.common.metrics.stats.SetDifference;
 
 public interface ConsumerThread extends AbstractThread {
 
-  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_ASSIGNED_PARTITIONS =
-      new ConcurrentHashMap<>();
-  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_REVOKED_PARTITIONS =
-      new ConcurrentHashMap<>();
+  ConcurrentMap<String, Sensor<SetDifference.SetOperation<TopicPartition>>>
+      CLIENT_ID_PARTITION_SENSOR = new ConcurrentHashMap<>();
 
   static List<ConsumerThread> create(
       int consumers,
@@ -89,8 +90,7 @@ public interface ConsumerThread extends AbstractThread {
                       Utils.swallowException(consumer::close);
                       closeLatch.countDown();
                       closed.set(true);
-                      CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);
-                      CLIENT_ID_REVOKED_PARTITIONS.remove(clientId);
+                      CLIENT_ID_PARTITION_SENSOR.remove(clientId);
                     }
                   });
               return new ConsumerThread() {
@@ -138,12 +138,25 @@ public interface ConsumerThread extends AbstractThread {
 
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
-      CLIENT_ID_ASSIGNED_PARTITIONS.put(clientId, partitions);
+      tryRegisterSensor();
+      CLIENT_ID_PARTITION_SENSOR.get(clientId).record(SetDifference.SetOperation.ofAdd(partitions));
     }
 
     @Override
     public void onPartitionsRevoked(Set<TopicPartition> partitions) {
-      CLIENT_ID_REVOKED_PARTITIONS.put(clientId, partitions);
+      tryRegisterSensor();
+      CLIENT_ID_PARTITION_SENSOR
+          .get(clientId)
+          .record(SetDifference.SetOperation.ofRemove(partitions));
+    }
+
+    private void tryRegisterSensor() {
+      CLIENT_ID_PARTITION_SENSOR.computeIfAbsent(
+          clientId,
+          id ->
+              new SensorBuilder<SetDifference.SetOperation<TopicPartition>>()
+                  .addStat("set difference", new SetDifference<>(2))
+                  .build());
     }
   }
 }

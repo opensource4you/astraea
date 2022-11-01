@@ -19,13 +19,11 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
-import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
@@ -34,6 +32,7 @@ import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.metrics.stats.SetDifference;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -144,21 +143,18 @@ public interface TrackerThread extends AbstractThread {
         var report = reports.get(i);
         var clientId = report.clientId();
         var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
-        var assignedPartitions =
-            ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of());
-        var revokedPartitions =
-            ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of());
-        var nonStickyPartitions =
-            assignedPartitions.stream()
-                .filter(tp -> !revokedPartitions.contains(tp))
-                .collect(Collectors.toSet());
-        if (ms.isPresent()) {
+        var partitionDifferenceSensor =
+            ConsumerThread.CLIENT_ID_PARTITION_SENSOR.getOrDefault(clientId, null);
+
+        if (ms.isPresent() && partitionDifferenceSensor != null) {
+          var partitionDifference =
+              (SetDifference.Result) partitionDifferenceSensor.measure("set difference").measure();
           System.out.printf(
               "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
               i,
-              (int) ms.get().assignedPartitions(),
-              nonStickyPartitions.size(),
-              (assignedPartitions.size() - revokedPartitions.size()));
+              partitionDifference.current().size(),
+              partitionDifference.increased().size(),
+              partitionDifference.unchanged().size());
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
