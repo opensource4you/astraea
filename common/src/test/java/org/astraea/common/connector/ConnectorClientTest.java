@@ -240,7 +240,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
                     x.createContext(
                         "/connectors",
                         HttpTestUtil.createTextHandler(
-                            List.of("GET"), "[" + connectorName + "]"))));
+                            List.of("GET"), "[\"" + connectorName + "\"]"))));
   }
 
   private WorkerResponseException getWorkerException(ExecutionException executionException) {

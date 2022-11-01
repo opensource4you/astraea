@@ -17,12 +17,10 @@
 package org.astraea.common.connector;
 
 public class TaskInfo {
-  private final String connector;
-  private final int task;
+  private String connector;
+  private int task;
 
-  public TaskInfo(String connector, int task) {
-    this.connector = connector;
-    this.task = task;
+  public TaskInfo() {
   }
 
   public String connector() {

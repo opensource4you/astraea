@@ -134,7 +134,7 @@ public class HttpExecutorBuilder {
               try {
                 return jsonConverter.fromJson(x, typeRef);
               } catch (Exception e) {
-                throw new StringResponseException(innerResponse, typeRef.getType());
+                throw new StringResponseException(innerResponse, typeRef.getType(),e);
               }
             });
       }

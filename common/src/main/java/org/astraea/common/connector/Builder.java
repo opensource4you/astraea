@@ -132,7 +132,7 @@ public class Builder {
           var workerError =
               Objects.isNull(stringResponseException.body())
                   ? new WorkerError(stringResponseException.statusCode(), "Unspecified error")
-                  : JsonConverter.defaultConverter()
+                  : JsonConverter.defaultConverter() // TODO: 2022-11-02 try catch 
                       .fromJson(stringResponseException.body(), TypeRef.of(WorkerError.class));
           throw new WorkerResponseException(stringResponseException, workerError);
         } else {

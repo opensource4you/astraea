@@ -16,19 +16,17 @@
  */
 package org.astraea.common.connector;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.google.gson.annotations.SerializedName;
 
 public class WorkerInfo {
-  private final String version;
-  private final String commit;
+  private String version;
+  private String commit;
 
-  @SerializedName(value = "kafkaClusterId", alternate = "kafka_cluster_id")
-  private final String kafkaClusterId;
+  @JsonAlias("kafka_cluster_id")
+  private String kafkaClusterId;
 
-  public WorkerInfo(String version, String commit, String kafkaClusterId) {
-    this.version = version;
-    this.commit = commit;
-    this.kafkaClusterId = kafkaClusterId;
+  public WorkerInfo() {
   }
 
   public String version() {

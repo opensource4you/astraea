@@ -20,14 +20,11 @@ import java.util.List;
 import java.util.Map;
 
 public class ConnectorInfo {
-  private final String name;
-  private final Map<String, String> config;
-  private final List<TaskInfo> tasks;
+  private String name;
+  private Map<String, String> config;
+  private List<TaskInfo> tasks;
 
-  public ConnectorInfo(String name, Map<String, String> config, List<TaskInfo> tasks) {
-    this.name = name;
-    this.config = config;
-    this.tasks = tasks;
+  public ConnectorInfo() {
   }
 
   public String name() {

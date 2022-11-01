@@ -29,9 +29,9 @@ public class StringResponseException extends RuntimeException {
     this.httpResponse = httpResponse;
   }
 
-  public StringResponseException(HttpResponse<String> httpResponse, Type type) {
+  public StringResponseException(HttpResponse<String> httpResponse, Type type, Exception cause) {
     super(
-        String.format("Response json `%s` can't convert to Object %s.", httpResponse.body(), type));
+        String.format("Response json `%s` can't convert to Object %s.", httpResponse.body(), type),cause);
     this.httpResponse = httpResponse;
   }
 
