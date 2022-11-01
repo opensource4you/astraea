@@ -102,7 +102,7 @@ class BalancerTest extends RequireBrokerCluster {
                   admin.brokerFolders().toCompletableFuture().join())
               .orElseThrow();
       new StraightPlanExecutor()
-          .run(admin, plan.proposal().rebalancePlan())
+          .run(admin, plan.proposal().rebalancePlan(), Duration.ofSeconds(10))
           .toCompletableFuture()
           .join();
 

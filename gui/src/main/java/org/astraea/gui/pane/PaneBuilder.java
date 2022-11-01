@@ -134,20 +134,29 @@ public class PaneBuilder {
       tableViewClick.action(
           () -> {
             var items = tableViewer.filteredData();
-            var text = secondLattice.contents();
+            var text =
+                secondLattice == null
+                    ? Map.<String, Optional<String>>of()
+                    : secondLattice.contents();
             var input = Input.of(List.of(), text);
-            try {
-              checkbox.setSelected(false);
 
-              var invalidKeys = secondLattice.invalidKeys();
+            checkbox.setDisable(true);
+            checkbox.setSelected(false);
+            try {
+              var invalidKeys = secondLattice == null ? Set.of() : secondLattice.invalidKeys();
               if (!invalidKeys.isEmpty()) {
                 console.text("please check fields: " + invalidKeys);
                 return;
               }
               tableViewAction
                   .apply(items, input, console::append)
-                  .whenComplete((data, e) -> console.text(e));
+                  .whenComplete(
+                      (data, e) -> {
+                        checkbox.setDisable(false);
+                        console.text(e);
+                      });
             } catch (Exception e) {
+              checkbox.setDisable(false);
               console.text(e);
             }
           });

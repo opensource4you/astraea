@@ -23,7 +23,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
@@ -45,6 +45,7 @@ import org.astraea.common.argument.DurationMapField;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.NonNegativeShortField;
 import org.astraea.common.argument.PathField;
+import org.astraea.common.argument.PatternField;
 import org.astraea.common.argument.PositiveIntegerField;
 import org.astraea.common.argument.PositiveIntegerListField;
 import org.astraea.common.argument.PositiveLongField;
@@ -92,7 +93,6 @@ public class Performance {
             param.producers,
             param::createProducer,
             param.interdependent);
-
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
@@ -148,7 +148,9 @@ public class Performance {
     return ConsumerThread.create(
         param.consumers,
         (clientId, listener) ->
-            Consumer.forTopics(new HashSet<>(param.topics))
+            (param.pattern == null
+                    ? Consumer.forTopics(Set.copyOf(param.topics))
+                    : Consumer.forTopics(param.pattern))
                 .configs(param.configs())
                 .config(
                     ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
@@ -172,6 +174,12 @@ public class Performance {
         listConverter = StringListField.class,
         required = true)
     List<String> topics;
+
+    @Parameter(
+        names = {"--pattern"},
+        description = "Pattern: topic pattern(s) which consumers subscribed",
+        converter = PatternField.class)
+    Pattern pattern = null;
 
     void checkTopics() {
       try (var admin = Admin.of(configs())) {

@@ -146,6 +146,41 @@ public class AdminTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testClusterInfo() {
+    try (var admin =
+        new AdminImpl(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
+      try (var producer = Producer.of(bootstrapServers())) {
+        producer.sender().topic(Utils.randomString()).key(new byte[100]).run();
+        producer.sender().topic(Utils.randomString()).key(new byte[55]).run();
+        producer.sender().topic(Utils.randomString()).key(new byte[33]).run();
+      }
+
+      try (var consumer =
+          Consumer.forTopics(admin.topicNames(false).toCompletableFuture().join())
+              .bootstrapServers(bootstrapServers())
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .build()) {
+        Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(7)).size());
+      }
+
+      var topics =
+          admin
+              .topics(admin.topicNames(true).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join();
+      topics.forEach(
+          t -> {
+            var replicas =
+                admin.clusterInfo(Set.of(t.name())).toCompletableFuture().join().replicas();
+            Assertions.assertNotEquals(0, replicas.size());
+            replicas.forEach(r -> Assertions.assertEquals(t.internal(), r.internal()));
+          });
+    }
+  }
+
+  @Test
   void testWaitClusterWithException() {
 
     try (var admin =

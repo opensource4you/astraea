@@ -16,23 +16,16 @@
  */
 package org.astraea.common.balancer.executor;
 
+import static org.astraea.common.admin.ClusterInfo.findNonFulfilledAllocation;
+
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.ReplicaInfo;
 
 /** Execute every possible migration immediately. */
 public class StraightPlanExecutor implements RebalancePlanExecutor {
@@ -40,88 +33,75 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   public StraightPlanExecutor() {}
 
   @Override
-  public CompletionStage<Void> run(Admin admin, ClusterLogAllocation logAllocation) {
+  public CompletionStage<Void> run(
+      Admin admin, ClusterInfo<Replica> logAllocation, Duration timeout) {
     return admin
         .topicNames(true)
+        .thenCompose(admin::clusterInfo)
+        .thenApply(clusterInfo -> findNonFulfilledAllocation(clusterInfo, logAllocation))
+        .thenApply(
+            tps ->
+                tps.stream()
+                    .flatMap(tp -> logAllocation.replicas(tp).stream())
+                    .collect(Collectors.toList()))
+        // step 1: move replicas to specify brokers
         .thenCompose(
-            topicNames ->
+            replicas ->
                 admin
-                    .clusterInfo(topicNames)
-                    .thenApply(
-                        clusterInfo ->
-                            ClusterInfo.findNonFulfilledAllocation(clusterInfo, logAllocation)))
-        .thenCompose(
-            topicPartitions -> {
-              Map<TopicPartition, List<Integer>> move2BrokerItems =
-                  new java.util.HashMap<>(Collections.emptyMap());
-              Map<TopicPartitionReplica, String> move2FolderItems =
-                  new java.util.HashMap<>(Collections.emptyMap());
-
-              topicPartitions.forEach(
-                  topicPartition -> {
-                    var expectedPlacement =
-                        logAllocation.replicas(topicPartition).stream()
-                            .sorted(
-                                Comparator.comparing(Replica::isPreferredLeader)
-                                    .<Replica>reversed())
+                    .moveToBrokers(
+                        replicas.stream()
+                            .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
                             .collect(
-                                Collectors.toMap(
-                                    e -> e.nodeInfo().id(),
-                                    Replica::path,
-                                    (e1, e2) -> e1,
-                                    LinkedHashMap::new));
+                                Collectors.groupingBy(
+                                    ReplicaInfo::topicPartition,
+                                    Collectors.mapping(
+                                        r -> r.nodeInfo().id(), Collectors.toList()))))
+                    .thenApply(ignored -> replicas))
+        // step 2: wait replicas get reassigned
+        .thenCompose(
+            replicas ->
+                admin
+                    .waitCluster(
+                        logAllocation.topics(),
+                        clusterInfo ->
+                            clusterInfo
+                                .topicPartitionReplicas()
+                                .containsAll(logAllocation.topicPartitionReplicas()),
+                        timeout,
+                        1)
+                    .thenApply(
+                        done -> {
+                          if (!done)
+                            throw new IllegalStateException(
+                                "Failed to move "
+                                    + replicas.stream()
+                                        .map(ReplicaInfo::topicPartitionReplica)
+                                        .collect(Collectors.toSet()));
+                          return replicas;
+                        }))
+        // step.3 move replicas to specify folders
+        .thenCompose(
+            replicas ->
+                admin.moveToFolders(
+                    replicas.stream()
+                        .collect(
+                            Collectors.toMap(ReplicaInfo::topicPartitionReplica, Replica::path))))
+        // step.4 wait replicas get synced
+        .thenCompose(
+            replicas -> admin.waitReplicasSynced(logAllocation.topicPartitionReplicas(), timeout))
+        // step.5 re-elect leaders
+        .thenCompose(
+            topicPartitions ->
+                admin
+                    .preferredLeaderElection(logAllocation.topicPartitions())
+                    .thenCompose(
+                        ignored ->
+                            admin.waitPreferredLeaderSynced(
+                                logAllocation.topicPartitions(), timeout))
+                    .thenAccept(c -> assertion(c, "Failed to re-election for " + topicPartitions)));
+  }
 
-                    var currentReplicaBrokerPath =
-                        admin
-                            .replicas(Set.of(topicPartition.topic()))
-                            .thenApply(
-                                replicas ->
-                                    replicas.stream()
-                                        .filter(
-                                            replica ->
-                                                replica.partition() == topicPartition.partition())
-                                        .collect(
-                                            Collectors.toMap(
-                                                replica -> replica.nodeInfo().id(),
-                                                Replica::path)));
-
-                    // to find out which replica needs to move data folder
-                    var forCrossDirMigration =
-                        currentReplicaBrokerPath
-                            .thenApply(
-                                currentBrokerPath ->
-                                    expectedPlacement.entrySet().stream()
-                                        .filter(
-                                            entry ->
-                                                !(currentBrokerPath.containsKey(entry.getKey())
-                                                    && currentBrokerPath.containsValue(
-                                                        entry.getValue())))
-                                        .collect(
-                                            Collectors.toMap(
-                                                idAndPath ->
-                                                    TopicPartitionReplica.of(
-                                                        topicPartition.topic(),
-                                                        topicPartition.partition(),
-                                                        idAndPath.getKey()),
-                                                Map.Entry::getValue)))
-                            .toCompletableFuture()
-                            .join();
-
-                    move2BrokerItems.put(
-                        TopicPartition.of(topicPartition.topic(), topicPartition.partition()),
-                        new ArrayList<>(expectedPlacement.keySet()));
-                    move2FolderItems.putAll(forCrossDirMigration);
-                  });
-              return admin
-                  .moveToBrokers(move2BrokerItems)
-                  .thenRun(
-                      () -> {
-                        // wait until the whole cluster knows the replica list just changed
-                        Utils.sleep(Duration.ofMillis(500));
-
-                        admin.moveToFolders(move2FolderItems).toCompletableFuture().join();
-                        admin.preferredLeaderElection(topicPartitions).toCompletableFuture().join();
-                      });
-            });
+  static void assertion(boolean condition, String info) {
+    if (!condition) throw new IllegalStateException(info);
   }
 }

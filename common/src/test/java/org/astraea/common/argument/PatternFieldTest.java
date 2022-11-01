@@ -14,29 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.algorithms;
+package org.astraea.common.argument;
 
-import org.astraea.common.Utils;
+import com.beust.jcommander.Parameter;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class GreedyBalancerTest {
+public class PatternFieldTest {
+  private static class FakeParameter {
+    @Parameter(
+        names = {"--field"},
+        converter = PatternField.class)
+    Pattern value;
+  }
 
   @Test
-  void testConfig() {
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("iteration"),
-        "Config exists for backward compatability reason");
+  public void testConvert() {
+    var param = Argument.parse(new FakeParameter(), new String[] {"--field", "test.*"});
 
-    Assertions.assertEquals(
-        GreedyBalancer.ALL_CONFIGS.size(),
-        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
-        "No duplicate element");
+    Assertions.assertTrue(param.value.matcher("test").matches());
+    Assertions.assertFalse(param.value.matcher("tes").matches());
   }
 }
