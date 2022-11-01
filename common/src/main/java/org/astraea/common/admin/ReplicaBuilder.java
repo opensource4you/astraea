@@ -26,6 +26,9 @@ public class ReplicaBuilder {
   private long lag;
   private long size;
 
+  private boolean isAdding;
+
+  private boolean isRemoving;
   private boolean internal;
   private boolean isLeader;
   private boolean inSync;
@@ -72,6 +75,16 @@ public class ReplicaBuilder {
 
   public ReplicaBuilder size(long size) {
     this.size = size;
+    return this;
+  }
+
+  public ReplicaBuilder isAdding(boolean isAdding) {
+    this.isAdding = isAdding;
+    return this;
+  }
+
+  public ReplicaBuilder isRemoving(boolean isRemoving) {
+    this.isRemoving = isRemoving;
     return this;
   }
 
@@ -123,6 +136,10 @@ public class ReplicaBuilder {
 
     private final boolean internal;
     private final boolean isLeader;
+
+    private final boolean isAdding;
+
+    private final boolean isRemoving;
     private final boolean inSync;
     private final boolean isFuture;
     private final boolean isOffline;
@@ -133,6 +150,8 @@ public class ReplicaBuilder {
       this.topic = Objects.requireNonNull(builder.topic);
       this.partition = builder.partition;
       this.nodeInfo = Objects.requireNonNull(builder.nodeInfo);
+      this.isAdding = builder.isAdding;
+      this.isRemoving = builder.isRemoving;
       this.lag = builder.lag;
       this.size = builder.size;
       this.internal = builder.internal;
@@ -205,6 +224,16 @@ public class ReplicaBuilder {
     }
 
     @Override
+    public boolean isAdding() {
+      return isAdding;
+    }
+
+    @Override
+    public boolean isRemoving() {
+      return isRemoving;
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
@@ -214,6 +243,8 @@ public class ReplicaBuilder {
           && size == replica.size
           && internal == replica.internal
           && isLeader == replica.isLeader
+          && isAdding == replica.isAdding
+          && isRemoving == replica.isRemoving
           && inSync == replica.inSync
           && isFuture == replica.isFuture
           && isOffline == replica.isOffline
@@ -233,6 +264,8 @@ public class ReplicaBuilder {
           size,
           internal,
           isLeader,
+          isAdding,
+          isRemoving,
           inSync,
           isFuture,
           isOffline,
