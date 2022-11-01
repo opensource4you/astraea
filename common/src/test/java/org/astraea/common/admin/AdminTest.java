@@ -154,6 +154,7 @@ public class AdminTest extends RequireBrokerCluster {
         producer.sender().topic(Utils.randomString()).key(new byte[55]).run();
         producer.sender().topic(Utils.randomString()).key(new byte[33]).run();
       }
+
       try (var consumer =
           Consumer.forTopics(admin.topicNames(false).toCompletableFuture().join())
               .bootstrapServers(bootstrapServers())
@@ -161,7 +162,7 @@ public class AdminTest extends RequireBrokerCluster {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(3)).size());
+        Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(7)).size());
       }
 
       var topics =
