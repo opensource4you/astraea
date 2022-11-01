@@ -54,7 +54,7 @@ class ShufflePlanGeneratorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 301})
+  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
   void testMovement(int shuffle) {
     final var fakeCluster = FakeClusterInfo.of(30, 30, 20, 5);
     final var allocation = ClusterLogAllocation.of(fakeCluster);
@@ -126,6 +126,7 @@ class ShufflePlanGeneratorTest {
         "No possible tweak");
   }
 
+  @Disabled
   @ParameterizedTest(name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas")
   @CsvSource(
       value = {
