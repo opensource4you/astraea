@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -37,7 +38,7 @@ public class SingleStepBalancer implements Balancer {
       "shuffle.plan.generator.max.step";
   public static final String ITERATION_CONFIG = "iteration";
   public static final Set<String> ALL_CONFIGS =
-      Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"));
+      new TreeSet<>(Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG")));
 
   private final AlgorithmConfig config;
   private final int minStep;
@@ -92,7 +93,7 @@ public class SingleStepBalancer implements Balancer {
             proposal -> {
               var newClusterInfo =
                   ClusterInfo.update(
-                      currentClusterInfo, tp -> proposal.rebalancePlan().logPlacements(tp));
+                      currentClusterInfo, tp -> proposal.rebalancePlan().replicas(tp));
               return new Balancer.Plan(
                   proposal,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),

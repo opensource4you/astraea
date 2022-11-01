@@ -133,7 +133,9 @@ public interface EditableText {
 
   void text(String text);
 
-  /** @return true if the current value is valid. Otherwise, return false */
+  /**
+   * @return true if the current value is valid. Otherwise, return false
+   */
   boolean valid();
 
   Optional<String> text();

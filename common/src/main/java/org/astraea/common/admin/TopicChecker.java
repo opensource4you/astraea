@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
 
 /**
- * Argument for {@link AsyncAdmin#idleTopic(List)}. This interface will check for the given set of
- * topic names, and filter out the "idle" topics.
+ * Argument for {@link Admin#idleTopic(List)}. This interface will check for the given set of topic
+ * names, and filter out the "idle" topics.
  *
  * <p>For example, the definition of "idle" can be "the topic that is not consumed by any consumer".
  * Like {@link #ASSIGNMENT} filter out the topics that/(whose partitions) are not assigned by any
@@ -41,7 +41,7 @@ public interface TopicChecker {
    * @param topics names of topics this checker will check
    * @return the set of topic names that is not idle
    */
-  CompletionStage<Set<String>> usedTopics(AsyncAdmin admin, Set<String> topics);
+  CompletionStage<Set<String>> usedTopics(Admin admin, Set<String> topics);
 
   /** Find topics which is assigned by any consumer. */
   TopicChecker ASSIGNMENT =

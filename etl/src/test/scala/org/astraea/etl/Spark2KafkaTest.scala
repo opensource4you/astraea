@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.astraea.common.admin.AsyncAdmin
+import org.astraea.common.admin.Admin
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.{generateCSVF, mkdir}
 import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
@@ -71,7 +71,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   @Test
   def topicCheckTest(): Unit = {
     val TOPIC = "testTopic"
-    Utils.Using(AsyncAdmin.of(bootstrapServers())) { admin =>
+    Utils.Using(Admin.of(bootstrapServers())) { admin =>
       assertEquals(
         admin
           .partitions(Set(TOPIC).asJava)
@@ -121,10 +121,12 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         (
           s"${rows(i).head},${rows(i)(1)}",
           s"""{"${colNames.head}":${i + 1},"${colNames(1)}":"${rows(
-            i
-          ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(i)(
-            2
-          )}}"""
+              i
+            ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(
+              i
+            )(
+              2
+            )}}"""
         )
       )
       .toMap

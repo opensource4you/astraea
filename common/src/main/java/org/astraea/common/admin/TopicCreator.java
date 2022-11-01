@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
-import org.astraea.common.Utils;
 
 public interface TopicCreator {
 
@@ -34,11 +33,9 @@ public interface TopicCreator {
    */
   TopicCreator configs(Map<String, String> configs);
 
-  /** start to create topic. */
-  @Deprecated
-  default void create() {
-    Utils.packException(() -> run().toCompletableFuture().get());
-  }
-
+  /**
+   * @return true if it sends creation request indeed. Otherwise, false if there is an existent
+   *     topic already
+   */
   CompletionStage<Boolean> run();
 }

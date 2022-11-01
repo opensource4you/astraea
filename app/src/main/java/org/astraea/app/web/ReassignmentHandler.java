@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -40,9 +40,9 @@ public class ReassignmentHandler implements Handler {
   static final String TO_KEY = "to";
   static final String BROKER_KEY = "broker";
   static final String EXCLUDE_KEY = "exclude";
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  ReassignmentHandler(AsyncAdmin admin) {
+  ReassignmentHandler(Admin admin) {
     this.admin = admin;
   }
 

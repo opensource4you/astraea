@@ -36,25 +36,39 @@ public interface Database extends Closeable {
     return new Builder();
   }
 
-  /** @return hostname to connect */
+  /**
+   * @return hostname to connect
+   */
   String hostname();
 
-  /** @return port to connect */
+  /**
+   * @return port to connect
+   */
   int port();
 
-  /** @return database name of this mysql */
+  /**
+   * @return database name of this mysql
+   */
   String databaseName();
 
-  /** @return username to log in this mysql */
+  /**
+   * @return username to log in this mysql
+   */
   String user();
 
-  /** @return password to log in this mysql */
+  /**
+   * @return password to log in this mysql
+   */
   String password();
 
-  /** @return full JDBC url */
+  /**
+   * @return full JDBC url
+   */
   String url();
 
-  /** @return create a new JDBC connection. Please close it manually */
+  /**
+   * @return create a new JDBC connection. Please close it manually
+   */
   Connection createConnection();
 
   @Override

@@ -17,9 +17,9 @@
 package org.astraea.app.balancer;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 public class BalanceProcessDemoTest extends RequireBrokerCluster {
 
   @Test
-  void run() throws ExecutionException, InterruptedException {
+  void run() {
     // prepare topics
     createTopics();
 
@@ -44,21 +44,21 @@ public class BalanceProcessDemoTest extends RequireBrokerCluster {
     describeCurrentAllocation();
   }
 
-  void describeCurrentAllocation() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void describeCurrentAllocation() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var cla =
           ClusterLogAllocation.of(
               admin
-                  .clusterInfo(admin.topicNames(false).toCompletableFuture().get())
+                  .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                   .toCompletableFuture()
-                  .get());
-      System.out.println(ClusterLogAllocation.toString(cla));
+                  .join());
+      System.out.println(ClusterInfo.toString(cla));
       System.out.println();
     }
   }
 
-  void createTopics() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void createTopics() {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic("TestingTopic")
@@ -66,7 +66,7 @@ public class BalanceProcessDemoTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 2)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
     }
     Utils.sleep(Duration.ofSeconds(1));
   }

@@ -146,7 +146,9 @@ public class LoadCost implements HasBrokerCost {
                 Map.Entry::getKey, entry -> entry.getValue().load.stream().mapToInt(i -> i).sum()));
   }
 
-  /** @return the metrics getters. Those getters are used to fetch mbeans. */
+  /**
+   * @return the metrics getters. Those getters are used to fetch mbeans.
+   */
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.of(

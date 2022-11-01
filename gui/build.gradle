@@ -9,8 +9,9 @@ repositories {
 }
 
 def versions = [
-        junit: project.properties['junit.version'] ?: "5.8.2",
-        jcommander  : project.properties['jcommander.version'] ?: "1.82",
+        kafka     : project.properties['kafka.version'] ?: "3.3.1",
+        junit     : project.properties['junit.version'] ?: "5.9.1",
+        jcommander: project.properties['jcommander.version'] ?: "1.82",
 ]
 
 java {
@@ -34,6 +35,7 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation project(':it')
     implementation project(':common')
+    implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
 }
 

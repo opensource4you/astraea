@@ -19,13 +19,12 @@ package org.astraea.app.performance;
 import com.beust.jcommander.ParameterException;
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.clients.producer.RoundRobinPartitioner;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -69,7 +68,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testCheckTopic() throws ExecutionException, InterruptedException {
+  void testCheckTopic() {
     var topic = Utils.randomString(10);
     var args =
         Argument.parse(
@@ -77,8 +76,8 @@ public class PerformanceTest extends RequireBrokerCluster {
             new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topic});
     Assertions.assertThrows(IllegalArgumentException.class, args::checkTopics);
 
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topic).run().toCompletableFuture().get();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().join();
     }
 
     Utils.sleep(Duration.ofSeconds(2));
@@ -86,7 +85,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPartialNonexistentTopic() throws ExecutionException, InterruptedException {
+  void testPartialNonexistentTopic() {
     var existentTopic = initTopic();
     var arg =
         Argument.parse(
@@ -101,7 +100,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSubscribeFrequency() throws ExecutionException, InterruptedException {
+  void testSubscribeFrequency() {
     var args =
         Argument.parse(
             new Performance.Argument(),
@@ -117,7 +116,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testAddFrequency() throws ExecutionException, InterruptedException {
+  void testAddFrequency() {
     var args =
         Argument.parse(
             new Performance.Argument(),
@@ -133,7 +132,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testKillFrequency() throws ExecutionException, InterruptedException {
+  void testKillFrequency() {
     var args =
         Argument.parse(
             new Performance.Argument(),
@@ -149,9 +148,9 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPartitionSupplier() throws ExecutionException, InterruptedException {
+  void testPartitionSupplier() {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
@@ -159,7 +158,7 @@ public class PerformanceTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
       var args =
           Argument.parse(
@@ -173,7 +172,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
       var expectedLeaders =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().get().stream()
+          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -200,7 +199,7 @@ public class PerformanceTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
       args =
           Argument.parse(
@@ -215,7 +214,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
 
       var expected2 =
-          admin.replicas(Set.of(topicName, topicName2)).toCompletableFuture().get().stream()
+          admin.replicas(Set.of(topicName, topicName2)).toCompletableFuture().join().stream()
               .filter(ReplicaInfo::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -239,10 +238,10 @@ public class PerformanceTest extends RequireBrokerCluster {
 
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
-      admin.creator().topic(topicName3).numberOfPartitions(1).run().toCompletableFuture().get();
+      admin.creator().topic(topicName3).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var validBroker =
-          admin.replicas(Set.of(topicName3)).toCompletableFuture().get().stream()
+          admin.replicas(Set.of(topicName3)).toCompletableFuture().join().stream()
               .findFirst()
               .get()
               .nodeInfo()
@@ -264,8 +263,8 @@ public class PerformanceTest extends RequireBrokerCluster {
       // test specify partitions
       var topicName4 = Utils.randomString();
       var topicName5 = Utils.randomString();
-      admin.creator().topic(topicName4).numberOfPartitions(3).run().toCompletableFuture().get();
-      admin.creator().topic(topicName5).numberOfPartitions(3).run().toCompletableFuture().get();
+      admin.creator().topic(topicName4).numberOfPartitions(3).run().toCompletableFuture().join();
+      admin.creator().topic(topicName5).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var targets =
           Set.of(
@@ -374,10 +373,10 @@ public class PerformanceTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testLastOffsets() throws ExecutionException, InterruptedException {
+  void testLastOffsets() {
     var partitionCount = 40;
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       // large partitions
       admin
           .creator()
@@ -385,7 +384,7 @@ public class PerformanceTest extends RequireBrokerCluster {
           .numberOfPartitions(partitionCount)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
       var args =
           Argument.parse(
@@ -402,10 +401,10 @@ public class PerformanceTest extends RequireBrokerCluster {
     }
   }
 
-  private static String initTopic() throws ExecutionException, InterruptedException {
+  private static String initTopic() {
     var topic = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topic).run().toCompletableFuture().get();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().join();
     }
     return topic;
   }

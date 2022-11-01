@@ -14,27 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.box;
+package org.astraea.gui.pane;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import java.util.Map;
+import java.util.stream.Collectors;
+import javafx.geometry.Side;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 
-public class HBox extends javafx.scene.layout.HBox {
-
-  public static HBox of(Node... nodes) {
-    return of(Pos.CENTER_LEFT, nodes);
+public interface Slide {
+  static Slide of(Side side, Map<String, Node> nodes) {
+    var pane = new TabPane();
+    pane.getTabs()
+        .setAll(
+            nodes.entrySet().stream()
+                .map(
+                    n -> {
+                      var tab = new Tab(n.getKey());
+                      tab.setContent(n.getValue());
+                      return tab;
+                    })
+                .collect(Collectors.toList()));
+    pane.setSide(side);
+    pane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+    return () -> pane;
   }
 
-  public static HBox of(Pos pos, Node... nodes) {
-    var pane = new HBox(10);
-    pane.setPadding(new Insets(15));
-    pane.setAlignment(pos);
-    pane.getChildren().setAll(nodes);
-    return pane;
-  }
-
-  private HBox(double spacing) {
-    super(spacing);
-  }
+  Parent node();
 }

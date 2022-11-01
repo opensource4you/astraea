@@ -24,15 +24,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
-import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.admin.Quota;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.QuotaConfigs;
 
 public class QuotaHandler implements Handler {
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  QuotaHandler(AsyncAdmin admin) {
+  QuotaHandler(Admin admin) {
     this.admin = admin;
   }
 

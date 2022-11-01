@@ -14,27 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.box;
+package org.astraea.common;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
+import java.util.Objects;
+import java.util.function.Supplier;
 
-public class VBox extends javafx.scene.layout.VBox {
+public interface Lazy<T> {
 
-  public static VBox of(Node... nodes) {
-    return of(Pos.CENTER_LEFT, nodes);
+  static <T> Lazy<T> of(Supplier<T> supplier) {
+    return new Lazy<T>() {
+      private volatile T obj;
+
+      @Override
+      public T get() {
+        if (obj == null) {
+          synchronized (this) {
+            if (obj == null) obj = Objects.requireNonNull(supplier.get());
+          }
+        }
+        return obj;
+      }
+    };
   }
 
-  public static VBox of(Pos pos, Node... nodes) {
-    var pane = new VBox(10);
-    pane.setPadding(new Insets(15));
-    pane.getChildren().setAll(nodes);
-    pane.setAlignment(pos);
-    return pane;
-  }
-
-  private VBox(double spacing) {
-    super(spacing);
-  }
+  /**
+   * the object will get created when this method is called the first time
+   *
+   * @return object
+   */
+  T get();
 }

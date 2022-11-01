@@ -17,9 +17,9 @@
 package org.astraea.app.web;
 
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -28,13 +28,13 @@ import org.junit.jupiter.api.Test;
 public class TransactionHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testListTransactions() throws ExecutionException, InterruptedException {
+  void testListTransactions() {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
       // wait for all transactions are completed
       Utils.waitFor(
@@ -42,8 +42,7 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
             var result =
                 Assertions.assertInstanceOf(
                     TransactionHandler.Transactions.class,
-                    Utils.packException(
-                        () -> handler.get(Channel.EMPTY).toCompletableFuture().get()));
+                    handler.get(Channel.EMPTY).toCompletableFuture().join());
             var transaction =
                 result.transactions.stream()
                     .filter(t -> t.id.equals(producer.transactionId().get()))
@@ -55,13 +54,13 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testQueryTransactionId() throws ExecutionException, InterruptedException {
+  void testQueryTransactionId() {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
       // wait for all transactions are completed
       Utils.waitFor(
@@ -69,35 +68,33 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
             var transaction =
                 Assertions.assertInstanceOf(
                     TransactionHandler.Transaction.class,
-                    Utils.packException(
-                        () ->
-                            handler
-                                .get(Channel.ofTarget(producer.transactionId().get()))
-                                .toCompletableFuture()
-                                .get()));
+                    handler
+                        .get(Channel.ofTarget(producer.transactionId().get()))
+                        .toCompletableFuture()
+                        .join());
             return transaction.topicPartitions.isEmpty();
           });
     }
   }
 
   @Test
-  void queryNonexistentTransactionId() throws ExecutionException, InterruptedException {
+  void queryNonexistentTransactionId() {
     var topicName = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().get();
+      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
 
       Assertions.assertInstanceOf(
           NoSuchElementException.class,
           Assertions.assertThrows(
-                  ExecutionException.class,
+                  CompletionException.class,
                   () ->
                       handler
                           .get(Channel.ofTarget(Utils.randomString(10)))
                           .toCompletableFuture()
-                          .get())
+                          .join())
               .getCause());
     }
   }

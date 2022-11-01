@@ -50,6 +50,8 @@ public interface Register {
    */
   Register autoUpdate();
 
-  /** @return create a Receiver */
+  /**
+   * @return create a Receiver
+   */
   Receiver build();
 }

@@ -17,8 +17,8 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,7 +84,9 @@ public class MonkeyThread implements AbstractThread {
                   ConsumerThread.create(
                           1,
                           (clientId, listener) ->
-                              Consumer.forTopics(new HashSet<>(param.topics))
+                              (param.pattern == null
+                                      ? Consumer.forTopics(Set.copyOf(param.topics))
+                                      : Consumer.forTopics(param.pattern))
                                   .configs(param.configs())
                                   .config(
                                       ConsumerConfigs.ISOLATION_LEVEL_CONFIG,
