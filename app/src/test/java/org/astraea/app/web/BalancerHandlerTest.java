@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
@@ -476,11 +477,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public CompletionStage<Void> submit(
+            public CompletionStage<Void> run(
                 Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
-              super.submit(admin, targetAllocation, Duration.ofSeconds(5));
-              Utils.sleep(Duration.ofSeconds(10));
-              return null;
+              return super.run(admin, targetAllocation, Duration.ofSeconds(5))
+                  // Use another thread to block this completion to avoid deadlock in
+                  // BalancerHandler#put
+                  .thenApplyAsync(
+                      i -> {
+                        Utils.sleep(Duration.ofSeconds(10));
+                        return i;
+                      });
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
@@ -603,11 +609,18 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             final CountDownLatch latch = new CountDownLatch(1);
 
             @Override
-            public CompletionStage<Void> submit(
+            public CompletionStage<Void> run(
                 Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
-              super.submit(admin, targetAllocation, Duration.ofSeconds(5));
-              Utils.packException(() -> latch.await());
-              return null;
+              return super.run(admin, targetAllocation, Duration.ofSeconds(5))
+                  // Use another thread to block this completion to avoid deadlock in
+                  // BalancerHandler#put
+                  .thenApplyAsync(
+                      i -> {
+                        System.out.println("before block");
+                        Utils.packException(() -> latch.await());
+                        System.out.println("after block");
+                        return i;
+                      });
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
@@ -649,8 +662,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNull(progress1.exception);
 
       // it is done
+      System.out.println("before countDown");
       theExecutor.latch.countDown();
-      Utils.sleep(Duration.ofMillis(500));
+      System.out.println("after countDown");
+      Utils.sleep(Duration.ofSeconds(1));
       var progress2 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
@@ -670,10 +685,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var theExecutor =
           new NoOpExecutor() {
             @Override
-            public CompletionStage<Void> submit(
+            public CompletionStage<Void> run(
                 Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
-              super.submit(admin, targetAllocation, Duration.ofSeconds(5));
-              throw new RuntimeException("Boom");
+              return super.run(admin, targetAllocation, Duration.ofSeconds(5))
+                  .thenCompose(
+                      ignored -> CompletableFuture.failedFuture(new RuntimeException("Boom")));
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
@@ -805,10 +821,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     private final LongAdder executionCounter = new LongAdder();
 
     @Override
-    public CompletionStage<Void> submit(
+    public CompletionStage<Void> run(
         Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
       executionCounter.increment();
-      return null;
+      return CompletableFuture.completedFuture(null);
     }
 
     int count() {

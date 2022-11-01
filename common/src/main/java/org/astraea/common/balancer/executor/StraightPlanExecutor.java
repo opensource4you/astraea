@@ -26,7 +26,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.admin.TopicPartition;
 
 /** Execute every possible migration immediately. */
 public class StraightPlanExecutor implements RebalancePlanExecutor {
@@ -34,7 +33,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   public StraightPlanExecutor() {}
 
   @Override
-  public CompletionStage<Void> submit(
+  public CompletionStage<Void> run(
       Admin admin, ClusterInfo<Replica> logAllocation, Duration timeout) {
     return admin
         .topicNames(true)
@@ -44,51 +43,65 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
             tps ->
                 tps.stream()
                     .flatMap(tp -> logAllocation.replicas(tp).stream())
-                    .sorted(Comparator.comparing(Replica::isPreferredLeader))
                     .collect(Collectors.toList()))
-
-        // step.1 move replica to specify brokers/folders
+        // step 1: move replicas to specify brokers
         .thenCompose(
-            replicas -> {
-              var moveBrokerRequest =
-                  replicas.stream()
-                      .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
-                      .collect(
-                          Collectors.groupingBy(
-                              ReplicaInfo::topicPartition,
-                              Collectors.mapping(r -> r.nodeInfo().id(), Collectors.toList())));
-              var moveFolderRequest =
-                  replicas.stream()
-                      .collect(Collectors.toMap(ReplicaInfo::topicPartitionReplica, Replica::path));
-              return admin
-                  // step.1 move replica to specify brokers
-                  .moveToBrokers(moveBrokerRequest)
-                  // step.2 wait assignment
-                  .thenCompose(
-                      ignored ->
-                          admin.waitCluster(
-                              moveBrokerRequest.keySet().stream()
-                                  .map(TopicPartition::topic)
-                                  .collect(Collectors.toSet()),
-                              clusterInfo ->
-                                  replicas.stream()
-                                      .allMatch(
-                                          r ->
-                                              clusterInfo
-                                                  .replicaStream()
-                                                  .anyMatch(
-                                                      replica ->
-                                                          replica
-                                                              .topicPartitionReplica()
-                                                              .equals(r.topicPartitionReplica()))),
-                              timeout,
-                              1))
-                  .thenAccept(
-                      done ->
-                          RebalancePlanExecutor.assertion(
-                              done, "Failed to move " + moveFolderRequest.keySet()))
-                  // step.3 move replica to specify folder
-                  .thenCompose(ignored -> admin.moveToFolders(moveFolderRequest));
-            });
+            replicas ->
+                admin
+                    .moveToBrokers(
+                        replicas.stream()
+                            .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
+                            .collect(
+                                Collectors.groupingBy(
+                                    ReplicaInfo::topicPartition,
+                                    Collectors.mapping(
+                                        r -> r.nodeInfo().id(), Collectors.toList()))))
+                    .thenApply(ignored -> replicas))
+        // step 2: wait replicas get reassigned
+        .thenCompose(
+            replicas ->
+                admin
+                    .waitCluster(
+                        logAllocation.topics(),
+                        clusterInfo ->
+                            clusterInfo
+                                .topicPartitionReplicas()
+                                .containsAll(logAllocation.topicPartitionReplicas()),
+                        timeout,
+                        1)
+                    .thenApply(
+                        done -> {
+                          if (!done)
+                            throw new IllegalStateException(
+                                "Failed to move "
+                                    + replicas.stream()
+                                        .map(ReplicaInfo::topicPartitionReplica)
+                                        .collect(Collectors.toSet()));
+                          return replicas;
+                        }))
+        // step.3 move replicas to specify folders
+        .thenCompose(
+            replicas ->
+                admin.moveToFolders(
+                    replicas.stream()
+                        .collect(
+                            Collectors.toMap(ReplicaInfo::topicPartitionReplica, Replica::path))))
+        // step.4 wait replicas get synced
+        .thenCompose(
+            replicas -> admin.waitReplicasSynced(logAllocation.topicPartitionReplicas(), timeout))
+        // step.5 re-elect leaders
+        .thenCompose(
+            topicPartitions ->
+                admin
+                    .preferredLeaderElection(logAllocation.topicPartitions())
+                    .thenCompose(
+                        ignored ->
+                            admin.waitPreferredLeaderSynced(
+                                logAllocation.topicPartitions(), timeout))
+                    .thenAccept(c -> assertion(c, "Failed to re-election for " + topicPartitions)));
+  }
+
+  static void assertion(boolean condition, String info) {
+    if (!condition) throw new IllegalStateException(info);
   }
 }

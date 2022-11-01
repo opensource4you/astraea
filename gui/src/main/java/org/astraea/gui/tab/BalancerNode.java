@@ -248,7 +248,7 @@ public class BalancerNode {
                 addingReplicas -> {
                   if (addingReplicas.isEmpty())
                     return RebalancePlanExecutor.of()
-                        .execute(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
+                        .run(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
                         .thenAccept(
                             ignored ->
                                 logger.log(

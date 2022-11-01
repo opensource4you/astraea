@@ -105,7 +105,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 
       var execute =
-          new StraightPlanExecutor().execute(admin, expectedAllocation, Duration.ofSeconds(10));
+          new StraightPlanExecutor().run(admin, expectedAllocation, Duration.ofSeconds(10));
 
       execute.toCompletableFuture().join();
 
