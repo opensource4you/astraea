@@ -37,14 +37,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class ShufflePlanGeneratorTest {
+class ShuffleTweakerTest {
 
   @Test
   void testRun() {
-    final var shufflePlanGenerator = new ShufflePlanGenerator(5, 10);
+    final var shuffleTweaker = new ShuffleTweaker(5, 10);
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
     final var stream =
-        shufflePlanGenerator.generate(
+        shuffleTweaker.generate(
             fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster));
     final var iterator = stream.iterator();
 
@@ -58,9 +58,9 @@ class ShufflePlanGeneratorTest {
   void testMovement(int shuffle) {
     final var fakeCluster = FakeClusterInfo.of(30, 30, 20, 5);
     final var allocation = ClusterLogAllocation.of(fakeCluster);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> shuffle);
+    final var shuffleTweaker = new ShuffleTweaker(() -> shuffle);
 
-    shufflePlanGenerator
+    shuffleTweaker
         .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
         .limit(100)
         .forEach(
@@ -80,12 +80,12 @@ class ShufflePlanGeneratorTest {
   @Test
   void testNoNodes() {
     final var fakeCluster = FakeClusterInfo.of(0, 0, 0, 0);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
+    final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
         0,
         (int)
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
                 .count(),
         "No possible tweak");
@@ -94,12 +94,12 @@ class ShufflePlanGeneratorTest {
   @Test
   void testOneNode() {
     final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
+    final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
         0,
         (int)
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(
                     fakeCluster.dataDirectories().entrySet().stream()
                         .limit(1)
@@ -115,12 +115,12 @@ class ShufflePlanGeneratorTest {
   @Test
   void testNoTopic() {
     final var fakeCluster = FakeClusterInfo.of(3, 0, 0, 0);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
+    final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
         0,
         (int)
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
                 .count(),
         "No possible tweak");
@@ -143,13 +143,13 @@ class ShufflePlanGeneratorTest {
     // log.
     // Notice: Stream#limit() will hurt performance. the number here might not reflect the actual
     // performance.
-    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(0, 10);
     final var fakeCluster = FakeClusterInfo.of(nodeCount, topicCount, partitionCount, replicaCount);
     final var size = 1000;
 
     final long s = System.nanoTime();
     final var count =
-        shufflePlanGenerator
+        shuffleTweaker
             .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
             .limit(size)
             .count();
@@ -165,13 +165,13 @@ class ShufflePlanGeneratorTest {
 
   @Test
   void parallelStreamWorks() {
-    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(0, 10);
     final var fakeCluster = FakeClusterInfo.of(10, 20, 10, 3);
 
     // generator can do parallel without error.
     Assertions.assertDoesNotThrow(
         () ->
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .limit(100)
@@ -181,7 +181,7 @@ class ShufflePlanGeneratorTest {
   @Test
   @Disabled
   void parallelPerformanceTests() throws InterruptedException {
-    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(0, 10);
     final var fakeCluster = FakeClusterInfo.of(50, 500, 30, 2);
     final var counter = new LongAdder();
     final var forkJoinPool = new ForkJoinPool(ForkJoinPool.getCommonPoolParallelism());
@@ -189,7 +189,7 @@ class ShufflePlanGeneratorTest {
 
     forkJoinPool.submit(
         () ->
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .forEach((ignore) -> counter.increment()));
@@ -212,7 +212,7 @@ class ShufflePlanGeneratorTest {
 
   @Test
   void testEligiblePartition() {
-    var shufflePlanGenerator = new ShufflePlanGenerator(() -> 100);
+    var shuffleTweaker = new ShuffleTweaker(() -> 100);
     var dataDir =
         Map.of(
             0, Set.of("/a", "/b", "c"),
@@ -245,7 +245,7 @@ class ShufflePlanGeneratorTest {
                         .build(),
                     Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
                     Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build())));
-    shufflePlanGenerator
+    shuffleTweaker
         .generate(dataDir, allocation)
         .limit(30)
         .forEach(

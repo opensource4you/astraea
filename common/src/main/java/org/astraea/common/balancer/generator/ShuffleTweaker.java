@@ -32,8 +32,8 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /**
- * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,
- * but with a few random placement changes. <br>
+ * The {@link ShuffleTweaker} proposes a new log placement based on the current log placement, but
+ * with a few random placement changes. <br>
  * <br>
  * The following operations are considered as a valid shuffle action:
  *
@@ -44,15 +44,15 @@ import org.astraea.common.balancer.log.ClusterLogAllocation;
  *       replica set before this action) into the replica set.
  * </ol>
  */
-public class ShufflePlanGenerator implements RebalancePlanGenerator {
+public class ShuffleTweaker implements AllocationTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
 
-  public ShufflePlanGenerator(int origin, int bound) {
+  public ShuffleTweaker(int origin, int bound) {
     this(() -> ThreadLocalRandom.current().nextInt(origin, bound));
   }
 
-  public ShufflePlanGenerator(Supplier<Integer> numberOfShuffle) {
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle) {
     this.numberOfShuffle = numberOfShuffle;
   }
 

@@ -28,7 +28,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
+import org.astraea.common.balancer.generator.ShuffleTweaker;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 
@@ -80,7 +80,7 @@ public class GreedyBalancer implements Balancer {
   @Override
   public Optional<Plan> offer(
       ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
-    final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
+    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunctions();
@@ -92,7 +92,7 @@ public class GreedyBalancer implements Balancer {
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
     BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
         (currentAllocation, currentCost) ->
-            planGenerator
+            allocationTweaker
                 .generate(brokerFolders, currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(

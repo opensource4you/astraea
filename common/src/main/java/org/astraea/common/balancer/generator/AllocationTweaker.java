@@ -22,10 +22,10 @@ import java.util.stream.Stream;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 @FunctionalInterface
-public interface RebalancePlanGenerator {
+public interface AllocationTweaker {
 
-  static RebalancePlanGenerator random(int numberOfShuffle) {
-    return new ShufflePlanGenerator(() -> numberOfShuffle);
+  static AllocationTweaker random(int numberOfShuffle) {
+    return new ShuffleTweaker(() -> numberOfShuffle);
   }
 
   /**
