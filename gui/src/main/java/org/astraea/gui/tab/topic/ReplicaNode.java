@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
@@ -53,10 +54,14 @@ public class ReplicaNode {
   static final String MOVE_BROKER_KEY = "move to brokers";
 
   static List<Map<String, Object>> allResult(List<Replica> replicas) {
+    // There are two leader replicas if the leader replica is moving to another folder
     var leaderSizes =
         replicas.stream()
             .filter(ReplicaInfo::isLeader)
-            .collect(Collectors.toMap(ReplicaInfo::topicPartition, Replica::size));
+            .collect(
+                Collectors.groupingBy(
+                    ReplicaInfo::topicPartition,
+                    Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
     return replicas.stream()
         .map(
             replica -> {
