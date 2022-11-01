@@ -96,11 +96,11 @@ public class GreedyBalancer implements Balancer {
                 .generate(brokerFolders, currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
-                    proposal -> {
+                    newAllocation -> {
                       var newClusterInfo =
-                          ClusterInfo.update(currentClusterInfo, proposal::replicas);
+                          ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
                       return new Balancer.Plan(
-                          proposal,
+                          newAllocation,
                           clusterCostFunction.clusterCost(newClusterInfo, metrics),
                           moveCostFunction.stream()
                               .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))

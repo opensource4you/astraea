@@ -41,7 +41,7 @@ public interface AllocationTweaker {
    * occurred.
    *
    * @param brokerFolders key is the broker id, and the value is the folder used to keep data
-   * @param baseAllocation the cluster log allocation as the based of proposal generation.
+   * @param baseAllocation the cluster log allocation as the based to tweak.
    * @return a {@link Stream} of possible tweaked {@link ClusterLogAllocation}.
    */
   Stream<ClusterLogAllocation> generate(

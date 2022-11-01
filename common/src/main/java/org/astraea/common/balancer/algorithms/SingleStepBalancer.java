@@ -90,10 +90,10 @@ public class SingleStepBalancer implements Balancer {
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime)
         .map(
-            proposal -> {
-              var newClusterInfo = ClusterInfo.update(currentClusterInfo, proposal::replicas);
+            newAllocation -> {
+              var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Balancer.Plan(
-                  proposal,
+                  newAllocation,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
                   moveCostFunction.stream()
                       .map(
