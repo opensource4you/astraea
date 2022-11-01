@@ -156,6 +156,7 @@ public class AdminTest extends RequireBrokerCluster {
       }
       try (var consumer =
           Consumer.forTopics(admin.topicNames(false).toCompletableFuture().join())
+              .bootstrapServers(bootstrapServers())
               .config(
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
