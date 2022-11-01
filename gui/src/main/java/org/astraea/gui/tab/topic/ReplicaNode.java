@@ -70,6 +70,7 @@ public class ReplicaNode {
               result.put("isPreferredLeader", replica.isPreferredLeader());
               result.put("isOffline", replica.isOffline());
               result.put("isFuture", replica.isFuture());
+              result.put("inSync", replica.inSync());
               result.put("lag", replica.lag());
               result.put("size", DataSize.Byte.of(replica.size()));
               if (leaderSize > replica.size()) {

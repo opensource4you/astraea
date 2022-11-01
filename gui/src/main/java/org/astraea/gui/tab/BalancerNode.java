@@ -240,14 +240,28 @@ public class BalancerNode {
             plan.proposal().rebalancePlan().replicas().stream()
                 .filter(r -> selectedPartitions.contains(r.topicPartition()))
                 .collect(Collectors.toList());
-        return RebalancePlanExecutor.of()
-            .execute(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
-            .thenAccept(
-                ignored ->
-                    logger.log(
-                        "succeed to balance cluster by moving "
-                            + selectedPartitions.size()
-                            + " partitions"));
+        return context
+            .admin()
+            .addingReplicas(
+                selectedPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
+            .thenCompose(
+                addingReplicas -> {
+                  if (addingReplicas.isEmpty())
+                    return RebalancePlanExecutor.of()
+                        .execute(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
+                        .thenAccept(
+                            ignored ->
+                                logger.log(
+                                    "succeed to balance cluster by moving "
+                                        + selectedPartitions.size()
+                                        + " partitions"));
+                  return CompletableFuture.failedFuture(
+                      new IllegalArgumentException(
+                          "Please wait migrating partitions: "
+                              + addingReplicas.stream()
+                                  .map(r -> r.topic() + "-" + r.partition())
+                                  .collect(Collectors.joining(","))));
+                });
       }
       return CompletableFuture.completedFuture(null);
     };

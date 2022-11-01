@@ -33,7 +33,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ReplicaTabTest extends RequireBrokerCluster {
+public class ReplicaNodeTest extends RequireBrokerCluster {
 
   @Test
   void testTableAction() {
