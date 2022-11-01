@@ -123,7 +123,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var beforeReplicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
@@ -132,7 +132,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .path("/tmp/aaa")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
@@ -143,7 +143,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var afterReplicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
@@ -152,7 +152,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .path("/tmp/ddd")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
