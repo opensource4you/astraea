@@ -24,6 +24,11 @@ import org.astraea.common.admin.Replica;
 
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
+
+  static RebalancePlanExecutor of() {
+    return new StraightPlanExecutor();
+  }
+
   /**
    * submit the migration request to servers. Noted that this method get completed when all requests
    * are accepted. The data syncing will keep running on the server side. Hence, there is no

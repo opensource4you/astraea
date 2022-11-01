@@ -350,13 +350,11 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   }
 
   /**
-   * find the synced replica. Noted that the future replica is excluded
-   *
    * @param replica to search
    * @return the replica matched to input replica
    */
   default Optional<T> replica(TopicPartitionReplica replica) {
-    return replicaStream(replica).filter(ReplicaInfo::inSync).findFirst();
+    return replicaStream(replica).findFirst();
   }
 
   // ---------------------[others]---------------------//

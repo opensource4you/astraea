@@ -39,7 +39,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
-import org.astraea.common.balancer.executor.StraightPlanExecutor;
+import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -240,8 +240,8 @@ public class BalancerNode {
             plan.proposal().rebalancePlan().replicas().stream()
                 .filter(r -> selectedPartitions.contains(r.topicPartition()))
                 .collect(Collectors.toList());
-        return new StraightPlanExecutor()
-            .submit(context.admin(), ClusterInfo.of(replicas), Duration.ofSeconds(15))
+        return RebalancePlanExecutor.of()
+            .execute(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
             .thenAccept(
                 ignored ->
                     logger.log(
