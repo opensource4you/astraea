@@ -165,7 +165,7 @@ class BalancerHandler implements Handler {
                       .map(
                           p ->
                               ClusterInfo.findNonFulfilledAllocation(
-                                      currentClusterInfo, p.proposal().rebalancePlan())
+                                      currentClusterInfo, p.proposal())
                                   .stream()
                                   .map(
                                       tp ->
@@ -176,7 +176,7 @@ class BalancerHandler implements Handler {
                                               currentClusterInfo.replicas(tp).stream()
                                                   .map(r -> new Placement(r, r.size()))
                                                   .collect(Collectors.toList()),
-                                              p.proposal().rebalancePlan().replicas(tp).stream()
+                                              p.proposal().replicas(tp).stream()
                                                   .map(r -> new Placement(r, null))
                                                   .collect(Collectors.toList())))
                                   .collect(Collectors.toUnmodifiableList()))
@@ -187,7 +187,8 @@ class BalancerHandler implements Handler {
                       cost,
                       bestPlan.map(p -> p.clusterCost().value()).orElse(null),
                       loop,
-                      bestPlan.map(p -> p.proposal().index()).orElse(null),
+                      // TODO: remove index field
+                      bestPlan.map(p -> 0).orElse(null),
                       clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
@@ -277,7 +278,7 @@ class BalancerHandler implements Handler {
                       executedPlans.put(
                           thePlanId,
                           executor
-                              .run(admin, p.proposal().rebalancePlan(), Duration.ofHours(1))
+                              .run(admin, p.proposal(), Duration.ofHours(1))
                               .toCompletableFuture());
                       lastExecutionId.set(thePlanId);
                     });

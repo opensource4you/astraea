@@ -98,8 +98,7 @@ public class GreedyBalancer implements Balancer {
                 .map(
                     proposal -> {
                       var newClusterInfo =
-                          ClusterInfo.update(
-                              currentClusterInfo, tp -> proposal.rebalancePlan().replicas(tp));
+                          ClusterInfo.update(currentClusterInfo, proposal::replicas);
                       return new Balancer.Plan(
                           proposal,
                           clusterCostFunction.clusterCost(newClusterInfo, metrics),
@@ -119,7 +118,7 @@ public class GreedyBalancer implements Balancer {
       if (newPlan.isEmpty()) break;
       currentPlan = newPlan;
       currentCost = currentPlan.get().clusterCost();
-      currentAllocation = currentPlan.get().proposal().rebalancePlan();
+      currentAllocation = currentPlan.get().proposal();
     }
     return currentPlan;
   }

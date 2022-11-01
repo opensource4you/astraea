@@ -27,6 +27,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
+import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 
@@ -57,11 +58,11 @@ public interface Balancer {
   }
 
   class Plan {
-    final RebalancePlanProposal proposal;
+    final ClusterLogAllocation proposal;
     final ClusterCost clusterCost;
     final List<MoveCost> moveCost;
 
-    public RebalancePlanProposal proposal() {
+    public ClusterLogAllocation proposal() {
       return proposal;
     }
 
@@ -73,7 +74,7 @@ public interface Balancer {
       return moveCost;
     }
 
-    public Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, List<MoveCost> moveCost) {
+    public Plan(ClusterLogAllocation proposal, ClusterCost clusterCost, List<MoveCost> moveCost) {
       this.proposal = proposal;
       this.clusterCost = clusterCost;
       this.moveCost = moveCost;

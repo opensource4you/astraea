@@ -29,7 +29,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.FakeClusterInfo;
-import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -65,8 +64,7 @@ class ShufflePlanGeneratorTest {
         .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
         .limit(100)
         .forEach(
-            proposal -> {
-              final var that = proposal.rebalancePlan();
+            that -> {
               final var thisTps = allocation.topicPartitions();
               final var thatTps = that.topicPartitions();
               final var thisMap =
@@ -84,22 +82,13 @@ class ShufflePlanGeneratorTest {
     final var fakeCluster = FakeClusterInfo.of(0, 0, 0, 0);
     final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
 
-    final var proposal =
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .iterator()
-            .next();
-
-    System.out.println(proposal);
-    Assertions.assertTrue(
-        ClusterInfo.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan()).isEmpty());
-    Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
-        1,
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .limit(10)
-            .count());
+        0,
+        (int)
+            shufflePlanGenerator
+                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .count(),
+        "No possible tweak");
   }
 
   @Test
@@ -107,20 +96,20 @@ class ShufflePlanGeneratorTest {
     final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1);
     final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
 
-    final var proposal =
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .iterator()
-            .next();
-
-    System.out.println(proposal);
-    Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
-        1,
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .limit(10)
-            .count());
+        0,
+        (int)
+            shufflePlanGenerator
+                .generate(
+                    fakeCluster.dataDirectories().entrySet().stream()
+                        .limit(1)
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().stream().limit(1).collect(Collectors.toSet()))),
+                    ClusterLogAllocation.of(fakeCluster))
+                .count(),
+        "No possible tweak");
   }
 
   @Test
@@ -128,22 +117,13 @@ class ShufflePlanGeneratorTest {
     final var fakeCluster = FakeClusterInfo.of(3, 0, 0, 0);
     final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
 
-    final var proposal =
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .iterator()
-            .next();
-
-    System.out.println(proposal);
-    Assertions.assertTrue(
-        ClusterInfo.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan()).isEmpty());
-    Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
-        1,
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .limit(10)
-            .count());
+        0,
+        (int)
+            shufflePlanGenerator
+                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .count(),
+        "No possible tweak");
   }
 
   @ParameterizedTest(name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas")
@@ -267,7 +247,6 @@ class ShufflePlanGeneratorTest {
     shufflePlanGenerator
         .generate(dataDir, allocation)
         .limit(30)
-        .map(RebalancePlanProposal::rebalancePlan)
         .forEach(
             newAllocation -> {
               var notFulfilled = ClusterInfo.findNonFulfilledAllocation(allocation, newAllocation);
