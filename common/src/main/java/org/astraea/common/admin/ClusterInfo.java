@@ -372,6 +372,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toUnmodifiableSet());
   }
 
+  default Set<TopicPartitionReplica> topicPartitionReplicas() {
+    return replicaStream()
+        .map(ReplicaInfo::topicPartitionReplica)
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
   /**
    * find the node associated to node id.
    *
@@ -506,6 +512,11 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     @Override
     public Set<TopicPartition> topicPartitions() {
       return byPartition.get().keySet();
+    }
+
+    @Override
+    public Set<TopicPartitionReplica> topicPartitionReplicas() {
+      return byReplica.get().keySet();
     }
 
     @Override
