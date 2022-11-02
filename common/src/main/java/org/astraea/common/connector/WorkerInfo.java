@@ -17,7 +17,6 @@
 package org.astraea.common.connector;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import com.google.gson.annotations.SerializedName;
 
 public class WorkerInfo {
   private String version;
@@ -26,8 +25,7 @@ public class WorkerInfo {
   @JsonAlias("kafka_cluster_id")
   private String kafkaClusterId;
 
-  public WorkerInfo() {
-  }
+  public WorkerInfo() {}
 
   public String version() {
     return version;

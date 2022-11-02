@@ -17,18 +17,14 @@
 package org.astraea.common.connector;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.gson.annotations.SerializedName;
 
 public class PluginInfo {
 
   /** connector plugin class name */
-
-  @SerializedName(value = "class")
   @JsonProperty("class")
   private String clz;
 
-  public PluginInfo() {
-  }
+  public PluginInfo() {}
 
   public String clz() {
     return clz;

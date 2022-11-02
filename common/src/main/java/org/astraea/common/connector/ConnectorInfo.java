@@ -24,8 +24,7 @@ public class ConnectorInfo {
   private Map<String, String> config;
   private List<TaskInfo> tasks;
 
-  public ConnectorInfo() {
-  }
+  public ConnectorInfo() {}
 
   public String name() {
     return name;

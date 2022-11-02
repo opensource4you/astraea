@@ -20,8 +20,7 @@ public class TaskInfo {
   private String connector;
   private int task;
 
-  public TaskInfo() {
-  }
+  public TaskInfo() {}
 
   public String connector() {
     return connector;

@@ -40,8 +40,7 @@ public class WorkerResponseException extends RuntimeException {
     private int error_code;
     private String message;
 
-    public WorkerError() {
-    }
+    public WorkerError() {}
 
     public WorkerError(int error_code, String message) {
       this.error_code = error_code;

@@ -129,14 +129,24 @@ public class Builder {
             && (e instanceof StringResponseException
                 || e.getCause() instanceof StringResponseException)) {
           var stringResponseException = (StringResponseException) e.getCause();
-          var workerError =
-              Objects.isNull(stringResponseException.body())
-                  ? new WorkerError(stringResponseException.statusCode(), "Unspecified error")
-                  : JsonConverter.defaultConverter() // TODO: 2022-11-02 try catch 
-                      .fromJson(stringResponseException.body(), TypeRef.of(WorkerError.class));
-          throw new WorkerResponseException(stringResponseException, workerError);
+          throw new WorkerResponseException(
+              stringResponseException, getWorkerError(stringResponseException));
         } else {
           return response.body();
+        }
+      }
+
+      private WorkerError getWorkerError(StringResponseException stringResponseException) {
+        if (Objects.nonNull(stringResponseException.body())) {
+          try {
+            return JsonConverter.defaultConverter()
+                .fromJson(stringResponseException.body(), TypeRef.of(WorkerError.class));
+          } catch (Exception e) {
+            return new WorkerError(
+                stringResponseException.statusCode(), "Json error message can't be converted.");
+          }
+        } else {
+          return new WorkerError(stringResponseException.statusCode(), "Unspecified error");
         }
       }
     };
