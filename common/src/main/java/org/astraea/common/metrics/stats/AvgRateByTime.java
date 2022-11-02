@@ -18,7 +18,7 @@ package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
 
-public class AvgRateByTime implements Stat<Double> {
+public class AvgRateByTime implements Stat<Double, Double> {
   private Double accumulate = 0.0;
 
   private long count = 0;
