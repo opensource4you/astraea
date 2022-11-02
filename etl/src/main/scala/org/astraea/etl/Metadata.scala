@@ -71,8 +71,7 @@ object Metadata {
   private[this] val TOPIC_PARTITIONS = "topic.partitions"
   private[this] val TOPIC_REPLICAS = "topic.replicas"
   private[this] val TOPIC_CONFIG = "topic.config"
-  private[this] val DEPLOYMENT_MODEL = "deployment.model"
-
+  private[this] val DEPLOYMENT_MODEL = "deploy.model"
   private[this] val DEFAULT_PARTITIONS = "15"
   private[this] val DEFAULT_REPLICAS = "1"
 

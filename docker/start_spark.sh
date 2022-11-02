@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${REVISION:-${VERSION:-3.1.2}}
+declare -r VERSION=${REVISION:-${VERSION:-3.1.3}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/spark}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r SPARK_PORT=${SPARK_PORT:-"$(getRandomPort)"}
@@ -34,7 +34,7 @@ function showHelp() {
   echo "Optional Arguments: "
   echo "    master-url=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
   echo "ENV: "
-  echo "    VERSION=3.1.2                    set version of spark distribution"
+  echo "    VERSION=3.1.3                    set version of spark distribution"
   echo "    BUILD=false                      set true if you want to build image locally"
   echo "    RUN=false                        set false if you want to build/pull image only"
   echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
