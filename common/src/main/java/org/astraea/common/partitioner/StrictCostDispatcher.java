@@ -21,7 +21,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -91,7 +90,7 @@ public class StrictCostDispatcher implements Dispatcher {
                                         metricCollector.registerJmx(
                                             node.id(),
                                             InetSocketAddress.createUnresolved(node.host(), port)));
-                            metricCollector.addFetcher(Set.of(node.id()), fetcher);
+                            metricCollector.addFetcher(fetcher);
                           }
                         }));
   }
@@ -187,7 +186,7 @@ public class StrictCostDispatcher implements Dispatcher {
           .ifPresent(
               fetcher -> {
                 metricCollector.registerLocalJmx(-1);
-                metricCollector.addFetcher(Set.of(-1), fetcher);
+                metricCollector.addFetcher(fetcher);
               });
       this.roundRobinLease = roundRobinLease;
     }

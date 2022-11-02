@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -173,7 +172,7 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
                             p.nodeInfo().id(),
                             InetSocketAddress.createUnresolved(
                                 p.nodeInfo().host(), jmxPort(p.nodeInfo().id())));
-                        metricCollector.addFetcher(Set.of(p.nodeInfo().id()), fetcher);
+                        metricCollector.addFetcher(fetcher);
                         while (metricCollector.storageSize(p.nodeInfo().id()) == 0) {
                           // Wait until the initial value of metrics is exists.
                           Utils.sleep(Duration.ofMillis(5));

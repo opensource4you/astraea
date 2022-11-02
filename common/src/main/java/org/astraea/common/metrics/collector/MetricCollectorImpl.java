@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -46,7 +48,7 @@ import org.astraea.common.metrics.MBeanClient;
 public class MetricCollectorImpl implements MetricCollector {
 
   private final Map<Integer, MBeanClient> mBeanClients;
-  private final CopyOnWriteArrayList<Map.Entry<Fetcher, Set<Integer>>> fetchers;
+  private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers;
   private final Duration expiration;
   private final Duration interval;
   private final Map<Class<?>, MetricStorage<?>> storages;
@@ -70,8 +72,8 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void addFetcher(Set<Integer> identities, Fetcher fetcher) {
-    this.fetchers.add(Map.entry(fetcher, identities));
+  public void addFetcher(Fetcher fetcher, BiConsumer<Integer, Exception> noSuchMetricHandler) {
+    this.fetchers.add(Map.entry(fetcher, noSuchMetricHandler));
   }
 
   @Override
@@ -99,9 +101,8 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public Map<Fetcher, Set<Integer>> listFetchers() {
-    return fetchers.stream()
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  public Collection<Fetcher> listFetchers() {
+    return fetchers.stream().map(Map.Entry::getKey).collect(Collectors.toList());
   }
 
   @Override
@@ -181,9 +182,15 @@ public class MetricCollectorImpl implements MetricCollector {
 
           // for each fetcher, perform the fetching and store the metrics
           fetchers.stream()
-              .filter(entry -> entry.getValue().contains(id))
-              .map(Map.Entry::getKey)
-              .map(f -> f.fetch(client))
+              .map(
+                  entry -> {
+                    try {
+                      return entry.getKey().fetch(client);
+                    } catch (NoSuchElementException e) {
+                      entry.getValue().accept(id, e);
+                      return Collections.<HasBeanObject>emptyList();
+                    }
+                  })
               .forEach(metrics -> store(id, metrics));
         } catch (InterruptedException e) {
           // swallow the interrupt exception and exit immediately

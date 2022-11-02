@@ -20,25 +20,39 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface MetricCollector extends AutoCloseable {
 
   /**
-   * Register a {@link Fetcher} for specific identities.
+   * Register a {@link Fetcher}.
    *
-   * <p>The identities represent a set of JMX servers that this fetcher is supposed to work on. We
-   * have to distinguish this since the application behind the JMX server might vary (for example,
-   * Kafka broker has its own MBeans, which is definitely different from what Kafka
-   * Producer/Consumer has.)
+   * <p>Note that fetcher will be used by every identity. It is possible that the metric this {@link
+   * Fetcher} is sampling doesn't exist on a JMX server(For example: sampling Kafka broker metric
+   * from a Producer client). When such case occurred. The {@code noSuchMetricHandler} will be
+   * invoked.
    *
-   * <p>Register a {@link Fetcher} on mismatch query target might cause exception.
+   * @param fetcher the fetcher
+   * @param noSuchMetricHandler call this if the fetcher raise a {@link
+   *     java.util.NoSuchElementException} exception. The first argument is the identity number. The
+   *     second argument is the exception itself.
+   */
+  void addFetcher(Fetcher fetcher, BiConsumer<Integer, Exception> noSuchMetricHandler);
+
+  /**
+   * Register a {@link Fetcher}.
    *
-   * @param identities the identities that can sample from the given fetcher
+   * <p>This method swallow the exception caused by {@link java.util.NoSuchElementException}. For
+   * further detail see {@link MetricCollector#addFetcher(Fetcher, BiConsumer)}.
+   *
+   * @see MetricCollector#addFetcher(Fetcher, BiConsumer)
    * @param fetcher the fetcher
    */
-  void addFetcher(Set<Integer> identities, Fetcher fetcher);
+  default void addFetcher(Fetcher fetcher) {
+    addFetcher(fetcher, (i0, i1) -> {});
+  }
 
   /** Register a JMX server. */
   void registerJmx(int identity, InetSocketAddress socketAddress);
@@ -49,7 +63,7 @@ public interface MetricCollector extends AutoCloseable {
   /**
    * @return the current registered fetchers.
    */
-  Map<Fetcher, Set<Integer>> listFetchers();
+  Collection<Fetcher> listFetchers();
 
   /**
    * @return the current registered identities.
