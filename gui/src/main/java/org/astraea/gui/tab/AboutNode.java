@@ -127,15 +127,14 @@ public class AboutNode {
 
   public static Node of(Context ignored) {
     return PaneBuilder.of()
-        .selectBox(
+        .firstPart(
             SelectBox.single(
                 Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
-                Info.values().length))
-        .clickFunction(
+                Info.values().length),
             "DISPLAY",
-            (input, logger) ->
+            (argument, logger) ->
                 CompletableFuture.completedFuture(
-                    input.selectedKeys().stream()
+                    argument.selectedKeys().stream()
                         .flatMap(
                             name ->
                                 Arrays.stream(Info.values()).filter(c -> c.toString().equals(name)))

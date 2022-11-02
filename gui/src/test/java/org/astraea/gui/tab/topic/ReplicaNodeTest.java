@@ -28,7 +28,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Argument;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -51,14 +51,14 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
 
       var action = ReplicaNode.tableViewAction(new Context(admin));
       var log = new AtomicReference<String>();
-      var f = action.apply(List.of(), Input.of(List.of(), Map.of()), log::set);
+      var f = action.apply(List.of(), Argument.of(List.of(), Map.of()), log::set);
       Assertions.assertTrue(f.toCompletableFuture().isDone());
       Assertions.assertEquals("nothing to alert", log.get());
 
       var f2 =
           action.apply(
               List.of(Map.of(ReplicaNode.TOPIC_NAME_KEY, topicName, ReplicaNode.PARTITION_KEY, 0)),
-              Input.of(List.of(), Map.of()),
+              Argument.of(List.of(), Map.of()),
               log::set);
       Assertions.assertTrue(f2.toCompletableFuture().isDone());
       Assertions.assertEquals("please define " + ReplicaNode.MOVE_BROKER_KEY, log.get());
@@ -66,7 +66,7 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
       var f3 =
           action.apply(
               List.of(Map.of(ReplicaNode.TOPIC_NAME_KEY, topicName, ReplicaNode.PARTITION_KEY, 0)),
-              Input.of(
+              Argument.of(
                   List.of(),
                   Map.of(
                       ReplicaNode.MOVE_BROKER_KEY,
@@ -87,7 +87,7 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
       var f4 =
           action.apply(
               List.of(Map.of(ReplicaNode.TOPIC_NAME_KEY, topicName, ReplicaNode.PARTITION_KEY, 0)),
-              Input.of(
+              Argument.of(
                   List.of(), Map.of(ReplicaNode.MOVE_BROKER_KEY, Optional.of(id + ":" + path))),
               log::set);
       f4.toCompletableFuture().join();

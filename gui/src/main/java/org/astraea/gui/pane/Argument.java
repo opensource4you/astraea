@@ -22,10 +22,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public interface Input {
+public interface Argument {
 
-  static Input of(List<String> selectedKeys, Map<String, Optional<String>> texts) {
-    return new Input() {
+  static Argument of(List<String> selectedKeys, Map<String, Optional<String>> texts) {
+    return new Argument() {
       @Override
       public List<String> selectedKeys() {
         return selectedKeys;
