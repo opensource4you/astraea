@@ -19,6 +19,7 @@ package org.astraea.common.balancer.algorithms;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -44,7 +45,7 @@ public class GreedyBalancer implements Balancer {
       "shuffle.plan.generator.max.step";
   public static final String ITERATION_CONFIG = "iteration";
   public static final Set<String> ALL_CONFIGS =
-      Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG"));
+      new TreeSet<>(Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")));
 
   private final AlgorithmConfig config;
   private final int minStep;

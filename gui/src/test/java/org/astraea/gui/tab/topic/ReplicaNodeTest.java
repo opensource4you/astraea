@@ -33,7 +33,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ReplicaTabTest extends RequireBrokerCluster {
+public class ReplicaNodeTest extends RequireBrokerCluster {
 
   @Test
   void testTableAction() {
@@ -111,7 +111,7 @@ public class ReplicaTabTest extends RequireBrokerCluster {
     var replicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .topic(topic)
                 .partition(partition)
                 .nodeInfo(NodeInfo.of(0, "aa", 0))
@@ -119,14 +119,14 @@ public class ReplicaTabTest extends RequireBrokerCluster {
                 .path("/tmp/aaa")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .topic(topic)
                 .partition(partition)
                 .nodeInfo(NodeInfo.of(1, "aa", 0))
                 .size(20)
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .topic(topic)
                 .partition(partition)
                 .nodeInfo(NodeInfo.of(2, "aa", 0))

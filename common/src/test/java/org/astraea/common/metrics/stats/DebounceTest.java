@@ -14,29 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.algorithms;
+package org.astraea.common.metrics.stats;
 
-import org.astraea.common.Utils;
+import java.time.Duration;
+import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class GreedyBalancerTest {
-
+public class DebounceTest {
   @Test
-  void testConfig() {
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("iteration"),
-        "Config exists for backward compatability reason");
+  void testRecord() {
+    Debounce<Double> debounce = Debounce.of(Duration.ofMillis(500));
 
-    Assertions.assertEquals(
-        GreedyBalancer.ALL_CONFIGS.size(),
-        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
-        "No duplicate element");
+    Assertions.assertEquals(Optional.of(20.0), debounce.record(20.0, 100));
+    Assertions.assertEquals(Optional.empty(), debounce.record(21.0, 110));
+    Assertions.assertEquals(Optional.of(60.0), debounce.record(60.0, 601));
   }
 }

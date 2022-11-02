@@ -80,6 +80,16 @@ public interface ReplicaInfo {
       }
 
       @Override
+      public boolean isAdding() {
+        return false;
+      }
+
+      @Override
+      public boolean isRemoving() {
+        return false;
+      }
+
+      @Override
       public String toString() {
         return "ReplicaInfo {"
             + "topic=\""
@@ -174,4 +184,14 @@ public interface ReplicaInfo {
   default boolean isOnline() {
     return !isOffline();
   }
+
+  /**
+   * @return true if this replica is adding and syncing data
+   */
+  boolean isAdding();
+
+  /**
+   * @return true if this replica will be deleted in the future.
+   */
+  boolean isRemoving();
 }

@@ -64,12 +64,16 @@ public class ReplicaNode {
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, replica.topic());
               result.put(PARTITION_KEY, replica.partition());
+              result.put("internal", replica.internal());
               result.put("broker", replica.nodeInfo().id());
               if (replica.path() != null) result.put(PATH_KEY, replica.path());
               result.put("isLeader", replica.isLeader());
               result.put("isPreferredLeader", replica.isPreferredLeader());
               result.put("isOffline", replica.isOffline());
               result.put("isFuture", replica.isFuture());
+              result.put("inSync", replica.inSync());
+              result.put("isAdding", replica.isAdding());
+              result.put("isRemoving", replica.isRemoving());
               result.put("lag", replica.lag());
               result.put("size", DataSize.Byte.of(replica.size()));
               if (leaderSize > replica.size()) {

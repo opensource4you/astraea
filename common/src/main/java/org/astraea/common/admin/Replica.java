@@ -36,10 +36,10 @@ public interface Replica extends ReplicaInfo {
         .nodeInfo(nodeInfo)
         .lag(lag)
         .size(size)
-        .leader(leader)
+        .isLeader(leader)
         .inSync(inSync)
         .isFuture(isFuture)
-        .offline(offline)
+        .isOffline(offline)
         .isPreferredLeader(isPreferredLeader)
         .path(path)
         .build();
@@ -91,4 +91,9 @@ public interface Replica extends ReplicaInfo {
    *     It returns null if the host of replica is offline
    */
   String path();
+
+  /**
+   * @return true if this replica belongs to internal topic
+   */
+  boolean internal();
 }

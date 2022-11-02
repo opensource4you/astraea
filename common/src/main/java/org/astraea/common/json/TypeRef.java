@@ -16,12 +16,12 @@
  */
 package org.astraea.common.json;
 
-import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.reflect.TypeUtils;
 
 /** ParentType didn't erase , use reflection to get that type */
 public abstract class TypeRef<T> {
@@ -40,15 +40,15 @@ public abstract class TypeRef<T> {
   }
 
   public static <T> TypeRef<List<T>> array(Class<T> clz) {
-    return of(TypeToken.getParameterized(List.class, clz).getType());
+    return of(TypeUtils.parameterize(List.class, clz));
   }
 
   public static <T> TypeRef<Map<String, T>> map(Class<T> clz) {
-    return of(TypeToken.getParameterized(Map.class, String.class, clz).getType());
+    return of(TypeUtils.parameterize(Map.class, String.class, clz));
   }
 
   public static <T> TypeRef<Set<T>> set(Class<T> clz) {
-    return of(TypeToken.getParameterized(Set.class, clz).getType());
+    return of(TypeUtils.parameterize(Set.class, clz));
   }
 
   protected final Type type;
@@ -63,7 +63,7 @@ public abstract class TypeRef<T> {
 
   @Override
   public int hashCode() {
-    return type != null ? type.hashCode() : 0;
+    return getType() != null ? getType().hashCode() : 0;
   }
 
   @Override
@@ -71,12 +71,12 @@ public abstract class TypeRef<T> {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof TypeRef)) {
       return false;
     }
 
     TypeRef<?> typeRef = (TypeRef<?>) o;
 
-    return type != null ? type.equals(typeRef.type) : typeRef.type == null;
+    return getType() != null ? getType().equals(typeRef.getType()) : typeRef.getType() == null;
   }
 }

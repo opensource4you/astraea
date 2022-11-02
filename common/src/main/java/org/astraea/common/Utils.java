@@ -21,9 +21,9 @@ import java.io.StringWriter;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -277,13 +277,13 @@ public final class Utils {
     throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
   }
 
-  public static Set<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
+  public static List<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
     return Arrays.stream(clz.getFields())
         .filter(field -> variableNameFilter.test(field.getName()))
         .map(field -> packException(() -> field.get(null)))
         .filter(obj -> obj instanceof String)
         .map(obj -> (String) obj)
-        .collect(Collectors.toCollection(TreeSet::new));
+        .collect(Collectors.toCollection(LinkedList::new));
   }
 
   public static String toString(Throwable e) {

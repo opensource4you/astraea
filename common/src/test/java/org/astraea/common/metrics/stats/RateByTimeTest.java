@@ -14,29 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.algorithms;
+package org.astraea.common.metrics.stats;
 
-import org.astraea.common.Utils;
+import java.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class GreedyBalancerTest {
-
+public class RateByTimeTest {
   @Test
-  void testConfig() {
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("iteration"),
-        "Config exists for backward compatability reason");
+  void testMeasure() throws InterruptedException {
+    var rateByTime = new RateByTime(Duration.ofSeconds(1));
+    rateByTime.record(10.0);
+    rateByTime.record(10.0);
+    Thread.sleep(1000);
+    rateByTime.record(50.0);
 
-    Assertions.assertEquals(
-        GreedyBalancer.ALL_CONFIGS.size(),
-        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
-        "No duplicate element");
+    Assertions.assertEquals(40.0, rateByTime.measure());
+
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals(40.0, rateByTime.measure());
   }
 }

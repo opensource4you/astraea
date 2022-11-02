@@ -34,13 +34,42 @@ import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Input;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class BalancerTabTest extends RequireBrokerCluster {
+class BalancerNodeTest extends RequireBrokerCluster {
+
+  @Test
+  void testClusterCost() {
+    Assertions.assertEquals(0, BalancerNode.clusterCosts(List.of()).size());
+    Assertions.assertEquals(0, BalancerNode.clusterCosts(List.of(Utils.randomString())).size());
+
+    var costs = BalancerNode.clusterCosts(List.of(BalancerNode.Cost.SIZE.name()));
+    Assertions.assertEquals(1, costs.size());
+    Assertions.assertInstanceOf(ReplicaSizeCost.class, costs.entrySet().iterator().next().getKey());
+  }
+
+  @Test
+  void testMovementConstraint() {
+    Assertions.assertTrue(BalancerNode.movementConstraint(Map.of()).test(List.of()));
+    Assertions.assertTrue(
+        BalancerNode.movementConstraint(Map.of())
+            .test(List.of(MoveCost.builder().name("test").totalCost(100).build())));
+    Assertions.assertFalse(
+        BalancerNode.movementConstraint(Map.of(BalancerNode.MAX_MIGRATE_LEADER_NUM, "10"))
+            .test(
+                List.of(
+                    MoveCost.builder().name(ReplicaLeaderCost.COST_NAME).totalCost(100).build())));
+    Assertions.assertTrue(
+        BalancerNode.movementConstraint(Map.of(BalancerNode.MAX_MIGRATE_LEADER_NUM, "10"))
+            .test(
+                List.of(
+                    MoveCost.builder().name(ReplicaLeaderCost.COST_NAME).totalCost(5).build())));
+  }
 
   @Test
   void testGenerator() {
@@ -57,10 +86,11 @@ class BalancerTabTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var log = new AtomicReference<String>();
       var f =
-          BalancerNode.generator(
-              new Context(admin),
-              Input.of(List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
-              log::set);
+          BalancerNode.refresher(new Context(admin))
+              .apply(
+                  Input.of(
+                      List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
+                  log::set);
       f.toCompletableFuture().join();
       Assertions.assertTrue(f.toCompletableFuture().isDone());
       Assertions.assertEquals(log.get(), "there is no better assignments");
@@ -73,10 +103,11 @@ class BalancerTabTest extends RequireBrokerCluster {
       admin.moveToBrokers(tps).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var s =
-          BalancerNode.generator(
-              new Context(admin),
-              Input.of(List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
-              log::set);
+          BalancerNode.refresher(new Context(admin))
+              .apply(
+                  Input.of(
+                      List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
+                  log::set);
       s.toCompletableFuture().join();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
       Assertions.assertTrue(
@@ -92,7 +123,7 @@ class BalancerTabTest extends RequireBrokerCluster {
     var beforeReplicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
@@ -101,7 +132,7 @@ class BalancerTabTest extends RequireBrokerCluster {
                 .path("/tmp/aaa")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
@@ -112,7 +143,7 @@ class BalancerTabTest extends RequireBrokerCluster {
     var afterReplicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
@@ -121,7 +152,7 @@ class BalancerTabTest extends RequireBrokerCluster {
                 .path("/tmp/ddd")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
