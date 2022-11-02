@@ -207,6 +207,19 @@ class JsonConverterTest {
     assertEquals(jsonConverter.toJson(v0), jsonConverter.toJson(v1));
   }
 
+  @Test
+  void testFieldNotInJson() {
+    var testFieldNameClass =
+        JsonConverter.defaultConverter()
+            .fromJson(
+                "{" + "\"actor\":123," + "\"apple\":\"notMatter\"" + "}",
+                TypeRef.of(TestFieldNameClass.class));
+
+    assertEquals(123, testFieldNameClass.actor);
+    assertEquals("notMatter", testFieldNameClass.apple);
+    assertNull(testFieldNameClass.banana);
+  }
+
   private static class V0 {
     int a = 123;
     int b = 345;
