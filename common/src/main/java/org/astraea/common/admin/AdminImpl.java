@@ -654,7 +654,8 @@ class AdminImpl implements Admin {
     return FutureUtils.combine(
         logDirs(),
         to(kafkaAdmin.describeTopics(topics).allTopicNames()),
-        (logDirs, ts) ->
+        to(kafkaAdmin.listPartitionReassignments().reassignments()),
+        (logDirs, ts, reassignmentMap) ->
             ts.values().stream()
                 .flatMap(topic -> topic.partitions().stream().map(p -> Map.entry(topic.name(), p)))
                 .flatMap(
@@ -666,6 +667,16 @@ class AdminImpl implements Admin {
                                   var internal = ts.get(topicName).isInternal();
                                   var partition = topicAndPartition.getValue();
                                   var partitionId = topicAndPartition.getValue().partition();
+                                  var reassignment =
+                                      reassignmentMap.get(
+                                          new org.apache.kafka.common.TopicPartition(
+                                              topicName, partitionId));
+                                  var isAdding =
+                                      reassignment != null
+                                          && reassignment.addingReplicas().contains(node.id());
+                                  var isRemoving =
+                                      reassignment != null
+                                          && reassignment.removingReplicas().contains(node.id());
                                   // kafka admin#describeLogDirs does not return
                                   // offline node,when the node is not online,all
                                   // TopicPartition return an empty dataFolder and a
@@ -687,6 +698,8 @@ class AdminImpl implements Admin {
                                                   .topic(topicName)
                                                   .partition(partitionId)
                                                   .internal(internal)
+                                                  .isAdding(isAdding)
+                                                  .isRemoving(isRemoving)
                                                   .nodeInfo(NodeInfo.of(node))
                                                   .lag(pathAndReplica.getValue().offsetLag())
                                                   .size(pathAndReplica.getValue().size())

@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.AddingReplica;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
@@ -219,7 +220,6 @@ public class BalancerNode {
   static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
-      logger.log("applying better assignments ... ");
       var selectedPartitions =
           items.stream()
               .flatMap(
@@ -246,21 +246,28 @@ public class BalancerNode {
                 selectedPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
             .thenCompose(
                 addingReplicas -> {
-                  if (addingReplicas.isEmpty())
-                    return RebalancePlanExecutor.of()
-                        .run(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
-                        .thenAccept(
-                            ignored ->
-                                logger.log(
-                                    "succeed to balance cluster by moving "
-                                        + selectedPartitions.size()
-                                        + " partitions"));
-                  return CompletableFuture.failedFuture(
-                      new IllegalArgumentException(
-                          "Please wait migrating partitions: "
-                              + addingReplicas.stream()
-                                  .map(r -> r.topic() + "-" + r.partition())
-                                  .collect(Collectors.joining(","))));
+                  System.out.println(
+                      "[CHIA] "
+                          + addingReplicas.stream()
+                              .map(AddingReplica::topic)
+                              .collect(Collectors.toSet()));
+                  if (!addingReplicas.isEmpty())
+                    return CompletableFuture.failedFuture(
+                        new IllegalArgumentException(
+                            "Please wait migrating partitions: "
+                                + addingReplicas.stream()
+                                    .map(r -> r.topic() + "-" + r.partition())
+                                    .collect(Collectors.joining(","))));
+
+                  logger.log("applying better assignments ... ");
+                  return RebalancePlanExecutor.of()
+                      .run(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
+                      .thenAccept(
+                          ignored ->
+                              logger.log(
+                                  "succeed to balance cluster by moving "
+                                      + selectedPartitions.size()
+                                      + " partitions"));
                 });
       }
       return CompletableFuture.completedFuture(null);
