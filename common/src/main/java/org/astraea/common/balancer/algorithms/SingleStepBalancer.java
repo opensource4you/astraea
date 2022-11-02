@@ -26,7 +26,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShuffleTweaker;
+import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */

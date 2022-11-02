@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.generator;
+package org.astraea.common.balancer.tweakers;
 
 import java.util.Collection;
 import java.util.Map;
