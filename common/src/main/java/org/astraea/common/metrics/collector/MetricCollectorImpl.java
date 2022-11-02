@@ -180,6 +180,10 @@ public class MetricCollectorImpl implements MetricCollector {
           var id = identity.id();
           var client = mBeanClients.get(id);
 
+          // TODO: employ better sampling mechanism
+          // see https://github.com/skiptests/astraea/pull/1035#discussion_r1010506993
+          // see https://github.com/skiptests/astraea/pull/1035#discussion_r1011079711
+
           // for each fetcher, perform the fetching and store the metrics
           fetchers.stream()
               .map(
