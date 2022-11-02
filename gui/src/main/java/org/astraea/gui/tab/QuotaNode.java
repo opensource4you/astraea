@@ -44,14 +44,14 @@ public class QuotaNode {
     var ipLabelKey = "ip address";
     var rateKey = "connections/second";
     return PaneBuilder.of()
-        .clickName("ALTER")
         .lattice(
             Lattice.of(
                 List.of(
                     TextInput.required(
                         ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
                     TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build()))))
-        .tableRefresher(
+        .clickListener(
+            "ALTER",
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(rateKey))
                     .map(
@@ -68,16 +68,11 @@ public class QuotaNode {
                                 .admin()
                                 .unsetConnectionQuotas(
                                     Set.of(input.nonEmptyTexts().get(ipLabelKey))))
-                    .thenCompose(
+                    .thenAccept(
                         ignored ->
-                            context
-                                .admin()
-                                .quotas(Set.of(QuotaConfigs.IP))
-                                .thenApply(
-                                    quotas ->
-                                        quotas.stream()
-                                            .map(QuotaNode::basicResult)
-                                            .collect(Collectors.toList()))))
+                            logger.log(
+                                "succeed to alter rate for "
+                                    + input.nonEmptyTexts().get(ipLabelKey))))
         .build();
   }
 
@@ -85,14 +80,14 @@ public class QuotaNode {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
-        .clickName("ALTER")
         .lattice(
             Lattice.of(
                 List.of(
                     TextInput.required(
                         clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
                     TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()))))
-        .tableRefresher(
+        .clickListener(
+            "ALTER",
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
                     .map(
@@ -109,16 +104,11 @@ public class QuotaNode {
                                 .admin()
                                 .unsetProducerQuotas(
                                     Set.of(input.nonEmptyTexts().get(clientIdLabelKey))))
-                    .thenCompose(
+                    .thenAccept(
                         ignored ->
-                            context
-                                .admin()
-                                .quotas(Set.of(QuotaConfigs.CLIENT_ID))
-                                .thenApply(
-                                    quotas ->
-                                        quotas.stream()
-                                            .map(QuotaNode::basicResult)
-                                            .collect(Collectors.toList()))))
+                            logger.log(
+                                "succeed to alter rate for "
+                                    + input.nonEmptyTexts().get(clientIdLabelKey))))
         .build();
   }
 
@@ -126,14 +116,14 @@ public class QuotaNode {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     return PaneBuilder.of()
-        .clickName("ALTER")
         .lattice(
             Lattice.of(
                 List.of(
                     TextInput.required(
                         clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
                     TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()))))
-        .tableRefresher(
+        .clickListener(
+            "ALTER",
             (input, logger) ->
                 Optional.ofNullable(input.nonEmptyTexts().get(byteRateKey))
                     .map(
@@ -150,16 +140,11 @@ public class QuotaNode {
                                 .admin()
                                 .unsetConsumerQuotas(
                                     Set.of(input.nonEmptyTexts().get(clientIdLabelKey))))
-                    .thenCompose(
+                    .thenAccept(
                         ignored ->
-                            context
-                                .admin()
-                                .quotas(Set.of(QuotaConfigs.CLIENT_ID))
-                                .thenApply(
-                                    quotas ->
-                                        quotas.stream()
-                                            .map(QuotaNode::basicResult)
-                                            .collect(Collectors.toList()))))
+                            logger.log(
+                                "succeed to alter rate for "
+                                    + input.nonEmptyTexts().get(clientIdLabelKey))))
         .build();
   }
 
@@ -176,7 +161,8 @@ public class QuotaNode {
 
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 FutureUtils.combine(
                     context.admin().quotas(Set.of(QuotaConfigs.IP)),

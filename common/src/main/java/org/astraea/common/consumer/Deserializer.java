@@ -16,6 +16,7 @@
  */
 package org.astraea.common.consumer;
 
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
@@ -61,6 +62,8 @@ public interface Deserializer<T> {
     return (topic, headers, data) -> deserializer.deserialize(topic, Header.of(headers), data);
   }
 
+  Deserializer<String> BASE64 =
+      (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
   Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
   Deserializer<String> STRING = of(new StringDeserializer());
   Deserializer<Integer> INTEGER = of(new IntegerDeserializer());

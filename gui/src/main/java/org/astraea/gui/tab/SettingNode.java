@@ -103,8 +103,8 @@ public class SettingNode {
                             .onlyNumber()
                             .defaultValue(properties.get(jmxPortKey))
                             .build()))))
-        .clickName("CHECK")
         .clickListener(
+            "CHECK",
             (input, logger) -> {
               var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
               Objects.requireNonNull(bootstrapServers);

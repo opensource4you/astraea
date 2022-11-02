@@ -280,7 +280,6 @@ public class BalancerNode {
             SelectBox.multi(
                 Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
                 Cost.values().length))
-        .clickName("PLAN")
         .lattice(
             Lattice.of(
                 List.of(
@@ -292,7 +291,7 @@ public class BalancerNode {
                         MAX_MIGRATE_LOG_SIZE,
                         EditableText.singleLine().hint("30KB,200MB,1GB").build()))))
         .tableViewAction(null, "EXECUTE", tableViewAction(context))
-        .tableRefresher(refresher(context))
+        .clickFunction("PLAN", refresher(context))
         .build();
   }
 }

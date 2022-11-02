@@ -170,7 +170,8 @@ public class PartitionNode {
                         TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build()))),
             "ALTER",
             tableViewAction(context))
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 context
                     .admin()

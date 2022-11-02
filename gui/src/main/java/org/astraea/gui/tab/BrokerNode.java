@@ -201,7 +201,8 @@ public class BrokerNode {
             SelectBox.multi(
                 Arrays.stream(MetricType.values()).map(Enum::toString).collect(Collectors.toList()),
                 MetricType.values().length / 2))
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 context
                     .admin()
@@ -290,14 +291,16 @@ public class BrokerNode {
 
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) -> context.admin().brokers().thenApply(BrokerNode::basicResult))
         .build();
   }
 
   private static Node configNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 context
                     .admin()
@@ -399,7 +402,8 @@ public class BrokerNode {
                     .orElse(Map.of())
                 : Map.of();
     return PaneBuilder.of()
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 context
                     .admin()
