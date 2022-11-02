@@ -36,8 +36,6 @@ import org.astraea.gui.text.EditableText;
 /** a template layout for all tabs. */
 public class PaneBuilder {
 
-  private static final String REFRESH_KEY = "REFRESH";
-
   public static PaneBuilder of() {
     return new PaneBuilder();
   }
@@ -48,7 +46,7 @@ public class PaneBuilder {
 
   private Lattice lattice = null;
 
-  private Click click = Click.of(REFRESH_KEY);
+  private Click click;
 
   private final EditableText console = EditableText.multiline().build();
 
@@ -62,7 +60,7 @@ public class PaneBuilder {
 
   private Lattice secondLattice = null;
 
-  private Click tableViewClick = Click.disabled("EXECUTE");
+  private Click tableViewClick;
 
   private Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
       tableViewAction = null;
@@ -79,13 +77,10 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder clickName(String name) {
-    click = Click.of(name);
-    return this;
-  }
-
-  public PaneBuilder tableRefresher(
+  public PaneBuilder clickFunction(
+      String clickName,
       BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    this.click = Click.of(clickName);
     this.tableRefresher = tableRefresher;
     this.tableViewer = TableViewer.of();
     this.tableViewer.filteredDataListener(
@@ -94,7 +89,8 @@ public class PaneBuilder {
   }
 
   public PaneBuilder clickListener(
-      BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
+      String clickName, BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
+    this.click = Click.of(clickName);
     this.clickListener = buttonListener;
     return this;
   }
@@ -116,7 +112,8 @@ public class PaneBuilder {
     if (lattice != null) nodes.add(lattice.node());
     nodes.add(click.node());
     if (tableViewer != null) nodes.add(tableViewer.node());
-    // ---------------------------------[second control layout]---------------------------------//
+
+    // step.2 click after table view
     if (tableViewer != null && tableViewAction != null) {
       var checkbox = new CheckBox("enable");
       checkbox
@@ -138,6 +135,7 @@ public class PaneBuilder {
                 secondLattice == null
                     ? Map.<String, Optional<String>>of()
                     : secondLattice.contents();
+            // the click for table view requires only user text inputs.
             var input = Input.of(List.of(), text);
 
             checkbox.setDisable(true);
@@ -166,7 +164,7 @@ public class PaneBuilder {
 
     nodes.add(console.node());
 
-    // step.2 event
+    // step.3 click before table view
     Runnable handler =
         () -> {
           // nothing to do
@@ -178,8 +176,10 @@ public class PaneBuilder {
             return;
           }
 
-          var rawTexts = lattice == null ? Map.<String, Optional<String>>of() : lattice.contents();
-          var input = Input.of(selectBox == null ? List.of() : selectBox.selectedKeys(), rawTexts);
+          var input =
+              Input.of(
+                  selectBox == null ? List.of() : selectBox.selectedKeys(),
+                  lattice == null ? Map.of() : lattice.contents());
 
           console.cleanup();
           click.disable();
@@ -218,13 +218,7 @@ public class PaneBuilder {
     if (tableViewer != null)
       tableViewer.keyAction(
           keyEvent -> {
-            if (keyEvent.getCode() == KeyCode.ENTER) {
-              // TODO: it is unstable to change action according to "string"
-              // If the click action is used to fetch server data, we refresh all data
-              // otherwise, we only filter the current data
-              if (click.name().equals(REFRESH_KEY)) handler.run();
-              else tableViewer.refresh();
-            }
+            if (keyEvent.getCode() == KeyCode.ENTER) handler.run();
           });
     return Lattice.vbox(nodes);
   }

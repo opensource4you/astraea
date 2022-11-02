@@ -41,8 +41,6 @@ import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicConfigs;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
@@ -66,7 +64,8 @@ public class TopicNode {
                     .map(ServerMetrics.Topic::toString)
                     .collect(Collectors.toList()),
                 ServerMetrics.Topic.values().length))
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 CompletableFuture.supplyAsync(
                     () -> {
@@ -122,7 +121,8 @@ public class TopicNode {
 
   private static Node configNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 FutureUtils.combine(
                     context
@@ -214,13 +214,7 @@ public class TopicNode {
   }
 
   private static Node basicNode(Context context) {
-    var includeTimestampOfRecord = "max time to wait records";
     return PaneBuilder.of()
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.of(
-                        includeTimestampOfRecord, EditableText.singleLine().hint("3s").build()))))
         .tableViewAction(
             null,
             "DELETE",
@@ -253,7 +247,8 @@ public class TopicNode {
                       })
                   .thenAccept(ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
             })
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 context
                     .admin()
@@ -267,23 +262,6 @@ public class TopicNode {
                                     .admin()
                                     .consumerGroupIds()
                                     .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                context
-                                    .admin()
-                                    .topicPartitions(topics)
-                                    .thenCompose(
-                                        tps ->
-                                            input
-                                                .get(includeTimestampOfRecord)
-                                                .map(DurationField::toDuration)
-                                                .map(
-                                                    v ->
-                                                        context
-                                                            .admin()
-                                                            .timestampOfLatestRecords(tps, v))
-                                                .orElseGet(
-                                                    () ->
-                                                        CompletableFuture.completedFuture(
-                                                            Map.<TopicPartition, Long>of()))),
                                 TopicNode::basicResult)))
         .build();
   }
@@ -292,7 +270,6 @@ public class TopicNode {
     var numberOfPartitionsKey = "number of partitions";
     var numberOfReplicasKey = "number of replicas";
     return PaneBuilder.of()
-        .clickName("CREATE")
         .lattice(
             Lattice.of(
                 List.of(
@@ -315,6 +292,7 @@ public class TopicNode {
                         TopicConfigs.ALL_CONFIGS,
                         EditableText.singleLine().build()))))
         .clickListener(
+            "CREATE",
             (input, logger) -> {
               var allConfigs = new HashMap<>(input.nonEmptyTexts());
               var name = allConfigs.remove(TOPIC_NAME_KEY);
@@ -348,10 +326,7 @@ public class TopicNode {
   }
 
   private static List<Map<String, Object>> basicResult(
-      List<Broker> brokers,
-      List<Partition> partitions,
-      List<ConsumerGroup> groups,
-      Map<TopicPartition, Long> timestampOfLatestRecord) {
+      List<Broker> brokers, List<Partition> partitions, List<ConsumerGroup> groups) {
     var topicSize =
         brokers.stream()
             .flatMap(
@@ -380,15 +355,6 @@ public class TopicNode {
                         e.getValue().stream()
                             .map(Map.Entry::getValue)
                             .collect(Collectors.toSet())));
-    var topicTimestampOfLatestRecords =
-        timestampOfLatestRecord.entrySet().stream()
-            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).max().orElse(-1L)));
     return topicPartitions.keySet().stream()
         .sorted()
         .map(
@@ -406,13 +372,6 @@ public class TopicNode {
                       t -> LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.systemDefault()))
                   .findFirst()
                   .ifPresent(t -> result.put("max timestamp", t));
-              Optional.ofNullable(topicTimestampOfLatestRecords.get(topic))
-                  .ifPresent(
-                      t ->
-                          result.put(
-                              "timestamp of latest record",
-                              LocalDateTime.ofInstant(
-                                  Instant.ofEpochMilli(t), ZoneId.systemDefault())));
               result.put(
                   "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
               ps.stream()

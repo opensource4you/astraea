@@ -212,7 +212,8 @@ public class ReplicaNode {
 
   static Node of(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
+        .clickFunction(
+            "REFRESH",
             (input, logger) ->
                 context
                     .admin()

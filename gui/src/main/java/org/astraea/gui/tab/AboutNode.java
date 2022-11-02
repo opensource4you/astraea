@@ -131,7 +131,8 @@ public class AboutNode {
             SelectBox.single(
                 Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
                 Info.values().length))
-        .tableRefresher(
+        .clickFunction(
+            "DISPLAY",
             (input, logger) ->
                 CompletableFuture.completedFuture(
                     input.selectedKeys().stream()
