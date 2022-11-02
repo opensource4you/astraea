@@ -218,8 +218,7 @@ public enum ReportFormat implements EnumInfo {
                                           .get(consumerReports.get(i).clientId())
                                           .measure("set difference")
                                           .measure())
-                                  .increased()
-                                  .size())));
+                                  .increasedNum())));
             });
     return elements;
   }

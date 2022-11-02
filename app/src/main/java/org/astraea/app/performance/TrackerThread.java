@@ -152,9 +152,9 @@ public interface TrackerThread extends AbstractThread {
           System.out.printf(
               "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
               i,
-              partitionDifference.current().size(),
-              partitionDifference.increased().size(),
-              partitionDifference.unchanged().size());
+              partitionDifference.currentSize(),
+              partitionDifference.increasedNum(),
+              partitionDifference.unchangedNum());
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",

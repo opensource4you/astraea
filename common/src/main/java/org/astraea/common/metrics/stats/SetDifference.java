@@ -20,11 +20,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 
-public class SetDifference<V>
-    implements Stat<SetDifference.SetOperation<V>, SetDifference.Result<V>> {
+public class SetDifference<V> implements Stat<SetDifference.SetOperation<V>, SetDifference.Result> {
 
   private final Set<V> current = new HashSet<>();
   private final ConcurrentLinkedQueue<Set<V>> past = new ConcurrentLinkedQueue<>();
@@ -52,38 +50,34 @@ public class SetDifference<V>
   }
 
   @Override
-  public Result<V> measure() {
+  public Result measure() {
     var current = Collections.unmodifiableSet(this.current);
 
-    return new Result<>() {
+    return new Result() {
       @Override
-      public Set<V> current() {
-        return current;
+      public int currentSize() {
+        return current.size();
       }
 
       @Override
-      public Set<V> increased() {
+      public int increasedNum() {
         var pastSet = past.peek();
-        if (pastSet == null) return Set.of();
-        return current.stream()
-            .filter(e -> !pastSet.contains(e))
-            .collect(Collectors.toUnmodifiableSet());
+        if (pastSet == null) return 0;
+        return (int) current.stream().filter(e -> !pastSet.contains(e)).count();
       }
 
       @Override
-      public Set<V> removed() {
+      public int removedNum() {
         var pastSet = past.peek();
-        if (pastSet == null) return Set.of();
-        return pastSet.stream()
-            .filter(e -> !current.contains(e))
-            .collect(Collectors.toUnmodifiableSet());
+        if (pastSet == null) return 0;
+        return (int) pastSet.stream().filter(e -> !current.contains(e)).count();
       }
 
       @Override
-      public Set<V> unchanged() {
+      public int unchangedNum() {
         var pastSet = past.peek();
-        if (pastSet == null) return Set.of();
-        return pastSet.stream().filter(current::contains).collect(Collectors.toUnmodifiableSet());
+        if (pastSet == null) return 0;
+        return (int) pastSet.stream().filter(current::contains).count();
       }
     };
   }
@@ -140,13 +134,13 @@ public class SetDifference<V>
     }
   }
 
-  public interface Result<V> {
-    Set<V> current();
+  public interface Result {
+    int currentSize();
 
-    Set<V> increased();
+    int increasedNum();
 
-    Set<V> removed();
+    int removedNum();
 
-    Set<V> unchanged();
+    int unchangedNum();
   }
 }

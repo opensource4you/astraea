@@ -25,10 +25,10 @@ public class SetDifferenceTest {
   void testEmpty() {
     var intSetDifference = new SetDifference<Integer>(2);
 
-    Assertions.assertEquals(Set.of(), intSetDifference.measure().current());
-    Assertions.assertEquals(Set.of(), intSetDifference.measure().increased());
-    Assertions.assertEquals(Set.of(), intSetDifference.measure().removed());
-    Assertions.assertEquals(Set.of(), intSetDifference.measure().unchanged());
+    Assertions.assertEquals(0, intSetDifference.measure().currentSize());
+    Assertions.assertEquals(0, intSetDifference.measure().increasedNum());
+    Assertions.assertEquals(0, intSetDifference.measure().removedNum());
+    Assertions.assertEquals(0, intSetDifference.measure().unchangedNum());
   }
 
   @Test
@@ -40,8 +40,7 @@ public class SetDifferenceTest {
     stringSetDifference.record(SetDifference.SetOperation.ofRemove(Set.of("will be removed")));
     stringSetDifference.record(SetDifference.SetOperation.ofAdd(Set.of("second added")));
 
-    Assertions.assertEquals(
-        Set.of("first added", "second added"), stringSetDifference.measure().current());
+    Assertions.assertEquals(2, stringSetDifference.measure().currentSize());
   }
 
   @Test
@@ -53,7 +52,7 @@ public class SetDifferenceTest {
     stringSetDifference.record(SetDifference.SetOperation.ofRemove(Set.of("will be removed")));
     stringSetDifference.record(SetDifference.SetOperation.ofAdd(Set.of("second added")));
 
-    Assertions.assertEquals(Set.of("second added"), stringSetDifference.measure().increased());
+    Assertions.assertEquals(1, stringSetDifference.measure().increasedNum());
   }
 
   @Test
@@ -65,7 +64,7 @@ public class SetDifferenceTest {
     stringSetDifference.record(SetDifference.SetOperation.ofRemove(Set.of("will be removed")));
     stringSetDifference.record(SetDifference.SetOperation.ofAdd(Set.of("second added")));
 
-    Assertions.assertEquals(Set.of("will be removed"), stringSetDifference.measure().removed());
+    Assertions.assertEquals(1, stringSetDifference.measure().removedNum());
   }
 
   @Test
@@ -77,6 +76,6 @@ public class SetDifferenceTest {
     stringSetDifference.record(SetDifference.SetOperation.ofRemove(Set.of("will be removed")));
     stringSetDifference.record(SetDifference.SetOperation.ofAdd(Set.of("second added")));
 
-    Assertions.assertEquals(Set.of("first added"), stringSetDifference.measure().unchanged());
+    Assertions.assertEquals(1, stringSetDifference.measure().unchangedNum());
   }
 }
