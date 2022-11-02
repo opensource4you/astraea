@@ -26,7 +26,7 @@ import java.util.Optional;
 public interface Debounce<V> {
   Optional<V> record(V value, long timestamp);
 
-  static <V> Debounce<V> of(Class<V> cls, Duration duration) {
+  static <V> Debounce<V> of(Duration duration) {
     return new Debounce<>() {
       private long lastTimestamp = -1;
 

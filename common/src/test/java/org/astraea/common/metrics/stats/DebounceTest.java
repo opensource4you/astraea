@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 public class DebounceTest {
   @Test
   void testRecord() {
-    var debounce = Debounce.of(Double.class, Duration.ofMillis(500));
+    Debounce<Double> debounce = Debounce.of(Duration.ofMillis(500));
 
     Assertions.assertEquals(Optional.of(20.0), debounce.record(20.0, 100));
     Assertions.assertEquals(Optional.empty(), debounce.record(21.0, 110));
