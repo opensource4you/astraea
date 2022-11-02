@@ -1,5 +1,12 @@
 ### Build and Test Project
 
+#### 測試環境需求 ####
+
+- JDK: 11
+- OS: Linux
+- localhost 不為 `127.0.0.1`
+- libncurses5
+
 #### 各模組說明 ####
 
 - app: 處理與web server，成本分析與負載平衡等功能之模組
@@ -17,7 +24,10 @@
     ./gradlew cleanTest test
 
 #### 各模組測試指令 ####
+
 清理test，並測試 common 模組
+
+可以至 `./app/build/reports/test` 查看測試報告
 
     ./gradlew cleanTest common:test
 
@@ -25,6 +35,7 @@
     ./gradlew clean 
 
 #### 直接運行 main class ####
+
 如果要取得 app 的版本資訊，可以透過以下指令直接執行
 
     ./gradlew clean app:run -version
