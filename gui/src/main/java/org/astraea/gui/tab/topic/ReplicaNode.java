@@ -24,14 +24,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.function.Bi3Function;
@@ -53,16 +52,11 @@ public class ReplicaNode {
 
   static final String MOVE_BROKER_KEY = "move to brokers";
 
-  static List<Map<String, Object>> allResult(List<Replica> replicas) {
+  static List<Map<String, Object>> allResult(ClusterInfo<Replica> clusterInfo) {
     // There are two leader replicas if the leader replica is moving to another folder
-    var leaderSizes =
-        replicas.stream()
-            .filter(ReplicaInfo::isLeader)
-            .collect(
-                Collectors.groupingBy(
-                    ReplicaInfo::topicPartition,
-                    Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
-    return replicas.stream()
+    var leaderSizes = ClusterInfo.leaderSize(clusterInfo);
+    return clusterInfo
+        .replicaStream()
         .map(
             replica -> {
               var leaderSize = leaderSizes.getOrDefault(replica.topicPartition(), 0L);
@@ -223,7 +217,7 @@ public class ReplicaNode {
                 context
                     .admin()
                     .topicNames(true)
-                    .thenCompose(context.admin()::replicas)
+                    .thenCompose(context.admin()::clusterInfo)
                     .thenApply(ReplicaNode::allResult))
         .secondPart(
             MultiInput.of(

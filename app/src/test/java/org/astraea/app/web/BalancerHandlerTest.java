@@ -534,7 +534,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       // create an ongoing reassignment
       Assertions.assertEquals(
-          1, admin.replicas(Set.of(theTopic)).toCompletableFuture().join().size());
+          1,
+          admin.clusterInfo(Set.of(theTopic)).toCompletableFuture().join().replicaStream().count());
       admin
           .moveToBrokers(Map.of(TopicPartition.of(theTopic, 0), List.of(0, 1, 2)))
           .toCompletableFuture()
@@ -543,7 +544,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // debounce wait
       for (int i = 0; i < 2; i++) {
         Utils.waitForNonNull(
-            () -> !admin.addingReplicas(Set.of(theTopic)).toCompletableFuture().join().isEmpty(),
+            () ->
+                admin
+                    .clusterInfo(Set.of(theTopic))
+                    .toCompletableFuture()
+                    .join()
+                    .replicaStream()
+                    .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
             Duration.ofSeconds(10),
             Duration.ofMillis(10));
       }
@@ -779,7 +786,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       try {
         Utils.waitFor(
             () ->
-                admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
+                admin
+                    .clusterInfo(Set.copyOf(topics))
+                    .toCompletableFuture()
+                    .join()
+                    .replicaStream()
                     .anyMatch(replica -> replica.isFuture() || !replica.inSync()));
       } catch (Exception ignore) {
       }

@@ -58,10 +58,10 @@ class BalancerTest extends RequireBrokerCluster {
           (Supplier<Map<Integer, Long>>)
               () ->
                   admin
-                      .replicas(admin.topicNames(false).toCompletableFuture().join())
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join()
-                      .stream()
+                      .replicaStream()
                       .filter(Replica::isLeader)
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
