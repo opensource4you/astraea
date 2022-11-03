@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
@@ -79,7 +80,13 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
       Assertions.assertEquals("succeed to alter partitions: [" + topicName + "-0]", log.get());
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
-          3, admin.replicas(Set.of(topicName)).toCompletableFuture().join().size());
+          3,
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
+              .count());
 
       var id = brokerIds().iterator().next();
       var path = List.copyOf(logFolders().get(id)).get(2);
@@ -94,12 +101,32 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
       Assertions.assertEquals("succeed to alter partitions: [" + topicName + "-0]", log.get());
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
-          1, admin.replicas(Set.of(topicName)).toCompletableFuture().join().size());
+          1,
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
+              .count());
       Assertions.assertEquals(
           id,
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().get(0).nodeInfo().id());
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicas()
+              .get(0)
+              .nodeInfo()
+              .id());
       Assertions.assertEquals(
-          path, admin.replicas(Set.of(topicName)).toCompletableFuture().join().get(0).path());
+          path,
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicas()
+              .get(0)
+              .path());
     }
   }
 
@@ -132,7 +159,7 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
                 .nodeInfo(NodeInfo.of(2, "aa", 0))
                 .size(30)
                 .build());
-    var results = ReplicaNode.allResult(replicas);
+    var results = ReplicaNode.allResult(ClusterInfo.of(replicas));
     Assertions.assertEquals(3, results.size());
     Assertions.assertEquals(
         1,

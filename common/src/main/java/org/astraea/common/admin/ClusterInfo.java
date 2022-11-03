@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -238,6 +239,16 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   }
 
   // ---------------------[for leader]---------------------//
+
+  static Map<TopicPartition, Long> leaderSize(ClusterInfo<Replica> clusterInfo) {
+    return clusterInfo
+        .replicaStream()
+        .filter(ReplicaInfo::isLeader)
+        .collect(
+            Collectors.groupingBy(
+                ReplicaInfo::topicPartition,
+                Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
+  }
 
   /**
    * Get the list of replica leaders

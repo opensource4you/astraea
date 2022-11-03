@@ -300,18 +300,17 @@ class BalancerHandler implements Handler {
   }
 
   private void sanityCheck(PlanInfo thePlanInfo) {
-    var f0 =
+    final var replicas =
         admin
-            .replicas(
+            .clusterInfo(
                 thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
             .thenApply(
-                replicas ->
-                    replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
-            .toCompletableFuture();
-    var f1 = admin.topicNames(false).thenCompose(admin::addingReplicas).toCompletableFuture();
-
-    var replicas = f0.join();
-    var addingReplicas = f1.join();
+                clusterInfo ->
+                    clusterInfo
+                        .replicaStream()
+                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+            .toCompletableFuture()
+            .join();
 
     // sanity check: replica allocation didn't change
     var mismatchPartitions =
@@ -349,8 +348,12 @@ class BalancerHandler implements Handler {
 
     // sanity check: no ongoing migration
     var ongoingMigration =
-        addingReplicas.stream()
-            .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+        replicas.entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(r -> r.isAdding() || r.isRemoving() || r.isFuture()))
+            .map(Map.Entry::getKey)
             .collect(Collectors.toUnmodifiableSet());
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(

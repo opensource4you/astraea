@@ -169,17 +169,11 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions);
 
-  CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics);
-
   CompletionStage<Set<String>> transactionIds();
 
   CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
 
-  CompletionStage<List<Replica>> replicas(Set<String> topics);
-
-  default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
-  }
+  CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics);
 
   default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
     if (checkers.isEmpty()) {

@@ -38,7 +38,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -68,7 +72,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextBroker,
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -86,7 +94,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentReplica =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get();
@@ -123,7 +135,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           nextPath,
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -140,7 +156,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -163,7 +183,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(
           currentBroker,
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -186,7 +210,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
 
       var currentBroker =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
@@ -213,7 +241,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertNotEquals(
           currentBroker,
-          admin.replicas(Set.of(targetTopic)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(targetTopic))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
