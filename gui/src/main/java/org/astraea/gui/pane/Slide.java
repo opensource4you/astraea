@@ -17,6 +17,7 @@
 package org.astraea.gui.pane;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -63,12 +64,19 @@ public interface Slide<T extends Node> {
                 })
             .collect(Collectors.toList());
 
+    var currentEntry = new AtomicReference<Map.Entry<String, T>>();
+
     Consumer<String> triggerAction =
         s ->
             nodes.entrySet().stream()
                 .filter(e -> e.getKey().equals(s))
                 .findFirst()
-                .ifPresent(e -> selectAction.accept(e.getKey(), e.getValue()));
+                .ifPresent(
+                    e -> {
+                      currentEntry.set(e);
+                      selectAction.accept(e.getKey(), e.getValue());
+                    });
+
     // trigger the update now
     triggerAction.accept(tabs.get(0).getText());
     pane.getTabs().setAll(tabs);
@@ -87,11 +95,7 @@ public interface Slide<T extends Node> {
 
       @Override
       public Map.Entry<String, T> selected() {
-        return tabs.stream()
-            .filter(Tab::isSelected)
-            .flatMap(t -> nodes.entrySet().stream().filter(e -> e.getKey().equals(t.getText())))
-            .findFirst()
-            .get();
+        return currentEntry.get();
       }
     };
   }
