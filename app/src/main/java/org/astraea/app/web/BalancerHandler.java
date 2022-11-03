@@ -31,8 +31,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -80,7 +81,7 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
-  private final ReentrantLock schedulingLock = new ReentrantLock();
+  private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
 
   BalancerHandler(Admin admin) {
     this(admin, new StraightPlanExecutor());
@@ -267,11 +268,9 @@ class BalancerHandler implements Handler {
               if (executedPlans.containsKey(thePlanId))
                 return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
 
-              return CompletableFuture.runAsync(() -> {})
-                  .thenRunAsync(() -> Utils.packException(schedulingLock::lockInterruptibly))
-                  .thenRun(() -> sanityCheck(thePlanInfo).toCompletableFuture().join())
-                  .thenApply(
-                      (ignore1) -> {
+              return CompletableFuture.supplyAsync(
+                      () -> {
+                        sanityCheck(thePlanInfo);
                         // already scheduled, nothing to do
                         if (executedPlans.containsKey(thePlanId))
                           return new PutPlanResponse(thePlanId);
@@ -290,9 +289,9 @@ class BalancerHandler implements Handler {
                               lastExecutionId.set(thePlanId);
                             });
                         return new PutPlanResponse(thePlanId);
-                      })
+                      },
+                      schedulingExecutor)
                   .thenApply(x -> (Response) x)
-                  .whenComplete((ignore, err) -> schedulingLock.unlock())
                   .whenComplete(
                       (ignore, err) -> {
                         if (err != null) err.printStackTrace();
@@ -300,62 +299,64 @@ class BalancerHandler implements Handler {
             });
   }
 
-  private CompletionStage<Void> sanityCheck(PlanInfo thePlanInfo) {
-    return FutureUtils.combine(
+  private void sanityCheck(PlanInfo thePlanInfo) {
+    var f0 =
         admin
             .replicas(
                 thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
             .thenApply(
                 replicas ->
-                    replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topicPartition))),
-        admin.topicNames(false).thenCompose(admin::addingReplicas),
-        (replicas, addingReplicas) -> {
-          // sanity check: replica allocation didn't change
-          var mismatchPartitions =
-              thePlanInfo.report.changes.stream()
-                  .filter(
-                      change -> {
-                        var currentReplicaList =
-                            replicas
-                                .getOrDefault(
-                                    TopicPartition.of(change.topic, change.partition), List.of())
-                                .stream()
-                                .sorted(
-                                    Comparator.comparing(Replica::isPreferredLeader)
-                                        .reversed()
-                                        .thenComparing(x -> x.nodeInfo().id()))
-                                .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
-                                .collect(Collectors.toUnmodifiableList());
-                        var expectedReplicaList =
-                            Stream.concat(
-                                    change.before.stream().limit(1),
-                                    change.before.stream()
-                                        .skip(1)
-                                        .sorted(Comparator.comparing(x -> x.brokerId)))
-                                .map(x -> Map.entry(x.brokerId, x.directory))
-                                .collect(Collectors.toUnmodifiableList());
-                        return !expectedReplicaList.equals(currentReplicaList);
-                      })
-                  .map(change -> TopicPartition.of(change.topic, change.partition))
-                  .collect(Collectors.toUnmodifiableSet());
-          if (!mismatchPartitions.isEmpty())
-            throw new IllegalStateException(
-                "The cluster state has been changed significantly. "
-                    + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
-                    + mismatchPartitions);
+                    replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+            .toCompletableFuture();
+    var f1 = admin.topicNames(false).thenCompose(admin::addingReplicas).toCompletableFuture();
 
-          // sanity check: no ongoing migration
-          var ongoingMigration =
-              addingReplicas.stream()
-                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
-                  .collect(Collectors.toUnmodifiableSet());
-          if (!ongoingMigration.isEmpty())
-            throw new IllegalStateException(
-                "Another rebalance task might be working on. "
-                    + "The following topic/partition has ongoing migration: "
-                    + ongoingMigration);
-          return null;
-        });
+    var replicas = f0.join();
+    var addingReplicas = f1.join();
+
+    // sanity check: replica allocation didn't change
+    var mismatchPartitions =
+        thePlanInfo.report.changes.stream()
+            .filter(
+                change -> {
+                  var currentReplicaList =
+                      replicas
+                          .getOrDefault(
+                              TopicPartition.of(change.topic, change.partition), List.of())
+                          .stream()
+                          .sorted(
+                              Comparator.comparing(Replica::isPreferredLeader)
+                                  .reversed()
+                                  .thenComparing(x -> x.nodeInfo().id()))
+                          .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
+                          .collect(Collectors.toUnmodifiableList());
+                  var expectedReplicaList =
+                      Stream.concat(
+                              change.before.stream().limit(1),
+                              change.before.stream()
+                                  .skip(1)
+                                  .sorted(Comparator.comparing(x -> x.brokerId)))
+                          .map(x -> Map.entry(x.brokerId, x.directory))
+                          .collect(Collectors.toUnmodifiableList());
+                  return !expectedReplicaList.equals(currentReplicaList);
+                })
+            .map(change -> TopicPartition.of(change.topic, change.partition))
+            .collect(Collectors.toUnmodifiableSet());
+    if (!mismatchPartitions.isEmpty())
+      throw new IllegalStateException(
+          "The cluster state has been changed significantly. "
+              + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+              + mismatchPartitions);
+
+    // sanity check: no ongoing migration
+    var ongoingMigration =
+        addingReplicas.stream()
+            .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+            .collect(Collectors.toUnmodifiableSet());
+    if (!ongoingMigration.isEmpty())
+      throw new IllegalStateException(
+          "Another rebalance task might be working on. "
+              + "The following topic/partition has ongoing migration: "
+              + ongoingMigration);
   }
 
   static List<Placement> placements(Collection<Replica> lps, Function<Replica, Long> size) {
