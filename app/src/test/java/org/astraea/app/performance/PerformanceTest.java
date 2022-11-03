@@ -172,7 +172,11 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
       var expectedLeaders =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -214,7 +218,11 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
 
       var expected2 =
-          admin.replicas(Set.of(topicName, topicName2)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName, topicName2))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(ReplicaInfo::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -241,7 +249,11 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName3).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var validBroker =
-          admin.replicas(Set.of(topicName3)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName3))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .findFirst()
               .get()
               .nodeInfo()
