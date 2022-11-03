@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.generator;
+package org.astraea.common.balancer.tweakers;
 
 import java.time.Duration;
 import java.util.List;
@@ -29,7 +29,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.FakeClusterInfo;
-import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -38,14 +37,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class ShufflePlanGeneratorTest {
+class ShuffleTweakerTest {
 
   @Test
   void testRun() {
-    final var shufflePlanGenerator = new ShufflePlanGenerator(5, 10);
+    final var shuffleTweaker = new ShuffleTweaker(5, 10);
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
     final var stream =
-        shufflePlanGenerator.generate(
+        shuffleTweaker.generate(
             fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster));
     final var iterator = stream.iterator();
 
@@ -55,18 +54,17 @@ class ShufflePlanGeneratorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 301})
+  @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
   void testMovement(int shuffle) {
     final var fakeCluster = FakeClusterInfo.of(30, 30, 20, 5);
     final var allocation = ClusterLogAllocation.of(fakeCluster);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> shuffle);
+    final var shuffleTweaker = new ShuffleTweaker(() -> shuffle);
 
-    shufflePlanGenerator
+    shuffleTweaker
         .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
         .limit(100)
         .forEach(
-            proposal -> {
-              final var that = proposal.rebalancePlan();
+            that -> {
               final var thisTps = allocation.topicPartitions();
               final var thatTps = that.topicPartitions();
               final var thisMap =
@@ -82,70 +80,53 @@ class ShufflePlanGeneratorTest {
   @Test
   void testNoNodes() {
     final var fakeCluster = FakeClusterInfo.of(0, 0, 0, 0);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
+    final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
-    final var proposal =
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .iterator()
-            .next();
-
-    System.out.println(proposal);
-    Assertions.assertTrue(
-        ClusterInfo.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan()).isEmpty());
-    Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
-        1,
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .limit(10)
-            .count());
+        0,
+        (int)
+            shuffleTweaker
+                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .count(),
+        "No possible tweak");
   }
 
   @Test
   void testOneNode() {
     final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
+    final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
-    final var proposal =
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .iterator()
-            .next();
-
-    System.out.println(proposal);
-    Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
-        1,
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .limit(10)
-            .count());
+        0,
+        (int)
+            shuffleTweaker
+                .generate(
+                    fakeCluster.dataDirectories().entrySet().stream()
+                        .limit(1)
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().stream().limit(1).collect(Collectors.toSet()))),
+                    ClusterLogAllocation.of(fakeCluster))
+                .count(),
+        "No possible tweak");
   }
 
   @Test
   void testNoTopic() {
     final var fakeCluster = FakeClusterInfo.of(3, 0, 0, 0);
-    final var shufflePlanGenerator = new ShufflePlanGenerator(() -> 3);
+    final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
-    final var proposal =
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .iterator()
-            .next();
-
-    System.out.println(proposal);
-    Assertions.assertTrue(
-        ClusterInfo.findNonFulfilledAllocation(fakeCluster, proposal.rebalancePlan()).isEmpty());
-    Assertions.assertTrue(proposal.warnings().size() >= 1);
     Assertions.assertEquals(
-        1,
-        shufflePlanGenerator
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
-            .limit(10)
-            .count());
+        0,
+        (int)
+            shuffleTweaker
+                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .count(),
+        "No possible tweak");
   }
 
+  @Disabled
   @ParameterizedTest(name = "[{0}] {1} nodes, {2} topics, {3} partitions, {4} replicas")
   @CsvSource(
       value = {
@@ -162,13 +143,13 @@ class ShufflePlanGeneratorTest {
     // log.
     // Notice: Stream#limit() will hurt performance. the number here might not reflect the actual
     // performance.
-    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(0, 10);
     final var fakeCluster = FakeClusterInfo.of(nodeCount, topicCount, partitionCount, replicaCount);
     final var size = 1000;
 
     final long s = System.nanoTime();
     final var count =
-        shufflePlanGenerator
+        shuffleTweaker
             .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
             .limit(size)
             .count();
@@ -184,13 +165,13 @@ class ShufflePlanGeneratorTest {
 
   @Test
   void parallelStreamWorks() {
-    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(0, 10);
     final var fakeCluster = FakeClusterInfo.of(10, 20, 10, 3);
 
     // generator can do parallel without error.
     Assertions.assertDoesNotThrow(
         () ->
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .limit(100)
@@ -200,7 +181,7 @@ class ShufflePlanGeneratorTest {
   @Test
   @Disabled
   void parallelPerformanceTests() throws InterruptedException {
-    final var shufflePlanGenerator = new ShufflePlanGenerator(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(0, 10);
     final var fakeCluster = FakeClusterInfo.of(50, 500, 30, 2);
     final var counter = new LongAdder();
     final var forkJoinPool = new ForkJoinPool(ForkJoinPool.getCommonPoolParallelism());
@@ -208,7 +189,7 @@ class ShufflePlanGeneratorTest {
 
     forkJoinPool.submit(
         () ->
-            shufflePlanGenerator
+            shuffleTweaker
                 .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .forEach((ignore) -> counter.increment()));
@@ -231,7 +212,7 @@ class ShufflePlanGeneratorTest {
 
   @Test
   void testEligiblePartition() {
-    var shufflePlanGenerator = new ShufflePlanGenerator(() -> 100);
+    var shuffleTweaker = new ShuffleTweaker(() -> 100);
     var dataDir =
         Map.of(
             0, Set.of("/a", "/b", "c"),
@@ -277,10 +258,9 @@ class ShufflePlanGeneratorTest {
                         .build(),
                     Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
                     Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build())));
-    shufflePlanGenerator
+    shuffleTweaker
         .generate(dataDir, allocation)
         .limit(30)
-        .map(RebalancePlanProposal::rebalancePlan)
         .forEach(
             newAllocation -> {
               var notFulfilled = ClusterInfo.findNonFulfilledAllocation(allocation, newAllocation);

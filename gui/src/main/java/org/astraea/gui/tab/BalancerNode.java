@@ -25,18 +25,14 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AddingReplica;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -50,9 +46,11 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Input;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.TableRefresher;
+import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
@@ -87,13 +85,38 @@ public class BalancerNode {
     }
   }
 
-  static List<Map<String, Object>> result(ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
-    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal().rebalancePlan())
-        .stream()
+  static List<Map<String, Object>> costResult(Balancer.Plan plan) {
+    return plan.moveCost().stream()
+        .map(
+            cost -> {
+              var result = new LinkedHashMap<String, Object>();
+              result.put("name", cost.name());
+              result.put(
+                  "total cost",
+                  cost.name().equals(ReplicaSizeCost.COST_NAME)
+                      ? DataSize.Byte.of(cost.totalCost())
+                      : cost.totalCost());
+              cost.changes().entrySet().stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .forEach(
+                      entry ->
+                          result.put(
+                              "broker " + entry.getKey(),
+                              cost.name().equals(ReplicaSizeCost.COST_NAME)
+                                  ? DataSize.Byte.of(entry.getValue())
+                                  : entry.getValue()));
+              return result;
+            })
+        .collect(Collectors.toList());
+  }
+
+  static List<Map<String, Object>> assignmentResult(
+      ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
+    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal()).stream()
         .map(
             tp -> {
               var previousAssignments = clusterInfo.replicas(tp);
-              var newAssignments = plan.proposal().rebalancePlan().replicas(tp);
+              var newAssignments = plan.proposal().replicas(tp);
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, tp.topic());
               result.put(PARTITION_KEY, tp.partition());
@@ -153,9 +176,8 @@ public class BalancerNode {
                 });
   }
 
-  static BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> refresher(
-      Context context) {
-    return (input, logger) ->
+  static TableRefresher refresher(Context context) {
+    return (argument, logger) ->
         context
             .admin()
             .topicNames(false)
@@ -168,7 +190,7 @@ public class BalancerNode {
                         .thenApply(
                             brokerFolders -> {
                               var patterns =
-                                  input
+                                  argument
                                       .texts()
                                       .get(TOPIC_NAME_KEY)
                                       .map(
@@ -185,13 +207,13 @@ public class BalancerNode {
                                           AlgorithmConfig.builder()
                                               .clusterCost(
                                                   HasClusterCost.of(
-                                                      clusterCosts(input.selectedKeys())))
+                                                      clusterCosts(argument.selectedKeys())))
                                               .moveCost(
                                                   List.of(
                                                       new ReplicaSizeCost(),
                                                       new ReplicaLeaderCost()))
                                               .movementConstraint(
-                                                  movementConstraint(input.nonEmptyTexts()))
+                                                  movementConstraint(argument.nonEmptyTexts()))
                                               .limit(Duration.ofSeconds(10))
                                               .topicFilter(
                                                   topic ->
@@ -207,92 +229,59 @@ public class BalancerNode {
                 entry -> {
                   entry.getValue().ifPresent(LAST_PLAN::set);
                   var result =
-                      entry.getValue().map(plan -> result(entry.getKey(), plan)).orElse(List.of());
+                      entry
+                          .getValue()
+                          .map(
+                              plan ->
+                                  Map.of(
+                                      "assignment",
+                                      assignmentResult(entry.getKey(), plan),
+                                      "cost",
+                                      costResult(plan)))
+                          .orElse(Map.of());
                   if (result.isEmpty()) logger.log("there is no better assignments");
-                  else
-                    logger.log(
-                        "find a better assignments. Total number of reassignments is "
-                            + result.size());
+                  else logger.log("find a better assignments!!!!");
                   return result;
                 });
   }
 
-  static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
+  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
-      var selectedPartitions =
-          items.stream()
-              .flatMap(
-                  item -> {
-                    var topic = item.get(TOPIC_NAME_KEY);
-                    var partition = item.get(PARTITION_KEY);
-                    if (topic != null && partition != null)
-                      return Stream.of(
-                          TopicPartition.of(
-                              topic.toString(), Integer.parseInt(partition.toString())));
-                    return Stream.of();
-                  })
-              .collect(Collectors.toSet());
-      // remove previous plan so users can't run it again
       var plan = LAST_PLAN.getAndSet(null);
       if (plan != null) {
-        var replicas =
-            plan.proposal().rebalancePlan().replicas().stream()
-                .filter(r -> selectedPartitions.contains(r.topicPartition()))
-                .collect(Collectors.toList());
-        return context
-            .admin()
-            .addingReplicas(
-                selectedPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
-            .thenCompose(
-                addingReplicas -> {
-                  System.out.println(
-                      "[CHIA] "
-                          + addingReplicas.stream()
-                              .map(AddingReplica::topic)
-                              .collect(Collectors.toSet()));
-                  if (!addingReplicas.isEmpty())
-                    return CompletableFuture.failedFuture(
-                        new IllegalArgumentException(
-                            "Please wait migrating partitions: "
-                                + addingReplicas.stream()
-                                    .map(r -> r.topic() + "-" + r.partition())
-                                    .collect(Collectors.joining(","))));
-
-                  logger.log("applying better assignments ... ");
-                  return RebalancePlanExecutor.of()
-                      .run(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
-                      .thenAccept(
-                          ignored ->
-                              logger.log(
-                                  "succeed to balance cluster by moving "
-                                      + selectedPartitions.size()
-                                      + " partitions"));
-                });
+        logger.log("applying better assignments ... ");
+        return RebalancePlanExecutor.of()
+            .run(context.admin(), plan.proposal(), Duration.ofHours(1))
+            .thenAccept(
+                ignored ->
+                    logger.log(
+                        "succeed to balance cluster by moving "
+                            + plan.proposal().topicPartitions().size()
+                            + " partitions"));
       }
       return CompletableFuture.completedFuture(null);
     };
   }
 
   public static Node of(Context context) {
-    return PaneBuilder.of()
-        .selectBox(
-            SelectBox.multi(
-                Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
-                Cost.values().length))
-        .clickName("PLAN")
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.of(
-                        TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()),
-                    TextInput.of(
-                        MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of(
-                        MAX_MIGRATE_LOG_SIZE,
-                        EditableText.singleLine().hint("30KB,200MB,1GB").build()))))
-        .tableViewAction(null, "EXECUTE", tableViewAction(context))
-        .tableRefresher(refresher(context))
+    var selectBox =
+        SelectBox.multi(
+            Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
+            Cost.values().length);
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.of(
+                    TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()),
+                TextInput.of(
+                    MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(
+                    MAX_MIGRATE_LOG_SIZE,
+                    EditableText.singleLine().hint("30KB,200MB,1GB").build())));
+    return PaneBuilder.of(TableViewer.disableQuery())
+        .firstPart(selectBox, multiInput, "PLAN", refresher(context))
+        .secondPart(null, "EXECUTE", tableViewAction(context))
         .build();
   }
 }

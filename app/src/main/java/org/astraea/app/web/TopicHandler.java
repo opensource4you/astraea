@@ -99,12 +99,12 @@ class TopicHandler implements Handler {
                             pollTimeout));
 
     return FutureUtils.combine(
-        admin.replicas(topicNames),
+        admin.clusterInfo(topicNames),
         admin.partitions(topicNames),
         admin.topics(topicNames),
         admin.consumerGroupIds().thenCompose(admin::consumerGroups),
         timestampOfRecords,
-        (replicas, partitions, topics, groups, recordTimestamp) -> {
+        (clusterInfo, partitions, topics, groups, recordTimestamp) -> {
           var ps =
               partitions.stream()
                   .filter(p -> partitionPredicate.test(p.partition()))
@@ -119,7 +119,8 @@ class TopicHandler implements Handler {
                                       p.latestOffset(),
                                       p.maxTimestamp().orElse(null),
                                       recordTimestamp.get(p.topicPartition()),
-                                      replicas.stream()
+                                      clusterInfo
+                                          .replicaStream()
                                           .filter(replica -> replica.topic().equals(p.topic()))
                                           .filter(replica -> replica.partition() == p.partition())
                                           .map(Replica::new)
