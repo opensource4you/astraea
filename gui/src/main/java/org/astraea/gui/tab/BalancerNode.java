@@ -49,8 +49,8 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Input;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -152,9 +152,9 @@ public class BalancerNode {
                 });
   }
 
-  static BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> refresher(
+  static BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> refresher(
       Context context) {
-    return (input, logger) ->
+    return (argument, logger) ->
         context
             .admin()
             .topicNames(false)
@@ -167,7 +167,7 @@ public class BalancerNode {
                         .thenApply(
                             brokerFolders -> {
                               var patterns =
-                                  input
+                                  argument
                                       .texts()
                                       .get(TOPIC_NAME_KEY)
                                       .map(
@@ -184,13 +184,13 @@ public class BalancerNode {
                                           AlgorithmConfig.builder()
                                               .clusterCost(
                                                   HasClusterCost.of(
-                                                      clusterCosts(input.selectedKeys())))
+                                                      clusterCosts(argument.selectedKeys())))
                                               .moveCost(
                                                   List.of(
                                                       new ReplicaSizeCost(),
                                                       new ReplicaLeaderCost()))
                                               .movementConstraint(
-                                                  movementConstraint(input.nonEmptyTexts()))
+                                                  movementConstraint(argument.nonEmptyTexts()))
                                               .limit(Duration.ofSeconds(10))
                                               .topicFilter(
                                                   topic ->
@@ -216,7 +216,7 @@ public class BalancerNode {
                 });
   }
 
-  static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
+  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
       var selectedPartitions =
@@ -239,6 +239,7 @@ public class BalancerNode {
             plan.proposal().rebalancePlan().replicas().stream()
                 .filter(r -> selectedPartitions.contains(r.topicPartition()))
                 .collect(Collectors.toList());
+        logger.log("applying better assignments ... ");
         return RebalancePlanExecutor.of()
             .run(context.admin(), ClusterInfo.of(replicas), Duration.ofHours(1))
             .thenAccept(
@@ -253,24 +254,23 @@ public class BalancerNode {
   }
 
   public static Node of(Context context) {
+    var selectBox =
+        SelectBox.multi(
+            Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
+            Cost.values().length);
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.of(
+                    TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()),
+                TextInput.of(
+                    MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(
+                    MAX_MIGRATE_LOG_SIZE,
+                    EditableText.singleLine().hint("30KB,200MB,1GB").build())));
     return PaneBuilder.of()
-        .selectBox(
-            SelectBox.multi(
-                Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
-                Cost.values().length))
-        .clickName("PLAN")
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.of(
-                        TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()),
-                    TextInput.of(
-                        MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of(
-                        MAX_MIGRATE_LOG_SIZE,
-                        EditableText.singleLine().hint("30KB,200MB,1GB").build()))))
-        .tableViewAction(null, "EXECUTE", tableViewAction(context))
-        .tableRefresher(refresher(context))
+        .firstPart(selectBox, multiInput, "PLAN", refresher(context))
+        .secondPart(null, "EXECUTE", tableViewAction(context))
         .build();
   }
 }

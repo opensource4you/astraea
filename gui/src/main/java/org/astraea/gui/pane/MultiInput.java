@@ -28,30 +28,9 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.VBox;
 import org.astraea.gui.text.TextInput;
 
-public interface Lattice {
-
-  static Pane vbox(List<Node> nodes) {
-    var pane = new VBox(10);
-    pane.setPadding(new Insets(15));
-    pane.getChildren().setAll(nodes);
-    pane.setAlignment(Pos.CENTER);
-    return pane;
-  }
-
-  static Pane grid(List<Node> nodes, int sizeOfColumns) {
-    var grid = new GridPane();
-    for (var i = 0; i != nodes.size(); ++i) {
-      var node = nodes.get(i);
-      GridPane.setHalignment(node, HPos.LEFT);
-      GridPane.setMargin(node, new Insets(5, 5, 5, 5));
-      grid.add(node, i % sizeOfColumns, i / sizeOfColumns);
-    }
-    grid.setAlignment(Pos.CENTER);
-    return grid;
-  }
+public interface MultiInput {
 
   private static Pane gridTextInput(List<TextInput> items) {
     var grid = new GridPane();
@@ -70,9 +49,9 @@ public interface Lattice {
     return grid;
   }
 
-  static Lattice of(List<TextInput> textInputs) {
+  static MultiInput of(List<TextInput> textInputs) {
     var box = gridTextInput(textInputs);
-    return new Lattice() {
+    return new MultiInput() {
       @Override
       public void disable() {
         textInputs.forEach(TextInput::disable);

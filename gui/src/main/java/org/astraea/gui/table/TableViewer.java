@@ -22,7 +22,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -53,14 +52,6 @@ public interface TableViewer {
   void data(List<Map<String, Object>> data);
 
   List<Map<String, Object>> filteredData();
-
-  /**
-   * invoked when the data is updated
-   *
-   * @param filteredDataListener the filtered data (by query)
-   */
-  void filteredDataListener(
-      BiConsumer<Set<String>, List<Map<String, Object>>> filteredDataListener);
 
   /**
    * invoked by query field.
@@ -147,9 +138,6 @@ public interface TableViewer {
       private volatile List<Map<String, Object>> data = List.of();
       private volatile List<Map<String, Object>> filteredData = List.of();
 
-      private volatile BiConsumer<Set<String>, List<Map<String, Object>>> filteredDataListener =
-          (i, j) -> {};
-
       @Override
       public void refresh() {
         var query = querySupplier.get();
@@ -172,7 +160,6 @@ public interface TableViewer {
                     })
                 .collect(Collectors.toUnmodifiableList());
         filteredData = result;
-        filteredDataListener.accept(toKey.apply(filteredData), filteredData);
         var sortName =
             table.getSortOrder().isEmpty()
                 ? result.isEmpty() ? null : result.get(0).entrySet().iterator().next().getKey()
@@ -229,12 +216,6 @@ public interface TableViewer {
       @Override
       public List<Map<String, Object>> filteredData() {
         return filteredData;
-      }
-
-      @Override
-      public void filteredDataListener(
-          BiConsumer<Set<String>, List<Map<String, Object>>> filteredDataListener) {
-        this.filteredDataListener = filteredDataListener;
       }
 
       @Override

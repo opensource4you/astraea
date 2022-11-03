@@ -14,26 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.metrics.stats;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.time.Duration;
 
-public class InputTest {
+public class AvgRateByTime implements Stat<Double> {
+  private Double accumulate = 0.0;
 
-  @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input = Argument.of(List.of(), texts);
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+  private long count = 0;
 
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+  private final Debounce<Double> debounce;
+
+  public AvgRateByTime(Duration period) {
+    this.debounce = Debounce.of(period);
+  }
+
+  @Override
+  public synchronized void record(Double value) {
+    long current = System.currentTimeMillis();
+    debounce
+        .record(value, current)
+        .ifPresent(
+            debouncedValue -> {
+              accumulate += debouncedValue;
+              ++count;
+            });
+  }
+
+  @Override
+  public synchronized Double measure() {
+    return accumulate / count;
   }
 }

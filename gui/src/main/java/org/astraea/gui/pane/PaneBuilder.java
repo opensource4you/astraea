@@ -16,16 +16,23 @@
  */
 package org.astraea.gui.pane;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.Click;
@@ -33,180 +40,120 @@ import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
 
-/** a template layout for all tabs. */
+/**
+ * Layout: <br>
+ * -----------[first part]----------- <br>
+ * 1) (optional) select box <br>
+ * 2) (optional) multi input <br>
+ * 3) (required) click <br>
+ * ------------------------------------ <br>
+ * 4) (optional) table view <br>
+ * -----------[second part]----------- <br>
+ * 5) (optional) enable second control <br>
+ * 6) (optional) second multi input <br>
+ * 7) (optional) second click <br>
+ * ------------------------------------ <br>
+ * 8) (required) console <br>
+ */
 public class PaneBuilder {
-
-  private static final String REFRESH_KEY = "REFRESH";
 
   public static PaneBuilder of() {
     return new PaneBuilder();
   }
 
-  // ---------------------------------[first control]---------------------------------//
-
-  private SelectBox selectBox;
-
-  private Lattice lattice = null;
-
-  private Click click = Click.of(REFRESH_KEY);
-
   private final EditableText console = EditableText.multiline().build();
 
-  private TableViewer tableViewer = null;
+  private final Pane root = vbox(List.of(console.node()));
 
-  private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher =
-      null;
-  private BiFunction<Input, Logger, CompletionStage<Void>> clickListener = null;
+  private final TableViewer tableViewer = TableViewer.of();
 
-  // ---------------------------------[second control]---------------------------------//
-
-  private Lattice secondLattice = null;
-
-  private Click tableViewClick = Click.disabled("EXECUTE");
-
-  private Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
-      tableViewAction = null;
+  private Node secondControl;
 
   private PaneBuilder() {}
 
-  public PaneBuilder selectBox(SelectBox selectBox) {
-    this.selectBox = selectBox;
-    return this;
+  public PaneBuilder firstPart(
+      SelectBox selectBox,
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    return firstPart(selectBox, null, clickName, tableRefresher);
   }
 
-  public PaneBuilder lattice(Lattice lattice) {
-    this.lattice = lattice;
-    return this;
+  public PaneBuilder firstPart(
+      MultiInput multiInput,
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    return firstPart(null, multiInput, clickName, tableRefresher);
   }
 
-  public PaneBuilder clickName(String name) {
-    click = Click.of(name);
-    return this;
+  public PaneBuilder firstPart(
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    return firstPart(null, null, clickName, tableRefresher);
   }
 
-  public PaneBuilder tableRefresher(
-      BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    this.tableRefresher = tableRefresher;
-    this.tableViewer = TableViewer.of();
-    this.tableViewer.filteredDataListener(
-        (ignored, data) -> console.append("total: " + data.size()));
-    return this;
-  }
+  public PaneBuilder firstPart(
+      SelectBox selectBox,
+      MultiInput multiInput,
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    Objects.requireNonNull(clickName);
+    Objects.requireNonNull(tableRefresher);
+    var click = Click.of(clickName);
+    root.getChildren()
+        .add(
+            0,
+            vbox(
+                Stream.of(
+                        Optional.ofNullable(selectBox).map(SelectBox::node).stream(),
+                        Optional.ofNullable(multiInput).map(MultiInput::node).stream(),
+                        Optional.of(click.node()).stream())
+                    .flatMap(s -> s)
+                    .collect(Collectors.toList())));
 
-  public PaneBuilder clickListener(
-      BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
-    this.clickListener = buttonListener;
-    return this;
-  }
+    var indexOfTableViewer = 1;
 
-  public PaneBuilder tableViewAction(
-      Lattice lattice,
-      String buttonName,
-      Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>> action) {
-    this.secondLattice = lattice;
-    tableViewClick = Click.disabled(buttonName);
-    tableViewAction = action;
-    return this;
-  }
-
-  public Node build() {
-    // step.1 layout
-    var nodes = new ArrayList<Node>();
-    if (selectBox != null) nodes.add(selectBox.node());
-    if (lattice != null) nodes.add(lattice.node());
-    nodes.add(click.node());
-    if (tableViewer != null) nodes.add(tableViewer.node());
-    // ---------------------------------[second control layout]---------------------------------//
-    if (tableViewer != null && tableViewAction != null) {
-      var checkbox = new CheckBox("enable");
-      checkbox
-          .selectedProperty()
-          .addListener(
-              (observable, oldValue, newValue) -> {
-                if (checkbox.isSelected()) {
-                  tableViewClick.enable();
-                  if (secondLattice != null) secondLattice.enable();
-                } else {
-                  tableViewClick.disable();
-                  if (secondLattice != null) secondLattice.disable();
-                }
-              });
-      tableViewClick.action(
-          () -> {
-            var items = tableViewer.filteredData();
-            var text =
-                secondLattice == null
-                    ? Map.<String, Optional<String>>of()
-                    : secondLattice.contents();
-            var input = Input.of(List.of(), text);
-
-            checkbox.setDisable(true);
-            checkbox.setSelected(false);
-            try {
-              var invalidKeys = secondLattice == null ? Set.of() : secondLattice.invalidKeys();
-              if (!invalidKeys.isEmpty()) {
-                console.text("please check fields: " + invalidKeys);
-                return;
-              }
-              tableViewAction
-                  .apply(items, input, console::append)
-                  .whenComplete(
-                      (data, e) -> {
-                        checkbox.setDisable(false);
-                        console.text(e);
-                      });
-            } catch (Exception e) {
-              checkbox.setDisable(false);
-              console.text(e);
-            }
-          });
-      if (secondLattice == null) nodes.add(Lattice.vbox(List.of(checkbox, tableViewClick.node())));
-      else nodes.add(Lattice.vbox(List.of(checkbox, secondLattice.node(), tableViewClick.node())));
-    }
-
-    nodes.add(console.node());
-
-    // step.2 event
     Runnable handler =
         () -> {
-          // nothing to do
-          if (tableRefresher == null && clickListener == null) return;
-
-          var invalidKeys = lattice == null ? Set.of() : lattice.invalidKeys();
+          var invalidKeys = multiInput == null ? Set.of() : multiInput.invalidKeys();
           if (!invalidKeys.isEmpty()) {
             console.text("please check fields: " + invalidKeys);
             return;
           }
 
-          var rawTexts = lattice == null ? Map.<String, Optional<String>>of() : lattice.contents();
-          var input = Input.of(selectBox == null ? List.of() : selectBox.selectedKeys(), rawTexts);
+          var argument =
+              Argument.of(
+                  selectBox == null ? List.of() : selectBox.selectedKeys(),
+                  multiInput == null ? Map.of() : multiInput.contents());
 
           console.cleanup();
           click.disable();
           try {
-            if (tableRefresher != null)
-              tableRefresher
-                  .apply(input, console::append)
-                  .whenComplete(
-                      (data, e) -> {
-                        try {
-                          if (data != null && tableViewer != null) tableViewer.data(data);
-                          console.text(e);
-                        } finally {
-                          click.enable();
+            tableRefresher
+                .apply(argument, console::append)
+                .whenComplete(
+                    (data, e) -> {
+                      try {
+                        if (data != null && !data.isEmpty()) {
+                          if (!root.getChildren().contains(tableViewer.node()))
+                            Platform.runLater(
+                                () ->
+                                    root.getChildren().add(indexOfTableViewer, tableViewer.node()));
+
+                          if (secondControl != null && !root.getChildren().contains(secondControl))
+                            Platform.runLater(
+                                () ->
+                                    root.getChildren().add(indexOfTableViewer + 1, secondControl));
+
+                          tableViewer.data(data);
+                          console.append("total: " + tableViewer.filteredData().size());
                         }
-                      });
-            if (clickListener != null)
-              clickListener
-                  .apply(input, console::append)
-                  .whenComplete(
-                      (data, e) -> {
-                        try {
-                          console.text(e);
-                        } finally {
-                          click.enable();
-                        }
-                      });
+                        console.text(e);
+                      } catch (Exception e2) {
+                        console.text(e2);
+                      } finally {
+                        click.enable();
+                      }
+                    });
 
           } catch (Exception e) {
             console.text(e);
@@ -215,17 +162,77 @@ public class PaneBuilder {
         };
 
     click.action(handler);
-    if (tableViewer != null)
-      tableViewer.keyAction(
-          keyEvent -> {
-            if (keyEvent.getCode() == KeyCode.ENTER) {
-              // TODO: it is unstable to change action according to "string"
-              // If the click action is used to fetch server data, we refresh all data
-              // otherwise, we only filter the current data
-              if (click.name().equals(REFRESH_KEY)) handler.run();
-              else tableViewer.refresh();
+    tableViewer.keyAction(
+        keyEvent -> {
+          if (keyEvent.getCode() == KeyCode.ENTER) handler.run();
+        });
+    return this;
+  }
+
+  public PaneBuilder secondPart(
+      MultiInput multiInput,
+      String buttonName,
+      Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
+    Objects.requireNonNull(buttonName);
+    Objects.requireNonNull(action);
+    var tableViewClick = Click.disabled(buttonName);
+    var checkbox = new CheckBox("enable");
+    checkbox
+        .selectedProperty()
+        .addListener(
+            (observable, oldValue, newValue) -> {
+              if (checkbox.isSelected()) {
+                tableViewClick.enable();
+                if (multiInput != null) multiInput.enable();
+              } else {
+                tableViewClick.disable();
+                if (multiInput != null) multiInput.disable();
+              }
+            });
+    tableViewClick.action(
+        () -> {
+          var items = tableViewer.filteredData();
+          if (items.isEmpty()) return;
+          var text =
+              multiInput == null ? Map.<String, Optional<String>>of() : multiInput.contents();
+          // the click for table view requires only user text inputs.
+          var input = Argument.of(List.of(), text);
+
+          checkbox.setDisable(true);
+          checkbox.setSelected(false);
+          try {
+            var invalidKeys = multiInput == null ? Set.of() : multiInput.invalidKeys();
+            if (!invalidKeys.isEmpty()) {
+              console.text("please check fields: " + invalidKeys);
+              return;
             }
-          });
-    return Lattice.vbox(nodes);
+            action
+                .apply(items, input, console::append)
+                .whenComplete(
+                    (data, e) -> {
+                      checkbox.setDisable(false);
+                      console.text(e);
+                    });
+          } catch (Exception e) {
+            checkbox.setDisable(false);
+            console.text(e);
+          }
+        });
+
+    if (multiInput == null) secondControl = vbox(List.of(checkbox, tableViewClick.node()));
+    else secondControl = vbox(List.of(checkbox, multiInput.node(), tableViewClick.node()));
+    return this;
+  }
+
+  public Node build() {
+    return root;
+  }
+
+  private static Pane vbox(List<Node> nodes) {
+    var pane = new VBox(10);
+    pane.setPadding(new Insets(15));
+    pane.getChildren().setAll(nodes);
+    pane.setAlignment(Pos.CENTER);
+    return pane;
   }
 }
