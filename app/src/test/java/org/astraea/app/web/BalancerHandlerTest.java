@@ -833,6 +833,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   public static class DecreasingCost implements HasClusterCost {
 
+    private ClusterInfo<Replica> original;
+
     public DecreasingCost(Configuration configuration) {}
 
     private double value0 = 1.0;
@@ -840,6 +842,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     @Override
     public synchronized ClusterCost clusterCost(
         ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      if (original == null) original = clusterInfo;
+      if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
       value0 = value0 * 0.998;
       return () -> theCost;
