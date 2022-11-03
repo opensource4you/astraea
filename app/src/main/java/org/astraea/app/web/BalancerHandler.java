@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
@@ -360,13 +359,6 @@ class BalancerHandler implements Handler {
           "Another rebalance task might be working on. "
               + "The following topic/partition has ongoing migration: "
               + ongoingMigration);
-  }
-
-  static List<Placement> placements(Collection<Replica> lps, Function<Replica, Long> size) {
-    return lps.stream()
-        .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
-        .map(p -> new Placement(p, size.apply(p)))
-        .collect(Collectors.toUnmodifiableList());
   }
 
   static class Placement {
