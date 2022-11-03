@@ -225,35 +225,37 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           ClusterInfo.of(
               Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
               List.of(
-                  Replica.of(
-                      "topic",
-                      0,
-                      NodeInfo.of(10, "host", 22),
-                      0,
-                      100,
-                      true,
-                      true,
-                      false,
-                      false,
-                      true,
-                      "/tmp/aa")));
+                  Replica.builder()
+                      .topic("topic")
+                      .partition(0)
+                      .nodeInfo(NodeInfo.of(10, "host", 22))
+                      .lag(0)
+                      .size(100)
+                      .isLeader(true)
+                      .inSync(true)
+                      .isFuture(false)
+                      .isOffline(false)
+                      .isPreferredLeader(true)
+                      .path("/tmp/aa")
+                      .build()));
 
       var clusterLogAllocation =
           ClusterLogAllocation.of(
               ClusterInfo.of(
                   List.of(
-                      Replica.of(
-                          "topic",
-                          0,
-                          NodeInfo.of(11, "host", 22),
-                          0,
-                          100,
-                          true,
-                          true,
-                          false,
-                          false,
-                          true,
-                          "/tmp/aa"))));
+                      Replica.builder()
+                          .topic("topic")
+                          .partition(0)
+                          .nodeInfo(NodeInfo.of(11, "host", 22))
+                          .lag(0)
+                          .size(100)
+                          .isLeader(true)
+                          .inSync(true)
+                          .isFuture(false)
+                          .isOffline(false)
+                          .isPreferredLeader(true)
+                          .path("/tmp/aa")
+                          .build())));
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction =

@@ -69,30 +69,32 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           (Function<TopicPartition, List<Replica>>)
               (TopicPartition tp) ->
                   List.of(
-                      Replica.of(
-                          tp.topic(),
-                          tp.partition(),
-                          NodeInfo.of(broker0, "", -1),
-                          0,
-                          0,
-                          true,
-                          true,
-                          false,
-                          false,
-                          true,
-                          logFolder0),
-                      Replica.of(
-                          tp.topic(),
-                          tp.partition(),
-                          NodeInfo.of(broker1, "", -1),
-                          0,
-                          0,
-                          false,
-                          true,
-                          false,
-                          false,
-                          false,
-                          logFolder1));
+                      Replica.builder()
+                          .topic(tp.topic())
+                          .partition(tp.partition())
+                          .nodeInfo(NodeInfo.of(broker0, "", -1))
+                          .lag(0)
+                          .size(0)
+                          .isLeader(true)
+                          .inSync(true)
+                          .isFuture(false)
+                          .isOffline(false)
+                          .isPreferredLeader(true)
+                          .path(logFolder0)
+                          .build(),
+                      Replica.builder()
+                          .topic(tp.topic())
+                          .partition(tp.partition())
+                          .nodeInfo(NodeInfo.of(broker1, "", -1))
+                          .lag(0)
+                          .size(0)
+                          .isLeader(false)
+                          .inSync(true)
+                          .isFuture(false)
+                          .isOffline(false)
+                          .isPreferredLeader(false)
+                          .path(logFolder1)
+                          .build());
       final var allocation =
           IntStream.range(0, 10)
               .mapToObj(i -> TopicPartition.of(topicName, i))

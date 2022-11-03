@@ -77,104 +77,112 @@ class ReplicaNumberCostTest {
     var costFunction = new ReplicaNumberCost();
     var before =
         List.of(
-            Replica.of(
-                "topic1",
-                0,
-                NodeInfo.of(0, "broker0", 1111),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "topic1",
-                0,
-                NodeInfo.of(1, "broker0", 1111),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "topic1",
-                1,
-                NodeInfo.of(0, "broker0", 1111),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "topic1",
-                1,
-                NodeInfo.of(1, "broker0", 1111),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""));
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build());
     var after =
         List.of(
-            Replica.of(
-                "topic1",
-                0,
-                NodeInfo.of(2, "broker0", 1111),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "topic1",
-                0,
-                NodeInfo.of(1, "broker0", 1111),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "topic1",
-                1,
-                NodeInfo.of(0, "broker0", 1111),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "topic1",
-                1,
-                NodeInfo.of(2, "broker0", 1111),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""));
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build());
     var beforeClusterInfo = ClusterInfo.of(before);
     var afterClusterInfo = ClusterInfo.of(after);
     var movecost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);

@@ -240,7 +240,20 @@ class ShufflePlanGeneratorTest {
     var nodeA = NodeInfo.of(0, "", -1);
     var nodeB = NodeInfo.of(1, "", -1);
     var nodeC = NodeInfo.of(2, "", -1);
-    var base = Replica.of("topic", 0, nodeA, 0, 0, false, true, false, false, false, "/a");
+    var base =
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .nodeInfo(nodeA)
+            .lag(0)
+            .size(0)
+            .isLeader(false)
+            .inSync(true)
+            .isFuture(false)
+            .isOffline(false)
+            .isPreferredLeader(false)
+            .path("/a")
+            .build();
     var allocation =
         ClusterLogAllocation.of(
             ClusterInfo.of(

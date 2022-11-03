@@ -51,18 +51,19 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     return IntStream.range(0, replicas)
         .mapToObj(
             rIndex ->
-                Replica.of(
-                    tp.topic(),
-                    tp.partition(),
-                    NodeInfo.of(rIndex, "hostname" + rIndex, 9092),
-                    0,
-                    ThreadLocalRandom.current().nextInt(0, 30000000),
-                    rIndex == 0,
-                    true,
-                    false,
-                    false,
-                    rIndex == 0,
-                    "/tmp/dir0"))
+                Replica.builder()
+                    .topic(tp.topic())
+                    .partition(tp.partition())
+                    .nodeInfo(NodeInfo.of(rIndex, "hostname" + rIndex, 9092))
+                    .lag(0)
+                    .size(ThreadLocalRandom.current().nextInt(0, 30000000))
+                    .isLeader(rIndex == 0)
+                    .inSync(true)
+                    .isFuture(false)
+                    .isOffline(false)
+                    .isPreferredLeader(rIndex == 0)
+                    .path("/tmp/dir0")
+                    .build())
         .collect(Collectors.toUnmodifiableSet());
   }
 
@@ -74,18 +75,21 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
   }
 
   private Replica update(Replica baseReplica, Map<String, Object> override) {
-    return Replica.of(
-        (String) override.getOrDefault("topic", baseReplica.topic()),
-        (int) override.getOrDefault("partition", baseReplica.partition()),
-        NodeInfo.of((int) override.getOrDefault("broker", baseReplica.nodeInfo().id()), "", -1),
-        (long) override.getOrDefault("size", baseReplica.size()),
-        (long) override.getOrDefault("lag", baseReplica.lag()),
-        (boolean) override.getOrDefault("leader", baseReplica.isLeader()),
-        (boolean) override.getOrDefault("synced", baseReplica.inSync()),
-        (boolean) override.getOrDefault("future", baseReplica.isFuture()),
-        (boolean) override.getOrDefault("offline", baseReplica.isOffline()),
-        (boolean) override.getOrDefault("preferred", baseReplica.isPreferredLeader()),
-        (String) override.getOrDefault("dir", "/tmp/default/dir"));
+    return Replica.builder()
+        .topic((String) override.getOrDefault("topic", baseReplica.topic()))
+        .partition((int) override.getOrDefault("partition", baseReplica.partition()))
+        .nodeInfo(
+            NodeInfo.of((int) override.getOrDefault("broker", baseReplica.nodeInfo().id()), "", -1))
+        .lag((long) override.getOrDefault("lag", baseReplica.lag()))
+        .size((long) override.getOrDefault("size", baseReplica.size()))
+        .isLeader((boolean) override.getOrDefault("leader", baseReplica.isLeader()))
+        .inSync((boolean) override.getOrDefault("synced", baseReplica.inSync()))
+        .isFuture((boolean) override.getOrDefault("future", baseReplica.isFuture()))
+        .isOffline((boolean) override.getOrDefault("offline", baseReplica.isOffline()))
+        .isPreferredLeader(
+            (boolean) override.getOrDefault("preferred", baseReplica.isPreferredLeader()))
+        .path((String) override.getOrDefault("dir", "/tmp/default/dir"))
+        .build();
   }
 
   @ParameterizedTest
@@ -152,8 +156,19 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     var partition = 30;
     var nodeInfo = NodeInfo.of(0, "", -1);
     Replica base =
-        Replica.of(
-            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+        Replica.builder()
+            .topic(topic)
+            .partition(partition)
+            .nodeInfo(nodeInfo)
+            .lag(0)
+            .size(0)
+            .isLeader(true)
+            .inSync(false)
+            .isFuture(false)
+            .isOffline(false)
+            .isPreferredLeader(true)
+            .path("/tmp/default/dir")
+            .build();
     Replica leader0 =
         Replica.builder(base).nodeInfo(NodeInfo.of(3, "", -1)).isPreferredLeader(true).build();
     Replica leader1 =
@@ -330,18 +345,19 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     var nodeInfo = NodeInfo.of(0, "", -1);
 
     Replica base =
-        Replica.of(
-            topic,
-            partition,
-            nodeInfo,
-            0,
-            0,
-            false,
-            false,
-            false,
-            false,
-            false,
-            "/tmp/default/dir");
+        Replica.builder()
+            .topic(topic)
+            .partition(partition)
+            .nodeInfo(nodeInfo)
+            .lag(0)
+            .size(0)
+            .isLeader(false)
+            .inSync(false)
+            .isFuture(false)
+            .isOffline(false)
+            .isPreferredLeader(false)
+            .path("/tmp/default/dir")
+            .build();
 
     {
       // self equal
@@ -425,8 +441,19 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     var nodeInfo = NodeInfo.of(0, "", -1);
 
     Replica baseLeader =
-        Replica.of(
-            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+        Replica.builder()
+            .topic(topic)
+            .partition(partition)
+            .nodeInfo(nodeInfo)
+            .lag(0)
+            .size(0)
+            .isLeader(true)
+            .inSync(true)
+            .isFuture(false)
+            .isOffline(false)
+            .isPreferredLeader(true)
+            .path("/tmp/default/dir")
+            .build();
 
     {
       // self equal
@@ -476,8 +503,19 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
     var nodeInfo = NodeInfo.of(0, "", -1);
 
     Replica baseLeader =
-        Replica.of(
-            topic, partition, nodeInfo, 0, 0, true, false, false, false, true, "/tmp/default/dir");
+        Replica.builder()
+            .topic(topic)
+            .partition(partition)
+            .nodeInfo(nodeInfo)
+            .lag(0)
+            .size(0)
+            .isLeader(true)
+            .inSync(false)
+            .isFuture(false)
+            .isOffline(false)
+            .isPreferredLeader(true)
+            .path("/tmp/default/dir")
+            .build();
 
     {
       var leader0 = update(baseLeader, Map.of());
