@@ -57,6 +57,7 @@ import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
@@ -67,6 +68,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
 
   @Test
+  @Timeout(value = 60)
   void testReport() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -115,6 +117,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testTopic() {
     var topicNames = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -144,6 +147,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testTopics() {
     var topicNames = createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -218,6 +222,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testBestPlan() {
     try (var admin = Admin.of(bootstrapServers())) {
       var currentClusterInfo =
@@ -337,6 +342,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testNoReport() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -363,6 +369,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testPut() {
     // arrange
     createAndProduceTopic(3);
@@ -397,6 +404,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -421,6 +429,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 360)
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {
@@ -460,7 +469,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // await work done
       executor.shutdown();
       Assertions.assertTrue(
-          Utils.packException(() -> executor.awaitTermination(3, TimeUnit.SECONDS)));
+          Utils.packException(() -> executor.awaitTermination(threadCount * 3L, TimeUnit.SECONDS)));
 
       // the rebalance task is triggered in async manner, it may take some time to getting schedule
       Utils.sleep(Duration.ofMillis(500));
@@ -470,6 +479,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testRebalanceOnePlanAtATime() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -512,6 +522,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testRebalanceDetectOngoing() {
     try (var admin = Admin.of(bootstrapServers())) {
       var theTopic = Utils.randomString();
@@ -569,6 +580,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -607,6 +619,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -685,6 +698,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -740,6 +754,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testBadLookupRequest() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -761,6 +776,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
+  @Timeout(value = 60)
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -844,6 +860,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   public static class DecreasingCost implements HasClusterCost {
 
+    private ClusterInfo<Replica> original;
+
     public DecreasingCost(Configuration configuration) {}
 
     private double value0 = 1.0;
@@ -851,6 +869,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     @Override
     public synchronized ClusterCost clusterCost(
         ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      if (original == null) original = clusterInfo;
+      if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
       value0 = value0 * 0.998;
       return () -> theCost;

@@ -31,8 +31,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
@@ -79,6 +80,7 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
+  private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
 
   BalancerHandler(Admin admin) {
     this(admin, new StraightPlanExecutor());
@@ -258,102 +260,105 @@ class BalancerHandler implements Handler {
     if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
     final var thePlanInfo = future.join();
 
-    return sanityCheck(thePlanInfo)
-        .handle(
-            (r, e) -> {
-              synchronized (this) {
-                // already scheduled, nothing to do
-                if (executedPlans.containsKey(thePlanId)) return new PutPlanResponse(thePlanId);
-                if (lastExecutionId.get() != null
-                    && !executedPlans.get(lastExecutionId.get()).isDone())
-                  throw new IllegalStateException(
-                      "There are another on-going rebalance: " + lastExecutionId.get());
-                // the plan is eligible for execution
-                if (e != null) throw (RuntimeException) e;
-                // schedule the actual execution
-                thePlanInfo.associatedPlan.ifPresent(
-                    p -> {
-                      executedPlans.put(
-                          thePlanId,
-                          executor
-                              .run(admin, p.proposal(), Duration.ofHours(1))
-                              .toCompletableFuture());
-                      lastExecutionId.set(thePlanId);
-                    });
-                return new PutPlanResponse(thePlanId);
-              }
+    return CompletableFuture.runAsync(() -> {})
+        .thenCompose(
+            (ignore0) -> {
+              // already scheduled, nothing to do
+              if (executedPlans.containsKey(thePlanId))
+                return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
+
+              return CompletableFuture.supplyAsync(
+                      () -> {
+                        sanityCheck(thePlanInfo);
+                        // already scheduled, nothing to do
+                        if (executedPlans.containsKey(thePlanId))
+                          return new PutPlanResponse(thePlanId);
+                        if (lastExecutionId.get() != null
+                            && !executedPlans.get(lastExecutionId.get()).isDone())
+                          throw new IllegalStateException(
+                              "There is another on-going rebalance: " + lastExecutionId.get());
+                        // schedule the actual execution
+                        thePlanInfo.associatedPlan.ifPresent(
+                            p -> {
+                              executedPlans.put(
+                                  thePlanId,
+                                  executor
+                                      .run(admin, p.proposal(), Duration.ofHours(1))
+                                      .toCompletableFuture());
+                              lastExecutionId.set(thePlanId);
+                            });
+                        return new PutPlanResponse(thePlanId);
+                      },
+                      schedulingExecutor)
+                  .thenApply(x -> (Response) x)
+                  .whenComplete(
+                      (ignore, err) -> {
+                        if (err != null) err.printStackTrace();
+                      });
             });
   }
 
-  private CompletionStage<Void> sanityCheck(PlanInfo thePlanInfo) {
-    return admin
-        .clusterInfo(
-            thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
-        .thenApply(
-            clusterInfo ->
-                clusterInfo
-                    .replicaStream()
-                    .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
-        .thenApply(
-            replicas -> {
-              // sanity check: replica allocation didn't change
-              var mismatchPartitions =
-                  thePlanInfo.report.changes.stream()
-                      .filter(
-                          change -> {
-                            var currentReplicaList =
-                                replicas
-                                    .getOrDefault(
-                                        TopicPartition.of(change.topic, change.partition),
-                                        List.of())
-                                    .stream()
-                                    .sorted(
-                                        Comparator.comparing(Replica::isPreferredLeader)
-                                            .reversed()
-                                            .thenComparing(x -> x.nodeInfo().id()))
-                                    .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
-                                    .collect(Collectors.toUnmodifiableList());
-                            var expectedReplicaList =
-                                Stream.concat(
-                                        change.before.stream().limit(1),
-                                        change.before.stream()
-                                            .skip(1)
-                                            .sorted(Comparator.comparing(x -> x.brokerId)))
-                                    .map(x -> Map.entry(x.brokerId, x.directory))
-                                    .collect(Collectors.toUnmodifiableList());
-                            return !expectedReplicaList.equals(currentReplicaList);
-                          })
-                      .map(change -> TopicPartition.of(change.topic, change.partition))
-                      .collect(Collectors.toUnmodifiableSet());
-              if (!mismatchPartitions.isEmpty())
-                throw new IllegalStateException(
-                    "The cluster state has been changed significantly. "
-                        + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
-                        + mismatchPartitions);
+  private void sanityCheck(PlanInfo thePlanInfo) {
+    final var replicas =
+        admin
+            .clusterInfo(
+                thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
+            .thenApply(
+                clusterInfo ->
+                    clusterInfo
+                        .replicaStream()
+                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+            .toCompletableFuture()
+            .join();
 
-              // sanity check: no ongoing migration
-              var ongoingMigration =
-                  replicas.entrySet().stream()
-                      .filter(
-                          e ->
-                              e.getValue().stream()
-                                  .anyMatch(r -> r.isAdding() || r.isRemoving() || r.isFuture()))
-                      .map(e -> e.getKey())
-                      .collect(Collectors.toUnmodifiableSet());
-              if (!ongoingMigration.isEmpty())
-                throw new IllegalStateException(
-                    "Another rebalance task might be working on. "
-                        + "The following topic/partition has ongoing migration: "
-                        + ongoingMigration);
-              return null;
-            });
-  }
+    // sanity check: replica allocation didn't change
+    var mismatchPartitions =
+        thePlanInfo.report.changes.stream()
+            .filter(
+                change -> {
+                  var currentReplicaList =
+                      replicas
+                          .getOrDefault(
+                              TopicPartition.of(change.topic, change.partition), List.of())
+                          .stream()
+                          .sorted(
+                              Comparator.comparing(Replica::isPreferredLeader)
+                                  .reversed()
+                                  .thenComparing(x -> x.nodeInfo().id()))
+                          .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
+                          .collect(Collectors.toUnmodifiableList());
+                  var expectedReplicaList =
+                      Stream.concat(
+                              change.before.stream().limit(1),
+                              change.before.stream()
+                                  .skip(1)
+                                  .sorted(Comparator.comparing(x -> x.brokerId)))
+                          .map(x -> Map.entry(x.brokerId, x.directory))
+                          .collect(Collectors.toUnmodifiableList());
+                  return !expectedReplicaList.equals(currentReplicaList);
+                })
+            .map(change -> TopicPartition.of(change.topic, change.partition))
+            .collect(Collectors.toUnmodifiableSet());
+    if (!mismatchPartitions.isEmpty())
+      throw new IllegalStateException(
+          "The cluster state has been changed significantly. "
+              + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+              + mismatchPartitions);
 
-  static List<Placement> placements(Collection<Replica> lps, Function<Replica, Long> size) {
-    return lps.stream()
-        .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
-        .map(p -> new Placement(p, size.apply(p)))
-        .collect(Collectors.toUnmodifiableList());
+    // sanity check: no ongoing migration
+    var ongoingMigration =
+        replicas.entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(r -> r.isAdding() || r.isRemoving() || r.isFuture()))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toUnmodifiableSet());
+    if (!ongoingMigration.isEmpty())
+      throw new IllegalStateException(
+          "Another rebalance task might be working on. "
+              + "The following topic/partition has ongoing migration: "
+              + ongoingMigration);
   }
 
   static class Placement {
