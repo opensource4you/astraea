@@ -58,44 +58,47 @@ import org.astraea.gui.text.EditableText;
 public class PaneBuilder {
 
   public static PaneBuilder of() {
-    return new PaneBuilder();
+    return new PaneBuilder(TableViewer.of());
+  }
+
+  public static PaneBuilder of(TableViewer tableViewer) {
+    return new PaneBuilder(tableViewer);
   }
 
   private final EditableText console = EditableText.multiline().build();
 
   private final Pane root = vbox(List.of(console.node()));
 
-  private final TableViewer tableViewer = TableViewer.of();
+  private final TableViewer tableViewer;
 
   private Node secondControl;
 
-  private PaneBuilder() {}
+  private PaneBuilder(TableViewer tableViewer) {
+    this.tableViewer = tableViewer;
+  }
 
   public PaneBuilder firstPart(
       SelectBox selectBox,
       String clickName,
       BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(selectBox, null, clickName, tableRefresher);
+    return firstPart(selectBox, null, clickName, TableRefresher.of(tableRefresher));
   }
 
   public PaneBuilder firstPart(
       MultiInput multiInput,
       String clickName,
       BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(null, multiInput, clickName, tableRefresher);
+    return firstPart(null, multiInput, clickName, TableRefresher.of(tableRefresher));
   }
 
   public PaneBuilder firstPart(
       String clickName,
       BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(null, null, clickName, tableRefresher);
+    return firstPart(null, null, clickName, TableRefresher.of(tableRefresher));
   }
 
   public PaneBuilder firstPart(
-      SelectBox selectBox,
-      MultiInput multiInput,
-      String clickName,
-      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+      SelectBox selectBox, MultiInput multiInput, String clickName, TableRefresher tableRefresher) {
     Objects.requireNonNull(clickName);
     Objects.requireNonNull(tableRefresher);
     var click = Click.of(clickName);
@@ -143,9 +146,7 @@ public class PaneBuilder {
                             Platform.runLater(
                                 () ->
                                     root.getChildren().add(indexOfTableViewer + 1, secondControl));
-
                           tableViewer.data(data);
-                          console.append("total: " + tableViewer.filteredData().size());
                         }
                         console.text(e);
                       } catch (Exception e2) {

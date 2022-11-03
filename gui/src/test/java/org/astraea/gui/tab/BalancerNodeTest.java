@@ -109,9 +109,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                   log::set);
       s.toCompletableFuture().join();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
-      Assertions.assertTrue(
-          log.get()
-              .matches("find a better assignments. Total number of reassignments is" + "(.*)"));
+      Assertions.assertTrue(log.get().contains("better assignments"));
     }
   }
 
@@ -162,7 +160,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
 
     var results =
-        BalancerNode.result(
+        BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
                 ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)),
