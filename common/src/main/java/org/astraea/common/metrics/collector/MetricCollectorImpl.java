@@ -19,15 +19,16 @@ package org.astraea.common.metrics.collector;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.DelayQueue;
@@ -67,7 +68,7 @@ public class MetricCollectorImpl implements MetricCollector {
     this.interval = interval;
     this.storages = new ConcurrentHashMap<>();
     this.threadTime = new ThreadTimeHighWatermark(threadCount);
-    this.executorService = Executors.newScheduledThreadPool(threadCount);
+    this.executorService = Executors.newScheduledThreadPool(threadCount + 1);
     this.delayedWorks = new DelayQueue<>();
 
     // TODO: restart cleaner if it is dead
@@ -121,7 +122,7 @@ public class MetricCollectorImpl implements MetricCollector {
     mBeanClients.compute(
         identity,
         (id, client) -> {
-          if (client != null) throw new IllegalStateException(errorMessage.get());
+          if (client != null) throw new IllegalArgumentException(errorMessage.get());
           else return clientSupplier.get();
         });
     this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, identity));
@@ -137,13 +138,16 @@ public class MetricCollectorImpl implements MetricCollector {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T extends HasBeanObject> Iterator<T> metrics(
+  public <T extends HasBeanObject> Stream<T> metrics(
       Class<T> metricClass, int identity, long since) {
-    return (Iterator<T>)
+    return (Stream<T>)
         (storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
-            .storage.get(identity).subMap(since, threadTime.read()).values().stream()
-                .flatMap(Collection::stream)
-                .iterator();
+                .storage
+                .getOrDefault(identity, MetricStorage.emptyStorage())
+                .subMap(since, true, threadTime.read(), true)
+                .values()
+                .stream()
+                .flatMap(Collection::stream);
   }
 
   @Override
@@ -151,7 +155,7 @@ public class MetricCollectorImpl implements MetricCollector {
     return storages.values().stream()
         .map(x -> x.storage.getOrDefault(identity, null))
         .filter(Objects::nonNull)
-        .mapToLong(ConcurrentSkipListMap::size)
+        .mapToLong(ConcurrentNavigableMap::size)
         .sum();
   }
 
@@ -168,7 +172,7 @@ public class MetricCollectorImpl implements MetricCollector {
                     Collectors.mapping(
                         Map.Entry::getValue,
                         Collectors.mapping(
-                            ConcurrentSkipListMap::values,
+                            ConcurrentNavigableMap::values,
                             Collectors.flatMapping(
                                 x -> (Stream<HasBeanObject>) x.stream().flatMap(y -> y.stream()),
                                 Collectors.toCollection(ArrayList::new))))));
@@ -229,7 +233,7 @@ public class MetricCollectorImpl implements MetricCollector {
   /** Return a {@link Runnable} that clears old metrics */
   private Runnable clear() {
     return () -> {
-      // TODO: test if this thread stop on time when we shutdown called
+      // TODO: test if this thread stop on time when shutdown called
       var before = System.currentTimeMillis() - expiration.toMillis();
       this.storages.values().forEach(storage -> storage.clear(before));
     };
@@ -244,8 +248,16 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   private static class MetricStorage<T extends HasBeanObject> {
+    private static final ConcurrentNavigableMap<Long, ConcurrentLinkedQueue<?>> EMPTY_STORAGE =
+        new ConcurrentSkipListMap<>();
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static <T> ConcurrentNavigableMap<Long, ConcurrentLinkedQueue<T>> emptyStorage() {
+      return ((ConcurrentSkipListMap) EMPTY_STORAGE);
+    }
+
     private final Class<T> theClass;
-    private final Map<Integer, ConcurrentSkipListMap<Long, ConcurrentLinkedQueue<T>>> storage;
+    private final Map<Integer, ConcurrentNavigableMap<Long, ConcurrentLinkedQueue<T>>> storage;
     private final ReentrantLock cleanerLock;
 
     public MetricStorage(Class<T> theClass) {
@@ -301,7 +313,7 @@ public class MetricCollectorImpl implements MetricCollector {
 
     Builder() {}
 
-    public Builder executor(int threads) {
+    public Builder threads(int threads) {
       this.threadCount = Utils.requirePositive(threads);
       return this;
     }
@@ -360,8 +372,11 @@ public class MetricCollectorImpl implements MetricCollector {
     private final AtomicLong highWatermark;
 
     public ThreadTimeHighWatermark(int threadCount) {
-      this.threadTimes = new AtomicLongArray(threadCount);
-      this.highWatermark = new AtomicLong(0);
+      // TODO: what will happens if we call it right away? get max value?
+      final var defaultTime = new long[threadCount];
+      Arrays.fill(defaultTime, Long.MAX_VALUE);
+      this.threadTimes = new AtomicLongArray(defaultTime);
+      this.highWatermark = new AtomicLong(Long.MAX_VALUE);
     }
 
     /** set thread time for specific thread id, and update the high watermark. */
