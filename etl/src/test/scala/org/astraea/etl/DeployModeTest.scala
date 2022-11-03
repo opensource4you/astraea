@@ -27,7 +27,7 @@ class DeployModeTest {
 
     assertTrue(!DeployMode.deployMatch(""))
     assertTrue(!DeployMode.deployMatch("abc"))
-    assertTrue(DeployMode.deployMatch("spark://0.0.0.0"))
+    assertTrue(DeployMode.deployMatch("spark://192.168.103.77"))
   }
 
   @Test def ofTest(): Unit = {

@@ -173,7 +173,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
     val TOPIC_PARTITIONS = "topic.partitions"
     val TOPIC_REPLICAS = "topic.replicas"
     val TOPIC_CONFIG = "topic.config"
-    val DEPLOYMENT_MODEL = "deploy.model"
+    val DEPLOY_MODEL = "deploy.model"
 
     Utils.Using(new FileOutputStream(file)) { fileOut =>
       val properties = new Properties()
