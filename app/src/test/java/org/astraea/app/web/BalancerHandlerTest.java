@@ -56,7 +56,6 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
@@ -421,7 +420,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
-  @RepeatedTest(value = 10)
+  @Test
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {

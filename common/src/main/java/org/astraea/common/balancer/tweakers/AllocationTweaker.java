@@ -14,19 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.generator;
+package org.astraea.common.balancer.tweakers;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 @FunctionalInterface
-public interface RebalancePlanGenerator {
+public interface AllocationTweaker {
 
-  static RebalancePlanGenerator random(int numberOfShuffle) {
-    return new ShufflePlanGenerator(() -> numberOfShuffle);
+  static AllocationTweaker random(int numberOfShuffle) {
+    return new ShuffleTweaker(() -> numberOfShuffle);
   }
 
   /**
@@ -36,10 +35,15 @@ public interface RebalancePlanGenerator {
    * modified version of the given {@link ClusterLogAllocation}. The caller can use this method for
    * browsing the space of possible {@link ClusterLogAllocation}.
    *
+   * <p>If the implementation find no alternative feasible {@link ClusterLogAllocation}. Then an
+   * empty {@link Stream} will be returned. We don't encourage the implementation to return the
+   * original {@link ClusterLogAllocation} as part of the Stream result. Since there is no tweaking
+   * occurred.
+   *
    * @param brokerFolders key is the broker id, and the value is the folder used to keep data
-   * @param baseAllocation the cluster log allocation as the based of proposal generation.
+   * @param baseAllocation the {@link ClusterLogAllocation} as the base being tweaked.
    * @return a {@link Stream} of possible tweaked {@link ClusterLogAllocation}.
    */
-  Stream<RebalancePlanProposal> generate(
+  Stream<ClusterLogAllocation> generate(
       Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation);
 }
