@@ -165,7 +165,7 @@ class BalancerHandler implements Handler {
                       .map(
                           p ->
                               ClusterInfo.findNonFulfilledAllocation(
-                                      currentClusterInfo, p.proposal().rebalancePlan())
+                                      currentClusterInfo, p.proposal())
                                   .stream()
                                   .map(
                                       tp ->
@@ -176,7 +176,7 @@ class BalancerHandler implements Handler {
                                               currentClusterInfo.replicas(tp).stream()
                                                   .map(r -> new Placement(r, r.size()))
                                                   .collect(Collectors.toList()),
-                                              p.proposal().rebalancePlan().replicas(tp).stream()
+                                              p.proposal().replicas(tp).stream()
                                                   .map(r -> new Placement(r, null))
                                                   .collect(Collectors.toList())))
                                   .collect(Collectors.toUnmodifiableList()))
@@ -187,7 +187,6 @@ class BalancerHandler implements Handler {
                       cost,
                       bestPlan.map(p -> p.clusterCost().value()).orElse(null),
                       loop,
-                      bestPlan.map(p -> p.proposal().index()).orElse(null),
                       clusterCostFunction.getClass().getSimpleName(),
                       changes,
                       bestPlan
@@ -277,7 +276,7 @@ class BalancerHandler implements Handler {
                       executedPlans.put(
                           thePlanId,
                           executor
-                              .run(admin, p.proposal().rebalancePlan(), Duration.ofHours(1))
+                              .run(admin, p.proposal(), Duration.ofHours(1))
                               .toCompletableFuture());
                       lastExecutionId.set(thePlanId);
                     });
@@ -414,8 +413,6 @@ class BalancerHandler implements Handler {
     final Double newCost;
     final int limit;
 
-    // don't generate step if there is no best plan
-    final Integer step;
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
@@ -425,7 +422,6 @@ class BalancerHandler implements Handler {
         double cost,
         Double newCost,
         int limit,
-        Integer step,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
@@ -433,7 +429,6 @@ class BalancerHandler implements Handler {
       this.cost = cost;
       this.newCost = newCost;
       this.limit = limit;
-      this.step = step;
       this.function = function;
       this.changes = changes;
       this.migrationCosts = migrationCosts;

@@ -87,12 +87,11 @@ public class BalancerNode {
   }
 
   static List<Map<String, Object>> result(ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
-    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal().rebalancePlan())
-        .stream()
+    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal()).stream()
         .map(
             tp -> {
               var previousAssignments = clusterInfo.replicas(tp);
-              var newAssignments = plan.proposal().rebalancePlan().replicas(tp);
+              var newAssignments = plan.proposal().replicas(tp);
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, tp.topic());
               result.put(PARTITION_KEY, tp.partition());
@@ -236,7 +235,7 @@ public class BalancerNode {
       var plan = LAST_PLAN.getAndSet(null);
       if (plan != null) {
         var replicas =
-            plan.proposal().rebalancePlan().replicas().stream()
+            plan.proposal().replicas().stream()
                 .filter(r -> selectedPartitions.contains(r.topicPartition()))
                 .collect(Collectors.toList());
         logger.log("applying better assignments ... ");
