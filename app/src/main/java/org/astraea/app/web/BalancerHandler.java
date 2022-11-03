@@ -268,8 +268,8 @@ class BalancerHandler implements Handler {
                 return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
 
               return CompletableFuture.runAsync(() -> {})
-                  .thenRun(() -> Utils.packException(schedulingLock::lockInterruptibly))
-                  .thenCompose((ignore) -> sanityCheck(thePlanInfo))
+                  .thenRunAsync(() -> Utils.packException(schedulingLock::lockInterruptibly))
+                  .thenRun(() -> sanityCheck(thePlanInfo).toCompletableFuture().join())
                   .thenApply(
                       (ignore1) -> {
                         // already scheduled, nothing to do
@@ -292,10 +292,7 @@ class BalancerHandler implements Handler {
                         return new PutPlanResponse(thePlanId);
                       })
                   .thenApply(x -> (Response) x)
-                  .whenComplete(
-                      (ignore, err) -> {
-                        if (schedulingLock.isHeldByCurrentThread()) schedulingLock.unlock();
-                      })
+                  .whenComplete((ignore, err) -> schedulingLock.unlock())
                   .whenComplete(
                       (ignore, err) -> {
                         if (err != null) err.printStackTrace();
