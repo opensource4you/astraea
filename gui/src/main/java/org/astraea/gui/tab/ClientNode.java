@@ -44,7 +44,7 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Serializer;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -95,9 +95,9 @@ public class ClientNode {
 
   private static Node consumerNode(Context context) {
     return PaneBuilder.of()
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 FutureUtils.combine(
                     context.admin().consumerGroupIds().thenCompose(context.admin()::consumerGroups),
                     context
@@ -128,9 +128,9 @@ public class ClientNode {
 
   public static Node transactionNode(Context context) {
     return PaneBuilder.of()
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .transactionIds()
@@ -162,9 +162,9 @@ public class ClientNode {
 
   public static Node producerNode(Context context) {
     return PaneBuilder.of()
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(true)
@@ -185,17 +185,18 @@ public class ClientNode {
     var stringKey = "string";
     var base64Key = "base64";
     var recordsKey = "records";
+    var selectBox = SelectBox.single(List.of(base64Key, stringKey), 2);
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
+                TextInput.of(timeoutKey, EditableText.singleLine().defaultValue("3s").build())));
     return PaneBuilder.of()
-        .selectBox(SelectBox.single(List.of(base64Key, stringKey), 2))
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
-                    TextInput.of(
-                        timeoutKey, EditableText.singleLine().defaultValue("3s").build()))))
-        .clickFunction(
+        .firstPart(
+            selectBox,
+            multiInput,
             "READ",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(false)
@@ -206,8 +207,8 @@ public class ClientNode {
                                 .admin()
                                 .latestRecords(
                                     tps,
-                                    input.get(recordsKey).map(Integer::parseInt).orElse(1),
-                                    input
+                                    argument.get(recordsKey).map(Integer::parseInt).orElse(1),
+                                    argument
                                         .get(timeoutKey)
                                         .map(DurationField::toDuration)
                                         .orElse(Duration.ofSeconds(3))))
@@ -220,7 +221,7 @@ public class ClientNode {
                                             .map(
                                                 record -> {
                                                   var deser =
-                                                      input.selectedKeys().contains(base64Key)
+                                                      argument.selectedKeys().contains(base64Key)
                                                           ? Deserializer.BASE64
                                                           : Deserializer.STRING;
                                                   var result = new LinkedHashMap<String, Object>();
@@ -257,17 +258,18 @@ public class ClientNode {
     var partitionKey = "partition";
     var keyKey = "key";
     var valueKey = "value";
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.required(topicKey, EditableText.singleLine().build()),
+                TextInput.of(partitionKey, EditableText.singleLine().build()),
+                TextInput.of(keyKey, EditableText.multiline().build()),
+                TextInput.of(valueKey, EditableText.multiline().build())));
     return PaneBuilder.of()
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.required(topicKey, EditableText.singleLine().build()),
-                    TextInput.of(partitionKey, EditableText.singleLine().build()),
-                    TextInput.of(keyKey, EditableText.multiline().build()),
-                    TextInput.of(valueKey, EditableText.multiline().build()))))
-        .clickFunction(
+        .firstPart(
+            multiInput,
             "WRITE",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .brokers()
@@ -279,17 +281,17 @@ public class ClientNode {
                     .thenCompose(
                         bs -> {
                           try (var producer = Producer.of(bs)) {
-                            var topic = input.nonEmptyTexts().get(topicKey);
+                            var topic = argument.nonEmptyTexts().get(topicKey);
                             var sender = producer.sender().topic(topic);
-                            input
+                            argument
                                 .get(partitionKey)
                                 .map(Integer::parseInt)
                                 .ifPresent(sender::partition);
-                            input
+                            argument
                                 .get(keyKey)
                                 .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
                                 .ifPresent(sender::key);
-                            input
+                            argument
                                 .get(valueKey)
                                 .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
                                 .ifPresent(sender::value);

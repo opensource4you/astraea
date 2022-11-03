@@ -27,7 +27,7 @@ public class InputTest {
   @Test
   void testTexts() {
     var texts = new HashMap<String, Optional<String>>();
-    var input = Input.of(List.of(), texts);
+    var input = Argument.of(List.of(), texts);
     texts.put("key", Optional.empty());
     texts.put("key2", Optional.of("v"));
     Assertions.assertEquals(1, input.emptyValueKeys().size());

@@ -34,8 +34,8 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
-import org.astraea.gui.pane.Input;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -83,7 +83,7 @@ public class PartitionNode {
         .collect(Collectors.toList());
   }
 
-  static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
+  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
       var partitions =
@@ -161,8 +161,8 @@ public class PartitionNode {
     var moveToKey = "move to brokers";
     var offsetKey = "truncate to offset";
     return PaneBuilder.of()
-        .tableViewAction(
-            Lattice.of(
+        .secondPart(
+            MultiInput.of(
                 List.of(
                     TextInput.of(
                         INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
@@ -170,9 +170,9 @@ public class PartitionNode {
                         TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build()))),
             "ALTER",
             tableViewAction(context))
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(true)

@@ -36,7 +36,7 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Argument;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,7 +88,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
       var f =
           BalancerNode.refresher(new Context(admin))
               .apply(
-                  Input.of(
+                  Argument.of(
                       List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
                   log::set);
       f.toCompletableFuture().join();
@@ -105,7 +105,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
       var s =
           BalancerNode.refresher(new Context(admin))
               .apply(
-                  Input.of(
+                  Argument.of(
                       List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
                   log::set);
       s.toCompletableFuture().join();

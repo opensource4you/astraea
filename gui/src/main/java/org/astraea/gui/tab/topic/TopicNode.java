@@ -45,7 +45,7 @@ import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -57,20 +57,21 @@ public class TopicNode {
   private static final String INTERNAL_KEY = "internal";
 
   private static Node metricsNode(Context context) {
+    var selectBox =
+        SelectBox.single(
+            Arrays.stream(ServerMetrics.Topic.values())
+                .map(ServerMetrics.Topic::toString)
+                .collect(Collectors.toList()),
+            ServerMetrics.Topic.values().length);
     return PaneBuilder.of()
-        .selectBox(
-            SelectBox.single(
-                Arrays.stream(ServerMetrics.Topic.values())
-                    .map(ServerMetrics.Topic::toString)
-                    .collect(Collectors.toList()),
-                ServerMetrics.Topic.values().length))
-        .clickFunction(
+        .firstPart(
+            selectBox,
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 CompletableFuture.supplyAsync(
                     () -> {
                       var metric =
-                          input.selectedKeys().stream()
+                          argument.selectedKeys().stream()
                               .flatMap(
                                   name ->
                                       Arrays.stream(ServerMetrics.Topic.values())
@@ -121,9 +122,9 @@ public class TopicNode {
 
   private static Node configNode(Context context) {
     return PaneBuilder.of()
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 FutureUtils.combine(
                     context
                         .admin()
@@ -157,8 +158,8 @@ public class TopicNode {
                                   return map;
                                 })
                             .collect(Collectors.toList())))
-        .tableViewAction(
-            Lattice.of(
+        .secondPart(
+            MultiInput.of(
                 List.of(
                     TextInput.of(
                         TopicConfigs.ALL_CONFIGS, EditableText.singleLine().disable().build()))),
@@ -215,7 +216,7 @@ public class TopicNode {
 
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
-        .tableViewAction(
+        .secondPart(
             null,
             "DELETE",
             (items, inputs, logger) -> {
@@ -247,9 +248,9 @@ public class TopicNode {
                       })
                   .thenAccept(ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
             })
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(true)
@@ -269,32 +270,33 @@ public class TopicNode {
   public static Node createNode(Context context) {
     var numberOfPartitionsKey = "number of partitions";
     var numberOfReplicasKey = "number of replicas";
+
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.required(
+                    TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
+                TextInput.of(numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(
+                    TopicConfigs.CLEANUP_POLICY_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().build()),
+                TextInput.of(
+                    TopicConfigs.COMPRESSION_TYPE_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().build()),
+                TextInput.of(
+                    TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().build())));
+
     return PaneBuilder.of()
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.required(
-                        TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
-                    TextInput.of(
-                        numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of(
-                        numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of(
-                        TopicConfigs.CLEANUP_POLICY_CONFIG,
-                        TopicConfigs.ALL_CONFIGS,
-                        EditableText.singleLine().build()),
-                    TextInput.of(
-                        TopicConfigs.COMPRESSION_TYPE_CONFIG,
-                        TopicConfigs.ALL_CONFIGS,
-                        EditableText.singleLine().build()),
-                    TextInput.of(
-                        TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
-                        TopicConfigs.ALL_CONFIGS,
-                        EditableText.singleLine().build()))))
-        .clickListener(
+        .firstPart(
+            multiInput,
             "CREATE",
-            (input, logger) -> {
-              var allConfigs = new HashMap<>(input.nonEmptyTexts());
+            (argument, logger) -> {
+              var allConfigs = new HashMap<>(argument.nonEmptyTexts());
               var name = allConfigs.remove(TOPIC_NAME_KEY);
               return context
                   .admin()
@@ -319,7 +321,11 @@ public class TopicNode {
                                     .orElse((short) 1))
                             .configs(allConfigs)
                             .run()
-                            .thenAccept(i -> logger.log("succeed to create topic:" + name));
+                            .thenApply(
+                                i -> {
+                                  logger.log("succeed to create topic:" + name);
+                                  return List.of();
+                                });
                       });
             })
         .build();

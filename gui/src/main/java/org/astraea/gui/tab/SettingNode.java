@@ -30,7 +30,7 @@ import javafx.scene.Node;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -87,29 +87,31 @@ public class SettingNode {
     var bootstrapKey = "bootstrap";
     var jmxPortKey = "jmx";
     var properties = loadProperty();
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.required(
+                    BOOTSTRAP_SERVERS,
+                    EditableText.singleLine()
+                        .defaultValue(properties.get(bootstrapKey))
+                        .disallowEmpty()
+                        .build()),
+                TextInput.of(
+                    JMX_PORT,
+                    EditableText.singleLine()
+                        .onlyNumber()
+                        .defaultValue(properties.get(jmxPortKey))
+                        .build())));
     return PaneBuilder.of()
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.required(
-                        BOOTSTRAP_SERVERS,
-                        EditableText.singleLine()
-                            .defaultValue(properties.get(bootstrapKey))
-                            .disallowEmpty()
-                            .build()),
-                    TextInput.of(
-                        JMX_PORT,
-                        EditableText.singleLine()
-                            .onlyNumber()
-                            .defaultValue(properties.get(jmxPortKey))
-                            .build()))))
-        .clickListener(
+        .firstPart(
+            multiInput,
             "CHECK",
-            (input, logger) -> {
-              var bootstrapServers = input.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
+            (argument, logger) -> {
+              var bootstrapServers = argument.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
               Objects.requireNonNull(bootstrapServers);
               var jmxPort =
-                  Optional.ofNullable(input.nonEmptyTexts().get(JMX_PORT)).map(Integer::parseInt);
+                  Optional.ofNullable(argument.nonEmptyTexts().get(JMX_PORT))
+                      .map(Integer::parseInt);
               saveProperty(
                   Map.of(
                       bootstrapKey,
@@ -119,12 +121,12 @@ public class SettingNode {
               var newAdmin = Admin.of(bootstrapServers);
               return newAdmin
                   .nodeInfos()
-                  .thenAccept(
+                  .thenApply(
                       nodeInfos -> {
                         context.replace(newAdmin);
                         if (jmxPort.isEmpty()) {
                           logger.log("succeed to connect to " + bootstrapServers);
-                          return;
+                          return List.of();
                         }
                         context.replace(nodeInfos, jmxPort.get());
                         logger.log(
@@ -133,6 +135,7 @@ public class SettingNode {
                                 + ", and jmx: "
                                 + jmxPort.get()
                                 + " works well");
+                        return List.of();
                       });
             })
         .build();

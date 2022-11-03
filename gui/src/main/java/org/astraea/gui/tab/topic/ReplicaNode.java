@@ -36,8 +36,8 @@ import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
-import org.astraea.gui.pane.Input;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -91,7 +91,7 @@ public class ReplicaNode {
         .collect(Collectors.toList());
   }
 
-  static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
+  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
       var partitions =
@@ -212,16 +212,16 @@ public class ReplicaNode {
 
   static Node of(Context context) {
     return PaneBuilder.of()
-        .clickFunction(
+        .firstPart(
             "REFRESH",
-            (input, logger) ->
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(true)
                     .thenCompose(context.admin()::replicas)
                     .thenApply(ReplicaNode::allResult))
-        .tableViewAction(
-            Lattice.of(
+        .secondPart(
+            MultiInput.of(
                 List.of(
                     TextInput.of(
                         MOVE_BROKER_KEY,
