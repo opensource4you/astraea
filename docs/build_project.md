@@ -43,3 +43,14 @@
 如果要執行gui界面，可以透過以下指令
 
     ./gradlew clean gui:run
+
+#### 透過 docker 測試之方式 ####
+
+運行docker container
+
+    docker run --rm -ti \
+    -v $HOME/project/astraea:/tmp/astraea \
+    ghcr.io/skiptests/astraea/deps \
+    /bin/bash
+
+在運行的 container 中移至 `/astraea` 後，透過上方方式測試專案
