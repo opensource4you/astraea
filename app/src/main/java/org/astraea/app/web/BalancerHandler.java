@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -79,6 +80,7 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
+  private final ReentrantLock schedulingLock = new ReentrantLock();
 
   BalancerHandler(Admin admin) {
     this(admin, new StraightPlanExecutor());
@@ -258,30 +260,46 @@ class BalancerHandler implements Handler {
     if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
     final var thePlanInfo = future.join();
 
-    return sanityCheck(thePlanInfo)
-        .handle(
-            (r, e) -> {
-              synchronized (this) {
-                // already scheduled, nothing to do
-                if (executedPlans.containsKey(thePlanId)) return new PutPlanResponse(thePlanId);
-                if (lastExecutionId.get() != null
-                    && !executedPlans.get(lastExecutionId.get()).isDone())
-                  throw new IllegalStateException(
-                      "There are another on-going rebalance: " + lastExecutionId.get());
-                // the plan is eligible for execution
-                if (e != null) throw (RuntimeException) e;
-                // schedule the actual execution
-                thePlanInfo.associatedPlan.ifPresent(
-                    p -> {
-                      executedPlans.put(
-                          thePlanId,
-                          executor
-                              .run(admin, p.proposal(), Duration.ofHours(1))
-                              .toCompletableFuture());
-                      lastExecutionId.set(thePlanId);
-                    });
-                return new PutPlanResponse(thePlanId);
-              }
+    return CompletableFuture.runAsync(() -> {})
+        .thenCompose(
+            (ignore0) -> {
+              // already scheduled, nothing to do
+              if (executedPlans.containsKey(thePlanId))
+                return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
+
+              return CompletableFuture.runAsync(() -> {})
+                  .thenRun(() -> Utils.packException(schedulingLock::lockInterruptibly))
+                  .thenCompose((ignore) -> sanityCheck(thePlanInfo))
+                  .thenApply(
+                      (ignore1) -> {
+                        // already scheduled, nothing to do
+                        if (executedPlans.containsKey(thePlanId))
+                          return new PutPlanResponse(thePlanId);
+                        if (lastExecutionId.get() != null
+                            && !executedPlans.get(lastExecutionId.get()).isDone())
+                          throw new IllegalStateException(
+                              "There is another on-going rebalance: " + lastExecutionId.get());
+                        // schedule the actual execution
+                        thePlanInfo.associatedPlan.ifPresent(
+                            p -> {
+                              executedPlans.put(
+                                  thePlanId,
+                                  executor
+                                      .run(admin, p.proposal(), Duration.ofHours(1))
+                                      .toCompletableFuture());
+                              lastExecutionId.set(thePlanId);
+                            });
+                        return new PutPlanResponse(thePlanId);
+                      })
+                  .thenApply(x -> (Response) x)
+                  .whenComplete(
+                      (ignore, err) -> {
+                        if (schedulingLock.isHeldByCurrentThread()) schedulingLock.unlock();
+                      })
+                  .whenComplete(
+                      (ignore, err) -> {
+                        if (err != null) err.printStackTrace();
+                      });
             });
   }
 

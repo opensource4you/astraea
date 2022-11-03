@@ -460,7 +460,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // await work done
       executor.shutdown();
       Assertions.assertTrue(
-          Utils.packException(() -> executor.awaitTermination(3, TimeUnit.SECONDS)));
+          Utils.packException(() -> executor.awaitTermination(20, TimeUnit.SECONDS)));
 
       // the rebalance task is triggered in async manner, it may take some time to getting schedule
       Utils.sleep(Duration.ofMillis(500));
