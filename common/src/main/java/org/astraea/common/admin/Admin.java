@@ -94,6 +94,23 @@ public interface Admin extends AutoCloseable {
    */
   default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
       Set<TopicPartition> topicPartitions, Duration timeout) {
+    return latestRecords(topicPartitions, 1, timeout)
+        .thenApply(
+            records ->
+                records.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                e.getValue().stream()
+                                    .mapToLong(Record::timestamp)
+                                    .max()
+                                    // the value CANNOT be empty
+                                    .getAsLong())));
+  }
+
+  default CompletionStage<Map<TopicPartition, List<Record<byte[], byte[]>>>> latestRecords(
+      Set<TopicPartition> topicPartitions, int records, Duration timeout) {
     return brokers()
         .thenApply(
             bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
@@ -102,22 +119,12 @@ public interface Admin extends AutoCloseable {
               try (var consumer =
                   Consumer.forPartitions(topicPartitions)
                       .bootstrapServers(bootstrap)
-                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
+                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
                       .build()) {
                 // TODO: how many records we should take ?
                 return consumer.poll(Integer.MAX_VALUE, timeout).stream()
                     .collect(
-                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            Map.Entry::getKey,
-                            e ->
-                                e.getValue().stream()
-                                    .mapToLong(Record::timestamp)
-                                    .max()
-                                    .orElse(-1L)));
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())));
               }
             });
   }
@@ -162,17 +169,11 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions);
 
-  CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics);
-
   CompletionStage<Set<String>> transactionIds();
 
   CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
 
-  CompletionStage<List<Replica>> replicas(Set<String> topics);
-
-  default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
-  }
+  CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics);
 
   default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
     if (checkers.isEmpty()) {

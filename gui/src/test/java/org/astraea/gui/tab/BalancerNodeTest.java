@@ -30,13 +30,12 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Argument;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,7 +87,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
       var f =
           BalancerNode.refresher(new Context(admin))
               .apply(
-                  Input.of(
+                  Argument.of(
                       List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
                   log::set);
       f.toCompletableFuture().join();
@@ -105,14 +104,12 @@ class BalancerNodeTest extends RequireBrokerCluster {
       var s =
           BalancerNode.refresher(new Context(admin))
               .apply(
-                  Input.of(
+                  Argument.of(
                       List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
                   log::set);
       s.toCompletableFuture().join();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
-      Assertions.assertTrue(
-          log.get()
-              .matches("find a better assignments. Total number of reassignments is" + "(.*)"));
+      Assertions.assertTrue(log.get().contains("better assignments"));
     }
   }
 
@@ -123,7 +120,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var beforeReplicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
@@ -132,7 +129,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .path("/tmp/aaa")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
@@ -143,7 +140,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var afterReplicas =
         List.of(
             Replica.builder()
-                .leader(true)
+                .isLeader(true)
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
@@ -152,7 +149,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .path("/tmp/ddd")
                 .build(),
             Replica.builder()
-                .leader(false)
+                .isLeader(false)
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
@@ -163,12 +160,10 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
 
     var results =
-        BalancerNode.result(
+        BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
-                RebalancePlanProposal.builder()
-                    .clusterLogAllocation(ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)))
-                    .build(),
+                ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 List.of(MoveCost.builder().build())));
     Assertions.assertEquals(results.size(), 1);

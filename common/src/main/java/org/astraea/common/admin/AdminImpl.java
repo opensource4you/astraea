@@ -28,7 +28,6 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AlterConfigOp;
@@ -45,7 +44,6 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
-import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
@@ -564,67 +562,6 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics) {
-    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
-    return FutureUtils.combine(
-        topicPartitions(topics)
-            .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-            .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
-            .thenApply(
-                pr ->
-                    pr.entrySet().stream()
-                        .flatMap(
-                            entry ->
-                                entry.getValue().addingReplicas().stream()
-                                    .map(
-                                        id ->
-                                            new org.apache.kafka.common.TopicPartitionReplica(
-                                                entry.getKey().topic(),
-                                                entry.getKey().partition(),
-                                                id)))
-                        .collect(Collectors.toList())),
-        logDirs(),
-        (adding, dirs) -> {
-          Function<TopicPartition, Long> findMaxSize =
-              tp ->
-                  dirs.values().stream()
-                      .flatMap(e -> e.entrySet().stream())
-                      .filter(e -> e.getKey().equals(tp))
-                      .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
-                      .mapToLong(v -> v)
-                      .max()
-                      .orElse(0);
-          return adding.stream()
-              .filter(
-                  r ->
-                      dirs.getOrDefault(r.brokerId(), Map.of())
-                          .containsKey(TopicPartition.of(r.topic(), r.partition())))
-              .flatMap(
-                  r ->
-                      dirs
-                          .get(r.brokerId())
-                          .get(TopicPartition.of(r.topic(), r.partition()))
-                          .entrySet()
-                          .stream()
-                          .map(
-                              entry ->
-                                  AddingReplica.of(
-                                      r.topic(),
-                                      r.partition(),
-                                      r.brokerId(),
-                                      entry.getKey(),
-                                      entry.getValue().size(),
-                                      findMaxSize.apply(
-                                          TopicPartition.of(r.topic(), r.partition())))))
-              .sorted(
-                  Comparator.comparing(AddingReplica::topic)
-                      .thenComparing(AddingReplica::partition)
-                      .thenComparing(AddingReplica::broker))
-              .collect(Collectors.toList());
-        });
-  }
-
-  @Override
   public CompletionStage<Set<String>> transactionIds() {
     return to(kafkaAdmin.listTransactions().all())
         .thenApply(
@@ -647,72 +584,89 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<List<Replica>> replicas(Set<String> topics) {
+  public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
+  }
+
+  private CompletionStage<List<Replica>> replicas(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
+
     // pre-group folders by (broker -> topic partition) to speedup seek
     return FutureUtils.combine(
         logDirs(),
         to(kafkaAdmin.describeTopics(topics).allTopicNames()),
-        (logDirs, topicDesc) ->
-            topicDesc.entrySet().stream()
+        to(kafkaAdmin.listPartitionReassignments().reassignments()),
+        (logDirs, ts, reassignmentMap) ->
+            ts.values().stream()
+                .flatMap(topic -> topic.partitions().stream().map(p -> Map.entry(topic.name(), p)))
                 .flatMap(
-                    topicDes ->
-                        topicDes.getValue().partitions().stream()
+                    topicAndPartition ->
+                        topicAndPartition.getValue().replicas().stream()
                             .flatMap(
-                                tpInfo ->
-                                    tpInfo.replicas().stream()
-                                        .flatMap(
-                                            node -> {
-                                              // kafka admin#describeLogDirs does not return
-                                              // offline node,when the node is not online,all
-                                              // TopicPartition return an empty dataFolder and a
-                                              // fake replicaInfo, and determine whether the
-                                              // node is online by whether the dataFolder is "".
-                                              var pathAndReplicas =
-                                                  logDirs
-                                                      .getOrDefault(node.id(), Map.of())
-                                                      .getOrDefault(
-                                                          TopicPartition.of(
-                                                              topicDes.getKey(),
-                                                              tpInfo.partition()),
-                                                          Map.of(
-                                                              "",
-                                                              new org.apache.kafka.clients.admin
-                                                                  .ReplicaInfo(-1L, -1L, false)));
-                                              return pathAndReplicas.entrySet().stream()
-                                                  .map(
-                                                      pathAndReplica ->
-                                                          Replica.of(
-                                                              topicDes.getKey(),
-                                                              tpInfo.partition(),
-                                                              NodeInfo.of(node),
-                                                              pathAndReplica.getValue().offsetLag(),
-                                                              pathAndReplica.getValue().size(),
-                                                              tpInfo.leader() != null
-                                                                  && !tpInfo.leader().isEmpty()
-                                                                  && tpInfo.leader().id()
-                                                                      == node.id(),
-                                                              tpInfo.isr().contains(node),
-                                                              pathAndReplica.getValue().isFuture(),
-                                                              node.isEmpty()
-                                                                  || pathAndReplica
-                                                                      .getKey()
-                                                                      .equals(""),
-                                                              // The first replica in the return
-                                                              // result is the preferred leader.
-                                                              // This only works with Kafka
-                                                              // broker version after
-                                                              // 0.11. Version before 0.11
-                                                              // returns the replicas in
-                                                              // unspecified order.
-                                                              tpInfo.replicas().get(0).id()
-                                                                  == node.id(),
-                                                              // empty data folder means this
-                                                              // replica is offline
-                                                              pathAndReplica.getKey().isEmpty()
-                                                                  ? null
-                                                                  : pathAndReplica.getKey()));
-                                            })))
+                                node -> {
+                                  var topicName = topicAndPartition.getKey();
+                                  var internal = ts.get(topicName).isInternal();
+                                  var partition = topicAndPartition.getValue();
+                                  var partitionId = topicAndPartition.getValue().partition();
+                                  var reassignment =
+                                      reassignmentMap.get(
+                                          new org.apache.kafka.common.TopicPartition(
+                                              topicName, partitionId));
+                                  var isAdding =
+                                      reassignment != null
+                                          && reassignment.addingReplicas().contains(node.id());
+                                  var isRemoving =
+                                      reassignment != null
+                                          && reassignment.removingReplicas().contains(node.id());
+                                  // kafka admin#describeLogDirs does not return
+                                  // offline node,when the node is not online,all
+                                  // TopicPartition return an empty dataFolder and a
+                                  // fake replicaInfo, and determine whether the
+                                  // node is online by whether the dataFolder is "".
+                                  var pathAndReplicas =
+                                      logDirs
+                                          .getOrDefault(node.id(), Map.of())
+                                          .getOrDefault(
+                                              TopicPartition.of(topicName, partitionId),
+                                              Map.of(
+                                                  "",
+                                                  new org.apache.kafka.clients.admin.ReplicaInfo(
+                                                      -1L, -1L, false)));
+                                  return pathAndReplicas.entrySet().stream()
+                                      .map(
+                                          pathAndReplica ->
+                                              Replica.builder()
+                                                  .topic(topicName)
+                                                  .partition(partitionId)
+                                                  .internal(internal)
+                                                  .isAdding(isAdding)
+                                                  .isRemoving(isRemoving)
+                                                  .nodeInfo(NodeInfo.of(node))
+                                                  .lag(pathAndReplica.getValue().offsetLag())
+                                                  .size(pathAndReplica.getValue().size())
+                                                  .isLeader(
+                                                      partition.leader() != null
+                                                          && !partition.leader().isEmpty()
+                                                          && partition.leader().id() == node.id())
+                                                  .inSync(partition.isr().contains(node))
+                                                  .isFuture(pathAndReplica.getValue().isFuture())
+                                                  .isOffline(
+                                                      node.isEmpty()
+                                                          || pathAndReplica.getKey().equals(""))
+                                                  // The first replica in the return result is the
+                                                  // preferred leader. This only works with Kafka
+                                                  // broker version after 0.11. Version before
+                                                  // 0.11 returns the replicas in unspecified order.
+                                                  .isPreferredLeader(
+                                                      partition.replicas().get(0).id() == node.id())
+                                                  // empty data folder means this
+                                                  // replica is offline
+                                                  .path(
+                                                      pathAndReplica.getKey().isEmpty()
+                                                          ? null
+                                                          : pathAndReplica.getKey())
+                                                  .build());
+                                }))
                 .sorted(
                     Comparator.comparing(Replica::topic)
                         .thenComparing(Replica::partition)

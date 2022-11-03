@@ -330,7 +330,11 @@ public class Performance {
       else if (specifiedByBroker) {
         try (var admin = Admin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
+              admin
+                  .clusterInfo(Set.copyOf(topics))
+                  .toCompletableFuture()
+                  .join()
+                  .replicaStream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -353,14 +357,14 @@ public class Performance {
           var allTopics = admin.topicNames(false).toCompletableFuture().join();
           var allTopicPartitions =
               admin
-                  .replicas(
+                  .clusterInfo(
                       specifyPartitions.stream()
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)
                           .collect(Collectors.toUnmodifiableSet()))
                   .toCompletableFuture()
                   .join()
-                  .stream()
+                  .replicaStream()
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .collect(Collectors.toSet());
           var notExist =

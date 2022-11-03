@@ -28,7 +28,10 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
@@ -151,11 +154,20 @@ public class ReassignmentHandler implements Handler {
                 names.stream()
                     .filter(name -> channel.target().map(Set::of).orElse(names).contains(name))
                     .collect(Collectors.toSet()))
-        .thenCompose(admin::addingReplicas)
+        .thenCompose(admin::clusterInfo)
         .thenApply(
-            rs ->
-                new Reassignments(
-                    rs.stream().map(AddingReplica::new).collect(Collectors.toUnmodifiableList())));
+            clusterInfo -> {
+              var leaderSizes = ClusterInfo.leaderSize(clusterInfo);
+              return new Reassignments(
+                  clusterInfo
+                      .replicaStream()
+                      .filter(ReplicaInfo::isAdding)
+                      .map(
+                          r ->
+                              new AddingReplica(
+                                  r, leaderSizes.getOrDefault(r.topicPartition(), 0L)))
+                      .collect(Collectors.toUnmodifiableList()));
+            });
   }
 
   static class AddingReplica implements Response {
@@ -170,13 +182,13 @@ public class ReassignmentHandler implements Handler {
     final long leaderSize;
     final String progress;
 
-    AddingReplica(org.astraea.common.admin.AddingReplica addingReplica) {
+    AddingReplica(Replica addingReplica, long leaderSize) {
       this.topicName = addingReplica.topic();
       this.partition = addingReplica.partition();
-      this.broker = addingReplica.broker();
+      this.broker = addingReplica.nodeInfo().id();
       this.dataFolder = addingReplica.path();
       this.size = addingReplica.size();
-      this.leaderSize = addingReplica.leaderSize();
+      this.leaderSize = leaderSize;
       this.progress = progressInPercentage(leaderSize == 0 ? 0 : size / leaderSize);
     }
   }

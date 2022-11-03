@@ -22,6 +22,10 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
+/**
+ * jackson impl own logic of Type, JavaType, It's very different from the JDK Type. So we don't use
+ * TypeFactory to generate Type.
+ */
 class TypeRefTest {
 
   @Test
@@ -52,6 +56,13 @@ class TypeRefTest {
   }
 
   @Test
+  void testSet() {
+    assertEquals("java.util.Set<java.lang.String>", TypeRef.set(String.class).getType().toString());
+    assertEquals(
+        "java.util.Set<java.lang.Integer>", TypeRef.set(Integer.class).getType().toString());
+  }
+
+  @Test
   void testMap() {
     assertEquals(
         "java.util.Map<java.lang.String, java.lang.String>",
@@ -59,5 +70,12 @@ class TypeRefTest {
     assertEquals(
         "java.util.Map<java.lang.String, java.lang.Integer>",
         TypeRef.map(Integer.class).getType().toString());
+  }
+
+  @Test
+  void testEquals() {
+    assertEquals(TypeRef.set(String.class), TypeRef.set(String.class));
+    assertEquals(TypeRef.map(Integer.class), TypeRef.map(Integer.class));
+    assertEquals(TypeRef.array(Integer.class), TypeRef.array(Integer.class));
   }
 }

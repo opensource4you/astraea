@@ -247,7 +247,7 @@ public class DataSize implements Comparable<DataSize> {
   public DataUnit idealDataUnit() {
     return DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.stream()
         .sorted(Comparator.reverseOrder())
-        .dropWhile((x) -> this.bits.compareTo(x.bits) < 0)
+        .dropWhile((x) -> this.bits.abs().compareTo(x.bits) < 0)
         .findFirst()
         .orElse(DataUnit.Byte);
   }

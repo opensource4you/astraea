@@ -82,7 +82,7 @@ public class Builder<Key, Value> {
     producer.send(
         record,
         (metadata, exception) -> {
-          if (exception == null) completableFuture.complete(Metadata.of(metadata));
+          if (exception == null) completableFuture.completeAsync(() -> Metadata.of(metadata));
           else completableFuture.completeExceptionally(exception);
         });
     return completableFuture;

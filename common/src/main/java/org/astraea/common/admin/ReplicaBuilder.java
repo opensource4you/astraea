@@ -25,10 +25,15 @@ public class ReplicaBuilder {
   private NodeInfo nodeInfo;
   private long lag;
   private long size;
-  private boolean leader;
+
+  private boolean isAdding;
+
+  private boolean isRemoving;
+  private boolean internal;
+  private boolean isLeader;
   private boolean inSync;
   private boolean isFuture;
-  private boolean offline;
+  private boolean isOffline;
   private boolean isPreferredLeader;
   private String path;
 
@@ -38,10 +43,10 @@ public class ReplicaBuilder {
     this.nodeInfo = replica.nodeInfo();
     this.lag = replica.lag();
     this.size = replica.size();
-    this.leader = replica.isLeader();
+    this.isLeader = replica.isLeader();
     this.inSync = replica.inSync();
     this.isFuture = replica.isFuture();
-    this.offline = replica.isOffline();
+    this.isOffline = replica.isOffline();
     this.isPreferredLeader = replica.isPreferredLeader();
     this.path = replica.path();
 
@@ -73,8 +78,23 @@ public class ReplicaBuilder {
     return this;
   }
 
-  public ReplicaBuilder leader(boolean leader) {
-    this.leader = leader;
+  public ReplicaBuilder isAdding(boolean isAdding) {
+    this.isAdding = isAdding;
+    return this;
+  }
+
+  public ReplicaBuilder isRemoving(boolean isRemoving) {
+    this.isRemoving = isRemoving;
+    return this;
+  }
+
+  public ReplicaBuilder internal(boolean internal) {
+    this.internal = internal;
+    return this;
+  }
+
+  public ReplicaBuilder isLeader(boolean leader) {
+    this.isLeader = leader;
     return this;
   }
 
@@ -88,8 +108,8 @@ public class ReplicaBuilder {
     return this;
   }
 
-  public ReplicaBuilder offline(boolean offline) {
-    this.offline = offline;
+  public ReplicaBuilder isOffline(boolean offline) {
+    this.isOffline = offline;
     return this;
   }
 
@@ -104,128 +124,153 @@ public class ReplicaBuilder {
   }
 
   public Replica build() {
-    Objects.requireNonNull(this.nodeInfo);
-    Objects.requireNonNull(this.topic);
+    return new ReplicaImpl(this);
+  }
 
-    return new Replica() {
-      @Override
-      public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        var replica = (Replica) o;
-        return partition == replica.partition()
-            && Objects.equals(nodeInfo, replica.nodeInfo())
-            && lag == replica.lag()
-            && size == replica.size()
-            && leader == replica.isLeader()
-            && inSync == replica.inSync()
-            && isFuture == replica.isFuture()
-            && isPreferredLeader == replica.isPreferredLeader()
-            && offline == replica.isOffline()
-            && Objects.equals(topic, replica.topic())
-            && Objects.equals(path, replica.path());
-      }
+  private static class ReplicaImpl implements Replica {
+    private final String topic;
+    private final int partition;
+    private final NodeInfo nodeInfo;
+    private final long lag;
+    private final long size;
 
-      @Override
-      public int hashCode() {
-        return Objects.hash(
-            topic,
-            partition,
-            nodeInfo,
-            lag,
-            size,
-            leader,
-            inSync,
-            isFuture,
-            isPreferredLeader,
-            offline,
-            path);
-      }
+    private final boolean internal;
+    private final boolean isLeader;
 
-      @Override
-      public String toString() {
-        return "Replica{"
-            + "topic='"
-            + topic
-            + '\''
-            + ", partition="
-            + partition
-            + ", broker="
-            + nodeInfo
-            + ", lag="
-            + lag
-            + ", size="
-            + size
-            + ", leader="
-            + leader
-            + ", inSync="
-            + inSync
-            + ", isFuture="
-            + isFuture
-            + ", isPreferredLeader="
-            + isPreferredLeader
-            + ", offline="
-            + offline
-            + ", path='"
-            + path
-            + '\''
-            + '}';
-      }
+    private final boolean isAdding;
 
-      @Override
-      public String topic() {
-        return topic;
-      }
+    private final boolean isRemoving;
+    private final boolean inSync;
+    private final boolean isFuture;
+    private final boolean isOffline;
+    private final boolean isPreferredLeader;
+    private final String path;
 
-      @Override
-      public int partition() {
-        return partition;
-      }
+    private ReplicaImpl(ReplicaBuilder builder) {
+      this.topic = Objects.requireNonNull(builder.topic);
+      this.partition = builder.partition;
+      this.nodeInfo = Objects.requireNonNull(builder.nodeInfo);
+      this.isAdding = builder.isAdding;
+      this.isRemoving = builder.isRemoving;
+      this.lag = builder.lag;
+      this.size = builder.size;
+      this.internal = builder.internal;
+      this.isLeader = builder.isLeader;
+      this.inSync = builder.inSync;
+      this.isFuture = builder.isFuture;
+      this.isOffline = builder.isOffline;
+      this.isPreferredLeader = builder.isPreferredLeader;
+      this.path = builder.path;
+    }
 
-      @Override
-      public NodeInfo nodeInfo() {
-        return nodeInfo;
-      }
+    @Override
+    public boolean isFuture() {
+      return isFuture;
+    }
 
-      @Override
-      public long lag() {
-        return lag;
-      }
+    @Override
+    public boolean isPreferredLeader() {
+      return isPreferredLeader;
+    }
 
-      @Override
-      public long size() {
-        return size;
-      }
+    @Override
+    public long lag() {
+      return lag;
+    }
 
-      @Override
-      public boolean isLeader() {
-        return leader;
-      }
+    @Override
+    public long size() {
+      return size;
+    }
 
-      @Override
-      public boolean inSync() {
-        return inSync;
-      }
+    @Override
+    public String path() {
+      return path;
+    }
 
-      @Override
-      public boolean isFuture() {
-        return isFuture;
-      }
+    @Override
+    public boolean internal() {
+      return internal;
+    }
 
-      @Override
-      public boolean isPreferredLeader() {
-        return isPreferredLeader;
-      }
+    @Override
+    public String topic() {
+      return topic;
+    }
 
-      @Override
-      public boolean isOffline() {
-        return offline;
-      }
+    @Override
+    public int partition() {
+      return partition;
+    }
 
-      @Override
-      public String path() {
-        return path;
-      }
-    };
+    @Override
+    public NodeInfo nodeInfo() {
+      return nodeInfo;
+    }
+
+    @Override
+    public boolean isLeader() {
+      return isLeader;
+    }
+
+    @Override
+    public boolean inSync() {
+      return inSync;
+    }
+
+    @Override
+    public boolean isOffline() {
+      return isOffline;
+    }
+
+    @Override
+    public boolean isAdding() {
+      return isAdding;
+    }
+
+    @Override
+    public boolean isRemoving() {
+      return isRemoving;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      ReplicaImpl replica = (ReplicaImpl) o;
+      return partition == replica.partition
+          && lag == replica.lag
+          && size == replica.size
+          && internal == replica.internal
+          && isLeader == replica.isLeader
+          && isAdding == replica.isAdding
+          && isRemoving == replica.isRemoving
+          && inSync == replica.inSync
+          && isFuture == replica.isFuture
+          && isOffline == replica.isOffline
+          && isPreferredLeader == replica.isPreferredLeader
+          && topic.equals(replica.topic)
+          && nodeInfo.equals(replica.nodeInfo)
+          && Objects.equals(path, replica.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          topic,
+          partition,
+          nodeInfo,
+          lag,
+          size,
+          internal,
+          isLeader,
+          isAdding,
+          isRemoving,
+          inSync,
+          isFuture,
+          isOffline,
+          isPreferredLeader,
+          path);
+    }
   }
 }

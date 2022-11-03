@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -63,7 +64,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                             r.nodeInfo().id() == beforeReplica.nodeInfo().id()
                                 && r.partition() == beforeReplica.partition()
                                 && r.topic().equals(beforeReplica.topic())
-                                && r.path().equals(beforeReplica.path())
+                                && Objects.equals(r.path(), beforeReplica.path())
                                 && r.isLeader() == beforeReplica.isLeader()
                                 && r.isPreferredLeader() == beforeReplica.isPreferredLeader()))
         .collect(Collectors.toSet());
@@ -239,6 +240,16 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[for leader]---------------------//
 
+  static Map<TopicPartition, Long> leaderSize(ClusterInfo<Replica> clusterInfo) {
+    return clusterInfo
+        .replicaStream()
+        .filter(ReplicaInfo::isLeader)
+        .collect(
+            Collectors.groupingBy(
+                ReplicaInfo::topicPartition,
+                Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
+  }
+
   /**
    * Get the list of replica leaders
    *
@@ -370,6 +381,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   default Set<TopicPartition> topicPartitions() {
     return replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toUnmodifiableSet());
+  }
+
+  default Set<TopicPartitionReplica> topicPartitionReplicas() {
+    return replicaStream()
+        .map(ReplicaInfo::topicPartitionReplica)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   /**
@@ -506,6 +523,11 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     @Override
     public Set<TopicPartition> topicPartitions() {
       return byPartition.get().keySet();
+    }
+
+    @Override
+    public Set<TopicPartitionReplica> topicPartitionReplicas() {
+      return byReplica.get().keySet();
     }
 
     @Override

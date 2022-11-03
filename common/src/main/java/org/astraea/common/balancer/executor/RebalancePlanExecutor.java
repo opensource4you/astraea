@@ -16,13 +16,30 @@
  */
 package org.astraea.common.balancer.executor;
 
+import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
 
-  /** This method responsible for fulfill a rebalance plan. */
-  CompletionStage<Void> run(Admin admin, ClusterLogAllocation targetAllocation);
+  static RebalancePlanExecutor of() {
+    return new StraightPlanExecutor();
+  }
+
+  /**
+   * submit the migration request to servers. It makes sure all migrated replicas get synced and all
+   * new leaders get ready. The timeout to wait sync and re-election can be "large" and
+   * "unpredictable", so it is up to caller to give a "suitable" timeout.
+   *
+   * @param admin to process request
+   * @param targetAllocation the expected assignments
+   * @param timeout to wait metadata sync for each phase. The plan could be divided into many
+   *     requests. This timeout could stop the infinite waiting for Kafka metadata. It causes
+   *     IllegalStateException if the metadata can't get synced and timeout is expired.
+   * @return a background running thread
+   */
+  CompletionStage<Void> run(Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout);
 }

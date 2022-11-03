@@ -14,26 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.metrics.stats;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class InputTest {
-
+public class RateByTimeTest {
   @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input = Argument.of(List.of(), texts);
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+  void testMeasure() throws InterruptedException {
+    var rateByTime = new RateByTime(Duration.ofSeconds(1));
+    rateByTime.record(10.0);
+    rateByTime.record(10.0);
+    Thread.sleep(1000);
+    rateByTime.record(50.0);
 
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+    Assertions.assertEquals(40.0, rateByTime.measure());
+
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals(40.0, rateByTime.measure());
   }
 }

@@ -14,26 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.metrics.stats;
 
-import java.util.HashMap;
-import java.util.List;
+import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class InputTest {
-
+public class DebounceTest {
   @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input = Argument.of(List.of(), texts);
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+  void testRecord() {
+    Debounce<Double> debounce = Debounce.of(Duration.ofMillis(500));
 
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+    Assertions.assertEquals(Optional.of(20.0), debounce.record(20.0, 100));
+    Assertions.assertEquals(Optional.empty(), debounce.record(21.0, 110));
+    Assertions.assertEquals(Optional.of(60.0), debounce.record(60.0, 601));
   }
 }

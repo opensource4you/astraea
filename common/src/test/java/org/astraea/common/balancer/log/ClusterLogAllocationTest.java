@@ -492,4 +492,63 @@ class ClusterLogAllocationTest extends RequireBrokerCluster {
                   ClusterInfo.of(List.of(leader0, follower1, follower2, other))));
     }
   }
+
+  @Test
+  void testMovingReplicas() {
+    var topic = Utils.randomString();
+    var partition = 30;
+    var nodeInfo = NodeInfo.of(0, "", -1);
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterLogAllocation.of(
+                ClusterInfo.of(
+                    List.of(
+                        Replica.builder()
+                            .topic(topic)
+                            .nodeInfo(nodeInfo)
+                            .isAdding(true)
+                            .isPreferredLeader(true)
+                            .build()))));
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterLogAllocation.of(
+                ClusterInfo.of(
+                    List.of(
+                        Replica.builder()
+                            .topic(topic)
+                            .nodeInfo(nodeInfo)
+                            .isRemoving(true)
+                            .isPreferredLeader(true)
+                            .build()))));
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterLogAllocation.of(
+                ClusterInfo.of(
+                    List.of(
+                        Replica.builder()
+                            .topic(topic)
+                            .nodeInfo(nodeInfo)
+                            .isFuture(true)
+                            .isPreferredLeader(true)
+                            .build()))));
+
+    Assertions.assertDoesNotThrow(
+        () ->
+            ClusterLogAllocation.of(
+                ClusterInfo.of(
+                    List.of(
+                        Replica.builder()
+                            .topic(topic)
+                            .nodeInfo(nodeInfo)
+                            .isRemoving(false)
+                            .isAdding(false)
+                            .isFuture(false)
+                            .isPreferredLeader(true)
+                            .build()))));
+  }
 }

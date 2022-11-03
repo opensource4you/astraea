@@ -16,24 +16,24 @@
  */
 package org.astraea.gui.pane;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
+import org.astraea.gui.Logger;
 
-public class InputTest {
+@FunctionalInterface
+public interface TableRefresher {
 
-  @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input = Argument.of(List.of(), texts);
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+  String BASIC_KEY = "basic";
 
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+  static TableRefresher of(
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> refresher) {
+    return (argument, logger) ->
+        refresher
+            .apply(argument, logger)
+            .thenApply(r -> r.isEmpty() ? Map.of() : Map.of(BASIC_KEY, r));
   }
+
+  CompletionStage<Map<String, List<Map<String, Object>>>> apply(Argument argument, Logger logger);
 }

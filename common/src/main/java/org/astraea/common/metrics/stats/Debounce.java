@@ -14,26 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.metrics.stats;
 
-import java.util.HashMap;
-import java.util.List;
+import java.time.Duration;
 import java.util.Optional;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
-public class InputTest {
+/**
+ * Not all data should be used in statistic. Gauge like "topic size" is a time related data, many
+ * records recorded at the same time should be considered as one record.
+ */
+public interface Debounce<V> {
+  Optional<V> record(V value, long timestamp);
 
-  @Test
-  void testTexts() {
-    var texts = new HashMap<String, Optional<String>>();
-    var input = Argument.of(List.of(), texts);
-    texts.put("key", Optional.empty());
-    texts.put("key2", Optional.of("v"));
-    Assertions.assertEquals(1, input.emptyValueKeys().size());
-    Assertions.assertEquals("key", input.emptyValueKeys().iterator().next());
+  static <V> Debounce<V> of(Duration duration) {
+    return new Debounce<>() {
+      private long lastTimestamp = -1;
 
-    Assertions.assertEquals(1, input.nonEmptyTexts().size());
-    Assertions.assertEquals("v", input.nonEmptyTexts().get("key2"));
+      @Override
+      public Optional<V> record(V value, long timestamp) {
+        if (lastTimestamp != -1 && timestamp < lastTimestamp + duration.toMillis()) {
+          return Optional.empty();
+        }
+        lastTimestamp = timestamp;
+        return Optional.of(value);
+      }
+    };
   }
 }
