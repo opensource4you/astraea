@@ -47,6 +47,7 @@ import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
+import org.astraea.gui.pane.TableRefresher;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
@@ -196,60 +197,65 @@ public class ClientNode {
             selectBox,
             multiInput,
             "READ",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .topicNames(false)
-                    .thenCompose(context.admin()::topicPartitions)
-                    .thenCompose(
-                        tps ->
-                            context
-                                .admin()
-                                .latestRecords(
-                                    tps,
-                                    argument.get(recordsKey).map(Integer::parseInt).orElse(1),
-                                    argument
-                                        .get(timeoutKey)
-                                        .map(DurationField::toDuration)
-                                        .orElse(Duration.ofSeconds(3))))
-                    .thenApply(
-                        data ->
-                            data.entrySet().stream()
-                                .flatMap(
-                                    tpRecords ->
-                                        tpRecords.getValue().stream()
-                                            .map(
-                                                record -> {
-                                                  var deser =
-                                                      argument.selectedKeys().contains(base64Key)
-                                                          ? Deserializer.BASE64
-                                                          : Deserializer.STRING;
-                                                  var result = new LinkedHashMap<String, Object>();
-                                                  result.put("topic", record.topic());
-                                                  result.put("partition", record.partition());
-                                                  result.put("offset", record.offset());
-                                                  result.put(
-                                                      "timestamp",
-                                                      LocalDateTime.ofInstant(
-                                                          Instant.ofEpochMilli(record.timestamp()),
-                                                          ZoneId.systemDefault()));
-                                                  if (record.key() != null)
-                                                    result.put(
-                                                        "key",
-                                                        deser.deserialize(
-                                                            record.topic(),
-                                                            record.headers(),
-                                                            record.key()));
-                                                  if (record.value() != null)
-                                                    result.put(
-                                                        "value",
-                                                        deser.deserialize(
-                                                            record.topic(),
-                                                            record.headers(),
-                                                            record.value()));
-                                                  return result;
-                                                }))
-                                .collect(Collectors.toList())))
+            TableRefresher.of(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .topicNames(false)
+                        .thenCompose(context.admin()::topicPartitions)
+                        .thenCompose(
+                            tps ->
+                                context
+                                    .admin()
+                                    .latestRecords(
+                                        tps,
+                                        argument.get(recordsKey).map(Integer::parseInt).orElse(1),
+                                        argument
+                                            .get(timeoutKey)
+                                            .map(DurationField::toDuration)
+                                            .orElse(Duration.ofSeconds(3))))
+                        .thenApply(
+                            data ->
+                                data.entrySet().stream()
+                                    .flatMap(
+                                        tpRecords ->
+                                            tpRecords.getValue().stream()
+                                                .map(
+                                                    record -> {
+                                                      var deser =
+                                                          argument
+                                                                  .selectedKeys()
+                                                                  .contains(base64Key)
+                                                              ? Deserializer.BASE64
+                                                              : Deserializer.STRING;
+                                                      var result =
+                                                          new LinkedHashMap<String, Object>();
+                                                      result.put("topic", record.topic());
+                                                      result.put("partition", record.partition());
+                                                      result.put("offset", record.offset());
+                                                      result.put(
+                                                          "timestamp",
+                                                          LocalDateTime.ofInstant(
+                                                              Instant.ofEpochMilli(
+                                                                  record.timestamp()),
+                                                              ZoneId.systemDefault()));
+                                                      if (record.key() != null)
+                                                        result.put(
+                                                            "key",
+                                                            deser.deserialize(
+                                                                record.topic(),
+                                                                record.headers(),
+                                                                record.key()));
+                                                      if (record.value() != null)
+                                                        result.put(
+                                                            "value",
+                                                            deser.deserialize(
+                                                                record.topic(),
+                                                                record.headers(),
+                                                                record.value()));
+                                                      return result;
+                                                    }))
+                                    .collect(Collectors.toList()))))
         .build();
   }
 

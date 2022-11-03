@@ -162,7 +162,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
 
     var results =
-        BalancerNode.result(
+        BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
                 ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)),
