@@ -21,11 +21,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.DelayQueue;
@@ -34,6 +36,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -54,6 +57,7 @@ public class MetricCollectorImpl implements MetricCollector {
   private final Map<Class<?>, MetricStorage<?>> storages;
   private final ScheduledExecutorService executorService;
   private final DelayQueue<DelayedIdentity> delayedWorks;
+  private final ThreadTimeHighWatermark threadTime;
 
   public MetricCollectorImpl(
       int threadCount, Duration expiration, Duration interval, Duration cleanerInterval) {
@@ -62,13 +66,14 @@ public class MetricCollectorImpl implements MetricCollector {
     this.expiration = expiration;
     this.interval = interval;
     this.storages = new ConcurrentHashMap<>();
+    this.threadTime = new ThreadTimeHighWatermark(threadCount);
     this.executorService = Executors.newScheduledThreadPool(threadCount);
     this.delayedWorks = new DelayQueue<>();
 
     // TODO: restart cleaner if it is dead
     executorService.scheduleWithFixedDelay(
         clear(), cleanerInterval.toMillis(), cleanerInterval.toMillis(), TimeUnit.MILLISECONDS);
-    IntStream.range(0, threadCount).forEach(i -> executorService.submit(process()));
+    IntStream.range(0, threadCount).forEach(i -> executorService.submit(process(i)));
   }
 
   @Override
@@ -124,10 +129,21 @@ public class MetricCollectorImpl implements MetricCollector {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T extends HasBeanObject> Map<Integer, Collection<T>> metrics(Class<T> metricClass) {
+  public <T extends HasBeanObject> Map<Integer, Collection<T>> allMetrics(Class<T> metricClass) {
     return ((MetricStorage<T>)
             storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
         .view();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T extends HasBeanObject> Iterator<T> metrics(
+      Class<T> metricClass, int identity, long since) {
+    return (Iterator<T>)
+        (storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
+            .storage.get(identity).subMap(since, threadTime.read()).values().stream()
+                .flatMap(Collection::stream)
+                .iterator();
   }
 
   @Override
@@ -154,7 +170,7 @@ public class MetricCollectorImpl implements MetricCollector {
                         Collectors.mapping(
                             ConcurrentSkipListMap::values,
                             Collectors.flatMapping(
-                                x -> (Stream<HasBeanObject>) x.stream(),
+                                x -> (Stream<HasBeanObject>) x.stream().flatMap(y -> y.stream()),
                                 Collectors.toCollection(ArrayList::new))))));
     return ClusterBean.of(metrics);
   }
@@ -170,7 +186,7 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   /** Return a {@link Runnable} that perform the metric sampling task */
-  private Runnable process() {
+  private Runnable process(int threadId) {
     return () -> {
       while (!Thread.currentThread().isInterrupted()) {
         DelayedIdentity identity = null;
@@ -195,6 +211,7 @@ public class MetricCollectorImpl implements MetricCollector {
                       return Collections.<HasBeanObject>emptyList();
                     }
                   })
+              .peek(i -> threadTime.update(threadId, System.currentTimeMillis()))
               .forEach(metrics -> store(id, metrics));
         } catch (InterruptedException e) {
           // swallow the interrupt exception and exit immediately
@@ -228,26 +245,21 @@ public class MetricCollectorImpl implements MetricCollector {
 
   private static class MetricStorage<T extends HasBeanObject> {
     private final Class<T> theClass;
-    private final Map<Integer, ConcurrentSkipListMap<Long, T>> storage;
-    private final Map<Integer, AtomicLong> top;
+    private final Map<Integer, ConcurrentSkipListMap<Long, ConcurrentLinkedQueue<T>>> storage;
     private final ReentrantLock cleanerLock;
 
     public MetricStorage(Class<T> theClass) {
       this.theClass = theClass;
-      this.top = new ConcurrentHashMap<>();
       this.cleanerLock = new ReentrantLock();
       this.storage = new ConcurrentHashMap<>();
     }
 
-    private long nextIndex(int identity) {
-      return top.computeIfAbsent(identity, (ignore) -> new AtomicLong(0)).getAndIncrement();
-    }
-
     @SuppressWarnings("unchecked")
-    public void put(int identity, Object metric) {
+    public void put(int identity, HasBeanObject metric) {
       storage
           .computeIfAbsent(identity, (ignore) -> new ConcurrentSkipListMap<>())
-          .put(nextIndex(identity), (T) metric);
+          .computeIfAbsent(metric.createdTimestamp(), (ignore) -> new ConcurrentLinkedQueue<>())
+          .add((T) metric);
     }
 
     /** Scanning from the last metrics, delete any metrics that is sampled before the given time. */
@@ -257,8 +269,8 @@ public class MetricCollectorImpl implements MetricCollector {
         storage.forEach(
             (identity, map) ->
                 map.entrySet().stream()
-                    .takeWhile(entry -> entry.getValue().createdTimestamp() < before)
-                    .forEach(entry -> map.remove(entry.getKey())));
+                    .takeWhile(x -> x.getKey() < before)
+                    .forEach(x -> map.remove(x.getKey())));
       } finally {
         cleanerLock.unlock();
       }
@@ -273,7 +285,10 @@ public class MetricCollectorImpl implements MetricCollector {
           .collect(
               Collectors.toUnmodifiableMap(
                   Map.Entry::getKey,
-                  entry -> Collections.unmodifiableCollection(entry.getValue().values())));
+                  x ->
+                      x.getValue().values().stream()
+                          .flatMap(Collection::stream)
+                          .collect(Collectors.toUnmodifiableList())));
     }
   }
 
@@ -335,6 +350,33 @@ public class MetricCollectorImpl implements MetricCollector {
     public int compareTo(Delayed delayed) {
       return Long.compare(
           this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
+    }
+  }
+
+  /** Tracking the metric timestamp that is safe to expose. */
+  private static class ThreadTimeHighWatermark {
+
+    private final AtomicLongArray threadTimes;
+    private final AtomicLong highWatermark;
+
+    public ThreadTimeHighWatermark(int threadCount) {
+      this.threadTimes = new AtomicLongArray(threadCount);
+      this.highWatermark = new AtomicLong(0);
+    }
+
+    /** set thread time for specific thread id, and update the high watermark. */
+    public void update(int threadId, long threadTime) {
+      threadTimes.set(threadId, threadTime);
+      long min = threadTimes.get(0);
+      for (int i = 1; i < threadTimes.length(); i++) min = Math.min(min, threadTimes.get(i));
+      highWatermark.set(min);
+    }
+
+    /**
+     * @return the high watermark
+     */
+    public long read() {
+      return highWatermark.get();
     }
   }
 }

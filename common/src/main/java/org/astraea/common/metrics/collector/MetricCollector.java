@@ -18,6 +18,7 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -73,9 +74,22 @@ public interface MetricCollector extends AutoCloseable {
   /**
    * Retrieve metrics with specific class from all brokers.
    *
-   * @return a readonly view of underlying storage map
+   * @return a map of metrics to all identities
    */
-  <T extends HasBeanObject> Map<Integer, Collection<T>> metrics(Class<T> metricClass);
+  <T extends HasBeanObject> Map<Integer, Collection<T>> allMetrics(Class<T> metricClass);
+
+  /**
+   * Sampling metrics since specific moment of time.
+   *
+   * <p>{@link MetricCollector} keeps metrics for a specific amount of time. Reading outdated
+   * metrics is considered as undefined behavior.
+   *
+   * @param since sampling metrics since this moment of time. The time is measured by {@link
+   *     System#currentTimeMillis()}.
+   * @return a {@link Iterator} that returns metrics from the given time to the metrics that is
+   *     ready for consume.
+   */
+  <T extends HasBeanObject> Iterator<T> metrics(Class<T> metricClass, int identity, long since);
 
   /**
    * Look up the metric count of specific identity's storage. This method offer no concurrency
