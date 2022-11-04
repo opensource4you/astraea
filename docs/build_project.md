@@ -53,4 +53,4 @@
     ghcr.io/skiptests/astraea/deps \
     /bin/bash
 
-在運行的 container 中移至 `/astraea` 後，透過上方方式測試專案
+在運行的 container 中移至 `/tmp/astraea` 後，透過上方方式測試專案
