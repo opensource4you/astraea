@@ -233,9 +233,14 @@ public class MetricCollectorImpl implements MetricCollector {
   /** Return a {@link Runnable} that clears old metrics */
   private Runnable clear() {
     return () -> {
-      // TODO: test if this thread stop on time when shutdown called
-      var before = System.currentTimeMillis() - expiration.toMillis();
-      this.storages.values().forEach(storage -> storage.clear(before));
+      try {
+        var before = System.currentTimeMillis() - expiration.toMillis();
+        for (var storage : this.storages.values()) storage.clear(before);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     };
   }
 
@@ -275,16 +280,16 @@ public class MetricCollectorImpl implements MetricCollector {
     }
 
     /** Scanning from the last metrics, delete any metrics that is sampled before the given time. */
-    public void clear(long before) {
+    public void clear(long before) throws InterruptedException {
       try {
-        Utils.packException(cleanerLock::lockInterruptibly);
+        cleanerLock.lockInterruptibly();
         storage.forEach(
             (identity, map) ->
                 map.entrySet().stream()
                     .takeWhile(x -> x.getKey() < before)
                     .forEach(x -> map.remove(x.getKey())));
       } finally {
-        cleanerLock.unlock();
+        if (cleanerLock.isHeldByCurrentThread()) cleanerLock.unlock();
       }
     }
 
@@ -372,7 +377,6 @@ public class MetricCollectorImpl implements MetricCollector {
     private final AtomicLong highWatermark;
 
     public ThreadTimeHighWatermark(int threadCount) {
-      // TODO: what will happens if we call it right away? get max value?
       final var defaultTime = new long[threadCount];
       Arrays.fill(defaultTime, Long.MAX_VALUE);
       this.threadTimes = new AtomicLongArray(defaultTime);
