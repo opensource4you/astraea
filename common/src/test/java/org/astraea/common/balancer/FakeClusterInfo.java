@@ -84,19 +84,21 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
                     IntStream.range(0, replicaCount)
                         .mapToObj(
                             r ->
-                                Replica.of(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    nodes.get(r),
-                                    0,
-                                    -1,
-                                    r == 0,
-                                    true,
-                                    false,
-                                    false,
-                                    r == 0,
-                                    dataDirectoryList.get(
-                                        tp.partition() % dataDirectories.size()))))
+                                Replica.builder()
+                                    .topic(tp.topic())
+                                    .partition(tp.partition())
+                                    .nodeInfo(nodes.get(r))
+                                    .lag(0)
+                                    .size(-1)
+                                    .isLeader(r == 0)
+                                    .inSync(true)
+                                    .isFuture(false)
+                                    .isOffline(false)
+                                    .isPreferredLeader(r == 0)
+                                    .path(
+                                        dataDirectoryList.get(
+                                            tp.partition() % dataDirectories.size()))
+                                    .build()))
             .collect(Collectors.toUnmodifiableList());
 
     return new FakeClusterInfo(

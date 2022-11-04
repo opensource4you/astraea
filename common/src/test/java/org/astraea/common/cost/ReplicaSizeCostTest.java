@@ -84,156 +84,168 @@ class ReplicaSizeCostTest {
   static ClusterInfo<Replica> originClusterInfo() {
     var replicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                6000000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                6000000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(1, "", -1),
-                -1,
-                700000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(2, "", -1),
-                -1,
-                700000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                800000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(2, "", -1),
-                -1,
-                800000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-02"));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-02")
+                .build());
     return getClusterInfo(replicas);
   }
 
   static ClusterInfo<Replica> newClusterInfo() {
     var replicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                6000000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(2, "", -1),
-                -1,
-                6000000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(0, "", -1),
-                -1,
-                700000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(2, "", -1),
-                -1,
-                700000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                800000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(2, "", -1),
-                -1,
-                800000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-03"));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-03")
+                .build());
     return getClusterInfo(replicas);
   }
 }

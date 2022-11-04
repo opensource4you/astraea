@@ -18,33 +18,6 @@ package org.astraea.common.admin;
 
 public interface Replica extends ReplicaInfo {
 
-  static Replica of(
-      String topic,
-      int partition,
-      NodeInfo nodeInfo,
-      long lag,
-      long size,
-      boolean leader,
-      boolean inSync,
-      boolean isFuture,
-      boolean offline,
-      boolean isPreferredLeader,
-      String path) {
-    return Replica.builder()
-        .topic(topic)
-        .partition(partition)
-        .nodeInfo(nodeInfo)
-        .lag(lag)
-        .size(size)
-        .isLeader(leader)
-        .inSync(inSync)
-        .isFuture(isFuture)
-        .isOffline(offline)
-        .isPreferredLeader(isPreferredLeader)
-        .path(path)
-        .build();
-  }
-
   static ReplicaBuilder builder() {
     return new ReplicaBuilder();
   }
