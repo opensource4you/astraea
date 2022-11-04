@@ -253,13 +253,8 @@ public class BalancerNode {
         logger.log("applying better assignments ... ");
         return RebalancePlanExecutor.of()
             .run(context.admin(), plan.proposal(), Duration.ofHours(1))
-            .thenAccept(
-                ignored ->
-                    logger.log(
-                        "succeed to balance cluster by moving "
-                            + plan.proposal().topicPartitions().size()
-                            + " partitions"));
-      }
+            .thenAccept(ignored -> logger.log("succeed to balance cluster"));
+      } else logger.log("Please click \"PLAN\" to generate re-balance plan");
       return CompletableFuture.completedFuture(null);
     };
   }
