@@ -222,7 +222,7 @@ public class MetricCollectorImpl implements MetricCollector {
                       return Collections.<HasBeanObject>emptyList();
                     }
                   })
-              // Intention sleep, do not remove
+              // Intentional sleep, do not remove
               .peek(i -> Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(1)))
               .peek(i -> threadTime.update(threadId, System.currentTimeMillis()))
               .forEach(metrics -> store(id, metrics));
