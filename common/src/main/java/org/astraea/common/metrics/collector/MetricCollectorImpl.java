@@ -152,7 +152,7 @@ public class MetricCollectorImpl implements MetricCollector {
                 .values()
                 .stream()
                 .flatMap(Collection::stream)
-                .collect(Collectors.toList());
+                .collect(Collectors.toUnmodifiableList());
   }
 
   @Override
