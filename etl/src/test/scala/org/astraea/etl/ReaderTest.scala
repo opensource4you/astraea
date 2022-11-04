@@ -25,7 +25,7 @@ import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile, mkdir}
 import org.astraea.etl.Reader.createSpark
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
-import org.junit.jupiter.api.{Disabled, Test}
+import org.junit.jupiter.api.Test
 
 import java.io._
 import java.nio.file.Files
@@ -153,26 +153,14 @@ class ReaderTest extends RequireBrokerCluster {
     val spark = createSpark("local[2]")
     import spark.implicits._
 
+    val columns = Seq(
+      DataColumn("name", isPK = true, dataType = StringType),
+      DataColumn("age", isPK = false, dataType = IntegerType)
+    )
+
     val result = new DataFrameOp(
       Seq(("Michael", 29)).toDF().toDF("name", "age")
-    ).csvToJSON(Seq("name"))
-      .dataFrame()
-      .collectAsList()
-      .asScala
-      .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
-      .toMap
-
-    assertEquals(1, result.size)
-    assertEquals("{\"name\":\"Michael\",\"age\":29}", result("Michael"))
-  }
-
-  @Test def csvToJsonMulKeysTest(): Unit = {
-    val spark = createSpark("local[2]")
-    import spark.implicits._
-
-    val result = new DataFrameOp(
-      Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
-    ).csvToJSON(Seq("firstName", "secondName"))
+    ).csvToJSON(columns)
       .dataFrame()
       .collectAsList()
       .asScala
@@ -181,8 +169,32 @@ class ReaderTest extends RequireBrokerCluster {
 
     assertEquals(1, result.size)
     assertEquals(
-      "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":29}",
-      result("Michael,A")
+      "{\"name\":\"Michael\",\"age\":\"29\"}",
+      result("{\"name\":\"Michael\"}")
+    )
+  }
+
+  @Test def csvToJsonMulKeysTest(): Unit = {
+    val spark = createSpark("local[2]")
+    import spark.implicits._
+    val columns = Seq(
+      DataColumn("firstName", isPK = true, DataType.StringType),
+      DataColumn("secondName", isPK = true, DataType.StringType),
+      DataColumn("age", isPK = false, dataType = IntegerType)
+    )
+    val result = new DataFrameOp(
+      Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
+    ).csvToJSON(columns)
+      .dataFrame()
+      .collectAsList()
+      .asScala
+      .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
+      .toMap
+
+    assertEquals(1, result.size)
+    assertEquals(
+      "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":\"29\"}",
+      result("{\"firstName\":\"Michael\",\"secondName\":\"A\"}")
     )
   }
 
@@ -204,9 +216,20 @@ class ReaderTest extends RequireBrokerCluster {
       .add("f", "string")
       .add("fInt", "integer")
 
+    val columns = Seq(
+      DataColumn("ID", isPK = true, dataType = IntegerType),
+      DataColumn("name", isPK = false, dataType = StringType),
+      DataColumn("age", isPK = false, dataType = IntegerType),
+      DataColumn("xx", isPK = false, dataType = StringType),
+      DataColumn("yy", isPK = false, dataType = StringType),
+      DataColumn("zz", isPK = false, dataType = StringType),
+      DataColumn("f", isPK = false, dataType = StringType),
+      DataColumn("fInt", isPK = false, dataType = IntegerType)
+    )
+
     val json = new DataFrameOp(
       spark.createDataFrame(spark.sparkContext.parallelize(data), structType)
-    ).csvToJSON(Seq("ID"))
+    ).csvToJSON(columns)
       .dataFrame()
       .withColumn("byte", col("value").cast("Byte"))
       .selectExpr("CAST(byte AS BYTE)")
