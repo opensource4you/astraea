@@ -144,7 +144,11 @@ public class MetricCollectorImpl implements MetricCollector {
         (storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
                 .storage
                 .getOrDefault(identity, MetricStorage.emptyStorage())
-                .subMap(since, true, threadTime.read(), true)
+                // query range [since, threadTime)
+                // It's design as a half-open interval for a very specific reason.
+                // Other threads might insert metrics at the minimum thread time moment.
+                // Have to exclude that point of metrics, to prevent client miss any metrics.
+                .subMap(since, true, threadTime.read(), false)
                 .values()
                 .stream()
                 .flatMap(Collection::stream);
@@ -215,8 +219,15 @@ public class MetricCollectorImpl implements MetricCollector {
                       return Collections.<HasBeanObject>emptyList();
                     }
                   })
+              // Intention sleep, do not remove
+              .peek(i -> Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(1)))
               .peek(i -> threadTime.update(threadId, System.currentTimeMillis()))
               .forEach(metrics -> store(id, metrics));
+        } catch (RuntimeException e) {
+          if (e.getCause() instanceof InterruptedException)
+            // swallow the interrupt exception and exit immediately
+            Thread.currentThread().interrupt();
+          else e.printStackTrace();
         } catch (InterruptedException e) {
           // swallow the interrupt exception and exit immediately
           Thread.currentThread().interrupt();

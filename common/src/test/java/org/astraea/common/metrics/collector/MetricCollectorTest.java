@@ -38,6 +38,7 @@ import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -148,7 +149,7 @@ class MetricCollectorTest extends RequireBrokerCluster {
   }
 
   @SuppressWarnings("ConstantConditions")
-  @Test
+  @RepeatedTest(10)
   void metrics() {
     var sample = Duration.ofMillis(300);
     try (var collector = MetricCollector.builder().interval(sample).build()) {
