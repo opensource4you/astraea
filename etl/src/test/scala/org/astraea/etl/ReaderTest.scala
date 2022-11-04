@@ -25,7 +25,7 @@ import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile, mkdir}
 import org.astraea.etl.Reader.createSpark
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.{Disabled, Test}
 
 import java.io._
 import java.nio.file.Files
@@ -35,7 +35,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class ReaderTest extends RequireBrokerCluster {
-  @Test def createSchemaNullTest(): Unit = {
+  @Test def pkNonNullTest(): Unit = {
     val tempPath: String =
       System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
         .nextInt()
@@ -194,6 +194,31 @@ class ReaderTest extends RequireBrokerCluster {
     assertEquals(1, result.size)
     assertEquals(
       "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":\"29\"}",
+      result("{\"firstName\":\"Michael\",\"secondName\":\"A\"}")
+    )
+  }
+
+  @Disabled
+  @Test def csvToJsonNullTest(): Unit = {
+    val spark = createSpark("local[2]")
+    import spark.implicits._
+    val columns = Seq(
+      DataColumn("firstName", isPK = true, DataType.StringType),
+      DataColumn("secondName", isPK = true, DataType.StringType),
+      DataColumn("age", isPK = false, dataType = IntegerType)
+    )
+    val result = new DataFrameOp(
+      Seq(("Michael", "A", null)).toDF().toDF("firstName", "secondName", "age")
+    ).csvToJSON(columns)
+      .dataFrame()
+      .collectAsList()
+      .asScala
+      .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
+      .toMap
+
+    assertEquals(1, result.size)
+    assertEquals(
+      "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":}",
       result("{\"firstName\":\"Michael\",\"secondName\":\"A\"}")
     )
   }
