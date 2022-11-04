@@ -199,8 +199,11 @@ public class MetricCollectorImpl implements MetricCollector {
       while (!Thread.currentThread().isInterrupted()) {
         DelayedIdentity identity = null;
         try {
-          // take an identity, this is a blocking method
-          identity = delayedWorks.take();
+          identity = delayedWorks.poll(5, TimeUnit.MILLISECONDS);
+          if (identity == null) {
+            threadTime.update(threadId, System.currentTimeMillis());
+            continue;
+          }
           var id = identity.id();
           var client = mBeanClients.get(id);
 
