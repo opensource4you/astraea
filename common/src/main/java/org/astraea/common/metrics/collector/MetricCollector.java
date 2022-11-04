@@ -19,10 +19,10 @@ package org.astraea.common.metrics.collector;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
@@ -90,7 +90,7 @@ public interface MetricCollector extends AutoCloseable {
    * @return a {@link Iterator} that returns metrics from the given time to the metrics that is
    *     ready for consume.
    */
-  <T extends HasBeanObject> Stream<T> metrics(Class<T> metricClass, int identity, long since);
+  <T extends HasBeanObject> List<T> metrics(Class<T> metricClass, int identity, long since);
 
   /**
    * Look up the metric count of specific identity's storage. This method offer no concurrency

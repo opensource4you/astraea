@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -138,9 +139,8 @@ public class MetricCollectorImpl implements MetricCollector {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T extends HasBeanObject> Stream<T> metrics(
-      Class<T> metricClass, int identity, long since) {
-    return (Stream<T>)
+  public <T extends HasBeanObject> List<T> metrics(Class<T> metricClass, int identity, long since) {
+    return (List<T>)
         (storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
                 .storage
                 .getOrDefault(identity, MetricStorage.emptyStorage())
@@ -151,7 +151,8 @@ public class MetricCollectorImpl implements MetricCollector {
                 .subMap(since, true, threadTime.read(), false)
                 .values()
                 .stream()
-                .flatMap(Collection::stream);
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
   }
 
   @Override

@@ -26,8 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
@@ -161,21 +159,19 @@ class MetricCollectorTest extends RequireBrokerCluster {
       Utils.sleep(sample.dividedBy(2));
       var untilNow = System.currentTimeMillis();
 
-      Supplier<Stream<JvmMemory>> memory = () -> collector.metrics(JvmMemory.class, 0, start);
-      Supplier<Stream<OperatingSystemInfo>> os =
+      Supplier<List<JvmMemory>> memory = () -> collector.metrics(JvmMemory.class, 0, start);
+      Supplier<List<OperatingSystemInfo>> os =
           () -> collector.metrics(OperatingSystemInfo.class, 0, start);
 
-      Assertions.assertEquals(1, memory.get().count());
-      Assertions.assertTrue(memory.get().allMatch(x -> x instanceof JvmMemory));
+      Assertions.assertEquals(1, memory.get().size());
+      Assertions.assertTrue(memory.get().stream().allMatch(x -> x instanceof JvmMemory));
       Assertions.assertTrue(
-          memory.get().findFirst().orElseThrow().createdTimestamp() < untilNow,
-          "Sampled before the next interval");
+          memory.get().get(0).createdTimestamp() < untilNow, "Sampled before the next interval");
 
-      Assertions.assertEquals(1, os.get().count());
-      Assertions.assertTrue(os.get().allMatch(x -> x instanceof OperatingSystemInfo));
+      Assertions.assertEquals(1, os.get().size());
+      Assertions.assertTrue(os.get().stream().allMatch(x -> x instanceof OperatingSystemInfo));
       Assertions.assertTrue(
-          os.get().findFirst().orElseThrow().createdTimestamp() < untilNow,
-          "Sampled before the next interval");
+          os.get().get(0).createdTimestamp() < untilNow, "Sampled before the next interval");
     }
   }
 
@@ -285,10 +281,10 @@ class MetricCollectorTest extends RequireBrokerCluster {
       collector.registerLocalJmx(0);
 
       Utils.sleep(Duration.ofMillis(1500));
-      var beforeCleaning = collector.metrics(JvmMemory.class, 0, 0).collect(Collectors.toList());
+      var beforeCleaning = collector.metrics(JvmMemory.class, 0, 0);
       Assertions.assertFalse(beforeCleaning.isEmpty(), "There are some metrics");
       Utils.sleep(Duration.ofMillis(1500));
-      var afterCleaning = collector.metrics(JvmMemory.class, 0, 0).collect(Collectors.toList());
+      var afterCleaning = collector.metrics(JvmMemory.class, 0, 0);
 
       Assertions.assertTrue(
           afterCleaning.get(0).createdTimestamp() != beforeCleaning.get(0).createdTimestamp(),
