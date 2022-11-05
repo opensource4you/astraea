@@ -80,41 +80,6 @@ class MetricCollectorTest extends RequireBrokerCluster {
     }
   }
 
-  @SuppressWarnings("ConstantConditions")
-  @Test
-  void allMetrics() {
-    var sample = Duration.ofMillis(200);
-    try (var collector = MetricCollector.builder().interval(sample).build()) {
-      collector.registerLocalJmx(0);
-      collector.registerLocalJmx(1);
-      collector.registerLocalJmx(2);
-      collector.addFetcher(memoryFetcher);
-      collector.addFetcher(osFetcher);
-
-      Utils.sleep(sample);
-      Utils.sleep(sample);
-
-      var memory = collector.allMetrics(JvmMemory.class);
-      var os = collector.allMetrics(OperatingSystemInfo.class);
-
-      Assertions.assertEquals(3, memory.keySet().size());
-      Assertions.assertTrue(memory.get(0).size() > 0, "has progress");
-      Assertions.assertTrue(memory.get(1).size() > 0, "has progress");
-      Assertions.assertTrue(memory.get(2).size() > 0, "has progress");
-      Assertions.assertTrue(memory.get(0).stream().allMatch(x -> x instanceof JvmMemory));
-      Assertions.assertTrue(memory.get(1).stream().allMatch(x -> x instanceof JvmMemory));
-      Assertions.assertTrue(memory.get(2).stream().allMatch(x -> x instanceof JvmMemory));
-
-      Assertions.assertEquals(3, os.keySet().size());
-      Assertions.assertTrue(os.get(0).size() > 0, "has progress");
-      Assertions.assertTrue(os.get(1).size() > 0, "has progress");
-      Assertions.assertTrue(os.get(2).size() > 0, "has progress");
-      Assertions.assertTrue(os.get(0).stream().allMatch(x -> x instanceof OperatingSystemInfo));
-      Assertions.assertTrue(os.get(1).stream().allMatch(x -> x instanceof OperatingSystemInfo));
-      Assertions.assertTrue(os.get(2).stream().allMatch(x -> x instanceof OperatingSystemInfo));
-    }
-  }
-
   @Test
   void clusterBean() {
     var sample = Duration.ofMillis(200);

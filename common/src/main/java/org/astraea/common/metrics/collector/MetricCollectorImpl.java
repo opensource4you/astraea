@@ -131,14 +131,6 @@ public class MetricCollectorImpl implements MetricCollector {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T extends HasBeanObject> Map<Integer, Collection<T>> allMetrics(Class<T> metricClass) {
-    return ((MetricStorage<T>)
-            storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
-        .view();
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
   public <T extends HasBeanObject> List<T> metrics(Class<T> metricClass, int identity, long since) {
     return (List<T>)
         (storages.computeIfAbsent(metricClass, (ignore) -> new MetricStorage<>(metricClass)))
@@ -310,17 +302,6 @@ public class MetricCollectorImpl implements MetricCollector {
 
     public Class<T> metricClass() {
       return theClass;
-    }
-
-    public Map<Integer, Collection<T>> view() {
-      return storage.entrySet().stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  Map.Entry::getKey,
-                  x ->
-                      x.getValue().values().stream()
-                          .flatMap(Collection::stream)
-                          .collect(Collectors.toUnmodifiableList())));
     }
   }
 
