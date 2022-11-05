@@ -232,7 +232,7 @@ class BalancerHandler implements Handler {
             .whenComplete(
                 (result, error) -> {
                   if (error != null)
-                    new RuntimeException("Failed to generate balance plan for " + newPlanId, error)
+                    new RuntimeException("Failed to generate balance plan: " + newPlanId, error)
                         .printStackTrace();
                 });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
@@ -329,8 +329,7 @@ class BalancerHandler implements Handler {
                   .whenComplete(
                       (ignore, err) -> {
                         if (err != null)
-                          new RuntimeException(
-                                  "Failed to generate balance plan for " + thePlanId, err)
+                          new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
                               .printStackTrace();
                       });
             });
