@@ -79,12 +79,12 @@ public interface MetricCollector extends AutoCloseable {
   Set<Class<? extends HasBeanObject>> listMetricTypes();
 
   /**
-   * Sampling metrics since specific moment of time.
+   * retrieve metrics since the specific moment of time.
    *
    * <p>{@link MetricCollector} keeps metrics for a specific amount of time. Reading outdated
    * metrics is considered as undefined behavior.
    *
-   * @param since sampling metrics since this moment of time. The time is measured by {@link
+   * @param since retrieve metrics since this moment of time. The time is measured by {@link
    *     System#currentTimeMillis()}.
    * @return a {@link Iterator} that returns metrics from the given time to the metrics that is
    *     ready for consume.
