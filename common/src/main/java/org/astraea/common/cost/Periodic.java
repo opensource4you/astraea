@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.astraea.common.Utils;
@@ -25,13 +26,11 @@ import org.astraea.common.Utils;
 /** Enables methods to be updated periodically, not calculated every time they are called. */
 public abstract class Periodic<Value> {
   private long lastUpdate = -1;
-  private Value value;
+  private final AtomicReference<Value> value = new AtomicReference<>();
   /** Ensure there is an old value ready for use */
   private final CountDownLatch hasValue = new CountDownLatch(1);
   /** Guarding the expiration condition check (member variable: lastUpdate) */
   private final ReentrantLock checkLock = new ReentrantLock();
-  /** Guarding the value update (member variable: value) */
-  private final ReentrantLock updateLock = new ReentrantLock();
 
   /**
    * Updates the value interval second.
@@ -45,20 +44,16 @@ public abstract class Periodic<Value> {
       if (checkLock.tryLock()) {
         if (Utils.isExpired(lastUpdate, interval)) {
           // it expired, call updater
-          final var updatedValue = updater.get();
-          updateLock.lock();
-          value = updatedValue;
+          value.set(updater.get());
           lastUpdate = currentTime();
           hasValue.countDown();
-          return value;
+          return value.get();
         }
       }
       Utils.packException(() -> hasValue.await());
-      updateLock.lock();
-      return value;
+      return value.get();
     } finally {
       if (checkLock.isHeldByCurrentThread()) checkLock.unlock();
-      updateLock.unlock();
     }
   }
 
