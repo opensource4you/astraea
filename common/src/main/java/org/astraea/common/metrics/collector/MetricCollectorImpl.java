@@ -18,7 +18,6 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,9 +43,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
@@ -151,26 +148,6 @@ public class MetricCollectorImpl implements MetricCollector {
                 .stream()
                 .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList());
-  }
-
-  @Override
-  public ClusterBean clusterBean() {
-    Map<Integer, Collection<HasBeanObject>> metrics =
-        storages.values().stream()
-            .map(x -> x.storage)
-            .map(Map::entrySet)
-            .flatMap(Collection::stream)
-            .collect(
-                Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(
-                        Map.Entry::getValue,
-                        Collectors.mapping(
-                            ConcurrentNavigableMap::values,
-                            Collectors.flatMapping(
-                                x -> (Stream<HasBeanObject>) x.stream().flatMap(y -> y.stream()),
-                                Collectors.toCollection(ArrayList::new))))));
-    return ClusterBean.of(metrics);
   }
 
   /** Store the metrics into the storage of specific identity */

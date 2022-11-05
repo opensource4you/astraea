@@ -20,8 +20,10 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
@@ -92,7 +94,21 @@ public interface MetricCollector extends AutoCloseable {
   /**
    * @return the {@link ClusterBean}.
    */
-  ClusterBean clusterBean();
+  default ClusterBean clusterBean() {
+    var metricClasses = listMetricTypes();
+    Map<Integer, Collection<HasBeanObject>> metrics =
+        listIdentities().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    broker -> broker,
+                    broker ->
+                        metricClasses.stream()
+                            .map(mClass -> metrics(mClass, broker, 0))
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toUnmodifiableSet())));
+
+    return ClusterBean.of(metrics);
+  }
 
   @Override
   void close();
