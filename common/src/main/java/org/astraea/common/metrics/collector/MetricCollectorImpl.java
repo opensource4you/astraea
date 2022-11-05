@@ -56,7 +56,8 @@ public class MetricCollectorImpl implements MetricCollector {
   private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers;
   private final Duration expiration;
   private final Duration interval;
-  private final Map<Class<?>, MetricStorage<?>> storages;
+  private final Map<Class<? extends HasBeanObject>, MetricStorage<? extends HasBeanObject>>
+      storages;
   private final ScheduledExecutorService executorService;
   private final DelayQueue<DelayedIdentity> delayedWorks;
   private final ThreadTimeHighWatermark threadTime;
@@ -117,6 +118,11 @@ public class MetricCollectorImpl implements MetricCollector {
     return mBeanClients.keySet();
   }
 
+  @Override
+  public Set<Class<? extends HasBeanObject>> listMetricTypes() {
+    return storages.keySet();
+  }
+
   @SuppressWarnings("resource")
   private void registerJmx(
       int identity, Supplier<MBeanClient> clientSupplier, Supplier<String> errorMessage) {
@@ -145,15 +151,6 @@ public class MetricCollectorImpl implements MetricCollector {
                 .stream()
                 .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList());
-  }
-
-  @Override
-  public long storageSize(int identity) {
-    return storages.values().stream()
-        .map(x -> x.storage.getOrDefault(identity, null))
-        .filter(Objects::nonNull)
-        .mapToLong(ConcurrentNavigableMap::size)
-        .sum();
   }
 
   @Override

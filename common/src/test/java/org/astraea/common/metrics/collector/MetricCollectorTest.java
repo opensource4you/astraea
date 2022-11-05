@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,8 +39,6 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
@@ -77,6 +76,21 @@ class MetricCollectorTest extends RequireBrokerCluster {
           IllegalArgumentException.class,
           () -> collector.registerLocalJmx(-1),
           "The id -1 is already registered");
+    }
+  }
+
+  @Test
+  void testListMetricTypes() {
+    var sample = Duration.ofMillis(100);
+    try (var collector = MetricCollector.builder().interval(sample).build()) {
+      collector.addFetcher(memoryFetcher);
+      collector.addFetcher(osFetcher);
+      collector.registerLocalJmx(0);
+
+      Utils.sleep(sample);
+
+      Assertions.assertEquals(
+          Set.of(JvmMemory.class, OperatingSystemInfo.class), collector.listMetricTypes());
     }
   }
 
@@ -137,21 +151,6 @@ class MetricCollectorTest extends RequireBrokerCluster {
       Assertions.assertTrue(os.get().stream().allMatch(x -> x instanceof OperatingSystemInfo));
       Assertions.assertTrue(
           os.get().get(0).createdTimestamp() < untilNow, "Sampled before the next interval");
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {100, 200, 500, 1000})
-  void storageSize(int sampleInterval) {
-    try (var collector =
-        MetricCollector.builder().interval(Duration.ofMillis(sampleInterval)).build()) {
-      collector.addFetcher(memoryFetcher);
-      collector.registerLocalJmx(-1);
-
-      Utils.sleep(Duration.ofMillis(sampleInterval));
-      Utils.sleep(Duration.ofMillis(sampleInterval));
-
-      Assertions.assertTrue(collector.storageSize(-1) > 0, "There are some metrics");
     }
   }
 

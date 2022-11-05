@@ -72,6 +72,11 @@ public interface MetricCollector extends AutoCloseable {
   Set<Integer> listIdentities();
 
   /**
+   * @return the type of metrics has been sampled so far.
+   */
+  Set<Class<? extends HasBeanObject>> listMetricTypes();
+
+  /**
    * Sampling metrics since specific moment of time.
    *
    * <p>{@link MetricCollector} keeps metrics for a specific amount of time. Reading outdated
@@ -83,16 +88,6 @@ public interface MetricCollector extends AutoCloseable {
    *     ready for consume.
    */
   <T extends HasBeanObject> List<T> metrics(Class<T> metricClass, int identity, long since);
-
-  /**
-   * Look up the metric count of specific identity's storage. This method offer no concurrency
-   * guarantee for the number it return. Since the number of item is a moving target. Trace such
-   * information might be expensive and meaningless. The initial motivation behind this method is:
-   * offer a way to let user know the metrics just updated.
-   *
-   * @return the number of metrics store in specific identity's storage
-   */
-  long storageSize(int identity);
 
   /**
    * @return the {@link ClusterBean}.

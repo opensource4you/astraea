@@ -173,8 +173,13 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
                             InetSocketAddress.createUnresolved(
                                 p.nodeInfo().host(), jmxPort(p.nodeInfo().id())));
                         metricCollector.addFetcher(fetcher);
-                        while (metricCollector.storageSize(p.nodeInfo().id()) == 0) {
-                          // Wait until the initial value of metrics is exists.
+
+                        // Wait until the initial value of metrics is exists.
+                        while (metricCollector.listMetricTypes().stream()
+                                .map(x -> metricCollector.metrics(x, p.nodeInfo().id(), 0))
+                                .mapToInt(List::size)
+                                .sum()
+                            == 0) {
                           Utils.sleep(Duration.ofMillis(5));
                         }
                       });
