@@ -208,7 +208,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testMapKeyInOrder() {
+  void testSerializeMapEquals() {
     var jsonConverter = getConverter();
     assertEquals("{\"a\":\"b\",\"c\":\"d\"}", jsonConverter.toJson(Map.of("a", "b", "c", "d")));
     assertEquals("{\"a\":\"b\",\"c\":\"d\"}", jsonConverter.toJson(Map.of("c", "d", "a", "b")));
