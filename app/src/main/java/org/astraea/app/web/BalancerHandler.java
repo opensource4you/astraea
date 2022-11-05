@@ -47,7 +47,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
-import org.astraea.common.balancer.algorithms.SingleStepBalancer;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.Configuration;
@@ -68,8 +68,13 @@ class BalancerHandler implements Handler {
 
   static final String COST_WEIGHT_KEY = "costWeights";
 
+  static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
+
+  static final String BALANCER_CONFIGURATION_KEY = "balancer-config";
+
   static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
+  static final Class<? extends Balancer> BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class;
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
@@ -128,78 +133,108 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
+
+    var balancerConfig =
+        channel
+            .request()
+            .get(BALANCER_CONFIGURATION_KEY, Map.class)
+            .map(Configuration::of)
+            .orElse(Configuration.of(Map.of()));
+    @SuppressWarnings("unchecked")
+    var balancerClass =
+        channel.request().get(BALANCER_IMPLEMENTATION_KEY).stream()
+            .map(
+                classpath -> {
+                  var theClass = Utils.packException(() -> Class.forName(classpath));
+                  if (Balancer.class.isAssignableFrom(theClass)) return (Class<Balancer>) theClass;
+                  else
+                    throw new IllegalArgumentException(
+                        "Given class is not a balancer: " + theClass.getName());
+                })
+            .findFirst()
+            .orElse((Class<Balancer>) BALANCER_IMPLEMENTATION_DEFAULT);
+
     var clusterCostFunction = getClusterCost(channel);
     var planGeneration =
         FutureUtils.combine(
-            admin.topicNames(false).thenCompose(admin::clusterInfo),
-            admin.brokerFolders(),
-            (currentClusterInfo, brokerFolders) -> {
-              var timeout =
-                  channel
-                      .request()
-                      .get(TIMEOUT_KEY)
-                      .map(DurationField::toDuration)
-                      .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
-              var topics =
-                  channel
-                      .request()
-                      .get(TOPICS_KEY)
-                      .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-                      .orElseGet(currentClusterInfo::topics);
-              var cost =
-                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-              var loop =
-                  Integer.parseInt(
-                      channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
-              var bestPlan =
-                  Balancer.create(
-                          SingleStepBalancer.class,
-                          AlgorithmConfig.builder()
-                              .clusterCost(clusterCostFunction)
-                              .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-                              .topicFilter(topics::contains)
-                              .limit(loop)
-                              .limit(timeout)
-                              .build())
-                      .offer(currentClusterInfo, brokerFolders);
-              var changes =
-                  bestPlan
-                      .map(
-                          p ->
-                              ClusterInfo.findNonFulfilledAllocation(
-                                      currentClusterInfo, p.proposal())
-                                  .stream()
-                                  .map(
-                                      tp ->
-                                          new Change(
-                                              tp.topic(),
-                                              tp.partition(),
-                                              // only log the size from source replicas
-                                              currentClusterInfo.replicas(tp).stream()
-                                                  .map(r -> new Placement(r, r.size()))
-                                                  .collect(Collectors.toList()),
-                                              p.proposal().replicas(tp).stream()
-                                                  .map(r -> new Placement(r, null))
-                                                  .collect(Collectors.toList())))
-                                  .collect(Collectors.toUnmodifiableList()))
-                      .orElse(List.of());
-              var report =
-                  new Report(
-                      newPlanId,
-                      cost,
-                      bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                      loop,
-                      clusterCostFunction.getClass().getSimpleName(),
-                      changes,
+                admin.topicNames(false).thenCompose(admin::clusterInfo),
+                admin.brokerFolders(),
+                (currentClusterInfo, brokerFolders) -> {
+                  var timeout =
+                      channel
+                          .request()
+                          .get(TIMEOUT_KEY)
+                          .map(DurationField::toDuration)
+                          .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+                  var topics =
+                      channel
+                          .request()
+                          .get(TOPICS_KEY)
+                          .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
+                          .orElseGet(currentClusterInfo::topics);
+                  var cost =
+                      clusterCostFunction
+                          .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
+                          .value();
+                  var loop =
+                      Integer.parseInt(
+                          channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
+                  var bestPlan =
+                      Balancer.create(
+                              balancerClass,
+                              AlgorithmConfig.builder()
+                                  .clusterCost(clusterCostFunction)
+                                  .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+                                  .topicFilter(topics::contains)
+                                  .limit(loop)
+                                  .limit(timeout)
+                                  .config(balancerConfig)
+                                  .build())
+                          .offer(currentClusterInfo, brokerFolders);
+                  var changes =
                       bestPlan
                           .map(
                               p ->
-                                  p.moveCost().stream()
-                                      .map(MigrationCost::new)
-                                      .collect(Collectors.toList()))
-                          .orElseGet(List::of));
-              return new PlanInfo(report, bestPlan);
-            });
+                                  ClusterInfo.findNonFulfilledAllocation(
+                                          currentClusterInfo, p.proposal())
+                                      .stream()
+                                      .map(
+                                          tp ->
+                                              new Change(
+                                                  tp.topic(),
+                                                  tp.partition(),
+                                                  // only log the size from source replicas
+                                                  currentClusterInfo.replicas(tp).stream()
+                                                      .map(r -> new Placement(r, r.size()))
+                                                      .collect(Collectors.toList()),
+                                                  p.proposal().replicas(tp).stream()
+                                                      .map(r -> new Placement(r, null))
+                                                      .collect(Collectors.toList())))
+                                      .collect(Collectors.toUnmodifiableList()))
+                          .orElse(List.of());
+                  var report =
+                      new Report(
+                          newPlanId,
+                          cost,
+                          bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+                          loop,
+                          clusterCostFunction.getClass().getSimpleName(),
+                          changes,
+                          bestPlan
+                              .map(
+                                  p ->
+                                      p.moveCost().stream()
+                                          .map(MigrationCost::new)
+                                          .collect(Collectors.toList()))
+                              .orElseGet(List::of));
+                  return new PlanInfo(report, bestPlan);
+                })
+            .whenComplete(
+                (result, error) -> {
+                  if (error != null)
+                    new RuntimeException("Failed to generate balance plan for " + newPlanId, error)
+                        .printStackTrace();
+                });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
@@ -293,7 +328,10 @@ class BalancerHandler implements Handler {
                   .thenApply(x -> (Response) x)
                   .whenComplete(
                       (ignore, err) -> {
-                        if (err != null) err.printStackTrace();
+                        if (err != null)
+                          new RuntimeException(
+                                  "Failed to generate balance plan for " + thePlanId, err)
+                              .printStackTrace();
                       });
             });
   }

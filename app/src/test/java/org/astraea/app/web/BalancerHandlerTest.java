@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -823,6 +826,52 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
+  @Test
+  @Timeout(value = 60)
+  void testCustomBalancer() {
+    var topics = createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler = new BalancerHandler(admin, new StraightPlanExecutor());
+      var balancer = SpyBalancer.class.getName();
+      var balancerConfig =
+          Map.of(
+              "key0", "value0",
+              "key1", "value1",
+              "key2", "value2");
+
+      var newInvoked = new AtomicBoolean(false);
+      var offerInvoked = new AtomicBoolean(false);
+      SpyBalancer.offerCallbacks.add(() -> offerInvoked.set(true));
+      SpyBalancer.newCallbacks.add(
+          (algorithmConfig) -> {
+            Assertions.assertEquals(
+                "value0", algorithmConfig.algorithmConfig().requireString("key0"));
+            Assertions.assertEquals(
+                "value1", algorithmConfig.algorithmConfig().requireString("key1"));
+            Assertions.assertEquals(
+                "value2", algorithmConfig.algorithmConfig().requireString("key2"));
+            newInvoked.set(true);
+          });
+
+      var progress =
+          submitPlanGeneration(
+              handler,
+              Map.of(
+                  BalancerHandler.BALANCER_IMPLEMENTATION_KEY,
+                  balancer,
+                  BalancerHandler.BALANCER_CONFIGURATION_KEY,
+                  new Gson().toJson(balancerConfig),
+                  BalancerHandler.COST_WEIGHT_KEY,
+                  defaultDecreasing,
+                  BalancerHandler.TOPICS_KEY,
+                  String.join(",", topics)));
+
+      Assertions.assertTrue(progress.generated, "The plan has been generated");
+      Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
+      Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
+    }
+  }
+
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, Map<String, Object> requestBody) {
@@ -876,6 +925,27 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       double theCost = value0;
       value0 = value0 * 0.998;
       return () -> theCost;
+    }
+  }
+
+  public static class SpyBalancer extends SingleStepBalancer {
+
+    public static List<Consumer<AlgorithmConfig>> newCallbacks =
+        Collections.synchronizedList(new ArrayList<>());
+    public static List<Runnable> offerCallbacks = Collections.synchronizedList(new ArrayList<>());
+
+    public SpyBalancer(AlgorithmConfig algorithmConfig) {
+      super(algorithmConfig);
+      newCallbacks.forEach(c -> c.accept(algorithmConfig));
+      newCallbacks.clear();
+    }
+
+    @Override
+    public Optional<Plan> offer(
+        ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+      offerCallbacks.forEach(Runnable::run);
+      offerCallbacks.clear();
+      return super.offer(currentClusterInfo, brokerFolders);
     }
   }
 }
