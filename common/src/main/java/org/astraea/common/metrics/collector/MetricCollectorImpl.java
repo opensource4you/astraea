@@ -189,10 +189,13 @@ public class MetricCollectorImpl implements MetricCollector {
                       return Collections.<HasBeanObject>emptyList();
                     }
                   })
-              // Intentional sleep, do not remove
-              .peek(i -> Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(1)))
-              .peek(i -> threadTime.update(threadId, System.currentTimeMillis()))
-              .forEach(metrics -> store(id, metrics));
+              .peek(metrics -> store(id, metrics))
+              .forEach(
+                  i -> {
+                    // Intentional sleep, do not remove
+                    Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(1));
+                    threadTime.update(threadId, System.currentTimeMillis());
+                  });
         } catch (RuntimeException e) {
           if (e.getCause() instanceof InterruptedException)
             // swallow the interrupt exception and exit immediately
