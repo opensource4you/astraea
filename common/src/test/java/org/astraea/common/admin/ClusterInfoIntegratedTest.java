@@ -54,18 +54,19 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
               tp ->
                   tp.equals(TopicPartition.of(topicName, 0))
                       ? Set.of(
-                          Replica.of(
-                              topicName,
-                              0,
-                              NodeInfo.of(newBrokerId, "", -1),
-                              0,
-                              randomSizeValue,
-                              true,
-                              true,
-                              false,
-                              false,
-                              true,
-                              replica.path()))
+                          Replica.builder()
+                              .topic(topicName)
+                              .partition(0)
+                              .nodeInfo(NodeInfo.of(newBrokerId, "", -1))
+                              .lag(0)
+                              .size(randomSizeValue)
+                              .isLeader(true)
+                              .inSync(true)
+                              .isFuture(false)
+                              .isOffline(false)
+                              .isPreferredLeader(true)
+                              .path(replica.path())
+                              .build())
                       : Set.of());
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());

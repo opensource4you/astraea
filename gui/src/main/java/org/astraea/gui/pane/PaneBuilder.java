@@ -147,7 +147,12 @@ public class PaneBuilder {
                                 () ->
                                     root.getChildren().add(indexOfTableViewer + 1, secondControl));
                           tableViewer.data(data);
-                        }
+                        } else
+                          Platform.runLater(
+                              () -> {
+                                root.getChildren().remove(tableViewer.node());
+                                if (secondControl != null) root.getChildren().remove(secondControl);
+                              });
                         console.text(e);
                       } catch (Exception e2) {
                         console.text(e2);
