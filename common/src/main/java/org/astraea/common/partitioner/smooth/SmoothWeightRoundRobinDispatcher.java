@@ -18,7 +18,6 @@ package org.astraea.common.partitioner.smooth;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -28,8 +27,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -37,16 +38,13 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.NeutralIntegratedCost;
-import org.astraea.common.cost.Periodic;
-import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.BeanCollector;
 import org.astraea.common.metrics.collector.Receiver;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.partitioner.PartitionerUtils;
 
-public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Double>>
-    implements Dispatcher {
+public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final ConcurrentMap<String, BrokerNextCounter> topicCounter = new ConcurrentHashMap<>();
   private final BeanCollector beanCollector =
@@ -61,11 +59,10 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
 
   private final Map<Integer, List<Integer>> hasPartitions = new TreeMap<>();
 
-  private SmoothWeightRoundRobin smoothWeightRoundRobinCal;
+  private final Lazy<SmoothWeightRoundRobin> smoothWeightRoundRobinCal = Lazy.of();
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
-  private Map<Integer, Collection<HasBeanObject>> beans;
   private List<ReplicaInfo> partitions;
 
   public static final String JMX_PORT = "jmx.port";
@@ -74,24 +71,16 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
   public int partition(
       String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
-    tryUpdateAfterOneSecond(
+    refreshPartitionMetaData(clusterInfo, topic);
+    Supplier<Map<Integer, Double>> supplier =
         () -> {
-          refreshPartitionMetaData(clusterInfo, topic);
           // fetch the latest beans for each node
-          beans =
+          var beans =
               receivers.entrySet().stream()
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().current()));
 
-          var compoundScore =
-              neutralIntegratedCost.brokerCost(clusterInfo, ClusterBean.of(beans)).value();
-
-          if (smoothWeightRoundRobinCal == null) {
-            smoothWeightRoundRobinCal = new SmoothWeightRoundRobin(compoundScore);
-          }
-          smoothWeightRoundRobinCal.init(compoundScore);
-
-          return compoundScore;
-        });
+          return neutralIntegratedCost.brokerCost(clusterInfo, ClusterBean.of(beans)).value();
+        };
     // just return first partition if there is no available partitions
     if (partitions.isEmpty()) return 0;
 
@@ -99,7 +88,9 @@ public class SmoothWeightRoundRobinDispatcher extends Periodic<Map<Integer, Doub
     if (partitions.size() == 1) return partitions.iterator().next().partition();
 
     if (targetPartition == null) {
-      var targetBroker = smoothWeightRoundRobinCal.getAndChoose(topic, clusterInfo);
+      var smooth = smoothWeightRoundRobinCal.get(() -> new SmoothWeightRoundRobin(supplier.get()));
+      smooth.init(supplier);
+      var targetBroker = smooth.getAndChoose(topic, clusterInfo);
       targetPartition =
           hasPartitions
               .get(targetBroker)

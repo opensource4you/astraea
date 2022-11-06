@@ -28,7 +28,7 @@ import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HasJvmMemory;
 import org.astraea.common.metrics.platform.HostMetrics;
 
-public class MemoryCost extends Periodic<Map<Integer, Double>> implements HasBrokerCost {
+public class MemoryCost implements HasBrokerCost {
 
   /**
    * The result is computed by "HasJvmMemory.getUsed/getMax". "HasJvmMemory.getUsed/getMax" responds

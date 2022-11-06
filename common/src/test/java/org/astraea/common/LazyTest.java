@@ -16,6 +16,7 @@
  */
 package org.astraea.common;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -24,6 +25,28 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class LazyTest {
+
+  @Test
+  void testGetWithoutNoDefaultSupplier() {
+    var lazy = Lazy.of();
+    Assertions.assertThrows(NullPointerException.class, lazy::get);
+  }
+
+  @Test
+  void testGetWithNllSupplier() {
+    var lazy = Lazy.of();
+    Assertions.assertThrows(NullPointerException.class, () -> lazy.get(null));
+  }
+
+  @Test
+  void testPeriod() {
+    var lazy = Lazy.of(() -> true);
+    Assertions.assertTrue(lazy.get());
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertFalse(lazy.get(() -> false, Duration.ofSeconds(1)));
+    Assertions.assertFalse(lazy.get());
+    Assertions.assertFalse(lazy.get(() -> true));
+  }
 
   @Test
   void testCountOfGet() {
