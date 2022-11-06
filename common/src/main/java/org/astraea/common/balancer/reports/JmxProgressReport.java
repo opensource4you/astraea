@@ -19,7 +19,6 @@ package org.astraea.common.balancer.reports;
 import java.lang.management.ManagementFactory;
 import java.util.Hashtable;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import javax.management.ObjectName;
@@ -52,7 +51,6 @@ public class JmxProgressReport implements BalancerProgressReport, AutoCloseable 
   public void iteration(long time, double clusterCost) {
     balancerExecution.iterationCount.increment();
     balancerExecution.minScore.accumulate(Double.doubleToRawLongBits(clusterCost));
-    balancerExecution.recentScore.set(Double.doubleToLongBits(clusterCost));
   }
 
   @Override
@@ -71,13 +69,11 @@ public class JmxProgressReport implements BalancerProgressReport, AutoCloseable 
 
     private final LongAdder iterationCount;
     private final LongAccumulator minScore;
-    private final AtomicLong recentScore;
 
     public BalancerExecution() {
       this.iterationCount = new LongAdder();
       this.minScore =
           new LongAccumulator(this::compareDouble, Double.doubleToRawLongBits(Double.NaN));
-      this.recentScore = new AtomicLong(Double.doubleToRawLongBits(Double.NaN));
     }
 
     private long compareDouble(long lhs, long rhs) {
