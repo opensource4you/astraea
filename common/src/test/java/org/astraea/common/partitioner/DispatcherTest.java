@@ -97,7 +97,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 
-  @RepeatedTest(1000)
+  @RepeatedTest(5)
   void multipleThreadTest() {
     var topicName = "address";
     createTopic(topicName);
@@ -252,6 +252,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
+    // TODO: add smooth dispatch to this test
     props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, StrictCostDispatcher.class.getName());
     props.put("producerID", 1);
     var file =
