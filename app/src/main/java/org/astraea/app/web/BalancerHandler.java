@@ -74,7 +74,7 @@ class BalancerHandler implements Handler {
 
   static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
-  static final Class<? extends Balancer> BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class;
+  static final String BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class.getName();
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
@@ -133,33 +133,23 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
-
-    var balancerConfig =
-        channel
-            .request()
-            .get(BALANCER_CONFIGURATION_KEY, Map.class)
-            .map(Configuration::of)
-            .orElse(Configuration.of(Map.of()));
-    @SuppressWarnings("unchecked")
-    var balancerClass =
-        channel.request().get(BALANCER_IMPLEMENTATION_KEY).stream()
-            .map(
-                classpath -> {
-                  var theClass = Utils.packException(() -> Class.forName(classpath));
-                  if (Balancer.class.isAssignableFrom(theClass)) return (Class<Balancer>) theClass;
-                  else
-                    throw new IllegalArgumentException(
-                        "Given class is not a balancer: " + theClass.getName());
-                })
-            .findFirst()
-            .orElse((Class<Balancer>) BALANCER_IMPLEMENTATION_DEFAULT);
-
     var clusterCostFunction = getClusterCost(channel);
     var planGeneration =
         FutureUtils.combine(
                 admin.topicNames(false).thenCompose(admin::clusterInfo),
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
+                  var balancerConfig =
+                      channel
+                          .request()
+                          .get(BALANCER_CONFIGURATION_KEY, Map.class)
+                          .map(Configuration::of)
+                          .orElse(Configuration.of(Map.of()));
+                  var balancerClasspath =
+                      channel
+                          .request()
+                          .get(BALANCER_IMPLEMENTATION_KEY)
+                          .orElse(BALANCER_IMPLEMENTATION_DEFAULT);
                   var timeout =
                       channel
                           .request()
@@ -181,7 +171,7 @@ class BalancerHandler implements Handler {
                           channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
                   var bestPlan =
                       Balancer.create(
-                              balancerClass,
+                              balancerClasspath,
                               AlgorithmConfig.builder()
                                   .clusterCost(clusterCostFunction)
                                   .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
