@@ -46,7 +46,6 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -313,7 +312,7 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  @RepeatedTest(1000)
+  @Test
   void testMoveLeaderBroker() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {
