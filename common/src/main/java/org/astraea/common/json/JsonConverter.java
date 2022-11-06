@@ -45,9 +45,11 @@ public interface JsonConverter {
         JsonMapper.builder()
             .addModule(new Jdk8Module())
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+            // sort map keys
             .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            // sort object properties
             .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
             .visibility(new Std(JsonAutoDetect.Visibility.NONE).with(JsonAutoDetect.Visibility.ANY))
             .serializationInclusion(Include.NON_EMPTY)
