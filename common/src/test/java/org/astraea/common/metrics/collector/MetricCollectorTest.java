@@ -128,10 +128,11 @@ class MetricCollectorTest extends RequireBrokerCluster {
   @SuppressWarnings("ConstantConditions")
   @RepeatedTest(10)
   void metrics() {
-    var sample = Duration.ofMillis(300);
+    var sample = Duration.ofMillis(1000);
     try (var collector = MetricCollector.builder().interval(sample).build()) {
-      collector.addFetcher(memoryFetcher);
-      collector.addFetcher(osFetcher);
+      collector.addFetcher(
+          memoryFetcher, (id, err) -> Assertions.assertNull(err, err.getMessage()));
+      collector.addFetcher(osFetcher, (id, err) -> Assertions.assertNull(err, err.getMessage()));
       collector.registerLocalJmx(0);
 
       var start = System.currentTimeMillis();
@@ -145,12 +146,20 @@ class MetricCollectorTest extends RequireBrokerCluster {
       Assertions.assertEquals(1, memory.get().size());
       Assertions.assertTrue(memory.get().stream().allMatch(x -> x instanceof JvmMemory));
       Assertions.assertTrue(
-          memory.get().get(0).createdTimestamp() < untilNow, "Sampled before the next interval");
+          memory.get().get(0).createdTimestamp() < untilNow,
+          "Sampled before the next interval: "
+              + memory.get().get(0).createdTimestamp()
+              + " < "
+              + untilNow);
 
       Assertions.assertEquals(1, os.get().size());
       Assertions.assertTrue(os.get().stream().allMatch(x -> x instanceof OperatingSystemInfo));
       Assertions.assertTrue(
-          os.get().get(0).createdTimestamp() < untilNow, "Sampled before the next interval");
+          os.get().get(0).createdTimestamp() < untilNow,
+          "Sampled before the next interval: "
+              + os.get().get(0).createdTimestamp()
+              + " < "
+              + untilNow);
     }
   }
 
