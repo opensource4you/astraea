@@ -81,7 +81,7 @@ public interface Lazy<T> {
    * the object will get created when this the creation condition is reached.
    *
    * @param supplier to update internal value. it can't be null
-   * @timeout
+   * @param timeout to update current value even if it is not null
    * @return object
    */
   T get(Supplier<T> supplier, Duration timeout);
