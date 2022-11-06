@@ -55,7 +55,5 @@ public interface BalancerProgressReport {
   /** a {@link BalancerProgressReport} that does nothing whichever function gets called. */
   BalancerProgressReport EMPTY = new BalancerProgressReport() {};
 
-  // TODO: Add test to ensure all method returns void.
-
   default void cost(long time, double value) {}
 }
