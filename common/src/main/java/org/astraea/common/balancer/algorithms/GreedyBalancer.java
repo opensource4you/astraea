@@ -28,6 +28,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerProgressReport;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
@@ -79,7 +80,9 @@ public class GreedyBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+      ClusterInfo<Replica> currentClusterInfo,
+      Map<Integer, Set<String>> brokerFolders,
+      BalancerProgressReport progressReport) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -108,6 +111,9 @@ public class GreedyBalancer implements Balancer {
                     })
                 .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
+                .peek(
+                    plan ->
+                        progressReport.cost(System.currentTimeMillis(), plan.clusterCost().value()))
                 .findFirst();
     var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
     var currentAllocation =

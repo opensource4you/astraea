@@ -26,6 +26,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerProgressReport;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
@@ -73,7 +74,9 @@ public class SingleStepBalancer implements Balancer {
 
   @Override
   public Optional<Balancer.Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+      ClusterInfo<Replica> currentClusterInfo,
+      Map<Integer, Set<String>> brokerFolders,
+      BalancerProgressReport progressReport) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -102,7 +105,7 @@ public class SingleStepBalancer implements Balancer {
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .peek(plan -> config.algorithmConfig())
+        .peek(plan -> progressReport.cost(System.currentTimeMillis(), plan.clusterCost().value()))
         .min(Comparator.comparing(plan -> plan.clusterCost().value()));
   }
 }

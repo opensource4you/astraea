@@ -36,8 +36,18 @@ public interface Balancer {
   /**
    * @return a rebalance plan
    */
+  default Optional<Plan> offer(
+      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+    return offer(currentClusterInfo, brokerFolders, BalancerProgressReport.EMPTY);
+  }
+
+  /**
+   * @return a rebalance plan
+   */
   Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
+      ClusterInfo<Replica> currentClusterInfo,
+      Map<Integer, Set<String>> brokerFolders,
+      BalancerProgressReport progressReport);
 
   /**
    * Initialize an instance of specific Balancer implementation
