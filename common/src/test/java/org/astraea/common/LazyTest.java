@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,30 @@ public class LazyTest {
         .mapToObj(
             ignored -> CompletableFuture.runAsync(() -> Assertions.assertEquals("ss", lazy.get())))
         .forEach(CompletableFuture::join);
+    Assertions.assertEquals(1, count.get());
+  }
+
+  @Test
+  void testMultiThreadsWithPeriod() {
+    var count = new AtomicInteger();
+    var lazy = Lazy.of(() -> 10);
+    Utils.sleep(Duration.ofSeconds(3));
+    // only one thread can update value
+    var fs =
+        IntStream.range(0, 10)
+            .mapToObj(
+                index ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          lazy.get(
+                              () -> {
+                                count.incrementAndGet();
+                                return index;
+                              },
+                              Duration.ofSeconds(2));
+                        }))
+            .collect(Collectors.toList());
+    fs.forEach(CompletableFuture::join);
     Assertions.assertEquals(1, count.get());
   }
 }
