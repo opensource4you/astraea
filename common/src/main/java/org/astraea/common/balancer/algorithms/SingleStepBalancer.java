@@ -26,8 +26,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.BalancerProgressReport;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.balancer.reports.BalancerProgressReport;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
@@ -105,7 +105,9 @@ public class SingleStepBalancer implements Balancer {
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .peek(plan -> progressReport.cost(System.currentTimeMillis(), plan.clusterCost().value()))
+        .peek(
+            plan ->
+                progressReport.iteration(System.currentTimeMillis(), plan.clusterCost().value()))
         .min(Comparator.comparing(plan -> plan.clusterCost().value()));
   }
 }

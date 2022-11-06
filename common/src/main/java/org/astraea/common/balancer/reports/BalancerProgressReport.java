@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer;
+package org.astraea.common.balancer.reports;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * implementation of {@link BalancerProgressReport} should fill in the action to perform when the
  * specific event is triggered. Maybe write the value to a file or publish this result via JMX
  * Mbeans. If there are multiple {@link BalancerProgressReport} a balancer has to react to, consider
- * use {@link BalancerProgressReport#merge(Collection)} to compose multiple reporter into one.
+ * use {@link BalancerProgressReport#merge(Collection)} to compose multiple reporters into one.
  *
  * <p>All the method implementation should be thread-safe.
  */
@@ -46,8 +46,8 @@ public interface BalancerProgressReport {
 
     return new BalancerProgressReport() {
       @Override
-      public void cost(long time, double value) {
-        defensiveCopy.forEach(r -> r.cost(time, value));
+      public void iteration(long time, double clusterCost) {
+        defensiveCopy.forEach(r -> r.iteration(time, clusterCost));
       }
     };
   }
@@ -55,5 +55,22 @@ public interface BalancerProgressReport {
   /** a {@link BalancerProgressReport} that does nothing whichever function gets called. */
   BalancerProgressReport EMPTY = new BalancerProgressReport() {};
 
-  default void cost(long time, double value) {}
+  /**
+   * Notify that iteration result of the algorithm, it calculated a new allocation with a specific
+   * cluster cost score on it.
+   *
+   * <p>Since this method will expose the intermediate result of the algorithm. The definition of
+   * what allocation can be considered as an intermediate result is up to the implementation detail
+   * to decide. This might lead us to that we can't effectively compare the score behavior expressed
+   * by two different algorithms. For example: For Hill-Climb Algorithm, each step it moves can be
+   * considered as a new allocation. But with Genetic Algorithm, we might have many allocations on
+   * hand, we perform some operation on the population can generate another set of population. At
+   * this point we have many feasible allocations here. Should Genetic Algorithm publish every
+   * individual in the population or just the best individual? It is all up to the implementation to
+   * decide. The person who evaluates those numbers must be aware of this pitfall.
+   *
+   * @param time when does this iteration finished, measured as {@link System#currentTimeMillis()}
+   * @param clusterCost the cluster cost published by this iteration.
+   */
+  default void iteration(long time, double clusterCost) {}
 }

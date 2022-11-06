@@ -28,6 +28,7 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.balancer.reports.BalancerProgressReport;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 

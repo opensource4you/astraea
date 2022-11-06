@@ -28,8 +28,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.BalancerProgressReport;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.balancer.reports.BalancerProgressReport;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
 
@@ -113,7 +113,8 @@ public class GreedyBalancer implements Balancer {
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .peek(
                     plan ->
-                        progressReport.cost(System.currentTimeMillis(), plan.clusterCost().value()))
+                        progressReport.iteration(
+                            System.currentTimeMillis(), plan.clusterCost().value()))
                 .findFirst();
     var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
     var currentAllocation =

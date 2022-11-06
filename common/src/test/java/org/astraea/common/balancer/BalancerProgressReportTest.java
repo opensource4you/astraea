@@ -27,6 +27,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
+import org.astraea.common.balancer.reports.BalancerProgressReport;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
@@ -73,8 +74,8 @@ class BalancerProgressReportTest extends RequireBrokerCluster {
       var reporter =
           new BalancerProgressReport() {
             @Override
-            public void cost(long time, double value) {
-              System.out.println(time + ": " + value);
+            public void iteration(long time, double clusterCost) {
+              System.out.println(time + ": " + clusterCost);
               invoked.increment();
             }
           };
