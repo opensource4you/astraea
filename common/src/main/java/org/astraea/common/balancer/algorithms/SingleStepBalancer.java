@@ -102,6 +102,7 @@ public class SingleStepBalancer implements Balancer {
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
+        .peek(plan -> config.algorithmConfig())
         .min(Comparator.comparing(plan -> plan.clusterCost().value()));
   }
 }
