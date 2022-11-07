@@ -32,7 +32,6 @@ import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
-import org.astraea.common.metrics.stats.SetDifference;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -142,19 +141,16 @@ public interface TrackerThread extends AbstractThread {
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
         var clientId = report.clientId();
-        var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
-        var partitionDifferenceSensor =
+        var partitionSensor =
             ConsumerThread.CLIENT_ID_PARTITION_SENSOR.getOrDefault(clientId, null);
 
-        if (ms.isPresent() && partitionDifferenceSensor != null) {
-          var partitionDifference =
-              (SetDifference.Result) partitionDifferenceSensor.measure("set difference").measure();
+        if (partitionSensor != null) {
           System.out.printf(
               "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
               i,
-              partitionDifference.currentSize(),
-              partitionDifference.increasedNum(),
-              partitionDifference.unchangedNum());
+              ConsumerThread.CLIENT_ID_PARTITION.get(clientId).size(),
+              (int) partitionSensor.measure("set increased").measure(),
+              (int) partitionSensor.measure("set size").measure());
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",

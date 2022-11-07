@@ -34,7 +34,6 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
-import org.astraea.common.metrics.stats.SetDifference;
 
 public enum ReportFormat implements EnumInfo {
   CSV("csv"),
@@ -213,12 +212,11 @@ public enum ReportFormat implements EnumInfo {
                       "Consumer[" + i + "] partition difference",
                       () ->
                           Integer.toString(
-                              ((SetDifference.Result)
-                                      ConsumerThread.CLIENT_ID_PARTITION_SENSOR
-                                          .get(consumerReports.get(i).clientId())
-                                          .measure("set difference")
-                                          .measure())
-                                  .increasedNum())));
+                              (int)
+                                  ConsumerThread.CLIENT_ID_PARTITION_SENSOR
+                                      .get(consumerReports.get(i).clientId())
+                                      .measure("set size")
+                                      .measure())));
             });
     return elements;
   }

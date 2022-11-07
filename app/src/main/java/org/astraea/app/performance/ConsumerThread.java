@@ -17,6 +17,7 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -36,12 +37,15 @@ import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.SensorBuilder;
-import org.astraea.common.metrics.stats.SetDifference;
+import org.astraea.common.metrics.stats.SetDecreased;
+import org.astraea.common.metrics.stats.SetIncreased;
+import org.astraea.common.metrics.stats.SetSize;
 
 public interface ConsumerThread extends AbstractThread {
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITION = new ConcurrentHashMap<>();
 
-  ConcurrentMap<String, Sensor<SetDifference.SetOperation<TopicPartition>>>
-      CLIENT_ID_PARTITION_SENSOR = new ConcurrentHashMap<>();
+  ConcurrentMap<String, Sensor<Set<TopicPartition>>> CLIENT_ID_PARTITION_SENSOR =
+      new ConcurrentHashMap<>();
 
   static List<ConsumerThread> create(
       int consumers,
@@ -90,6 +94,7 @@ public interface ConsumerThread extends AbstractThread {
                       Utils.swallowException(consumer::close);
                       closeLatch.countDown();
                       closed.set(true);
+                      CLIENT_ID_PARTITION.remove(clientId);
                       CLIENT_ID_PARTITION_SENSOR.remove(clientId);
                     }
                   });
@@ -139,23 +144,27 @@ public interface ConsumerThread extends AbstractThread {
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
       tryRegisterSensor();
-      CLIENT_ID_PARTITION_SENSOR.get(clientId).record(SetDifference.SetOperation.ofAdd(partitions));
+      CLIENT_ID_PARTITION.computeIfAbsent(clientId, id -> new HashSet<>());
+      CLIENT_ID_PARTITION.get(clientId).addAll(partitions);
+      CLIENT_ID_PARTITION_SENSOR.get(clientId).record(CLIENT_ID_PARTITION.get(clientId));
     }
 
     @Override
     public void onPartitionsRevoked(Set<TopicPartition> partitions) {
       tryRegisterSensor();
-      CLIENT_ID_PARTITION_SENSOR
-          .get(clientId)
-          .record(SetDifference.SetOperation.ofRemove(partitions));
+      CLIENT_ID_PARTITION.computeIfAbsent(clientId, id -> new HashSet<>());
+      CLIENT_ID_PARTITION.get(clientId).removeAll(partitions);
+      CLIENT_ID_PARTITION_SENSOR.get(clientId).record(CLIENT_ID_PARTITION.get(clientId));
     }
 
     private void tryRegisterSensor() {
       CLIENT_ID_PARTITION_SENSOR.computeIfAbsent(
           clientId,
           id ->
-              new SensorBuilder<SetDifference.SetOperation<TopicPartition>>()
-                  .addStat("set difference", new SetDifference<>(2))
+              new SensorBuilder<Set<TopicPartition>>()
+                  .addStat("set increased", new SetIncreased<>(2))
+                  .addStat("set decreased", new SetDecreased<>(2))
+                  .addStat("set size", new SetSize<>(2))
                   .build());
     }
   }
