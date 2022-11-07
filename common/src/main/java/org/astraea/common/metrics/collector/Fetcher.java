@@ -18,9 +18,7 @@ package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
@@ -30,24 +28,14 @@ public interface Fetcher {
    * merge all fetchers into single one.
    *
    * @param fetchers cost function
-   * @param errorHandler used to handle the runtime exception thrown by fetcher
    * @return fetcher if there is available fetcher. Otherwise, empty is returned
    */
-  static Optional<Fetcher> of(
-      Collection<Fetcher> fetchers, Consumer<RuntimeException> errorHandler) {
+  static Optional<Fetcher> of(Collection<Fetcher> fetchers) {
     if (fetchers.isEmpty()) return Optional.empty();
     return Optional.of(
         client ->
             fetchers.stream()
-                .flatMap(
-                    f -> {
-                      try {
-                        return f.fetch(client).stream();
-                      } catch (RuntimeException e) {
-                        errorHandler.accept(e);
-                        return Stream.of();
-                      }
-                    })
+                .flatMap(f -> f.fetch(client).stream())
                 .collect(Collectors.toUnmodifiableList()));
   }
 
