@@ -505,4 +505,36 @@ public class ConsumerTest extends RequireBrokerCluster {
       Assertions.assertEquals(clientId1, consumer.clientId());
     }
   }
+
+  @Timeout(20)
+  @Test
+  void testStreamForSubscription() {
+    var topic = Utils.randomString();
+    produceData(topic, 100);
+    var stream =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .stream((count, elapsed) -> count >= 100);
+    Assertions.assertEquals(100, stream.count());
+    // the stream can not be reused
+    Assertions.assertThrows(IllegalStateException.class, stream::count);
+  }
+
+  @Timeout(20)
+  @Test
+  void testStreamForAssignment() {
+    var topic = Utils.randomString();
+    produceData(topic, 100);
+    var stream =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .seek(DISTANCE_FROM_BEGINNING, 0)
+            .stream((count, elapsed) -> count >= 100);
+    Assertions.assertEquals(100, stream.count());
+    // the stream can not be reused
+    Assertions.assertThrows(IllegalStateException.class, stream::count);
+  }
 }
