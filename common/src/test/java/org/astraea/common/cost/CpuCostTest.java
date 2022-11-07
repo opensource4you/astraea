@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -55,9 +56,11 @@ public class CpuCostTest {
   void testFetcher() {
     var interval = Duration.ofMillis(300);
     try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.registerLocalJmx(0);
       collector.addFetcher(
           new CpuCost().fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
+      collector.registerLocalJmx(0);
+
+      Utils.sleep(interval);
 
       Assertions.assertFalse(collector.metrics(OperatingSystemInfo.class, 0, 0).isEmpty());
       Assertions.assertTrue(

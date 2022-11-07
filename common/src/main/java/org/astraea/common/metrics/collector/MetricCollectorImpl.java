@@ -192,7 +192,7 @@ public class MetricCollectorImpl implements MetricCollector {
               .peek(metrics -> store(id, metrics))
               .forEach(
                   i -> {
-                    // Intentional sleep, do not remove
+                    // Intentional sleep, make sure the recent result is published
                     Utils.packException(() -> TimeUnit.MILLISECONDS.sleep(1));
                     threadTime.update(threadId, System.currentTimeMillis());
                   });

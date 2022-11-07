@@ -53,12 +53,12 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
   void testFetcher() {
     var interval = Duration.ofMillis(300);
     try (var collector = MetricCollector.builder().interval(interval).build()) {
-      collector.registerJmx(
-          0,
-          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
       collector.addFetcher(
           new BrokerInputCost().fetcher().orElseThrow(),
           (id, err) -> Assertions.fail(err.getMessage()));
+      collector.registerJmx(
+          0,
+          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
       Assertions.assertFalse(collector.listIdentities().isEmpty());
       Assertions.assertFalse(collector.listFetchers().isEmpty());
 

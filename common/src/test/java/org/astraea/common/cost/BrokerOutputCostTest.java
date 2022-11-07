@@ -56,12 +56,12 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
   void testFetcher() {
     var interval = Duration.ofMillis(300);
     try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.registerJmx(
-          0,
-          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
       collector.addFetcher(
           new BrokerOutputCost().fetcher().orElseThrow(),
           (id, err) -> Assertions.fail(err.getMessage()));
+      collector.registerJmx(
+          0,
+          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
 
       // Test the fetched object's type, and its metric name.
       Assertions.assertTrue(

@@ -55,9 +55,9 @@ public class MemoryCostTest {
   void testFetcher() {
     var interval = Duration.ofMillis(300);
     try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.registerLocalJmx(0);
       collector.addFetcher(
           new MemoryCost().fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
+      collector.registerLocalJmx(0);
 
       Utils.sleep(interval);
 
