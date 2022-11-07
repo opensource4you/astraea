@@ -130,9 +130,8 @@ class MetricCollectorTest extends RequireBrokerCluster {
   void metrics() {
     var sample = Duration.ofMillis(1000);
     try (var collector = MetricCollector.builder().interval(sample).build()) {
-      collector.addFetcher(
-          memoryFetcher, (id, err) -> Assertions.assertNull(err, err.getMessage()));
-      collector.addFetcher(osFetcher, (id, err) -> Assertions.assertNull(err, err.getMessage()));
+      collector.addFetcher(memoryFetcher, (id, err) -> Assertions.fail(err.getMessage()));
+      collector.addFetcher(osFetcher, (id, err) -> Assertions.fail(err.getMessage()));
       collector.registerLocalJmx(0);
 
       var start = System.currentTimeMillis();
