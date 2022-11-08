@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
@@ -56,7 +55,6 @@ public class GreedyBalancer implements Balancer {
   private final int minStep;
   private final int maxStep;
   private final int iteration;
-  final String instance = UUID.randomUUID().toString();
   private final AtomicInteger run = new AtomicInteger();
 
   public GreedyBalancer(AlgorithmConfig algorithmConfig) {
@@ -150,8 +148,9 @@ public class GreedyBalancer implements Balancer {
     Jmx() {
       final var runId = run.getAndIncrement();
       DynamicMbean.builder()
-          .domainName(GreedyBalancer.class.getPackageName())
-          .property("instance", instance)
+          .domainName("astraea.balancer")
+          .property("id", config.executionId())
+          .property("algorithm", GreedyBalancer.class.getSimpleName())
           .property("run", Integer.toString(runId))
           .attribute("Iteration", Long.class, currentIteration::sum)
           .attribute("MinCost", Double.class, () -> Double.longBitsToDouble(currentMinCost.get()))

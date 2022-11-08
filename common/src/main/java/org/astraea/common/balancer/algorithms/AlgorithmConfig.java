@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -39,6 +40,12 @@ public interface AlgorithmConfig {
   static Builder builder() {
     return new Builder();
   }
+
+  /**
+   * @return a String indicate the name of this execution. This information is used for debug and
+   *     logging usage.
+   */
+  String executionId();
 
   /**
    * @return the cluster cost function for this problem.
@@ -82,6 +89,7 @@ public interface AlgorithmConfig {
 
   class Builder {
 
+    private String executionId = "noname-" + UUID.randomUUID();
     private HasClusterCost clusterCostFunction;
     private List<HasMoveCost> moveCostFunction = List.of(HasMoveCost.EMPTY);
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
@@ -91,6 +99,17 @@ public interface AlgorithmConfig {
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
     private final Map<String, String> config = new HashMap<>();
+
+    /**
+     * Set a String that represents the execution of this algorithm. This information is typically
+     * used for debugging and logging usage.
+     *
+     * @return this
+     */
+    public Builder executionId(String id) {
+      this.executionId = id;
+      return this;
+    }
 
     /**
      * Specify the cluster cost function to use. It implemented specific logic to evaluate if a
@@ -216,6 +235,11 @@ public interface AlgorithmConfig {
 
     public AlgorithmConfig build() {
       return new AlgorithmConfig() {
+        @Override
+        public String executionId() {
+          return executionId;
+        }
+
         @Override
         public HasClusterCost clusterCostFunction() {
           return clusterCostFunction;

@@ -18,6 +18,7 @@ package org.astraea.common.balancer.algorithms;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.balancer.Balancer;
@@ -52,10 +53,12 @@ class GreedyBalancerTest {
   @Test
   void testJmx() {
     var cost = new DecreasingCost(Configuration.of(Map.of()));
+    var id = "TestJmx-" + UUID.randomUUID();
     var balancer =
         Balancer.create(
             GreedyBalancer.class,
             AlgorithmConfig.builder()
+                .executionId(id)
                 .clusterCost(cost)
                 .limit(Duration.ofMillis(300))
                 .config(GreedyBalancer.ITERATION_CONFIG, "100")
@@ -73,11 +76,12 @@ class GreedyBalancerTest {
                         () ->
                             client.queryBean(
                                 BeanQuery.builder()
-                                    .domainName(GreedyBalancer.class.getPackageName())
-                                    .property("instance", balancer.instance)
+                                    .domainName("astraea.balancer")
+                                    .property("id", id)
+                                    .property("algorithm", GreedyBalancer.class.getSimpleName())
                                     .property("run", Integer.toString(run))
                                     .build()));
-                Assertions.assertEquals(GreedyBalancer.class.getPackageName(), bean.domainName());
+                Assertions.assertEquals("astraea.balancer", bean.domainName());
                 Assertions.assertTrue(0 < (long) bean.attributes().get("Iteration"));
                 Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
               });
