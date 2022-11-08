@@ -46,9 +46,8 @@ public interface JsonConverter {
             .addModule(new Jdk8Module())
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
 
-            // When we put json as key into kafka, we want to pass the same json to the
-            // same destination.
-            // When json equals, json needs to be the same string and binary too.
+            // When we put json as key into kafka, we want to pass the same json to the same
+            // destination. When json equals, json needs to be the same string and binary too.
             // So we should satisfy json key order and indentation.
             // sort map
             .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
