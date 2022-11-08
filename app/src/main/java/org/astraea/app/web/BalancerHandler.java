@@ -63,8 +63,8 @@ class BalancerHandler implements Handler {
   static final String TOPICS_KEY = "topics";
 
   static final String TIMEOUT_KEY = "timeout";
-  static final String MAX_MIGRATE_SIZE_KEY = "max migrated size";
-  static final String MAX_MIGRATE_LEADER_KEY = "max migrated leader";
+  static final String MAX_MIGRATE_SIZE_KEY = "max-migrated-size";
+  static final String MAX_MIGRATE_LEADER_KEY = "max-migrated-leader";
   static final String COST_WEIGHT_KEY = "costWeights";
 
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
