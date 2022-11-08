@@ -16,7 +16,16 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.time.Duration;
+import java.util.Map;
+import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.FakeClusterInfo;
+import org.astraea.common.cost.Configuration;
+import org.astraea.common.cost.DecreasingCost;
+import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -38,5 +47,40 @@ class GreedyBalancerTest {
         GreedyBalancer.ALL_CONFIGS.size(),
         Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
         "No duplicate element");
+  }
+
+  @Test
+  void testJmx() {
+    var cost = new DecreasingCost(Configuration.of(Map.of()));
+    var balancer =
+        Balancer.create(
+            GreedyBalancer.class,
+            AlgorithmConfig.builder()
+                .clusterCost(cost)
+                .limit(Duration.ofMillis(300))
+                .config(GreedyBalancer.ITERATION_CONFIG, "100")
+                .build());
+    var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
+
+    try (MBeanClient client = MBeanClient.local()) {
+      IntStream.range(0, 10)
+          .forEach(
+              run -> {
+                var plan = balancer.offer(clusterInfo, clusterInfo.dataDirectories());
+                Assertions.assertTrue(plan.isPresent());
+                var bean =
+                    Assertions.assertDoesNotThrow(
+                        () ->
+                            client.queryBean(
+                                BeanQuery.builder()
+                                    .domainName(GreedyBalancer.class.getPackageName())
+                                    .property("instance", balancer.instance)
+                                    .property("run", Integer.toString(run))
+                                    .build()));
+                Assertions.assertEquals(GreedyBalancer.class.getPackageName(), bean.domainName());
+                Assertions.assertTrue(0 < (long) bean.attributes().get("Iteration"));
+                Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
+              });
+    }
   }
 }

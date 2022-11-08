@@ -50,7 +50,7 @@ public class DynamicMbean {
 
   private String domainName;
   private final Map<String, String> properties = new Hashtable<>();
-  private String description;
+  private String description = "";
   private final List<MBeanAttributeInfo> attributeInfo = new ArrayList<>();
   private final Map<String, AttributeField<?>> attributes = new ConcurrentHashMap<>();
 

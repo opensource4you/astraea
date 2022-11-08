@@ -16,11 +16,15 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -31,6 +35,7 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.metrics.jmx.DynamicMbean;
 
 /**
  * A single-state hill-climbing algorithm. It discovers rebalance solution by tweaking the cluster
@@ -51,6 +56,8 @@ public class GreedyBalancer implements Balancer {
   private final int minStep;
   private final int maxStep;
   private final int iteration;
+  final String instance = UUID.randomUUID().toString();
+  private final AtomicInteger run = new AtomicInteger();
 
   public GreedyBalancer(AlgorithmConfig algorithmConfig) {
     this.config = algorithmConfig;
@@ -80,6 +87,8 @@ public class GreedyBalancer implements Balancer {
   @Override
   public Optional<Plan> offer(
       ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+    Jmx jmx = new Jmx();
+
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -114,6 +123,8 @@ public class GreedyBalancer implements Balancer {
         ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, config.topicFilter()));
     var currentPlan = Optional.<Balancer.Plan>empty();
     while (true) {
+      jmx.nextIteration();
+      jmx.newCost(currentCost.value());
       var newPlan = next.apply(currentAllocation, currentCost);
       if (newPlan.isEmpty()) break;
       currentPlan = newPlan;
@@ -121,5 +132,39 @@ public class GreedyBalancer implements Balancer {
       currentAllocation = currentPlan.get().proposal();
     }
     return currentPlan;
+  }
+
+  private class Jmx {
+
+    private final LongAdder currentIteration = new LongAdder();
+    private final LongAccumulator currentMinCost =
+        new LongAccumulator(
+            (lhs, rhs) -> {
+              double l = Double.longBitsToDouble(lhs);
+              double r = Double.longBitsToDouble(rhs);
+              double out = (Double.isNaN(r) || l < r) ? l : r;
+              return Double.doubleToRawLongBits(out);
+            },
+            Double.doubleToRawLongBits(Double.NaN));
+
+    Jmx() {
+      final var runId = run.getAndIncrement();
+      DynamicMbean.builder()
+          .domainName(GreedyBalancer.class.getPackageName())
+          .property("instance", instance)
+          .property("run", Integer.toString(runId))
+          .attribute("Iteration", Long.class, currentIteration::sum)
+          .attribute("MinCost", Double.class, () -> Double.longBitsToDouble(currentMinCost.get()))
+          .build()
+          .register(ManagementFactory.getPlatformMBeanServer());
+    }
+
+    void nextIteration() {
+      currentIteration.increment();
+    }
+
+    void newCost(double cost) {
+      currentMinCost.accumulate(Double.doubleToRawLongBits(cost));
+    }
   }
 }
