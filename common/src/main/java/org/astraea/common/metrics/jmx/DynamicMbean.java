@@ -179,8 +179,7 @@ public class DynamicMbean {
    */
   public Register build() {
     return new Register(
-        Utils.packException(
-            () -> new ObjectName(domainName, (Hashtable<String, String>) Map.copyOf(properties))),
+        Utils.packException(() -> new ObjectName(domainName, new Hashtable<>(properties))),
         buildMBean());
   }
 
