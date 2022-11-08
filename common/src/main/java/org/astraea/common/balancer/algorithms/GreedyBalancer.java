@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -34,7 +33,7 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
-import org.astraea.common.metrics.jmx.DynamicMbean;
+import org.astraea.common.metrics.jmx.MBeanRegister;
 
 /**
  * A single-state hill-climbing algorithm. It discovers rebalance solution by tweaking the cluster
@@ -147,15 +146,15 @@ public class GreedyBalancer implements Balancer {
 
     Jmx() {
       final var runId = run.getAndIncrement();
-      DynamicMbean.builder()
-          .domainName("astraea.balancer")
-          .property("id", config.executionId())
-          .property("algorithm", GreedyBalancer.class.getSimpleName())
-          .property("run", Integer.toString(runId))
-          .attribute("Iteration", Long.class, currentIteration::sum)
-          .attribute("MinCost", Double.class, () -> Double.longBitsToDouble(currentMinCost.get()))
-          .build()
-          .register(ManagementFactory.getPlatformMBeanServer());
+      MBeanRegister.local()
+          .setDomainName("astraea.balancer")
+          .addProperty("id", config.executionId())
+          .addProperty("algorithm", GreedyBalancer.class.getSimpleName())
+          .addProperty("run", Integer.toString(runId))
+          .addAttribute("Iteration", Long.class, currentIteration::sum)
+          .addAttribute(
+              "MinCost", Double.class, () -> Double.longBitsToDouble(currentMinCost.get()))
+          .register();
     }
 
     void nextIteration() {

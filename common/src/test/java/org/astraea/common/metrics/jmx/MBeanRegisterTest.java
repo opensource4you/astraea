@@ -16,9 +16,7 @@
  */
 package org.astraea.common.metrics.jmx;
 
-import java.lang.management.ManagementFactory;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.astraea.common.metrics.BeanObject;
@@ -27,12 +25,12 @@ import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class DynamicMbeanTest {
+class MBeanRegisterTest {
 
   @Test
   void testBuilder() {
     try (MBeanClient client = MBeanClient.local()) {
-      var domainName = DynamicMbeanTest.class.getPackageName();
+      var domainName = MBeanRegisterTest.class.getPackageName();
       var id = UUID.randomUUID().toString();
       Supplier<BeanObject> bean =
           () ->
@@ -40,22 +38,16 @@ class DynamicMbeanTest {
                   BeanQuery.builder().domainName(domainName).property("id", id).build());
 
       // register
-      DynamicMbean.Register register =
-          DynamicMbean.builder()
-              .domainName(domainName)
-              .description("Hello World")
-              .property("id", id)
-              .attribute("Name", String.class, () -> "Robert")
-              .attribute("Age", Integer.class, () -> 43)
-              .build();
-      register.register(ManagementFactory.getPlatformMBeanServer());
+      MBeanRegister.local()
+          .setDomainName(domainName)
+          .setDescription("Hello World")
+          .addProperty("id", id)
+          .addAttribute("Name", String.class, () -> "Robert")
+          .addAttribute("Age", Integer.class, () -> 43)
+          .register();
       Assertions.assertEquals(domainName, bean.get().domainName());
       Assertions.assertEquals(Map.of("id", id), bean.get().properties());
       Assertions.assertEquals(Map.of("Name", "Robert", "Age", 43), bean.get().attributes());
-
-      // unregister
-      register.unregister(ManagementFactory.getPlatformMBeanServer());
-      Assertions.assertThrows(NoSuchElementException.class, bean::get);
     }
   }
 }
