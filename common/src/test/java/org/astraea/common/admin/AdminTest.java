@@ -46,6 +46,7 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1511,7 +1512,7 @@ public class AdminTest extends RequireBrokerCluster {
     }
   }
 
-  @Test
+  @RepeatedTest(100)
   public void testTimestampOfLatestRecords() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {
@@ -1558,8 +1559,13 @@ public class AdminTest extends RequireBrokerCluster {
             .run();
         producer.flush();
       }
+      var latestRecords =
+          admin.latestRecords(ps, 1, Duration.ofSeconds(3)).toCompletableFuture().join();
+      Assertions.assertEquals(4, latestRecords.size());
+      latestRecords.values().forEach(v -> Assertions.assertEquals(1, v.size()));
+
       var ts =
-          admin.timestampOfLatestRecords(ps, Duration.ofSeconds(3)).toCompletableFuture().join();
+          admin.timestampOfLatestRecords(ps, Duration.ofSeconds(6)).toCompletableFuture().join();
       Assertions.assertEquals(4, ts.size());
       Assertions.assertEquals(t, ts.get(TopicPartition.of(topic, 0)));
       Assertions.assertEquals(t + 1, ts.get(TopicPartition.of(topic, 1)));
