@@ -872,6 +872,124 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
+  @Test
+  void testParseAlgorithmConfig() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var clusterInfo =
+          admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
+      {
+        // default
+        var config = BalancerHandler.parseAlgorithmConfig(Channel.EMPTY, clusterInfo);
+        // TODO: remove limit(integer)
+        // Assertions.assertTrue(config.algorithmConfig().entrySet().isEmpty());
+        Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
+        Assertions.assertEquals(
+            BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
+        Assertions.assertEquals(
+            BalancerHandler.TIMEOUT_DEFAULT, config.executionTime().toSeconds());
+        Assertions.assertTrue(
+            clusterInfo.topics().stream().allMatch(t -> config.topicFilter().test(t)));
+      }
+      {
+        // use custom filter/timeout/balancer config/cost function
+        var randomTopic0 = Utils.randomString();
+        var randomTopic1 = Utils.randomString();
+        var request =
+            Map.<String, Object>of(
+                BalancerHandler.TOPICS_KEY,
+                randomTopic0 + "," + randomTopic1,
+                BalancerHandler.TIMEOUT_KEY,
+                32,
+                BalancerHandler.BALANCER_CONFIGURATION_KEY,
+                "{\"KEY\":\"VALUE\"}",
+                BalancerHandler.COST_WEIGHT_KEY,
+                defaultDecreasing);
+        var config =
+            BalancerHandler.parseAlgorithmConfig(
+                Channel.ofRequest(PostRequest.of(request)), clusterInfo);
+        // TODO: remove limit(integer)
+        Assertions.assertEquals(
+            Set.of(Map.entry("KEY", "VALUE"), Map.entry("iteration", "10000")),
+            config.algorithmConfig().entrySet());
+        Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
+        Assertions.assertEquals(
+            1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+        Assertions.assertEquals(
+            1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+        Assertions.assertEquals(
+            1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+        Assertions.assertEquals(32, config.executionTime().toSeconds());
+        Assertions.assertTrue(config.topicFilter().test(randomTopic0));
+        Assertions.assertTrue(config.topicFilter().test(randomTopic1));
+        Assertions.assertTrue(
+            clusterInfo.topics().stream().noneMatch(t -> config.topicFilter().test(t)));
+      }
+      {
+        // malformed content
+        var request0 =
+            Map.<String, Object>of(
+                BalancerHandler.TOPICS_KEY,
+                "",
+                BalancerHandler.TIMEOUT_KEY,
+                32,
+                BalancerHandler.BALANCER_CONFIGURATION_KEY,
+                "{\"KEY\":\"VALUE\"}",
+                BalancerHandler.COST_WEIGHT_KEY,
+                defaultDecreasing);
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                BalancerHandler.parseAlgorithmConfig(
+                    Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TOPICS_KEY, ""))),
+                    clusterInfo),
+            "Empty topic filter, nothing to rebalance");
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                BalancerHandler.parseAlgorithmConfig(
+                    Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TIMEOUT_KEY, 0))),
+                    clusterInfo),
+            "Zero timeout");
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                BalancerHandler.parseAlgorithmConfig(
+                    Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TIMEOUT_KEY, -5566))),
+                    clusterInfo),
+            "Negative timeout");
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                BalancerHandler.parseAlgorithmConfig(
+                    Channel.ofRequest(
+                        PostRequest.of(
+                            Map.of(BalancerHandler.COST_WEIGHT_KEY, "[{\"cost\": \"yes\"}]"))),
+                    clusterInfo),
+            "Malformed cost weight");
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                BalancerHandler.parseAlgorithmConfig(
+                    Channel.ofRequest(
+                        PostRequest.of(
+                            Map.of(
+                                BalancerHandler.COST_WEIGHT_KEY,
+                                "[{\"cost\": \"yes\", \"weight\": \"a lot\"}]"))),
+                    clusterInfo),
+            "Malformed cost weight");
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                BalancerHandler.parseAlgorithmConfig(
+                    Channel.ofRequest(
+                        PostRequest.of(
+                            Map.of(BalancerHandler.COST_WEIGHT_KEY, "[{\"weight\": \"a lot\"}]"))),
+                    clusterInfo),
+            "Malformed cost weight");
+      }
+    }
+  }
+
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, Map<String, Object> requestBody) {

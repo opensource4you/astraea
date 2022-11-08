@@ -21,12 +21,10 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -133,53 +131,24 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
-    var clusterCostFunction = getClusterCost(channel);
     var planGeneration =
         FutureUtils.combine(
                 admin.topicNames(false).thenCompose(admin::clusterInfo),
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
-                  var balancerConfig =
-                      channel
-                          .request()
-                          .get(BALANCER_CONFIGURATION_KEY, Map.class)
-                          .map(Configuration::of)
-                          .orElse(Configuration.of(Map.of()));
                   var balancerClasspath =
                       channel
                           .request()
                           .get(BALANCER_IMPLEMENTATION_KEY)
                           .orElse(BALANCER_IMPLEMENTATION_DEFAULT);
-                  var timeout =
-                      channel
-                          .request()
-                          .get(TIMEOUT_KEY)
-                          .map(DurationField::toDuration)
-                          .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
-                  var topics =
-                      channel
-                          .request()
-                          .get(TOPICS_KEY)
-                          .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-                          .orElseGet(currentClusterInfo::topics);
+                  var config = parseAlgorithmConfig(channel, currentClusterInfo);
                   var cost =
-                      clusterCostFunction
+                      config
+                          .clusterCostFunction()
                           .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
                           .value();
-                  var loop =
-                      Integer.parseInt(
-                          channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
                   var bestPlan =
-                      Balancer.create(
-                              balancerClasspath,
-                              AlgorithmConfig.builder()
-                                  .clusterCost(clusterCostFunction)
-                                  .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-                                  .topicFilter(topics::contains)
-                                  .limit(loop)
-                                  .limit(timeout)
-                                  .config(balancerConfig)
-                                  .build())
+                      Balancer.create(balancerClasspath, config)
                           .offer(currentClusterInfo, brokerFolders);
                   var changes =
                       bestPlan
@@ -207,8 +176,8 @@ class BalancerHandler implements Handler {
                           newPlanId,
                           cost,
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          loop,
-                          clusterCostFunction.getClass().getSimpleName(),
+                          0, // TODO: get rid of this
+                          config.clusterCostFunction().getClass().getSimpleName(),
                           changes,
                           bestPlan
                               .map(
@@ -227,6 +196,52 @@ class BalancerHandler implements Handler {
                 });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  // visible for test
+  static AlgorithmConfig parseAlgorithmConfig(
+      Channel channel, ClusterInfo<Replica> currentClusterInfo) {
+    var balancerConfig =
+        channel
+            .request()
+            .get(BALANCER_CONFIGURATION_KEY, Map.class)
+            .map(Configuration::of)
+            .orElse(Configuration.of(Map.of()));
+    var clusterCostFunction = getClusterCost(channel);
+    var timeout =
+        channel
+            .request()
+            .get(TIMEOUT_KEY)
+            .map(DurationField::toDuration)
+            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+    var topics =
+        channel
+            .request()
+            .get(TOPICS_KEY)
+            .map(
+                s ->
+                    Arrays.stream(s.split(","))
+                        .filter(x -> !x.isEmpty())
+                        .collect(Collectors.toSet()))
+            .orElseGet(currentClusterInfo::topics);
+    var loop =
+        Integer.parseInt(channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
+
+    if (channel.request().raw().containsKey(TOPICS_KEY) && topics.isEmpty())
+      throw new IllegalArgumentException(
+          "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
+    if (timeout.isZero() || timeout.isNegative())
+      throw new IllegalArgumentException(
+          "Illegal timeout, value should be positive integer: " + timeout.getSeconds());
+
+    return AlgorithmConfig.builder()
+        .clusterCost(clusterCostFunction)
+        .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+        .topicFilter(topics::contains)
+        .limit(loop)
+        .limit(timeout)
+        .config(balancerConfig)
+        .build();
   }
 
   @SuppressWarnings("unchecked")
@@ -254,7 +269,7 @@ class BalancerHandler implements Handler {
                 Map.Entry::getValue));
   }
 
-  HasClusterCost getClusterCost(Channel channel) {
+  static HasClusterCost getClusterCost(Channel channel) {
     var costWeights =
         channel
             .request()
@@ -263,6 +278,12 @@ class BalancerHandler implements Handler {
                 TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
             .orElse(List.of());
     if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
+    costWeights.stream()
+        .filter(cw -> cw.cost == null || cw.weight == null)
+        .forEach(
+            cw -> {
+              throw new IllegalArgumentException("Malformed CostWeight specified: " + cw);
+            });
     var costWeightMap =
         parseCostFunctionWeight(
             Configuration.of(
@@ -530,7 +551,7 @@ class BalancerHandler implements Handler {
 
   static class CostWeight {
     final String cost;
-    final double weight;
+    final Double weight;
 
     CostWeight(String cost, double weight) {
       this.cost = cost;
@@ -543,6 +564,11 @@ class BalancerHandler implements Handler {
       if (o == null || getClass() != o.getClass()) return false;
       CostWeight that = (CostWeight) o;
       return Objects.equals(cost, that.cost) && weight == that.weight;
+    }
+
+    @Override
+    public String toString() {
+      return "CostWeight{" + "cost='" + cost + '\'' + ", weight=" + weight + '}';
     }
   }
 }
