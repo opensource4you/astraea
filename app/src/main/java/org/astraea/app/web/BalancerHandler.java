@@ -58,8 +58,6 @@ import org.astraea.common.cost.ReplicaSizeCost;
 
 class BalancerHandler implements Handler {
 
-  static final String LOOP_KEY = "loop";
-
   static final String TOPICS_KEY = "topics";
 
   static final String TIMEOUT_KEY = "timeout";
@@ -223,8 +221,6 @@ class BalancerHandler implements Handler {
                         .filter(x -> !x.isEmpty())
                         .collect(Collectors.toSet()))
             .orElseGet(currentClusterInfo::topics);
-    var loop =
-        Integer.parseInt(channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
 
     if (channel.request().raw().containsKey(TOPICS_KEY) && topics.isEmpty())
       throw new IllegalArgumentException(
@@ -237,7 +233,6 @@ class BalancerHandler implements Handler {
         .clusterCost(clusterCostFunction)
         .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
         .topicFilter(topics::contains)
-        .limit(loop)
         .limit(timeout)
         .config(balancerConfig)
         .build();
