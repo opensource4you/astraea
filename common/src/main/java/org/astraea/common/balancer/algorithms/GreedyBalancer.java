@@ -131,18 +131,19 @@ public class GreedyBalancer implements Balancer {
     return currentPlan;
   }
 
+  // visible for test
+  static long minLongDouble(long lhs, long rhs) {
+    double l = Double.longBitsToDouble(lhs);
+    double r = Double.longBitsToDouble(rhs);
+    double out = (Double.isNaN(r) || l < r) ? l : r;
+    return Double.doubleToRawLongBits(out);
+  }
+
   private class Jmx {
 
     private final LongAdder currentIteration = new LongAdder();
     private final LongAccumulator currentMinCost =
-        new LongAccumulator(
-            (lhs, rhs) -> {
-              double l = Double.longBitsToDouble(lhs);
-              double r = Double.longBitsToDouble(rhs);
-              double out = (Double.isNaN(r) || l < r) ? l : r;
-              return Double.doubleToRawLongBits(out);
-            },
-            Double.doubleToRawLongBits(Double.NaN));
+        new LongAccumulator(GreedyBalancer::minLongDouble, Double.doubleToRawLongBits(Double.NaN));
 
     Jmx() {
       final var runId = run.getAndIncrement();
