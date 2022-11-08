@@ -21,11 +21,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
@@ -116,10 +119,17 @@ public interface Admin extends AutoCloseable {
             bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
         .thenApply(
             bootstrap ->
-                Consumer.forPartitions(topicPartitions)
-                    .bootstrapServers(bootstrap)
-                    .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
-                    .stream((count, elapsed) -> count >= records || elapsed >= timeout.toMillis())
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(
+                            Consumer.forPartitions(topicPartitions)
+                                .bootstrapServers(bootstrap)
+                                .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
+                                .iterator(
+                                    (count, elapsed, size) ->
+                                        count >= records
+                                            || elapsed.toMillis() >= timeout.toMillis()),
+                            Spliterator.ORDERED),
+                        false)
                     .collect(
                         Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition()))));
   }

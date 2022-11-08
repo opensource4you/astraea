@@ -27,17 +27,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.function.Bi3Function;
 
 public abstract class Builder<Key, Value> {
   protected final Map<String, Object> configs = new HashMap<>();
@@ -125,10 +121,12 @@ public abstract class Builder<Key, Value> {
    * consumer when closeFlag returns true;
    *
    * @param shouldClose to terminate the stream. The first element is the number of fetched records.
-   *     The second element is the elapsed time in ms.
+   *     The second element is the elapsed time. The third element is the total size of fetched
+   *     records.
    * @return stream with records
    */
-  public Stream<Record<Key, Value>> stream(BiFunction<Integer, Long, Boolean> shouldClose) {
+  public Iterator<Record<Key, Value>> iterator(
+      Bi3Function<Integer, Duration, Long, Boolean> shouldClose) {
     var queue = new LinkedBlockingQueue<Optional<Record<Key, Value>>>();
     var exception = new AtomicReference<RuntimeException>();
     CompletableFuture.runAsync(
@@ -136,9 +134,14 @@ public abstract class Builder<Key, Value> {
           var start = System.currentTimeMillis();
           try (var consumer = build()) {
             var count = 0;
-            while (!shouldClose.apply(count, System.currentTimeMillis() - start)) {
+            var size = 0L;
+            while (!shouldClose.apply(
+                count, Duration.ofMillis(System.currentTimeMillis() - start), size)) {
               var records = consumer.poll(Duration.ofSeconds(2));
-              records.forEach(r -> queue.add(Optional.of(r)));
+              for (var r : records) {
+                queue.add(Optional.of(r));
+                size += r.serializedKeySize() + r.serializedValueSize();
+              }
               count += records.size();
             }
           } catch (RuntimeException e) {
@@ -148,34 +151,30 @@ public abstract class Builder<Key, Value> {
           }
         });
 
-    return StreamSupport.stream(
-        Spliterators.spliteratorUnknownSize(
-            new Iterator<>() {
+    return new Iterator<>() {
 
-              private Record<Key, Value> current;
+      private Record<Key, Value> current;
 
-              @Override
-              public boolean hasNext() {
-                if (current != null) return true;
-                if (exception.get() != null) throw exception.get();
-                var record = Utils.packException(queue::take);
-                if (record.isEmpty()) return false;
-                current = record.get();
-                return true;
-              }
+      @Override
+      public boolean hasNext() {
+        if (current != null) return true;
+        if (exception.get() != null) throw exception.get();
+        var record = Utils.packException(queue::take);
+        if (record.isEmpty()) return false;
+        current = record.get();
+        return true;
+      }
 
-              @Override
-              public Record<Key, Value> next() {
-                if (current == null) throw new NoSuchElementException("there is no more record");
-                try {
-                  return current;
-                } finally {
-                  current = null;
-                }
-              }
-            },
-            Spliterator.ORDERED),
-        false);
+      @Override
+      public Record<Key, Value> next() {
+        if (current == null) throw new NoSuchElementException("there is no more record");
+        try {
+          return current;
+        } finally {
+          current = null;
+        }
+      }
+    };
   }
 
   protected abstract static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
