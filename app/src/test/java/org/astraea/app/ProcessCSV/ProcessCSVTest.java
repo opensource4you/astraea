@@ -19,13 +19,7 @@ package org.astraea.app.ProcessCSV;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-import com.opencsv.CSVWriter;
-import com.opencsv.exceptions.CsvValidationException;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +28,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 import org.astraea.app.processCSV.ProcessCSV;
+import org.astraea.common.csv.CsvReaderUtilsBuilder;
+import org.astraea.common.csv.CsvWriterUtilsBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -44,13 +40,13 @@ public class ProcessCSVTest {
   void run() throws IOException {
     Path local_csv = createTempDirectory("local_CSV");
     Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv.toString() + "/sink");
+    Path sink = mkdir(local_csv + "/sink");
     writeCSV(source);
     ProcessCSV.main(new String[] {source.toString(), sink.toString()});
 
     var target = new File(sink + "/" + DATA_MAME);
     assertTrue(Files.exists(target.toPath()));
-    try (CSVReader reader = new CSVReaderBuilder(new FileReader(target.toString())).build()) {
+    try (var reader = new CsvReaderUtilsBuilder(target).build()) {
       assertEquals(
           Arrays.stream(reader.readNext()).findFirst().orElse(""),
           "CR1000(2017)_20220202_AAA888_min");
@@ -60,8 +56,6 @@ public class ProcessCSVTest {
       assertEquals(
           mkString(Arrays.stream(reader.readNext()).collect(Collectors.toList())),
           "\"2015-12-05 00:00:00\",\"333\",\"2015-12-07 23:59:00\",\"10.53\",\"0\",\"0.112\",\"9.638579\",\"20.8\",\"16.42\",\"0\",\"29.52\",\"2019-12-07 02:36:00\",\"16.69\",\"14.5\",\"2019-12-07 19:01:00\",\"15.6\",\"2019-12-07 04:59:00\",\"14.91368\",\"1024.1\",\"2019-12-07 22:44:00\",\"1019.6\",\"2019-12-07 01:22:00\",\"90\",\"65.3\",\"18.2\",\"15.7\",\"26\",\"2019-12-07 01:16:00\",\"-33.4\",\"2019-12-07 01:26:00\",\"61.1\",\"2019-12-07 05:24:00\",\"-48\",\"013CAMPBELLCLIM50501VUE-500001112\"");
-    } catch (CsvValidationException e) {
-      throw new RuntimeException(e);
     }
   }
 
@@ -74,8 +68,8 @@ public class ProcessCSVTest {
   }
 
   void writeCSV(Path source) throws IOException {
-    try (CSVWriter writer =
-        new CSVWriter(new FileWriter(source.toString() + "/" + DATA_MAME, true))) {
+    try (var writer =
+        new CsvWriterUtilsBuilder(new File(source.toString() + "/" + DATA_MAME)).build()) {
 
       String[] record1 =
           "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"

@@ -17,12 +17,7 @@
 package org.astraea.app.processCSV;
 
 import com.beust.jcommander.ParameterException;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-import com.opencsv.CSVWriter;
-import com.opencsv.exceptions.CsvValidationException;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +26,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.astraea.common.csv.CsvReaderUtilsBuilder;
+import org.astraea.common.csv.CsvWriterUtilsBuilder;
 
 public class ProcessCSV {
   public static List<Path> getListOfFiles(String dir, String target) {
@@ -67,8 +64,9 @@ public class ProcessCSV {
           String csvName =
               Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
 
-          try (CSVReader reader = new CSVReaderBuilder(new FileReader(path.toString())).build();
-              CSVWriter writer = new CSVWriter(new FileWriter(SINK_DIRECTORY + "/" + csvName))) {
+          try (var reader = new CsvReaderUtilsBuilder(path.toFile()).build();
+              var writer =
+                  new CsvWriterUtilsBuilder(new File(SINK_DIRECTORY + "/" + csvName)).build()) {
             var csvRecord = reader.readNext();
             writer.writeNext(
                 new String[] {
@@ -80,7 +78,7 @@ public class ProcessCSV {
               writer.writeNext(csvRecord);
             }
             writer.flush();
-          } catch (IOException | CsvValidationException e) {
+          } catch (IOException e) {
             throw new RuntimeException(e);
           }
         });
