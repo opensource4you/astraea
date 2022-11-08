@@ -16,31 +16,73 @@
  */
 package org.astraea.common;
 
+import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
 public interface Lazy<T> {
 
+  static <T> Lazy<T> of() {
+    return of(null);
+  }
+
   static <T> Lazy<T> of(Supplier<T> supplier) {
-    return new Lazy<T>() {
-      private volatile T obj;
+    return new Lazy<>() {
+      private volatile Map.Entry<Long, T> timestampAndObj;
 
       @Override
       public T get() {
-        if (obj == null) {
+        return get(supplier);
+      }
+
+      @Override
+      public T get(Supplier<T> supplier) {
+        return get(supplier, null);
+      }
+
+      @Override
+      public T get(Supplier<T> supplier, Duration timeout) {
+        if (needUpdate(timeout)) {
           synchronized (this) {
-            if (obj == null) obj = Objects.requireNonNull(supplier.get());
+            if (needUpdate(timeout)) {
+              Objects.requireNonNull((supplier));
+              timestampAndObj =
+                  Map.entry(System.currentTimeMillis(), Objects.requireNonNull(supplier.get()));
+            }
           }
         }
-        return obj;
+        return timestampAndObj.getValue();
+      }
+
+      private boolean needUpdate(Duration timeout) {
+        return timestampAndObj == null
+            || (timeout != null && Utils.isExpired(timestampAndObj.getKey(), timeout));
       }
     };
   }
 
   /**
-   * the object will get created when this method is called the first time
+   * the object will get created when this the creation condition is reached. This method will use
+   * default supplier to update object. If the default supplier is null, it throws NPE directly.
    *
    * @return object
    */
   T get();
+
+  /**
+   * the object will get created when this the creation condition is reached.
+   *
+   * @param supplier to update internal value. it can't be null
+   * @return object
+   */
+  T get(Supplier<T> supplier);
+  /**
+   * the object will get created when this the creation condition is reached.
+   *
+   * @param supplier to update internal value. it can't be null
+   * @param timeout to update current value even if it is not null
+   * @return object
+   */
+  T get(Supplier<T> supplier, Duration timeout);
 }

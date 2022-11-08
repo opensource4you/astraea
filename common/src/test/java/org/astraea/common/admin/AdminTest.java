@@ -345,6 +345,7 @@ public class AdminTest extends RequireBrokerCluster {
               Set.of(TopicPartition.of(partition.topic(), partition.partition())))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           ids.get(0),
           admin.partitions(Set.of(topic)).toCompletableFuture().join().get(0).leader().get().id());

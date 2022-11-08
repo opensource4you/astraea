@@ -22,10 +22,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.cost.Periodic;
 
 /**
  * Given initial key-score pair, it will output a preferred key with the highest current weight. The
@@ -51,18 +52,18 @@ import org.astraea.common.cost.Periodic;
  * ||----------7-----------||------ {7, 0, 0} ------||----Broker1----||----- { 0, 0, 0} -----||
  * ||======================||=======================||===============||======================||
  */
-public final class SmoothWeightRoundRobin
-    extends Periodic<SmoothWeightRoundRobin.EffectiveWeightResult> {
-  private EffectiveWeightResult effectiveWeightResult;
+public final class SmoothWeightRoundRobin {
+  private final Lazy<EffectiveWeightResult> effectiveWeightResult = Lazy.of();
   private Map<Integer, Double> currentWeight;
   private final Map<String, List<Integer>> brokersIDofTopic = new HashMap<>();
   private final double upperLimitOffsetRatio = 0.1;
 
   public SmoothWeightRoundRobin(Map<Integer, Double> effectiveWeight) {
-    effectiveWeightResult =
-        new EffectiveWeightResult(
-            effectiveWeight.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0)));
+    effectiveWeightResult.get(
+        () ->
+            new EffectiveWeightResult(
+                effectiveWeight.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0))));
     currentWeight =
         effectiveWeight.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 0.0));
@@ -73,40 +74,35 @@ public final class SmoothWeightRoundRobin
    *
    * @param brokerScore Broker Score.
    */
-  public synchronized void init(Map<Integer, Double> brokerScore) {
-    effectiveWeightResult =
-        tryUpdate(
-            () -> {
-              var avgScore =
-                  brokerScore.values().stream().mapToDouble(i -> i).average().getAsDouble();
-              var offsetRatioOfBroker =
-                  brokerScore.entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              Map.Entry::getKey,
-                              entry -> (entry.getValue() - avgScore) / avgScore));
-              // If the average offset of all brokers from the cluster is greater than 0.1, it is
-              // unbalanced.
-              var balance =
-                  standardDeviationImperative(avgScore, brokerScore)
-                      > upperLimitOffsetRatio * avgScore;
-
-              var effectiveWeights =
-                  this.effectiveWeightResult.effectiveWeight.entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              Map.Entry::getKey,
-                              entry -> {
-                                var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
-                                var weight =
-                                    balance
-                                        ? entry.getValue() * (1 - offsetRatio)
-                                        : entry.getValue();
-                                return Math.max(weight, 0.0);
-                              }));
-              return new EffectiveWeightResult(effectiveWeights);
-            },
-            Duration.ofSeconds(10));
+  public synchronized void init(Supplier<Map<Integer, Double>> brokerScore) {
+    effectiveWeightResult.get(
+        () -> {
+          var avgScore =
+              brokerScore.get().values().stream().mapToDouble(i -> i).average().getAsDouble();
+          var offsetRatioOfBroker =
+              brokerScore.get().entrySet().stream()
+                  .collect(
+                      Collectors.toMap(
+                          Map.Entry::getKey, entry -> (entry.getValue() - avgScore) / avgScore));
+          // If the average offset of all brokers from the cluster is greater than 0.1, it is
+          // unbalanced.
+          var balance =
+              standardDeviationImperative(avgScore, brokerScore.get())
+                  > upperLimitOffsetRatio * avgScore;
+          var effectiveWeights =
+              this.effectiveWeightResult.get().effectiveWeight.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(
+                          Map.Entry::getKey,
+                          entry -> {
+                            var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
+                            var weight =
+                                balance ? entry.getValue() * (1 - offsetRatio) : entry.getValue();
+                            return Math.max(weight, 0.0);
+                          }));
+          return new EffectiveWeightResult(effectiveWeights);
+        },
+        Duration.ofSeconds(10));
   }
 
   /**
@@ -130,7 +126,8 @@ public final class SmoothWeightRoundRobin
                     Map.Entry::getKey,
                     e ->
                         brokerID.contains(e.getKey())
-                            ? e.getValue() + effectiveWeightResult.effectiveWeight.get(e.getKey())
+                            ? e.getValue()
+                                + effectiveWeightResult.get().effectiveWeight.get(e.getKey())
                             : e.getValue()));
     var maxID =
         this.currentWeight.entrySet().stream()
@@ -145,7 +142,8 @@ public final class SmoothWeightRoundRobin
                     Map.Entry::getKey,
                     e ->
                         e.getKey().equals(maxID)
-                            ? e.getValue() - effectiveWeightResult.effectiveWeightSum(brokerID)
+                            ? e.getValue()
+                                - effectiveWeightResult.get().effectiveWeightSum(brokerID)
                             : e.getValue()));
     return maxID;
   }

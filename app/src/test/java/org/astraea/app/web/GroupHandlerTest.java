@@ -97,23 +97,6 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGroups() {
-    var topicName = Utils.randomString(10);
-    var groupId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new GroupHandler(admin);
-
-      try (var consumer =
-          Consumer.forTopics(Set.of(topicName))
-              .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-              .bootstrapServers(bootstrapServers())
-              .build()) {
-        Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
-      }
-    }
-  }
-
-  @Test
   void testSpecifyTopic() {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);

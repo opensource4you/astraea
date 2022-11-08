@@ -115,18 +115,13 @@ public interface Admin extends AutoCloseable {
         .thenApply(
             bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
         .thenApply(
-            bootstrap -> {
-              try (var consumer =
-                  Consumer.forPartitions(topicPartitions)
-                      .bootstrapServers(bootstrap)
-                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
-                      .build()) {
-                // TODO: how many records we should take ?
-                return consumer.poll(Integer.MAX_VALUE, timeout).stream()
+            bootstrap ->
+                Consumer.forPartitions(topicPartitions)
+                    .bootstrapServers(bootstrap)
+                    .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
+                    .stream((count, elapsed) -> count >= records || elapsed >= timeout.toMillis())
                     .collect(
-                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())));
-              }
-            });
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition()))));
   }
 
   /**

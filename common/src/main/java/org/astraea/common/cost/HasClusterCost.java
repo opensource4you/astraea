@@ -34,8 +34,7 @@ public interface HasClusterCost extends CostFunction {
                 .map(CostFunction::fetcher)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(Collectors.toUnmodifiableList()),
-            Throwable::printStackTrace);
+                .collect(Collectors.toUnmodifiableList()));
     return new HasClusterCost() {
       @Override
       public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
