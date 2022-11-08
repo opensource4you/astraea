@@ -124,7 +124,6 @@ JSON Response 範例
 * `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
   * `cost`: 目前叢集的成本 (越高越不好)
   * `newCost`: 評估後比較好的成本 (<= `cost`)
-  * `limit`: 嘗試了幾種組合
   * `function`: 用來評估品質的方法
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
@@ -151,7 +150,6 @@ JSON Response 範例
   "info": {
     "cost": 0.04948716593053935,
     "newCost": 0.04948716593053935,
-    "limit": 10000,
     "function": "ReplicaLeaderCost",
     "changes": [
       {

@@ -93,7 +93,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       defaultDecreasing))
               .report;
       Assertions.assertNotNull(report.id);
-      Assertions.assertEquals(3000, report.limit);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost);
       // "before" should record size

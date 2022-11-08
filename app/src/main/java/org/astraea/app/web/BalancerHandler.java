@@ -176,7 +176,6 @@ class BalancerHandler implements Handler {
                           newPlanId,
                           cost,
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          0, // TODO: get rid of this
                           config.clusterCostFunction().getClass().getSimpleName(),
                           changes,
                           bestPlan
@@ -470,7 +469,6 @@ class BalancerHandler implements Handler {
 
     // don't generate new cost if there is no best plan
     final Double newCost;
-    final int limit;
 
     final String function;
     final List<Change> changes;
@@ -480,14 +478,12 @@ class BalancerHandler implements Handler {
         String id,
         double cost,
         Double newCost,
-        int limit,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
       this.id = id;
       this.cost = cost;
       this.newCost = newCost;
-      this.limit = limit;
       this.function = function;
       this.changes = changes;
       this.migrationCosts = migrationCosts;
