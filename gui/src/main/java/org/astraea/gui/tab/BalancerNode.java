@@ -221,7 +221,7 @@ public class BalancerNode {
                                                           || patterns.stream()
                                                               .anyMatch(
                                                                   p -> p.matcher(topic).matches()))
-                                              .limit(10000)
+                                              .config("iteration", "10000")
                                               .build())
                                       .offer(clusterInfo, brokerFolders));
                             }))
