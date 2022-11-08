@@ -58,21 +58,45 @@ public class DynamicMbean {
     return new DynamicMbean();
   }
 
+  /**
+   * The domain name of this MBean.
+   *
+   * @return this.
+   */
   public DynamicMbean domainName(String domainName) {
     this.domainName = domainName;
     return this;
   }
 
+  /**
+   * Put a new property of this MBean.
+   *
+   * @return this.
+   */
   public DynamicMbean property(String key, String value) {
     this.properties.put(key, value);
     return this;
   }
 
+  /**
+   * Description of this Mbean.
+   *
+   * @return this.
+   */
   public DynamicMbean description(String description) {
     this.description = description;
     return this;
   }
 
+  /**
+   * Declare a new attribute of this Mbean.
+   *
+   * @param name the name of this attribute.
+   * @param attributeClass the type of this attribute.
+   * @param source where to retrieve the attribute value. Note that this {@link Supplier} must be
+   *     thread-safe.
+   * @return this.
+   */
   public <T> DynamicMbean attribute(String name, Class<T> attributeClass, Supplier<T> source) {
     attributeInfo.add(
         new MBeanAttributeInfo(name, attributeClass.getName(), "", true, false, false));
@@ -149,10 +173,14 @@ public class DynamicMbean {
     };
   }
 
+  /**
+   * Build a {@link Register} of this MBean. It is a helper class for register/unregister this
+   * Mbean.
+   */
   public Register build() {
     return new Register(
         Utils.packException(
-            () -> new ObjectName(domainName, (Hashtable<String, String>) properties)),
+            () -> new ObjectName(domainName, (Hashtable<String, String>) Map.copyOf(properties))),
         buildMBean());
   }
 
