@@ -25,7 +25,6 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ClusterCost;
@@ -159,22 +158,6 @@ public interface AlgorithmConfig {
      */
     public Builder movementConstraint(Predicate<List<MoveCost>> moveConstraint) {
       this.movementConstraint = Objects.requireNonNull(moveConstraint);
-      return this;
-    }
-
-    /**
-     * Specify the maximum number of rebalance plans for evaluation. A higher number means searching
-     * & evaluating more potential rebalance plans, which might lead to longer execution time.
-     *
-     * @deprecated The meaning of this parameter might change from algorithm to algorithm. Should
-     *     use {@link Builder#config} instead.
-     * @param limit the maximum number of rebalance plan for evaluation.
-     * @return this
-     */
-    @Deprecated
-    public Builder limit(int limit) {
-      // TODO: get rid of this method. It proposes some kind of algorithm implementation details.
-      this.config("iteration", String.valueOf(Utils.requirePositive(limit)));
       return this;
     }
 

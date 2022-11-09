@@ -26,6 +26,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -35,6 +37,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
@@ -504,5 +507,43 @@ public class ConsumerTest extends RequireBrokerCluster {
             .build()) {
       Assertions.assertEquals(clientId1, consumer.clientId());
     }
+  }
+
+  @Timeout(20)
+  @Test
+  void testIteratorForSubscription() {
+    var topic = Utils.randomString();
+    produceData(topic, 100);
+    var iterator =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .iterator((count, elapsed, size) -> count >= 100);
+    var stream =
+        StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+    Assertions.assertEquals(100, stream.count());
+    // the stream can not be reused
+    Assertions.assertThrows(IllegalStateException.class, stream::count);
+  }
+
+  @Timeout(20)
+  @Test
+  void testStreamForAssignment() {
+    var topic = Utils.randomString();
+    produceData(topic, 100);
+    var iterator =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .seek(DISTANCE_FROM_BEGINNING, 0)
+            .iterator((count, elapsed, size) -> count >= 100);
+    var stream =
+        StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+    Assertions.assertEquals(100, stream.count());
+    // the stream can not be reused
+    Assertions.assertThrows(IllegalStateException.class, stream::count);
   }
 }
