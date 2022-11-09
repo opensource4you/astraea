@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.management.Attribute;
@@ -60,7 +61,7 @@ public class MBeanRegister {
     private final Map<String, String> properties = new Hashtable<>();
     private String description = "";
     private final List<MBeanAttributeInfo> attributeInfo = new ArrayList<>();
-    private final Map<String, AttributeField<?>> attributes = new ConcurrentHashMap<>();
+    private final Map<String, Supplier<?>> attributes = new ConcurrentHashMap<>();
 
     /**
      * The domain name of this MBean.
@@ -103,6 +104,9 @@ public class MBeanRegister {
      */
     public <T> LocalRegister addAttribute(
         String name, Class<T> attributeClass, Supplier<T> source) {
+      Objects.requireNonNull(name);
+      Objects.requireNonNull(attributeClass);
+      Objects.requireNonNull(source);
       attributeInfo.add(
           new MBeanAttributeInfo(name, attributeClass.getName(), "", true, false, false));
       attributes.compute(
@@ -111,7 +115,7 @@ public class MBeanRegister {
             if (original != null)
               throw new IllegalArgumentException(
                   "This attribute " + attribute + " already registered");
-            else return new AttributeField<>(attributeClass, source);
+            else return source;
           });
       return this;
     }
@@ -135,10 +139,10 @@ public class MBeanRegister {
 
         @Override
         public Object getAttribute(String s) throws AttributeNotFoundException {
-          var attribute = defensiveCopy.getOrDefault(s, null);
+          var attribute = defensiveCopy.get(s);
           if (attribute == null)
             throw new AttributeNotFoundException("Cannot find attribute: " + s);
-          else return attribute.source.get();
+          else return attribute.get();
         }
 
         @Override
@@ -188,16 +192,6 @@ public class MBeanRegister {
             var mBean = buildMBean();
             ManagementFactory.getPlatformMBeanServer().registerMBean(mBean, name);
           });
-    }
-  }
-
-  private static class AttributeField<T> {
-    private final Class<T> theClass;
-    private final Supplier<T> source;
-
-    private AttributeField(Class<T> theClass, Supplier<T> source) {
-      this.theClass = theClass;
-      this.source = source;
     }
   }
 }
