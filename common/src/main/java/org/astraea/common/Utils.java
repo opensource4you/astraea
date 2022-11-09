@@ -19,6 +19,9 @@ package org.astraea.common;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -269,6 +272,12 @@ public final class Utils {
   public static Pattern wildcardToPattern(String string) {
     return Pattern.compile(
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
+  }
+
+  public static long fileLineNum(Path path) {
+    try (var file = Utils.packException(() -> Files.lines(Paths.get(path.toUri())))) {
+      return file.count();
+    }
   }
 
   private Utils() {}

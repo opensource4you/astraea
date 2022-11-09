@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.processCSV;
+package org.astraea.app.CleanCsv;
 
 import com.beust.jcommander.ParameterException;
 import java.io.File;
@@ -26,10 +26,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.astraea.common.csv.CsvReaderUtilsBuilder;
-import org.astraea.common.csv.CsvWriterUtilsBuilder;
+import org.astraea.common.csv.OwnCsvWriterBuilder;
+import org.astraea.common.csv.WindCsvCleanerBuilder;
 
-public class ProcessCSV {
+public class CleanCsv {
   public static List<Path> getListOfFiles(String dir, String target) {
     try {
       return Files.find(
@@ -60,22 +60,17 @@ public class ProcessCSV {
 
     listOfFiles.forEach(
         path -> {
-          String[] pathSplit = path.toString().split("/");
-          String csvName =
-              Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
+          var pathSplit = path.toString().split("/");
+          var csvName = Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
 
-          try (var reader = new CsvReaderUtilsBuilder(path.toFile()).build();
+          try (var reader = new WindCsvCleanerBuilder(path).build();
               var writer =
-                  new CsvWriterUtilsBuilder(new File(SINK_DIRECTORY + "/" + csvName)).build()) {
-            var csvRecord = reader.readNext();
-            writer.writeNext(
-                new String[] {
-                  csvRecord[1] + "_" + Arrays.stream(csvName.split("\\.")).findFirst().orElse("")
-                });
-            writer.writeNext(reader.readNext());
+                  new OwnCsvWriterBuilder(new File(SINK_DIRECTORY + "/" + csvName)).build()) {
+            writer.writeNext(reader.headers());
+            writer.writeNext(reader.next().toArray(new String[0]));
             reader.skip(2);
-            while ((csvRecord = reader.readNext()) != null) {
-              writer.writeNext(csvRecord);
+            while (reader.hasNext()) {
+              writer.writeNext(reader.next().toArray(new String[0]));
             }
             writer.flush();
           } catch (IOException e) {

@@ -21,10 +21,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.astraea.app.CleanCsv.CleanCsv;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.balancer.BalanceProcessDemo;
 import org.astraea.app.performance.Performance;
-import org.astraea.app.processCSV.ProcessCSV;
 import org.astraea.app.scenario.ScenarioMain;
 import org.astraea.app.version.Version;
 import org.astraea.app.web.WebService;
@@ -44,8 +44,8 @@ public class App {
           ScenarioMain.class,
           "version",
           Version.class,
-          "processCSV",
-          ProcessCSV.class);
+          "clean-csv",
+          CleanCsv.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 

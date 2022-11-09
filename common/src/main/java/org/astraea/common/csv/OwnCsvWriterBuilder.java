@@ -22,8 +22,9 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import org.astraea.common.Utils;
 
-public class CsvWriterUtilsBuilder {
+public class OwnCsvWriterBuilder {
   private final CSVWriterBuilder csvWriterBuilder;
 
   /**
@@ -31,22 +32,19 @@ public class CsvWriterUtilsBuilder {
    *
    * @param sink The reader to an underlying CSV source.
    */
-  public CsvWriterUtilsBuilder(File sink) {
-    try {
-      this.csvWriterBuilder = new CSVWriterBuilder(new FileWriter(sink, true));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public OwnCsvWriterBuilder(File sink) {
+    this.csvWriterBuilder =
+        new CSVWriterBuilder(Utils.packException(() -> new FileWriter(sink, true)));
   }
 
-  public CsvWriterUtils build() {
-    return new CsvWriterUtils(csvWriterBuilder.build());
+  public OwnCsvWriter build() {
+    return new OwnCsvWriter(csvWriterBuilder.build());
   }
 
-  public static class CsvWriterUtils implements Closeable {
+  public static class OwnCsvWriter implements Closeable {
     private final ICSVWriter csvWriter;
 
-    private CsvWriterUtils(ICSVWriter csvWriter) {
+    private OwnCsvWriter(ICSVWriter csvWriter) {
       this.csvWriter = csvWriter;
     }
 
@@ -60,11 +58,7 @@ public class CsvWriterUtilsBuilder {
     }
 
     public void flush() {
-      try {
-        csvWriter.flush();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      Utils.packException(csvWriter::flush);
     }
 
     @Override
