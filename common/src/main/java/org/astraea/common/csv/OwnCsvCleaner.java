@@ -38,25 +38,6 @@ public abstract class OwnCsvCleaner implements Closeable, Iterator<List<String>>
   }
 
   /**
-   * Reads the next line from the buffer and converts to a string array.
-   *
-   * @return A string array with each comma-separated element as a separate entry, or null if there
-   *     is no more input.
-   */
-  @Override
-  public List<String> next() {
-    String[] next = Utils.packException(csvReader::readNext);
-    currentLine++;
-    if (genericLength == -1) genericLength = next.length;
-    else if (genericLength != next.length)
-      throw new RuntimeException(
-          "The "
-              + currentLine
-              + " line does not meet the criteria. Each row of data should be equal in length.");
-    return List.of(next);
-  }
-
-  /**
    * Skip a given number of lines.
    *
    * @param num The number of lines to skip
@@ -74,6 +55,25 @@ public abstract class OwnCsvCleaner implements Closeable, Iterator<List<String>>
    * @return csv headers.
    */
   public abstract String[] headers();
+
+  /**
+   * Reads the next line from the buffer and converts to a string array.
+   *
+   * @return A string array with each comma-separated element as a separate entry, or null if there
+   *     is no more input.
+   */
+  @Override
+  public List<String> next() {
+    String[] next = Utils.packException(csvReader::readNext);
+    currentLine++;
+    if (genericLength == -1) genericLength = next.length;
+    else if (genericLength != next.length)
+      throw new RuntimeException(
+          "The "
+              + currentLine
+              + " line does not meet the criteria. Each row of data should be equal in length.");
+    return List.of(next);
+  }
 
   @Override
   public boolean hasNext() {
