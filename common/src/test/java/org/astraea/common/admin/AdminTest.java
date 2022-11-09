@@ -1559,7 +1559,7 @@ public class AdminTest extends RequireBrokerCluster {
         producer.flush();
       }
       var latestRecords =
-          admin.latestRecords(ps, 1, Duration.ofSeconds(3)).toCompletableFuture().join();
+          admin.latestRecords(ps, 4, Duration.ofSeconds(3)).toCompletableFuture().join();
       Assertions.assertEquals(4, latestRecords.size());
       latestRecords.values().forEach(v -> Assertions.assertEquals(1, v.size()));
 
