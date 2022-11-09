@@ -143,7 +143,9 @@ public class DataRate {
     return toBigDecimal(DataUnit.Byte, ChronoUnit.SECONDS).doubleValue();
   }
 
-  /** @return the data rate per second as a {@link DataSize}. */
+  /**
+   * @return the data rate per second as a {@link DataSize}.
+   */
   public DataSize dataSize() {
     var bitsPerSecond = toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger();
     return new DataSize(bitsPerSecond);

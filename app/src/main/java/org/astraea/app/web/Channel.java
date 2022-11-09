@@ -222,16 +222,24 @@ interface Channel {
         .build();
   }
 
-  /** @return the type of HTTP method */
+  /**
+   * @return the type of HTTP method
+   */
   Type type();
 
-  /** @return the target from URL. The form is /{type}/target */
+  /**
+   * @return the target from URL. The form is /{type}/target
+   */
   Optional<String> target();
 
-  /** @return body request */
+  /**
+   * @return body request
+   */
   PostRequest request();
 
-  /** @return the queries appended to URL */
+  /**
+   * @return the queries appended to URL
+   */
   Map<String, String> queries();
 
   /**

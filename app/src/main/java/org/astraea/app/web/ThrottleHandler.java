@@ -27,19 +27,18 @@ import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartitionReplica;
 
 public class ThrottleHandler implements Handler {
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  public ThrottleHandler(AsyncAdmin admin) {
+  public ThrottleHandler(Admin admin) {
     this.admin = admin;
   }
 
@@ -159,9 +158,18 @@ public class ThrottleHandler implements Handler {
                                                                   .collect(
                                                                       Collectors.joining(","))))));
                             })
-                        .collect(Collectors.toList()));
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                (l, r) -> {
+                                  // Merge the duplicate topic requests by order
+                                  var merged = new HashMap<>(l);
+                                  merged.putAll(r);
+                                  return merged;
+                                })));
 
-    var brokerToAppend =
+    Map<Integer, Map<String, String>> brokerToSets =
         channel
             .request()
             .<Collection<BrokerThrottle>>get(
@@ -186,20 +194,8 @@ public class ThrottleHandler implements Handler {
                     }));
 
     return topicToAppends
-        .thenCompose(
-            ts ->
-                FutureUtils.sequence(
-                    ts.stream()
-                        .map(
-                            t ->
-                                admin.appendConfigs(t.getKey(), t.getValue()).toCompletableFuture())
-                        .collect(Collectors.toList())))
-        .thenCompose(
-            ignored ->
-                FutureUtils.sequence(
-                    brokerToAppend.entrySet().stream()
-                        .map(e -> admin.setConfigs(e.getKey(), e.getValue()).toCompletableFuture())
-                        .collect(Collectors.toList())))
+        .thenCompose(admin::appendTopicConfigs)
+        .thenCompose(ignored -> admin.setBrokerConfigs(brokerToSets))
         .thenApply(ignored -> Response.ACCEPT);
   }
 
@@ -257,7 +253,7 @@ public class ThrottleHandler implements Handler {
                                                   entry.getValue().stream()
                                                       .map(r -> r.partition() + ":" + r.brokerId())
                                                       .collect(Collectors.joining(","))))))
-                      .collect(Collectors.toList());
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
                 });
 
     var brokerToUnset =
@@ -307,28 +303,8 @@ public class ThrottleHandler implements Handler {
                                         .collect(Collectors.toSet()))));
 
     return topicToSubtracts
-        .thenCompose(
-            ts ->
-                FutureUtils.sequence(
-                    ts.stream()
-                        .map(
-                            t ->
-                                admin
-                                    .subtractConfigs(t.getKey(), t.getValue())
-                                    .toCompletableFuture())
-                        .collect(Collectors.toList())))
-        .thenCompose(
-            ignored ->
-                brokerToUnset.thenCompose(
-                    bs ->
-                        FutureUtils.sequence(
-                            bs.entrySet().stream()
-                                .map(
-                                    e ->
-                                        admin
-                                            .unsetConfigs(e.getKey(), e.getValue())
-                                            .toCompletableFuture())
-                                .collect(Collectors.toList()))))
+        .thenCompose(admin::subtractTopicConfigs)
+        .thenCompose(ignored -> brokerToUnset.thenCompose(admin::unsetBrokerConfigs))
         .thenApply(ignored -> Response.ACCEPT);
   }
 
@@ -389,13 +365,6 @@ public class ThrottleHandler implements Handler {
     final int id;
     final Long follower;
     final Long leader;
-
-    static BrokerThrottle of(int id, DataRate ingress, DataRate egress) {
-      return new BrokerThrottle(
-          id,
-          (ingress != null) ? ((long) ingress.byteRate()) : (null),
-          (egress != null) ? ((long) egress.byteRate()) : (null));
-    }
 
     BrokerThrottle(int id, Long ingress, Long egress) {
       this.id = id;

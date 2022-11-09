@@ -16,285 +16,229 @@
  */
 package org.astraea.gui.pane;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Logger;
-import org.astraea.gui.Query;
-import org.astraea.gui.box.VBox;
-import org.astraea.gui.button.Button;
+import org.astraea.gui.button.Click;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.NoneditableText;
 
-/** a template layout for all tabs. */
+/**
+ * Layout: <br>
+ * -----------[first part]----------- <br>
+ * 1) (optional) select box <br>
+ * 2) (optional) multi input <br>
+ * 3) (required) click <br>
+ * ------------------------------------ <br>
+ * 4) (optional) table view <br>
+ * -----------[second part]----------- <br>
+ * 5) (optional) enable second control <br>
+ * 6) (optional) second multi input <br>
+ * 7) (optional) second click <br>
+ * ------------------------------------ <br>
+ * 8) (required) console <br>
+ */
 public class PaneBuilder {
 
   public static PaneBuilder of() {
-    return new PaneBuilder();
+    return new PaneBuilder(TableViewer.of());
   }
 
-  // ---------------------------------[first control]---------------------------------//
-
-  private SelectBox selectBox;
-
-  private final Map<NoneditableText, EditableText> inputKeyAndFields = new LinkedHashMap<>();
-
-  private Button actionButton = Button.of("REFRESH");
+  public static PaneBuilder of(TableViewer tableViewer) {
+    return new PaneBuilder(tableViewer);
+  }
 
   private final EditableText console = EditableText.multiline().build();
 
-  private TableViewer tableViewer = null;
-  private Node motherOfTableView = null;
+  private final Pane root = vbox(List.of(console.node()));
 
-  private BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction = null;
-  private BiFunction<Input, Logger, CompletionStage<Void>> buttonListener = null;
+  private final TableViewer tableViewer;
 
-  // ---------------------------------[second control]---------------------------------//
+  private Node secondControl;
 
-  private final Map<NoneditableText, EditableText> secondInputKeyAndFields = new LinkedHashMap<>();
-
-  private Button tableViewActionButton = Button.disabled("EXECUTE");
-
-  private Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
-      tableViewAction = null;
-
-  private PaneBuilder() {}
-
-  public PaneBuilder selectBox(SelectBox selectBox) {
-    this.selectBox = selectBox;
-    return this;
+  private PaneBuilder(TableViewer tableViewer) {
+    this.tableViewer = tableViewer;
   }
 
-  public PaneBuilder input(NoneditableText key, EditableText value) {
-    inputKeyAndFields.put(key, value);
-    return this;
+  public PaneBuilder firstPart(
+      SelectBox selectBox,
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    return firstPart(selectBox, null, clickName, TableRefresher.of(tableRefresher));
   }
 
-  public PaneBuilder input(Map<NoneditableText, EditableText> inputs) {
-    inputKeyAndFields.putAll(inputs);
-    return this;
+  public PaneBuilder firstPart(
+      MultiInput multiInput,
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    return firstPart(null, multiInput, clickName, TableRefresher.of(tableRefresher));
   }
 
-  public PaneBuilder buttonName(String name) {
-    actionButton = Button.of(name);
-    return this;
+  public PaneBuilder firstPart(
+      String clickName,
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
+    return firstPart(null, null, clickName, TableRefresher.of(tableRefresher));
   }
 
-  public PaneBuilder buttonAction(
-      BiFunction<Input, Logger, CompletionStage<List<Map<String, Object>>>> buttonAction) {
-    this.buttonAction = buttonAction;
-    var queryField =
-        EditableText.singleLine()
-            .hint(
-                "press ENTER to query. example: topic=chia && size>10GB || *timestamp*>=2022-10-22T04:57:43.530")
-            .build();
+  public PaneBuilder firstPart(
+      SelectBox selectBox, MultiInput multiInput, String clickName, TableRefresher tableRefresher) {
+    Objects.requireNonNull(clickName);
+    Objects.requireNonNull(tableRefresher);
+    var click = Click.of(clickName);
+    root.getChildren()
+        .add(
+            0,
+            vbox(
+                Stream.of(
+                        Optional.ofNullable(selectBox).map(SelectBox::node).stream(),
+                        Optional.ofNullable(multiInput).map(MultiInput::node).stream(),
+                        Optional.of(click.node()).stream())
+                    .flatMap(s -> s)
+                    .collect(Collectors.toList())));
 
-    tableViewer =
-        TableViewer.builder()
-            .querySupplier(() -> queryField.text().map(Query::of).orElse(Query.ALL))
-            .filteredDataListener(
-                List.of((ignored, data) -> console.append("total: " + data.size())))
-            .build();
+    var indexOfTableViewer = 1;
 
-    queryField
-        .node()
-        .setOnKeyPressed(
-            key -> {
-              if (key.getCode() == KeyCode.ENTER) tableViewer.refresh();
-            });
-
-    var borderPane = new BorderPane();
-    borderPane.setTop(queryField.node());
-    borderPane.setCenter(tableViewer.node());
-    motherOfTableView = borderPane;
-    return this;
-  }
-
-  public PaneBuilder buttonListener(
-      BiFunction<Input, Logger, CompletionStage<Void>> buttonListener) {
-    this.buttonListener = buttonListener;
-    return this;
-  }
-
-  public PaneBuilder tableViewAction(
-      Map<NoneditableText, EditableText> inputs,
-      String buttonName,
-      Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>> action) {
-    // always disable the input fields
-    inputs.keySet().forEach(NoneditableText::disable);
-    inputs.values().forEach(EditableText::disable);
-    secondInputKeyAndFields.putAll(inputs);
-    tableViewActionButton = Button.disabled(buttonName);
-    tableViewAction = action;
-    return this;
-  }
-
-  public Pane build() {
-    // step.1 layout
-    var nodes = new ArrayList<Node>();
-    if (selectBox != null) nodes.add(selectBox.node());
-    if (!inputKeyAndFields.isEmpty()) {
-      var ns =
-          inputKeyAndFields.entrySet().stream()
-              .flatMap(entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
-              .collect(Collectors.toList());
-      var lattice = Lattice.of(ns, inputKeyAndFields.size() <= 3 ? 2 : 6);
-      nodes.add(lattice.node());
-    }
-    nodes.add(actionButton);
-    if (motherOfTableView != null) nodes.add(motherOfTableView);
-    // ---------------------------------[second control layout]---------------------------------//
-    if (tableViewer != null && tableViewAction != null) {
-      var checkbox = new CheckBox("enable");
-      checkbox
-          .selectedProperty()
-          .addListener(
-              (observable, oldValue, newValue) -> {
-                if (checkbox.isSelected()) {
-                  tableViewActionButton.enable();
-                  secondInputKeyAndFields.keySet().forEach(NoneditableText::enable);
-                  secondInputKeyAndFields.values().forEach(EditableText::enable);
-                } else {
-                  tableViewActionButton.disable();
-                  secondInputKeyAndFields.keySet().forEach(NoneditableText::disable);
-                  secondInputKeyAndFields.values().forEach(EditableText::disable);
-                }
-              });
-      tableViewActionButton.setOnAction(
-          event -> {
-            var items = tableViewer.filteredData();
-            var text =
-                secondInputKeyAndFields.entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
-            var input =
-                new Input() {
-                  @Override
-                  public List<String> selectedKeys() {
-                    return List.of();
-                  }
-
-                  @Override
-                  public Map<String, Optional<String>> texts() {
-                    return text;
-                  }
-                };
-            try {
-              checkbox.setSelected(false);
-
-              var requiredNonexistentKeys =
-                  secondInputKeyAndFields.entrySet().stream()
-                      .filter(e -> !e.getValue().valid())
-                      .map(e -> e.getKey().text())
-                      .collect(Collectors.toSet());
-              if (!requiredNonexistentKeys.isEmpty()) {
-                console.text("Please define required fields: " + requiredNonexistentKeys);
-                return;
-              }
-              tableViewAction
-                  .apply(items, input, console::append)
-                  .whenComplete((data, e) -> console.text(e));
-            } catch (Exception e) {
-              console.text(e);
-            }
-          });
-
-      nodes.add(
-          VBox.of(
-              Pos.CENTER,
-              checkbox,
-              Lattice.of(
-                      secondInputKeyAndFields.entrySet().stream()
-                          .flatMap(
-                              entry -> Stream.of(entry.getKey().node(), entry.getValue().node()))
-                          .collect(Collectors.toList()),
-                      6)
-                  .node(),
-              tableViewActionButton));
-    }
-
-    nodes.add(console.node());
-
-    // step.2 event
     Runnable handler =
         () -> {
-          var requiredNonexistentKeys =
-              inputKeyAndFields.entrySet().stream()
-                  .filter(e -> !e.getValue().valid())
-                  .map(e -> e.getKey().text())
-                  .collect(Collectors.toSet());
-          if (!requiredNonexistentKeys.isEmpty()) {
-            console.text("Please define required fields: " + requiredNonexistentKeys);
+          var invalidKeys = multiInput == null ? Set.of() : multiInput.invalidKeys();
+          if (!invalidKeys.isEmpty()) {
+            console.text("please check fields: " + invalidKeys);
             return;
           }
 
-          var rawTexts =
-              inputKeyAndFields.entrySet().stream()
-                  .collect(Collectors.toMap(e -> e.getKey().text(), e -> e.getValue().text()));
-          var input =
-              new Input() {
-                @Override
-                public List<String> selectedKeys() {
-                  return selectBox == null ? List.of() : selectBox.selectedKeys();
-                }
-
-                @Override
-                public Map<String, Optional<String>> texts() {
-                  return rawTexts;
-                }
-              };
-
-          // nothing to do
-          if (buttonAction == null && buttonListener == null) return;
+          var argument =
+              Argument.of(
+                  selectBox == null ? List.of() : selectBox.selectedKeys(),
+                  multiInput == null ? Map.of() : multiInput.contents());
 
           console.cleanup();
-          actionButton.disable();
+          click.disable();
           try {
-            if (buttonAction != null)
-              buttonAction
-                  .apply(input, console::append)
-                  .whenComplete(
-                      (data, e) -> {
-                        try {
-                          if (data != null && tableViewer != null) tableViewer.data(data);
-                          console.text(e);
-                        } finally {
-                          actionButton.enable();
-                        }
-                      });
-            if (buttonListener != null)
-              buttonListener
-                  .apply(input, console::append)
-                  .whenComplete(
-                      (data, e) -> {
-                        try {
-                          console.text(e);
-                        } finally {
-                          actionButton.enable();
-                        }
-                      });
+            tableRefresher
+                .apply(argument, console::append)
+                .whenComplete(
+                    (data, e) -> {
+                      try {
+                        if (data != null && !data.isEmpty()) {
+                          if (!root.getChildren().contains(tableViewer.node()))
+                            Platform.runLater(
+                                () ->
+                                    root.getChildren().add(indexOfTableViewer, tableViewer.node()));
+
+                          if (secondControl != null && !root.getChildren().contains(secondControl))
+                            Platform.runLater(
+                                () ->
+                                    root.getChildren().add(indexOfTableViewer + 1, secondControl));
+                          tableViewer.data(data);
+                        } else
+                          Platform.runLater(
+                              () -> {
+                                root.getChildren().remove(tableViewer.node());
+                                if (secondControl != null) root.getChildren().remove(secondControl);
+                              });
+                        console.text(e);
+                      } catch (Exception e2) {
+                        console.text(e2);
+                      } finally {
+                        click.enable();
+                      }
+                    });
 
           } catch (Exception e) {
             console.text(e);
-            actionButton.enable();
+            click.enable();
           }
         };
 
-    actionButton.setOnAction(ignored -> handler.run());
-    return VBox.of(Pos.CENTER, nodes.toArray(Node[]::new));
+    click.action(handler);
+    tableViewer.keyAction(
+        keyEvent -> {
+          if (keyEvent.getCode() == KeyCode.ENTER) handler.run();
+        });
+    return this;
+  }
+
+  public PaneBuilder secondPart(
+      MultiInput multiInput,
+      String buttonName,
+      Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
+    Objects.requireNonNull(buttonName);
+    Objects.requireNonNull(action);
+    var tableViewClick = Click.disabled(buttonName);
+    var checkbox = new CheckBox("enable");
+    checkbox
+        .selectedProperty()
+        .addListener(
+            (observable, oldValue, newValue) -> {
+              if (checkbox.isSelected()) {
+                tableViewClick.enable();
+                if (multiInput != null) multiInput.enable();
+              } else {
+                tableViewClick.disable();
+                if (multiInput != null) multiInput.disable();
+              }
+            });
+    tableViewClick.action(
+        () -> {
+          var items = tableViewer.filteredData();
+          if (items.isEmpty()) return;
+          var text =
+              multiInput == null ? Map.<String, Optional<String>>of() : multiInput.contents();
+          // the click for table view requires only user text inputs.
+          var input = Argument.of(List.of(), text);
+
+          checkbox.setDisable(true);
+          checkbox.setSelected(false);
+          try {
+            var invalidKeys = multiInput == null ? Set.of() : multiInput.invalidKeys();
+            if (!invalidKeys.isEmpty()) {
+              console.text("please check fields: " + invalidKeys);
+              return;
+            }
+            action
+                .apply(items, input, console::append)
+                .whenComplete(
+                    (data, e) -> {
+                      checkbox.setDisable(false);
+                      console.text(e);
+                    });
+          } catch (Exception e) {
+            checkbox.setDisable(false);
+            console.text(e);
+          }
+        });
+
+    if (multiInput == null) secondControl = vbox(List.of(checkbox, tableViewClick.node()));
+    else secondControl = vbox(List.of(checkbox, multiInput.node(), tableViewClick.node()));
+    return this;
+  }
+
+  public Node build() {
+    return root;
+  }
+
+  private static Pane vbox(List<Node> nodes) {
+    var pane = new VBox(10);
+    pane.setPadding(new Insets(15));
+    pane.getChildren().setAll(nodes);
+    pane.setAlignment(Pos.CENTER);
+    return pane;
   }
 }

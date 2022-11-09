@@ -42,20 +42,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
 import org.astraea.common.ExecutionRuntimeException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Header;
-import org.astraea.common.json.JsonConverter.ByteArrayToBase64TypeAdapter;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -77,7 +76,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler
                 .post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[]"))))
                 .toCompletableFuture()
-                .get(),
+                .join(),
         "records should contain at least one record");
     var executionRuntimeException =
         Assertions.assertThrows(
@@ -89,7 +88,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPostTimeout() throws ExecutionException, InterruptedException {
+  void testPostTimeout() {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> getRecordHandler().post(Channel.ofRequest(PostRequest.of(Map.of(TIMEOUT, "foo")))));
@@ -109,12 +108,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                                         new RecordHandler.PostRecord(
                                             "test", null, null, null, null, null, null)))))))
             .toCompletableFuture()
-            .get());
+            .join());
   }
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testPost(boolean isTransaction) throws ExecutionException, InterruptedException {
+  void testPost(boolean isTransaction) {
     var topic = Utils.randomString(10);
     var currentTimestamp = System.currentTimeMillis();
     var requestParams = new HashMap<String, Object>();
@@ -134,7 +133,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             getRecordHandler()
                 .post(Channel.ofRequest(PostRequest.of(new Gson().toJson(requestParams))))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     Assertions.assertEquals(2, response.results.size());
 
@@ -188,7 +187,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPostWithAsync() throws ExecutionException, InterruptedException {
+  void testPostWithAsync() {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     var currentTimestamp = System.currentTimeMillis();
@@ -215,7 +214,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                                                 "100",
                                                 currentTimestamp)))))))
                 .toCompletableFuture()
-                .get());
+                .join());
     Assertions.assertEquals(Response.ACCEPT, result);
 
     handler.producer.flush();
@@ -240,8 +239,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("forTestSerializer")
-  void testSerializer(String serializer, String actual, byte[] expected)
-      throws ExecutionException, InterruptedException {
+  void testSerializer(String serializer, String actual, byte[] expected) {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     Assertions.assertInstanceOf(
@@ -258,7 +256,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                                         new RecordHandler.PostRecord(
                                             topic, null, serializer, null, actual, null, null)))))))
             .toCompletableFuture()
-            .get());
+            .join());
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
@@ -300,11 +298,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testInvalidGet() throws ExecutionException, InterruptedException {
+  void testInvalidGet() {
     var handler = getRecordHandler();
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> handler.get(Channel.EMPTY).toCompletableFuture().get().code());
+        () -> handler.get(Channel.EMPTY).toCompletableFuture().join().code());
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
@@ -313,7 +311,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                     Channel.ofQueries(
                         "topic", Map.of(DISTANCE_FROM_BEGINNING, "1", DISTANCE_FROM_LATEST, "1")))
                 .toCompletableFuture()
-                .get(),
+                .join(),
         "only one seek strategy is allowed");
     Assertions.assertThrows(
         IllegalArgumentException.class,
@@ -325,12 +323,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                         Map.of(
                             DISTANCE_FROM_BEGINNING, "1", DISTANCE_FROM_LATEST, "1", SEEK_TO, "1")))
                 .toCompletableFuture()
-                .get(),
+                .join(),
         "only one seek strategy is allowed");
   }
 
   @Test
-  void testDistanceFromLatest() throws ExecutionException, InterruptedException {
+  void testDistanceFromLatest() {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -343,7 +341,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                     Channel.ofQueries(
                         topic, Map.of(DISTANCE_FROM_LATEST, "2", VALUE_DESERIALIZER, "integer")))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     Assertions.assertEquals(2, response.records.size());
     Assertions.assertEquals(
@@ -354,7 +352,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDistanceFromBeginning() throws ExecutionException, InterruptedException {
+  void testDistanceFromBeginning() {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -367,7 +365,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                     Channel.ofQueries(
                         topic, Map.of(DISTANCE_FROM_BEGINNING, "8", VALUE_DESERIALIZER, "integer")))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     Assertions.assertEquals(2, response.records.size());
     Assertions.assertEquals(
@@ -378,7 +376,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSeekTo() throws ExecutionException, InterruptedException {
+  void testSeekTo() {
     var topic = Utils.randomString(10);
     produceData(topic, 5);
 
@@ -389,7 +387,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler
                 .get(Channel.ofQueries(topic, Map.of(SEEK_TO, "3", VALUE_DESERIALIZER, "integer")))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     Assertions.assertEquals(2, response.records.size());
     Assertions.assertEquals(
@@ -400,9 +398,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetRecordByPartition() throws ExecutionException, InterruptedException {
+  void testGetRecordByPartition() {
     var topic = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+    try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var partitionNum = 2;
       admin
@@ -411,7 +409,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .numberOfPartitions(partitionNum)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
@@ -434,7 +432,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler
                 .get(Channel.ofQueries(topic, Map.of(DISTANCE_FROM_BEGINNING, "1", PARTITION, "1")))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     Assertions.assertTrue(
         response.records.stream().map(r -> r.partition).filter(p -> p != 1).findAny().isEmpty());
@@ -444,7 +442,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testLimit() throws ExecutionException, InterruptedException {
+  void testLimit() {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
@@ -464,7 +462,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                             VALUE_DESERIALIZER,
                             "integer")))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     // limit is just a recommended size here, we might get more records than limit
     Assertions.assertEquals(8, response.records.size());
@@ -478,8 +476,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("forTestDeserializer")
-  void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue)
-      throws ExecutionException, InterruptedException {
+  void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue) {
     var topic = Utils.randomString(10);
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
       producer.sender().topic(topic).value(value).run();
@@ -496,7 +493,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                         topic,
                         Map.of(DISTANCE_FROM_LATEST, "1", VALUE_DESERIALIZER, valueDeserializer)))
                 .toCompletableFuture()
-                .get());
+                .join());
     var records = List.copyOf(response.records);
     Assertions.assertEquals(1, records.size());
 
@@ -533,7 +530,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetResponse() throws ExecutionException, InterruptedException {
+  void testGetResponse() {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -563,7 +560,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                             VALUE_DESERIALIZER,
                             "integer")))
                 .toCompletableFuture()
-                .get());
+                .join());
     Assertions.assertEquals(1, response.records.size());
     var recordDto = response.records.iterator().next();
     Assertions.assertEquals(topic, recordDto.topic);
@@ -586,7 +583,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testGetJsonResponse() throws ExecutionException, InterruptedException {
+  void testGetJsonResponse() {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
@@ -616,7 +613,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                             VALUE_DESERIALIZER,
                             "integer")))
                 .toCompletableFuture()
-                .get());
+                .join());
 
     Assertions.assertEquals(
         "{\"records\":[{"
@@ -662,7 +659,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testPostAndGet() throws ExecutionException, InterruptedException {
+  void testPostAndGet() {
     var topic = Utils.randomString(10);
     var handler = getRecordHandler();
     var currentTimestamp = System.currentTimeMillis();
@@ -686,7 +683,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                                             "100",
                                             currentTimestamp)))))))
             .toCompletableFuture()
-            .get());
+            .join());
 
     var response =
         Assertions.assertInstanceOf(
@@ -705,7 +702,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                             PARTITION,
                             "0")))
                 .toCompletableFuture()
-                .get());
+                .join());
     var record = response.records.iterator().next();
     Assertions.assertEquals(topic, record.topic);
     Assertions.assertEquals(0, record.partition);
@@ -723,7 +720,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testTimeout() throws ExecutionException, InterruptedException {
+  void testTimeout() {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> getRecordHandler().get(Channel.ofQueries("test", Map.of(TIMEOUT, "foo"))));
@@ -731,15 +728,15 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         getRecordHandler()
             .get(Channel.ofQueries("test", Map.of(TIMEOUT, "10s")))
             .toCompletableFuture()
-            .get();
+            .join();
     Assertions.assertInstanceOf(RecordHandler.GetResponse.class, response);
     // close consumer
     response.onComplete(null);
   }
 
   @Test
-  void testDeleteParameter() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+  void testDeleteParameter() {
+    try (var admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
       admin
@@ -749,34 +746,34 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           Response.OK,
           handler
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "0")))
               .toCompletableFuture()
-              .get());
+              .join());
       Assertions.assertEquals(
           Response.OK,
           handler
               .delete(Channel.ofQueries(topicName, Map.of(OFFSET, "0")))
               .toCompletableFuture()
-              .get());
+              .join());
       Assertions.assertEquals(
           Response.OK,
           handler
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0")))
               .toCompletableFuture()
-              .get());
+              .join());
       Assertions.assertEquals(
-          Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().get());
+          Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().join());
     }
   }
 
   @Test
-  void testDelete() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+  void testDelete() {
+    try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
@@ -787,7 +784,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
 
       var senders =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
@@ -801,9 +798,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           handler
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "0", OFFSET, "1")))
               .toCompletableFuture()
-              .get());
+              .join());
       Utils.sleep(Duration.ofSeconds(2));
-      var partitions = admin.partitions(Set.of(topicName)).toCompletableFuture().get();
+      var partitions = admin.partitions(Set.of(topicName)).toCompletableFuture().join();
       Assertions.assertEquals(3, partitions.size());
       Assertions.assertEquals(
           1,
@@ -828,12 +825,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .earliestOffset());
 
       Assertions.assertEquals(
-          Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().get());
+          Response.OK, handler.delete(Channel.ofTarget(topicName)).toCompletableFuture().join());
       partitions =
           admin
-              .partitions(admin.topicNames(true).toCompletableFuture().get())
+              .partitions(admin.topicNames(true).toCompletableFuture().join())
               .toCompletableFuture()
-              .get();
+              .join();
       Assertions.assertEquals(
           2,
           partitions.stream()
@@ -859,8 +856,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDeleteOffset() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+  void testDeleteOffset() {
+    try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
@@ -871,7 +868,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
 
       var senders =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
@@ -885,12 +882,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           handler
               .delete(Channel.ofQueries(topicName, Map.of(OFFSET, "1")))
               .toCompletableFuture()
-              .get());
+              .join());
       var partitions =
           admin
-              .partitions(admin.topicNames(true).toCompletableFuture().get())
+              .partitions(admin.topicNames(true).toCompletableFuture().join())
               .toCompletableFuture()
-              .get();
+              .join();
       Assertions.assertEquals(
           1,
           partitions.stream()
@@ -916,8 +913,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testDeletePartition() throws ExecutionException, InterruptedException {
-    try (var admin = AsyncAdmin.of(bootstrapServers());
+  void testDeletePartition() {
+    try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
       var handler = getRecordHandler();
@@ -928,7 +925,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
 
       var senders =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
@@ -942,12 +939,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           handler
               .delete(Channel.ofQueries(topicName, Map.of(PARTITION, "1")))
               .toCompletableFuture()
-              .get());
+              .join());
       var partitions =
           admin
-              .partitions(admin.topicNames(true).toCompletableFuture().get())
+              .partitions(admin.topicNames(true).toCompletableFuture().join())
               .toCompletableFuture()
-              .get();
+              .join();
       Assertions.assertEquals(
           0,
           partitions.stream()
@@ -997,7 +994,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                                         })
                                     .build())
                             .toCompletableFuture()
-                            .get()));
+                            .join()));
 
     // send this request to register consumer group
     Assertions.assertEquals(getRecords.apply(false).records.size(), 0);
@@ -1024,15 +1021,14 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @MethodSource("forTestGetRecordsCloseConsumer")
-  void testGetRecordsCloseConsumer(Map<String, String> args)
-      throws ExecutionException, InterruptedException {
+  void testGetRecordsCloseConsumer(Map<String, String> args) {
     var topic = Utils.randomString(10);
     var recordHandler = getRecordHandler();
 
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
-            recordHandler.handle(Channel.ofQueries(topic, args)).toCompletableFuture().get());
+            recordHandler.handle(Channel.ofQueries(topic, args)).toCompletableFuture().join());
     var error =
         Assertions.assertThrows(
             IllegalStateException.class, () -> response.consumer.poll(Duration.ofSeconds(1)));
@@ -1053,7 +1049,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                             })
                         .build())
                 .toCompletableFuture()
-                .get());
+                .join());
     var error2 =
         Assertions.assertThrows(
             IllegalStateException.class, () -> response2.consumer.poll(Duration.ofSeconds(1)));
@@ -1061,7 +1057,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   private RecordHandler getRecordHandler() {
-    return new RecordHandler(AsyncAdmin.of(bootstrapServers()), bootstrapServers());
+    return new RecordHandler(Admin.of(bootstrapServers()), bootstrapServers());
   }
 
   @Test

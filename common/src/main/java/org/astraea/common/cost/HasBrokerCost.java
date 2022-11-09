@@ -41,8 +41,7 @@ public interface HasBrokerCost extends CostFunction {
                 .map(CostFunction::fetcher)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(Collectors.toUnmodifiableList()),
-            Throwable::printStackTrace);
+                .collect(Collectors.toUnmodifiableList()));
     return new HasBrokerCost() {
       @Override
       public BrokerCost brokerCost(

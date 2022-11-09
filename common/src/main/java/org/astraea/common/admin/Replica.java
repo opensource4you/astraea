@@ -18,33 +18,6 @@ package org.astraea.common.admin;
 
 public interface Replica extends ReplicaInfo {
 
-  static Replica of(
-      String topic,
-      int partition,
-      NodeInfo nodeInfo,
-      long lag,
-      long size,
-      boolean leader,
-      boolean inSync,
-      boolean isFuture,
-      boolean offline,
-      boolean isPreferredLeader,
-      String path) {
-    return Replica.builder()
-        .topic(topic)
-        .partition(partition)
-        .nodeInfo(nodeInfo)
-        .lag(lag)
-        .size(size)
-        .leader(leader)
-        .inSync(inSync)
-        .isFuture(isFuture)
-        .offline(offline)
-        .isPreferredLeader(isPreferredLeader)
-        .path(path)
-        .build();
-  }
-
   static ReplicaBuilder builder() {
     return new ReplicaBuilder();
   }
@@ -62,12 +35,16 @@ public interface Replica extends ReplicaInfo {
    */
   boolean isFuture();
 
-  /** @return true if this is current log of replica. */
+  /**
+   * @return true if this is current log of replica.
+   */
   default boolean isCurrent() {
     return !isFuture();
   }
 
-  /** @return true if the replica is the preferred leader */
+  /**
+   * @return true if the replica is the preferred leader
+   */
   boolean isPreferredLeader();
 
   /**
@@ -87,4 +64,9 @@ public interface Replica extends ReplicaInfo {
    *     It returns null if the host of replica is offline
    */
   String path();
+
+  /**
+   * @return true if this replica belongs to internal topic
+   */
+  boolean internal();
 }

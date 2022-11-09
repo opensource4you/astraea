@@ -56,7 +56,7 @@ class Writer[PassedStep <: BuildStep] private (
           ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
         bootstrap
       )
-      //Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
+      // Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
       .option(
         ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringSerializer"

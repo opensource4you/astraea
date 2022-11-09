@@ -16,119 +16,270 @@
  */
 package org.astraea.common.admin;
 
-import java.io.Closeable;
+import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.common.DataRate;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.Record;
+import org.astraea.common.consumer.SeekStrategy;
 
-@Deprecated
-public interface Admin extends Closeable {
+public interface Admin extends AutoCloseable {
 
-  static Builder builder() {
-    return new Builder();
-  }
-
-  static Admin of(String bootstrapServers) {
-    return builder().bootstrapServers(bootstrapServers).build();
+  static Admin of(String bootstrap) {
+    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrap));
   }
 
   static Admin of(Map<String, String> configs) {
-    return builder().configs(configs).build();
+    return new AdminImpl(configs);
   }
 
+  // ---------------------------------[internal]---------------------------------//
   String clientId();
 
-  /** @return the number of pending requests. */
-  int pendingRequests();
+  /**
+   * @return the number of pending requests.
+   */
+  int runningRequests();
+
+  // ---------------------------------[readonly]---------------------------------//
 
   /**
    * @param listInternal should list internal topics or not
    * @return names of topics
    */
-  Set<String> topicNames(boolean listInternal);
+  CompletionStage<Set<String>> topicNames(boolean listInternal);
 
-  /** @return names of all topics (include internal topics). */
-  default Set<String> topicNames() {
-    return topicNames(true);
-  }
+  /**
+   * @return names of internal topics
+   */
+  CompletionStage<Set<String>> internalTopicNames();
 
-  List<Topic> topics(Set<String> names);
-
-  /** delete topics by topic names */
-  void deleteTopics(Set<String> topicNames);
-
-  /** @return all partitions */
-  default Set<TopicPartition> topicPartitions() {
-    return topicPartitions(topicNames());
-  }
+  CompletionStage<List<Topic>> topics(Set<String> topics);
 
   /**
    * @param topics target
    * @return the partitions belong to input topics
    */
-  Set<TopicPartition> topicPartitions(Set<String> topics);
+  CompletionStage<Set<TopicPartition>> topicPartitions(Set<String> topics);
 
   /**
-   * list all partitions belongs to input brokers
+   * list all partition replicas belongs to input brokers
    *
-   * @param brokerId to search
+   * @param brokers to search
    * @return all partition belongs to brokers
    */
-  Set<TopicPartition> topicPartitions(int brokerId);
+  CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
 
-  /** @return a topic creator to set all topic configs and then run the procedure. */
+  CompletionStage<Map<TopicPartition, Long>> earliestOffsets(Set<TopicPartition> topicPartitions);
+
+  CompletionStage<Map<TopicPartition, Long>> latestOffsets(Set<TopicPartition> topicPartitions);
+
+  /**
+   * find the timestamp of the latest record for given partitions
+   *
+   * @param topicPartitions to search timestamp of the latest record
+   * @param timeout to wait the latest record
+   * @return partition and timestamp of the latest record
+   */
+  default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return latestRecords(topicPartitions, 1, timeout)
+        .thenApply(
+            records ->
+                records.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                e.getValue().stream()
+                                    .mapToLong(Record::timestamp)
+                                    .max()
+                                    // the value CANNOT be empty
+                                    .getAsLong())));
+  }
+
+  default CompletionStage<Map<TopicPartition, List<Record<byte[], byte[]>>>> latestRecords(
+      Set<TopicPartition> topicPartitions, int records, Duration timeout) {
+    var expectedCount = topicPartitions.size() * records;
+    return brokers()
+        .thenApply(
+            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
+        .thenApply(
+            bootstrap ->
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(
+                            Consumer.forPartitions(topicPartitions)
+                                .bootstrapServers(bootstrap)
+                                .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
+                                .iterator(
+                                    (count, elapsed, size) ->
+                                        count >= expectedCount
+                                            || elapsed.toMillis() >= timeout.toMillis()),
+                            Spliterator.ORDERED),
+                        false)
+                    .collect(
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition()))));
+  }
+
+  /**
+   * find the max timestamp of existent records for given partitions
+   *
+   * @param topicPartitions to search max timestamp
+   * @return partition and max timestamp
+   */
+  CompletionStage<Map<TopicPartition, Long>> maxTimestamps(Set<TopicPartition> topicPartitions);
+
+  CompletionStage<List<Partition>> partitions(Set<String> topics);
+
+  /**
+   * @return online node information
+   */
+  CompletionStage<Set<NodeInfo>> nodeInfos();
+
+  /**
+   * @return online broker information
+   */
+  CompletionStage<List<Broker>> brokers();
+
+  default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
+    return brokers()
+        .thenApply(
+            brokers ->
+                brokers.stream()
+                    .collect(
+                        Collectors.toMap(
+                            NodeInfo::id,
+                            n ->
+                                n.dataFolders().stream()
+                                    .map(Broker.DataFolder::path)
+                                    .collect(Collectors.toSet()))));
+  }
+
+  CompletionStage<Set<String>> consumerGroupIds();
+
+  CompletionStage<List<ConsumerGroup>> consumerGroups(Set<String> consumerGroupIds);
+
+  CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions);
+
+  CompletionStage<Set<String>> transactionIds();
+
+  CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
+
+  CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics);
+
+  default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
+    if (checkers.isEmpty()) {
+      throw new RuntimeException("Can not check for idle topics because of no checkers!");
+    }
+
+    return topicNames(false)
+        .thenCompose(
+            topicNames ->
+                FutureUtils.sequence(
+                        checkers.stream()
+                            .map(
+                                checker ->
+                                    checker.usedTopics(this, topicNames).toCompletableFuture())
+                            .collect(Collectors.toUnmodifiableList()))
+                    .thenApply(
+                        s ->
+                            s.stream()
+                                .flatMap(Collection::stream)
+                                .collect(Collectors.toUnmodifiableSet()))
+                    .thenApply(
+                        usedTopics ->
+                            topicNames.stream()
+                                .filter(name -> !usedTopics.contains(name))
+                                .collect(Collectors.toUnmodifiableSet())));
+  }
+
+  /**
+   * get the quotas associated to given target keys and target values. The available target types
+   * include {@link QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targets target type and associated value. For example: Map.of({@link QuotaConfigs#IP},
+   *     Set.of(10.1.1.2, 10..2.2.2))
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets);
+
+  /**
+   * get the quotas associated to given target keys. The available target types include {@link
+   * QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
+   *
+   * @param targetKeys target keys
+   * @return quotas matched to given target
+   */
+  CompletionStage<List<Quota>> quotas(Set<String> targetKeys);
+
+  CompletionStage<List<Quota>> quotas();
+
+  // ---------------------------------[write]---------------------------------//
+
+  /**
+   * set the connection rate for given ip address.
+   *
+   * @param ipAndRate ip address and its connection rate
+   */
+  CompletionStage<Void> setConnectionQuotas(Map<String, Integer> ipAndRate);
+
+  /**
+   * remove the connection quotas for given ip addresses
+   *
+   * @param ips to delete connection quotas
+   */
+  CompletionStage<Void> unsetConnectionQuotas(Set<String> ips);
+
+  /**
+   * set the producer rate for given client id
+   *
+   * @param clientAndRate client id and its producer rate
+   */
+  CompletionStage<Void> setProducerQuotas(Map<String, DataRate> clientAndRate);
+
+  /**
+   * remove the producer rate quotas for given client ids
+   *
+   * @param clientIds to delete producer rate quotas
+   */
+  CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds);
+
+  /**
+   * set the consumer rate for given client id
+   *
+   * @param clientAndRate client id and its consumer rate
+   */
+  CompletionStage<Void> setConsumerQuotas(Map<String, DataRate> clientAndRate);
+
+  /**
+   * remove the consumer rate quotas for given client ids
+   *
+   * @param clientIds to delete consumer rate quotas
+   */
+  CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds);
+
+  /**
+   * @return a topic creator to set all topic configs and then run the procedure.
+   */
   TopicCreator creator();
 
-  List<Partition> partitions(Set<String> topics);
+  CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments);
 
-  /** @return all consumer group ids */
-  Set<String> consumerGroupIds();
-
-  /**
-   * @param consumerGroupNames consumer group names.
-   * @return the member info of each consumer group
-   */
-  List<ConsumerGroup> consumerGroups(Set<String> consumerGroupNames);
-
-  /** @return replica info of all partitions */
-  default List<Replica> replicas() {
-    return replicas(topicNames());
-  }
-
-  /**
-   * @param topics topic names
-   * @return all replica in topics
-   */
-  List<Replica> replicas(Set<String> topics);
-
-  /** @return all alive brokers' ids */
-  default Set<Integer> brokerIds() {
-    return nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-  }
-
-  /** @return all node info */
-  Set<NodeInfo> nodes();
-
-  /** @return all alive node information in the cluster */
-  List<Broker> brokers();
-
-  /** @return data folders of all broker nodes */
-  default Map<Integer, Set<String>> brokerFolders() {
-    return brokers().stream()
-        .collect(
-            Collectors.toMap(
-                NodeInfo::id,
-                n ->
-                    n.dataFolders().stream()
-                        .map(Broker.DataFolder::path)
-                        .collect(Collectors.toSet())));
-  }
-
-  /** @return a partition migrator used to move partitions to another broker or folder. */
-  SyncReplicaMigrator migrator();
+  CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
@@ -136,102 +287,218 @@ public interface Admin extends Closeable {
    * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
    * Otherwise, an exception might be raised.
    *
-   * @param topicPartition to perform preferred leader election
+   * @param topicPartitions to perform preferred leader election
    */
-  void preferredLeaderElection(TopicPartition topicPartition);
+  CompletionStage<Void> preferredLeaderElection(Set<TopicPartition> topicPartitions);
 
-  /** @return a snapshot object of cluster state at the moment */
-  default ClusterInfo<Replica> clusterInfo() {
-    return clusterInfo(topicNames());
+  /**
+   * @param total the final number of partitions. Noted that reducing number of partitions is
+   *     illegal
+   */
+  CompletionStage<Void> addPartitions(String topic, int total);
+
+  /**
+   * @param override defines the key and new value. The other undefined keys won't get changed.
+   */
+  CompletionStage<Void> setTopicConfigs(Map<String, Map<String, String>> override);
+
+  /**
+   * append the value to config. Noted that it appends nothing if the existent value is "*".
+   *
+   * @param appended values
+   */
+  CompletionStage<Void> appendTopicConfigs(Map<String, Map<String, String>> appended);
+
+  /**
+   * subtract the value to config. Noted that it throws exception if the existent value is "*".
+   *
+   * @param subtract values
+   */
+  CompletionStage<Void> subtractTopicConfigs(Map<String, Map<String, String>> subtract);
+
+  /**
+   * unset the value associated to given keys. The unset config will become either null of default
+   * value. Normally, the default value is defined by server.properties or hardcode in source code.
+   */
+  CompletionStage<Void> unsetTopicConfigs(Map<String, Set<String>> unset);
+
+  /**
+   * @param override defines the key and new value. The other undefined keys won't get changed.
+   */
+  CompletionStage<Void> setBrokerConfigs(Map<Integer, Map<String, String>> override);
+
+  /**
+   * unset the value associated to given keys. The unset config will become either null of default
+   * value. Normally, the default value is defined by server.properties or hardcode in source code.
+   */
+  CompletionStage<Void> unsetBrokerConfigs(Map<Integer, Set<String>> unset);
+
+  /** delete topics by topic names */
+  CompletionStage<Void> deleteTopics(Set<String> topics);
+
+  /**
+   * Remove the records when their offsets are smaller than given offsets.
+   *
+   * @param offsets to truncate topic partition
+   * @return topic partition and low watermark (it means the minimum logStartOffset of all alive
+   *     replicas)
+   */
+  CompletionStage<Map<TopicPartition, Long>> deleteRecords(Map<TopicPartition, Long> offsets);
+
+  /**
+   * delete all members from given groups.
+   *
+   * @param groupAndInstanceIds to delete instance id from group (key)
+   */
+  CompletionStage<Void> deleteInstanceMembers(Map<String, Set<String>> groupAndInstanceIds);
+
+  /**
+   * delete all members from given groups.
+   *
+   * @param consumerGroups to delete members
+   */
+  CompletionStage<Void> deleteMembers(Set<String> consumerGroups);
+
+  /**
+   * delete given groups. all members in those groups get deleted also.
+   *
+   * @param consumerGroups to be deleted
+   */
+  CompletionStage<Void> deleteGroups(Set<String> consumerGroups);
+
+  // ---------------------------------[wait]---------------------------------//
+
+  /**
+   * wait the leader of partition get allocated. The topic creation needs time to be synced by all
+   * brokers. This method is used to check whether "most" of brokers get the topic creation.
+   *
+   * @param topicAndNumberOfPartitions to check leader allocation
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
+   */
+  default CompletionStage<Boolean> waitPartitionLeaderSynced(
+      Map<String, Integer> topicAndNumberOfPartitions, Duration timeout) {
+    return waitCluster(
+        topicAndNumberOfPartitions.keySet(),
+        clusterInfo -> {
+          var current =
+              clusterInfo
+                  .replicaStream()
+                  .filter(ReplicaInfo::isLeader)
+                  .collect(Collectors.groupingBy(ReplicaInfo::topic));
+          return topicAndNumberOfPartitions.entrySet().stream()
+              .allMatch(
+                  entry ->
+                      current.getOrDefault(entry.getKey(), List.of()).size() == entry.getValue());
+        },
+        timeout,
+        2);
   }
 
   /**
-   * @param topics query only this subset of topics
-   * @return a snapshot object of cluster state at the moment
+   * wait the preferred leader of partition get elected.
+   *
+   * @param topicPartitions to check leader election
+   * @param timeout to wait
+   * @return a background thread used to check leader election.
    */
-  default ClusterInfo<Replica> clusterInfo(Set<String> topics) {
-    var nodeInfo = brokers().stream().map(n -> (NodeInfo) n).collect(Collectors.toSet());
-    var replicas = Utils.packException(() -> replicas(topics));
-
-    return new ClusterInfo<>() {
-      @Override
-      public Set<NodeInfo> nodes() {
-        return nodeInfo;
-      }
-
-      @Override
-      public Stream<Replica> replicaStream() {
-        return replicas.stream();
-      }
-    };
+  default CompletionStage<Boolean> waitPreferredLeaderSynced(
+      Set<TopicPartition> topicPartitions, Duration timeout) {
+    return waitCluster(
+        topicPartitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()),
+        clusterInfo ->
+            clusterInfo
+                .replicaStream()
+                .filter(r -> topicPartitions.contains(r.topicPartition()))
+                .filter(Replica::isPreferredLeader)
+                .allMatch(ReplicaInfo::isLeader),
+        timeout,
+        2);
   }
 
-  /** @return all transaction ids */
-  Set<String> transactionIds();
+  /**
+   * wait the given replicas to be allocated correctly
+   *
+   * @param replicas the expected replica allocations
+   * @param timeout to wait
+   * @return a background thread used to check replica allocations
+   */
+  default CompletionStage<Boolean> waitReplicasSynced(
+      Set<TopicPartitionReplica> replicas, Duration timeout) {
+    return waitCluster(
+        replicas.stream().map(TopicPartitionReplica::topic).collect(Collectors.toSet()),
+        clusterInfo ->
+            clusterInfo
+                .replicaStream()
+                .filter(r -> replicas.contains(r.topicPartitionReplica()))
+                .allMatch(r -> r.inSync() && !r.isFuture()),
+        timeout,
+        2);
+  }
 
   /**
-   * return transaction states associated to input ids
+   * wait the async operations to be done on server-side. You have to define the predicate to
+   * terminate loop. Or the loop get breaks when timeout is reached.
    *
-   * @param transactionIds to query state
-   * @return transaction states
+   * @param topics to trace
+   * @param predicate to break loop
+   * @param timeout to break loop
+   * @param debounce to double-check the status. Some brokers may return out-of-date cluster state,
+   *     so you can set a positive value to keep the loop until to debounce is completed
+   * @return a background running loop
    */
-  List<Transaction> transactions(Set<String> transactionIds);
+  default CompletionStage<Boolean> waitCluster(
+      Set<String> topics,
+      Predicate<ClusterInfo<Replica>> predicate,
+      Duration timeout,
+      int debounce) {
+    return loop(
+        () ->
+            clusterInfo(topics)
+                .thenApply(predicate::test)
+                .exceptionally(
+                    e -> {
+                      if (e
+                              instanceof
+                              org.apache.kafka.common.errors.UnknownTopicOrPartitionException
+                          || e.getCause()
+                              instanceof
+                              org.apache.kafka.common.errors.UnknownTopicOrPartitionException)
+                        return false;
+                      if (e instanceof RuntimeException) throw (RuntimeException) e;
+                      throw new RuntimeException(e);
+                    }),
+        timeout.toMillis(),
+        debounce,
+        debounce);
+  }
 
-  List<AddingReplica> addingReplicas(Set<String> topics);
+  static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier,
+      long remainingMs,
+      final int debounce,
+      int remainingDebounce) {
+    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
+    var start = System.currentTimeMillis();
+    return supplier
+        .get()
+        .thenCompose(
+            match -> {
+              // everything is good!!!
+              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
 
-  /**
-   * Delete records with offset less than specified Long
-   *
-   * @param recordsToDelete offset of partition
-   * @return deletedRecord
-   */
-  Map<TopicPartition, Long> deleteRecords(Map<TopicPartition, Long> recordsToDelete);
+              // take a break before retry/debounce
+              Utils.sleep(Duration.ofMillis(300));
 
-  /** @return a utility to apply replication throttle to the cluster. */
-  ReplicationThrottler replicationThrottler();
+              var remaining = remainingMs - (System.currentTimeMillis() - start);
 
-  /**
-   * Clear any replication throttle related to the given topic.
-   *
-   * @param topic target to clear throttle.
-   */
-  void clearReplicationThrottle(String topic);
+              // keep debounce
+              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
 
-  /**
-   * Clear any replication throttle related to the given topic/partition.
-   *
-   * @param topicPartition target to clear throttle.
-   */
-  void clearReplicationThrottle(TopicPartition topicPartition);
-
-  /**
-   * Clear any replication throttle related to the given topic/partition with specific broker id.
-   *
-   * @param log target to clear throttle.
-   */
-  void clearReplicationThrottle(TopicPartitionReplica log);
-
-  /**
-   * Clear the leader replication throttle related to the given topic/partition with specific broker
-   * id.
-   *
-   * @param log target to clear throttle.
-   */
-  void clearLeaderReplicationThrottle(TopicPartitionReplica log);
-
-  /**
-   * Clear the follower replication throttle related to the given topic/partition with specific
-   * broker id.
-   *
-   * @param log target to clear throttle.
-   */
-  void clearFollowerReplicationThrottle(TopicPartitionReplica log);
-
-  /** Clear the ingress bandwidth of replication throttle for the specified brokers. */
-  void clearIngressReplicationThrottle(Set<Integer> brokerIds);
-
-  /** Clear the egress bandwidth of replication throttle for the specified brokers. */
-  void clearEgressReplicationThrottle(Set<Integer> brokerIds);
+              // reset debounce for retry
+              return loop(supplier, remaining, debounce, debounce);
+            });
+  }
 
   @Override
   void close();

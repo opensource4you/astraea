@@ -175,8 +175,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
             .map(CostFunction::fetcher)
             .filter(Optional::isPresent)
             .map(Optional::get)
-            .collect(Collectors.toUnmodifiableList()),
-        e -> {});
+            .collect(Collectors.toUnmodifiableList()));
   }
 
   static class BrokerMetrics {

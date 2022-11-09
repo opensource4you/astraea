@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.astraea.common.admin.AsyncAdmin
+import org.astraea.common.admin.Admin
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.{generateCSVF, mkdir}
 import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
@@ -71,7 +71,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   @Test
   def topicCheckTest(): Unit = {
     val TOPIC = "testTopic"
-    Utils.Using(AsyncAdmin.of(bootstrapServers())) { admin =>
+    Utils.Using(Admin.of(bootstrapServers())) { admin =>
       assertEquals(
         admin
           .partitions(Set(TOPIC).asJava)
@@ -101,20 +101,15 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     }
   }
 
-  @Disabled
-  @Test def archive(): Unit = {
+  @Test def archiveTest(): Unit = {
     Thread.sleep(Duration(20, TimeUnit.SECONDS).toMillis)
-    Range
-      .inclusive(0, 4)
-      .foreach(i => {
-        assertTrue(
-          Files.exists(
-            new File(
-              sinkD + source + "/local_kafka-" + i.toString + ".csv"
-            ).toPath
-          )
-        )
-      })
+    assertTrue(
+      Files.exists(
+        new File(
+          sinkD + source + "/local_kafka-" + "0" + ".csv"
+        ).toPath
+      )
+    )
   }
 
   def s2kType(rows: List[List[String]]): Map[String, String] = {
@@ -126,10 +121,12 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         (
           s"${rows(i).head},${rows(i)(1)}",
           s"""{"${colNames.head}":${i + 1},"${colNames(1)}":"${rows(
-            i
-          ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(i)(
-            2
-          )}}"""
+              i
+            ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(
+              i
+            )(
+              2
+            )}}"""
         )
       )
       .toMap
@@ -192,7 +189,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(TOPIC_PARTITIONS, "10")
       properties.setProperty(TOPIC_REPLICAS, "2")
       properties.setProperty(TOPIC_CONFIG, "compression.type=lz4")
-      properties.setProperty(DEPLOYMENT_MODEL, "local[5]")
+      properties.setProperty(DEPLOYMENT_MODEL, "local[1]")
 
       properties.store(fileOut, "Favorite Things");
     }

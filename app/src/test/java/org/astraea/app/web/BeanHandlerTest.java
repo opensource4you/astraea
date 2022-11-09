@@ -20,9 +20,8 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -46,27 +45,27 @@ public class BeanHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testBeans() throws ExecutionException, InterruptedException {
+  void testBeans() {
     var topic = Utils.randomString(10);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(10).create();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BeanHandler(admin, name -> jmxServiceURL().getPort());
       var response =
           Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().get());
+              BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response.nodeBeans.size());
 
       var response1 =
           Assertions.assertInstanceOf(
               BeanHandler.NodeBeans.class,
-              handler.get(Channel.ofTarget("kafka.server")).toCompletableFuture().get());
+              handler.get(Channel.ofTarget("kafka.server")).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response1.nodeBeans.size());
 
       var response2 =
           Assertions.assertInstanceOf(
               BeanHandler.NodeBeans.class,
-              handler.get(Channel.ofQueries(Map.of("topic", topic))).toCompletableFuture().get());
+              handler.get(Channel.ofQueries(Map.of("topic", topic))).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response2.nodeBeans.size());
     }
   }

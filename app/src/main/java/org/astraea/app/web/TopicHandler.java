@@ -28,7 +28,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.scenario.Scenario;
@@ -46,9 +46,9 @@ class TopicHandler implements Handler {
 
   static final String POLL_RECORD_TIMEOUT = "poll_timeout";
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  TopicHandler(AsyncAdmin admin) {
+  TopicHandler(Admin admin) {
     this.admin = admin;
   }
 
@@ -99,12 +99,12 @@ class TopicHandler implements Handler {
                             pollTimeout));
 
     return FutureUtils.combine(
-        admin.replicas(topicNames),
+        admin.clusterInfo(topicNames),
         admin.partitions(topicNames),
         admin.topics(topicNames),
         admin.consumerGroupIds().thenCompose(admin::consumerGroups),
         timestampOfRecords,
-        (replicas, partitions, topics, groups, recordTimestamp) -> {
+        (clusterInfo, partitions, topics, groups, recordTimestamp) -> {
           var ps =
               partitions.stream()
                   .filter(p -> partitionPredicate.test(p.partition()))
@@ -119,7 +119,8 @@ class TopicHandler implements Handler {
                                       p.latestOffset(),
                                       p.maxTimestamp().orElse(null),
                                       recordTimestamp.get(p.topicPartition()),
-                                      replicas.stream()
+                                      clusterInfo
+                                          .replicaStream()
                                           .filter(replica -> replica.topic().equals(p.topic()))
                                           .filter(replica -> replica.partition() == p.partition())
                                           .map(Replica::new)

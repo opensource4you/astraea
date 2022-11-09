@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.it.RequireBrokerCluster;
@@ -27,10 +26,10 @@ import org.junit.jupiter.api.Test;
 
 public class SomePartitionOfflineTest extends RequireBrokerCluster {
   @Test
-  void somePartitionsOffline() throws ExecutionException, InterruptedException {
+  void somePartitionsOffline() {
     String topicName1 = "testOfflineTopic-1";
     String topicName2 = "testOfflineTopic-2";
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
+    try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(topicName1)
@@ -38,7 +37,7 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       admin
           .creator()
           .topic(topicName2)
@@ -46,15 +45,15 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 1)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
       // wait for topic creation
       Utils.sleep(Duration.ofSeconds(3));
       var replicaOnBroker0 =
           admin
-              .replicas(admin.topicNames(false).toCompletableFuture().get())
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
-              .get()
-              .stream()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.nodeInfo().id() == 0)
               .collect(
                   Collectors.groupingBy(
@@ -66,10 +65,10 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       Assertions.assertNotNull(logFolders().get(2));
       var offlineReplicaOnBroker0 =
           admin
-              .replicas(admin.topicNames(false).toCompletableFuture().get())
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
-              .get()
-              .stream()
+              .join()
+              .replicaStream()
               .filter(replica -> replica.nodeInfo().id() == 0)
               .collect(
                   Collectors.groupingBy(

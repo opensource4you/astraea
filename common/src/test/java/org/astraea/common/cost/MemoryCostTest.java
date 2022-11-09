@@ -17,12 +17,14 @@
 package org.astraea.common.cost;
 
 import java.lang.management.MemoryUsage;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.BeanCollector;
-import org.astraea.common.metrics.collector.Receiver;
+import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.platform.HasJvmMemory;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.junit.jupiter.api.Assertions;
@@ -51,20 +53,22 @@ public class MemoryCostTest {
 
   @Test
   void testFetcher() {
-    try (Receiver receiver =
-        BeanCollector.builder()
-            .build()
-            .register()
-            .local()
-            .fetcher(new MemoryCost().fetcher().get())
-            .build()) {
-      Assertions.assertFalse(receiver.current().isEmpty());
-      Assertions.assertTrue(receiver.current().stream().allMatch(o -> o instanceof JvmMemory));
+    var interval = Duration.ofMillis(300);
+    try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
+      collector.addFetcher(
+          new MemoryCost().fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
+      collector.registerLocalJmx(0);
+
+      Utils.sleep(interval);
+
+      Assertions.assertFalse(collector.listFetchers().isEmpty());
+      Assertions.assertFalse(collector.listIdentities().isEmpty());
+      Assertions.assertTrue(
+          collector.metrics(JvmMemory.class, 0, 0).stream().allMatch(Objects::nonNull));
 
       // Test if we can get "used memory" and "max memory".
       Assertions.assertTrue(
-          receiver.current().stream()
-              .map(o -> (JvmMemory) o)
+          collector.metrics(JvmMemory.class, 0, 0).stream()
               .allMatch(mem -> mem.heapMemoryUsage().getUsed() <= mem.heapMemoryUsage().getMax()));
     }
   }

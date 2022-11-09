@@ -16,12 +16,14 @@
  */
 package org.astraea.common.cost;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.BeanCollector;
-import org.astraea.common.metrics.collector.Receiver;
+import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -52,21 +54,21 @@ public class CpuCostTest {
 
   @Test
   void testFetcher() {
-    try (Receiver receiver =
-        BeanCollector.builder()
-            .build()
-            .register()
-            .local()
-            .fetcher(new CpuCost().fetcher().get())
-            .build()) {
-      Assertions.assertFalse(receiver.current().isEmpty());
+    var interval = Duration.ofMillis(300);
+    try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
+      collector.addFetcher(
+          new CpuCost().fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
+      collector.registerLocalJmx(0);
+
+      Utils.sleep(interval);
+
+      Assertions.assertFalse(collector.metrics(OperatingSystemInfo.class, 0, 0).isEmpty());
       Assertions.assertTrue(
-          receiver.current().stream().allMatch(o -> o instanceof OperatingSystemInfo));
+          collector.metrics(OperatingSystemInfo.class, 0, 0).stream().allMatch(Objects::nonNull));
 
       // Test if we can get the value between 0 ~ 1
       Assertions.assertTrue(
-          receiver.current().stream()
-              .map(o -> (OperatingSystemInfo) o)
+          collector.metrics(OperatingSystemInfo.class, 0, 0).stream()
               .allMatch(
                   OSInfo -> (OSInfo.systemCpuLoad() <= 1.0) && (OSInfo.systemCpuLoad() >= 0.0)));
     }

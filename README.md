@@ -28,6 +28,7 @@
 8. [Dispatcher](docs/dispatcher/README.md): 強大且高效率的 Kafka partitioner 實作
 9. [Balancer](docs/balancer/README.md): `Kafka` 伺服器端負載平衡工具
 10. [GUI](docs/gui/README.md): 簡單好用的叢集資訊圖形化工具
+11. [Build說明](docs/build_project.md): 說明如何建構與測試本專案各模組 
 
 # 技術發表
 

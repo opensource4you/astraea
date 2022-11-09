@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -30,10 +29,10 @@ import org.junit.jupiter.api.Test;
 public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
 
   @Test
-  void testUpdate() throws ExecutionException, InterruptedException {
+  void testUpdate() {
     var topicName = Utils.randomString(5);
-    try (var admin = AsyncAdmin.of(bootstrapServers())) {
-      admin.creator().topic(topicName).run().toCompletableFuture().get();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       try (var producer = Producer.of(bootstrapServers())) {
@@ -41,7 +40,7 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
             .forEach(ignored -> producer.sender().topic(topicName).key(new byte[10]).run());
       }
 
-      var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().get();
+      var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
       clusterInfo.replicas().forEach(r -> Assertions.assertTrue(r.size() > 0));
 
       var replica = clusterInfo.replicas().iterator().next();
@@ -55,18 +54,19 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
               tp ->
                   tp.equals(TopicPartition.of(topicName, 0))
                       ? Set.of(
-                          Replica.of(
-                              topicName,
-                              0,
-                              NodeInfo.of(newBrokerId, "", -1),
-                              0,
-                              randomSizeValue,
-                              true,
-                              true,
-                              false,
-                              false,
-                              true,
-                              replica.path()))
+                          Replica.builder()
+                              .topic(topicName)
+                              .partition(0)
+                              .nodeInfo(NodeInfo.of(newBrokerId, "", -1))
+                              .lag(0)
+                              .size(randomSizeValue)
+                              .isLeader(true)
+                              .inSync(true)
+                              .isFuture(false)
+                              .isOffline(false)
+                              .isPreferredLeader(true)
+                              .path(replica.path())
+                              .build())
                       : Set.of());
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());

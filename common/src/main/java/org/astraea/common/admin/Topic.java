@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,7 +25,7 @@ public interface Topic {
   static Topic of(
       String name,
       org.apache.kafka.clients.admin.TopicDescription topicDescription,
-      org.apache.kafka.clients.admin.Config kafkaConfig) {
+      Map<String, String> kafkaConfig) {
 
     var config = Config.of(kafkaConfig);
     var topicPartitions =
@@ -54,13 +55,19 @@ public interface Topic {
     };
   }
 
-  /** @return topic name */
+  /**
+   * @return topic name
+   */
   String name();
 
-  /** @return config used by this topic */
+  /**
+   * @return config used by this topic
+   */
   Config config();
 
-  /** @return true if this topic is internal (system) topic */
+  /**
+   * @return true if this topic is internal (system) topic
+   */
   boolean internal();
 
   Set<TopicPartition> topicPartitions();

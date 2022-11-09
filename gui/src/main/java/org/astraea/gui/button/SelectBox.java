@@ -17,13 +17,19 @@
 package org.astraea.gui.button;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javafx.geometry.HPos;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ToggleGroup;
-import org.astraea.gui.pane.Lattice;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Pane;
 
 public interface SelectBox {
 
@@ -46,20 +52,9 @@ public interface SelectBox {
                 })
             .collect(Collectors.toUnmodifiableList());
     items.get(0).setSelected(true);
-    var node =
-        Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
-            .node();
-    return new SelectBox() {
-      @Override
-      public List<String> selectedKeys() {
-        return List.copyOf(selectedKeys);
-      }
 
-      @Override
-      public Node node() {
-        return node;
-      }
-    };
+    var node = grid(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns);
+    return of(() -> selectedKeys, node);
   }
 
   static SelectBox multi(List<String> keys, int sizeOfColumns) {
@@ -78,13 +73,15 @@ public interface SelectBox {
                   return box;
                 })
             .collect(Collectors.toUnmodifiableList());
-    var node =
-        Lattice.of(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns)
-            .node();
+    var node = grid(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns);
+    return of(() -> selectedKeys, node);
+  }
+
+  private static SelectBox of(Supplier<Collection<String>> selectedKeysSupplier, Node node) {
     return new SelectBox() {
       @Override
       public List<String> selectedKeys() {
-        return List.copyOf(selectedKeys);
+        return List.copyOf(selectedKeysSupplier.get());
       }
 
       @Override
@@ -97,4 +94,16 @@ public interface SelectBox {
   List<String> selectedKeys();
 
   Node node();
+
+  private static Pane grid(List<Node> nodes, int sizeOfColumns) {
+    var grid = new GridPane();
+    for (var i = 0; i != nodes.size(); ++i) {
+      var node = nodes.get(i);
+      GridPane.setHalignment(node, HPos.LEFT);
+      GridPane.setMargin(node, new Insets(5, 5, 5, 5));
+      grid.add(node, i % sizeOfColumns, i / sizeOfColumns);
+    }
+    grid.setAlignment(Pos.CENTER);
+    return grid;
+  }
 }

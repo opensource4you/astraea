@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 class JsonConverterTest {
 
   private JsonConverter getConverter() {
-    return JsonConverter.gson();
+    return JsonConverter.jackson();
   }
 
   @Test

@@ -20,12 +20,12 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.AsyncAdmin;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
 class StraightPlanExecutorTest extends RequireBrokerCluster {
 
   @Test
-  void testAsyncRun() throws ExecutionException, InterruptedException {
-    try (AsyncAdmin admin = AsyncAdmin.of(bootstrapServers())) {
+  void testAsyncRun() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
 
       admin
@@ -48,7 +48,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           .numberOfReplicas((short) 2)
           .run()
           .toCompletableFuture()
-          .get();
+          .join();
 
       Utils.sleep(Duration.ofSeconds(2));
 
@@ -69,30 +69,32 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
           (Function<TopicPartition, List<Replica>>)
               (TopicPartition tp) ->
                   List.of(
-                      Replica.of(
-                          tp.topic(),
-                          tp.partition(),
-                          NodeInfo.of(broker0, "", -1),
-                          0,
-                          0,
-                          true,
-                          true,
-                          false,
-                          false,
-                          true,
-                          logFolder0),
-                      Replica.of(
-                          tp.topic(),
-                          tp.partition(),
-                          NodeInfo.of(broker1, "", -1),
-                          0,
-                          0,
-                          false,
-                          true,
-                          false,
-                          false,
-                          false,
-                          logFolder1));
+                      Replica.builder()
+                          .topic(tp.topic())
+                          .partition(tp.partition())
+                          .nodeInfo(NodeInfo.of(broker0, "", -1))
+                          .lag(0)
+                          .size(0)
+                          .isLeader(true)
+                          .inSync(true)
+                          .isFuture(false)
+                          .isOffline(false)
+                          .isPreferredLeader(true)
+                          .path(logFolder0)
+                          .build(),
+                      Replica.builder()
+                          .topic(tp.topic())
+                          .partition(tp.partition())
+                          .nodeInfo(NodeInfo.of(broker1, "", -1))
+                          .lag(0)
+                          .size(0)
+                          .isLeader(false)
+                          .inSync(true)
+                          .isFuture(false)
+                          .isOffline(false)
+                          .isPreferredLeader(false)
+                          .path(logFolder1)
+                          .build());
       final var allocation =
           IntStream.range(0, 10)
               .mapToObj(i -> TopicPartition.of(topicName, i))
@@ -101,10 +103,11 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
               .stream()
               .flatMap(Collection::stream)
               .collect(Collectors.toUnmodifiableList());
-      final var expectedAllocation = ClusterLogAllocation.of(allocation);
+      final var expectedAllocation = ClusterLogAllocation.of(ClusterInfo.of(allocation));
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 
-      var execute = new StraightPlanExecutor().run(admin, expectedAllocation);
+      var execute =
+          new StraightPlanExecutor().run(admin, expectedAllocation, Duration.ofSeconds(10));
 
       execute.toCompletableFuture().join();
 
@@ -118,19 +121,19 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       final var CurrentTopicPartition = CurrentAllocation.topicPartitions();
 
       System.out.println("Expected:");
-      System.out.println(ClusterLogAllocation.toString(expectedAllocation));
+      System.out.println(ClusterInfo.toString(expectedAllocation));
       System.out.println("Current:");
-      System.out.println(ClusterLogAllocation.toString(CurrentAllocation));
+      System.out.println(ClusterInfo.toString(CurrentAllocation));
       System.out.println("Original:");
-      System.out.println(ClusterLogAllocation.toString(originalAllocation));
+      System.out.println(ClusterInfo.toString(originalAllocation));
 
       Assertions.assertEquals(expectedTopicPartition, CurrentTopicPartition);
       expectedTopicPartition.forEach(
           topicPartition ->
               Assertions.assertTrue(
-                  ClusterLogAllocation.placementMatch(
-                      expectedAllocation.logPlacements(topicPartition),
-                      CurrentAllocation.logPlacements(topicPartition))));
+                  ClusterInfo.placementMatch(
+                      expectedAllocation.replicas(topicPartition),
+                      CurrentAllocation.replicas(topicPartition))));
     }
   }
 }

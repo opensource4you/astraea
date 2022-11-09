@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +42,6 @@ public class BrokerConfigsTest {
   void testDuplicate() {
     Assertions.assertEquals(
         BrokerConfigs.DYNAMICAL_CONFIGS.size(),
-        BrokerConfigs.DYNAMICAL_CONFIGS.stream().distinct().count());
+        Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG")).size());
   }
 }

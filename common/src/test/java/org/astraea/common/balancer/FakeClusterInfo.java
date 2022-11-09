@@ -24,13 +24,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 
-public class FakeClusterInfo implements ClusterInfo<Replica> {
+public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
 
   public static FakeClusterInfo of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount) {
@@ -85,19 +84,21 @@ public class FakeClusterInfo implements ClusterInfo<Replica> {
                     IntStream.range(0, replicaCount)
                         .mapToObj(
                             r ->
-                                Replica.of(
-                                    tp.topic(),
-                                    tp.partition(),
-                                    nodes.get(r),
-                                    0,
-                                    -1,
-                                    r == 0,
-                                    true,
-                                    false,
-                                    false,
-                                    r == 0,
-                                    dataDirectoryList.get(
-                                        tp.partition() % dataDirectories.size()))))
+                                Replica.builder()
+                                    .topic(tp.topic())
+                                    .partition(tp.partition())
+                                    .nodeInfo(nodes.get(r))
+                                    .lag(0)
+                                    .size(-1)
+                                    .isLeader(r == 0)
+                                    .inSync(true)
+                                    .isFuture(false)
+                                    .isOffline(false)
+                                    .isPreferredLeader(r == 0)
+                                    .path(
+                                        dataDirectoryList.get(
+                                            tp.partition() % dataDirectories.size()))
+                                    .build()))
             .collect(Collectors.toUnmodifiableList());
 
     return new FakeClusterInfo(
@@ -107,28 +108,15 @@ public class FakeClusterInfo implements ClusterInfo<Replica> {
         replicas);
   }
 
-  private final Set<NodeInfo> nodes;
   private final Map<Integer, Set<String>> dataDirectories;
-  private final List<Replica> replicas;
 
   FakeClusterInfo(
       Set<NodeInfo> nodes, Map<Integer, Set<String>> dataDirectories, List<Replica> replicas) {
-    this.nodes = nodes;
+    super(nodes, replicas);
     this.dataDirectories = dataDirectories;
-    this.replicas = replicas;
-  }
-
-  @Override
-  public Set<NodeInfo> nodes() {
-    return nodes;
   }
 
   public Map<Integer, Set<String>> dataDirectories() {
     return dataDirectories;
-  }
-
-  @Override
-  public Stream<Replica> replicaStream() {
-    return replicas.stream();
   }
 }

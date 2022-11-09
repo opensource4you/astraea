@@ -24,16 +24,15 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.AsyncAdmin;
-import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 
 class BrokerHandler implements Handler {
 
-  private final AsyncAdmin admin;
+  private final Admin admin;
 
-  BrokerHandler(AsyncAdmin admin) {
+  BrokerHandler(Admin admin) {
     this.admin = admin;
   }
 

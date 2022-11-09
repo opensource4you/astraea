@@ -80,6 +80,16 @@ public interface ReplicaInfo {
       }
 
       @Override
+      public boolean isAdding() {
+        return false;
+      }
+
+      @Override
+      public boolean isRemoving() {
+        return false;
+      }
+
+      @Override
       public String toString() {
         return "ReplicaInfo {"
             + "topic=\""
@@ -131,31 +141,57 @@ public interface ReplicaInfo {
     return TopicPartition.of(topic(), partition());
   }
 
-  /** @return topic name */
+  /**
+   * @return topic name
+   */
   String topic();
 
-  /** @return partition id */
+  /**
+   * @return partition id
+   */
   int partition();
 
-  /** @return information of the node hosts this replica */
+  /**
+   * @return information of the node hosts this replica
+   */
   NodeInfo nodeInfo();
 
-  /** @return true if this replica is a leader replica */
+  /**
+   * @return true if this replica is a leader replica
+   */
   boolean isLeader();
 
-  /** @return true if this replica is a follower replica */
+  /**
+   * @return true if this replica is a follower replica
+   */
   default boolean isFollower() {
     return !isLeader();
   }
 
-  /** @return true if this replica is synced */
+  /**
+   * @return true if this replica is synced
+   */
   boolean inSync();
 
-  /** @return true if this replica is offline */
+  /**
+   * @return true if this replica is offline
+   */
   boolean isOffline();
 
-  /** @return true if this replica is online */
+  /**
+   * @return true if this replica is online
+   */
   default boolean isOnline() {
     return !isOffline();
   }
+
+  /**
+   * @return true if this replica is adding and syncing data
+   */
+  boolean isAdding();
+
+  /**
+   * @return true if this replica will be deleted in the future.
+   */
+  boolean isRemoving();
 }

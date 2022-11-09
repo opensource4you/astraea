@@ -138,6 +138,8 @@ public interface Configuration {
       Function<String, K> keyConverter,
       Function<String, V> valueConverter);
 
-  /** @return a {@link Set} view of the mappings contained in this map. */
+  /**
+   * @return a {@link Set} view of the mappings contained in this map.
+   */
   Set<Map.Entry<String, String>> entrySet();
 }

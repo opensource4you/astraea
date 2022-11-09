@@ -25,7 +25,9 @@ import java.util.stream.IntStream;
 /** used to normalize data into a range between [0, 1] */
 public interface Normalizer {
 
-  /** @return all normalizers */
+  /**
+   * @return all normalizers
+   */
   static List<Normalizer> all() {
     return List.of(
         Normalizer.proportion(),
