@@ -39,6 +39,15 @@ public interface Balancer {
   Optional<Plan> offer(
       ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
 
+  @SuppressWarnings("unchecked")
+  static Balancer create(String classpath, AlgorithmConfig config) {
+    var theClass = Utils.packException(() -> Class.forName(classpath));
+    if (Balancer.class.isAssignableFrom(theClass)) {
+      return create(((Class<? extends Balancer>) theClass), config);
+    } else
+      throw new IllegalArgumentException("Given class is not a balancer: " + theClass.getName());
+  }
+
   /**
    * Initialize an instance of specific Balancer implementation
    *

@@ -151,7 +151,7 @@ class BalancerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .topicFilter(t -> t.equals(theTopic))
                       .clusterCost(randomScore)
-                      .limit(500)
+                      .config("iteration", "500")
                       .build())
               .offer(clusterInfo, brokerFolders)
               .get()
@@ -248,7 +248,7 @@ class BalancerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(theCostFunction)
                       .metricSource(metricSource)
-                      .limit(500)
+                      .config("iteration", "500")
                       .build())
               .offer(ClusterInfo.empty(), Map.of());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");

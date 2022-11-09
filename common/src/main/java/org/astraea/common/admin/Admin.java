@@ -114,6 +114,7 @@ public interface Admin extends AutoCloseable {
 
   default CompletionStage<Map<TopicPartition, List<Record<byte[], byte[]>>>> latestRecords(
       Set<TopicPartition> topicPartitions, int records, Duration timeout) {
+    var expectedCount = topicPartitions.size() * records;
     return brokers()
         .thenApply(
             bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
@@ -126,7 +127,7 @@ public interface Admin extends AutoCloseable {
                                 .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
                                 .iterator(
                                     (count, elapsed, size) ->
-                                        count >= records
+                                        count >= expectedCount
                                             || elapsed.toMillis() >= timeout.toMillis()),
                             Spliterator.ORDERED),
                         false)
