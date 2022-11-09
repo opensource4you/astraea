@@ -42,7 +42,6 @@ dependencies {
     testImplementation "org.apache.kafka:kafka_2.12:${versions["kafka"]}"
     testImplementation "commons-io:commons-io:${versions["commons-io"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
-    testImplementation project(':common')
     testImplementation project(':it')
 
     implementation project(':common')
