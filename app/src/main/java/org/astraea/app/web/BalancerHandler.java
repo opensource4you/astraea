@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -34,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
@@ -55,12 +53,9 @@ import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.NotEnoughMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
-import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricCollector;
 
 class BalancerHandler implements Handler {
 
@@ -210,57 +205,6 @@ class BalancerHandler implements Handler {
                 });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
-  }
-
-  private CompletableFuture<PlanInfo> launchSearchTask(
-      Duration timeout, int loop, Set<String> topics) {
-    // TODO: fill in the implementation
-    final var fetchers = List.<Fetcher>of();
-
-    if (fetchers.isEmpty()) {
-      return loop(() -> ClusterBean.EMPTY, timeout, loop, topics);
-    } else {
-      @SuppressWarnings("resource")
-      var collector = MetricCollector.builder().interval(sampleInterval).build();
-      brokerJmxAddresses.forEach(collector::registerJmx);
-      fetchers.forEach(collector::addFetcher);
-      return loop(collector::clusterBean, timeout, loop, topics)
-          .whenComplete((ignore0, ignore1) -> collector.close());
-    }
-  }
-
-  private CompletableFuture<PlanInfo> loop(
-      Supplier<ClusterBean> metrics, Duration timeout, int loop, Set<String> topics) {
-    long startMs = System.currentTimeMillis();
-    return CompletableFuture.supplyAsync(
-            () -> {
-              try {
-                return searchRebalancePlan(metrics, timeout, loop, topics);
-              } catch (NotEnoughMetricsException e) {
-                // error message
-                e.printStackTrace();
-                // sleep until the new metrics are available
-                Duration wait =
-                    Duration.ofMillis(
-                        Long.max(sampleInterval.toMillis(), e.suggestedWait().toMillis()));
-                Utils.sleep(wait);
-                return null;
-              }
-            })
-        .thenCompose(
-            (planInfo) -> {
-              Duration newTimeout = timeout.minusMillis(System.currentTimeMillis() - startMs);
-              if (planInfo != null) return CompletableFuture.completedFuture(planInfo);
-              else if (newTimeout.isNegative())
-                return CompletableFuture.failedFuture(new RuntimeException("Timeout"));
-              else return loop(metrics, newTimeout, loop, topics);
-            });
-  }
-
-  private PlanInfo searchRebalancePlan(
-      Supplier<ClusterBean> supplier, Duration timeout, int loop, Set<String> topics) {
-    // TODO: move the logic into here
-    return null;
   }
 
   // visible for test
