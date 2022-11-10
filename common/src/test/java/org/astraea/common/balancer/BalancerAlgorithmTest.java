@@ -88,14 +88,14 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                   GreedyBalancer.class,
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaNumberCost())
+                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .limit(Duration.ofSeconds(5))
                       .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join(),
-                  admin.brokerFolders().toCompletableFuture().join())
+                      .join())
               .get();
 
       var plan =
@@ -103,14 +103,14 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                   SingleStepBalancer.class,
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaNumberCost())
+                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .limit(Duration.ofSeconds(5))
                       .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join(),
-                  admin.brokerFolders().toCompletableFuture().join())
+                      .join())
               .get();
 
       Assertions.assertTrue(plan.clusterCost.value() > planOfGreedy.clusterCost.value());

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -139,15 +140,14 @@ class BalancerHandler implements Handler {
                           .request()
                           .get(BALANCER_IMPLEMENTATION_KEY)
                           .orElse(BALANCER_IMPLEMENTATION_DEFAULT);
-                  var config = parseAlgorithmConfig(channel, currentClusterInfo);
+                  var config = parseAlgorithmConfig(channel, currentClusterInfo, brokerFolders);
                   var cost =
                       config
                           .clusterCostFunction()
                           .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
                           .value();
                   var bestPlan =
-                      Balancer.create(balancerClasspath, config)
-                          .offer(currentClusterInfo, brokerFolders);
+                      Balancer.create(balancerClasspath, config).offer(currentClusterInfo);
                   var changes =
                       bestPlan
                           .map(
@@ -197,7 +197,9 @@ class BalancerHandler implements Handler {
 
   // visible for test
   static AlgorithmConfig parseAlgorithmConfig(
-      Channel channel, ClusterInfo<Replica> currentClusterInfo) {
+      Channel channel,
+      ClusterInfo<Replica> currentClusterInfo,
+      Map<Integer, Set<String>> dataFolders) {
     var balancerConfig =
         channel
             .request()
@@ -231,6 +233,7 @@ class BalancerHandler implements Handler {
 
     return AlgorithmConfig.builder()
         .clusterCost(clusterCostFunction)
+        .dataFolders(dataFolders)
         .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
         .topicFilter(topics::contains)
         .limit(timeout)

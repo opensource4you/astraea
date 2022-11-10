@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -82,8 +81,7 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+  public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo) {
     Jmx jmx = new Jmx();
 
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
@@ -99,7 +97,7 @@ public class GreedyBalancer implements Balancer {
     BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
         (currentAllocation, currentCost) ->
             allocationTweaker
-                .generate(brokerFolders, currentAllocation)
+                .generate(config.dataFolders(), currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
                     newAllocation -> {

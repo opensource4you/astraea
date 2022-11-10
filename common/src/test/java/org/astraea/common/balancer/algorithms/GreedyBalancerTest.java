@@ -54,22 +54,23 @@ class GreedyBalancerTest {
   void testJmx() {
     var cost = new DecreasingCost(Configuration.of(Map.of()));
     var id = "TestJmx-" + UUID.randomUUID();
+    var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
     var balancer =
         Balancer.create(
             GreedyBalancer.class,
             AlgorithmConfig.builder()
                 .executionId(id)
+                .dataFolders(clusterInfo.dataDirectories())
                 .clusterCost(cost)
                 .limit(Duration.ofMillis(300))
                 .config(GreedyBalancer.ITERATION_CONFIG, "100")
                 .build());
-    var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
 
     try (MBeanClient client = MBeanClient.local()) {
       IntStream.range(0, 10)
           .forEach(
               run -> {
-                var plan = balancer.offer(clusterInfo, clusterInfo.dataDirectories());
+                var plan = balancer.offer(clusterInfo);
                 Assertions.assertTrue(plan.isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(

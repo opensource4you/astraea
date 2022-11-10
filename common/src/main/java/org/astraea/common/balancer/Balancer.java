@@ -17,9 +17,7 @@
 package org.astraea.common.balancer;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -36,8 +34,7 @@ public interface Balancer {
   /**
    * @return a rebalance plan
    */
-  Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
+  Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo);
 
   @SuppressWarnings("unchecked")
   static Balancer create(String classpath, AlgorithmConfig config) {

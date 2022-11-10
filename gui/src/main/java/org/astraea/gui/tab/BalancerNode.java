@@ -208,6 +208,7 @@ public class BalancerNode {
                                               .clusterCost(
                                                   HasClusterCost.of(
                                                       clusterCosts(argument.selectedKeys())))
+                                              .dataFolders(brokerFolders)
                                               .moveCost(
                                                   List.of(
                                                       new ReplicaSizeCost(),
@@ -223,7 +224,7 @@ public class BalancerNode {
                                                                   p -> p.matcher(topic).matches()))
                                               .config("iteration", "10000")
                                               .build())
-                                      .offer(clusterInfo, brokerFolders));
+                                      .offer(clusterInfo));
                             }))
             .thenApply(
                 entry -> {

@@ -91,6 +91,7 @@ class BalancerTest extends RequireBrokerCluster {
                   theClass,
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
+                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .topicFilter(topic -> topic.equals(topicName))
                       .limit(Duration.ofSeconds(10))
                       .build())
@@ -98,8 +99,7 @@ class BalancerTest extends RequireBrokerCluster {
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join(),
-                  admin.brokerFolders().toCompletableFuture().join())
+                      .join())
               .orElseThrow();
       new StraightPlanExecutor()
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
@@ -150,10 +150,11 @@ class BalancerTest extends RequireBrokerCluster {
                   theClass,
                   AlgorithmConfig.builder()
                       .topicFilter(t -> t.equals(theTopic))
+                      .dataFolders(brokerFolders)
                       .clusterCost(randomScore)
                       .config("iteration", "500")
                       .build())
-              .offer(clusterInfo, brokerFolders)
+              .offer(clusterInfo)
               .get()
               .proposal();
 
@@ -191,14 +192,14 @@ class BalancerTest extends RequireBrokerCluster {
                           theClass,
                           AlgorithmConfig.builder()
                               .clusterCost((clusterInfo, bean) -> Math::random)
+                              .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                               .limit(Duration.ofSeconds(3))
                               .build())
                       .offer(
                           admin
                               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                               .toCompletableFuture()
-                              .join(),
-                          admin.brokerFolders().toCompletableFuture().join())
+                              .join())
                       .get()
                       .proposal());
       Utils.sleep(Duration.ofMillis(1000));
@@ -247,10 +248,11 @@ class BalancerTest extends RequireBrokerCluster {
                   theClass,
                   AlgorithmConfig.builder()
                       .clusterCost(theCostFunction)
+                      .dataFolders(Map.of())
                       .metricSource(metricSource)
                       .config("iteration", "500")
                       .build())
-              .offer(ClusterInfo.empty(), Map.of());
+              .offer(ClusterInfo.empty());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };
 
