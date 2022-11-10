@@ -52,14 +52,15 @@ public interface RecordWriter {
       var record = records.next();
       var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
       // [topic size 2bytes][topic][partition 4bytes][key length 4bytes][key]
-      var recordSize = 2 + topicBytes.length + 4 + 4 + record.key().length;
+      var recordSize =
+          2 + topicBytes.length + 4 + 4 + (record.key() == null ? 0 : record.key().length);
       var recordBuffer = ByteBuffer.allocate(4 + recordSize);
       recordBuffer.putInt(recordSize);
       recordBuffer.putShort((short) topicBytes.length);
       recordBuffer.put(ByteBuffer.wrap(topicBytes));
       recordBuffer.putInt(record.partition());
-      recordBuffer.putInt(record.key().length);
-      recordBuffer.put(record.key());
+      recordBuffer.putInt(record.key() == null ? -1 : record.key().length);
+      if (record.key() != null) recordBuffer.put(record.key());
       channel.write(recordBuffer.flip());
       count++;
     }

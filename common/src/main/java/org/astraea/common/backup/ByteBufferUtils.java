@@ -56,7 +56,11 @@ public final class ByteBufferUtils {
     return new String(dst, StandardCharsets.UTF_8);
   }
 
+  /**
+   * @return null if the size is smaller than zero
+   */
   public static byte[] readBytes(ByteBuffer buffer, int size) {
+    if (size < 0) return null;
     var dst = new byte[size];
     buffer.get(dst);
     return dst;
