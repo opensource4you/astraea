@@ -16,7 +16,30 @@
  */
 package org.astraea.common.csv;
 
-/** Construct CsvCleanerBuilder so that we can use build pattern of opencsv. */
-interface OwnCsvCleanerBuilder {
-  OwnCsvCleaner build();
+import com.opencsv.CSVWriterBuilder;
+import java.io.FileWriter;
+import java.nio.file.Path;
+import org.astraea.common.Utils;
+
+/** Construct CSVWriterBuilder so that we can use its build pattern. */
+public class CsvWriterBuilder {
+  private final CSVWriterBuilder csvWriterBuilder;
+
+  private CsvWriterBuilder(Path sink) {
+    this.csvWriterBuilder =
+        new CSVWriterBuilder(Utils.packException(() -> new FileWriter(sink.toFile())));
+  }
+
+  public static CsvWriterBuilder of(Path sink) {
+    return new CsvWriterBuilder(sink);
+  }
+
+  public CsvWriterBuilder withLineEnd(String string) {
+    this.csvWriterBuilder.withLineEnd(string);
+    return this;
+  }
+
+  public CsvWriter build() {
+    return new CsvWriterImpl(csvWriterBuilder);
+  }
 }

@@ -26,8 +26,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.astraea.common.csv.OwnCsvWriterBuilder;
-import org.astraea.common.csv.WindCsvCleanerBuilder;
+import org.astraea.common.csv.CsvReaderBuilder;
+import org.astraea.common.csv.CsvWriterBuilder;
 
 public class CleanCsv {
   public static List<Path> getListOfFiles(String dir, String target) {
@@ -63,17 +63,26 @@ public class CleanCsv {
           var pathSplit = path.toString().split("/");
           var csvName = Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
 
-          try (var reader = new WindCsvCleanerBuilder(path).build();
+          try (var reader = CsvReaderBuilder.of(path).build();
               var writer =
-                  new OwnCsvWriterBuilder(new File(SINK_DIRECTORY + "/" + csvName)).build()) {
-            writer.writeNext(reader.headers());
+                  CsvWriterBuilder.of(new File(SINK_DIRECTORY + "/" + csvName).toPath()).build()) {
+            var headers =
+                Arrays.stream(
+                        new String[] {
+                          reader.nonCsvGeneralNext().get(1)
+                              + "_"
+                              + Arrays.stream(csvName.split("\\.")).findFirst().orElse("")
+                        })
+                    .collect(Collectors.toList());
+
+            writer.writeNext(headers);
             writer.writeNext(reader.next());
             reader.skip(2);
             while (reader.hasNext()) {
               writer.writeNext(reader.next());
             }
             writer.flush();
-          } catch (IOException e) {
+          } catch (Exception e) {
             throw new RuntimeException(e);
           }
         });

@@ -26,6 +26,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -34,7 +35,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.csv.OwnCsvWriterBuilder;
+import org.astraea.common.csv.CsvWriterBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -80,12 +81,10 @@ public class CleanCsvTest {
       Iterator<String[]> iterator = ansLists.iterator();
       IntStream.range(0, 300)
           .forEach(
-              ignore -> {
-                System.out.println(ignore);
-
-                assertTrue(checkEquality(Utils.packException(reader::readNext), iterator.next()));
-              });
-      Assertions.assertEquals(Utils.fileLineNum(new File(sink + "/" + DATA_MAME).toPath()), 302);
+              ignore ->
+                  assertTrue(
+                      checkEquality(Utils.packException(reader::readNext), iterator.next())));
+      Assertions.assertEquals(fileLineNum(new File(sink + "/" + DATA_MAME).toPath()), 302);
     } catch (CsvValidationException e) {
       throw new RuntimeException(e);
     }
@@ -103,14 +102,14 @@ public class CleanCsvTest {
     return Arrays.stream(
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,2019-12-07 05:24:00,-48,013CAMPBELLCLIM50501VUE-500001112"
                 .split(","))
-        .map(col -> String.join("-", col, "1"))
+        .map(col -> String.join("-", col, Utils.randomString()))
         .toArray(String[]::new);
   }
 
   private void writeCSV(Path sink, List<String[]> lists) {
-    try (var writer = new OwnCsvWriterBuilder(sink.toFile()).build()) {
+    try (var writer = Utils.packException(() -> CsvWriterBuilder.of(sink).build())) {
       lists.forEach(line -> writer.writeNext(Arrays.stream(line).collect(Collectors.toList())));
-    } catch (IOException e) {
+    } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
@@ -146,5 +145,11 @@ public class CleanCsvTest {
 
   private String mkString(List<String> arr) {
     return "\"" + String.join("\",\"", arr) + "\"";
+  }
+
+  private long fileLineNum(Path path) {
+    try (var file = Utils.packException(() -> Files.lines(Paths.get(path.toUri())))) {
+      return file.count();
+    }
   }
 }
