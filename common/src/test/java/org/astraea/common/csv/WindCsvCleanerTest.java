@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -77,7 +78,7 @@ public class WindCsvCleanerTest {
 
     try (var reader = new WindCsvCleanerBuilder(target.toPath()).build()) {
       assertEquals(
-          Arrays.stream(reader.headers()).findFirst().orElse(""),
+          Arrays.stream(reader.headers().toArray()).findFirst().orElse(""),
           "CR1000(2017)_20220202_AAA888_min");
       assertEquals(
           mkString(reader.next()),
@@ -91,7 +92,7 @@ public class WindCsvCleanerTest {
 
   private void writeCSV(Path sink, List<String[]> lists) {
     try (var writer = new OwnCsvWriterBuilder(sink.toFile()).build()) {
-      lists.forEach(writer::writeNext);
+      lists.forEach(line -> writer.writeNext(Arrays.stream(line).collect(Collectors.toList())));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

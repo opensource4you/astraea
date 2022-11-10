@@ -22,6 +22,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
 import org.astraea.common.Utils;
 
 public class OwnCsvWriterBuilder {
@@ -53,8 +54,8 @@ public class OwnCsvWriterBuilder {
      *
      * @param nextLine A string array with each comma-separated element as a separate entry.
      */
-    public void writeNext(String[] nextLine) {
-      csvWriter.writeNext(nextLine);
+    public void writeNext(List<String> nextLine) {
+      csvWriter.writeNext(nextLine.toArray(new String[0]));
     }
 
     public void flush() {

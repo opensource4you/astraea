@@ -16,27 +16,24 @@
  */
 package org.astraea.common.csv;
 
-import static org.astraea.common.Utils.fileLineNum;
-
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import java.io.FileReader;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 
 public class WindCsvCleanerBuilder implements OwnCsvCleanerBuilder {
   private final CSVReaderBuilder csvReaderBuilder;
   private final Path source;
-  private final long lineNum;
-
   /**
    * WindCsvCleanerBuilder is used to clean the csv data of wind energy.
    *
    * @param source The reader to an underlying CSV source.
    */
   public WindCsvCleanerBuilder(Path source) {
-    this.lineNum = fileLineNum(source);
     this.source = source;
     this.csvReaderBuilder =
         new CSVReaderBuilder(Utils.packException(() -> new FileReader(source.toFile())));
@@ -44,27 +41,27 @@ public class WindCsvCleanerBuilder implements OwnCsvCleanerBuilder {
 
   @Override
   public OwnCsvCleaner build() {
-    return new WindCsvCleaner(csvReaderBuilder.build(), source, lineNum);
+    return new WindCsvCleaner(csvReaderBuilder.build(), source);
   }
 
   public static class WindCsvCleaner extends OwnCsvCleaner {
-    private final String[] headers;
+    private final List<String> headers;
 
-    protected WindCsvCleaner(CSVReader csvReader, Path source, long lineNum) {
-      super(csvReader, source, lineNum);
+    protected WindCsvCleaner(CSVReader csvReader, Path source) {
+      super(csvReader, source);
       var pathSplit = source.toString().split("/");
       var csvName = Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
       headers =
-          new String[] {
-            Utils.packException(() -> csvReader.readNext()[1])
-                + "_"
-                + Arrays.stream(csvName.split("\\.")).findFirst().orElse("")
-          };
+          Arrays.stream(
+                  new String[] {
+                    readNext()[1] + "_" + Arrays.stream(csvName.split("\\.")).findFirst().orElse("")
+                  })
+              .collect(Collectors.toList());
       currentLine++;
     }
 
     @Override
-    public String[] headers() {
+    public List<String> headers() {
       return headers;
     }
   }

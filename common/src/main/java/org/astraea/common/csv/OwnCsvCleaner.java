@@ -26,15 +26,15 @@ import org.astraea.common.Utils;
 
 public abstract class OwnCsvCleaner implements Closeable, Iterator<List<String>> {
   protected final CSVReader csvReader;
-  protected final long lineNum;
   protected final Path path;
   protected long currentLine = 0;
   protected int genericLength = -1;
+  protected String[] nextLine;
 
-  protected OwnCsvCleaner(CSVReader csvReader, Path path, long lineNum) {
+  protected OwnCsvCleaner(CSVReader csvReader, Path path) {
     this.csvReader = csvReader;
-    this.lineNum = lineNum;
     this.path = path;
+    this.nextLine = Utils.packException(csvReader::readNext);
   }
 
   /**
@@ -45,26 +45,26 @@ public abstract class OwnCsvCleaner implements Closeable, Iterator<List<String>>
   public void skip(int num) {
     try {
       currentLine = currentLine + num;
-      csvReader.skip(num);
+      Utils.requirePositive(num);
+      if (num != 1) {
+        csvReader.skip(num - 1);
+      }
+      readNext();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
   /**
-   * @return csv headers.
-   */
-  public abstract String[] headers();
-
-  /**
-   * Reads the next line from the buffer and converts to a string array.
+   * Reads the next line from the buffer and converts to a string array. Note: It should only be
+   * used in the csv body.
    *
    * @return A string array with each comma-separated element as a separate entry, or null if there
    *     is no more input.
    */
   @Override
   public List<String> next() {
-    String[] next = Utils.packException(csvReader::readNext);
+    var next = readNext();
     currentLine++;
     if (genericLength == -1) genericLength = next.length;
     else if (genericLength != next.length)
@@ -75,9 +75,27 @@ public abstract class OwnCsvCleaner implements Closeable, Iterator<List<String>>
     return List.of(next);
   }
 
+  /**
+   * Return next line then update.
+   *
+   * @return next line
+   */
+  protected String[] readNext() {
+    try {
+      return nextLine;
+    } finally {
+      nextLine = Utils.packException(csvReader::readNext);
+    }
+  }
+
+  /**
+   * @return csv headers.
+   */
+  public abstract List<String> headers();
+
   @Override
   public boolean hasNext() {
-    return currentLine < lineNum;
+    return nextLine != null;
   }
 
   @Override

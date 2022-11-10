@@ -67,10 +67,10 @@ public class CleanCsv {
               var writer =
                   new OwnCsvWriterBuilder(new File(SINK_DIRECTORY + "/" + csvName)).build()) {
             writer.writeNext(reader.headers());
-            writer.writeNext(reader.next().toArray(new String[0]));
+            writer.writeNext(reader.next());
             reader.skip(2);
             while (reader.hasNext()) {
-              writer.writeNext(reader.next().toArray(new String[0]));
+              writer.writeNext(reader.next());
             }
             writer.flush();
           } catch (IOException e) {
