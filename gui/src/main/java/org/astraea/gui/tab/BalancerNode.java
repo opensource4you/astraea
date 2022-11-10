@@ -215,7 +215,6 @@ public class BalancerNode {
                                                       new ReplicaLeaderCost()))
                                               .movementConstraint(
                                                   movementConstraint(argument.nonEmptyTexts()))
-                                              .limit(Duration.ofSeconds(10))
                                               .topicFilter(
                                                   topic ->
                                                       patterns.isEmpty()
@@ -224,7 +223,7 @@ public class BalancerNode {
                                                                   p -> p.matcher(topic).matches()))
                                               .config("iteration", "10000")
                                               .build())
-                                      .offer(clusterInfo));
+                                      .offer(clusterInfo, Duration.ofSeconds(10)));
                             }))
             .thenApply(
                 entry -> {

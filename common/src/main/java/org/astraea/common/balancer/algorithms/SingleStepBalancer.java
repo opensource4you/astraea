@@ -16,6 +16,7 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
@@ -71,7 +72,7 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Balancer.Plan> offer(ClusterInfo<Replica> currentClusterInfo) {
+  public Optional<Balancer.Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -81,12 +82,11 @@ public class SingleStepBalancer implements Balancer {
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
 
     var start = System.currentTimeMillis();
-    var executionTime = config.executionTime().toMillis();
     return allocationTweaker
         .generate(config.dataFolders(), ClusterLogAllocation.of(generatorClusterInfo))
         .parallel()
         .limit(iteration)
-        .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime)
+        .takeWhile(ignored -> System.currentTimeMillis() - start <= timeout.toMillis())
         .map(
             newAllocation -> {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);

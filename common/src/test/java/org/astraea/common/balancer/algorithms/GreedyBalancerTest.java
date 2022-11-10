@@ -62,7 +62,6 @@ class GreedyBalancerTest {
                 .executionId(id)
                 .dataFolders(clusterInfo.dataDirectories())
                 .clusterCost(cost)
-                .limit(Duration.ofMillis(300))
                 .config(GreedyBalancer.ITERATION_CONFIG, "100")
                 .build());
 
@@ -70,7 +69,7 @@ class GreedyBalancerTest {
       IntStream.range(0, 10)
           .forEach(
               run -> {
-                var plan = balancer.offer(clusterInfo);
+                var plan = balancer.offer(clusterInfo, Duration.ofMillis(300));
                 Assertions.assertTrue(plan.isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(

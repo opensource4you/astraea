@@ -16,6 +16,7 @@
  */
 package org.astraea.common.balancer;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import org.astraea.common.EnumInfo;
@@ -31,10 +32,15 @@ import org.astraea.common.cost.MoveCost;
 
 public interface Balancer {
 
+  /** Invoke {@link Balancer#offer(ClusterInfo, Duration)} with a default timeout. */
+  default Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo) {
+    return offer(currentClusterInfo, Duration.ofSeconds(3));
+  }
+
   /**
    * @return a rebalance plan
    */
-  Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo);
+  Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout);
 
   @SuppressWarnings("unchecked")
   static Balancer create(String classpath, AlgorithmConfig config) {

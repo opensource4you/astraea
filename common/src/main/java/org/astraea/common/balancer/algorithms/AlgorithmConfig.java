@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,11 +72,6 @@ public interface AlgorithmConfig {
   Predicate<List<MoveCost>> movementConstraint();
 
   /**
-   * @return the limit of algorithm execution time
-   */
-  Duration executionTime();
-
-  /**
    * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
    */
   Predicate<String> topicFilter();
@@ -101,7 +95,6 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
-    private Duration executionTime = Duration.ofSeconds(3);
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
     private final Map<String, String> config = new HashMap<>();
@@ -175,15 +168,6 @@ public interface AlgorithmConfig {
      */
     public Builder movementConstraint(Predicate<List<MoveCost>> moveConstraint) {
       this.movementConstraint = Objects.requireNonNull(moveConstraint);
-      return this;
-    }
-
-    /**
-     * @param limit the execution time of searching best plan.
-     * @return this
-     */
-    public Builder limit(Duration limit) {
-      this.executionTime = limit;
       return this;
     }
 
@@ -266,11 +250,6 @@ public interface AlgorithmConfig {
         @Override
         public Predicate<List<MoveCost>> movementConstraint() {
           return movementConstraint;
-        }
-
-        @Override
-        public Duration executionTime() {
-          return executionTime;
         }
 
         @Override

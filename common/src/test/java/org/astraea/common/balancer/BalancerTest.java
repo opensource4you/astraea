@@ -93,13 +93,13 @@ class BalancerTest extends RequireBrokerCluster {
                       .clusterCost(new ReplicaLeaderCost())
                       .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .topicFilter(topic -> topic.equals(topicName))
-                      .limit(Duration.ofSeconds(10))
                       .build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join())
+                      .join(),
+                  Duration.ofSeconds(10))
               .orElseThrow();
       new StraightPlanExecutor()
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
@@ -193,13 +193,13 @@ class BalancerTest extends RequireBrokerCluster {
                           AlgorithmConfig.builder()
                               .clusterCost((clusterInfo, bean) -> Math::random)
                               .dataFolders(admin.brokerFolders().toCompletableFuture().join())
-                              .limit(Duration.ofSeconds(3))
                               .build())
                       .offer(
                           admin
                               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                               .toCompletableFuture()
-                              .join())
+                              .join(),
+                          Duration.ofSeconds(3))
                       .get()
                       .proposal());
       Utils.sleep(Duration.ofMillis(1000));
