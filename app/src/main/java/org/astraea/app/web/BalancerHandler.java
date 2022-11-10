@@ -267,6 +267,7 @@ class BalancerHandler implements Handler {
                 Map.Entry::getValue));
   }
 
+  // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
     var converter = new DataSize.Field();
     var replicaSizeLimit =
