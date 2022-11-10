@@ -19,6 +19,9 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeoutException;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -29,8 +32,51 @@ import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.NoSufficientMetricsException;
 
 public interface Balancer {
+
+  /**
+   * Execute {@link Balancer#offer(ClusterInfo, Duration)}. Retry the plan generation if a {@link
+   * NoSufficientMetricsException} exception occurred.
+   *
+   * <p>The returned {@link CompletionStage} finished if:
+   *
+   * <ul>
+   *   <li>The plan is generated.
+   *   <li>The plan didn't generated before the execution time exceeded.
+   *   <li>An exception occurred during the plan generation.
+   * </ul>
+   */
+  default CompletionStage<Plan> retryOffer(
+      ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    final var startMs = System.currentTimeMillis();
+    return CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                return offer(currentClusterInfo, timeout).orElseThrow();
+              } catch (NoSufficientMetricsException e) {
+                e.printStackTrace();
+                long remainTimeout = timeout.toMillis() - (System.currentTimeMillis() - startMs);
+                long waitMs = Long.max(e.suggestedWait().toMillis(), 1000);
+                long actualWaitMs = Math.min(remainTimeout, waitMs);
+                Utils.sleep(Duration.ofMillis(actualWaitMs));
+                return null;
+              }
+            })
+        .thenCompose(
+            plan -> {
+              final var nextTimeout = timeout.minusMillis(System.currentTimeMillis() - startMs);
+              if (plan != null) {
+                return CompletableFuture.completedFuture(plan);
+              } else if (nextTimeout.isZero() || nextTimeout.isNegative()) {
+                return CompletableFuture.failedStage(
+                    new TimeoutException("Plan Generation Timeout"));
+              } else {
+                return retryOffer(currentClusterInfo, nextTimeout);
+              }
+            });
+  }
 
   /** Invoke {@link Balancer#offer(ClusterInfo, Duration)} with a default timeout. */
   default Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo) {

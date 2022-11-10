@@ -19,8 +19,11 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -35,14 +38,18 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
+import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.scenario.Scenario;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
@@ -266,5 +273,67 @@ class BalancerTest extends RequireBrokerCluster {
     test.accept(7L);
     test.accept(8L);
     test.accept(9L);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1000, 2000, 3000})
+  void testRetryOffer(int sampleTimeMs) {
+    var startMs = System.currentTimeMillis();
+    var fake = FakeClusterInfo.of(3, 3, 3, 3);
+    var balancer =
+        new Balancer() {
+          @Override
+          public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+            if (System.currentTimeMillis() - startMs < sampleTimeMs)
+              throw new NoSufficientMetricsException(new DecreasingCost(null), "do it later");
+            return Optional.of(
+                new Plan(ClusterLogAllocation.of(currentClusterInfo), () -> 0, List.of()));
+          }
+        };
+
+    var future = balancer.retryOffer(fake, Duration.ofSeconds(10)).toCompletableFuture();
+    future.join();
+    var endMs = System.currentTimeMillis();
+
+    Assertions.assertTrue(future.isDone(), "Finished");
+    Assertions.assertFalse(future.isCompletedExceptionally(), "No error");
+    Assertions.assertFalse(future.isCancelled(), "No cancel");
+    Assertions.assertTrue(
+        sampleTimeMs < (endMs - startMs) && (endMs - startMs) < sampleTimeMs + 1000,
+        "Finished on time");
+  }
+
+  @Test
+  void testRetryOfferTimeout() {
+    var timeout = Duration.ofMillis(100);
+    var fake = FakeClusterInfo.of(3, 3, 3, 3);
+    var balancer =
+        new Balancer() {
+          @Override
+          public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+            throw new NoSufficientMetricsException(new DecreasingCost(null), "do it later");
+          }
+        };
+
+    // start
+    var future = balancer.retryOffer(fake, timeout).toCompletableFuture();
+    Assertions.assertFalse(future.isDone(), "Not done yet");
+
+    // sleep
+    Utils.sleep(timeout.plusMillis(100));
+
+    // timeout
+    Assertions.assertTrue(future.isDone(), "Done");
+    Assertions.assertTrue(future.isCompletedExceptionally(), "Timeout");
+    Assertions.assertThrows(
+        TimeoutException.class,
+        () -> {
+          try {
+            future.get();
+          } catch (ExecutionException e) {
+            throw e.getCause();
+          }
+        },
+        "Caused by timeout");
   }
 }
