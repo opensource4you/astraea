@@ -31,12 +31,7 @@ public class NoSufficientMetricsException extends RuntimeException {
   private final Duration suggestedWait;
 
   public NoSufficientMetricsException(CostFunction source, Duration suggestedWait) {
-    super();
-    if (suggestedWait.isNegative() || suggestedWait.isZero())
-      throw new IllegalArgumentException(
-          "the wait time should be positive: " + suggestedWait.toMillis());
-    this.source = Objects.requireNonNull(source);
-    this.suggestedWait = Objects.requireNonNull(suggestedWait);
+    this(source, suggestedWait, "");
   }
 
   public NoSufficientMetricsException(CostFunction source, Duration suggestedWait, String message) {

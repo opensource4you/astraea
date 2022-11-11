@@ -19,9 +19,7 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeoutException;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -48,34 +46,31 @@ public interface Balancer {
    *   <li>An exception occurred during the plan generation.
    * </ul>
    */
-  default CompletionStage<Plan> retryOffer(
-      ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
-    final var startMs = System.currentTimeMillis();
-    return CompletableFuture.supplyAsync(
-            () -> {
-              try {
-                return offer(currentClusterInfo, timeout).orElseThrow();
-              } catch (NoSufficientMetricsException e) {
-                e.printStackTrace();
-                long remainTimeout = timeout.toMillis() - (System.currentTimeMillis() - startMs);
-                long waitMs = Long.max(e.suggestedWait().toMillis(), 1000);
-                long actualWaitMs = Math.min(remainTimeout, waitMs);
-                Utils.sleep(Duration.ofMillis(actualWaitMs));
-                return null;
-              }
-            })
-        .thenCompose(
-            plan -> {
-              final var nextTimeout = timeout.minusMillis(System.currentTimeMillis() - startMs);
-              if (plan != null) {
-                return CompletableFuture.completedFuture(plan);
-              } else if (nextTimeout.isZero() || nextTimeout.isNegative()) {
-                return CompletableFuture.failedStage(
-                    new TimeoutException("Plan Generation Timeout"));
-              } else {
-                return retryOffer(currentClusterInfo, nextTimeout);
-              }
-            });
+  default Optional<Plan> retryOffer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
+    while (System.currentTimeMillis() < timeoutMs) {
+      try {
+        return offer(currentClusterInfo, timeout);
+      } catch (NoSufficientMetricsException e) {
+        e.printStackTrace();
+        long remainTimeout = timeoutMs - System.currentTimeMillis();
+        long waitMs = e.suggestedWait().toMillis();
+        if (remainTimeout > waitMs) {
+          Utils.sleep(Duration.ofMillis(waitMs));
+        } else {
+          // This suggested wait time will definitely time out after we woke up
+          throw new RuntimeException(
+              "Execution time will exceeded, "
+                  + "remain: "
+                  + remainTimeout
+                  + "ms, suggestedWait: "
+                  + waitMs
+                  + "ms.",
+              e);
+        }
+      }
+    }
+    throw new RuntimeException("Execution time exceeded: " + timeoutMs);
   }
 
   /** Invoke {@link Balancer#offer(ClusterInfo, Duration)} with a default timeout. */

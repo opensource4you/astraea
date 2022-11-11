@@ -21,9 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -50,6 +48,7 @@ import org.astraea.common.scenario.Scenario;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
@@ -277,6 +276,7 @@ class BalancerTest extends RequireBrokerCluster {
 
   @ParameterizedTest
   @ValueSource(ints = {1000, 2000, 3000})
+  @Timeout(10)
   void testRetryOffer(int sampleTimeMs) {
     var startMs = System.currentTimeMillis();
     var costFunction = new DecreasingCost(null);
@@ -294,19 +294,16 @@ class BalancerTest extends RequireBrokerCluster {
           }
         };
 
-    var future = balancer.retryOffer(fake, Duration.ofSeconds(10)).toCompletableFuture();
-    future.join();
+    Assertions.assertDoesNotThrow(() -> balancer.retryOffer(fake, Duration.ofSeconds(10)));
     var endMs = System.currentTimeMillis();
 
-    Assertions.assertTrue(future.isDone(), "Finished");
-    Assertions.assertFalse(future.isCompletedExceptionally(), "No error");
-    Assertions.assertFalse(future.isCancelled(), "No cancel");
     Assertions.assertTrue(
         sampleTimeMs < (endMs - startMs) && (endMs - startMs) < sampleTimeMs + 1000,
         "Finished on time");
   }
 
   @Test
+  @Timeout(1)
   void testRetryOfferTimeout() {
     var timeout = Duration.ofMillis(100);
     var costFunction = new DecreasingCost(null);
@@ -315,29 +312,13 @@ class BalancerTest extends RequireBrokerCluster {
         new Balancer() {
           @Override
           public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
-            throw new NoSufficientMetricsException(costFunction, Duration.ofSeconds(999));
+            throw new NoSufficientMetricsException(
+                costFunction, Duration.ofSeconds(999), "This will takes forever");
           }
         };
 
     // start
-    var future = balancer.retryOffer(fake, timeout).toCompletableFuture();
-    Assertions.assertFalse(future.isDone(), "Not done yet");
-
-    // sleep
-    Utils.sleep(timeout.plusMillis(100));
-
-    // timeout
-    Assertions.assertTrue(future.isDone(), "Done");
-    Assertions.assertTrue(future.isCompletedExceptionally(), "Timeout");
-    Assertions.assertThrows(
-        TimeoutException.class,
-        () -> {
-          try {
-            future.get();
-          } catch (ExecutionException e) {
-            throw e.getCause();
-          }
-        },
-        "Caused by timeout");
+    Assertions.assertThrows(RuntimeException.class, () -> balancer.retryOffer(fake, timeout))
+        .printStackTrace();
   }
 }
