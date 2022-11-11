@@ -279,13 +279,16 @@ class BalancerTest extends RequireBrokerCluster {
   @ValueSource(ints = {1000, 2000, 3000})
   void testRetryOffer(int sampleTimeMs) {
     var startMs = System.currentTimeMillis();
+    var costFunction = new DecreasingCost(null);
     var fake = FakeClusterInfo.of(3, 3, 3, 3);
     var balancer =
         new Balancer() {
           @Override
           public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
-              throw new NoSufficientMetricsException(new DecreasingCost(null), "do it later");
+              throw new NoSufficientMetricsException(
+                  costFunction,
+                  Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return Optional.of(
                 new Plan(ClusterLogAllocation.of(currentClusterInfo), () -> 0, List.of()));
           }
@@ -306,12 +309,13 @@ class BalancerTest extends RequireBrokerCluster {
   @Test
   void testRetryOfferTimeout() {
     var timeout = Duration.ofMillis(100);
+    var costFunction = new DecreasingCost(null);
     var fake = FakeClusterInfo.of(3, 3, 3, 3);
     var balancer =
         new Balancer() {
           @Override
           public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
-            throw new NoSufficientMetricsException(new DecreasingCost(null), "do it later");
+            throw new NoSufficientMetricsException(costFunction, Duration.ofSeconds(999));
           }
         };
 

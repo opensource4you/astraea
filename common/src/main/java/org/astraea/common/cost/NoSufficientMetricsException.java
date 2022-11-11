@@ -30,23 +30,30 @@ public class NoSufficientMetricsException extends RuntimeException {
   private final CostFunction source;
   private final Duration suggestedWait;
 
-  public NoSufficientMetricsException(CostFunction source, String message) {
-    this(source, Duration.ZERO, message);
-  }
-
-  public NoSufficientMetricsException(CostFunction source, Duration suggestedWait, String message) {
-    super(composedMessage(source, message));
+  public NoSufficientMetricsException(CostFunction source, Duration suggestedWait) {
+    super();
+    if (suggestedWait.isNegative() || suggestedWait.isZero())
+      throw new IllegalArgumentException(
+          "the wait time should be positive: " + suggestedWait.toMillis());
     this.source = Objects.requireNonNull(source);
     this.suggestedWait = Objects.requireNonNull(suggestedWait);
   }
 
-  public NoSufficientMetricsException(CostFunction source, String message, Throwable cause) {
-    this(source, Duration.ZERO, message, cause);
+  public NoSufficientMetricsException(CostFunction source, Duration suggestedWait, String message) {
+    super(composedMessage(source, message));
+    if (suggestedWait.isNegative() || suggestedWait.isZero())
+      throw new IllegalArgumentException(
+          "the wait time should be positive: " + suggestedWait.toMillis());
+    this.source = Objects.requireNonNull(source);
+    this.suggestedWait = Objects.requireNonNull(suggestedWait);
   }
 
   public NoSufficientMetricsException(
       CostFunction source, Duration suggestedWait, String message, Throwable cause) {
     super(composedMessage(source, message), cause);
+    if (suggestedWait.isNegative() || suggestedWait.isZero())
+      throw new IllegalArgumentException(
+          "the wait time should be positive: " + suggestedWait.toMillis());
     this.source = Objects.requireNonNull(source);
     this.suggestedWait = Objects.requireNonNull(suggestedWait);
   }
