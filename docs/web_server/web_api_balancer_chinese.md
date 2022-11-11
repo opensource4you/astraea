@@ -12,13 +12,15 @@ POST /balancer
 
 參數
 
-| 名稱              | 說明                                                         | 預設值                                                   |
-|-----------------|------------------------------------------------------------|-------------------------------------------------------|
-| topics          | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
-| timeout         | (選填) 指定產生時間                                                | 3s                                                    |
-| balancer        | (選填) 愈使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
-| balancer-config | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                     |
-| costWeights     | (選填) 指定要優化的目標以及權重                                          | ReplicaSizeCost,ReplicaLeaderCost權重皆為1                |
+| 名稱                  | 說明                                                          | 預設值                                                   |
+|---------------------|-------------------------------------------------------------|-------------------------------------------------------|
+| topics              | (選填) 只嘗試搬移指定的 topics                                        | 無，除了內部 topics 以外的都作為候選對象                              |
+| timeout             | (選填) 指定產生時間                                                 | 3s                                                    |
+| balancer            | (選填) 愈使用的負載平衡計劃搜尋演算法                                        | org.astraea.common.balancer.algorithms.GreedyBalancer |
+| balancer-config     | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String  | 無                                                     |
+| costWeights         | (選填) 指定要優化的目標以及權重                                           | ReplicaSizeCost,ReplicaLeaderCost權重皆為1                |
+ | max-migrated-size   | (選填) 設定最大可搬移的log size                                       | 無 　                                                   |
+ | max-migrated-leader | (選填) 設定最大可搬移的leader 數量                                      | 無                                                     |
 
 cURL 範例
 ```shell
@@ -27,14 +29,16 @@ curl -X POST http://localhost:8001/balancer \
     -d '{ "timeout": "10s" ,
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancer-config": {
-        "shuffle.plan.generator.min.step": 1,
-        "shuffle.plan.generator.max.step": 30,
-        "iteration": 10000
+        "shuffle.plan.generator.min.step": "1",
+        "shuffle.plan.generator.max.step": "30",
+        "iteration": "10000"
       },
       "costWeights": [
         { "cost":  "org.astraea.common.cost.ReplicaSizeCost", "weight":  3},
         { "cost":  "org.astraea.common.cost.ReplicaLeaderCost", "weight":  2}
-      ]
+      ],
+      "max-migrated-size": "300MB",
+      "max-migrated-leader": "3"
     }'
 ```
 

@@ -33,8 +33,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -62,7 +64,8 @@ class BalancerHandler implements Handler {
   static final String TOPICS_KEY = "topics";
 
   static final String TIMEOUT_KEY = "timeout";
-
+  static final String MAX_MIGRATE_SIZE_KEY = "max-migrated-size";
+  static final String MAX_MIGRATE_LEADER_KEY = "max-migrated-leader";
   static final String COST_WEIGHT_KEY = "costWeights";
 
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
@@ -237,6 +240,7 @@ class BalancerHandler implements Handler {
             .clusterCost(clusterCostFunction)
             .dataFolders(dataFolders)
             .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .movementConstraint(movementConstraint(channel.request().raw()))
             .topicFilter(topics::contains)
             .config(balancerConfig)
             .build());
@@ -265,6 +269,28 @@ class BalancerHandler implements Handler {
             Collectors.toMap(
                 e -> Utils.construct((Class<HasClusterCost>) e.getKey(), config),
                 Map.Entry::getValue));
+  }
+
+  // TODO: There needs to be a way for"GU" and Web to share this function.
+  static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
+    var converter = new DataSize.Field();
+    var replicaSizeLimit =
+        Optional.ofNullable(input.get(MAX_MIGRATE_SIZE_KEY)).map(x -> converter.convert(x).bytes());
+    var leaderNumLimit =
+        Optional.ofNullable(input.get(MAX_MIGRATE_LEADER_KEY)).map(Integer::parseInt);
+    return moveCosts ->
+        moveCosts.stream()
+            .allMatch(
+                mc -> {
+                  switch (mc.name()) {
+                    case ReplicaSizeCost.COST_NAME:
+                      return replicaSizeLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
+                    case ReplicaLeaderCost.COST_NAME:
+                      return leaderNumLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
+                    default:
+                      return true;
+                  }
+                });
   }
 
   static HasClusterCost getClusterCost(Channel channel) {

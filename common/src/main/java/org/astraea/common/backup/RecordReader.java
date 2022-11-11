@@ -70,11 +70,11 @@ public interface RecordReader {
               partition,
               0L,
               0L,
-              key.length,
+              key == null ? 0 : key.length,
               0,
               List.of(),
               key,
-              new byte[0],
+              null,
               Optional.empty()));
     }
     return records.iterator();

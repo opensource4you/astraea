@@ -38,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -56,11 +57,15 @@ import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
@@ -342,6 +347,38 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join()));
+    }
+  }
+
+  @CsvSource(value = {"2,100Byte", "2,500Byte", "2,1GB", "5,100Byte", "5,500Byte", "5,1GB"})
+  @ParameterizedTest
+  void testMoveCost(String leaderLimit, String sizeLimit) {
+    createAndProduceTopic(3);
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler = new BalancerHandler(admin);
+      var report =
+          submitPlanGeneration(
+                  handler,
+                  Map.of(
+                      BalancerHandler.MAX_MIGRATE_LEADER_KEY,
+                      leaderLimit,
+                      BalancerHandler.MAX_MIGRATE_SIZE_KEY,
+                      sizeLimit,
+                      BalancerHandler.COST_WEIGHT_KEY,
+                      defaultDecreasing))
+              .report;
+      report.migrationCosts.forEach(
+          migrationCost -> {
+            switch (migrationCost.function) {
+              case ReplicaSizeCost.COST_NAME:
+                Assertions.assertTrue(
+                    migrationCost.totalCost <= new DataSize.Field().convert(sizeLimit).bytes());
+                break;
+              case ReplicaLeaderCost.COST_NAME:
+                Assertions.assertTrue(migrationCost.totalCost <= Integer.parseInt(leaderLimit));
+                break;
+            }
+          });
     }
   }
 
