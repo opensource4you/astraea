@@ -73,4 +73,21 @@ public final class ByteBufferUtils {
     buf.putInt(value);
     return buf.flip();
   }
+
+  public static void putLengthBytes(ByteBuffer buffer, byte[] value) {
+    if (value == null) buffer.putInt(-1);
+    else {
+      buffer.putInt(value.length);
+      buffer.put(ByteBuffer.wrap(value));
+    }
+  }
+
+  public static void putLengthString(ByteBuffer buffer, String value) {
+    if (value == null) buffer.putShort((short) -1);
+    else {
+      var valueByte = value.getBytes(StandardCharsets.UTF_8);
+      buffer.putShort((short) valueByte.length);
+      buffer.put(ByteBuffer.wrap(valueByte));
+    }
+  }
 }

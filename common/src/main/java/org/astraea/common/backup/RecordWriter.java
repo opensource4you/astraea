@@ -75,36 +75,18 @@ public interface RecordWriter {
                   .sum();
       var recordBuffer = ByteBuffer.allocate(4 + recordSize);
       recordBuffer.putInt(recordSize);
-      recordBuffer.putShort((short) topicBytes.length);
-      recordBuffer.put(ByteBuffer.wrap(topicBytes));
+      ByteBufferUtils.putLengthString(recordBuffer, record.topic());
       recordBuffer.putInt(record.partition());
       recordBuffer.putLong(record.timestamp());
-      if (record.key() == null) recordBuffer.putInt(-1);
-      else {
-        recordBuffer.putInt(record.key().length);
-        recordBuffer.put(record.key());
-      }
-      if (record.value() == null) recordBuffer.putInt(-1);
-      else {
-        recordBuffer.putInt(record.value().length);
-        recordBuffer.put(record.value());
-      }
+      ByteBufferUtils.putLengthBytes(recordBuffer, record.key());
+      ByteBufferUtils.putLengthBytes(recordBuffer, record.value());
       recordBuffer.putInt(record.headers().size());
       record
           .headers()
           .forEach(
               h -> {
-                if (h.key() == null) recordBuffer.putShort((short) -1);
-                else {
-                  var hKey = h.key().getBytes(StandardCharsets.UTF_8);
-                  recordBuffer.putShort((short) hKey.length);
-                  recordBuffer.put(ByteBuffer.wrap(hKey));
-                }
-                if (h.value() == null) recordBuffer.putInt(-1);
-                else {
-                  recordBuffer.putInt(h.value().length);
-                  recordBuffer.put(ByteBuffer.wrap(h.value()));
-                }
+                ByteBufferUtils.putLengthString(recordBuffer, h.key());
+                ByteBufferUtils.putLengthBytes(recordBuffer, h.value());
               });
       channel.write(recordBuffer.flip());
       count++;
