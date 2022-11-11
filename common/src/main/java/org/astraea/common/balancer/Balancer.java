@@ -19,7 +19,6 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletionStage;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -37,14 +36,6 @@ public interface Balancer {
   /**
    * Execute {@link Balancer#offer(ClusterInfo, Duration)}. Retry the plan generation if a {@link
    * NoSufficientMetricsException} exception occurred.
-   *
-   * <p>The returned {@link CompletionStage} finished if:
-   *
-   * <ul>
-   *   <li>The plan is generated.
-   *   <li>The plan didn't generated before the execution time exceeded.
-   *   <li>An exception occurred during the plan generation.
-   * </ul>
    */
   default Optional<Plan> retryOffer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
     final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
