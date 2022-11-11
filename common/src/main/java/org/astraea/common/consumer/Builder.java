@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.function.Bi3Function;
 
 public abstract class Builder<Key, Value> {
   protected final Map<String, Object> configs = new HashMap<>();
@@ -120,29 +119,19 @@ public abstract class Builder<Key, Value> {
    * build a record stream by invoking a background running thread. The thread will close the
    * consumer when closeFlag returns true;
    *
-   * @param shouldClose to terminate the stream. The first element is the number of fetched records.
-   *     The second element is the elapsed time. The third element is the total size of fetched
-   *     records.
+   * @param limits to control the size of returned iterator
    * @return stream with records
    */
-  public Iterator<Record<Key, Value>> iterator(
-      Bi3Function<Integer, Duration, Long, Boolean> shouldClose) {
+  public Iterator<Record<Key, Value>> iterator(List<IteratorLimit<Key, Value>> limits) {
     var queue = new LinkedBlockingQueue<Optional<Record<Key, Value>>>();
     var exception = new AtomicReference<RuntimeException>();
     CompletableFuture.runAsync(
         () -> {
-          var start = System.currentTimeMillis();
           try (var consumer = build()) {
-            var count = 0;
-            var size = 0L;
-            while (!shouldClose.apply(
-                count, Duration.ofMillis(System.currentTimeMillis() - start), size)) {
+            while (true) {
               var records = consumer.poll(Duration.ofSeconds(2));
-              for (var r : records) {
-                queue.add(Optional.of(r));
-                size += r.serializedKeySize() + r.serializedValueSize();
-              }
-              count += records.size();
+              for (var r : records) queue.add(Optional.of(r));
+              if (limits.stream().anyMatch(l -> l.done(records))) return;
             }
           } catch (RuntimeException e) {
             exception.set(e);

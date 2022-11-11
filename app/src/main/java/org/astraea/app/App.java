@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.app.CleanCsv.CleanCsv;
 import org.astraea.app.automation.Automation;
+import org.astraea.app.backup.Exporter;
+import org.astraea.app.backup.Importer;
 import org.astraea.app.balancer.BalanceProcessDemo;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.scenario.ScenarioMain;
@@ -44,6 +46,10 @@ public class App {
           ScenarioMain.class,
           "version",
           Version.class,
+          "export",
+          Exporter.class,
+          "import",
+          Importer.class,
           "clean-csv",
           CleanCsv.class);
 
