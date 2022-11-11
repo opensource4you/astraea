@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker.Std;
@@ -44,7 +45,15 @@ public interface JsonConverter {
         JsonMapper.builder()
             .addModule(new Jdk8Module())
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+
+            // When we put json as key into kafka, we want to pass the same json to the same
+            // destination. When json equals, json needs to be the same string and binary too.
+            // So we should satisfy json key order and indentation.
+            // sort map
+            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+            // sort object properties
             .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
             .visibility(new Std(JsonAutoDetect.Visibility.NONE).with(JsonAutoDetect.Visibility.ANY))
             .serializationInclusion(Include.NON_EMPTY)

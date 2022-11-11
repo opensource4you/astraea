@@ -21,11 +21,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
@@ -111,22 +114,25 @@ public interface Admin extends AutoCloseable {
 
   default CompletionStage<Map<TopicPartition, List<Record<byte[], byte[]>>>> latestRecords(
       Set<TopicPartition> topicPartitions, int records, Duration timeout) {
+    var expectedCount = topicPartitions.size() * records;
     return brokers()
         .thenApply(
             bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
         .thenApply(
-            bootstrap -> {
-              try (var consumer =
-                  Consumer.forPartitions(topicPartitions)
-                      .bootstrapServers(bootstrap)
-                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
-                      .build()) {
-                // TODO: how many records we should take ?
-                return consumer.poll(Integer.MAX_VALUE, timeout).stream()
+            bootstrap ->
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(
+                            Consumer.forPartitions(topicPartitions)
+                                .bootstrapServers(bootstrap)
+                                .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
+                                .iterator(
+                                    (count, elapsed, size) ->
+                                        count >= expectedCount
+                                            || elapsed.toMillis() >= timeout.toMillis()),
+                            Spliterator.ORDERED),
+                        false)
                     .collect(
-                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())));
-              }
-            });
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition()))));
   }
 
   /**

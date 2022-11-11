@@ -76,7 +76,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                                 .topicPartitionReplicas()
                                 .containsAll(logAllocation.topicPartitionReplicas()),
                         timeout,
-                        3)
+                        5)
                     .thenApply(
                         done -> {
                           if (!done)

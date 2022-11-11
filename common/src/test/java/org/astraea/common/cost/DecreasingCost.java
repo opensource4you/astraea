@@ -14,44 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.collector;
+package org.astraea.common.cost;
 
-public interface Register {
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 
-  /**
-   * @param host of jmx server
-   * @return this register
-   */
-  Register host(String host);
+public class DecreasingCost implements HasClusterCost {
 
-  /**
-   * @param port of jmx server
-   * @return this register
-   */
-  Register port(int port);
+  private ClusterInfo<Replica> original;
 
-  /**
-   * declare a receiver based on local metrics client
-   *
-   * @return this register
-   */
-  Register local();
+  public DecreasingCost(Configuration configuration) {}
 
-  /**
-   * @param fetcher to get metrics from MBeanClient
-   * @return this register
-   */
-  Register fetcher(Fetcher fetcher);
+  private double value0 = 1.0;
 
-  /**
-   * demand to schedule metric updates periodically.
-   *
-   * @return this register
-   */
-  Register autoUpdate();
-
-  /**
-   * @return create a Receiver
-   */
-  Receiver build();
+  @Override
+  public synchronized ClusterCost clusterCost(
+      ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    if (original == null) original = clusterInfo;
+    if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
+    double theCost = value0;
+    value0 = value0 * 0.998;
+    return () -> theCost;
+  }
 }

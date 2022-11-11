@@ -33,7 +33,7 @@ public class FetcherTest {
     var mbean1 = Mockito.mock(HasBeanObject.class);
     Fetcher fetcher1 = client -> List.of(mbean1);
 
-    var fetcher = Fetcher.of(List.of(fetcher0, fetcher1), e -> {}).get();
+    var fetcher = Fetcher.of(List.of(fetcher0, fetcher1)).get();
 
     var result = fetcher.fetch(Mockito.mock(MBeanClient.class));
 
@@ -44,18 +44,19 @@ public class FetcherTest {
 
   @Test
   void testEmpty() {
-    Assertions.assertEquals(Optional.empty(), Fetcher.of(List.of(), e -> {}));
+    Assertions.assertEquals(Optional.empty(), Fetcher.of(List.of()));
   }
 
   @Test
-  void testSwallowException() {
+  void testNoSwallowException() {
     var result = List.of(Mockito.mock(HasBeanObject.class));
     Fetcher goodFetcher = client -> result;
     Fetcher badFetcher =
         client -> {
           throw new RuntimeException("xxx");
         };
-    var fetcher = Fetcher.of(List.of(badFetcher, goodFetcher), e -> {}).get();
-    Assertions.assertEquals(result, fetcher.fetch(Mockito.mock(MBeanClient.class)));
+    var fetcher = Fetcher.of(List.of(badFetcher, goodFetcher)).get();
+    Assertions.assertThrows(
+        RuntimeException.class, () -> fetcher.fetch(Mockito.mock(MBeanClient.class)));
   }
 }
