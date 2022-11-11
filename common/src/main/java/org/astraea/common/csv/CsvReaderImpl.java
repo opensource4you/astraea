@@ -37,8 +37,8 @@ public class CsvReaderImpl implements CsvReader {
   @Override
   public boolean hasNext() {
     if (nextLine == null) {
-      nextLine = readNext();
-      currentLine++;
+      nextLine = Utils.packException(csvReader::readNext);
+      if (nextLine != null) currentLine++;
     }
     return nextLine != null;
   }
@@ -52,7 +52,7 @@ public class CsvReaderImpl implements CsvReader {
    */
   @Override
   public List<String> next() {
-    List<String> strings = nonCsvGeneralNext();
+    List<String> strings = rawNext();
     if (genericLength == -1) genericLength = strings.size();
     else if (genericLength != strings.size())
       throw new RuntimeException(
@@ -63,11 +63,11 @@ public class CsvReaderImpl implements CsvReader {
   }
 
   @Override
-  public List<String> nonCsvGeneralNext() {
+  public List<String> rawNext() {
+    if (!hasNext()) {
+      throw new NoSuchElementException("There is no next line.");
+    }
     try {
-      if (!hasNext()) {
-        throw new NoSuchElementException("There is no next line.");
-      }
       return Arrays.stream(nextLine).collect(Collectors.toUnmodifiableList());
     } finally {
       nextLine = null;
@@ -76,8 +76,8 @@ public class CsvReaderImpl implements CsvReader {
 
   @Override
   public void skip(int num) {
-    currentLine = currentLine + num;
     Utils.requirePositive(num);
+    currentLine = currentLine + num;
     Utils.packException(() -> csvReader.skip(num));
     nextLine = null;
   }
@@ -85,9 +85,5 @@ public class CsvReaderImpl implements CsvReader {
   @Override
   public void close() {
     Utils.packException(csvReader::close);
-  }
-
-  private String[] readNext() {
-    return Utils.packException(csvReader::readNext);
   }
 }

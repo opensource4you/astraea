@@ -20,11 +20,21 @@ import java.util.List;
 
 public interface CsvWriter extends AutoCloseable {
   /**
-   * Writes the next line to the file.
+   * Writes the next line to the file.Empty fields cannot be written and the lengths of the strings
+   * written should be equal.
    *
    * @param nextLine A List<String> with each comma-separated element as a separate entry.
    */
-  void writeNext(List<String> nextLine);
+  void append(List<String> nextLine);
+
+  /**
+   * Writes the next line without checking.
+   *
+   * @param nextLine A List<String> with each comma-separated element as a separate entry.
+   */
+  void rawAppend(List<String> nextLine);
 
   void flush();
+
+  void close();
 }

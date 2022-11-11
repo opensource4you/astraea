@@ -17,20 +17,17 @@
 package org.astraea.common.csv;
 
 import com.opencsv.CSVReaderBuilder;
-import java.io.FileReader;
-import java.nio.file.Path;
-import org.astraea.common.Utils;
+import java.io.Reader;
 
 /** Construct CsvReaderBuilder so that we can use build pattern of opencsv. */
 public class CsvReaderBuilder {
   private final CSVReaderBuilder csvReaderBuilder;
 
-  private CsvReaderBuilder(Path source) {
-    this.csvReaderBuilder =
-        new CSVReaderBuilder(Utils.packException(() -> new FileReader(source.toFile())));
+  private CsvReaderBuilder(Reader source) {
+    this.csvReaderBuilder = new CSVReaderBuilder(source);
   }
 
-  public static CsvReaderBuilder of(Path source) {
+  public static CsvReaderBuilder of(Reader source) {
     return new CsvReaderBuilder(source);
   }
 

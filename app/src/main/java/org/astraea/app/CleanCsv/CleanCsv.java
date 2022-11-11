@@ -17,7 +17,8 @@
 package org.astraea.app.CleanCsv;
 
 import com.beust.jcommander.ParameterException;
-import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 import org.astraea.common.csv.CsvReaderBuilder;
 import org.astraea.common.csv.CsvWriterBuilder;
 
@@ -63,27 +65,29 @@ public class CleanCsv {
           var pathSplit = path.toString().split("/");
           var csvName = Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
 
-          try (var reader = CsvReaderBuilder.of(path).build();
+          try (var reader =
+                  CsvReaderBuilder.of(Utils.packException(() -> new FileReader(path.toFile())))
+                      .build();
               var writer =
-                  CsvWriterBuilder.of(new File(SINK_DIRECTORY + "/" + csvName).toPath()).build()) {
+                  CsvWriterBuilder.of(
+                          Utils.packException(() -> new FileWriter(SINK_DIRECTORY + "/" + csvName)))
+                      .build()) {
             var headers =
                 Arrays.stream(
                         new String[] {
-                          reader.nonCsvGeneralNext().get(1)
+                          reader.rawNext().get(1)
                               + "_"
                               + Arrays.stream(csvName.split("\\.")).findFirst().orElse("")
                         })
                     .collect(Collectors.toList());
 
-            writer.writeNext(headers);
-            writer.writeNext(reader.next());
+            writer.rawAppend(headers);
+            writer.append(reader.next());
             reader.skip(2);
             while (reader.hasNext()) {
-              writer.writeNext(reader.next());
+              writer.append(reader.next());
             }
             writer.flush();
-          } catch (Exception e) {
-            throw new RuntimeException(e);
           }
         });
   }

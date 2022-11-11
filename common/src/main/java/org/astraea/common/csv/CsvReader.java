@@ -31,8 +31,7 @@ public interface CsvReader extends AutoCloseable, Iterator<List<String>> {
    *
    * @return next line
    */
-  List<String> nonCsvGeneralNext();
+  List<String> rawNext();
 
-  @Override
   void close();
 }

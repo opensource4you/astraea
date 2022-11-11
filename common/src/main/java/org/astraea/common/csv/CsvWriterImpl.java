@@ -18,22 +18,32 @@ package org.astraea.common.csv;
 
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
-import java.io.IOException;
 import java.util.List;
 import org.astraea.common.Utils;
 
 public class CsvWriterImpl implements CsvWriter {
   private final ICSVWriter csvWriter;
+  private int genericLength = -1;
 
   CsvWriterImpl(CSVWriterBuilder csvWriterBuilder) {
     this.csvWriter = csvWriterBuilder.build();
   }
-  /**
-   * Writes the next line to the file.
-   *
-   * @param nextLine A string array with each comma-separated element as a separate entry.
-   */
-  public void writeNext(List<String> nextLine) {
+
+  @Override
+  public void append(List<String> nextLine) {
+    if (nextLine == null) throw new RuntimeException("You can't write null list.");
+    if (genericLength == -1) genericLength = nextLine.size();
+    else if (genericLength != nextLine.size()) {
+      throw new RuntimeException(
+          "The length of the row:\"/"
+              + String.join(",", nextLine)
+              + "\" does not meet the standard. Each row of data should be equal in length.");
+    }
+    csvWriter.writeNext(nextLine.toArray(new String[0]));
+  }
+
+  @Override
+  public void rawAppend(List<String> nextLine) {
     csvWriter.writeNext(nextLine.toArray(new String[0]));
   }
 
@@ -43,7 +53,7 @@ public class CsvWriterImpl implements CsvWriter {
   }
 
   @Override
-  public void close() throws IOException {
-    csvWriter.close();
+  public void close() {
+    Utils.packException(csvWriter::close);
   }
 }

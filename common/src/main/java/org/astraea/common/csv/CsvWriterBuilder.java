@@ -17,20 +17,17 @@
 package org.astraea.common.csv;
 
 import com.opencsv.CSVWriterBuilder;
-import java.io.FileWriter;
-import java.nio.file.Path;
-import org.astraea.common.Utils;
+import java.io.Writer;
 
 /** Construct CSVWriterBuilder so that we can use its build pattern. */
 public class CsvWriterBuilder {
   private final CSVWriterBuilder csvWriterBuilder;
 
-  private CsvWriterBuilder(Path sink) {
-    this.csvWriterBuilder =
-        new CSVWriterBuilder(Utils.packException(() -> new FileWriter(sink.toFile())));
+  private CsvWriterBuilder(Writer sink) {
+    this.csvWriterBuilder = new CSVWriterBuilder(sink);
   }
 
-  public static CsvWriterBuilder of(Path sink) {
+  public static CsvWriterBuilder of(Writer sink) {
     return new CsvWriterBuilder(sink);
   }
 

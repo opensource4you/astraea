@@ -16,18 +16,21 @@
  */
 package org.astraea.common.csv;
 
+import static org.astraea.it.Utils.createTempDirectory;
+import static org.astraea.it.Utils.mkdir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Assertions;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Test;
 
 public class CsvReaderTest {
@@ -52,10 +55,14 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,"
                 .split(",")));
 
-    try (var reader = CsvReaderBuilder.of(target.toPath()).build()) {
+    try (var reader =
+        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.next();
       reader.skip(2);
-      Assertions.assertThrows(RuntimeException.class, reader::next);
+      assertThrows(
+          RuntimeException.class,
+          reader::next,
+          "The 5 line does not meet the criteria. Each row of data should be equal in length.");
     }
   }
 
@@ -78,7 +85,8 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,2019-12-07 05:24:00,-48,013CAMPBELLCLIM50501VUE-500001112"
                 .split(",")));
 
-    try (var reader = CsvReaderBuilder.of(target.toPath()).build()) {
+    try (var reader =
+        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(4);
       assertEquals(
           mkString(reader.next()),
@@ -87,7 +95,7 @@ public class CsvReaderTest {
   }
 
   @Test
-  void nonCsvGeneralNextTest() {
+  void rawNextTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
     var target = new File(sink + "/" + DATA_MAME);
@@ -105,12 +113,13 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,"
                 .split(",")));
 
-    try (var reader = CsvReaderBuilder.of(target.toPath()).build()) {
+    try (var reader =
+        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
       assertEquals(
-          mkString(reader.nonCsvGeneralNext()),
+          mkString(reader.rawNext()),
           "\"2015-12-05 00:00:00\",\"333\",\"2015-12-07 23:59:00\",\"10.53\",\"0\",\"0.112\",\"9.638579\",\"20.8\",\"16.42\",\"0\",\"29.52\",\"2019-12-07 02:36:00\",\"16.69\",\"14.5\",\"2019-12-07 19:01:00\",\"15.6\",\"2019-12-07 04:59:00\",\"14.91368\",\"1024.1\",\"2019-12-07 22:44:00\",\"1019.6\",\"2019-12-07 01:22:00\",\"90\",\"65.3\",\"18.2\",\"15.7\",\"26\",\"2019-12-07 01:16:00\",\"-33.4\",\"2019-12-07 01:26:00\",\"61.1\"");
     }
   }
@@ -134,38 +143,24 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,"
                 .split(",")));
 
-    try (var reader = CsvReaderBuilder.of(target.toPath()).build()) {
+    try (var reader =
+        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
       assertTrue(reader.hasNext());
       assertEquals(
-          mkString(reader.nonCsvGeneralNext()),
+          mkString(reader.rawNext()),
           "\"2015-12-05 00:00:00\",\"333\",\"2015-12-07 23:59:00\",\"10.53\",\"0\",\"0.112\",\"9.638579\",\"20.8\",\"16.42\",\"0\",\"29.52\",\"2019-12-07 02:36:00\",\"16.69\",\"14.5\",\"2019-12-07 19:01:00\",\"15.6\",\"2019-12-07 04:59:00\",\"14.91368\",\"1024.1\",\"2019-12-07 22:44:00\",\"1019.6\",\"2019-12-07 01:22:00\",\"90\",\"65.3\",\"18.2\",\"15.7\",\"26\",\"2019-12-07 01:16:00\",\"-33.4\",\"2019-12-07 01:26:00\",\"61.1\"");
       assertFalse(reader.hasNext());
     }
   }
 
   private void writeCSV(Path sink, List<String[]> lists) {
-    try (var writer = CsvWriterBuilder.of(sink).build()) {
-      lists.forEach(line -> writer.writeNext(Arrays.stream(line).collect(Collectors.toList())));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    try (var writer =
+        CsvWriterBuilder.of(Utils.packException(() -> new FileWriter(sink.toFile()))).build()) {
+      lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
-  }
-
-  private Path createTempDirectory(String str) {
-    try {
-      return Files.createTempDirectory(str);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private Path mkdir(String string) {
-    var file = new File(string);
-    file.mkdir();
-    return file.toPath();
   }
 
   private String mkString(List<String> arr) {
