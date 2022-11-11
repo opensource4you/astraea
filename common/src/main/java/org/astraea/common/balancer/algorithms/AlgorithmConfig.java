@@ -116,6 +116,8 @@ public interface AlgorithmConfig {
      * @return this.
      */
     public Builder dataFolders(Map<Integer, Set<String>> dataFolders) {
+      // TODO: Embedded these data folders information into ClusterInfo
+      //       see https://github.com/skiptests/astraea/issues/1106
       this.dataFolders = Objects.requireNonNull(dataFolders);
       return this;
     }
