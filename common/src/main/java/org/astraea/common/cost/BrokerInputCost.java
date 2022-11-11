@@ -40,7 +40,7 @@ public class BrokerInputCost implements HasBrokerCost, HasClusterCost {
                     Map.Entry::getKey,
                     entry ->
                         ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.of(entry.getValue()).stream()
-                            .mapToDouble(ServerMetrics.BrokerTopic.Meter::oneMinuteRate)
+                            .mapToDouble(ServerMetrics.BrokerTopic.Meter::fifteenMinuteRate)
                             .sum()));
     return () -> brokerCost;
   }

@@ -80,6 +80,6 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
         new BeanObject(
             "object",
             Map.of("name", ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName()),
-            Map.of("OneMinuteRate", value)));
+            Map.of("FifteenMinuteRate", value)));
   }
 }
