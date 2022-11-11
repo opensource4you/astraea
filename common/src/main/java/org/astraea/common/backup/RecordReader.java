@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Optional;
 import org.astraea.common.consumer.Header;
@@ -63,15 +63,23 @@ public interface RecordReader {
       var topic = ByteBufferUtils.readString(recordBuffer, recordBuffer.getShort());
       var partition = recordBuffer.getInt();
       var timestamp = recordBuffer.getLong();
-      var key = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
-      var value = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
-      var headers = new ArrayList<Header>();
+      var keySize = recordBuffer.getInt();
+      var key = keySize == -1 ? null : ByteBufferUtils.readBytes(recordBuffer, keySize);
+      var valueSize = recordBuffer.getInt();
+      var value = valueSize == -1 ? null : ByteBufferUtils.readBytes(recordBuffer, valueSize);
       var headerCnt = recordBuffer.getInt();
+      var headers = new ArrayList<Header>(headerCnt);
       for (int headerIndex = 0; headerIndex < headerCnt; headerIndex++) {
-        headers.add(
-            Header.of(
-                Arrays.toString(ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getShort())),
-                ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt())));
+        var headerKeySize = recordBuffer.getShort();
+        var headerKey =
+            headerKeySize == -1
+                ? null
+                : new String(
+                    ByteBufferUtils.readBytes(recordBuffer, headerKeySize), StandardCharsets.UTF_8);
+        var headerValueSize = recordBuffer.getInt();
+        var headerValue =
+            headerValueSize == -1 ? null : ByteBufferUtils.readBytes(recordBuffer, headerValueSize);
+        headers.add(Header.of(headerKey, headerValue));
       }
       // TODO: need builder
       records.add(
@@ -80,7 +88,7 @@ public interface RecordReader {
               partition,
               0L,
               timestamp,
-              key.length,
+              key == null ? 0 : key.length,
               0,
               headers,
               key,
