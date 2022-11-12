@@ -34,9 +34,7 @@ public class ExpWeightByTime implements Stat<Double> {
     debounce
         .record(value, current)
         .ifPresent(
-            debouncedValue -> {
-              accumulate = accumulate * (1 - alpha) + debouncedValue * alpha;
-            });
+            debouncedValue -> accumulate = accumulate * (1 - alpha) + debouncedValue * alpha);
   }
 
   @Override
