@@ -46,7 +46,6 @@ public interface RecordWriter {
 
   private static void writeV0(WritableByteChannel channel, Iterator<Record<byte[], byte[]>> records)
       throws IOException {
-    // TODO: append full records
     var count = 0;
     while (records.hasNext()) {
       var record = records.next();
@@ -66,4 +65,64 @@ public interface RecordWriter {
     }
     channel.write(ByteBufferUtils.of(count));
   }
+
+  void write(File file, short version, Iterator<Record<byte[], byte[]>> records, int batchSize);
+
+  void write(
+      File file,
+      short version,
+      Iterator<Record<byte[], byte[]>> records,
+      int batchSize,
+      String protocol,
+      String ip,
+      int port);
+
+  void write(
+      File file, short version, Iterator<Record<byte[], byte[]>> records, String compression);
+
+  void write(
+      File file,
+      short version,
+      Iterator<Record<byte[], byte[]>> records,
+      int batchSize,
+      String compression);
+
+  void write(
+      File file,
+      short version,
+      Iterator<Record<byte[], byte[]>> records,
+      String compression,
+      String protocol,
+      String ip,
+      int port);
+
+  void write(
+      File file,
+      short version,
+      Iterator<Record<byte[], byte[]>> records,
+      String protocol,
+      String ip,
+      int port);
+
+  /**
+   * write compressed data to remote storage with batch
+   *
+   * @param file the file be written
+   * @param version current version
+   * @param records the records need to export
+   * @param batchSize the byte size of a batch, default is 0
+   * @param compression the compression type, default is none
+   * @param protocol the protocol for remote storage, like ftp, hdfs or samba
+   * @param ip the remote server ip
+   * @param port the remote server port
+   */
+  void write(
+      File file,
+      short version,
+      Iterator<Record<byte[], byte[]>> records,
+      int batchSize,
+      String compression,
+      String protocol,
+      String ip,
+      int port);
 }
