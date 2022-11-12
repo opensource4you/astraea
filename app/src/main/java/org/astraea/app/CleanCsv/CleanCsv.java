@@ -19,7 +19,6 @@ package org.astraea.app.CleanCsv;
 import com.beust.jcommander.ParameterException;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,18 +32,16 @@ import org.astraea.common.csv.CsvWriterBuilder;
 
 public class CleanCsv {
   public static List<Path> getListOfFiles(String dir, String target) {
-    try {
-      return Files.find(
-              Paths.get(dir),
-              999,
-              (path, ar) -> {
-                var file = path.toFile();
-                return !file.isDirectory() && file.getName().contains(target);
-              })
-          .collect(Collectors.toList());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    return Utils.packException(
+            () ->
+                Files.find(
+                    Paths.get(dir),
+                    999,
+                    (path, ar) -> {
+                      var file = path.toFile();
+                      return !file.isDirectory() && file.getName().contains(target);
+                    }))
+        .collect(Collectors.toList());
   }
 
   /**
