@@ -147,7 +147,7 @@ class BalancerHandler implements Handler {
                           .value();
                   var bestPlan =
                       Balancer.create(request.balancerClasspath, request.algorithmConfig)
-                          .offer(currentClusterInfo);
+                          .offer(currentClusterInfo, request.executionTime);
                   var changes =
                       bestPlan
                           .map(

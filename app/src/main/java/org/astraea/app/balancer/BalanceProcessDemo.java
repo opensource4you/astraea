@@ -54,7 +54,7 @@ public class BalanceProcessDemo {
                       .dataFolders(brokerFolders)
                       .config("iteration", "1000")
                       .build())
-              .offer(clusterInfo);
+              .offer(clusterInfo, Duration.ofSeconds(3));
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()

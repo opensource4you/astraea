@@ -160,7 +160,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .clusterCost(randomScore)
                       .config("iteration", "500")
                       .build())
-              .offer(clusterInfo)
+              .offer(clusterInfo, Duration.ofSeconds(3))
               .get()
               .proposal();
 
@@ -258,7 +258,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .metricSource(metricSource)
                       .config("iteration", "500")
                       .build())
-              .offer(ClusterInfo.empty());
+              .offer(ClusterInfo.empty(), Duration.ofSeconds(3));
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };
 

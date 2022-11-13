@@ -64,11 +64,6 @@ public interface Balancer {
     throw new RuntimeException("Execution time exceeded: " + timeoutMs);
   }
 
-  /** Invoke {@link Balancer#offer(ClusterInfo, Duration)} with a default timeout. */
-  default Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo) {
-    return offer(currentClusterInfo, Duration.ofSeconds(3));
-  }
-
   /**
    * @return a rebalance plan
    */

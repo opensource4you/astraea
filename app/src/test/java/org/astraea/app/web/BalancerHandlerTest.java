@@ -288,7 +288,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join());
+                      .join(),
+                  Duration.ofSeconds(3));
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -310,7 +311,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       admin
                           .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                           .toCompletableFuture()
-                          .join()));
+                          .join(),
+                      Duration.ofSeconds(3)));
 
       // test cluster cost predicate
       Assertions.assertEquals(
@@ -328,7 +330,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join()));
+                      .join(),
+                  Duration.ofSeconds(3)));
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -346,7 +349,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
-                      .join()));
+                      .join(),
+                  Duration.ofSeconds(3)));
     }
   }
 
@@ -1123,10 +1127,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo) {
+    public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
-      return super.offer(currentClusterInfo);
+      return super.offer(currentClusterInfo, timeout);
     }
   }
 }
