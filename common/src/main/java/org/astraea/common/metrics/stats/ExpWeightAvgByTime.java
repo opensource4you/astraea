@@ -19,10 +19,10 @@ package org.astraea.common.metrics.stats;
 import java.time.Duration;
 
 /**
- * This class implements "Stat" using an exponential moving average, an exponentially decreasing
- * weighted moving average that weights past data based on a given alpha value and adds up to get
- * the average. When new data comes in, the calculation method is as follows: Average = new data *
- * alpha + past data * (1-alpha) , the default value of alpha is 0.5.
+ * This class implements {@link Stat} using an exponential moving average, an exponentially
+ * decreasing weighted moving average that weights past data based on a given alpha value and adds
+ * up to get the average. When new data comes in, the calculation method is as follows: Average =
+ * new data * alpha + past data * (1-alpha) , the default value of alpha is 0.5.
  */
 public class ExpWeightAvgByTime implements Stat<Double> {
   private double accumulate = 0.0;
