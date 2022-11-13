@@ -111,7 +111,7 @@ public interface AlgorithmConfig {
     }
 
     /**
-     * Sepcify the data foldesr of all brokers
+     * Specify the data folders of all brokers
      *
      * @return this.
      */

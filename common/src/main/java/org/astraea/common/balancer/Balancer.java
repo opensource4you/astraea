@@ -41,11 +41,11 @@ public interface Balancer {
     final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
     while (System.currentTimeMillis() < timeoutMs) {
       try {
-        return offer(currentClusterInfo, timeout);
+        return offer(currentClusterInfo, Duration.ofMillis(timeoutMs - System.currentTimeMillis()));
       } catch (NoSufficientMetricsException e) {
         e.printStackTrace();
-        long remainTimeout = timeoutMs - System.currentTimeMillis();
-        long waitMs = e.suggestedWait().toMillis();
+        var remainTimeout = timeoutMs - System.currentTimeMillis();
+        var waitMs = e.suggestedWait().toMillis();
         if (remainTimeout > waitMs) {
           Utils.sleep(Duration.ofMillis(waitMs));
         } else {
