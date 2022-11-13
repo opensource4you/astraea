@@ -25,16 +25,21 @@ import static org.astraea.common.consumer.SeekStrategy.SEEK_TO;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.common.errors.WakeupException;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
@@ -45,6 +50,8 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class ConsumerTest extends RequireBrokerCluster {
 
@@ -57,6 +64,7 @@ public class ConsumerTest extends RequireBrokerCluster {
                       .sender()
                       .topic(topic)
                       .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                      .value(Utils.randomString().getBytes(StandardCharsets.UTF_8))
                       .run());
       producer.flush();
     }
@@ -504,5 +512,47 @@ public class ConsumerTest extends RequireBrokerCluster {
             .build()) {
       Assertions.assertEquals(clientId1, consumer.clientId());
     }
+  }
+
+  @Timeout(20)
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testIterator(boolean isAssigned) {
+    var records = 100;
+    var topic = Utils.randomString();
+    produceData(topic, records);
+
+    Function<IteratorLimit<byte[], byte[]>, Stream<Record<byte[], byte[]>>> supplier =
+        limit -> {
+          var iter =
+              isAssigned
+                  ? Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+                      .bootstrapServers(bootstrapServers())
+                      .seek(DISTANCE_FROM_BEGINNING, 0)
+                      .iterator(List.of(limit))
+                  : Consumer.forTopics(Set.of(topic))
+                      .bootstrapServers(bootstrapServers())
+                      .config(
+                          ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                          ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+                      .iterator(List.of(limit));
+          ;
+          return StreamSupport.stream(
+              Spliterators.spliteratorUnknownSize(iter, Spliterator.ORDERED), false);
+        };
+
+    // test count limit
+    Assertions.assertEquals(records, supplier.apply(IteratorLimit.count(records)).count());
+
+    // test idle limit
+    Assertions.assertEquals(
+        records, supplier.apply(IteratorLimit.idle(Duration.ofSeconds(3))).count());
+
+    // test size limit
+    Assertions.assertEquals(records, supplier.apply(IteratorLimit.size(1L)).count());
+
+    // test elapsed time limit
+    Assertions.assertEquals(
+        records, supplier.apply(IteratorLimit.elapsed(Duration.ofSeconds(3))).count());
   }
 }

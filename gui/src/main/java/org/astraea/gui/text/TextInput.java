@@ -22,9 +22,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -44,6 +47,19 @@ public interface TextInput {
     var box = new ComboBox<>(FXCollections.observableArrayList(keys.toArray(String[]::new)));
     box.getSelectionModel().selectFirst();
     box.setValue(selected);
+    // TODO: fix this hardcode
+    box.setButtonCell(
+        new ListCell<>() {
+          @Override
+          public void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            if (item != null) {
+              setText(item);
+              setAlignment(Pos.BASELINE_RIGHT);
+              setPadding(new Insets(5, 0, 5, 0));
+            }
+          }
+        });
     var current = new AtomicReference<>(box.getValue());
     box.valueProperty().addListener((o, previous, now) -> current.set(now));
     return of(box, current::get, text.node(), text::text, false);

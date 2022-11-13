@@ -58,10 +58,10 @@ class BalancerTest extends RequireBrokerCluster {
           (Supplier<Map<Integer, Long>>)
               () ->
                   admin
-                      .replicas(admin.topicNames(false).toCompletableFuture().join())
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join()
-                      .stream()
+                      .replicaStream()
                       .filter(Replica::isLeader)
                       .map(replica -> replica.nodeInfo().id())
                       .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
@@ -102,7 +102,7 @@ class BalancerTest extends RequireBrokerCluster {
                   admin.brokerFolders().toCompletableFuture().join())
               .orElseThrow();
       new StraightPlanExecutor()
-          .run(admin, plan.proposal().rebalancePlan(), Duration.ofSeconds(10))
+          .run(admin, plan.proposal(), Duration.ofSeconds(10))
           .toCompletableFuture()
           .join();
 
@@ -151,12 +151,11 @@ class BalancerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .topicFilter(t -> t.equals(theTopic))
                       .clusterCost(randomScore)
-                      .limit(500)
+                      .config("iteration", "500")
                       .build())
               .offer(clusterInfo, brokerFolders)
               .get()
-              .proposal()
-              .rebalancePlan();
+              .proposal();
 
       var currentCluster =
           admin
@@ -201,8 +200,7 @@ class BalancerTest extends RequireBrokerCluster {
                               .join(),
                           admin.brokerFolders().toCompletableFuture().join())
                       .get()
-                      .proposal()
-                      .rebalancePlan());
+                      .proposal());
       Utils.sleep(Duration.ofMillis(1000));
       Assertions.assertFalse(future.isDone());
       Utils.sleep(Duration.ofMillis(2500));
@@ -250,7 +248,7 @@ class BalancerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(theCostFunction)
                       .metricSource(metricSource)
-                      .limit(500)
+                      .config("iteration", "500")
                       .build())
               .offer(ClusterInfo.empty(), Map.of());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");

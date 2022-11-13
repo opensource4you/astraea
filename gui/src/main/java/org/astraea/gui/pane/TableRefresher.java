@@ -14,34 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.collector;
+package org.astraea.gui.pane;
 
-import java.util.Collection;
-import org.astraea.common.metrics.HasBeanObject;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
+import org.astraea.gui.Logger;
 
-/**
- * This Receiver is used to request mbeans. It must be closed. Otherwise, the true connection will
- * get leaked.
- */
-public interface Receiver extends AutoCloseable {
+@FunctionalInterface
+public interface TableRefresher {
 
-  /**
-   * @return host of jmx server
-   */
-  String host();
+  String BASIC_KEY = "basic";
 
-  /**
-   * @return port of jmx server
-   */
-  int port();
+  static TableRefresher of(
+      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> refresher) {
+    return (argument, logger) ->
+        refresher
+            .apply(argument, logger)
+            .thenApply(r -> r.isEmpty() ? Map.of() : Map.of(BASIC_KEY, r));
+  }
 
-  /**
-   * This method may request the latest mbeans if the current mbeans are out-of-date.
-   *
-   * @return current mbeans.
-   */
-  Collection<HasBeanObject> current();
-
-  @Override
-  void close();
+  CompletionStage<Map<String, List<Map<String, Object>>>> apply(Argument argument, Logger logger);
 }

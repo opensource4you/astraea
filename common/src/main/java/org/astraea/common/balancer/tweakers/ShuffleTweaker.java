@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.generator;
+package org.astraea.common.balancer.tweakers;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -30,12 +29,11 @@ import java.util.stream.Stream;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.balancer.RebalancePlanProposal;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /**
- * The {@link ShufflePlanGenerator} proposes a new log placement based on the current log placement,
- * but with a few random placement changes. <br>
+ * The {@link ShuffleTweaker} proposes a new log placement based on the current log placement, but
+ * with a few random placement changes. <br>
  * <br>
  * The following operations are considered as a valid shuffle action:
  *
@@ -46,71 +44,50 @@ import org.astraea.common.balancer.log.ClusterLogAllocation;
  *       replica set before this action) into the replica set.
  * </ol>
  */
-public class ShufflePlanGenerator implements RebalancePlanGenerator {
+public class ShuffleTweaker implements AllocationTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
 
-  public ShufflePlanGenerator(int origin, int bound) {
+  public ShuffleTweaker(int origin, int bound) {
     this(() -> ThreadLocalRandom.current().nextInt(origin, bound));
   }
 
-  public ShufflePlanGenerator(Supplier<Integer> numberOfShuffle) {
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle) {
     this.numberOfShuffle = numberOfShuffle;
   }
 
   @Override
-  public Stream<RebalancePlanProposal> generate(
+  public Stream<ClusterLogAllocation> generate(
       Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation) {
-    if (brokerFolders.isEmpty()) {
-      return Stream.of(
-          RebalancePlanProposal.builder()
-              .clusterLogAllocation(baseAllocation)
-              .addWarning("There is no broker")
-              .build());
-    }
+    // There is no broker
+    if (brokerFolders.isEmpty()) return Stream.of();
 
-    if (brokerFolders.size() == 1) {
-      return Stream.of(
-          RebalancePlanProposal.builder()
-              .clusterLogAllocation(baseAllocation)
-              .addWarning("Only one broker exists, unable to do some migration")
-              .build());
-    }
+    // No non-ignored topic to working on.
+    if (baseAllocation.topicPartitions().isEmpty()) return Stream.of();
 
-    if (baseAllocation.topicPartitions().isEmpty()) {
-      return Stream.of(
-          RebalancePlanProposal.builder()
-              .clusterLogAllocation(baseAllocation)
-              .addWarning("No non-ignored topic to working on.")
-              .build());
-    }
+    // Only one broker & one folder exists, unable to do any log migration
+    if (brokerFolders.size() == 1
+        && brokerFolders.values().stream().findFirst().orElseThrow().size() == 1)
+      return Stream.of();
 
-    var index = new AtomicInteger(0);
     return Stream.generate(
         () -> {
-          final var rebalancePlanBuilder = RebalancePlanProposal.builder();
           final var shuffleCount = numberOfShuffle.get();
-
-          rebalancePlanBuilder.addInfo(
-              "Make " + shuffleCount + (shuffleCount > 0 ? " shuffles." : " shuffle."));
 
           var candidates =
               IntStream.range(0, shuffleCount)
-                  .mapToObj(i -> allocationGenerator(brokerFolders, rebalancePlanBuilder))
+                  .mapToObj(i -> allocationGenerator(brokerFolders))
                   .collect(Collectors.toUnmodifiableList());
 
           var currentAllocation = baseAllocation;
           for (var candidate : candidates) currentAllocation = candidate.apply(currentAllocation);
 
-          return rebalancePlanBuilder
-              .index(index.getAndIncrement())
-              .clusterLogAllocation(currentAllocation)
-              .build();
+          return currentAllocation;
         });
   }
 
   private static Function<ClusterLogAllocation, ClusterLogAllocation> allocationGenerator(
-      Map<Integer, Set<String>> brokerFolders, RebalancePlanProposal.Build rebalancePlanBuilder) {
+      Map<Integer, Set<String>> brokerFolders) {
     return currentAllocation -> {
       final var selectedPartition =
           currentAllocation.topicPartitions().stream()
@@ -128,15 +105,7 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
               .map(
                   follower ->
                       (Supplier<ClusterLogAllocation>)
-                          () -> {
-                            rebalancePlanBuilder.addInfo(
-                                String.format(
-                                    "Change the log identity of topic %s partition %d replica at broker %d, from follower to leader",
-                                    follower.topic(),
-                                    follower.partition(),
-                                    follower.nodeInfo().id()));
-                            return currentAllocation.becomeLeader(follower.topicPartitionReplica());
-                          });
+                          () -> currentAllocation.becomeLeader(follower.topicPartitionReplica()));
 
       // [valid operation 2] change replica list
       final var currentIds =
@@ -156,14 +125,6 @@ public class ShufflePlanGenerator implements RebalancePlanGenerator {
                                       () -> {
                                         var toThisDir =
                                             randomElement(brokerFolders.get(toThisBroker));
-                                        rebalancePlanBuilder.addInfo(
-                                            String.format(
-                                                "Change replica set of topic %s partition %d, from %d to %d at %s.",
-                                                replica.topic(),
-                                                replica.partition(),
-                                                replica.nodeInfo().id(),
-                                                toThisBroker,
-                                                toThisDir));
                                         return currentAllocation.migrateReplica(
                                             replica.topicPartitionReplica(),
                                             toThisBroker,

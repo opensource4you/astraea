@@ -26,8 +26,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
 public class SingleStepBalancer implements Balancer {
@@ -74,7 +74,7 @@ public class SingleStepBalancer implements Balancer {
   @Override
   public Optional<Balancer.Plan> offer(
       ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
-    final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
+    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunctions();
@@ -84,18 +84,16 @@ public class SingleStepBalancer implements Balancer {
 
     var start = System.currentTimeMillis();
     var executionTime = config.executionTime().toMillis();
-    return planGenerator
+    return allocationTweaker
         .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
         .parallel()
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime)
         .map(
-            proposal -> {
-              var newClusterInfo =
-                  ClusterInfo.update(
-                      currentClusterInfo, tp -> proposal.rebalancePlan().replicas(tp));
+            newAllocation -> {
+              var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Balancer.Plan(
-                  proposal,
+                  newAllocation,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
                   moveCostFunction.stream()
                       .map(

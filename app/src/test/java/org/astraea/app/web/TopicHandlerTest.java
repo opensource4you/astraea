@@ -247,7 +247,11 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       if (topicInfo.partitions.isEmpty()) {
         Utils.sleep(Duration.ofSeconds(2));
         var result =
-            admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+            admin
+                .clusterInfo(Set.of(topicName))
+                .toCompletableFuture()
+                .join()
+                .replicaStream()
                 .collect(
                     Collectors.groupingBy(
                         replica -> TopicPartition.of(replica.topic(), replica.partition())));

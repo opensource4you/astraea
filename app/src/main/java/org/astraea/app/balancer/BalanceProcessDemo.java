@@ -51,13 +51,13 @@ public class BalanceProcessDemo {
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
                       .topicFilter(filter)
-                      .limit(1000)
+                      .config("iteration", "1000")
                       .build())
               .offer(clusterInfo, brokerFolders);
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()
-                  .run(admin, p.proposal().rebalancePlan(), Duration.ofHours(1))
+                  .run(admin, p.proposal(), Duration.ofHours(1))
                   .toCompletableFuture()
                   .join());
     }

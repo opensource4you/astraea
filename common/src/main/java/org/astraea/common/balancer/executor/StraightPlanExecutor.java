@@ -38,7 +38,15 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
     return admin
         .topicNames(true)
         .thenCompose(admin::clusterInfo)
-        .thenApply(clusterInfo -> findNonFulfilledAllocation(clusterInfo, logAllocation))
+        .thenApply(
+            clusterInfo -> {
+              if (clusterInfo
+                  .replicaStream()
+                  .anyMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()))
+                throw new IllegalArgumentException(
+                    "There are moving replicas. Stop re-balance plan");
+              return findNonFulfilledAllocation(clusterInfo, logAllocation);
+            })
         .thenApply(
             tps ->
                 tps.stream()
@@ -68,7 +76,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                                 .topicPartitionReplicas()
                                 .containsAll(logAllocation.topicPartitionReplicas()),
                         timeout,
-                        1)
+                        5)
                     .thenApply(
                         done -> {
                           if (!done)
