@@ -19,10 +19,17 @@ package org.astraea.common.metrics.stats;
 import java.time.Duration;
 
 public class ExpWeightByTime implements Stat<Double> {
-  private Double accumulate = 0.0;
+  private double accumulate = 0.0;
   private final Debounce<Double> debounce;
   private final double alpha;
 
+  /**
+   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
+   *     within the duration, it will be regarded as one.
+   * @param alpha alpha indicates how much you value new data. The larger the value, the lower the
+   *     weight of the past data, the weight of the latest data is alpha, the weight of the past
+   *     data is 1-alpha, the alpha needs to be between 0 and 1.
+   */
   public ExpWeightByTime(Duration period, double alpha) {
     this.debounce = Debounce.of(period);
     this.alpha = alpha;
