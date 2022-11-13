@@ -215,7 +215,7 @@ public enum ReportFormat implements EnumInfo {
                               (int)
                                   ConsumerThread.CLIENT_ID_PARTITION_SENSOR
                                       .get(consumerReports.get(i).clientId())
-                                      .measure("set size")
+                                      .measure("windowed rate")
                                       .measure())));
             });
     return elements;

@@ -37,15 +37,17 @@ import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.SensorBuilder;
-import org.astraea.common.metrics.stats.SetDecreased;
-import org.astraea.common.metrics.stats.SetIncreased;
-import org.astraea.common.metrics.stats.SetSize;
+import org.astraea.common.metrics.stats.WindowedRate;
 
 public interface ConsumerThread extends AbstractThread {
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITION = new ConcurrentHashMap<>();
 
-  ConcurrentMap<String, Sensor<Set<TopicPartition>>> CLIENT_ID_PARTITION_SENSOR =
+  ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_INCREASED_SENSOR =
       new ConcurrentHashMap<>();
+
+  ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_DECREASED_SENSOR =
+      new ConcurrentHashMap<>();
+  ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_SENSOR = new ConcurrentHashMap<>();
 
   static List<ConsumerThread> create(
       int consumers,
@@ -95,6 +97,8 @@ public interface ConsumerThread extends AbstractThread {
                       closeLatch.countDown();
                       closed.set(true);
                       CLIENT_ID_PARTITION.remove(clientId);
+                      CLIENT_ID_PARTITION_INCREASED_SENSOR.remove(clientId);
+                      CLIENT_ID_PARTITION_DECREASED_SENSOR.remove(clientId);
                       CLIENT_ID_PARTITION_SENSOR.remove(clientId);
                     }
                   });
@@ -146,7 +150,8 @@ public interface ConsumerThread extends AbstractThread {
       tryRegisterSensor();
       CLIENT_ID_PARTITION.computeIfAbsent(clientId, id -> new HashSet<>());
       CLIENT_ID_PARTITION.get(clientId).addAll(partitions);
-      CLIENT_ID_PARTITION_SENSOR.get(clientId).record(CLIENT_ID_PARTITION.get(clientId));
+      CLIENT_ID_PARTITION_SENSOR.get(clientId).record((double) partitions.size());
+      CLIENT_ID_PARTITION_INCREASED_SENSOR.get(clientId).record((double) partitions.size());
     }
 
     @Override
@@ -154,17 +159,28 @@ public interface ConsumerThread extends AbstractThread {
       tryRegisterSensor();
       CLIENT_ID_PARTITION.computeIfAbsent(clientId, id -> new HashSet<>());
       CLIENT_ID_PARTITION.get(clientId).removeAll(partitions);
-      CLIENT_ID_PARTITION_SENSOR.get(clientId).record(CLIENT_ID_PARTITION.get(clientId));
+      CLIENT_ID_PARTITION_SENSOR.get(clientId).record((double) -partitions.size());
+      CLIENT_ID_PARTITION_DECREASED_SENSOR.get(clientId).record((double) -partitions.size());
     }
 
     private void tryRegisterSensor() {
       CLIENT_ID_PARTITION_SENSOR.computeIfAbsent(
           clientId,
           id ->
-              new SensorBuilder<Set<TopicPartition>>()
-                  .addStat("set increased", new SetIncreased<>(2))
-                  .addStat("set decreased", new SetDecreased<>(2))
-                  .addStat("set size", new SetSize<>(2))
+              new SensorBuilder<Double>()
+                  .addStat("windowed rate", new WindowedRate(Duration.ofSeconds(2)))
+                  .build());
+      CLIENT_ID_PARTITION_INCREASED_SENSOR.computeIfAbsent(
+          clientId,
+          id ->
+              new SensorBuilder<Double>()
+                  .addStat("windowed rate", new WindowedRate(Duration.ofSeconds(2)))
+                  .build());
+      CLIENT_ID_PARTITION_DECREASED_SENSOR.computeIfAbsent(
+          clientId,
+          id ->
+              new SensorBuilder<Double>()
+                  .addStat("windowed rate", new WindowedRate(Duration.ofSeconds(2)))
                   .build());
     }
   }

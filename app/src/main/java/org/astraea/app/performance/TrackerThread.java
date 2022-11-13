@@ -143,14 +143,21 @@ public interface TrackerThread extends AbstractThread {
         var clientId = report.clientId();
         var partitionSensor =
             ConsumerThread.CLIENT_ID_PARTITION_SENSOR.getOrDefault(clientId, null);
+        var partitionIncreasedSensor =
+            ConsumerThread.CLIENT_ID_PARTITION_INCREASED_SENSOR.getOrDefault(clientId, null);
+        var partitionDecreasedSensor =
+            ConsumerThread.CLIENT_ID_PARTITION_DECREASED_SENSOR.getOrDefault(clientId, null);
 
-        if (partitionSensor != null) {
+        if (partitionSensor != null
+            && partitionIncreasedSensor != null
+            && partitionDecreasedSensor != null) {
           System.out.printf(
-              "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
+              "  consumer[%d] has %d partitions. partitions increased rate %.2f%%, partitions decreased rate %.2f%%, assigned %.2f%% more partitions than before re-balancing%n",
               i,
               ConsumerThread.CLIENT_ID_PARTITION.get(clientId).size(),
-              (int) partitionSensor.measure("set increased").measure(),
-              (int) partitionSensor.measure("set size").measure());
+              (double) partitionIncreasedSensor.measure("windowed rate").measure() * 100.0,
+              (double) partitionDecreasedSensor.measure("windowed rate").measure() * 100.0,
+              (double) partitionSensor.measure("windowed rate").measure() * 100.0);
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
