@@ -17,6 +17,7 @@
 package org.astraea.app.CleanCsv;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.opencsv.CSVReader;
@@ -47,6 +48,90 @@ public class CleanCsvTest {
     Path local_csv = createTempDirectory("local_CSV");
     Path source = mkdir(local_csv.toString() + "/source");
     Path sink = mkdir(local_csv + "/sink");
+    List<String[]> ansLists = new ArrayList<>();
+    testCsvGenerator(source, ansLists, DATA_MAME);
+
+    String[] arguments = {
+      "--source", source.toString(), "--sink", sink.toString(), "--suffixes", ".dat"
+    };
+    CleanCsv.main(arguments);
+
+    var target = new File(sink + "/" + DATA_MAME);
+    assertTrue(Files.exists(target.toPath()));
+    checkFile(target, ansLists);
+  }
+
+  @Test
+  void deletionTest() {
+    Path local_csv = createTempDirectory("local_CSV");
+    Path source = mkdir(local_csv.toString() + "/source");
+    Path sink = mkdir(local_csv + "/sink");
+    List<String[]> ansLists = new ArrayList<>();
+    List<String[]> lists = testCsvGenerator(source, ansLists, DATA_MAME);
+    writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+
+    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+
+    String[] arguments = {
+      "--source",
+      source.toString(),
+      "--sink",
+      sink.toString(),
+      "--deletion",
+      "true",
+      "--suffixes",
+      ".dat"
+    };
+    CleanCsv.main(arguments);
+    assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+  }
+
+  @Test
+  void multipleFileTest() {
+    var name2 = "20220202_AAA999_min.dat";
+
+    Path local_csv = createTempDirectory("local_CSV");
+    Path source = mkdir(local_csv.toString() + "/source");
+    Path sink = mkdir(local_csv + "/sink");
+    List<String[]> ansLists1 = new ArrayList<>();
+    List<String[]> ansLists2 = new ArrayList<>();
+    testCsvGenerator(source, ansLists1, DATA_MAME);
+    testCsvGenerator(source, ansLists2, name2);
+
+    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+    assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
+    String[] arguments = {
+      "--source",
+      source.toString(),
+      "--sink",
+      sink.toString(),
+      "--deletion",
+      "true",
+      "--suffixes",
+      ".dat"
+    };
+    CleanCsv.main(arguments);
+
+    var target1 = new File(sink + "/" + DATA_MAME);
+    var target2 = new File(sink + "/" + name2);
+
+    assertTrue(Files.exists(new File(sink + "/" + DATA_MAME).toPath()));
+    assertTrue(Files.exists(new File(sink + "/" + name2).toPath()));
+
+    checkFile(target1, ansLists1);
+    checkFile(target2, ansLists2);
+  }
+
+  @Test
+  void getListOfFilesTest() throws IOException {
+    var str = "test_dat" + new Random().nextInt();
+    var tempFile = File.createTempFile(str, ".dat");
+    try (var listOfFiles = CleanCsv.getListOfFiles(tempFile.getAbsolutePath(), str)) {
+      Assertions.assertEquals(listOfFiles.findFirst().orElse(null), tempFile.toPath());
+    }
+  }
+
+  private List<String[]> testCsvGenerator(Path source, List<String[]> ansLists, String name) {
     List<String[]> lists =
         new ArrayList<>(
             List.of(
@@ -58,7 +143,6 @@ public class CleanCsvTest {
                     .split(","),
                 ",,Smp,Min,Tot,Avg,Tot,WVc,WVc,Tot,Max,TMx,Avg,Max,TMx,Min,TMn,Avg,Max,TMx,Min,TMn,Max,Min,Max,Min,Max,TMx,Min,TMn,Max,TMx,Min,Smp"
                     .split(",")));
-    List<String[]> ansLists = new ArrayList<>();
     IntStream.range(0, 300)
         .forEach(
             ignore -> {
@@ -66,15 +150,18 @@ public class CleanCsvTest {
               lists.add(strings);
               ansLists.add(strings);
             });
-    writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
-    CleanCsv.main(new String[] {source.toString(), sink.toString()});
+    writeCSV(new File(source + "/" + name).toPath(), lists);
 
-    var target = new File(sink + "/" + DATA_MAME);
-    assertTrue(Files.exists(target.toPath()));
+    return lists;
+  }
+
+  private void checkFile(File target, List<String[]> ansLists) {
+    var pathSplit = target.toString().split("/");
+    var csvName = Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
     try (var reader = new CSVReader(new FileReader(target))) {
       assertEquals(
           Arrays.stream(Utils.packException(reader::readNext)).findFirst().orElse(""),
-          "CR1000(2017)_20220202_AAA888_min");
+          "CR1000(2017)_" + Arrays.stream(csvName.split("\\.")).findFirst().orElse("/"));
       assertEquals(
           mkString(
               Arrays.stream(Utils.packException(reader::readNext)).collect(Collectors.toList())),
@@ -84,17 +171,12 @@ public class CleanCsvTest {
           .forEach(
               ignore ->
                   assertTrue(
-                      checkEquality(Utils.packException(reader::readNext), iterator.next())));
-      Assertions.assertEquals(fileLineNum(new File(sink + "/" + DATA_MAME).toPath()), 302);
+                      checkEquality(Utils.packException(reader::readNext), iterator.next()),
+                      String.valueOf(ignore)));
+      Assertions.assertEquals(fileLineNum(target.toPath()), 302);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
-  }
-
-  @Test
-  void getListOfFilesTest() throws IOException {
-    var str = "test_dat" + new Random().nextInt();
-    var tempFile = File.createTempFile(str, ".dat");
-    Assertions.assertEquals(
-        CleanCsv.getListOfFiles(tempFile.getAbsolutePath(), str).get(0), tempFile.toPath());
   }
 
   private String[] fakeDataGenerator() {
