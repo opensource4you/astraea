@@ -50,29 +50,27 @@ public interface RecordWriter {
     while (records.hasNext()) {
       var record = records.next();
       var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
-      // [topic size 2bytes][topic][partition 4bytes][offset 8bytes][timestamp 8bytes]
-      // [key length 4bytes][key][value length 4bytes][value][header size 4bytes]
-      // [header key length 2bytes + header key + header value 4bytes + header value]
       var recordSize =
-          2
-              + topicBytes.length
-              + 4
-              + 8
-              + 8
-              + 4
-              + (record.key() == null ? 0 : record.key().length)
-              + 4
-              + (record.value() == null ? 0 : record.value().length)
-              + 4
+          2 // [topic size 2bytes]
+              + topicBytes.length // [topic]
+              + 4 // [partition 4bytes]
+              + 8 // [offset 8bytes]
+              + 8 // [timestamp 8bytes]
+              + 4 // [key length 4bytes]
+              + (record.key() == null ? 0 : record.key().length) // [key]
+              + 4 // [value length 4bytes]
+              + (record.value() == null ? 0 : record.value().length) // [value]
+              + 4 // [header size 4bytes]
               + record.headers().stream()
                   .mapToInt(
                       h ->
-                          2
+                          2 // [header key length 2bytes]
                               + (h.key() == null
                                   ? 0
-                                  : h.key().getBytes(StandardCharsets.UTF_8).length)
-                              + 4
-                              + (h.value() == null ? 0 : h.value().length))
+                                  : h.key().getBytes(StandardCharsets.UTF_8).length) // [header key]
+                              + 4 // [header value length 4bytes]
+                              + (h.value() == null ? 0 : h.value().length) // [header value]
+                      )
                   .sum();
       var recordBuffer = ByteBuffer.allocate(4 + recordSize);
       recordBuffer.putInt(recordSize);
