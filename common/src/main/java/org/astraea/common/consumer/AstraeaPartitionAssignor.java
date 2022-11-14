@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
+import org.apache.kafka.common.Cluster;
 import org.astraea.common.admin.TopicPartition;
 
 public interface AstraeaPartitionAssignor extends ConsumerPartitionAssignor {
@@ -28,8 +29,8 @@ public interface AstraeaPartitionAssignor extends ConsumerPartitionAssignor {
    * Perform the group assignment given the members' subscription and the partition load.
    *
    * @param subscriptions Map from the member id to their respective topic subscription.
-   * @param topicPartitionWithLoad Map from the topic-partition to their load. The higher number the
-   *     more load.
+   * @param topicPartitionWithLoad Map from the topic-partition to their load. The higher value is, the
+   *     more load is.
    * @return Map from each member to the list of partitions assigned to them.
    */
   Map<String, List<TopicPartition>> assign(
@@ -39,7 +40,8 @@ public interface AstraeaPartitionAssignor extends ConsumerPartitionAssignor {
    * Compute the load of all the topic-partitions that consumer group's members consumed.
    *
    * @param topicPartitions All the partitions in all the topics which the members subscribed.
+   * @param metadata The cluster metadata is used to collect Kafka brokers' host and port.
    * @return Map from each topic-partition to their load.
    */
-  Map<TopicPartition, Double> getPartitionsLoad(Set<TopicPartition> topicPartitions);
+  Map<TopicPartition, Double> getPartitionsLoad(Set<TopicPartition> topicPartitions, Cluster metadata);
 }
