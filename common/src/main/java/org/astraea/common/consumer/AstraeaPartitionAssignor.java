@@ -29,8 +29,8 @@ public interface AstraeaPartitionAssignor extends ConsumerPartitionAssignor {
    * Perform the group assignment given the members' subscription and the partition load.
    *
    * @param subscriptions Map from the member id to their respective topic subscription.
-   * @param topicPartitionWithLoad Map from the topic-partition to their load. The higher value is, the
-   *     more load is.
+   * @param topicPartitionWithLoad Map from the topic-partition to their load. The higher value is,
+   *     the more load is.
    * @return Map from each member to the list of partitions assigned to them.
    */
   Map<String, List<TopicPartition>> assign(
@@ -43,5 +43,6 @@ public interface AstraeaPartitionAssignor extends ConsumerPartitionAssignor {
    * @param metadata The cluster metadata is used to collect Kafka brokers' host and port.
    * @return Map from each topic-partition to their load.
    */
-  Map<TopicPartition, Double> getPartitionsLoad(Set<TopicPartition> topicPartitions, Cluster metadata);
+  Map<TopicPartition, Double> getPartitionsLoad(
+      Set<TopicPartition> topicPartitions, Cluster metadata);
 }
