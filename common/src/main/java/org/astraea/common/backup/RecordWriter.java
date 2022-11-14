@@ -50,13 +50,14 @@ public interface RecordWriter {
     while (records.hasNext()) {
       var record = records.next();
       var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
-      // [topic size 2bytes][topic][partition 4bytes][timestamp 8bytes]
+      // [topic size 2bytes][topic][partition 4bytes][offset 8bytes][timestamp 8bytes]
       // [key length 4bytes][key][value length 4bytes][value][header size 4bytes]
       // [header key length 2bytes + header key + header value 4bytes + header value]
       var recordSize =
           2
               + topicBytes.length
               + 4
+              + 8
               + 8
               + 4
               + (record.key() == null ? 0 : record.key().length)
@@ -77,6 +78,7 @@ public interface RecordWriter {
       recordBuffer.putInt(recordSize);
       ByteBufferUtils.putLengthString(recordBuffer, record.topic());
       recordBuffer.putInt(record.partition());
+      recordBuffer.putLong(record.offset());
       recordBuffer.putLong(record.timestamp());
       ByteBufferUtils.putLengthBytes(recordBuffer, record.key());
       ByteBufferUtils.putLengthBytes(recordBuffer, record.value());

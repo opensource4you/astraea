@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Optional;
@@ -62,23 +61,15 @@ public interface RecordReader {
       recordBuffer.flip();
       var topic = ByteBufferUtils.readString(recordBuffer, recordBuffer.getShort());
       var partition = recordBuffer.getInt();
+      var offset = recordBuffer.getLong();
       var timestamp = recordBuffer.getLong();
-      var keySize = recordBuffer.getInt();
-      var key = keySize == -1 ? null : ByteBufferUtils.readBytes(recordBuffer, keySize);
-      var valueSize = recordBuffer.getInt();
-      var value = valueSize == -1 ? null : ByteBufferUtils.readBytes(recordBuffer, valueSize);
+      var key = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
+      var value = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
       var headerCnt = recordBuffer.getInt();
       var headers = new ArrayList<Header>(headerCnt);
       for (int headerIndex = 0; headerIndex < headerCnt; headerIndex++) {
-        var headerKeySize = recordBuffer.getShort();
-        var headerKey =
-            headerKeySize == -1
-                ? null
-                : new String(
-                    ByteBufferUtils.readBytes(recordBuffer, headerKeySize), StandardCharsets.UTF_8);
-        var headerValueSize = recordBuffer.getInt();
-        var headerValue =
-            headerValueSize == -1 ? null : ByteBufferUtils.readBytes(recordBuffer, headerValueSize);
+        var headerKey = ByteBufferUtils.readString(recordBuffer, recordBuffer.getShort());
+        var headerValue = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
         headers.add(Header.of(headerKey, headerValue));
       }
       // TODO: need builder
@@ -86,10 +77,10 @@ public interface RecordReader {
           new Record<>(
               topic,
               partition,
-              0L,
+              offset,
               timestamp,
               key == null ? 0 : key.length,
-              0,
+              value == null ? 0 : value.length,
               headers,
               key,
               value,

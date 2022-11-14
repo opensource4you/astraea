@@ -51,6 +51,7 @@ public final class ByteBufferUtils {
   }
 
   public static String readString(ByteBuffer buffer, int size) {
+    if (size < 0) return null;
     var dst = new byte[size];
     buffer.get(dst);
     return new String(dst, StandardCharsets.UTF_8);
