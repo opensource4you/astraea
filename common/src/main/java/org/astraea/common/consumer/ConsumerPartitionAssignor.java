@@ -45,4 +45,10 @@ public interface ConsumerPartitionAssignor extends org.apache.kafka.clients.cons
    */
   Map<TopicPartition, Double> getPartitionsLoad(
       Set<TopicPartition> topicPartitions, Cluster metadata);
+
+  @Override
+  default String name(){
+    return "astraea";
+  }
+
 }
