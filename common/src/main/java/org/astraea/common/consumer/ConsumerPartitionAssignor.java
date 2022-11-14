@@ -19,11 +19,11 @@ package org.astraea.common.consumer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
+
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.admin.TopicPartition;
 
-public interface AstraeaPartitionAssignor extends ConsumerPartitionAssignor {
+public interface ConsumerPartitionAssignor extends org.apache.kafka.clients.consumer.ConsumerPartitionAssignor {
 
   /**
    * Perform the group assignment given the members' subscription and the partition load.
