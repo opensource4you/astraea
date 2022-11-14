@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -137,20 +138,16 @@ class BalancerHandler implements Handler {
                 admin.topicNames(false).thenCompose(admin::clusterInfo),
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
-                  var balancerClasspath =
-                      channel
-                          .request()
-                          .get(BALANCER_IMPLEMENTATION_KEY)
-                          .orElse(BALANCER_IMPLEMENTATION_DEFAULT);
-                  var config = parseAlgorithmConfig(channel, currentClusterInfo);
+                  var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
                   var cost =
-                      config
+                      request
+                          .algorithmConfig
                           .clusterCostFunction()
                           .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
                           .value();
                   var bestPlan =
-                      Balancer.create(balancerClasspath, config)
-                          .offer(currentClusterInfo, brokerFolders);
+                      Balancer.create(request.balancerClasspath, request.algorithmConfig)
+                          .offer(currentClusterInfo, request.executionTime);
                   var changes =
                       bestPlan
                           .map(
@@ -177,7 +174,7 @@ class BalancerHandler implements Handler {
                           newPlanId,
                           cost,
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          config.clusterCostFunction().getClass().getSimpleName(),
+                          request.algorithmConfig.clusterCostFunction().getClass().getSimpleName(),
                           changes,
                           bestPlan
                               .map(
@@ -199,8 +196,12 @@ class BalancerHandler implements Handler {
   }
 
   // visible for test
-  static AlgorithmConfig parseAlgorithmConfig(
-      Channel channel, ClusterInfo<Replica> currentClusterInfo) {
+  static PostRequest parsePostRequest(
+      Channel channel,
+      ClusterInfo<Replica> currentClusterInfo,
+      Map<Integer, Set<String>> dataFolders) {
+    var balancerClasspath =
+        channel.request().get(BALANCER_IMPLEMENTATION_KEY).orElse(BALANCER_IMPLEMENTATION_DEFAULT);
     var balancerConfig =
         channel
             .request()
@@ -232,14 +233,17 @@ class BalancerHandler implements Handler {
       throw new IllegalArgumentException(
           "Illegal timeout, value should be positive integer: " + timeout.getSeconds());
 
-    return AlgorithmConfig.builder()
-        .clusterCost(clusterCostFunction)
-        .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-        .movementConstraint(movementConstraint(channel.request().raw()))
-        .topicFilter(topics::contains)
-        .limit(timeout)
-        .config(balancerConfig)
-        .build();
+    return new PostRequest(
+        balancerClasspath,
+        timeout,
+        AlgorithmConfig.builder()
+            .clusterCost(clusterCostFunction)
+            .dataFolders(dataFolders)
+            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .movementConstraint(movementConstraint(channel.request().raw()))
+            .topicFilter(topics::contains)
+            .config(balancerConfig)
+            .build());
   }
 
   @SuppressWarnings("unchecked")
@@ -427,6 +431,18 @@ class BalancerHandler implements Handler {
           "Another rebalance task might be working on. "
               + "The following topic/partition has ongoing migration: "
               + ongoingMigration);
+  }
+
+  static class PostRequest {
+    final String balancerClasspath;
+    final Duration executionTime;
+    final AlgorithmConfig algorithmConfig;
+
+    PostRequest(String balancerClasspath, Duration executionTime, AlgorithmConfig algorithmConfig) {
+      this.balancerClasspath = balancerClasspath;
+      this.executionTime = executionTime;
+      this.algorithmConfig = algorithmConfig;
+    }
   }
 
   static class Placement {

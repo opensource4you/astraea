@@ -16,11 +16,11 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
@@ -47,6 +47,11 @@ public interface AlgorithmConfig {
   String executionId();
 
   /**
+   * @return the data folders of al brokers.
+   */
+  Map<Integer, Set<String>> dataFolders();
+
+  /**
    * @return the cluster cost function for this problem.
    */
   HasClusterCost clusterCostFunction();
@@ -67,11 +72,6 @@ public interface AlgorithmConfig {
   Predicate<List<MoveCost>> movementConstraint();
 
   /**
-   * @return the limit of algorithm execution time
-   */
-  Duration executionTime();
-
-  /**
    * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
    */
   Predicate<String> topicFilter();
@@ -90,11 +90,11 @@ public interface AlgorithmConfig {
 
     private String executionId = "noname-" + UUID.randomUUID();
     private HasClusterCost clusterCostFunction;
+    private Map<Integer, Set<String>> dataFolders;
     private List<HasMoveCost> moveCostFunction = List.of(HasMoveCost.EMPTY);
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
-    private Duration executionTime = Duration.ofSeconds(3);
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
     private final Map<String, String> config = new HashMap<>();
@@ -107,6 +107,18 @@ public interface AlgorithmConfig {
      */
     public Builder executionId(String id) {
       this.executionId = id;
+      return this;
+    }
+
+    /**
+     * Specify the data folders of all brokers
+     *
+     * @return this.
+     */
+    public Builder dataFolders(Map<Integer, Set<String>> dataFolders) {
+      // TODO: Embedded these data folders information into ClusterInfo
+      //       see https://github.com/skiptests/astraea/issues/1106
+      this.dataFolders = Objects.requireNonNull(dataFolders);
       return this;
     }
 
@@ -162,15 +174,6 @@ public interface AlgorithmConfig {
     }
 
     /**
-     * @param limit the execution time of searching best plan.
-     * @return this
-     */
-    public Builder limit(Duration limit) {
-      this.executionTime = limit;
-      return this;
-    }
-
-    /**
      * Specify the source of bean metrics. The default supplier return {@link ClusterBean#EMPTY}
      * only, which means any cost function that interacts with metrics won't work. To use a cost
      * function with metrics requirement, one must specify the concrete bean metric source by
@@ -217,10 +220,18 @@ public interface AlgorithmConfig {
     }
 
     public AlgorithmConfig build() {
+      Objects.requireNonNull(clusterCostFunction);
+      Objects.requireNonNull(dataFolders);
+
       return new AlgorithmConfig() {
         @Override
         public String executionId() {
           return executionId;
+        }
+
+        @Override
+        public Map<Integer, Set<String>> dataFolders() {
+          return dataFolders;
         }
 
         @Override
@@ -241,11 +252,6 @@ public interface AlgorithmConfig {
         @Override
         public Predicate<List<MoveCost>> movementConstraint() {
           return movementConstraint;
-        }
-
-        @Override
-        public Duration executionTime() {
-          return executionTime;
         }
 
         @Override

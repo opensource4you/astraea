@@ -51,9 +51,10 @@ public class BalanceProcessDemo {
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
                       .topicFilter(filter)
+                      .dataFolders(brokerFolders)
                       .config("iteration", "1000")
                       .build())
-              .offer(clusterInfo, brokerFolders);
+              .offer(clusterInfo, Duration.ofSeconds(3));
       plan.ifPresent(
           p ->
               new StraightPlanExecutor()
