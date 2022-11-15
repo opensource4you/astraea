@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.admin.TopicPartition;
@@ -80,8 +81,13 @@ public interface ConsumerPartitionAssignor
     var assignments = new HashMap<String, Assignment>();
 
     rawAssignmentPerMember.forEach(
-        (member, rawAssignment) ->
-            assignments.put(member, new Assignment(TopicPartition.to(rawAssignment))));
+        (member, rawAssignment) -> {
+          var assignment =
+              rawAssignment.stream()
+                  .map(TopicPartition::to)
+                  .collect(Collectors.toUnmodifiableList());
+          assignments.put(member, new Assignment(assignment));
+        });
 
     // step 5. return the GroupAssignment for future syncGroup request.
     return new GroupAssignment(assignments);

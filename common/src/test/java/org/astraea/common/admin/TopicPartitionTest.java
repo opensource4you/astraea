@@ -16,8 +16,6 @@
  */
 package org.astraea.common.admin;
 
-import java.util.ArrayList;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,17 +27,6 @@ public class TopicPartitionTest {
     var kafkaTp = TopicPartition.to(ourTp);
     Assertions.assertEquals(ourTp.topic(), kafkaTp.topic());
     Assertions.assertEquals(ourTp.partition(), kafkaTp.partition());
-  }
-
-  @Test
-  void testListConversion() {
-    var ourTpList = new ArrayList<TopicPartition>();
-    IntStream.range(0, 2).forEach(i -> ourTpList.add(TopicPartition.of("test", i)));
-    var kafkaTpList = TopicPartition.to(ourTpList);
-    Assertions.assertEquals(ourTpList.get(0).topic(), kafkaTpList.get(0).topic());
-    Assertions.assertEquals(ourTpList.get(1).topic(), kafkaTpList.get(1).topic());
-    Assertions.assertEquals(ourTpList.get(0).partition(), kafkaTpList.get(0).partition());
-    Assertions.assertEquals(ourTpList.get(1).partition(), kafkaTpList.get(1).partition());
   }
 
   @Test
