@@ -280,6 +280,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
+                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> true)
                       .build())
@@ -288,7 +289,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  admin.brokerFolders().toCompletableFuture().join());
+                  Duration.ofSeconds(3));
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -301,6 +302,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       AlgorithmConfig.builder()
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
+                          .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                           .moveCost(List.of(moveCostFunction))
                           .movementConstraint(moveCosts -> true)
                           .config("iteration", "0")
@@ -310,7 +312,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                           .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                           .toCompletableFuture()
                           .join(),
-                      admin.brokerFolders().toCompletableFuture().join()));
+                      Duration.ofSeconds(3)));
 
       // test cluster cost predicate
       Assertions.assertEquals(
@@ -320,6 +322,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
+                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> true)
                       .build())
@@ -328,7 +331,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  admin.brokerFolders().toCompletableFuture().join()));
+                  Duration.ofSeconds(3)));
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -338,6 +341,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
+                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .moveCost(List.of(moveCostFunction))
                       .movementConstraint(moveCosts -> false)
                       .build())
@@ -346,7 +350,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  admin.brokerFolders().toCompletableFuture().join()));
+                  Duration.ofSeconds(3)));
     }
   }
 
@@ -913,21 +917,24 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testParseAlgorithmConfig() {
+  void testParsePostRequest() {
     try (Admin admin = Admin.of(bootstrapServers())) {
       var clusterInfo =
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       {
         // default
-        var config = BalancerHandler.parseAlgorithmConfig(Channel.EMPTY, clusterInfo);
-        Assertions.assertTrue(config.algorithmConfig().entrySet().isEmpty());
-        Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
+        var postRequest = BalancerHandler.parsePostRequest(Channel.EMPTY, clusterInfo, Map.of());
+        Assertions.assertTrue(postRequest.algorithmConfig.algorithmConfig().entrySet().isEmpty());
+        Assertions.assertInstanceOf(
+            HasClusterCost.class, postRequest.algorithmConfig.clusterCostFunction());
         Assertions.assertEquals(
-            BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
+            BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION,
+            postRequest.algorithmConfig.clusterCostFunction());
         Assertions.assertEquals(
-            BalancerHandler.TIMEOUT_DEFAULT, config.executionTime().toSeconds());
+            BalancerHandler.TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
         Assertions.assertTrue(
-            clusterInfo.topics().stream().allMatch(t -> config.topicFilter().test(t)));
+            clusterInfo.topics().stream()
+                .allMatch(t -> postRequest.algorithmConfig.topicFilter().test(t)));
       }
       {
         // use custom filter/timeout/balancer config/cost function
@@ -943,23 +950,41 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                 "{\"KEY\":\"VALUE\"}",
                 BalancerHandler.COST_WEIGHT_KEY,
                 defaultDecreasing);
-        var config =
-            BalancerHandler.parseAlgorithmConfig(
-                Channel.ofRequest(PostRequest.of(request)), clusterInfo);
+        var postRequest =
+            BalancerHandler.parsePostRequest(
+                Channel.ofRequest(PostRequest.of(request)), clusterInfo, Map.of());
         Assertions.assertEquals(
-            Set.of(Map.entry("KEY", "VALUE")), config.algorithmConfig().entrySet());
-        Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
+            Set.of(Map.entry("KEY", "VALUE")),
+            postRequest.algorithmConfig.algorithmConfig().entrySet());
+        Assertions.assertInstanceOf(
+            HasClusterCost.class, postRequest.algorithmConfig.clusterCostFunction());
         Assertions.assertEquals(
-            1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+            1.0,
+            postRequest
+                .algorithmConfig
+                .clusterCostFunction()
+                .clusterCost(clusterInfo, ClusterBean.EMPTY)
+                .value());
         Assertions.assertEquals(
-            1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+            1.0,
+            postRequest
+                .algorithmConfig
+                .clusterCostFunction()
+                .clusterCost(clusterInfo, ClusterBean.EMPTY)
+                .value());
         Assertions.assertEquals(
-            1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
-        Assertions.assertEquals(32, config.executionTime().toSeconds());
-        Assertions.assertTrue(config.topicFilter().test(randomTopic0));
-        Assertions.assertTrue(config.topicFilter().test(randomTopic1));
+            1.0,
+            postRequest
+                .algorithmConfig
+                .clusterCostFunction()
+                .clusterCost(clusterInfo, ClusterBean.EMPTY)
+                .value());
+        Assertions.assertEquals(32, postRequest.executionTime.toSeconds());
+        Assertions.assertTrue(postRequest.algorithmConfig.topicFilter().test(randomTopic0));
+        Assertions.assertTrue(postRequest.algorithmConfig.topicFilter().test(randomTopic1));
         Assertions.assertTrue(
-            clusterInfo.topics().stream().noneMatch(t -> config.topicFilter().test(t)));
+            clusterInfo.topics().stream()
+                .noneMatch(t -> postRequest.algorithmConfig.topicFilter().test(t)));
       }
       {
         // malformed content
@@ -976,52 +1001,58 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                BalancerHandler.parseAlgorithmConfig(
+                BalancerHandler.parsePostRequest(
                     Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TOPICS_KEY, ""))),
-                    clusterInfo),
+                    clusterInfo,
+                    Map.of()),
             "Empty topic filter, nothing to rebalance");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                BalancerHandler.parseAlgorithmConfig(
+                BalancerHandler.parsePostRequest(
                     Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TIMEOUT_KEY, 0))),
-                    clusterInfo),
+                    clusterInfo,
+                    Map.of()),
             "Zero timeout");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                BalancerHandler.parseAlgorithmConfig(
+                BalancerHandler.parsePostRequest(
                     Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TIMEOUT_KEY, -5566))),
-                    clusterInfo),
+                    clusterInfo,
+                    Map.of()),
             "Negative timeout");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                BalancerHandler.parseAlgorithmConfig(
+                BalancerHandler.parsePostRequest(
                     Channel.ofRequest(
                         PostRequest.of(
                             Map.of(BalancerHandler.COST_WEIGHT_KEY, "[{\"cost\": \"yes\"}]"))),
-                    clusterInfo),
+                    clusterInfo,
+                    Map.of()),
             "Malformed cost weight");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                BalancerHandler.parseAlgorithmConfig(
+                BalancerHandler.parsePostRequest(
                     Channel.ofRequest(
                         PostRequest.of(
                             Map.of(
                                 BalancerHandler.COST_WEIGHT_KEY,
                                 "[{\"cost\": \"yes\", \"weight\": \"a lot\"}]"))),
-                    clusterInfo),
+                    clusterInfo,
+                    Map.of()),
             "Malformed cost weight");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                BalancerHandler.parseAlgorithmConfig(
+                BalancerHandler.parsePostRequest(
                     Channel.ofRequest(
                         PostRequest.of(
                             Map.of(BalancerHandler.COST_WEIGHT_KEY, "[{\"weight\": \"a lot\"}]"))),
-                    clusterInfo),
+                    clusterInfo,
+                    Map.of()),
             "Malformed cost weight");
       }
     }
@@ -1096,11 +1127,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public Optional<Plan> offer(
-        ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+    public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
-      return super.offer(currentClusterInfo, brokerFolders);
+      return super.offer(currentClusterInfo, timeout);
     }
   }
 }

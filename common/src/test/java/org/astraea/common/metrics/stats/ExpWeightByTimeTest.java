@@ -17,36 +17,23 @@
 package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class AvgRateByTime implements Stat<Double> {
-  private double accumulate = 0.0;
+class ExpWeightByTimeTest {
 
-  private long count = 0;
+  @Test
+  void testMeasure() throws InterruptedException {
+    var rateByTime = new ExpWeightAvgByTime(Duration.ofSeconds(1), 0.5);
+    rateByTime.record(10.0);
+    rateByTime.record(10.0);
+    Thread.sleep(1000);
+    rateByTime.record(50.0);
 
-  private final Debounce<Double> debounce;
+    Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
 
-  /**
-   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
-   *     within the duration, it will be regarded as one
-   */
-  public AvgRateByTime(Duration period) {
-    this.debounce = Debounce.of(period);
-  }
+    rateByTime.record(50.0);
 
-  @Override
-  public synchronized void record(Double value) {
-    long current = System.currentTimeMillis();
-    debounce
-        .record(value, current)
-        .ifPresent(
-            debouncedValue -> {
-              accumulate += debouncedValue;
-              ++count;
-            });
-  }
-
-  @Override
-  public synchronized Double measure() {
-    return accumulate / count;
+    Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
   }
 }

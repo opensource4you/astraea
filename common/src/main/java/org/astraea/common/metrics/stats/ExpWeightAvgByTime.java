@@ -18,36 +18,45 @@ package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
 
-/** Calculate the difference of the latest two ranged data. */
-public class RateByTime implements Stat<Double> {
-
-  private final double[] oldValue = new double[2];
-
+/**
+ * This class implements {@link Stat} using an exponential moving average, an exponentially
+ * decreasing weighted moving average that weights past data based on a given alpha value and adds
+ * up to get the average. When new data comes in, the calculation method is as follows: Average =
+ * new data * alpha + past data * (1-alpha) , the default value of alpha is 0.5.
+ */
+public class ExpWeightAvgByTime implements Stat<Double> {
+  private double accumulate = 0.0;
   private final Debounce<Double> debounce;
+  private final double alpha;
 
   /**
    * @param period Set the interval time for obtaining indicators. If multiple values are obtained
-   *     within the duration, it will be regarded as one
+   *     within the duration, it will be regarded as one.
+   * @param alpha alpha indicates how much you value new data. The larger the value, the lower the
+   *     weight of the past data, the weight of the latest data is alpha, the weight of the past
+   *     data is 1-alpha, the alpha needs to be between 0 and 1.
    */
-  public RateByTime(Duration period) {
+  public ExpWeightAvgByTime(Duration period, double alpha) {
     this.debounce = Debounce.of(period);
+    this.alpha = alpha;
+  }
+
+  public ExpWeightAvgByTime(Duration period) {
+    this.debounce = Debounce.of(period);
+    this.alpha = 0.5;
   }
 
   @Override
   public synchronized void record(Double value) {
     long current = System.currentTimeMillis();
-    // Update when a new record occurred
     debounce
         .record(value, current)
         .ifPresent(
-            debouncedValue -> {
-              oldValue[0] = oldValue[1];
-              oldValue[1] = debouncedValue;
-            });
+            debouncedValue -> accumulate = accumulate * (1 - alpha) + debouncedValue * alpha);
   }
 
   @Override
   public synchronized Double measure() {
-    return oldValue[1] - oldValue[0];
+    return accumulate;
   }
 }
