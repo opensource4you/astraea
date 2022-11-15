@@ -17,6 +17,7 @@
 package org.astraea.common.backup;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -66,63 +67,15 @@ public interface RecordWriter {
     channel.write(ByteBufferUtils.of(count));
   }
 
-  void write(File file, short version, Iterator<Record<byte[], byte[]>> records, int batchSize);
+  void append(Iterator<Record<byte[], byte[]>> records);
 
-  void write(
-      File file,
-      short version,
-      Iterator<Record<byte[], byte[]>> records,
-      int batchSize,
-      String protocol,
-      String ip,
-      int port);
+  void flush() throws IOException;
 
-  void write(
-      File file, short version, Iterator<Record<byte[], byte[]>> records, String compression);
+  static LocalFileWriterBuilder localFile(File file) throws FileNotFoundException {
+    return new LocalFileWriterBuilder(file);
+  }
 
-  void write(
-      File file,
-      short version,
-      Iterator<Record<byte[], byte[]>> records,
-      int batchSize,
-      String compression);
-
-  void write(
-      File file,
-      short version,
-      Iterator<Record<byte[], byte[]>> records,
-      String compression,
-      String protocol,
-      String ip,
-      int port);
-
-  void write(
-      File file,
-      short version,
-      Iterator<Record<byte[], byte[]>> records,
-      String protocol,
-      String ip,
-      int port);
-
-  /**
-   * write compressed data to remote storage with batch
-   *
-   * @param file the file be written
-   * @param version current version
-   * @param records the records need to export
-   * @param batchSize the byte size of a batch, default is 0
-   * @param compression the compression type, default is none
-   * @param protocol the protocol for remote storage, like ftp, hdfs or samba
-   * @param ip the remote server ip
-   * @param port the remote server port
-   */
-  void write(
-      File file,
-      short version,
-      Iterator<Record<byte[], byte[]>> records,
-      int batchSize,
-      String compression,
-      String protocol,
-      String ip,
-      int port);
+  static FtpWriterBuilder ftp(String ip, int port) throws FileNotFoundException {
+    return new FtpWriterBuilder(ip, port);
+  }
 }
