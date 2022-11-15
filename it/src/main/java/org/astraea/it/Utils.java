@@ -24,7 +24,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.stream.Stream;
 
-final class Utils {
+public final class Utils {
 
   public static int availablePort() {
     try (ServerSocket socket = new ServerSocket(0)) {
@@ -65,6 +65,14 @@ final class Utils {
         if (fs != null) Stream.of(fs).forEach(Utils::delete);
       }
       Files.deleteIfExists(file.toPath());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static File mkdir(String address) {
+    try {
+      return Files.createDirectories(new File(address).toPath()).toFile();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
