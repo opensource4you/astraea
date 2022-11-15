@@ -16,7 +16,9 @@
  */
 package org.astraea.common.admin;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public final class TopicPartition implements Comparable<TopicPartition> {
 
@@ -26,6 +28,10 @@ public final class TopicPartition implements Comparable<TopicPartition> {
 
   public static org.apache.kafka.common.TopicPartition to(TopicPartition tp) {
     return new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition());
+  }
+
+  public static List<org.apache.kafka.common.TopicPartition> to(List<TopicPartition> tps) {
+    return tps.stream().map(TopicPartition::to).collect(Collectors.toUnmodifiableList());
   }
 
   public static TopicPartition of(String topic, String partition) {

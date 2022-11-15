@@ -16,14 +16,17 @@
  */
 package org.astraea.common.consumer;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
+import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.admin.TopicPartition;
 
-public interface ConsumerPartitionAssignor extends org.apache.kafka.clients.consumer.ConsumerPartitionAssignor {
+public interface ConsumerPartitionAssignor
+    extends org.apache.kafka.clients.consumer.ConsumerPartitionAssignor {
 
   /**
    * Perform the group assignment given the members' subscription and the partition load.
@@ -47,8 +50,40 @@ public interface ConsumerPartitionAssignor extends org.apache.kafka.clients.cons
       Set<TopicPartition> topicPartitions, Cluster metadata);
 
   @Override
-  default String name(){
+  default String name() {
     return "astraea";
   }
 
+  @Override
+  default GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
+    // step 1. find all topics that members subscribe and the number of partition in the topics
+    var subscriptionsPerMember = groupSubscription.groupSubscription();
+    var subscribedTopics = new HashSet<String>();
+    subscriptionsPerMember
+        .values()
+        .forEach(subscription -> subscribedTopics.addAll(subscription.topics()));
+
+    var topicPartitions = new HashSet<TopicPartition>();
+    subscribedTopics.forEach(
+        topic ->
+            IntStream.range(0, metadata.partitionCountForTopic(topic))
+                .forEach(i -> topicPartitions.add(TopicPartition.of(topic, i))));
+
+    // step 2. get the load of all topic-partitions
+    var topicPartitionsLoad = getPartitionsLoad(topicPartitions, metadata);
+
+    // step 3. assign topic-partition to members based on their subscription and topic-partition's
+    // load
+    var rawAssignmentPerMember = assign(subscriptionsPerMember, topicPartitionsLoad);
+
+    // step 4. wrap the assignments
+    var assignments = new HashMap<String, Assignment>();
+
+    rawAssignmentPerMember.forEach(
+        (member, rawAssignment) ->
+            assignments.put(member, new Assignment(TopicPartition.to(rawAssignment))));
+
+    // step 5. return the GroupAssignment for future syncGroup request.
+    return new GroupAssignment(assignments);
+  }
 }
