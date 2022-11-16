@@ -16,20 +16,27 @@
  */
 package org.astraea.gui.tab;
 
+import java.io.FileReader;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
 import javafx.scene.Node;
+import javafx.stage.FileChooser;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
@@ -40,6 +47,8 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.csv.CsvReader;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Serializer;
 import org.astraea.gui.Context;
@@ -52,6 +61,99 @@ import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
 public class ClientNode {
+
+  private static final String LINE_LIMIT_KEY = "lines";
+  private static final int LINE_LIMIT_DEFAULT = 500;
+
+  private static final String TOPIC_NAMES_KEY = "topics";
+
+  public static Node csvNode(Context context) {
+    var fileChooser = new FileChooser();
+    return PaneBuilder.of()
+        .firstPart(
+            MultiInput.of(
+                List.of(
+                    TextInput.of(
+                        LINE_LIMIT_KEY,
+                        EditableText.singleLine()
+                            .onlyNumber()
+                            .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
+                            .build()))),
+            "open",
+            (argument, logger) -> {
+              var f = fileChooser.showOpenDialog(context.stage());
+              if (f == null) return CompletableFuture.completedStage(List.of());
+              if (!f.isFile())
+                throw new IllegalArgumentException("the file: " + f + " is not file");
+              return CompletableFuture.supplyAsync(
+                  () -> {
+                    int limit =
+                        Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
+                            .map(Integer::parseInt)
+                            .orElse(LINE_LIMIT_DEFAULT);
+                    try (var reader = CsvReader.builder(new FileReader(f)).build()) {
+                      if (!reader.hasNext())
+                        throw new IllegalArgumentException("there is no header");
+                      var header = reader.rawNext();
+                      var result = new ArrayList<Map<String, Object>>(limit);
+                      var count = 0;
+                      while (reader.hasNext()) {
+                        var line = reader.next();
+                        var map = new LinkedHashMap<String, Object>();
+                        for (var index = 0; index < header.size(); ++index) {
+                          if (index < line.size()) map.put(header.get(index), line.get(index));
+                        }
+                        result.add(map);
+                        if (++count >= limit) break;
+                      }
+                      return result;
+                    } catch (IOException e) {
+                      throw new IllegalArgumentException(e);
+                    }
+                  });
+            })
+        .secondPart(
+            MultiInput.of(
+                List.of(
+                    TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
+                    TextInput.required(
+                        "format", EditableText.singleLine().hint("csv or json").build()))),
+            "PUSH",
+            (records, argument, logger) ->
+                context
+                    .admin()
+                    .bootstrapServers()
+                    .thenApply(
+                        s -> {
+                          var converter = JsonConverter.defaultConverter();
+                          try (var producer =
+                              Producer.builder()
+                                  .bootstrapServers(s)
+                                  .keySerializer(Serializer.STRING)
+                                  .build()) {
+                            var topics =
+                                Set.copyOf(
+                                    Arrays.asList(
+                                        argument.nonEmptyTexts().get(TOPIC_NAMES_KEY).split(",")));
+
+                            var isJson = argument.nonEmptyTexts().containsValue("json");
+                            records.forEach(
+                                record -> {
+                                  var key =
+                                      isJson
+                                          ? converter.toJson(record)
+                                          : record.values().stream()
+                                              .map(Object::toString)
+                                              .collect(Collectors.joining(","));
+                                  topics.forEach(t -> producer.sender().topic(t).key(key).run());
+                                });
+                            producer.flush();
+                            logger.log("succeed to push " + records.size());
+                          }
+                          return null;
+                        }))
+        .build();
+  }
 
   private static List<Map<String, Object>> consumerResult(
       List<ConsumerGroup> cgs, List<Partition> partitions) {
@@ -278,12 +380,7 @@ public class ClientNode {
             (argument, logger) ->
                 context
                     .admin()
-                    .brokers()
-                    .thenApply(
-                        bs ->
-                            bs.stream()
-                                .map(b -> b.host() + ":" + b.port())
-                                .collect(Collectors.joining(",")))
+                    .bootstrapServers()
                     .thenCompose(
                         bs -> {
                           try (var producer = Producer.of(bs)) {
@@ -339,6 +436,8 @@ public class ClientNode {
                 producerNode(context),
                 "write",
                 writeNode(context),
+                "import csv",
+                csvNode(context),
                 "transaction",
                 transactionNode(context)))
         .node();
