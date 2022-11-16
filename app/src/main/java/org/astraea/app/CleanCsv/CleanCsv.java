@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.argument.NonEmptyStringField;
-import org.astraea.common.csv.CsvReaderBuilder;
+import org.astraea.common.csv.CsvReader;
 import org.astraea.common.csv.CsvWriterBuilder;
 
 public class CleanCsv {
@@ -71,7 +71,7 @@ public class CleanCsv {
                 Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
 
             try (var reader =
-                    CsvReaderBuilder.of(Utils.packException(() -> new FileReader(path.toFile())))
+                    CsvReader.builder(Utils.packException(() -> new FileReader(path.toFile())))
                         .build();
                 var writer =
                     CsvWriterBuilder.of(
