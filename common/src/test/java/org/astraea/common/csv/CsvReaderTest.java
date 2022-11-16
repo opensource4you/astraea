@@ -56,7 +56,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
       reader.next();
       reader.skip(2);
       assertThrows(
@@ -86,7 +86,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(4);
       assertEquals(
           mkString(reader.next()),
@@ -114,7 +114,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
@@ -144,7 +144,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReaderBuilder.of(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);

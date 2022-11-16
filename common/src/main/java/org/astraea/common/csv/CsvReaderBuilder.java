@@ -23,12 +23,8 @@ import java.io.Reader;
 public class CsvReaderBuilder {
   private final CSVReaderBuilder csvReaderBuilder;
 
-  private CsvReaderBuilder(Reader source) {
+  CsvReaderBuilder(Reader source) {
     this.csvReaderBuilder = new CSVReaderBuilder(source);
-  }
-
-  public static CsvReaderBuilder of(Reader source) {
-    return new CsvReaderBuilder(source);
   }
 
   public CsvReaderBuilder withKeepCarriageReturn(boolean keep) {
