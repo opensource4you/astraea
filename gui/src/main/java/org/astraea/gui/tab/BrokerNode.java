@@ -324,7 +324,7 @@ public class BrokerNode {
                     TextInput.of(
                         BrokerConfigs.DYNAMICAL_CONFIGS,
                         EditableText.singleLine().disable().build()))),
-            "ALERT",
+            "ALTER",
             (tables, input, logger) -> {
               var brokerToAlter =
                   tables.stream()
