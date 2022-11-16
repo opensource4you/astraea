@@ -281,7 +281,7 @@ public interface Query {
         });
   }
 
-  private static Optional<Query> forString(String predicateString) {
+  static Optional<Query> forString(String predicateString) {
     if (predicateString == null || predicateString.isBlank()) return Optional.empty();
     if (predicateString.contains("==")
         || predicateString.contains("<=")
@@ -301,9 +301,12 @@ public interface Query {
           public boolean required(Map<String, Object> item) {
             return item.entrySet().stream()
                 .anyMatch(
-                    entry ->
-                        keyPattern.matcher(entry.getKey()).matches()
-                            && valuePattern.matcher(entry.getValue().toString()).matches());
+                    entry -> {
+                      if (!keyPattern.matcher(entry.getKey()).matches()) return false;
+                      var string = entry.getValue().toString();
+                      if (string.isBlank()) return false;
+                      return valuePattern.matcher(string).matches();
+                    });
           }
         });
   }
