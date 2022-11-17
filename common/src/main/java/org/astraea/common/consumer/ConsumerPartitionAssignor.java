@@ -16,39 +16,30 @@
  */
 package org.astraea.common.consumer;
 
+import com.beust.jcommander.ParameterException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.kafka.common.Cluster;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
 
 public interface ConsumerPartitionAssignor
     extends org.apache.kafka.clients.consumer.ConsumerPartitionAssignor {
 
   /**
-   * Perform the group assignment given the members' subscription and the partition load.
+   * Perform the group assignment given the member subscriptions and current cluster metadata.
    *
    * @param subscriptions Map from the member id to their respective topic subscription.
-   * @param topicPartitionWithLoad Map from the topic-partition to their load. The higher value is,
-   *     the more load is.
+   * @param metadata Current topic/broker metadata known by consumer.
    * @return Map from each member to the list of partitions assigned to them.
    */
   Map<String, List<TopicPartition>> assign(
-      Map<String, Subscription> subscriptions, Map<TopicPartition, Double> topicPartitionWithLoad);
-
-  /**
-   * Compute the load of all the topic-partitions that consumer group's members consumed.
-   *
-   * @param topicPartitions All the partitions in all the topics which the members subscribed.
-   * @param metadata The cluster metadata is used to collect Kafka brokers' host and port.
-   * @return Map from each topic-partition to their load.
-   */
-  Map<TopicPartition, Double> getPartitionsLoad(
-      Set<TopicPartition> topicPartitions, Cluster metadata);
+      Map<String, Subscription> subscriptions, ClusterInfo metadata);
 
   @Override
   default String name() {
@@ -56,40 +47,177 @@ public interface ConsumerPartitionAssignor
   }
 
   @Override
-  default GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-    // step 1. find all topics that members subscribe and the number of partition in the topics
-    var subscriptionsPerMember = groupSubscription.groupSubscription();
-    var subscribedTopics = new HashSet<String>();
-    subscriptionsPerMember
-        .values()
-        .forEach(subscription -> subscribedTopics.addAll(subscription.topics()));
+  default org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupAssignment assign(
+      Cluster metadata,
+      org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription
+          groupSubscription) {
 
-    var topicPartitions = new HashSet<TopicPartition>();
-    subscribedTopics.forEach(
-        topic ->
-            IntStream.range(0, metadata.partitionCountForTopic(topic))
-                .forEach(i -> topicPartitions.add(TopicPartition.of(topic, i))));
+    // convert Kafka's data structure to ours
+    var clusterInfo = ClusterInfo.of(metadata);
+    var subscriptionsPerMember = GroupSubscription.from(groupSubscription).groupSubscription();
 
-    // step 2. get the load of all topic-partitions
-    var topicPartitionsLoad = getPartitionsLoad(topicPartitions, metadata);
+    // assign partitions to members
+    var rawAssignments = assign(subscriptionsPerMember, clusterInfo);
 
-    // step 3. assign topic-partition to members based on their subscription and topic-partition's
-    // load
-    var rawAssignmentPerMember = assign(subscriptionsPerMember, topicPartitionsLoad);
+    // convert and wrap data structure Kafka used
+    var assignments =
+        new HashMap<
+            String, org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Assignment>();
 
-    // step 4. wrap the assignments
-    var assignments = new HashMap<String, Assignment>();
+    rawAssignments.forEach(
+        (member, rawAssignment) ->
+            assignments.put(
+                member,
+                new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Assignment(
+                    rawAssignment.stream()
+                        .map(TopicPartition::to)
+                        .collect(Collectors.toUnmodifiableList()))));
 
-    rawAssignmentPerMember.forEach(
-        (member, rawAssignment) -> {
-          var assignment =
-              rawAssignment.stream()
-                  .map(TopicPartition::to)
+    return new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupAssignment(
+        assignments);
+  }
+
+  final class Subscription {
+    private final List<String> topics;
+    private final Map<String, String> userData;
+    private final List<TopicPartition> ownedPartitions;
+    private Optional<String> groupInstanceId;
+
+    public Subscription(
+        List<String> topics, Map<String, String> userData, List<TopicPartition> ownedPartitions) {
+      this.topics = topics;
+      this.userData = userData;
+      this.ownedPartitions = ownedPartitions;
+      this.groupInstanceId = Optional.empty();
+    }
+
+    public List<String> topics() {
+      return topics;
+    }
+
+    public Map<String, String> userData() {
+      return userData;
+    }
+
+    public List<TopicPartition> ownedPartitions() {
+      return ownedPartitions;
+    }
+
+    public void setGroupInstanceId(Optional<String> groupInstanceId) {
+      this.groupInstanceId = groupInstanceId;
+    }
+
+    public Optional<String> groupInstanceId() {
+      return groupInstanceId;
+    }
+
+    public static Subscription from(
+        org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Subscription subscription) {
+      // convert ByteBuffer into Map<String,String>
+      var kafkaUserData = subscription.userData();
+      var stringData = StandardCharsets.UTF_8.decode(kafkaUserData).toString();
+      var userData = convert(stringData);
+
+      // convert astraea topic-partition into Kafka topic-partition
+      var ownPartitions =
+          subscription.ownedPartitions() == null
+              ? null
+              : subscription.ownedPartitions().stream()
+                  .map(TopicPartition::from)
                   .collect(Collectors.toUnmodifiableList());
-          assignments.put(member, new Assignment(assignment));
-        });
 
-    // step 5. return the GroupAssignment for future syncGroup request.
-    return new GroupAssignment(assignments);
+      var ourSubscription = new Subscription(subscription.topics(), userData, ownPartitions);
+
+      // check groupInstanceId if it's empty or not
+      if (!subscription.groupInstanceId().equals(Optional.empty()))
+        ourSubscription.setGroupInstanceId(subscription.groupInstanceId());
+
+      // return astraea Subscription
+      return ourSubscription;
+    }
+
+    private static Map<String, String> convert(String value) {
+      return Arrays.stream(value.split(","))
+          .map(
+              item -> {
+                var keyValue = item.split("=");
+                if (keyValue.length != 2) throw new ParameterException("incorrect format: " + item);
+                return Map.entry(keyValue[0], keyValue[1]);
+              })
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+  }
+
+  final class Assignment {
+    private List<TopicPartition> partitions;
+    private Map<String, String> userData;
+
+    public Assignment(List<TopicPartition> partitions, Map<String, String> userData) {
+      this.partitions = partitions;
+      this.userData = userData;
+    }
+
+    public Assignment(List<TopicPartition> partitions) {
+      this(partitions, null);
+    }
+
+    public List<TopicPartition> partitions() {
+      return partitions;
+    }
+
+    public Map<String, String> userData() {
+      return userData;
+    }
+
+    @Override
+    public String toString() {
+      return "Assignment("
+          + "partitions="
+          + partitions
+          + (userData == null ? "" : ", user data= " + userData)
+          + ')';
+    }
+  }
+
+  final class GroupSubscription {
+    private final Map<String, Subscription> subscriptions;
+
+    public GroupSubscription(Map<String, Subscription> subscriptions) {
+      this.subscriptions = subscriptions;
+    }
+
+    public Map<String, Subscription> groupSubscription() {
+      return subscriptions;
+    }
+
+    public static GroupSubscription from(
+        org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription
+            groupSubscription) {
+      return new GroupSubscription(
+          groupSubscription.groupSubscription().entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, e -> Subscription.from(e.getValue()))));
+    }
+
+    @Override
+    public String toString() {
+      return "GroupSubscription(" + "subscriptions=" + subscriptions + ")";
+    }
+  }
+
+  final class GroupAssignment {
+    private final Map<String, Assignment> assignments;
+
+    public GroupAssignment(Map<String, Assignment> assignments) {
+      this.assignments = assignments;
+    }
+
+    public Map<String, Assignment> groupAssignment() {
+      return assignments;
+    }
+
+    @Override
+    public String toString() {
+      return "GroupAssignment(" + "assignments=" + assignments + ")";
+    }
   }
 }
