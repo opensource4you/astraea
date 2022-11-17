@@ -141,7 +141,7 @@ public interface ConsumerPartitionAssignor
           .map(
               item -> {
                 var keyValue = item.split("=");
-                if (keyValue.length != 2) throw new ParameterException("incorrect format: " + item);
+                if (keyValue.length != 2) throw new ParameterException("incorrect userData format: " + item);
                 return Map.entry(keyValue[0], keyValue[1]);
               })
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
