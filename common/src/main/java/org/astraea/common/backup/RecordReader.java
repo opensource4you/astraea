@@ -71,7 +71,6 @@ public interface RecordReader {
         var headerValue = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
         headers.add(Header.of(headerKey, headerValue));
       }
-      // TODO: need builder
       records.add(
           Record.builder()
               .topic(topic)
