@@ -25,7 +25,7 @@ import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Optional;
-import org.astraea.common.consumer.Header;
+import org.astraea.common.Header;
 import org.astraea.common.consumer.Record;
 
 public interface RecordReader {

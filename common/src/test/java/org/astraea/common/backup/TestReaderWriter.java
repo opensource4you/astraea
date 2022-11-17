@@ -29,6 +29,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.IteratorLimit;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -40,11 +41,11 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      Record.builder()
+                          .topic(topic)
+                          .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
   }
