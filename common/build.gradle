@@ -18,6 +18,7 @@ def versions = [
         "commons-lang": project.properties['commons-lang.version'] ?: "3.12.0",
         "math3"     : project.properties['math3.version'] ?: "3.6.1",
         jackson     : project.properties['jackson.version'] ?: "2.13.4",
+        "opencsv"   : project.properties['opencsv.version'] ?: "5.6"
 ]
 
 dependencies {
@@ -35,7 +36,7 @@ dependencies {
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
     implementation "org.apache.commons:commons-math3:${versions["math3"]}"
     implementation "org.apache.commons:commons-lang3:${versions["commons-lang"]}"
-
+    implementation "com.opencsv:opencsv:${versions["opencsv"]}"
 }
 
 java {

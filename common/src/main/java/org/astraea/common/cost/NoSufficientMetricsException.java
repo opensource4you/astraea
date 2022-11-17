@@ -25,28 +25,30 @@ import java.util.Objects;
  * exception serves as a hint to the caller that it needs more or newer metrics to function, please
  * retry later.
  */
-public class NotEnoughMetricsException extends RuntimeException {
+public class NoSufficientMetricsException extends RuntimeException {
 
   private final CostFunction source;
   private final Duration suggestedWait;
 
-  public NotEnoughMetricsException(CostFunction source, String message) {
-    this(source, Duration.ZERO, message);
+  public NoSufficientMetricsException(CostFunction source, Duration suggestedWait) {
+    this(source, suggestedWait, "");
   }
 
-  public NotEnoughMetricsException(CostFunction source, Duration suggestedWait, String message) {
+  public NoSufficientMetricsException(CostFunction source, Duration suggestedWait, String message) {
     super(composedMessage(source, message));
+    if (suggestedWait.isNegative() || suggestedWait.isZero())
+      throw new IllegalArgumentException(
+          "the wait time should be positive: " + suggestedWait.toMillis());
     this.source = Objects.requireNonNull(source);
     this.suggestedWait = Objects.requireNonNull(suggestedWait);
   }
 
-  public NotEnoughMetricsException(CostFunction source, String message, Throwable cause) {
-    this(source, Duration.ZERO, message, cause);
-  }
-
-  public NotEnoughMetricsException(
+  public NoSufficientMetricsException(
       CostFunction source, Duration suggestedWait, String message, Throwable cause) {
     super(composedMessage(source, message), cause);
+    if (suggestedWait.isNegative() || suggestedWait.isZero())
+      throw new IllegalArgumentException(
+          "the wait time should be positive: " + suggestedWait.toMillis());
     this.source = Objects.requireNonNull(source);
     this.suggestedWait = Objects.requireNonNull(suggestedWait);
   }

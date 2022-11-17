@@ -16,10 +16,11 @@
  */
 package org.astraea.common.consumer;
 
-import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.astraea.common.Header;
 
 public final class Record<Key, Value> {
 
@@ -43,7 +44,7 @@ public final class Record<Key, Value> {
   private final long timestamp;
   private final int serializedKeySize;
   private final int serializedValueSize;
-  private final Collection<Header> headers;
+  private final List<Header> headers;
   private final Key key;
   private final Value value;
   private final Optional<Integer> leaderEpoch;
@@ -55,7 +56,7 @@ public final class Record<Key, Value> {
       long timestamp,
       int serializedKeySize,
       int serializedValueSize,
-      Collection<Header> headers,
+      List<Header> headers,
       Key key,
       Value value,
       Optional<Integer> leaderEpoch) {
@@ -65,7 +66,7 @@ public final class Record<Key, Value> {
     this.timestamp = timestamp;
     this.serializedKeySize = serializedKeySize;
     this.serializedValueSize = serializedValueSize;
-    this.headers = Collections.unmodifiableCollection(headers);
+    this.headers = Collections.unmodifiableList(headers);
     this.key = key;
     this.value = value;
     this.leaderEpoch = leaderEpoch;
@@ -117,7 +118,7 @@ public final class Record<Key, Value> {
   }
 
   /** The headers (never null) */
-  public Collection<Header> headers() {
+  public List<Header> headers() {
     return headers;
   }
 

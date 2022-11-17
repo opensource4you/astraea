@@ -32,6 +32,7 @@ import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.common.FutureUtils;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
@@ -40,8 +41,8 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.consumer.Header;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -102,12 +103,13 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
       while (i < 300) {
         var metadata =
             producer
-                .sender()
-                .topic(topicName)
-                .key(key)
-                .timestamp(timestamp)
-                .headers(List.of(header))
-                .run()
+                .send(
+                    Record.builder()
+                        .topic(topicName)
+                        .key(key)
+                        .timestamp(timestamp)
+                        .headers(List.of(header))
+                        .build())
                 .toCompletableFuture()
                 .join();
         assertEquals(topicName, metadata.topic());
@@ -234,12 +236,13 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .build()) {
       var metadata =
           producer
-              .sender()
-              .topic(topicName)
-              .key(key)
-              .timestamp(timestamp)
-              .headers(List.of(header))
-              .run()
+              .send(
+                  Record.builder()
+                      .topic(topicName)
+                      .key(key)
+                      .timestamp(timestamp)
+                      .headers(List.of(header))
+                      .build())
               .toCompletableFuture()
               .join();
       assertEquals(topicName, metadata.topic());
@@ -253,13 +256,13 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
       try (producer) {
         var i = 0;
         while (i <= 99) {
-          producer
-              .sender()
-              .topic(topic)
-              .key(key)
-              .timestamp(timeStamp)
-              .headers(List.of(header))
-              .run();
+          producer.send(
+              Record.builder()
+                  .topic(topic)
+                  .key(key)
+                  .timestamp(timeStamp)
+                  .headers(List.of(header))
+                  .build());
           i++;
         }
         producer.flush();

@@ -111,7 +111,11 @@ function runContainer() {
   local defined_file="false"
   for word in "${sentence[@]}"; do
     # user has pre-defined directories/files, so we will mount directories/files
-    if [[ "$word" == "--prop.file" || "$word" == "--report.path" ]]; then
+    # --prop.file is used by all applications
+    # --report.path is used by org.astraea.app.performance.Performance
+    # --output is used by org.astraea.app.backup.Exporter
+    # --input is used by org.astraea.app.backup.Importer
+    if [[ "$word" == "--prop.file" || "$word" == "--report.path" || "$word" == "--output" || "$word" == "--input" ]]; then
       defined_file="true"
       continue
     fi

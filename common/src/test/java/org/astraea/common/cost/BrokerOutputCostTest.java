@@ -34,22 +34,17 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
   @Test
   void testCost() {
     var brokerOutputCost = new BrokerOutputCost();
-    var scores =
-        brokerOutputCost
-            .brokerCost(
-                ClusterInfo.empty(),
-                ClusterBean.of(
-                    Map.of(
-                        1,
-                        List.of(meter(10000D)),
-                        2,
-                        List.of(meter(20000D)),
-                        3,
-                        List.of(meter(5000D)))))
-            .value();
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(1, List.of(meter(10000D)), 2, List.of(meter(20000D)), 3, List.of(meter(5000D))));
+    var scores = brokerOutputCost.brokerCost(ClusterInfo.empty(), clusterBean).value();
     Assertions.assertEquals(10000D, scores.get(1));
     Assertions.assertEquals(20000D, scores.get(2));
     Assertions.assertEquals(5000D, scores.get(3));
+
+    // testClusterCost
+    var clusterCost = brokerOutputCost.clusterCost(ClusterInfo.empty(), clusterBean).value();
+    Assertions.assertEquals(0.535, Math.round(clusterCost * 1000.0) / 1000.0);
   }
 
   @Test
@@ -85,6 +80,6 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
         new BeanObject(
             "object",
             Map.of("name", ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.metricName()),
-            Map.of("OneMinuteRate", value)));
+            Map.of("FifteenMinuteRate", value)));
   }
 }

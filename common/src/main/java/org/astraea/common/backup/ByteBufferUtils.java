@@ -51,12 +51,17 @@ public final class ByteBufferUtils {
   }
 
   public static String readString(ByteBuffer buffer, int size) {
+    if (size < 0) return null;
     var dst = new byte[size];
     buffer.get(dst);
     return new String(dst, StandardCharsets.UTF_8);
   }
 
+  /**
+   * @return null if the size is smaller than zero
+   */
   public static byte[] readBytes(ByteBuffer buffer, int size) {
+    if (size < 0) return null;
     var dst = new byte[size];
     buffer.get(dst);
     return dst;
@@ -72,5 +77,22 @@ public final class ByteBufferUtils {
     var buf = ByteBuffer.allocate(Integer.BYTES);
     buf.putInt(value);
     return buf.flip();
+  }
+
+  public static void putLengthBytes(ByteBuffer buffer, byte[] value) {
+    if (value == null) buffer.putInt(-1);
+    else {
+      buffer.putInt(value.length);
+      buffer.put(ByteBuffer.wrap(value));
+    }
+  }
+
+  public static void putLengthString(ByteBuffer buffer, String value) {
+    if (value == null) buffer.putShort((short) -1);
+    else {
+      var valueByte = value.getBytes(StandardCharsets.UTF_8);
+      buffer.putShort((short) valueByte.length);
+      buffer.put(ByteBuffer.wrap(valueByte));
+    }
   }
 }

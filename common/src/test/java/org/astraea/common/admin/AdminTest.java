@@ -43,6 +43,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -150,9 +151,9 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin =
         new AdminImpl(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
       try (var producer = Producer.of(bootstrapServers())) {
-        producer.sender().topic(Utils.randomString()).key(new byte[100]).run();
-        producer.sender().topic(Utils.randomString()).key(new byte[55]).run();
-        producer.sender().topic(Utils.randomString()).key(new byte[33]).run();
+        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[100]).build());
+        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[55]).build());
+        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[33]).build());
       }
 
       try (var consumer =
@@ -667,9 +668,9 @@ public class AdminTest extends RequireBrokerCluster {
             Assertions.assertEquals(0, p.latestOffset());
           });
       try (var producer = Producer.of(bootstrapServers())) {
-        producer.sender().topic(topic).key(new byte[100]).partition(0).run();
-        producer.sender().topic(topic).key(new byte[55]).partition(1).run();
-        producer.sender().topic(topic).key(new byte[33]).partition(2).run();
+        producer.send(Record.builder().topic(topic).key(new byte[100]).partition(0).build());
+        producer.send(Record.builder().topic(topic).key(new byte[55]).partition(1).build());
+        producer.send(Record.builder().topic(topic).key(new byte[33]).partition(2).build());
       }
 
       admin
@@ -879,7 +880,10 @@ public class AdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer.sender().topic(topic).key(new byte[100]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topic).key(new byte[100]).build())
+          .toCompletableFuture()
+          .join();
       var originSize =
           admin
               .clusterInfo(Set.of(topic))
@@ -895,7 +899,10 @@ public class AdminTest extends RequireBrokerCluster {
               .join();
 
       // add data again
-      producer.sender().topic(topic).key(new byte[100]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topic).key(new byte[100]).build())
+          .toCompletableFuture()
+          .join();
 
       var newSize =
           admin
@@ -941,12 +948,16 @@ public class AdminTest extends RequireBrokerCluster {
               .bootstrapServers(bootstrapServers())
               .build()) {
         IntStream.range(0, 10)
-            .forEach(i -> producer.sender().key(key).value(value).topic(topic).run());
+            .forEach(
+                i -> producer.send(Record.builder().key(key).value(value).topic(topic).build()));
         producer.flush();
 
         Utils.sleep(Duration.ofSeconds(2));
         IntStream.range(0, 10)
-            .forEach(i -> producer.sender().key(anotherKey).value(value).topic(topic).run());
+            .forEach(
+                i ->
+                    producer.send(
+                        Record.builder().key(anotherKey).value(value).topic(topic).build()));
         producer.flush();
       }
 
@@ -1116,7 +1127,10 @@ public class AdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString();
     try (var producer = Producer.of(bootstrapServers());
         var admin = Admin.of(bootstrapServers())) {
-      producer.sender().topic(topic).value(new byte[1]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topic).value(new byte[1]).build())
+          .toCompletableFuture()
+          .join();
 
       var states =
           admin
@@ -1267,11 +1281,11 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertEquals(0, deleteRecords.values().stream().findFirst().get());
 
       try (var producer = Producer.of(bootstrapServers())) {
-        var senders =
+        var records =
             Stream.of(0, 0, 0, 1, 1)
-                .map(x -> producer.sender().topic(topic).partition(x).value(new byte[100]))
+                .map(x -> Record.builder().topic(topic).partition(x).value(new byte[100]).build())
                 .collect(Collectors.toList());
-        producer.send(senders);
+        producer.send(records);
         producer.flush();
       }
 
@@ -1389,7 +1403,10 @@ public class AdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {
       try (var producer = Producer.of(bootstrapServers())) {
-        producer.sender().topic(topic).key(new byte[10]).run().toCompletableFuture().join();
+        producer
+            .send(Record.builder().topic(topic).key(new byte[10]).build())
+            .toCompletableFuture()
+            .join();
       }
       String groupId = null;
       try (var consumer =
@@ -1416,7 +1433,10 @@ public class AdminTest extends RequireBrokerCluster {
     var topic = Utils.randomString();
     try (var admin = Admin.of(bootstrapServers())) {
       try (var producer = Producer.of(bootstrapServers())) {
-        producer.sender().topic(topic).key(new byte[10]).run().toCompletableFuture().join();
+        producer
+            .send(Record.builder().topic(topic).key(new byte[10]).build())
+            .toCompletableFuture()
+            .join();
       }
       String groupId = null;
       try (var consumer =
@@ -1528,34 +1548,34 @@ public class AdminTest extends RequireBrokerCluster {
 
       var t = System.currentTimeMillis();
       try (var producer = Producer.of(bootstrapServers())) {
-        producer
-            .sender()
-            .topic(topic)
-            .partition(0)
-            .timestamp(t)
-            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-            .run();
-        producer
-            .sender()
-            .topic(topic)
-            .partition(1)
-            .timestamp(t + 1)
-            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-            .run();
-        producer
-            .sender()
-            .topic(topic)
-            .partition(2)
-            .timestamp(t + 2)
-            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-            .run();
-        producer
-            .sender()
-            .topic(topic)
-            .partition(3)
-            .timestamp(t + 3)
-            .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-            .run();
+        producer.send(
+            Record.builder()
+                .topic(topic)
+                .partition(0)
+                .timestamp(t)
+                .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+                .build());
+        producer.send(
+            Record.builder()
+                .topic(topic)
+                .partition(1)
+                .timestamp(t + 1)
+                .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+                .build());
+        producer.send(
+            Record.builder()
+                .topic(topic)
+                .partition(2)
+                .timestamp(t + 2)
+                .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+                .build());
+        producer.send(
+            Record.builder()
+                .topic(topic)
+                .partition(3)
+                .timestamp(t + 3)
+                .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+                .build());
         producer.flush();
       }
       var latestRecords =

@@ -30,6 +30,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 
 public interface ProducerThread extends AbstractThread {
 
@@ -93,12 +94,12 @@ public interface ProducerThread extends AbstractThread {
                                 .filter(DataSupplier.Data::hasData)
                                 .map(
                                     d ->
-                                        producer
-                                            .sender()
+                                        Record.builder()
                                             .topicPartition(topicPartitionSupplier.get())
                                             .key(d.key())
                                             .value(d.value())
-                                            .timestamp(System.currentTimeMillis()))
+                                            .timestamp(System.currentTimeMillis())
+                                            .build())
                                 .collect(Collectors.toList()));
                         // End interdependent
                         if (interdependent > 1 && interdependentCounter >= interdependent) {

@@ -208,13 +208,13 @@ public class BalancerNode {
                                               .clusterCost(
                                                   HasClusterCost.of(
                                                       clusterCosts(argument.selectedKeys())))
+                                              .dataFolders(brokerFolders)
                                               .moveCost(
                                                   List.of(
                                                       new ReplicaSizeCost(),
                                                       new ReplicaLeaderCost()))
                                               .movementConstraint(
                                                   movementConstraint(argument.nonEmptyTexts()))
-                                              .limit(Duration.ofSeconds(10))
                                               .topicFilter(
                                                   topic ->
                                                       patterns.isEmpty()
@@ -223,7 +223,7 @@ public class BalancerNode {
                                                                   p -> p.matcher(topic).matches()))
                                               .config("iteration", "10000")
                                               .build())
-                                      .offer(clusterInfo, brokerFolders));
+                                      .offer(clusterInfo, Duration.ofSeconds(10)));
                             }))
             .thenApply(
                 entry -> {
@@ -251,10 +251,38 @@ public class BalancerNode {
       var plan = LAST_PLAN.getAndSet(null);
       if (plan != null) {
         logger.log("applying better assignments ... ");
-        return RebalancePlanExecutor.of()
-            .run(context.admin(), plan.proposal(), Duration.ofHours(1))
-            .thenAccept(ignored -> logger.log("succeed to balance cluster"));
-      } else logger.log("Please click \"PLAN\" to generate re-balance plan");
+        var f =
+            RebalancePlanExecutor.of()
+                .run(context.admin(), plan.proposal(), Duration.ofHours(2))
+                .toCompletableFuture();
+        return CompletableFuture.runAsync(
+                () -> {
+                  while (!f.isDone()) {
+                    context
+                        .admin()
+                        .topicNames(false)
+                        .thenCompose(context.admin()::clusterInfo)
+                        .whenComplete(
+                            (clusterInfo, e) -> {
+                              if (clusterInfo != null) {
+                                var count =
+                                    clusterInfo
+                                        .replicaStream()
+                                        .filter(r -> r.isFuture() || r.isAdding() || r.isRemoving())
+                                        .count();
+                                if (count > 0)
+                                  logger.log(
+                                      "There are " + count + " moving replicas ... please wait");
+                              }
+                            });
+                    // TODO: should we make this sleep configurable?
+                    Utils.sleep(Duration.ofSeconds(7));
+                  }
+                })
+            .thenCompose(ignored -> f)
+            .thenAccept(ignored -> logger.log("succeed to execute re-balance"));
+      }
+      logger.log("Please click \"PLAN\" to generate re-balance plan");
       return CompletableFuture.completedFuture(null);
     };
   }

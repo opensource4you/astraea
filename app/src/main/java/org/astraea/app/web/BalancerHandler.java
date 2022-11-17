@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -33,8 +34,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -62,7 +65,8 @@ class BalancerHandler implements Handler {
   static final String TOPICS_KEY = "topics";
 
   static final String TIMEOUT_KEY = "timeout";
-
+  static final String MAX_MIGRATE_SIZE_KEY = "max-migrated-size";
+  static final String MAX_MIGRATE_LEADER_KEY = "max-migrated-leader";
   static final String COST_WEIGHT_KEY = "costWeights";
 
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
@@ -147,20 +151,16 @@ class BalancerHandler implements Handler {
                 admin.topicNames(false).thenCompose(admin::clusterInfo),
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
-                  var balancerClasspath =
-                      channel
-                          .request()
-                          .get(BALANCER_IMPLEMENTATION_KEY)
-                          .orElse(BALANCER_IMPLEMENTATION_DEFAULT);
-                  var config = parseAlgorithmConfig(channel, currentClusterInfo);
+                  var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
                   var cost =
-                      config
+                      request
+                          .algorithmConfig
                           .clusterCostFunction()
                           .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
                           .value();
                   var bestPlan =
-                      Balancer.create(balancerClasspath, config)
-                          .offer(currentClusterInfo, brokerFolders);
+                      Balancer.create(request.balancerClasspath, request.algorithmConfig)
+                          .offer(currentClusterInfo, request.executionTime);
                   var changes =
                       bestPlan
                           .map(
@@ -186,7 +186,7 @@ class BalancerHandler implements Handler {
                       new Report(
                           cost,
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          config.clusterCostFunction().getClass().getSimpleName(),
+                          request.algorithmConfig.clusterCostFunction().getClass().getSimpleName(),
                           changes,
                           bestPlan
                               .map(
@@ -208,8 +208,12 @@ class BalancerHandler implements Handler {
   }
 
   // visible for test
-  static AlgorithmConfig parseAlgorithmConfig(
-      Channel channel, ClusterInfo<Replica> currentClusterInfo) {
+  static PostRequest parsePostRequest(
+      Channel channel,
+      ClusterInfo<Replica> currentClusterInfo,
+      Map<Integer, Set<String>> dataFolders) {
+    var balancerClasspath =
+        channel.request().get(BALANCER_IMPLEMENTATION_KEY).orElse(BALANCER_IMPLEMENTATION_DEFAULT);
     var balancerConfig =
         channel
             .request()
@@ -241,13 +245,17 @@ class BalancerHandler implements Handler {
       throw new IllegalArgumentException(
           "Illegal timeout, value should be positive integer: " + timeout.getSeconds());
 
-    return AlgorithmConfig.builder()
-        .clusterCost(clusterCostFunction)
-        .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-        .topicFilter(topics::contains)
-        .limit(timeout)
-        .config(balancerConfig)
-        .build();
+    return new PostRequest(
+        balancerClasspath,
+        timeout,
+        AlgorithmConfig.builder()
+            .clusterCost(clusterCostFunction)
+            .dataFolders(dataFolders)
+            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .movementConstraint(movementConstraint(channel.request().raw()))
+            .topicFilter(topics::contains)
+            .config(balancerConfig)
+            .build());
   }
 
   @SuppressWarnings("unchecked")
@@ -273,6 +281,28 @@ class BalancerHandler implements Handler {
             Collectors.toMap(
                 e -> Utils.construct((Class<HasClusterCost>) e.getKey(), config),
                 Map.Entry::getValue));
+  }
+
+  // TODO: There needs to be a way for"GU" and Web to share this function.
+  static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
+    var converter = new DataSize.Field();
+    var replicaSizeLimit =
+        Optional.ofNullable(input.get(MAX_MIGRATE_SIZE_KEY)).map(x -> converter.convert(x).bytes());
+    var leaderNumLimit =
+        Optional.ofNullable(input.get(MAX_MIGRATE_LEADER_KEY)).map(Integer::parseInt);
+    return moveCosts ->
+        moveCosts.stream()
+            .allMatch(
+                mc -> {
+                  switch (mc.name()) {
+                    case ReplicaSizeCost.COST_NAME:
+                      return replicaSizeLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
+                    case ReplicaLeaderCost.COST_NAME:
+                      return leaderNumLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
+                    default:
+                      return true;
+                  }
+                });
   }
 
   static HasClusterCost getClusterCost(Channel channel) {
@@ -413,6 +443,18 @@ class BalancerHandler implements Handler {
           "Another rebalance task might be working on. "
               + "The following topic/partition has ongoing migration: "
               + ongoingMigration);
+  }
+
+  static class PostRequest {
+    final String balancerClasspath;
+    final Duration executionTime;
+    final AlgorithmConfig algorithmConfig;
+
+    PostRequest(String balancerClasspath, Duration executionTime, AlgorithmConfig algorithmConfig) {
+      this.balancerClasspath = balancerClasspath;
+      this.executionTime = executionTime;
+      this.algorithmConfig = algorithmConfig;
+    }
   }
 
   static class Placement {

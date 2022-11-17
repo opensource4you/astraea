@@ -21,12 +21,15 @@ import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_BEGINNING;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.IteratorLimit;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,11 +41,11 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      Record.builder()
+                          .topic(topic)
+                          .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
   }
@@ -58,7 +61,7 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
             .bootstrapServers(bootstrapServers())
             .seek(DISTANCE_FROM_BEGINNING, 0)
-            .iterator((count, elapsed, size) -> count >= 100));
+            .iterator(List.of(IteratorLimit.count(100))));
 
     var iter = RecordReader.read(file);
     var count = 0;
