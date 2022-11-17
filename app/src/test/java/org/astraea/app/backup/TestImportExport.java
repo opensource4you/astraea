@@ -27,12 +27,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
-import org.astraea.common.consumer.Header;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
@@ -52,18 +52,18 @@ public class TestImportExport extends RequireBrokerCluster {
               IntStream.range(0, records)
                   .forEach(
                       i ->
-                          producer
-                              .sender()
-                              .topic(t)
-                              .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                              .value(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                              .headers(
-                                  List.of(
-                                      Header.of(
-                                          String.valueOf(i),
-                                          String.valueOf(i).getBytes(StandardCharsets.UTF_8))))
-                              .timestamp(start + i)
-                              .run()));
+                          producer.send(
+                              org.astraea.common.producer.Record.builder()
+                                  .topic(t)
+                                  .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                                  .value(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                                  .headers(
+                                      List.of(
+                                          Header.of(
+                                              String.valueOf(i),
+                                              String.valueOf(i).getBytes(StandardCharsets.UTF_8))))
+                                  .timestamp(start + i)
+                                  .build())));
     }
     var group = Utils.randomString();
     var file = Files.createTempDirectory("test_import_export");

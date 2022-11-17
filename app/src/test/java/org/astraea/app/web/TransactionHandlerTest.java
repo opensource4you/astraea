@@ -21,6 +21,7 @@ import java.util.concurrent.CompletionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,10 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topicName).value(new byte[1]).build())
+          .toCompletableFuture()
+          .join();
 
       // wait for all transactions are completed
       Utils.waitFor(
@@ -60,7 +64,10 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topicName).value(new byte[1]).build())
+          .toCompletableFuture()
+          .join();
 
       // wait for all transactions are completed
       Utils.waitFor(
@@ -84,7 +91,10 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
         var producer =
             Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topicName).value(new byte[1]).build())
+          .toCompletableFuture()
+          .join();
 
       Assertions.assertInstanceOf(
           NoSuchElementException.class,

@@ -29,6 +29,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.Argument;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -405,7 +406,12 @@ public class PerformanceTest extends RequireBrokerCluster {
       try (var producer = args.createProducer()) {
         IntStream.range(0, 250)
             .forEach(
-                i -> producer.sender().topic(topicName).key(String.valueOf(i).getBytes()).run());
+                i ->
+                    producer.send(
+                        Record.builder()
+                            .topic(topicName)
+                            .key(String.valueOf(i).getBytes())
+                            .build()));
       }
       Assertions.assertEquals(partitionCount, args.lastOffsets().size());
       System.out.println(args.lastOffsets());

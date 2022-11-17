@@ -50,6 +50,7 @@ import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.csv.CsvReader;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
@@ -145,7 +146,10 @@ public class ClientNode {
                                           : record.values().stream()
                                               .map(Object::toString)
                                               .collect(Collectors.joining(","));
-                                  topics.forEach(t -> producer.sender().topic(t).key(key).run());
+                                  topics.forEach(
+                                      t ->
+                                          producer.send(
+                                              Record.builder().topic(t).key(key).build()));
                                 });
                             producer.flush();
                             logger.log("succeed to push " + records.size());
@@ -385,21 +389,21 @@ public class ClientNode {
                         bs -> {
                           try (var producer = Producer.of(bs)) {
                             var topic = argument.nonEmptyTexts().get(topicKey);
-                            var sender = producer.sender().topic(topic);
+                            var builder = Record.builder().topic(topic);
                             argument
                                 .get(partitionKey)
                                 .map(Integer::parseInt)
-                                .ifPresent(sender::partition);
+                                .ifPresent(builder::partition);
                             argument
                                 .get(keyKey)
                                 .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
-                                .ifPresent(sender::key);
+                                .ifPresent(builder::key);
                             argument
                                 .get(valueKey)
                                 .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
-                                .ifPresent(sender::value);
-                            return sender
-                                .run()
+                                .ifPresent(builder::value);
+                            return producer
+                                .send(builder.build())
                                 .thenApply(
                                     metadata -> {
                                       var result = new LinkedHashMap<String, Object>();

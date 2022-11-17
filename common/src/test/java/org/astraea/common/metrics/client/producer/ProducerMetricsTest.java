@@ -24,6 +24,7 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   void testAppInfo() {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(topic).run().toCompletableFuture().join();
+      producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
     }
   }
@@ -43,7 +44,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   void testMetrics() {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(topic).run().toCompletableFuture().join();
+      producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       var metrics =
           ProducerMetrics.of(MBeanClient.local()).stream()
               .filter(m -> m.clientId().equals(producer.clientId()))
@@ -125,7 +126,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   void testTopicMetrics() {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(topic).run().toCompletableFuture().join();
+      producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       var metrics = ProducerMetrics.topics(MBeanClient.local());
       Assertions.assertNotEquals(0, metrics.stream().filter(m -> m.topic().equals(topic)).count());
       var producerTopicMetrics =
@@ -150,29 +151,20 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       producer
-          .sender()
-          .topic(topic)
-          .value(new byte[10])
-          .partition(0)
-          .run()
+          .send(Record.builder().topic(topic).value(new byte[10]).partition(0).build())
           .toCompletableFuture()
           .join();
+
       producer
-          .sender()
-          .topic(topic)
-          .value(new byte[10])
-          .partition(1)
-          .run()
+          .send(Record.builder().topic(topic).value(new byte[10]).partition(1).build())
           .toCompletableFuture()
           .join();
+
       producer
-          .sender()
-          .topic(topic)
-          .value(new byte[10])
-          .partition(2)
-          .run()
+          .send(Record.builder().topic(topic).value(new byte[10]).partition(2).build())
           .toCompletableFuture()
           .join();
+
       var metrics = ProducerMetrics.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(

@@ -49,13 +49,14 @@ import java.util.stream.Stream;
 import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
 import org.astraea.common.ExecutionRuntimeException;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.consumer.Header;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -288,11 +289,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .value(ByteBuffer.allocate(Integer.BYTES).putInt(i).array())
-                      .run());
+                  producer.send(
+                      Record.builder()
+                          .topic(topic)
+                          .value(ByteBuffer.allocate(Integer.BYTES).putInt(i).array())
+                          .build()));
       producer.flush();
     }
   }
@@ -414,12 +415,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
-          producer
-              .sender()
-              .topic(topic)
-              .partition(partitionId)
-              .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
-              .run();
+          producer.send(
+              Record.builder()
+                  .topic(topic)
+                  .partition(partitionId)
+                  .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                  .build());
         }
       }
       producer.flush();
@@ -479,7 +480,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue) {
     var topic = Utils.randomString(10);
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer.sender().topic(topic).value(value).run();
+
+      producer.send(Record.builder().topic(topic).value(value).build());
       producer.flush();
     }
 
@@ -534,14 +536,15 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer
-          .sender()
-          .topic(topic)
-          .key("astraea".getBytes(UTF_8))
-          .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
-          .headers(List.of(Header.of("a", "b".getBytes(UTF_8))))
-          .timestamp(timestamp)
-          .run();
+
+      producer.send(
+          Record.builder()
+              .topic(topic)
+              .key("astraea".getBytes(UTF_8))
+              .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
+              .headers(List.of(Header.of("a", "b".getBytes(UTF_8))))
+              .timestamp(timestamp)
+              .build());
       producer.flush();
     }
     var handler = getRecordHandler();
@@ -587,14 +590,14 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer
-          .sender()
-          .topic(topic)
-          .key("astraea".getBytes())
-          .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
-          .headers(List.of(Header.of("a", null)))
-          .timestamp(timestamp)
-          .run();
+      producer.send(
+          Record.builder()
+              .topic(topic)
+              .key("astraea".getBytes())
+              .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
+              .headers(List.of(Header.of("a", null)))
+              .timestamp(timestamp)
+              .build());
       producer.flush();
     }
     var handler = getRecordHandler();
@@ -786,11 +789,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
 
-      var senders =
+      var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
               .collect(Collectors.toList());
-      producer.send(senders);
+      producer.send(records);
       producer.flush();
 
       Assertions.assertEquals(
@@ -870,11 +873,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
 
-      var senders =
+      var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
               .collect(Collectors.toList());
-      producer.send(senders);
+      producer.send(records);
       producer.flush();
 
       Assertions.assertEquals(
@@ -927,11 +930,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
 
-      var senders =
+      var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
               .collect(Collectors.toList());
-      producer.send(senders);
+      producer.send(records);
       producer.flush();
 
       Assertions.assertEquals(
