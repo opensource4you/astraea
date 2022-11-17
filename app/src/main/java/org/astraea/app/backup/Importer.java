@@ -59,6 +59,7 @@ public class Importer {
                   .key(record.key())
                   .value(record.value())
                   .timestamp(record.timestamp())
+                  .headers(record.headers())
                   .run();
               recordCount.compute(
                   TopicPartition.of(record.topic(), record.partition()),
