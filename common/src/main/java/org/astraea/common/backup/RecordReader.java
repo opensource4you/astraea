@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.consumer.Record;
 
@@ -74,17 +73,17 @@ public interface RecordReader {
       }
       // TODO: need builder
       records.add(
-          new Record<>(
-              topic,
-              partition,
-              offset,
-              timestamp,
-              key == null ? 0 : key.length,
-              value == null ? 0 : value.length,
-              headers,
-              key,
-              value,
-              Optional.empty()));
+          Record.builder()
+              .topic(topic)
+              .partition(partition)
+              .offset(offset)
+              .timestamp(timestamp)
+              .key(key)
+              .value(value)
+              .serializedKeySize(key == null ? 0 : key.length)
+              .serializedValueSize(value == null ? 0 : value.length)
+              .headers(headers)
+              .build());
     }
     return records.iterator();
   }
