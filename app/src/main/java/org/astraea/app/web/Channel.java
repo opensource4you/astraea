@@ -82,10 +82,6 @@ interface Channel {
       return this;
     }
 
-    public Builder request(Map<String, Object> request) {
-      return request(PostRequest.of(request));
-    }
-
     public Builder request(PostRequest request) {
       this.request = request;
       return this;

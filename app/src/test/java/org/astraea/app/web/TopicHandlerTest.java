@@ -276,20 +276,18 @@ public class TopicHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(
         0,
         TopicHandler.remainingConfigs(
-                PostRequest.of(
-                    Map.of(
-                        TopicHandler.TOPIC_NAME_KEY,
-                        "abc",
-                        TopicHandler.NUMBER_OF_PARTITIONS_KEY,
-                        "2",
-                        TopicHandler.NUMBER_OF_REPLICAS_KEY,
-                        "2")))
+                Map.of(
+                    TopicHandler.TOPIC_NAME_KEY,
+                    "abc",
+                    TopicHandler.NUMBER_OF_PARTITIONS_KEY,
+                    "2",
+                    TopicHandler.NUMBER_OF_REPLICAS_KEY,
+                    "2"))
             .size());
 
     Assertions.assertEquals(
         1,
-        TopicHandler.remainingConfigs(
-                PostRequest.of(Map.of(TopicHandler.TOPIC_NAME_KEY, "abc", "key", "value")))
+        TopicHandler.remainingConfigs(Map.of(TopicHandler.TOPIC_NAME_KEY, "abc", "key", "value"))
             .size());
   }
 

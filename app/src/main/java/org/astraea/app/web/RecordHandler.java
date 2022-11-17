@@ -19,17 +19,7 @@ package org.astraea.app.web;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import java.lang.reflect.Type;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.app.web.Request.RequestObject;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
@@ -54,6 +45,8 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Serializer;
@@ -178,21 +171,42 @@ public class RecordHandler implements Handler {
     }
   }
 
+  static class RecordPostRequest implements Request {
+    private boolean async = false;
+    private String timeout = "5s";
+    private List<PostRecord> records = List.of();
+
+    private Optional<String> transactionId = Optional.empty();
+
+    public RecordPostRequest() {}
+
+    public boolean async() {
+      return async;
+    }
+
+    public String timeout() {
+      return timeout;
+    }
+
+    public List<PostRecord> records() {
+      return records;
+    }
+
+    public Optional<String> transactionId() {
+      return transactionId;
+    }
+  }
+
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var async = channel.request().getBoolean(ASYNC).orElse(false);
-    var timeout =
-        channel.request().get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
-    var records = channel.request().values(RECORDS, PostRecord.class);
+    var postRequest = channel.request().getRequest(TypeRef.of(RecordPostRequest.class));
+
+    var records = postRequest.records();
     if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");
 
     var producer =
-        channel
-            .request()
-            .get(TRANSACTION_ID)
-            .map(transactionalProducerCache::get)
-            .orElse(this.producer);
+        postRequest.transactionId().map(transactionalProducerCache::get).orElse(this.producer);
 
     var result =
         CompletableFuture.supplyAsync(
@@ -225,10 +239,14 @@ public class RecordHandler implements Handler {
                             .map(CompletionStage::toCompletableFuture)
                             .collect(toList())));
 
-    if (async) return CompletableFuture.completedFuture(Response.ACCEPT);
+    if (postRequest.async()) return CompletableFuture.completedFuture(Response.ACCEPT);
     return CompletableFuture.completedFuture(
         Utils.packException(
-            () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS))));
+            () ->
+                new PostResponse(
+                    result.get(
+                        DurationField.toDuration(postRequest.timeout()).toNanos(),
+                        TimeUnit.NANOSECONDS))));
   }
 
   @Override
@@ -275,39 +293,42 @@ public class RecordHandler implements Handler {
   enum SerDe implements EnumInfo {
     BYTEARRAY(
         (topic, value) ->
-            Optional.ofNullable(value).map(v -> Base64.getDecoder().decode(v)).orElse(null),
+            Optional.ofNullable(value)
+                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.bytes()))
+                .orElse(null),
         Deserializer.BYTE_ARRAY),
     STRING(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(v -> Serializer.STRING.serialize(topic, List.of(), value))
+                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(String.class)))
+                .map(v -> Serializer.STRING.serialize(topic, List.of(), v))
                 .orElse(null),
         Deserializer.STRING),
     LONG(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(Long::parseLong)
+                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Long.class)))
                 .map(longVal -> Serializer.LONG.serialize(topic, List.of(), longVal))
                 .orElse(null),
         Deserializer.LONG),
     INTEGER(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(Integer::parseInt)
+                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Integer.class)))
                 .map(intVal -> Serializer.INTEGER.serialize(topic, List.of(), intVal))
                 .orElse(null),
         Deserializer.INTEGER),
     FLOAT(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(Float::parseFloat)
+                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Float.class)))
                 .map(floatVal -> Serializer.FLOAT.serialize(topic, List.of(), floatVal))
                 .orElse(null),
         Deserializer.FLOAT),
     DOUBLE(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(Double::parseDouble)
+                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Double.class)))
                 .map(doubleVal -> Serializer.DOUBLE.serialize(topic, List.of(), doubleVal))
                 .orElse(null),
         Deserializer.DOUBLE);
@@ -326,7 +347,9 @@ public class RecordHandler implements Handler {
       return alias();
     }
 
+    /** (topic, json) convert to bytes */
     final BiFunction<String, String, byte[]> serializer;
+
     final Deserializer<?> deserializer;
 
     SerDe(BiFunction<String, String, byte[]> serializer, Deserializer<?> deserializer) {
@@ -337,27 +360,22 @@ public class RecordHandler implements Handler {
 
   private static org.astraea.common.producer.Record<byte[], byte[]> createRecord(
       Producer<byte[], byte[]> producer, PostRecord postRecord) {
-    var topic =
-        Optional.ofNullable(postRecord.topic)
-            .orElseThrow(() -> new IllegalArgumentException("topic must be set"));
+    var topic = postRecord.topic;
     var builder = org.astraea.common.producer.Record.<byte[], byte[]>builder().topic(topic);
+
     // TODO: Support headers
     // (https://github.com/skiptests/astraea/issues/422)
-    var keySerializer =
-        Optional.ofNullable(postRecord.keySerializer)
-            .map(name -> SerDe.ofAlias(name).serializer)
-            .orElse(SerDe.STRING.serializer);
-    var valueSerializer =
-        Optional.ofNullable(postRecord.valueSerializer)
-            .map(name -> SerDe.ofAlias(name).serializer)
-            .orElse(SerDe.STRING.serializer);
-
-    Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> builder.key(keySerializer.apply(topic, PostRequest.handle(key))));
-    Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> builder.value(valueSerializer.apply(topic, PostRequest.handle(value))));
-    Optional.ofNullable(postRecord.timestamp).ifPresent(builder::timestamp);
-    Optional.ofNullable(postRecord.partition).ifPresent(builder::partition);
+    var keySerializer = SerDe.ofAlias(postRecord.keySerializer).serializer;
+    var valueSerializer = SerDe.ofAlias(postRecord.valueSerializer).serializer;
+    postRecord.key.ifPresent(
+        key ->
+            builder.key(keySerializer.apply(topic, JsonConverter.defaultConverter().toJson(key))));
+    postRecord.value.ifPresent(
+        value ->
+            builder.value(
+                valueSerializer.apply(topic, JsonConverter.defaultConverter().toJson(value))));
+    postRecord.timestamp.ifPresent(builder::timestamp);
+    postRecord.partition.ifPresent(builder::partition);
     return builder.build();
   }
 
@@ -390,12 +408,7 @@ public class RecordHandler implements Handler {
 
     @Override
     public String json() {
-      return new GsonBuilder()
-          // gson will do html escape by default (e.g. convert = to \u003d)
-          .disableHtmlEscaping()
-          .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
-          .create()
-          .toJson(this);
+      return JsonConverter.defaultConverter().toJson(this);
     }
 
     @Override
@@ -446,26 +459,16 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class ByteArrayToBase64TypeAdapter
-      implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
-    public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)
-        throws JsonParseException {
-      return Base64.getDecoder().decode(json.getAsString());
-    }
+  static class PostRecord implements RequestObject {
+    String topic;
+    Optional<Integer> partition = Optional.empty();
+    String keySerializer = "STRING";
+    String valueSerializer = "STRING";
+    Optional<Object> key = Optional.empty();
+    Optional<Object> value = Optional.empty();
+    Optional<Long> timestamp = Optional.empty();
 
-    public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
-      return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
-    }
-  }
-
-  static class PostRecord {
-    final String topic;
-    final Integer partition;
-    final String keySerializer;
-    final String valueSerializer;
-    final Object key;
-    final Object value;
-    final Long timestamp;
+    public PostRecord() {}
 
     PostRecord(
         String topic,
@@ -476,12 +479,12 @@ public class RecordHandler implements Handler {
         Object value,
         Long timestamp) {
       this.topic = topic;
-      this.partition = partition;
-      this.keySerializer = keySerializer;
-      this.valueSerializer = valueSerializer;
-      this.key = key;
-      this.value = value;
-      this.timestamp = timestamp;
+      this.partition = Optional.ofNullable(partition);
+      this.keySerializer = Optional.ofNullable(keySerializer).orElse("STRING");
+      this.valueSerializer = Optional.ofNullable(valueSerializer).orElse("STRING");
+      this.key = Optional.ofNullable(key);
+      this.value = Optional.ofNullable(value);
+      this.timestamp = Optional.ofNullable(timestamp);
     }
   }
 

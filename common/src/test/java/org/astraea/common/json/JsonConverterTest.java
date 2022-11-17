@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class JsonConverterTest {
@@ -225,6 +226,20 @@ class JsonConverterTest {
     assertEquals(123, testFieldNameClass.actor);
     assertEquals("notMatter", testFieldNameClass.apple);
     assertNull(testFieldNameClass.banana);
+  }
+
+  @Test
+  void testByteArray() {
+    var foo = new Foo();
+    foo.bar = "test".getBytes();
+    var jsonConverter = JsonConverter.defaultConverter();
+    Assertions.assertArrayEquals(
+        "test".getBytes(),
+        jsonConverter.fromJson(jsonConverter.toJson(foo), TypeRef.of(Foo.class)).bar);
+  }
+
+  private static class Foo {
+    byte[] bar;
   }
 
   private static class V0 {

@@ -18,155 +18,140 @@ package org.astraea.app.web;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class PostRequestTest {
 
   @Test
-  void testParseHttpExchange() {
-    var request = PostRequest.of("{\"a\":\"b\",\"c\":123}");
-    Assertions.assertEquals(2, request.raw().size());
-    Assertions.assertEquals("b", request.raw().get("a"));
-    Assertions.assertEquals(123, request.intValue("c"));
+  void testOfEmptyJson() {
+    var postRequest = PostRequest.of("{}");
+    var map = postRequest.getRequest(TypeRef.of(Map.class));
+    Assertions.assertEquals(0, map.size());
   }
 
   @Test
-  void testHandle() {
-    Assertions.assertEquals("10", PostRequest.handle(10.00));
-    Assertions.assertEquals("10.01", PostRequest.handle(10.01));
-    Assertions.assertEquals("xxxx", PostRequest.handle("xxxx"));
-    Assertions.assertEquals("{\"foo\":1}", PostRequest.handle(Map.of("foo", 1)));
-    Assertions.assertEquals("[\"a\",1]", PostRequest.handle(List.of("a", 1)));
+  void testGetRequestObject() {
+    var postRequest = PostRequest.of("{\"foo\":\"fooValue\",\"bar\":500}");
+    var forTestValue = postRequest.getRequest(TypeRef.of(ForTestValue.class));
+    Assertions.assertEquals("fooValue", forTestValue.foo);
+    Assertions.assertEquals(500, forTestValue.bar);
+
+    var errPostRequest = PostRequest.of("{\"foo\":\"fooValue\"}");
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> errPostRequest.getRequest(TypeRef.of(ForTestValue.class)));
+    Assertions.assertEquals("Value `$.bar` is required.", exception.getMessage());
+  }
+
+  @Test
+  void testGetRequestNested() {
+
+    var postRequest = PostRequest.of("{\"forTestValue\":{\"foo\":\"fooValue\",\"bar\":500}}");
+    var forTestNested = postRequest.getRequest(TypeRef.of(ForTestNested.class));
+    Assertions.assertEquals("fooValue", forTestNested.forTestValue.foo);
+    Assertions.assertEquals(500, forTestNested.forTestValue.bar);
+
+    var errNestedPostRequest = PostRequest.of("{\"forTestValue\":{\"foo\":\"fooValue\"}}");
+    var nestedException =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> errNestedPostRequest.getRequest(TypeRef.of(ForTestNested.class)));
     Assertions.assertEquals(
-        "[{\"foo\":{\"bar\":10}}]", PostRequest.handle(List.of(Map.of("foo", Map.of("bar", 10)))));
+        "Value `$.forTestValue.bar` is required.", nestedException.getMessage());
+  }
+
+  @Test
+  void testGetRequestList() {
+    var postRequest = PostRequest.of("{\"forTestValues\":[{\"foo\":\"fooValue\",\"bar\":500}]}");
+    var forTestList = postRequest.getRequest(TypeRef.of(ForTestList.class));
+    Assertions.assertEquals("fooValue", forTestList.forTestValues.get(0).foo);
+    Assertions.assertEquals(500, forTestList.forTestValues.get(0).bar);
+
+    var errListPostRequest = PostRequest.of("{\"forTestValues\":[{\"foo\":\"fooValue\"}]}");
+    var listException =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> errListPostRequest.getRequest(TypeRef.of(ForTestList.class)));
     Assertions.assertEquals(
-        "[{\"foo\":{\"bar\":1.1}}]",
-        PostRequest.handle(List.of(Map.of("foo", Map.of("bar", 1.1d)))));
+        "Value `$.forTestValues[].bar` is required.", listException.getMessage());
   }
 
   @Test
-  void testParseJson() {
-    var request = PostRequest.of("{\"a\":1234, \"b\":3.34}");
-    Assertions.assertEquals(1234, request.intValue("a"));
-    Assertions.assertEquals(1234, request.shortValue("a"));
-    Assertions.assertEquals(1234.0, request.shortValue("a"));
-    Assertions.assertEquals(3.34, request.doubleValue("b"));
-  }
+  void testGetRequestMap() {
+    var postRequest =
+        PostRequest.of("{\"forTestValueMap\":{\"mapKey\":{\"foo\":\"fooValue\",\"bar\":500}}}");
+    var forTestMap = postRequest.getRequest(TypeRef.of(ForTestMap.class));
+    Assertions.assertEquals("fooValue", forTestMap.forTestValueMap.get("mapKey").foo);
+    Assertions.assertEquals(500, forTestMap.forTestValueMap.get("mapKey").bar);
 
-  @Test
-  void testStringArray() {
-    var request = PostRequest.of("{\"a\":\"b\",\"c\":[\"1\",\"2\"]}");
-    Assertions.assertEquals(2, request.values("c").size());
-    Assertions.assertEquals("1", request.values("c").get(0));
-    Assertions.assertEquals("2", request.values("c").get(1));
-  }
-
-  @Test
-  void testIntegerArray() {
-    var request = PostRequest.of("{\"a\":\"b\",\"c\":[1,2]}");
-    Assertions.assertEquals(2, request.intValues("c").size());
-    Assertions.assertEquals(1, request.intValues("c").get(0));
-    Assertions.assertEquals(2, request.intValues("c").get(1));
-  }
-
-  @Test
-  void testValues() {
-    var request =
-        PostRequest.of("{\"a\":[{\"foo\": \"r1\", \"bar\": 1},{\"foo\": \"r2\", \"bar\": 2}]}");
+    var errMapPostRequest =
+        PostRequest.of("{\"forTestValueMap\":{\"mapKey\":{\"foo\":\"fooValue\"}}}");
+    var mapException =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> errMapPostRequest.getRequest(TypeRef.of(ForTestMap.class)));
     Assertions.assertEquals(
-        List.of(new ForTestValue("r1", 1), new ForTestValue("r2", 2)),
-        request.values("a", ForTestValue.class));
+        "Value `$.forTestValueMap{}.bar` is required.", mapException.getMessage());
   }
 
   @Test
-  void testValue() {
-    var request = PostRequest.of("{\"a\":{\"foo\": \"r1\", \"bar\": 1}}");
-    Assertions.assertEquals(new ForTestValue("r1", 1), request.value("a", ForTestValue.class));
-  }
+  void testGetRequestOptional() {
+    var postRequest = PostRequest.of("{\"forTestValue\":{\"foo\":\"fooValue\",\"bar\":500}}");
+    var forTestOptional = postRequest.getRequest(TypeRef.of(ForTestOptional.class));
+    Assertions.assertEquals("fooValue", forTestOptional.forTestValue.get().foo);
+    Assertions.assertEquals(500, forTestOptional.forTestValue.get().bar);
 
-  @Test
-  void testRequests() {
-    var data = "{\"key\":[{\"a\":\"aa\",\"b\":2}, {\"c\":[\"a\", \"bbb\"]}]}";
-    var elements = PostRequest.of(data).requests("key");
-    Assertions.assertEquals(2, elements.size());
-    Assertions.assertEquals("aa", elements.get(0).value("a"));
-    Assertions.assertEquals(2, elements.get(0).intValue("b"));
-    Assertions.assertEquals(List.of("a", "bbb"), elements.get(1).values("c"));
-  }
-
-  @Test
-  void testStrings() {
-    var data = "{\"key\": \"v\",\"key2\": [\"v2\", \"v3\"]}";
-    Assertions.assertEquals("v", PostRequest.of(data).value("key"));
-    Assertions.assertEquals(List.of("v2", "v3"), PostRequest.of(data).values("key2"));
-    Assertions.assertEquals(Optional.empty(), PostRequest.of(data).get("nonexistent"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> PostRequest.of(data).value("nonexistent"));
-  }
-
-  @Test
-  void testShort() {
-    var data = "{\"key\":1, \"key2\": [1, " + Short.MAX_VALUE + "]}";
-    Assertions.assertEquals(1, PostRequest.of(data).shortValue("key"));
+    var errOptionalPostRequest = PostRequest.of("{\"forTestValue\":{\"foo\":\"fooValue\"}}");
+    var optionalException =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> errOptionalPostRequest.getRequest(TypeRef.of(ForTestOptional.class)));
     Assertions.assertEquals(
-        List.of((short) 1, Short.MAX_VALUE), PostRequest.of(data).shortValues("key2"));
-    Assertions.assertEquals(Optional.empty(), PostRequest.of(data).getShort("nonexistent"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> PostRequest.of(data).shortValue("nonexistent"));
+        "Value `$.forTestValue.bar` is required.", optionalException.getMessage());
   }
 
   @Test
-  void testInt() {
-    var data = "{\"key\":1, \"key2\": [1, " + Integer.MAX_VALUE + "]}";
-    Assertions.assertEquals(1, PostRequest.of(data).intValue("key"));
-    Assertions.assertEquals(List.of(1, Integer.MAX_VALUE), PostRequest.of(data).intValues("key2"));
-    Assertions.assertEquals(Optional.empty(), PostRequest.of(data).getInt("nonexistent"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> PostRequest.of(data).intValue("nonexistent"));
+  void testConvert() {
+    var postRequest = PostRequest.of("{\"foo\":\"fooValue\",\"bar\":500}");
+    var obj = postRequest.getRequest(TypeRef.of(Object.class));
+
+    var forTestValue = PostRequest.convert(obj, TypeRef.of(ForTestValue.class));
+    Assertions.assertEquals("fooValue", forTestValue.foo);
+    Assertions.assertEquals(500, forTestValue.bar);
+
+    var errPostRequest = PostRequest.of("{\"foo\":\"fooValue\"}");
+    var errObj = errPostRequest.getRequest(TypeRef.of(Object.class));
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> PostRequest.convert(errObj, TypeRef.of(ForTestValue.class)));
+    Assertions.assertEquals("Value `$.bar` is required.", exception.getMessage());
   }
 
-  @Test
-  void testLong() {
-    var data = "{\"key\":1, \"key2\": [1, " + Long.MAX_VALUE + "]}";
-    Assertions.assertEquals(1, PostRequest.of(data).longValue("key"));
-    Assertions.assertEquals(List.of(1L, Long.MAX_VALUE), PostRequest.of(data).longValues("key2"));
-    Assertions.assertEquals(Optional.empty(), PostRequest.of(data).getLong("nonexistent"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> PostRequest.of(data).longValue("nonexistent"));
+  static class ForTestOptional {
+    Optional<ForTestValue> forTestValue = Optional.empty();
   }
 
-  @Test
-  void testDouble() {
-    var data = "{\"key\":1, \"key2\": [1, " + Double.MAX_VALUE + "]}";
-    Assertions.assertEquals(1, PostRequest.of(data).doubleValue("key"));
-    Assertions.assertEquals(
-        List.of(1D, Double.MAX_VALUE), PostRequest.of(data).doubleValues("key2"));
-    Assertions.assertEquals(Optional.empty(), PostRequest.of(data).getDouble("nonexistent"));
-    Assertions.assertThrows(
-        NoSuchElementException.class, () -> PostRequest.of(data).doubleValue("nonexistent"));
+  static class ForTestMap {
+    Map<String, ForTestValue> forTestValueMap;
   }
 
-  @Test
-  void testHas() {
-    var data = "{\"key\":1, \"key2\": \"a\"}";
-    Assertions.assertTrue(PostRequest.of(data).has("key"));
-    Assertions.assertTrue(PostRequest.of(data).has("key", "key2"));
-    Assertions.assertFalse(PostRequest.of(data).has("key", "key2", "key3"));
-    Assertions.assertFalse(PostRequest.of(data).has("xxx"));
+  static class ForTestList {
+    List<ForTestValue> forTestValues;
+  }
+
+  static class ForTestNested {
+    ForTestValue forTestValue;
   }
 
   static class ForTestValue {
-    final String foo;
-    final Integer bar;
-
-    ForTestValue(String foo, Integer bar) {
-      this.foo = foo;
-      this.bar = bar;
-    }
+    String foo;
+    Integer bar;
 
     @Override
     public boolean equals(Object obj) {

@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import static org.astraea.app.web.ThrottleHandler.LogIdentity.follower;
 import static org.astraea.app.web.ThrottleHandler.LogIdentity.leader;
 
-import com.google.gson.Gson;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +34,8 @@ import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,14 +124,14 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               .entrySet()
               .stream()
               .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get(0)));
-      Assertions.assertEquals(longDataRate, brokerThrottle.get(0).follower);
-      Assertions.assertNull(brokerThrottle.get(0).leader);
+      Assertions.assertEquals(longDataRate, brokerThrottle.get(0).follower.orElse(null));
+      Assertions.assertNull(brokerThrottle.get(0).leader.orElse(null));
 
-      Assertions.assertEquals(longDataRate, brokerThrottle.get(1).leader);
-      Assertions.assertNull(brokerThrottle.get(1).follower);
+      Assertions.assertEquals(longDataRate, brokerThrottle.get(1).leader.orElse(null));
+      Assertions.assertNull(brokerThrottle.get(1).follower.orElse(null));
 
-      Assertions.assertEquals(longDataRate, brokerThrottle.get(2).follower);
-      Assertions.assertEquals(longDataRate, brokerThrottle.get(2).leader);
+      Assertions.assertEquals(longDataRate, brokerThrottle.get(2).follower.orElse(null));
+      Assertions.assertEquals(longDataRate, brokerThrottle.get(2).leader.orElse(null));
     }
   }
 
@@ -168,17 +169,19 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
       var topic =
           throttleSetting.topics.stream()
-              .filter(t -> t.name.equals(topicName))
+              .filter(t -> t.name.get().equals(topicName))
               .collect(Collectors.toList());
       Assertions.assertEquals(2, topic.size());
 
-      var leader = topic.stream().filter(t -> t.type.equals("leader")).findFirst().get();
-      Assertions.assertEquals(1, leader.partition);
-      Assertions.assertEquals(2, leader.broker);
+      var leader =
+          topic.stream().filter(t -> "leader".equals(t.type.orElse(null))).findFirst().get();
+      Assertions.assertEquals(1, leader.partition.get());
+      Assertions.assertEquals(2, leader.broker.get());
 
-      var follower = topic.stream().filter(t -> t.type.equals("follower")).findFirst().get();
-      Assertions.assertEquals(0, follower.partition);
-      Assertions.assertEquals(1, follower.broker);
+      var follower =
+          topic.stream().filter(t -> "follower".equals(t.type.orElse(null))).findFirst().get();
+      Assertions.assertEquals(0, follower.partition.get());
+      Assertions.assertEquals(1, follower.broker.get());
     }
   }
 
@@ -218,7 +221,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               handler.get(Channel.EMPTY).toCompletableFuture().join());
       var topic =
           throttleSetting.topics.stream()
-              .filter(t -> t.name.equals(topicName))
+              .filter(t -> t.name.get().equals(topicName))
               .collect(Collectors.toList());
       Assertions.assertEquals(9, topic.size());
 
@@ -231,7 +234,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
                               Assertions.assertTrue(
                                   topic.stream()
                                       .anyMatch(
-                                          t -> t.partition == partition && t.broker == replica))));
+                                          t ->
+                                              t.partition.orElse(null) == partition
+                                                  && t.broker.orElse(null) == replica))));
     }
   }
 
@@ -265,8 +270,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
     var setting = new ThrottleHandler.ThrottleSetting(set0, set1);
 
     var serialized = setting.json();
-    var gson = new Gson();
-    var deserialized = gson.fromJson(serialized, ThrottleHandler.ThrottleSetting.class);
+    var deserialized =
+        JsonConverter.defaultConverter()
+            .fromJson(serialized, TypeRef.of(ThrottleHandler.ThrottleSetting.class));
 
     Assertions.assertEquals(set0, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(set1, Set.copyOf(deserialized.topics));
@@ -294,8 +300,9 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
             new ThrottleHandler.TopicThrottle("MyTopicC", 3, 1001, null),
             new ThrottleHandler.TopicThrottle("MyTopicD", 4, 1001, leader));
 
-    var gson = new Gson();
-    var deserialized = gson.fromJson(rawJson, ThrottleHandler.ThrottleSetting.class);
+    var deserialized =
+        JsonConverter.defaultConverter()
+            .fromJson(rawJson, TypeRef.of(ThrottleHandler.ThrottleSetting.class));
 
     Assertions.assertEquals(expectedBroker, Set.copyOf(deserialized.brokers));
     Assertions.assertEquals(expectedTopic, Set.copyOf(deserialized.topics));

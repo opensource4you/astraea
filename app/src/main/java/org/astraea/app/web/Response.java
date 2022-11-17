@@ -16,8 +16,8 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.Gson;
 import java.util.NoSuchElementException;
+import org.astraea.common.json.JsonConverter;
 
 interface Response {
 
@@ -52,9 +52,7 @@ interface Response {
   }
 
   default String json() {
-    // TODO: manage the customized serialize/deserialize logic, see
-    // https://github.com/skiptests/astraea/issues/626
-    return new Gson().toJson(this);
+    return JsonConverter.defaultConverter().toJson(this);
   }
 
   /**
@@ -85,7 +83,9 @@ interface Response {
 
     @Override
     public String json() {
-      return message == null || message.isEmpty() ? "" : new Gson().toJson(this);
+      return message == null || message.isEmpty()
+          ? ""
+          : JsonConverter.defaultConverter().toJson(this);
     }
   }
 }

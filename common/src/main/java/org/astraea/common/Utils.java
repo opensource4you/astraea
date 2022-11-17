@@ -21,9 +21,12 @@ import java.io.StringWriter;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -269,6 +272,34 @@ public final class Utils {
   public static Pattern wildcardToPattern(String string) {
     return Pattern.compile(
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
+  }
+
+  /** all optional are present */
+  public static boolean isPresent(Optional<?>... fields) {
+    return Arrays.stream(fields).allMatch(Optional::isPresent);
+  }
+
+  public static boolean isWrapper(Class<?> cls) {
+    return cls == Double.class
+        || cls == Float.class
+        || cls == Long.class
+        || cls == Integer.class
+        || cls == Short.class
+        || cls == Character.class
+        || cls == Byte.class
+        || cls == Boolean.class;
+  }
+
+  public static boolean isPojo(Class<?> cls) {
+    return !(cls.isPrimitive()
+        || Utils.isWrapper(cls)
+        || cls.isSynthetic()
+        || cls.isInterface()
+        || Collection.class.isAssignableFrom(cls)
+        || Map.class.isAssignableFrom(cls)
+        || String.class == cls
+        || Optional.class == cls
+        || Object.class == cls);
   }
 
   private Utils() {}

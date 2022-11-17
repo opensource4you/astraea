@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -38,6 +37,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.app.web.BalancerHandler.BalancerPostRequest;
+import org.astraea.app.web.BalancerHandler.CostWeight;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -70,11 +71,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
-  private static final String defaultDecreasing =
-      new Gson()
-          .toJson(
-              Collections.singleton(
-                  new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
+  private static final List<BalancerHandler.CostWeight> defaultDecreasing =
+      List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1));
 
   @Test
   @Timeout(value = 60)
@@ -94,7 +92,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   handler,
                   Map.of(
                       BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                      "{\"iteration\":\"3000\"}",
+                      Map.of("iteration", "3000"),
                       BalancerHandler.COST_WEIGHT_KEY,
                       defaultDecreasing))
               .report;
@@ -135,7 +133,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   handler,
                   Map.of(
                       BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                      "{\"iteration\": \"30\"}",
+                      Map.of("iteration", "30"),
                       BalancerHandler.TOPICS_KEY,
                       topicNames.get(0),
                       BalancerHandler.COST_WEIGHT_KEY,
@@ -168,7 +166,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   handler,
                   Map.of(
                       BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                      "{\"iteration\": \"30\"}",
+                      Map.of("iteration", "30"),
                       BalancerHandler.TOPICS_KEY,
                       String.join(",", allowedTopics),
                       BalancerHandler.COST_WEIGHT_KEY,
@@ -403,7 +401,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       Channel.ofRequest(
                           PostRequest.of(
                               Map.of(
-                                  BalancerHandler.BALANCER_CONFIGURATION_KEY, "{\"iteration\":0"))))
+                                  BalancerHandler.BALANCER_CONFIGURATION_KEY,
+                                  Map.of("iteration", "0")))))
                   .toCompletableFuture()
                   .join());
       Utils.sleep(Duration.ofSeconds(5));
@@ -433,7 +432,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   BalancerHandler.COST_WEIGHT_KEY,
                   defaultDecreasing,
                   BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                  "{\"iteration\": \"100\"}"));
+                  Map.of("iteration", "100")));
       var thePlanId = progress.id;
 
       // act
@@ -905,7 +904,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   BalancerHandler.BALANCER_IMPLEMENTATION_KEY,
                   balancer,
                   BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                  new Gson().toJson(balancerConfig),
+                  balancerConfig,
                   BalancerHandler.COST_WEIGHT_KEY,
                   defaultDecreasing,
                   BalancerHandler.TOPICS_KEY,
@@ -924,7 +923,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       {
         // default
-        var postRequest = BalancerHandler.parsePostRequest(Channel.EMPTY, clusterInfo, Map.of());
+        var postRequest =
+            BalancerHandler.parsePostRequest(new BalancerPostRequest(), clusterInfo, Map.of());
         Assertions.assertTrue(postRequest.algorithmConfig.algorithmConfig().entrySet().isEmpty());
         Assertions.assertInstanceOf(
             HasClusterCost.class, postRequest.algorithmConfig.clusterCostFunction());
@@ -941,19 +941,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         // use custom filter/timeout/balancer config/cost function
         var randomTopic0 = Utils.randomString();
         var randomTopic1 = Utils.randomString();
-        var request =
-            Map.<String, Object>of(
-                BalancerHandler.TOPICS_KEY,
-                randomTopic0 + "," + randomTopic1,
-                BalancerHandler.TIMEOUT_KEY,
-                32,
-                BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                "{\"KEY\":\"VALUE\"}",
-                BalancerHandler.COST_WEIGHT_KEY,
-                defaultDecreasing);
-        var postRequest =
-            BalancerHandler.parsePostRequest(
-                Channel.ofRequest(PostRequest.of(request)), clusterInfo, Map.of());
+        var request = new BalancerPostRequest();
+        request.setTopics(Optional.of(randomTopic0 + "," + randomTopic1));
+        request.setTimeout("32");
+        request.setBalancerConfig(Map.of("KEY", "VALUE"));
+        request.setCostWeights(
+            List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
+
+        var postRequest = BalancerHandler.parsePostRequest(request, clusterInfo, Map.of());
         Assertions.assertEquals(
             Set.of(Map.entry("KEY", "VALUE")),
             postRequest.algorithmConfig.algorithmConfig().entrySet());
@@ -996,64 +991,37 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                 BalancerHandler.TIMEOUT_KEY,
                 32,
                 BalancerHandler.BALANCER_CONFIGURATION_KEY,
-                "{\"KEY\":\"VALUE\"}",
+                Map.of("KEY", "VALUE"),
                 BalancerHandler.COST_WEIGHT_KEY,
                 defaultDecreasing);
+        var balancerRequest = new BalancerPostRequest();
+        balancerRequest.setTopics(Optional.of(""));
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () ->
-                BalancerHandler.parsePostRequest(
-                    Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TOPICS_KEY, ""))),
-                    clusterInfo,
-                    Map.of()),
+            () -> BalancerHandler.parsePostRequest(balancerRequest, clusterInfo, Map.of()),
             "Empty topic filter, nothing to rebalance");
+
+        var balancerRequest2 = new BalancerPostRequest();
+        balancerRequest2.setTimeout("0");
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () ->
-                BalancerHandler.parsePostRequest(
-                    Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TIMEOUT_KEY, 0))),
-                    clusterInfo,
-                    Map.of()),
+            () -> BalancerHandler.parsePostRequest(balancerRequest2, clusterInfo, Map.of()),
             "Zero timeout");
+
+        var balancerRequest3 = new BalancerPostRequest();
+        balancerRequest3.setTimeout("-5566");
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () ->
-                BalancerHandler.parsePostRequest(
-                    Channel.ofRequest(PostRequest.of(Map.of(BalancerHandler.TIMEOUT_KEY, -5566))),
-                    clusterInfo,
-                    Map.of()),
+            () -> BalancerHandler.parsePostRequest(balancerRequest3, clusterInfo, Map.of()),
             "Negative timeout");
+
+        var balancerRequest4 = new BalancerPostRequest();
+        var costWeight = new CostWeight();
+        costWeight.setCost("yes");
+        balancerRequest4.setCostWeights(List.of(costWeight));
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () ->
-                BalancerHandler.parsePostRequest(
-                    Channel.ofRequest(
-                        PostRequest.of(
-                            Map.of(BalancerHandler.COST_WEIGHT_KEY, "[{\"cost\": \"yes\"}]"))),
-                    clusterInfo,
-                    Map.of()),
-            "Malformed cost weight");
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                BalancerHandler.parsePostRequest(
-                    Channel.ofRequest(
-                        PostRequest.of(
-                            Map.of(
-                                BalancerHandler.COST_WEIGHT_KEY,
-                                "[{\"cost\": \"yes\", \"weight\": \"a lot\"}]"))),
-                    clusterInfo,
-                    Map.of()),
-            "Malformed cost weight");
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                BalancerHandler.parsePostRequest(
-                    Channel.ofRequest(
-                        PostRequest.of(
-                            Map.of(BalancerHandler.COST_WEIGHT_KEY, "[{\"weight\": \"a lot\"}]"))),
-                    clusterInfo,
-                    Map.of()),
+            () -> BalancerHandler.parsePostRequest(balancerRequest4, clusterInfo, Map.of()),
             "Malformed cost weight");
       }
     }

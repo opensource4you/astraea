@@ -16,6 +16,7 @@
  */
 package org.astraea.common.json;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -41,6 +42,11 @@ public abstract class TypeRef<T> {
 
   public static <T> TypeRef<List<T>> array(Class<T> clz) {
     return of(TypeUtils.parameterize(List.class, clz));
+  }
+
+  @SuppressWarnings("unchecked")
+  public static TypeRef<byte[]> bytes() {
+    return of((Class<byte[]>) Array.newInstance(byte.class, 0).getClass());
   }
 
   public static <T> TypeRef<Map<String, T>> map(Class<T> clz) {

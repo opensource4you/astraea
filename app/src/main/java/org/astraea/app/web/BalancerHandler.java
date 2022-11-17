@@ -16,10 +16,9 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.reflect.TypeToken;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.web.Request.RequestObject;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
@@ -58,6 +58,7 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.json.TypeRef;
 
 class BalancerHandler implements Handler {
 
@@ -130,15 +131,95 @@ class BalancerHandler implements Handler {
             report));
   }
 
+  static class BalancerPostRequest implements Request {
+
+    private String balancer = GreedyBalancer.class.getName();
+
+    @JsonAlias("balancer-config")
+    private Map<String, String> balancerConfig = Map.of();
+
+    private String timeout = "3s";
+    private Optional<String> topics = Optional.empty();
+
+    @JsonAlias("max-migrated-size")
+    private Optional<String> maxMigrateSize = Optional.empty();
+
+    @JsonAlias("max-migrated-leader")
+    private Optional<String> maxMigratedLeader = Optional.empty();
+
+    private List<CostWeight> costWeights = List.of();
+
+    public BalancerPostRequest() {}
+
+    public String balancer() {
+
+      return balancer;
+    }
+
+    public List<CostWeight> costWeights() {
+      return costWeights;
+    }
+
+    public Map<String, String> balancerConfig() {
+      return balancerConfig;
+    }
+
+    public String timeout() {
+      return timeout;
+    }
+
+    public Optional<String> topics() {
+      return topics;
+    }
+
+    public Optional<String> maxMigrateSize() {
+      return maxMigrateSize;
+    }
+
+    public Optional<String> maxMigratedLeader() {
+      return maxMigratedLeader;
+    }
+
+    public void setBalancer(String balancer) {
+      this.balancer = balancer;
+    }
+
+    public void setBalancerConfig(Map<String, String> balancerConfig) {
+      this.balancerConfig = balancerConfig;
+    }
+
+    public void setTimeout(String timeout) {
+      this.timeout = timeout;
+    }
+
+    public void setTopics(Optional<String> topics) {
+      this.topics = topics;
+    }
+
+    public void setMaxMigrateSize(Optional<String> maxMigrateSize) {
+      this.maxMigrateSize = maxMigrateSize;
+    }
+
+    public void setMaxMigratedLeader(Optional<String> maxMigratedLeader) {
+      this.maxMigratedLeader = maxMigratedLeader;
+    }
+
+    public void setCostWeights(List<CostWeight> costWeights) {
+      this.costWeights = costWeights;
+    }
+  }
+
   @Override
   public CompletionStage<Response> post(Channel channel) {
+    var balancerPostRequest = channel.request().getRequest(TypeRef.of(BalancerPostRequest.class));
     var newPlanId = UUID.randomUUID().toString();
     var planGeneration =
         FutureUtils.combine(
                 admin.topicNames(false).thenCompose(admin::clusterInfo),
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
-                  var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
+                  var request =
+                      parsePostRequest(balancerPostRequest, currentClusterInfo, brokerFolders);
                   var cost =
                       request
                           .algorithmConfig
@@ -197,28 +278,17 @@ class BalancerHandler implements Handler {
 
   // visible for test
   static PostRequest parsePostRequest(
-      Channel channel,
+      BalancerPostRequest balancerPostRequest,
       ClusterInfo<Replica> currentClusterInfo,
       Map<Integer, Set<String>> dataFolders) {
-    var balancerClasspath =
-        channel.request().get(BALANCER_IMPLEMENTATION_KEY).orElse(BALANCER_IMPLEMENTATION_DEFAULT);
-    var balancerConfig =
-        channel
-            .request()
-            .get(BALANCER_CONFIGURATION_KEY, Map.class)
-            .map(Configuration::of)
-            .orElse(Configuration.of(Map.of()));
-    var clusterCostFunction = getClusterCost(channel);
-    var timeout =
-        channel
-            .request()
-            .get(TIMEOUT_KEY)
-            .map(DurationField::toDuration)
-            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+    var balancerClasspath = balancerPostRequest.balancer();
+    var balancerConfig = Configuration.of(balancerPostRequest.balancerConfig());
+    var clusterCostFunction = getClusterCost(balancerPostRequest);
+    var timeout = DurationField.toDuration(balancerPostRequest.timeout());
+
     var topics =
-        channel
-            .request()
-            .get(TOPICS_KEY)
+        balancerPostRequest
+            .topics()
             .map(
                 s ->
                     Arrays.stream(s.split(","))
@@ -226,7 +296,7 @@ class BalancerHandler implements Handler {
                         .collect(Collectors.toSet()))
             .orElseGet(currentClusterInfo::topics);
 
-    if (channel.request().raw().containsKey(TOPICS_KEY) && topics.isEmpty())
+    if (balancerPostRequest.topics().isPresent() && topics.isEmpty())
       throw new IllegalArgumentException(
           "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
     if (timeout.isZero() || timeout.isNegative())
@@ -240,7 +310,7 @@ class BalancerHandler implements Handler {
             .clusterCost(clusterCostFunction)
             .dataFolders(dataFolders)
             .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-            .movementConstraint(movementConstraint(channel.request().raw()))
+            .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
             .config(balancerConfig)
             .build());
@@ -272,12 +342,10 @@ class BalancerHandler implements Handler {
   }
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
-  static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
+  static Predicate<List<MoveCost>> movementConstraint(BalancerPostRequest request) {
     var converter = new DataSize.Field();
-    var replicaSizeLimit =
-        Optional.ofNullable(input.get(MAX_MIGRATE_SIZE_KEY)).map(x -> converter.convert(x).bytes());
-    var leaderNumLimit =
-        Optional.ofNullable(input.get(MAX_MIGRATE_LEADER_KEY)).map(Integer::parseInt);
+    var replicaSizeLimit = request.maxMigrateSize().map(x -> converter.convert(x).bytes());
+    var leaderNumLimit = request.maxMigratedLeader().map(Integer::parseInt);
     return moveCosts ->
         moveCosts.stream()
             .allMatch(
@@ -293,14 +361,8 @@ class BalancerHandler implements Handler {
                 });
   }
 
-  static HasClusterCost getClusterCost(Channel channel) {
-    var costWeights =
-        channel
-            .request()
-            .<Collection<CostWeight>>get(
-                BalancerHandler.COST_WEIGHT_KEY,
-                TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
-            .orElse(List.of());
+  static HasClusterCost getClusterCost(BalancerPostRequest request) {
+    var costWeights = request.costWeights();
     if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
     costWeights.stream()
         .filter(cw -> cw.cost == null || cw.weight == null)
@@ -316,13 +378,21 @@ class BalancerHandler implements Handler {
     return HasClusterCost.of(costWeightMap);
   }
 
+  static class BalancerPutRequest implements Request {
+    private String id;
+
+    public BalancerPutRequest() {}
+
+    public String id() {
+      return id;
+    }
+  }
+
   @Override
   public CompletionStage<Response> put(Channel channel) {
-    final var thePlanId =
-        channel
-            .request()
-            .get("id")
-            .orElseThrow(() -> new IllegalArgumentException("No rebalance plan id offered"));
+    var request = channel.request().getRequest(TypeRef.of(BalancerPutRequest.class));
+
+    final var thePlanId = request.id();
     final var future =
         Optional.ofNullable(generatedPlans.get(thePlanId))
             .orElseThrow(
@@ -582,12 +652,22 @@ class BalancerHandler implements Handler {
     }
   }
 
-  static class CostWeight {
-    final String cost;
-    final Double weight;
+  static class CostWeight implements RequestObject {
+    String cost;
+    Double weight;
+
+    public CostWeight() {}
 
     CostWeight(String cost, double weight) {
       this.cost = cost;
+      this.weight = weight;
+    }
+
+    public void setCost(String cost) {
+      this.cost = cost;
+    }
+
+    public void setWeight(Double weight) {
       this.weight = weight;
     }
 

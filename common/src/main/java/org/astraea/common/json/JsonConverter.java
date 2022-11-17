@@ -25,8 +25,10 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker.Std;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper.Builder;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import java.lang.reflect.Type;
+import java.util.function.Consumer;
 import org.astraea.common.Utils;
 
 public interface JsonConverter {
@@ -41,7 +43,11 @@ public interface JsonConverter {
   }
 
   static JsonConverter jackson() {
-    var objectMapper =
+    return jackson(x -> {});
+  }
+
+  static JsonConverter jackson(Consumer<Builder> mapperBuilder) {
+    var defaultBuilder =
         JsonMapper.builder()
             .addModule(new Jdk8Module())
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
@@ -56,9 +62,10 @@ public interface JsonConverter {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
             .visibility(new Std(JsonAutoDetect.Visibility.NONE).with(JsonAutoDetect.Visibility.ANY))
-            .serializationInclusion(Include.NON_EMPTY)
-            .build();
+            .serializationInclusion(Include.NON_EMPTY);
+    mapperBuilder.accept(defaultBuilder);
 
+    var objectMapper = defaultBuilder.build();
     return new JsonConverter() {
       @Override
       public String toJson(Object src) {

@@ -22,11 +22,14 @@ import static java.lang.Math.min;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.astraea.app.web.Request.RequestObject;
 import org.astraea.common.FutureUtils;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -34,6 +37,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.json.TypeRef;
 
 public class ReassignmentHandler implements Handler {
   static final String PLANS_KEY = "plans";
@@ -49,60 +53,100 @@ public class ReassignmentHandler implements Handler {
     this.admin = admin;
   }
 
+  static class ReassignmentPostRequest implements Request {
+    private List<Plan> plans = List.of();
+
+    public ReassignmentPostRequest() {}
+
+    public List<Plan> plans() {
+      return plans;
+    }
+  }
+
+  static class Plan implements RequestObject {
+    private Optional<Integer> broker = Optional.empty();
+    private Optional<String> topic = Optional.empty();
+    private Optional<Integer> partition = Optional.empty();
+
+    /** `to` has two different meanings */
+    private Optional<Object> to = Optional.empty();
+
+    private Optional<Integer> exclude = Optional.empty();
+
+    public Plan() {}
+
+    public Optional<Integer> broker() {
+      return broker;
+    }
+
+    public Optional<String> topic() {
+      return topic;
+    }
+
+    public Optional<Integer> partition() {
+      return partition;
+    }
+
+    public Optional<Object> to() {
+      return to;
+    }
+
+    public Optional<Integer> exclude() {
+      return exclude;
+    }
+  }
+
   @Override
   public CompletionStage<Response> post(Channel channel) {
+    var request = channel.request().getRequest(TypeRef.of(ReassignmentPostRequest.class));
     return FutureUtils.sequence(
-            channel.request().requests(PLANS_KEY).stream()
+            request.plans().stream()
                 .map(
-                    request -> {
+                    plan -> {
                       // case 0: move replica to another folder
-                      if (request.has(BROKER_KEY, TOPIC_KEY, PARTITION_KEY, TO_KEY))
+                      if (Utils.isPresent(plan.broker(), plan.topic(), plan.partition(), plan.to()))
                         return admin
                             .moveToFolders(
                                 Map.of(
                                     TopicPartitionReplica.of(
-                                        request.value(TOPIC_KEY),
-                                        request.intValue(PARTITION_KEY),
-                                        request.intValue(BROKER_KEY)),
-                                    request.value(TO_KEY)))
+                                        plan.topic().get(),
+                                        plan.partition().get(),
+                                        plan.broker().get()),
+                                    PostRequest.convert(plan.to().get(), TypeRef.of(String.class))))
                             .thenApply(ignored -> Response.ACCEPT)
                             .toCompletableFuture();
 
                       // case 1: move replica to another broker
-                      if (request.has(TOPIC_KEY, PARTITION_KEY, TO_KEY))
+                      if (Utils.isPresent(plan.topic(), plan.partition(), plan.to()))
                         return admin
                             .moveToBrokers(
                                 Map.of(
-                                    TopicPartition.of(
-                                        request.value(TOPIC_KEY), request.intValue(PARTITION_KEY)),
-                                    request.intValues(TO_KEY)))
+                                    TopicPartition.of(plan.topic().get(), plan.partition().get()),
+                                    PostRequest.convert(
+                                        plan.to().get(), TypeRef.array(Integer.class))))
                             .thenApply(ignored -> Response.ACCEPT)
                             .toCompletableFuture();
 
-                      if (request.has(EXCLUDE_KEY))
+                      if (plan.exclude().isPresent())
                         return admin
                             .brokers()
                             .thenCompose(
                                 brokers -> {
-                                  if (brokers.size() <= 1)
-                                    return CompletableFuture.completedFuture(Response.BAD_REQUEST);
+                                  var exclude = plan.exclude().get();
                                   var excludedBroker =
-                                      brokers.stream()
-                                          .filter(b -> b.id() == request.intValue(EXCLUDE_KEY))
-                                          .findFirst();
+                                      brokers.stream().filter(b -> b.id() == exclude).findFirst();
                                   if (excludedBroker.isEmpty())
                                     return CompletableFuture.completedFuture(Response.BAD_REQUEST);
                                   var availableBrokers =
                                       brokers.stream()
-                                          .filter(b -> b.id() != request.intValue(EXCLUDE_KEY))
+                                          .filter(b -> b.id() != exclude)
                                           .collect(Collectors.toList());
                                   var partitions =
                                       excludedBroker.get().topicPartitions().stream()
                                           .filter(
                                               tp ->
-                                                  !request.has(TOPIC_KEY)
-                                                      || tp.topic()
-                                                          .equals(request.value(TOPIC_KEY)))
+                                                  plan.topic().isEmpty()
+                                                      || tp.topic().equals(plan.topic().get()))
                                           .collect(Collectors.toSet());
                                   if (partitions.isEmpty())
                                     return CompletableFuture.completedFuture(Response.BAD_REQUEST);

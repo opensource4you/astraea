@@ -16,162 +16,71 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import org.astraea.common.Utils;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 public interface PostRequest {
 
-  PostRequest EMPTY = PostRequest.of(Map.of());
+  PostRequest EMPTY = PostRequest.of("{}");
 
-  @SuppressWarnings("unchecked")
+  static PostRequest of(Map<String, ?> map) {
+    return of(JsonConverter.defaultConverter().toJson(map));
+  }
+
   static PostRequest of(String json) {
-    return of((Map<String, Object>) new Gson().fromJson(json, Map.class));
-  }
-
-  static String handle(Object obj) {
-    // the number in GSON is always DOUBLE
-    if (obj instanceof Double) {
-      var value = (double) obj;
-      if (value - Math.floor(value) == 0) return String.valueOf((long) Math.floor(value));
-    }
-    // TODO: handle double in nested type
-    // use gson instead of obj.toString in nested type since obj.toString won't add double quote to
-    // string and will create invalid json
-    if (obj instanceof Map || obj instanceof List) {
-      return new GsonBuilder().disableHtmlEscaping().create().toJson(obj);
-    }
-    return obj.toString();
-  }
-
-  static PostRequest of(Map<String, Object> objs) {
-    var raw =
-        objs.entrySet().stream()
-            .filter(e -> e.getValue() != null)
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> handle(e.getValue())));
-    return () -> raw;
+    return new PostRequest() {
+      @Override
+      public <T> T getRequest(TypeRef<T> typeRef) {
+        var t = JsonConverter.defaultConverter().fromJson(json, typeRef);
+        preventNull("$", t);
+        return t;
+      }
+    };
   }
 
   /**
-   * @return body represented by key-value
+   * User Optional to handle null value.
+   *
+   * @param prefix use prefix to locate the error key
    */
-  Map<String, String> raw();
+  private static void preventNull(String prefix, Object obj) {
+    if (obj == null)
+      throw new IllegalArgumentException(String.format("Value `%s` is required.", prefix));
 
-  /**
-   * @param keys to check
-   * @return true if all keys has an associated value.
-   */
-  default boolean has(String... keys) {
-    return Arrays.stream(keys).allMatch(raw()::containsKey);
+    var objClass = obj.getClass();
+
+    if (Collection.class.isAssignableFrom(objClass)) {
+      var list = (Collection<?>) obj;
+      list.forEach(value -> preventNull(prefix + "[]", value));
+    } else if (Optional.class == objClass) {
+      var opt = (Optional<?>) obj;
+      opt.ifPresent(o -> preventNull(prefix, o));
+    } else if (Map.class.isAssignableFrom(objClass)) {
+      var map = (Map<?, ?>) obj;
+      map.values().forEach(x -> preventNull(prefix + "{}", x));
+    } else if (Utils.isPojo(objClass)) {
+      var declaredFields = objClass.getDeclaredFields();
+      Arrays.stream(declaredFields)
+          .forEach(
+              x -> {
+                x.setAccessible(true);
+                preventNull(prefix + "." + x.getName(), Utils.packException(() -> x.get(obj)));
+              });
+    }
   }
 
-  default <T> Optional<T> get(String key, Class<T> clz) {
-    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, clz));
+  /** Convert object to the type T. */
+  static <T> T convert(Object obj, TypeRef<T> typeRef) {
+    var converter = JsonConverter.defaultConverter();
+    var t = converter.fromJson(converter.toJson(obj), typeRef);
+    preventNull("$", t);
+    return t;
   }
 
-  default <T> Optional<T> get(String key, Type type) {
-    return Optional.ofNullable(raw().get(key)).map(v -> new Gson().fromJson(v, type));
-  }
-
-  default <T> T value(String key, Class<T> clz) {
-    return get(key, clz)
-        .orElseThrow(() -> new NoSuchElementException("the value for " + key + " is nonexistent"));
-  }
-
-  // -----------------------------[string]-----------------------------//
-
-  default Optional<String> get(String key) {
-    return Optional.ofNullable(raw().get(key));
-  }
-
-  default String value(String key) {
-    return get(key)
-        .orElseThrow(() -> new NoSuchElementException("the value for " + key + " is nonexistent"));
-  }
-
-  default List<String> values(String key) {
-    return values(key, String.class);
-  }
-
-  // -----------------------------[boolean]-----------------------------//
-  default Optional<Boolean> getBoolean(String key) {
-    return get(key).map(Boolean::parseBoolean);
-  }
-
-  // -----------------------------[numbers]-----------------------------//
-
-  default short shortValue(String key) {
-    return Short.parseShort(value(key));
-  }
-
-  default List<Short> shortValues(String key) {
-    return doubleValues(key).stream()
-        .map(Double::shortValue)
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  default Optional<Short> getShort(String key) {
-    return get(key).map(Short::parseShort);
-  }
-
-  default int intValue(String key) {
-    return Integer.parseInt(value(key));
-  }
-
-  default List<Integer> intValues(String key) {
-    return doubleValues(key).stream()
-        .map(Double::intValue)
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  default Optional<Integer> getInt(String key) {
-    return get(key).map(Integer::parseInt);
-  }
-
-  default long longValue(String key) {
-    return Long.parseLong(value(key));
-  }
-
-  default List<Long> longValues(String key) {
-    return doubleValues(key).stream()
-        .map(Double::longValue)
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  default Optional<Long> getLong(String key) {
-    return get(key).map(Long::parseLong);
-  }
-
-  default double doubleValue(String key) {
-    return Double.parseDouble(value(key));
-  }
-
-  default List<Double> doubleValues(String key) {
-    return values(key, Double.class);
-  }
-
-  default Optional<Double> getDouble(String key) {
-    return get(key).map(Double::parseDouble);
-  }
-
-  // -----------------------------[others]-----------------------------//
-
-  default <T> List<T> values(String key, Class<T> clz) {
-    return new Gson()
-        .fromJson(value(key), TypeToken.getParameterized(ArrayList.class, clz).getType());
-  }
-
-  default List<PostRequest> requests(String key) {
-    return values(key, Map.class).stream()
-        .map(PostRequest::of)
-        .collect(Collectors.toUnmodifiableList());
-  }
+  <T> T getRequest(TypeRef<T> typeRef);
 }

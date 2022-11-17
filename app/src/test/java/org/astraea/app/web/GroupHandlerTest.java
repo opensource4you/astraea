@@ -55,7 +55,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
                 GroupHandler.Groups.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
         var group = response.groups.stream().filter(g -> g.groupId.equals(groupId)).findAny().get();
         Assertions.assertEquals(1, group.members.size());
-        group.members.forEach(m -> Assertions.assertNull(m.groupInstanceId));
+        group.members.forEach(m -> Assertions.assertTrue(m.groupInstanceId.isEmpty()));
       }
     }
   }

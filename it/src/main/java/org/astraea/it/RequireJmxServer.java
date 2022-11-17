@@ -77,7 +77,7 @@ public abstract class RequireJmxServer {
 
   private static String address() {
     try {
-      var address = InetAddress.getLocalHost().getHostAddress();
+      var address = Utils.hostname();
       if (address.equals("0.0.0.0") || address.equals("127.0.0.1"))
         throw new RuntimeException("the address of host can't be either 0.0.0.0 or 127.0.0.1");
       return InetAddress.getLocalHost().getHostAddress();
