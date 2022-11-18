@@ -90,7 +90,6 @@ public class StrictCostDispatcher implements Dispatcher {
                                         metricCollector.registerJmx(
                                             node.id(),
                                             InetSocketAddress.createUnresolved(node.host(), port)));
-                            metricCollector.addFetcher(fetcher);
                           }
                         }));
   }
