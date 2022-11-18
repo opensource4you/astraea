@@ -31,6 +31,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -191,10 +192,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       // producer and consumer here are used to trigger kafka to create internal topic
       // __consumer_offsets
       producer
-          .sender()
-          .topic(topicName)
-          .key("foo".getBytes(UTF_8))
-          .run()
+          .send(Record.builder().topic(topicName).key("foo".getBytes(UTF_8)).build())
           .toCompletableFuture()
           .join();
       consumer.poll(Duration.ofSeconds(1));
@@ -345,7 +343,10 @@ public class TopicHandlerTest extends RequireBrokerCluster {
                 .build()) {
       var handler = new TopicHandler(admin);
 
-      producer.sender().topic(topicName).key(new byte[100]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topicName).key(new byte[100]).build())
+          .toCompletableFuture()
+          .join();
 
       // try poll
       Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());

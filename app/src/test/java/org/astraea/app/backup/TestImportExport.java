@@ -20,13 +20,20 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -38,17 +45,25 @@ public class TestImportExport extends RequireBrokerCluster {
   void test() throws IOException {
     var records = 30;
     var topics = Set.of(Utils.randomString(), Utils.randomString(), Utils.randomString());
+    var start = System.currentTimeMillis();
     try (var producer = Producer.of(bootstrapServers())) {
       topics.forEach(
           t ->
               IntStream.range(0, records)
                   .forEach(
                       i ->
-                          producer
-                              .sender()
-                              .topic(t)
-                              .key(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-                              .run()));
+                          producer.send(
+                              org.astraea.common.producer.Record.builder()
+                                  .topic(t)
+                                  .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                                  .value(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                                  .headers(
+                                      List.of(
+                                          Header.of(
+                                              String.valueOf(i),
+                                              String.valueOf(i).getBytes(StandardCharsets.UTF_8))))
+                                  .timestamp(start + i)
+                                  .build())));
     }
     var group = Utils.randomString();
     var file = Files.createTempDirectory("test_import_export");
@@ -76,7 +91,12 @@ public class TestImportExport extends RequireBrokerCluster {
     // use the same group and there is no more records
     Assertions.assertEquals(0, Exporter.execute(exportArg).recordCount().size());
 
-    // test export
+    // cleanup topics
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.deleteTopics(topics).toCompletableFuture().join();
+    }
+
+    // test import
     var importArg =
         Argument.parse(
             new Importer.Argument(),
@@ -94,7 +114,38 @@ public class TestImportExport extends RequireBrokerCluster {
               .toCompletableFuture()
               .join();
       Assertions.assertEquals(topics.size(), offsets.size());
-      offsets.values().forEach(v -> Assertions.assertEquals(records * 2, v));
+      offsets.values().forEach(v -> Assertions.assertEquals(records, v));
+    }
+    try (var consumer =
+        Consumer.forTopics(topics)
+            .bootstrapServers(bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .build()) {
+      var fetched = consumer.poll(records * topics.size(), Duration.ofSeconds(60));
+      Assertions.assertEquals(records * topics.size(), fetched.size());
+      var groups = fetched.stream().collect(Collectors.groupingBy(Record::topic));
+      Assertions.assertEquals(topics.size(), groups.size());
+      groups
+          .values()
+          .forEach(
+              rs -> {
+                Assertions.assertEquals(records, rs.size());
+                for (var i = 0; i < records; ++i) {
+                  Assertions.assertEquals(
+                      String.valueOf(i), new String(rs.get(i).key(), StandardCharsets.UTF_8));
+                  Assertions.assertEquals(
+                      String.valueOf(i), new String(rs.get(i).value(), StandardCharsets.UTF_8));
+                  var headers = rs.get(i).headers();
+                  Assertions.assertEquals(1, headers.size());
+                  Assertions.assertEquals(String.valueOf(i), headers.iterator().next().key());
+                  Assertions.assertEquals(
+                      String.valueOf(i),
+                      new String(headers.iterator().next().value(), StandardCharsets.UTF_8));
+                  Assertions.assertEquals(start + i, rs.get(i).timestamp());
+                }
+              });
     }
   }
 }

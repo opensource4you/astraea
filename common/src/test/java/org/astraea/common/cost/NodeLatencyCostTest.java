@@ -30,6 +30,7 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ public class NodeLatencyCostTest extends RequireBrokerCluster {
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
-      producer.sender().topic(Utils.randomString(10)).value(new byte[100]).run();
+      producer.send(Record.builder().topic(Utils.randomString(10)).value(new byte[100]).build());
       producer.flush();
 
       var function = new NodeLatencyCost();

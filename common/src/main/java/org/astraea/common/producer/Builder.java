@@ -76,11 +76,32 @@ public class Builder<Key, Value> {
   }
 
   private static <Key, Value> CompletionStage<Metadata> doSend(
-      org.apache.kafka.clients.producer.Producer<Key, Value> producer,
-      ProducerRecord<Key, Value> record) {
+      org.apache.kafka.clients.producer.Producer<Key, Value> producer, Record<Key, Value> record) {
+
     var completableFuture = new CompletableFuture<Metadata>();
     producer.send(
-        record,
+        new ProducerRecord<>(
+            record.topic(),
+            record.partition(),
+            record.timestamp(),
+            record.key(),
+            record.value(),
+            record.headers().stream()
+                .map(
+                    e ->
+                        new org.apache.kafka.common.header.Header() {
+
+                          @Override
+                          public String key() {
+                            return e.key();
+                          }
+
+                          @Override
+                          public byte[] value() {
+                            return e.value();
+                          }
+                        })
+                .collect(Collectors.toList())),
         (metadata, exception) -> {
           if (exception == null) completableFuture.completeAsync(() -> Metadata.of(metadata));
           else completableFuture.completeExceptionally(exception);
@@ -157,18 +178,13 @@ public class Builder<Key, Value> {
     }
 
     @Override
-    public Sender<Key, Value> sender() {
-      return new AbstractSender<>() {
-        @Override
-        public CompletionStage<Metadata> run() {
-          return doSend(kafkaProducer, record());
-        }
-      };
+    public CompletionStage<Metadata> send(Record<Key, Value> record) {
+      return doSend(kafkaProducer, record);
     }
 
     @Override
-    public Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders) {
-      return senders.stream().map(Sender::run).collect(Collectors.toUnmodifiableList());
+    public Collection<CompletionStage<Metadata>> send(Collection<Record<Key, Value>> records) {
+      return records.stream().map(this::send).collect(Collectors.toUnmodifiableList());
     }
 
     @Override
@@ -178,7 +194,6 @@ public class Builder<Key, Value> {
   }
 
   private static class TransactionalProducer<Key, Value> extends BaseProducer<Key, Value> {
-    private final Object lock = new Object();
     private final String transactionId;
 
     private TransactionalProducer(
@@ -189,47 +204,27 @@ public class Builder<Key, Value> {
     }
 
     @Override
-    public Sender<Key, Value> sender() {
-      return new AbstractSender<>() {
-        @Override
-        public CompletionStage<Metadata> run() {
-          return send(List.of(this)).iterator().next();
-        }
-      };
+    public CompletionStage<Metadata> send(Record<Key, Value> record) {
+      return send(List.of(record)).iterator().next();
     }
 
     @Override
-    public Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders) {
-      var invalidSenders =
-          senders.stream()
-              .filter(s -> !(s instanceof AbstractSender))
-              .collect(Collectors.toUnmodifiableList());
-      if (!invalidSenders.isEmpty())
-        throw new IllegalArgumentException(
-            "those senders: "
-                + invalidSenders.stream()
-                    .map(Sender::getClass)
-                    .map(Class::getName)
-                    .collect(Collectors.joining(","))
-                + " are not supported");
+    public Collection<CompletionStage<Metadata>> send(Collection<Record<Key, Value>> records) {
       try {
-        synchronized (lock) {
-          kafkaProducer.beginTransaction();
-          var futures =
-              senders.stream()
-                  .map(s -> (AbstractSender<Key, Value>) s)
-                  .map(s -> doSend(kafkaProducer, s.record()))
-                  .collect(Collectors.toUnmodifiableList());
-          kafkaProducer.commitTransaction();
-          return futures;
-        }
+        kafkaProducer.beginTransaction();
+        var futures =
+            records.stream()
+                .map(r -> doSend(kafkaProducer, r))
+                .collect(Collectors.toUnmodifiableList());
+        kafkaProducer.commitTransaction();
+        return futures;
       } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
         kafkaProducer.close();
         // Error occur
         throw e;
       } catch (KafkaException ke) {
         kafkaProducer.abortTransaction();
-        return send(senders);
+        return send(records);
       }
     }
 

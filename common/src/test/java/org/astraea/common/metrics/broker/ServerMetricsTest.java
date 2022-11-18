@@ -34,6 +34,7 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -212,7 +213,10 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
   void testTopic(ServerMetrics.Topic topic) {
     var name = Utils.randomString();
     try (var producer = Producer.of(bootstrapServers())) {
-      producer.sender().topic(name).key(new byte[10]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(name).key(new byte[10]).build())
+          .toCompletableFuture()
+          .join();
     }
     try (var consumer =
         Consumer.forTopics(Set.of(name))

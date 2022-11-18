@@ -60,12 +60,12 @@ public class ConsumerTest extends RequireBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                      .value(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      org.astraea.common.producer.Record.builder()
+                          .topic(topic)
+                          .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .value(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
   }
@@ -181,11 +181,11 @@ public class ConsumerTest extends RequireBrokerCluster {
       IntStream.range(0, count)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .value(String.valueOf(count).getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      org.astraea.common.producer.Record.builder()
+                          .topic(topic)
+                          .value(String.valueOf(count).getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
     try (var consumer =
@@ -241,12 +241,12 @@ public class ConsumerTest extends RequireBrokerCluster {
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
-          producer
-              .sender()
-              .topic(topic)
-              .partition(partitionId)
-              .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
-              .run();
+          producer.send(
+              org.astraea.common.producer.Record.builder()
+                  .topic(topic)
+                  .partition(partitionId)
+                  .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                  .build());
         }
       }
       producer.flush();
@@ -283,7 +283,8 @@ public class ConsumerTest extends RequireBrokerCluster {
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      producer.sender().topic(topic).value(new byte[10]).run();
+      producer.send(
+          org.astraea.common.producer.Record.builder().topic(topic).value(new byte[10]).build());
       producer.flush();
 
       var groupId = Utils.randomString(10);

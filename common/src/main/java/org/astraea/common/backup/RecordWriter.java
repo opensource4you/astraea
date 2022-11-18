@@ -46,21 +46,48 @@ public interface RecordWriter {
 
   private static void writeV0(WritableByteChannel channel, Iterator<Record<byte[], byte[]>> records)
       throws IOException {
-    // TODO: append full records
     var count = 0;
     while (records.hasNext()) {
       var record = records.next();
       var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
-      // [topic size 2bytes][topic][partition 4bytes][key length 4bytes][key]
       var recordSize =
-          2 + topicBytes.length + 4 + 4 + (record.key() == null ? 0 : record.key().length);
+          2 // [topic size 2bytes]
+              + topicBytes.length // [topic]
+              + 4 // [partition 4bytes]
+              + 8 // [offset 8bytes]
+              + 8 // [timestamp 8bytes]
+              + 4 // [key length 4bytes]
+              + (record.key() == null ? 0 : record.key().length) // [key]
+              + 4 // [value length 4bytes]
+              + (record.value() == null ? 0 : record.value().length) // [value]
+              + 4 // [header size 4bytes]
+              + record.headers().stream()
+                  .mapToInt(
+                      h ->
+                          2 // [header key length 2bytes]
+                              + (h.key() == null
+                                  ? 0
+                                  : h.key().getBytes(StandardCharsets.UTF_8).length) // [header key]
+                              + 4 // [header value length 4bytes]
+                              + (h.value() == null ? 0 : h.value().length) // [header value]
+                      )
+                  .sum();
       var recordBuffer = ByteBuffer.allocate(4 + recordSize);
       recordBuffer.putInt(recordSize);
-      recordBuffer.putShort((short) topicBytes.length);
-      recordBuffer.put(ByteBuffer.wrap(topicBytes));
+      ByteBufferUtils.putLengthString(recordBuffer, record.topic());
       recordBuffer.putInt(record.partition());
-      recordBuffer.putInt(record.key() == null ? -1 : record.key().length);
-      if (record.key() != null) recordBuffer.put(record.key());
+      recordBuffer.putLong(record.offset());
+      recordBuffer.putLong(record.timestamp());
+      ByteBufferUtils.putLengthBytes(recordBuffer, record.key());
+      ByteBufferUtils.putLengthBytes(recordBuffer, record.value());
+      recordBuffer.putInt(record.headers().size());
+      record
+          .headers()
+          .forEach(
+              h -> {
+                ByteBufferUtils.putLengthString(recordBuffer, h.key());
+                ByteBufferUtils.putLengthBytes(recordBuffer, h.value());
+              });
       channel.write(recordBuffer.flip());
       count++;
     }

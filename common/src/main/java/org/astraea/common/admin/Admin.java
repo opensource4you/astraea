@@ -155,6 +155,12 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<List<Broker>> brokers();
 
+  default CompletionStage<String> bootstrapServers() {
+    return brokers()
+        .thenApply(
+            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")));
+  }
+
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
     return brokers()
         .thenApply(
