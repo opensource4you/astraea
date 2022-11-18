@@ -31,10 +31,6 @@ public class FileWriterBuilder {
   private OutputStream fs;
   private short version = 0;
 
-  public FileWriterBuilder(OutputStream outputStream) {
-    this.fs = outputStream;
-  }
-
   public FileWriterBuilder compression() throws IOException {
     this.fs = new GZIPOutputStream(this.fs);
     return this;
@@ -52,6 +48,11 @@ public class FileWriterBuilder {
 
   public FileWriterBuilder version(short version) {
     this.version = version;
+    return this;
+  }
+
+  public FileWriterBuilder output(OutputStream outputStream) {
+    this.fs = outputStream;
     return this;
   }
 

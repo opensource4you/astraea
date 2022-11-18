@@ -82,7 +82,7 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
     var file = Files.createTempFile(topic, null).toFile();
     produceData(topic, 10);
     var output = new FileOutputStream(file);
-    var writer = RecordWriter.builder(output).version((short) 0).build();
+    var writer = RecordWriter.builder().output(output).version((short) 0).build();
     var records =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
             .bootstrapServers(bootstrapServers())
