@@ -72,7 +72,6 @@ class BalancerHandler implements Handler {
 
   static final String BALANCER_CONFIGURATION_KEY = "balancer-config";
 
-  static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
   static final String BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class.getName();
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
