@@ -39,6 +39,9 @@ public class FtpFileSystemTest {
       try (var output = fs.write("/aa")) {
         output.write("abc".getBytes(StandardCharsets.UTF_8));
       }
+      var f = fs.listFiles("/");
+      Assertions.assertEquals(1, f.size());
+      Assertions.assertEquals("/aa", f.get(0));
 
       // can't list a file
       Assertions.assertThrows(IllegalArgumentException.class, () -> fs.listFiles("/aa"));

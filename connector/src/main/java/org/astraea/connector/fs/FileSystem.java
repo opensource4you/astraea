@@ -26,16 +26,44 @@ public interface FileSystem extends AutoCloseable {
     return new FtpFileSystem(hostname, port, user, password);
   }
 
+  /**
+   * create the folder if it is nonexistent. The parent folders get created automatically.
+   *
+   * @param path to make a folder
+   */
   void mkdir(String path);
 
+  /**
+   * List all files of path. It throws exception if the path is not a folder.
+   *
+   * @param path to list file
+   * @return file names
+   */
   List<String> listFiles(String path);
 
+  /**
+   * List all folders of path. It throws exception if the path is not a folder.
+   *
+   * @param path to list file
+   * @return folder names
+   */
   List<String> listFolders(String path);
 
+  /**
+   * delete the file or whole folder
+   *
+   * @param path to delete
+   */
   void delete(String path);
 
   InputStream read(String path);
 
+  /**
+   * create a file on given path. The parent folders get created automatically.
+   *
+   * @param path to write data
+   * @return output stream
+   */
   OutputStream write(String path);
 
   @Override
