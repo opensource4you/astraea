@@ -17,9 +17,6 @@
 package org.astraea.common.backup;
 
 import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -29,43 +26,42 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.consumer.Record;
 
-public class LocalFileWriterBuilder {
+public class FileWriterBuilder {
 
   private OutputStream fs;
   private short version = 0;
 
-  public LocalFileWriterBuilder(File file) throws FileNotFoundException {
-    this.fs = new FileOutputStream(file);
+  public FileWriterBuilder(OutputStream outputStream) {
+    this.fs = outputStream;
   }
 
-  public LocalFileWriterBuilder compression() throws IOException {
+  public FileWriterBuilder compression() throws IOException {
     this.fs = new GZIPOutputStream(this.fs);
     return this;
   }
 
-  public LocalFileWriterBuilder buffered() {
+  public FileWriterBuilder buffered() {
     this.fs = new BufferedOutputStream(this.fs);
     return this;
   }
 
-  public LocalFileWriterBuilder buffered(int size) {
+  public FileWriterBuilder buffered(int size) {
     this.fs = new BufferedOutputStream(this.fs, size);
     return this;
   }
 
-  public LocalFileWriterBuilder version(short version) {
+  public FileWriterBuilder version(short version) {
     this.version = version;
     return this;
   }
 
   public RecordWriter build() throws IOException {
-    return new LocalFileWriterImpl(this);
+    return new FileWriterImpl(this);
   }
 
-  private static class LocalFileWriterImpl implements RecordWriter {
-
-    private OutputStream fs;
-    private WritableByteChannel channel;
+  private static class FileWriterImpl implements RecordWriter {
+    private final OutputStream fs;
+    private final WritableByteChannel channel;
     int recordCnt;
     short version;
 
@@ -94,6 +90,7 @@ public class LocalFileWriterBuilder {
                               + (h.value() == null ? 0 : h.value().length) // [header value]
                       )
                   .sum();
+      // TODO reuse the recordBuffer
       var recordBuffer = ByteBuffer.allocate(4 + recordSize);
       recordBuffer.putInt(recordSize);
       ByteBufferUtils.putLengthString(recordBuffer, record.topic());
@@ -119,19 +116,19 @@ public class LocalFileWriterBuilder {
       this.fs.flush();
     }
 
-    private LocalFileWriterImpl(LocalFileWriterBuilder builder) throws IOException {
+    @Override
+    public void close() throws Exception {
+      channel.write(ByteBufferUtils.of(recordCnt));
+      fs.flush();
+    }
+
+    private FileWriterImpl(FileWriterBuilder builder) throws IOException {
       this.fs = builder.fs;
       this.version = builder.version;
       this.channel = Channels.newChannel(this.fs);
       this.recordCnt = 0;
 
       channel.write(ByteBufferUtils.of(version));
-    }
-
-    @Override
-    public void close() throws Exception {
-      channel.write(ByteBufferUtils.of(recordCnt));
-      fs.flush();
     }
   }
 }

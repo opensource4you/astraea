@@ -17,9 +17,9 @@
 package org.astraea.common.backup;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
@@ -99,7 +99,7 @@ public interface RecordWriter extends AutoCloseable {
 
   void flush() throws IOException;
 
-  static LocalFileWriterBuilder localFile(File file) throws FileNotFoundException {
-    return new LocalFileWriterBuilder(file);
+  static FileWriterBuilder builder(OutputStream outputStream) {
+    return new FileWriterBuilder(outputStream);
   }
 }
