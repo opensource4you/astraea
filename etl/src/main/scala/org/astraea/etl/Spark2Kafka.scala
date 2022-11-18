@@ -45,14 +45,17 @@ object Spark2Kafka {
         .readCSV(metaData.sourcePath.getPath)
         .csvToJSON(pk)
 
-      Writer
+      val query = Writer
         .of()
         .dataFrameOp(df)
         .target(metaData.topicName)
         .checkpoint(metaData.sinkPath + "/checkpoint")
         .writeToKafka(metaData.kafkaBootstrapServers)
         .start()
-        .awaitTermination(duration.toMillis)
+      if (duration != Duration.Inf)
+        query.awaitTermination(duration.toMillis)
+      else
+        query.awaitTermination()
     }
   }
 
