@@ -17,6 +17,7 @@
 plugins {
     // Apply the scala Plugin to add support for Scala.
     id 'scala'
+    id 'application'
 }
 
 repositories {
@@ -43,6 +44,11 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
     testImplementation project(':it')
+}
+
+application {
+    mainClass = 'org.astraea.etl.Spark2Kafka'
+    applicationDefaultJvmArgs = ["-server", "-XX:+UseG1GC", "-Djava.awt.headless=true"]
 }
 
 ext {
