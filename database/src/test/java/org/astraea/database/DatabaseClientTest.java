@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.database;
 
-import org.astraea.common.Utils;
 import org.astraea.it.Database;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class DatabaseClientTest {
+
+  private static String randomString(int size) {
+    return java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, size);
+  }
+
   @Test
   void testCreate() {
     try (var database = Database.builder().build();
@@ -32,9 +36,9 @@ public class DatabaseClientTest {
                 .url(database.url())
                 .build()) {
       var tableCount = client.query().run().size();
-      var tableName = Utils.randomString(10);
-      var c0 = new ColumnInfo(Utils.randomString(5), "INT", true);
-      var c1 = new ColumnInfo(Utils.randomString(5), "INT", false);
+      var tableName = randomString(10);
+      var c0 = new ColumnInfo(randomString(5), "INT", true);
+      var c1 = new ColumnInfo(randomString(5), "INT", false);
       client
           .tableCreator()
           .name(tableName)
@@ -62,9 +66,9 @@ public class DatabaseClientTest {
                 .password(database.password())
                 .url(database.url())
                 .build()) {
-      var tableName = Utils.randomString(10);
+      var tableName = randomString(10);
       var tableCount = client.query().run().size();
-      client.tableCreator().name(tableName).primaryKey(Utils.randomString(5), "INT").run();
+      client.tableCreator().name(tableName).primaryKey(randomString(5), "INT").run();
       Assertions.assertEquals(tableCount + 1, client.query().run().size());
       client.deleteTable(tableName);
       Assertions.assertEquals(tableCount, client.query().run().size());
@@ -82,10 +86,10 @@ public class DatabaseClientTest {
                 .build()) {
       Assertions.assertThrows(
           NullPointerException.class,
-          () -> client.tableCreator().primaryKey(Utils.randomString(5), "INT").run());
+          () -> client.tableCreator().primaryKey(randomString(5), "INT").run());
       Assertions.assertThrows(
           IllegalArgumentException.class,
-          () -> client.tableCreator().name("a").column(Utils.randomString(5), "INT").run());
+          () -> client.tableCreator().name("a").column(randomString(5), "INT").run());
     }
   }
 }

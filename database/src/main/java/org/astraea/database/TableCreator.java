@@ -14,36 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.database;
 
-import java.util.Collection;
-
-public interface TableQuery {
+public interface TableCreator {
 
   /**
-   * Normally, catalog in database is server instance or database instance.
+   * @param name table name
+   * @return this creator
+   */
+  TableCreator name(String name);
+
+  /**
+   * create a normal column
    *
-   * @param catalog to search
-   * @return this query
+   * @param name column name
+   * @param type column type
+   * @return this creator
    */
-  TableQuery catalog(String catalog);
+  TableCreator column(String name, String type);
 
   /**
-   * Normally, schema in database is namespace.
+   * create a primary key
    *
-   * @param schema to search
-   * @return this query
+   * @param name primary key name
+   * @param type primary key type
+   * @return this creator
    */
-  TableQuery schema(String schema);
+  TableCreator primaryKey(String name, String type);
 
-  /**
-   * @param tableName to search
-   * @return this query
-   */
-  TableQuery tableName(String tableName);
-
-  /**
-   * @return the tables matched to this query.
-   */
-  Collection<TableInfo> run();
+  void run();
 }
