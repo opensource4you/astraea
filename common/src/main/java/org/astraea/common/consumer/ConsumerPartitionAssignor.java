@@ -91,6 +91,13 @@ public interface ConsumerPartitionAssignor
       this.groupInstanceId = Optional.empty();
     }
 
+    public Subscription(List<String> topics, List<TopicPartition> ownedPartitions) {
+      this.topics = topics;
+      this.ownedPartitions = ownedPartitions;
+      this.userData = null;
+      this.groupInstanceId = Optional.empty();
+    }
+
     public List<String> topics() {
       return topics;
     }
@@ -113,11 +120,7 @@ public interface ConsumerPartitionAssignor
 
     public static Subscription from(
         org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Subscription subscription) {
-      // convert ByteBuffer into Map<String,String>
-      var kafkaUserData = subscription.userData();
-      var stringData = StandardCharsets.UTF_8.decode(kafkaUserData).toString();
-      var userData = convert(stringData);
-
+      Subscription ourSubscription;
       // convert astraea topic-partition into Kafka topic-partition
       var ownPartitions =
           subscription.ownedPartitions() == null
@@ -126,7 +129,12 @@ public interface ConsumerPartitionAssignor
                   .map(TopicPartition::from)
                   .collect(Collectors.toUnmodifiableList());
 
-      var ourSubscription = new Subscription(subscription.topics(), userData, ownPartitions);
+      var kafkaUserData = subscription.userData();
+      // convert ByteBuffer into Map<String,String>
+      if (kafkaUserData != null) {
+        var ourUserData = convert(StandardCharsets.UTF_8.decode(kafkaUserData).toString());
+        ourSubscription = new Subscription(subscription.topics(), ourUserData, ownPartitions);
+      } else ourSubscription = new Subscription(subscription.topics(), ownPartitions);
 
       // check groupInstanceId if it's empty or not
       if (!subscription.groupInstanceId().equals(Optional.empty()))
@@ -141,7 +149,8 @@ public interface ConsumerPartitionAssignor
           .map(
               item -> {
                 var keyValue = item.split("=");
-                if (keyValue.length != 2) throw new ParameterException("incorrect userData format: " + item);
+                if (keyValue.length != 2)
+                  throw new ParameterException("incorrect userData format: " + item);
                 return Map.entry(keyValue[0], keyValue[1]);
               })
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
