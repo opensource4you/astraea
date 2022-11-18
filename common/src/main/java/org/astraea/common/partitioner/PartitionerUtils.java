@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
-import org.astraea.common.cost.Configuration;
+import org.astraea.common.Configuration;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {
