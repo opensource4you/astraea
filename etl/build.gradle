@@ -28,8 +28,8 @@ repositories {
 def versions = [
         kafka      : project.properties['kafka.version'] ?: "3.3.1",
         scala      : project.properties['scala.version'] ?: "2.12.15",
-        spark_sql  : project.properties['spark_sql.version'] ?: "3.3.0",
-        spark_kafka: project.properties['spark_kafka.version'] ?: "3.3.0",
+        spark_sql  : project.properties['spark_sql.version'] ?: "3.1.2",
+        spark_kafka: project.properties['spark_kafka.version'] ?: "3.1.2",
         junit      : project.properties['junit.version'] ?: "5.9.1",
         opencsv    : project.properties['opencsv.version'] ?: "5.7.1",
 ]
