@@ -48,7 +48,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.Argument;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -1078,26 +1077,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
     }
-  }
-
-  @Test
-  void testArgument() {
-    var arg =
-        Argument.parse(
-            new WebService.Argument(),
-            new String[] {
-              "--bootstrap.servers",
-              "ignore",
-              "--broker.jmx",
-              "1=kafka1.example.com:1000,2=kafka2.example.com:2000,3=192.168.0.3:3000"
-            });
-    Assertions.assertEquals(3, arg.brokerJmxMap.size());
-    Assertions.assertEquals("kafka1.example.com", arg.brokerJmxMap.get(1).getHostName());
-    Assertions.assertEquals("kafka2.example.com", arg.brokerJmxMap.get(2).getHostName());
-    Assertions.assertEquals("192.168.0.3", arg.brokerJmxMap.get(3).getHostName());
-    Assertions.assertEquals(1000, arg.brokerJmxMap.get(1).getPort());
-    Assertions.assertEquals(2000, arg.brokerJmxMap.get(2).getPort());
-    Assertions.assertEquals(3000, arg.brokerJmxMap.get(3).getPort());
   }
 
   @Test
