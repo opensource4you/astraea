@@ -113,7 +113,9 @@ public class GreedyBalancer implements Balancer {
                               .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))
                               .collect(Collectors.toList()));
                     })
-                .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+                .filter(
+                    plan ->
+                        config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
     var currentCost = initialCost;
@@ -126,7 +128,7 @@ public class GreedyBalancer implements Balancer {
       var newPlan = next.apply(currentAllocation, currentCost);
       if (newPlan.isEmpty()) break;
       currentPlan = newPlan;
-      currentCost = currentPlan.get().clusterCost();
+      currentCost = currentPlan.get().proposalClusterCost();
       currentAllocation = currentPlan.get().proposal();
     }
     return currentPlan;

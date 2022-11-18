@@ -99,19 +99,24 @@ public interface Balancer {
   class Plan {
     final ClusterLogAllocation proposal;
     final ClusterCost initialClusterCost;
-    final ClusterCost clusterCost;
+    final ClusterCost proposalClusterCost;
     final List<MoveCost> moveCost;
 
     public ClusterLogAllocation proposal() {
       return proposal;
     }
 
+    /**
+     * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
+     * generating.
+     */
     public ClusterCost initialClusterCost() {
       return initialClusterCost;
     }
 
-    public ClusterCost clusterCost() {
-      return clusterCost;
+    /** The {@link ClusterCost} score of the proposed new allocation. */
+    public ClusterCost proposalClusterCost() {
+      return proposalClusterCost;
     }
 
     public List<MoveCost> moveCost() {
@@ -121,11 +126,11 @@ public interface Balancer {
     public Plan(
         ClusterLogAllocation proposal,
         ClusterCost initialClusterCost,
-        ClusterCost clusterCost,
+        ClusterCost proposalClusterCost,
         List<MoveCost> moveCost) {
       this.proposal = proposal;
       this.initialClusterCost = initialClusterCost;
-      this.clusterCost = clusterCost;
+      this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;
     }
   }

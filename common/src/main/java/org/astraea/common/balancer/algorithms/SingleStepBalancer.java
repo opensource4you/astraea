@@ -99,8 +99,8 @@ public class SingleStepBalancer implements Balancer {
                           cf -> cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
                       .collect(Collectors.toList()));
             })
-        .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+        .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .min(Comparator.comparing(plan -> plan.clusterCost().value()));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }
 }

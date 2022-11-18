@@ -203,7 +203,7 @@ class BalancerHandler implements Handler {
                   var report =
                       new Report(
                           bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
-                          bestPlan.map(p -> p.clusterCost().value()).orElse(null),
+                          bestPlan.map(p -> p.proposalClusterCost().value()).orElse(null),
                           request.configBuilder.get().build().clusterCostFunction().toString(),
                           changes,
                           bestPlan
