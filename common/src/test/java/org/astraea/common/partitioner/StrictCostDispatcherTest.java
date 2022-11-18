@@ -288,11 +288,9 @@ public class StrictCostDispatcherTest {
           dispatcher.jmxPortGetter = id -> Optional.of(1111);
           dispatcher.tryToUpdateFetcher(clusterInfo);
           Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
-          Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
 
           dispatcher.tryToUpdateFetcher(clusterInfo);
           Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
-          Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
         }
       }
     }
