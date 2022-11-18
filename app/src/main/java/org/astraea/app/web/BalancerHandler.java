@@ -34,13 +34,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
@@ -52,12 +55,15 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.Configuration;
+import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricCollector;
 
 class BalancerHandler implements Handler {
 
@@ -150,9 +156,32 @@ class BalancerHandler implements Handler {
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
                   var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
+                  var fetchers =
+                      Stream.of(
+                              Stream.of(
+                                  request
+                                      .configBuilder
+                                      .get()
+                                      .build()
+                                      .clusterCostFunction()
+                                      .fetcher()),
+                              request.configBuilder.get().build().moveCostFunctions().stream()
+                                  .map(CostFunction::fetcher))
+                          .flatMap(x -> x)
+                          .flatMap(Optional::stream)
+                          .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
-                      Balancer.create(request.balancerClasspath, request.algorithmConfig)
-                          .offer(currentClusterInfo, request.executionTime);
+                      metricContext(
+                          fetchers,
+                          (metricSource) ->
+                              Balancer.create(
+                                      request.balancerClasspath,
+                                      request
+                                          .configBuilder
+                                          .get()
+                                          .metricSource(metricSource)
+                                          .build())
+                                  .retryOffer(currentClusterInfo, request.executionTime));
                   var changes =
                       bestPlan
                           .map(
@@ -178,7 +207,7 @@ class BalancerHandler implements Handler {
                       new Report(
                           bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          request.algorithmConfig.clusterCostFunction().getClass().getSimpleName(),
+                          "", // TODO: this field is meaningless
                           changes,
                           bestPlan
                               .map(
@@ -197,6 +226,16 @@ class BalancerHandler implements Handler {
                 });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  private Optional<Balancer.Plan> metricContext(
+      Collection<Fetcher> fetchers,
+      Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
+    try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
+      fetchers.forEach(collector::addFetcher);
+      brokerJmxAddresses.forEach(collector::registerJmx);
+      return execution.apply(collector::clusterBean);
+    }
   }
 
   // visible for test
@@ -240,14 +279,14 @@ class BalancerHandler implements Handler {
     return new PostRequest(
         balancerClasspath,
         timeout,
-        AlgorithmConfig.builder()
-            .clusterCost(clusterCostFunction)
-            .dataFolders(dataFolders)
-            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-            .movementConstraint(movementConstraint(channel.request().raw()))
-            .topicFilter(topics::contains)
-            .config(balancerConfig)
-            .build());
+        () ->
+            AlgorithmConfig.builder()
+                .clusterCost(clusterCostFunction)
+                .dataFolders(dataFolders)
+                .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+                .movementConstraint(movementConstraint(channel.request().raw()))
+                .topicFilter(topics::contains)
+                .config(balancerConfig));
   }
 
   @SuppressWarnings("unchecked")
@@ -440,12 +479,15 @@ class BalancerHandler implements Handler {
   static class PostRequest {
     final String balancerClasspath;
     final Duration executionTime;
-    final AlgorithmConfig algorithmConfig;
+    final Supplier<AlgorithmConfig.Builder> configBuilder;
 
-    PostRequest(String balancerClasspath, Duration executionTime, AlgorithmConfig algorithmConfig) {
+    PostRequest(
+        String balancerClasspath,
+        Duration executionTime,
+        Supplier<AlgorithmConfig.Builder> configBuilder) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
-      this.algorithmConfig = algorithmConfig;
+      this.configBuilder = configBuilder;
     }
   }
 
