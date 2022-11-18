@@ -55,7 +55,6 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.Configuration;
-import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -157,18 +156,16 @@ class BalancerHandler implements Handler {
                 (currentClusterInfo, brokerFolders) -> {
                   var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
                   var fetchers =
-                      Stream.of(
-                              Stream.of(
-                                  request
-                                      .configBuilder
-                                      .get()
-                                      .build()
-                                      .clusterCostFunction()
-                                      .fetcher()),
+                      Stream.concat(
+                              request
+                                  .configBuilder
+                                  .get()
+                                  .build()
+                                  .clusterCostFunction()
+                                  .fetcher()
+                                  .stream(),
                               request.configBuilder.get().build().moveCostFunctions().stream()
-                                  .map(CostFunction::fetcher))
-                          .flatMap(x -> x)
-                          .flatMap(Optional::stream)
+                                  .flatMap(c -> c.fetcher().stream()))
                           .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
                       metricContext(
@@ -207,7 +204,7 @@ class BalancerHandler implements Handler {
                       new Report(
                           bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          "", // TODO: this field is meaningless
+                          request.configBuilder.get().build().clusterCostFunction().toString(),
                           changes,
                           bestPlan
                               .map(
