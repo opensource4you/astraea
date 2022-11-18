@@ -290,7 +290,7 @@ class BalancerTest extends RequireBrokerCluster {
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return Optional.of(
-                new Plan(ClusterLogAllocation.of(currentClusterInfo), () -> 0, List.of()));
+                new Plan(ClusterLogAllocation.of(currentClusterInfo), () -> 0, () -> 0, List.of()));
           }
         };
 

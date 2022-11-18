@@ -98,11 +98,16 @@ public interface Balancer {
 
   class Plan {
     final ClusterLogAllocation proposal;
+    final ClusterCost initialClusterCost;
     final ClusterCost clusterCost;
     final List<MoveCost> moveCost;
 
     public ClusterLogAllocation proposal() {
       return proposal;
+    }
+
+    public ClusterCost initialClusterCost() {
+      return initialClusterCost;
     }
 
     public ClusterCost clusterCost() {
@@ -113,8 +118,13 @@ public interface Balancer {
       return moveCost;
     }
 
-    public Plan(ClusterLogAllocation proposal, ClusterCost clusterCost, List<MoveCost> moveCost) {
+    public Plan(
+        ClusterLogAllocation proposal,
+        ClusterCost initialClusterCost,
+        ClusterCost clusterCost,
+        List<MoveCost> moveCost) {
       this.proposal = proposal;
+      this.initialClusterCost = initialClusterCost;
       this.clusterCost = clusterCost;
       this.moveCost = moveCost;
     }

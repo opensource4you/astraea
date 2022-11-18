@@ -41,7 +41,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
@@ -152,12 +151,6 @@ class BalancerHandler implements Handler {
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
                   var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
-                  var cost =
-                      request
-                          .algorithmConfig
-                          .clusterCostFunction()
-                          .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
-                          .value();
                   var bestPlan =
                       Balancer.create(request.balancerClasspath, request.algorithmConfig)
                           .offer(currentClusterInfo, request.executionTime);
@@ -184,7 +177,7 @@ class BalancerHandler implements Handler {
                           .orElse(List.of());
                   var report =
                       new Report(
-                          cost,
+                          bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
                           bestPlan.map(p -> p.clusterCost().value()).orElse(null),
                           request.algorithmConfig.clusterCostFunction().getClass().getSimpleName(),
                           changes,
@@ -513,7 +506,8 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    final double cost;
+    // initial cost might be unavailable due to unable to evaluate cost function
+    final Double cost;
 
     // don't generate new cost if there is no best plan
     final Double newCost;
@@ -523,7 +517,7 @@ class BalancerHandler implements Handler {
     final List<MigrationCost> migrationCosts;
 
     Report(
-        double cost,
+        Double cost,
         Double newCost,
         String function,
         List<Change> changes,

@@ -92,6 +92,7 @@ public class SingleStepBalancer implements Balancer {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Balancer.Plan(
                   newAllocation,
+                  currentCost,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
                   moveCostFunction.stream()
                       .map(
