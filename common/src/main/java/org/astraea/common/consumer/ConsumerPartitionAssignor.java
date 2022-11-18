@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
 public interface ConsumerPartitionAssignor
@@ -39,7 +40,7 @@ public interface ConsumerPartitionAssignor
    * @return Map from each member to the list of partitions assigned to them.
    */
   Map<String, List<TopicPartition>> assign(
-      Map<String, Subscription> subscriptions, ClusterInfo metadata);
+      Map<String, Subscription> subscriptions, ClusterInfo<ReplicaInfo> metadata);
 
   @Override
   default String name() {

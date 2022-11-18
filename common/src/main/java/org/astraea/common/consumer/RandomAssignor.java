@@ -22,13 +22,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
 public class RandomAssignor implements ConsumerPartitionAssignor {
 
   @Override
   public Map<String, List<TopicPartition>> assign(
-      Map<String, Subscription> subscriptions, ClusterInfo metadata) {
+      Map<String, Subscription> subscriptions, ClusterInfo<ReplicaInfo> metadata) {
     Set<TopicPartition> topicPartitions = metadata.topicPartitions();
 
     var assignments = new HashMap<String, List<TopicPartition>>();
