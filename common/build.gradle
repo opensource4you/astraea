@@ -15,7 +15,6 @@ def versions = [
         jcommander  : project.properties['jcommander.version'] ?: "1.82",
         slf4j       : project.properties['slf4j.version'] ?: "2.0.3",
         "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
-        "commons-lang": project.properties['commons-lang.version'] ?: "3.12.0",
         "math3"     : project.properties['math3.version'] ?: "3.6.1",
         jackson     : project.properties['jackson.version'] ?: "2.13.4",
         "opencsv"   : project.properties['opencsv.version'] ?: "5.6"
@@ -35,7 +34,6 @@ dependencies {
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
     implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
     implementation "org.apache.commons:commons-math3:${versions["math3"]}"
-    implementation "org.apache.commons:commons-lang3:${versions["commons-lang"]}"
     implementation "com.opencsv:opencsv:${versions["opencsv"]}"
 }
 

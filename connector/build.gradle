@@ -12,6 +12,7 @@ def versions = [
         junit    : project.properties['junit.version'] ?: "5.9.1",
         wix      : project.properties['wix.version'] ?: "4.6.2",
         mysql    : project.properties['mysql.version'] ?: "8.0.31",
+        "commons-net": project.properties['commons-net.version'] ?: "3.8.0",
 ]
 
 dependencies {
@@ -19,10 +20,12 @@ dependencies {
     testImplementation "com.wix:wix-embedded-mysql:${versions["wix"]}"
     testImplementation "mysql:mysql-connector-java:${versions["mysql"]}"
     testImplementation project(':it')
+
+    implementation project(':common')
     implementation "org.apache.kafka:connect-runtime:${versions["kafka"]}"
     implementation "org.apache.kafka:connect-json:${versions["kafka"]}"
     implementation "org.apache.kafka:connect-api:${versions["kafka"]}"
-    implementation project(':common')
+    implementation "commons-net:commons-net:${versions["commons-net"]}"
 }
 
 java {
