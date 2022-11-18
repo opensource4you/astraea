@@ -21,13 +21,11 @@ import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
 
 object Spark2Kafka {
-  def executor(args: Array[String], duration: Duration): Unit = {
+  def executor(args: Array[String], duration: Int): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(Admin.of(metaData.kafkaBootstrapServers)) { admin =>
       val pk = metaData.column.filter(col => col.isPK).map(col => col.name)
@@ -52,14 +50,18 @@ object Spark2Kafka {
         .checkpoint(metaData.sinkPath + "/checkpoint")
         .writeToKafka(metaData.kafkaBootstrapServers)
         .start()
-      if (duration != Duration.Inf)
-        query.awaitTermination(duration.toMillis)
-      else
+      println("start")
+      if (duration > 0) {
+        query.awaitTermination(Duration(duration, TimeUnit.SECONDS).toMillis)
+      } else {
+        println("start:Inf")
         query.awaitTermination()
+        println("start:fin")
+      }
     }
   }
 
   def main(args: Array[String]): Unit = {
-    executor(args, Duration.Inf)
+    executor(args, 0)
   }
 }

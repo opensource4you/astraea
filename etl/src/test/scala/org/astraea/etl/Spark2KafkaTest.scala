@@ -155,7 +155,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
     writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
     Spark2Kafka.executor(
       Array(myPropDir.toString),
-      Duration(20, TimeUnit.SECONDS)
+      20
     )
   }
 
