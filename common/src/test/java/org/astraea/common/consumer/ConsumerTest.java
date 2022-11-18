@@ -577,12 +577,12 @@ public class ConsumerTest extends RequireBrokerCluster {
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
-          producer
-              .sender()
-              .topic(topic)
-              .partition(partitionId)
-              .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
-              .run();
+          producer.send(
+              org.astraea.common.producer.Record.builder()
+                  .topic(topic)
+                  .partition(partitionId)
+                  .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                  .build());
         }
       }
       producer.flush();
@@ -631,12 +631,12 @@ public class ConsumerTest extends RequireBrokerCluster {
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
           for (var topic : topics) {
-            producer
-                .sender()
-                .topic(topic)
-                .partition(partitionId)
-                .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
-                .run();
+            producer.send(
+                org.astraea.common.producer.Record.builder()
+                    .topic(topic)
+                    .partition(partitionId)
+                    .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                    .build());
           }
         }
       }
