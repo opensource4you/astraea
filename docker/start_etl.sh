@@ -56,7 +56,7 @@ WORKDIR /tmp/astraea
 RUN git checkout $VERSION
 RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
-RUN tar -xvf \$(find ./etl/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
+RUN tar -xvf \$(find ./etl/build/distributions/ -maxdepth 1 -type f -name etl-*.tar) -C /opt/astraea/ --strip-components=1
 
 FROM ubuntu:22.04
 
@@ -80,8 +80,9 @@ WORKDIR /opt/astraea
 }
 
 function checkConflictContainer() {
-  local name=PROPERTIES_MAP[${SINK_KEY}]
+  local name=$(echo "${PROPERTIES_MAP[${SINK_KEY}]}" | tr '/' '-')
   local container_names=$(docker ps --format "{{.Names}}")
+
   if [[ $(echo "${container_names}" | grep -P "${name}") != "" ]]; then
     echo "It is disallowed to run multiples etl in same sink path: $name."
     exit 2
@@ -108,14 +109,19 @@ function readProperties() {
 
 function runContainer() {
     local args=$1
+        echo "$args"
+        echo "$IMAGE_NAME"
+        echo "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}-${PROPERTIES_MAP[${SOURCE_KEY}]}"
+        echo "$(echo "${PROPERTIES_MAP[${SINK_KEY}]}" | tr '/' '-')"
 
-    docker run -d --rm --init \
-        -v "${PROPERTIES_MAP[${SINK_KEY}]}":/tmp/sink_path:ro \
-        -v "${PROPERTIES_MAP[${SOURCE_KEY}]}":/tmp/source_path \
-        -- name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}-${PROPERTIES_MAP[${SINK_KEY}]}" \
+    docker run -d --init \
+        --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}-$(echo "${PROPERTIES_MAP[${SINK_KEY}]}" | tr '/' '-')" \
+        -v "/home/warren":/home/warren \
+        -v "${PROPERTIES_MAP[${SINK_KEY}]}":/tmp/sink_path \
+        -v "${PROPERTIES_MAP[${SOURCE_KEY}]}":/tmp/source_path:ro \
         -e JAVA_OPTS="$HEAP_OPTS" \
         "$IMAGE_NAME" \
-        /opt/astraea/bin/etl $args
+        /opt/astraea/bin/etl "/home/warren/spark2kafka.properties"
 }
 
 # ===================================[main]===================================
