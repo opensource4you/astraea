@@ -88,7 +88,7 @@ public class DatabaseClientTest {
           NullPointerException.class,
           () -> client.tableCreator().primaryKey(randomString(5), "INT").run());
       Assertions.assertThrows(
-          IllegalArgumentException.class,
+          IllegalStateException.class,
           () -> client.tableCreator().name("a").column(randomString(5), "INT").run());
     }
   }
