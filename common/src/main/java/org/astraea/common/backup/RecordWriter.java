@@ -102,8 +102,4 @@ public interface RecordWriter extends AutoCloseable {
   static LocalFileWriterBuilder localFile(File file) throws FileNotFoundException {
     return new LocalFileWriterBuilder(file);
   }
-
-  static FtpWriterBuilder ftp(String ip, int port) throws FileNotFoundException {
-    return new FtpWriterBuilder(ip, port);
-  }
 }
