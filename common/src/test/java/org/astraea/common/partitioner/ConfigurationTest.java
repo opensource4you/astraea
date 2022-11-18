@@ -19,7 +19,7 @@ package org.astraea.common.partitioner;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.astraea.common.cost.Configuration;
+import org.astraea.common.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

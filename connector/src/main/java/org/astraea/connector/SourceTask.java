@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.source.SourceRecord;
+import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Record;
 
