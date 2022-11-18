@@ -28,6 +28,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.PathField;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 
 public class Importer {
 
@@ -52,14 +53,15 @@ public class Importer {
             while (iter.hasNext()) {
               var record = iter.next();
               if (record.key() == null && record.value() == null) continue;
-              producer
-                  .sender()
-                  .topic(record.topic())
-                  .partition(record.partition())
-                  .key(record.key())
-                  .value(record.value())
-                  .timestamp(record.timestamp())
-                  .run();
+              producer.send(
+                  Record.builder()
+                      .topic(record.topic())
+                      .partition(record.partition())
+                      .key(record.key())
+                      .value(record.value())
+                      .timestamp(record.timestamp())
+                      .headers(record.headers())
+                      .build());
               recordCount.compute(
                   TopicPartition.of(record.topic(), record.partition()),
                   (k, v) -> v == null ? 1 : v + 1);

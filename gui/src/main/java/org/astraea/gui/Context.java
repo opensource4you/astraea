@@ -17,10 +17,12 @@
 package org.astraea.gui;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javafx.stage.Stage;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
@@ -28,6 +30,7 @@ import org.astraea.common.metrics.MBeanClient;
 public class Context {
   private final AtomicReference<Admin> adminReference = new AtomicReference<>();
 
+  private Stage stage;
   private volatile int jmxPort = -1;
   private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
 
@@ -35,6 +38,14 @@ public class Context {
 
   public Context(Admin admin) {
     adminReference.set(admin);
+  }
+
+  public void stage(Stage stage) {
+    this.stage = stage;
+  }
+
+  public Stage stage() {
+    return Objects.requireNonNull(stage);
   }
 
   public void replace(Admin admin) {

@@ -24,8 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
+import org.astraea.common.Header;
 import org.astraea.common.consumer.Record;
 
 public interface RecordReader {
@@ -59,23 +58,31 @@ public interface RecordReader {
         throw new IllegalStateException(
             "expected size is " + recordSize + ", but actual size is " + actualSize);
       recordBuffer.flip();
-      // TODO: read full record
       var topic = ByteBufferUtils.readString(recordBuffer, recordBuffer.getShort());
       var partition = recordBuffer.getInt();
+      var offset = recordBuffer.getLong();
+      var timestamp = recordBuffer.getLong();
       var key = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
-      // TODO: need builder
+      var value = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
+      var headerCnt = recordBuffer.getInt();
+      var headers = new ArrayList<Header>(headerCnt);
+      for (int headerIndex = 0; headerIndex < headerCnt; headerIndex++) {
+        var headerKey = ByteBufferUtils.readString(recordBuffer, recordBuffer.getShort());
+        var headerValue = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
+        headers.add(Header.of(headerKey, headerValue));
+      }
       records.add(
-          new Record<>(
-              topic,
-              partition,
-              0L,
-              0L,
-              key == null ? 0 : key.length,
-              0,
-              List.of(),
-              key,
-              null,
-              Optional.empty()));
+          Record.builder()
+              .topic(topic)
+              .partition(partition)
+              .offset(offset)
+              .timestamp(timestamp)
+              .key(key)
+              .value(value)
+              .serializedKeySize(key == null ? 0 : key.length)
+              .serializedValueSize(value == null ? 0 : value.length)
+              .headers(headers)
+              .build());
     }
     return records.iterator();
   }

@@ -25,16 +25,16 @@ public interface Producer<Key, Value> extends AutoCloseable {
 
   String clientId();
 
-  Sender<Key, Value> sender();
+  CompletionStage<Metadata> send(Record<Key, Value> record);
 
   /**
    * send the multiple records. Noted that the normal producer will send the record one by one. By
    * contrast, transactional producer will send all records in single transaction.
    *
-   * @param senders pre-defined records
+   * @param records pre-defined records
    * @return callback of all completed records
    */
-  Collection<CompletionStage<Metadata>> send(Collection<Sender<Key, Value>> senders);
+  Collection<CompletionStage<Metadata>> send(Collection<Record<Key, Value>> records);
 
   /** this method is blocked until all data in buffer are sent. */
   void flush();

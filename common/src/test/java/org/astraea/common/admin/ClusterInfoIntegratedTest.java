@@ -22,6 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,9 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
 
       try (var producer = Producer.of(bootstrapServers())) {
         IntStream.range(0, 100)
-            .forEach(ignored -> producer.sender().topic(topicName).key(new byte[10]).run());
+            .forEach(
+                ignored ->
+                    producer.send(Record.builder().topic(topicName).key(new byte[10]).build()));
       }
 
       var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();

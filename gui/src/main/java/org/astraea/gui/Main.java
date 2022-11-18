@@ -47,6 +47,7 @@ public class Main {
     @Override
     public void start(Stage stage) {
       var context = new Context();
+      context.stage(stage);
       stage.setTitle("Astraea");
       stage.setHeight(900);
       stage.setWidth(1200);

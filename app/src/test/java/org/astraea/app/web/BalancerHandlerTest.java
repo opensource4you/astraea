@@ -60,6 +60,7 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -218,11 +219,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                 index ->
                     topics.forEach(
                         topic ->
-                            producer
-                                .sender()
-                                .topic(topic)
-                                .key(String.valueOf(index).getBytes(StandardCharsets.UTF_8))
-                                .run()));
+                            producer.send(
+                                Record.builder()
+                                    .topic(topic)
+                                    .key(String.valueOf(index).getBytes(StandardCharsets.UTF_8))
+                                    .build())));
       }
       return topics;
     }
@@ -579,7 +580,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       try (var producer = Producer.of(bootstrapServers())) {
         var dummy = new byte[1024];
         IntStream.range(0, 100000)
-            .mapToObj(i -> producer.sender().topic(theTopic).value(dummy).run())
+            .mapToObj(i -> producer.send(Record.builder().topic(theTopic).value(dummy).build()))
             .collect(Collectors.toUnmodifiableSet())
             .forEach(i -> i.toCompletableFuture().join());
       }

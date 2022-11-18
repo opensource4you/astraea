@@ -14,52 +14,57 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer;
+package org.astraea.common;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 
-public final class Header implements org.apache.kafka.common.header.Header {
+public interface Header {
 
-  public static Header of(String key, byte[] value) {
-    return new Header(key, value);
-  }
-
-  private final String key;
-  private final byte[] value;
-
-  private Header(String key, byte[] value) {
-    this.key = key;
-    this.value = value;
-  }
-
-  public static Header of(org.apache.kafka.common.header.Header header) {
-    return new Header(header.key(), header.value());
-  }
-
-  public static Headers of(Collection<Header> headers) {
-    return new RecordHeaders(
-        headers.stream()
-            .map(h -> (org.apache.kafka.common.header.Header) h)
-            .collect(Collectors.toList()));
-  }
-
-  public static Collection<Header> of(Headers headers) {
+  static List<Header> of(Headers headers) {
     return StreamSupport.stream(headers.spliterator(), false)
-        .map(Header::of)
+        .map(h -> of(h.key(), h.value()))
         .collect(Collectors.toList());
   }
 
-  @Override
-  public String key() {
-    return key;
+  static Headers of(Collection<Header> headers) {
+    return new RecordHeaders(
+        headers.stream()
+            .map(
+                h ->
+                    new org.apache.kafka.common.header.Header() {
+                      @Override
+                      public String key() {
+                        return h.key();
+                      }
+
+                      @Override
+                      public byte[] value() {
+                        return h.value();
+                      }
+                    })
+            .collect(Collectors.toList()));
   }
 
-  @Override
-  public byte[] value() {
-    return value;
+  static Header of(String key, byte[] value) {
+    return new Header() {
+      @Override
+      public String key() {
+        return key;
+      }
+
+      @Override
+      public byte[] value() {
+        return value;
+      }
+    };
   }
+
+  String key();
+
+  byte[] value();
 }
