@@ -22,13 +22,17 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Iterator;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.consumer.Record;
 
 public class LocalFileWriterBuilder {
 
   private OutputStream fs;
+  private short version = 0;
 
   public LocalFileWriterBuilder(File file) throws FileNotFoundException {
     this.fs = new FileOutputStream(file);
@@ -49,17 +53,65 @@ public class LocalFileWriterBuilder {
     return this;
   }
 
-  public RecordWriter build() {
+  public LocalFileWriterBuilder version(short version) {
+    this.version = version;
+    return this;
+  }
+
+  public RecordWriter build() throws IOException {
     return new LocalFileWriterImpl(this);
   }
 
   private static class LocalFileWriterImpl implements RecordWriter {
 
     private OutputStream fs;
+    private WritableByteChannel channel;
+    int recordCnt;
+    short version;
 
     @Override
-    public void append(Iterator<Record<byte[], byte[]>> records) {
-      System.out.println("append in local file");
+    public void append(Record<byte[], byte[]> record) throws IOException {
+      var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
+      var recordSize =
+          2 // [topic size 2bytes]
+              + topicBytes.length // [topic]
+              + 4 // [partition 4bytes]
+              + 8 // [offset 8bytes]
+              + 8 // [timestamp 8bytes]
+              + 4 // [key length 4bytes]
+              + (record.key() == null ? 0 : record.key().length) // [key]
+              + 4 // [value length 4bytes]
+              + (record.value() == null ? 0 : record.value().length) // [value]
+              + 4 // [header size 4bytes]
+              + record.headers().stream()
+                  .mapToInt(
+                      h ->
+                          2 // [header key length 2bytes]
+                              + (h.key() == null
+                                  ? 0
+                                  : h.key().getBytes(StandardCharsets.UTF_8).length) // [header key]
+                              + 4 // [header value length 4bytes]
+                              + (h.value() == null ? 0 : h.value().length) // [header value]
+                      )
+                  .sum();
+      var recordBuffer = ByteBuffer.allocate(4 + recordSize);
+      recordBuffer.putInt(recordSize);
+      ByteBufferUtils.putLengthString(recordBuffer, record.topic());
+      recordBuffer.putInt(record.partition());
+      recordBuffer.putLong(record.offset());
+      recordBuffer.putLong(record.timestamp());
+      ByteBufferUtils.putLengthBytes(recordBuffer, record.key());
+      ByteBufferUtils.putLengthBytes(recordBuffer, record.value());
+      recordBuffer.putInt(record.headers().size());
+      record
+          .headers()
+          .forEach(
+              h -> {
+                ByteBufferUtils.putLengthString(recordBuffer, h.key());
+                ByteBufferUtils.putLengthBytes(recordBuffer, h.value());
+              });
+      channel.write(recordBuffer.flip());
+      recordCnt++;
     }
 
     @Override
@@ -67,8 +119,19 @@ public class LocalFileWriterBuilder {
       this.fs.flush();
     }
 
-    private LocalFileWriterImpl(LocalFileWriterBuilder builder) {
+    private LocalFileWriterImpl(LocalFileWriterBuilder builder) throws IOException {
       this.fs = builder.fs;
+      this.version = builder.version;
+      this.channel = Channels.newChannel(this.fs);
+      this.recordCnt = 0;
+
+      channel.write(ByteBufferUtils.of(version));
+    }
+
+    @Override
+    public void close() throws Exception {
+      channel.write(ByteBufferUtils.of(recordCnt));
+      fs.flush();
     }
   }
 }

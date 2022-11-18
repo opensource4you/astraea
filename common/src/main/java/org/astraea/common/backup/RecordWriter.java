@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import org.astraea.common.consumer.Record;
 
-public interface RecordWriter {
+public interface RecordWriter extends AutoCloseable {
 
   static void write(File file, short version, Iterator<Record<byte[], byte[]>> records) {
     switch (version) {
@@ -95,7 +95,7 @@ public interface RecordWriter {
     channel.write(ByteBufferUtils.of(count));
   }
 
-  void append(Iterator<Record<byte[], byte[]>> records);
+  void append(Record<byte[], byte[]> record) throws IOException;
 
   void flush() throws IOException;
 

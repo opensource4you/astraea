@@ -74,4 +74,68 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
       count++;
     }
   }
+
+  @Test
+  void testRecordWriter() throws IOException {
+    var topic = Utils.randomString();
+    var file = Files.createTempFile(topic, null).toFile();
+    produceData(topic, 10);
+    System.out.println(file.getName());
+    var writer = RecordWriter.localFile(file).build();
+    var records =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .seek(DISTANCE_FROM_BEGINNING, 0)
+            .iterator(List.of(IteratorLimit.count(10)));
+    while (records.hasNext()) {
+      writer.append(records.next());
+    }
+    try {
+      writer.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    var iter = RecordReader.read(file);
+    var cnt = 0;
+    while (iter.hasNext()) {
+      var record = iter.next();
+      Assertions.assertEquals(topic, record.topic());
+      Assertions.assertEquals(0, record.partition());
+      Assertions.assertEquals(
+          String.valueOf(cnt), new String(record.key(), StandardCharsets.UTF_8));
+      cnt++;
+    }
+  }
+
+  @Test
+  void testBufferedRecordWriter() throws IOException {
+    var topic = Utils.randomString();
+    var file = Files.createTempFile(topic, null).toFile();
+    produceData(topic, 10);
+    System.out.println(file.getName());
+    var writer = RecordWriter.localFile(file).buffered().build();
+    var records =
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .seek(DISTANCE_FROM_BEGINNING, 0)
+            .iterator(List.of(IteratorLimit.count(10)));
+    while (records.hasNext()) {
+      writer.append(records.next());
+    }
+    try {
+      writer.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    var iter = RecordReader.read(file);
+    var cnt = 0;
+    while (iter.hasNext()) {
+      var record = iter.next();
+      Assertions.assertEquals(topic, record.topic());
+      Assertions.assertEquals(0, record.partition());
+      Assertions.assertEquals(
+          String.valueOf(cnt), new String(record.key(), StandardCharsets.UTF_8));
+      cnt++;
+    }
+  }
 }

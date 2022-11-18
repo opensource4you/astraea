@@ -20,7 +20,10 @@ import java.io.BufferedOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Iterator;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.consumer.Record;
@@ -72,7 +75,7 @@ public class FtpWriterBuilder {
     }
 
     @Override
-    public void append(Iterator<Record<byte[], byte[]>> records) {
+    public void append(Record<byte[], byte[]> records) {
       System.out.println("append in ftp");
     }
 
@@ -85,6 +88,11 @@ public class FtpWriterBuilder {
       this.ip = builder.ip;
       this.port = builder.port;
       this.fs = builder.fs;
+    }
+
+    @Override
+    public void close() throws Exception {
+
     }
   }
 }
