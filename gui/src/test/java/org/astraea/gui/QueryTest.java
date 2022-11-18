@@ -19,6 +19,7 @@ package org.astraea.gui;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.DataSize;
@@ -142,5 +143,15 @@ public class QueryTest {
                 NEGATIVE_QUERIES.stream(),
                 Stream.of(POSITIVE_QUERIES.get((int) (POSITIVE_QUERIES.size() * Math.random()))))
             .collect(Collectors.joining("||")));
+  }
+
+  @Test
+  void testEmptyString() {
+    var predicate = Query.forString("string=*");
+    Assertions.assertNotEquals(Optional.empty(), predicate);
+    Assertions.assertFalse(predicate.get().required(Map.of("string", "")));
+    Assertions.assertFalse(predicate.get().required(Map.of("string", " ")));
+    Assertions.assertFalse(predicate.get().required(Map.of("string", "  ")));
+    Assertions.assertTrue(predicate.get().required(Map.of("string", "1")));
   }
 }

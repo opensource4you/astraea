@@ -56,7 +56,6 @@ import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
-import org.astraea.common.producer.Sender;
 import org.astraea.common.producer.Serializer;
 
 public class RecordHandler implements Handler {
@@ -201,7 +200,7 @@ public class RecordHandler implements Handler {
                   try {
                     return producer.send(
                         records.stream()
-                            .map(record -> createSender(producer, record))
+                            .map(record -> createRecord(producer, record))
                             .collect(toList()));
                   } finally {
                     if (producer.transactional()) {
@@ -336,12 +335,12 @@ public class RecordHandler implements Handler {
     }
   }
 
-  private static Sender<byte[], byte[]> createSender(
+  private static org.astraea.common.producer.Record<byte[], byte[]> createRecord(
       Producer<byte[], byte[]> producer, PostRecord postRecord) {
     var topic =
         Optional.ofNullable(postRecord.topic)
             .orElseThrow(() -> new IllegalArgumentException("topic must be set"));
-    var sender = producer.sender().topic(topic);
+    var builder = org.astraea.common.producer.Record.<byte[], byte[]>builder().topic(topic);
     // TODO: Support headers
     // (https://github.com/skiptests/astraea/issues/422)
     var keySerializer =
@@ -354,12 +353,12 @@ public class RecordHandler implements Handler {
             .orElse(SerDe.STRING.serializer);
 
     Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> sender.key(keySerializer.apply(topic, PostRequest.handle(key))));
+        .ifPresent(key -> builder.key(keySerializer.apply(topic, PostRequest.handle(key))));
     Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> sender.value(valueSerializer.apply(topic, PostRequest.handle(value))));
-    Optional.ofNullable(postRecord.timestamp).ifPresent(sender::timestamp);
-    Optional.ofNullable(postRecord.partition).ifPresent(sender::partition);
-    return sender;
+        .ifPresent(value -> builder.value(valueSerializer.apply(topic, PostRequest.handle(value))));
+    Optional.ofNullable(postRecord.timestamp).ifPresent(builder::timestamp);
+    Optional.ofNullable(postRecord.partition).ifPresent(builder::partition);
+    return builder.build();
   }
 
   static class Metadata implements Response {
@@ -441,7 +440,7 @@ public class RecordHandler implements Handler {
     final String key;
     final byte[] value;
 
-    Header(org.astraea.common.consumer.Header header) {
+    Header(org.astraea.common.Header header) {
       this.key = header.key();
       this.value = header.value();
     }

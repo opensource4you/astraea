@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,10 @@ public class TopicCheckerTest extends RequireBrokerCluster {
   @Test
   void testLatestTimestamp() throws InterruptedException {
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer.sender().topic("produce").value("1".getBytes()).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic("produce").value("1".getBytes()).build())
+          .toCompletableFuture()
+          .join();
     }
 
     try (var admin = Admin.of(bootstrapServers())) {

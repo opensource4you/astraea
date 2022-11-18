@@ -28,6 +28,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -115,7 +116,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
           var consumer1 =
               Consumer.forTopics(Set.of(topicName1)).bootstrapServers(bootstrapServers()).build();
           var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-        producer.sender().topic(topicName0).key(new byte[2]).run();
+        producer.send(Record.builder().topic(topicName0).key(new byte[2]).build());
         producer.flush();
         Assertions.assertEquals(1, consumer0.poll(1, Duration.ofSeconds(10)).size());
         Assertions.assertEquals(0, consumer1.poll(Duration.ofSeconds(2)).size());

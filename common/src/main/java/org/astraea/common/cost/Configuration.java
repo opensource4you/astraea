@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -29,6 +30,11 @@ public interface Configuration {
 
   static Configuration of(Map<String, String> configs) {
     return new Configuration() {
+      @Override
+      public Map<String, String> raw() {
+        return Collections.unmodifiableMap(configs);
+      }
+
       @Override
       public Optional<String> string(String key) {
         return Optional.ofNullable(configs.get(key)).map(Object::toString);
@@ -65,6 +71,8 @@ public interface Configuration {
       }
     };
   }
+
+  Map<String, String> raw();
 
   /**
    * @param key the key whose associated value is to be returned

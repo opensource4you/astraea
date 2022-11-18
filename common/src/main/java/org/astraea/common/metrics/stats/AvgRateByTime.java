@@ -19,12 +19,16 @@ package org.astraea.common.metrics.stats;
 import java.time.Duration;
 
 public class AvgRateByTime implements Stat<Double> {
-  private Double accumulate = 0.0;
+  private double accumulate = 0.0;
 
   private long count = 0;
 
   private final Debounce<Double> debounce;
 
+  /**
+   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
+   *     within the duration, it will be regarded as one
+   */
   public AvgRateByTime(Duration period) {
     this.debounce = Debounce.of(period);
   }

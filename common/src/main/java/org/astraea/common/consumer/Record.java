@@ -16,117 +16,213 @@
  */
 package org.astraea.common.consumer;
 
-import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.astraea.common.Header;
+import org.astraea.common.admin.TopicPartition;
 
-public final class Record<Key, Value> {
+public interface Record<Key, Value> {
 
   static <Key, Value> Record<Key, Value> of(ConsumerRecord<Key, Value> record) {
-    return new Record<>(
-        record.topic(),
-        record.partition(),
-        record.offset(),
-        record.timestamp(),
-        record.serializedKeySize(),
-        record.serializedValueSize(),
-        Header.of(record.headers()),
-        record.key(),
-        record.value(),
-        record.leaderEpoch());
+    return builder()
+        .topic(record.topic())
+        .partition(record.partition())
+        .timestamp(record.timestamp())
+        .offset(record.offset())
+        .serializedKeySize(record.serializedKeySize())
+        .serializedValueSize(record.serializedValueSize())
+        .headers(Header.of(record.headers()))
+        .key(record.key())
+        .value(record.value())
+        .leaderEpoch(record.leaderEpoch())
+        .build();
   }
 
-  private final String topic;
-  private final int partition;
-  private final long offset;
-  private final long timestamp;
-  private final int serializedKeySize;
-  private final int serializedValueSize;
-  private final Collection<Header> headers;
-  private final Key key;
-  private final Value value;
-  private final Optional<Integer> leaderEpoch;
-
-  public Record(
-      String topic,
-      int partition,
-      long offset,
-      long timestamp,
-      int serializedKeySize,
-      int serializedValueSize,
-      Collection<Header> headers,
-      Key key,
-      Value value,
-      Optional<Integer> leaderEpoch) {
-    this.topic = topic;
-    this.partition = partition;
-    this.offset = offset;
-    this.timestamp = timestamp;
-    this.serializedKeySize = serializedKeySize;
-    this.serializedValueSize = serializedValueSize;
-    this.headers = Collections.unmodifiableCollection(headers);
-    this.key = key;
-    this.value = value;
-    this.leaderEpoch = leaderEpoch;
+  static Builder<byte[], byte[]> builder() {
+    return new Builder<>();
   }
 
-  /** The topic this record is received from (never null) */
-  public String topic() {
-    return topic;
-  }
+  String topic();
 
-  /** The partition from which this record is received */
-  public int partition() {
-    return partition;
-  }
+  List<Header> headers();
 
-  /** The key (or null if no key is specified) */
-  public Key key() {
-    return key;
-  }
+  Key key();
 
-  /** The value */
-  public Value value() {
-    return value;
-  }
+  Value value();
 
   /** The position of this record in the corresponding Kafka partition. */
-  public long offset() {
-    return offset;
-  }
+  long offset();
+  /**
+   * @return timestamp of record
+   */
+  long timestamp();
 
-  /** The timestamp of this record */
-  public long timestamp() {
-    return timestamp;
-  }
+  /**
+   * @return expected partition, or null if you don't care for it.
+   */
+  int partition();
 
   /**
    * The size of the serialized, uncompressed key in bytes. If key is null, the returned size is -1.
    */
-  public int serializedKeySize() {
-    return serializedKeySize;
-  }
+  int serializedKeySize();
 
   /**
    * The size of the serialized, uncompressed value in bytes. If value is null, the returned size is
    * -1.
    */
-  public int serializedValueSize() {
-    return serializedValueSize;
-  }
-
-  /** The headers (never null) */
-  public Collection<Header> headers() {
-    return headers;
-  }
+  int serializedValueSize();
 
   /**
    * Get the leader epoch for the record if available
    *
    * @return the leader epoch or empty for legacy record formats
    */
-  public Optional<Integer> leaderEpoch() {
-    return leaderEpoch;
+  Optional<Integer> leaderEpoch();
+
+  class Builder<Key, Value> {
+    private Object key;
+    private Object value;
+    private long offset;
+    private String topic;
+    private int partition;
+    private long timestamp;
+    private List<Header> headers = List.of();
+
+    private int serializedKeySize;
+    private int serializedValueSize;
+
+    private Optional<Integer> leaderEpoch = Optional.empty();
+
+    private Builder() {}
+
+    @SuppressWarnings("unchecked")
+    public <NewKey> Builder<NewKey, Value> key(NewKey key) {
+      this.key = key;
+      return (Builder<NewKey, Value>) this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <NewValue> Builder<Key, NewValue> value(NewValue value) {
+      this.value = value;
+      return (Builder<Key, NewValue>) this;
+    }
+
+    public Builder<Key, Value> topicPartition(TopicPartition topicPartition) {
+      topic(topicPartition.topic());
+      return partition(topicPartition.partition());
+    }
+
+    public Builder<Key, Value> topic(String topic) {
+      this.topic = Objects.requireNonNull(topic);
+      return this;
+    }
+
+    public Builder<Key, Value> partition(int partition) {
+      if (partition >= 0) this.partition = partition;
+      return this;
+    }
+
+    public Builder<Key, Value> timestamp(long timestamp) {
+      this.timestamp = timestamp;
+      return this;
+    }
+
+    public Builder<Key, Value> headers(List<Header> headers) {
+      this.headers = headers;
+      return this;
+    }
+
+    public Builder<Key, Value> serializedKeySize(int serializedKeySize) {
+      this.serializedKeySize = serializedKeySize;
+      return this;
+    }
+
+    public Builder<Key, Value> serializedValueSize(int serializedValueSize) {
+      this.serializedValueSize = serializedValueSize;
+      return this;
+    }
+
+    public Builder<Key, Value> leaderEpoch(Optional<Integer> leaderEpoch) {
+      this.leaderEpoch = leaderEpoch;
+      return this;
+    }
+
+    public Builder<Key, Value> offset(long offset) {
+      this.offset = offset;
+      return this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Record<Key, Value> build() {
+      return new Record<>() {
+        private final Key key = (Key) Builder.this.key;
+        private final Value value = (Value) Builder.this.value;
+        private final String topic = Objects.requireNonNull(Builder.this.topic);
+
+        private final long offset = Builder.this.offset;
+        private final int partition = Builder.this.partition;
+        private final long timestamp = Builder.this.timestamp;
+        private final List<Header> headers = Objects.requireNonNull(Builder.this.headers);
+
+        private final int serializedKeySize = Builder.this.serializedKeySize;
+        private final int serializedValueSize = Builder.this.serializedValueSize;
+
+        private final Optional<Integer> leaderEpoch =
+            Objects.requireNonNull(Builder.this.leaderEpoch);
+
+        @Override
+        public String topic() {
+          return topic;
+        }
+
+        @Override
+        public List<Header> headers() {
+          return headers;
+        }
+
+        @Override
+        public Key key() {
+          return key;
+        }
+
+        @Override
+        public Value value() {
+          return value;
+        }
+
+        @Override
+        public long offset() {
+          return offset;
+        }
+
+        @Override
+        public long timestamp() {
+          return timestamp;
+        }
+
+        @Override
+        public int partition() {
+          return partition;
+        }
+
+        @Override
+        public int serializedKeySize() {
+          return serializedKeySize;
+        }
+
+        @Override
+        public int serializedValueSize() {
+          return serializedValueSize;
+        }
+
+        @Override
+        public Optional<Integer> leaderEpoch() {
+          return leaderEpoch;
+        }
+      };
+    }
   }
 }
