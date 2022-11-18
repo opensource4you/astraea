@@ -19,7 +19,6 @@ package org.astraea.common.consumer;
 import com.beust.jcommander.ParameterException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,25 +56,16 @@ public interface ConsumerPartitionAssignor
     var clusterInfo = ClusterInfo.of(metadata);
     var subscriptionsPerMember = GroupSubscription.from(groupSubscription).groupSubscription();
 
-    // assign partitions to members
-    var rawAssignments = assign(subscriptionsPerMember, clusterInfo);
-
-    // convert and wrap data structure Kafka used
-    var assignments =
-        new HashMap<
-            String, org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Assignment>();
-
-    rawAssignments.forEach(
-        (member, rawAssignment) ->
-            assignments.put(
-                member,
-                new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Assignment(
-                    rawAssignment.stream()
-                        .map(TopicPartition::to)
-                        .collect(Collectors.toUnmodifiableList()))));
-
     return new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupAssignment(
-        assignments);
+        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Assignment(
+                            e.getValue().stream()
+                                .map(TopicPartition::to)
+                                .collect(Collectors.toUnmodifiableList())))));
   }
 
   final class Subscription {

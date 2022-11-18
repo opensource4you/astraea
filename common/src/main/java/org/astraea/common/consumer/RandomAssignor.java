@@ -47,6 +47,6 @@ public class RandomAssignor implements ConsumerPartitionAssignor {
 
   @Override
   public String name() {
-    return "randomAssignorForTest";
+    return "random";
   }
 }
