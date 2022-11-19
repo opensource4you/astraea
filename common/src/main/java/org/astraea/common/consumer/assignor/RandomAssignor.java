@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer;
+package org.astraea.common.consumer.assignor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,10 +26,10 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
 public class RandomAssignor implements ConsumerPartitionAssignor {
-
   @Override
   public Map<String, List<TopicPartition>> assign(
-      Map<String, Subscription> subscriptions, ClusterInfo<ReplicaInfo> metadata) {
+      Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,
+      ClusterInfo<ReplicaInfo> metadata) {
     Set<TopicPartition> topicPartitions = metadata.topicPartitions();
 
     var assignments = new HashMap<String, List<TopicPartition>>();
