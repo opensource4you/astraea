@@ -18,7 +18,6 @@ package org.astraea.common.backup;
 
 import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_BEGINNING;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -52,38 +51,11 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
   }
 
   @Test
-  void testReadWrite() throws IOException {
-    var topic = Utils.randomString();
-    produceData(topic, 100);
-    var file = Files.createTempFile(topic, null).toFile();
-    RecordWriter.write(
-        file,
-        (short) 0,
-        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-            .bootstrapServers(bootstrapServers())
-            .seek(DISTANCE_FROM_BEGINNING, 0)
-            .iterator(List.of(IteratorLimit.count(100))));
-
-    var iter = RecordReader.read(file);
-    var count = 0;
-    while (iter.hasNext()) {
-      var record = iter.next();
-      Assertions.assertEquals(topic, record.topic());
-      Assertions.assertEquals(0, record.partition());
-      Assertions.assertEquals(
-          String.valueOf(count), new String(record.key(), StandardCharsets.UTF_8));
-      count++;
-    }
-  }
-
-  @Test
   void testRecordWriter() throws IOException {
     var topic = Utils.randomString();
     var file = Files.createTempFile(topic, null).toFile();
     produceData(topic, 10);
-    var output = new FileOutputStream(file);
-    output.write(ByteBufferUtils.of((short) 0).array());
-    try (var writer = RecordWriter.builder().output(output).build()) {
+    try (var writer = RecordWriter.builder(file).build()) {
       var records =
           Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
               .bootstrapServers(bootstrapServers())
