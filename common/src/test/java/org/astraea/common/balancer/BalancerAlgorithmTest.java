@@ -113,7 +113,8 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                   Duration.ofSeconds(5))
               .get();
 
-      Assertions.assertTrue(plan.clusterCost.value() > planOfGreedy.clusterCost.value());
+      Assertions.assertTrue(
+          plan.proposalClusterCost.value() > planOfGreedy.proposalClusterCost.value());
     }
   }
 }
