@@ -16,39 +16,48 @@
  */
 package org.astraea.common.backup;
 
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
+import java.util.zip.GZIPOutputStream;
 import org.astraea.common.consumer.Record;
 
-public interface RecordWriter extends AutoCloseable {
+public class RecordWriterBuilder {
 
-  static void write(File file, short version, Iterator<Record<byte[], byte[]>> records) {
-    switch (version) {
-      case 0:
-        try (var writer = new FileOutputStream(file)) {
-          var channel = writer.getChannel();
-          channel.write(ByteBufferUtils.of(version));
-          writeV0(channel, records);
-          writer.flush();
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("unsupported version: " + version);
-    }
+  private OutputStream fs;
+
+  public RecordWriterBuilder compression() throws IOException {
+    this.fs = new GZIPOutputStream(this.fs);
+    return this;
   }
 
-  private static void writeV0(WritableByteChannel channel, Iterator<Record<byte[], byte[]>> records)
-      throws IOException {
-    var count = 0;
-    while (records.hasNext()) {
-      var record = records.next();
+  public RecordWriterBuilder buffered() {
+    this.fs = new BufferedOutputStream(this.fs);
+    return this;
+  }
+
+  public RecordWriterBuilder buffered(int size) {
+    this.fs = new BufferedOutputStream(this.fs, size);
+    return this;
+  }
+
+  public RecordWriterBuilder output(OutputStream outputStream) {
+    this.fs = outputStream;
+    return this;
+  }
+
+  public RecordWriter build() throws IOException {
+    return new FileWriterImpl(this);
+  }
+
+  private static class FileWriterImpl implements RecordWriter {
+    private final OutputStream fs;
+    int recordCnt = 0;
+
+    @Override
+    public void append(Record<byte[], byte[]> record) throws IOException {
       var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
       var recordSize =
           2 // [topic size 2bytes]
@@ -72,6 +81,7 @@ public interface RecordWriter extends AutoCloseable {
                               + (h.value() == null ? 0 : h.value().length) // [header value]
                       )
                   .sum();
+      // TODO reuse the recordBuffer
       var recordBuffer = ByteBuffer.allocate(4 + recordSize);
       recordBuffer.putInt(recordSize);
       ByteBufferUtils.putLengthString(recordBuffer, record.topic());
@@ -88,17 +98,23 @@ public interface RecordWriter extends AutoCloseable {
                 ByteBufferUtils.putLengthString(recordBuffer, h.key());
                 ByteBufferUtils.putLengthBytes(recordBuffer, h.value());
               });
-      channel.write(recordBuffer.flip());
-      count++;
+      fs.write(recordBuffer.array());
+      recordCnt++;
     }
-    channel.write(ByteBufferUtils.of(count));
-  }
 
-  void append(Record<byte[], byte[]> record) throws IOException;
+    @Override
+    public void flush() throws IOException {
+      this.fs.flush();
+    }
 
-  void flush() throws IOException;
+    @Override
+    public void close() throws Exception {
+      fs.write(ByteBufferUtils.of(recordCnt).array());
+      fs.flush();
+    }
 
-  static RecordWriterBuilder builder() {
-    return new RecordWriterBuilder();
+    private FileWriterImpl(RecordWriterBuilder builder) {
+      this.fs = builder.fs;
+    }
   }
 }
