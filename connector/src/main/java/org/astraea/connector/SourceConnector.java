@@ -20,8 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
+import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
-import org.astraea.common.cost.Configuration;
 
 public abstract class SourceConnector extends org.apache.kafka.connect.source.SourceConnector {
 

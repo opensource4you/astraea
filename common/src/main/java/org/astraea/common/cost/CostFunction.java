@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Optional;
+import org.astraea.common.Configuration;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /**

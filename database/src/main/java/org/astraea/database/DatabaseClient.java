@@ -14,33 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.database;
 
-public interface TableCreator {
+public interface DatabaseClient extends AutoCloseable {
 
-  /**
-   * @param name table name
-   * @return this creator
-   */
-  TableCreator name(String name);
+  static Builder builder() {
+    return new Builder();
+  }
 
   /**
-   * create a normal column
+   * start to query tables
    *
-   * @param name column name
-   * @param type column type
-   * @return this creator
+   * @return Table Query
    */
-  TableCreator column(String name, String type);
+  TableQuery query();
 
   /**
-   * create a primary key
+   * start to create new table
    *
-   * @param name primary key name
-   * @param type primary key type
-   * @return this creator
+   * @return Table Creator
    */
-  TableCreator primaryKey(String name, String type);
+  TableCreator tableCreator();
 
-  void run();
+  /**
+   * @param name to delete
+   */
+  void deleteTable(String name);
+
+  @Override
+  void close();
 }

@@ -14,33 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.database;
 
-public interface DatabaseClient extends AutoCloseable {
+import java.util.Collection;
 
-  static Builder builder() {
-    return new Builder();
-  }
+public interface TableQuery {
 
   /**
-   * start to query tables
+   * Normally, catalog in database is server instance or database instance.
    *
-   * @return Table Query
+   * @param catalog to search
+   * @return this query
    */
-  TableQuery query();
+  TableQuery catalog(String catalog);
 
   /**
-   * start to create new table
+   * Normally, schema in database is namespace.
    *
-   * @return Table Creator
+   * @param schema to search
+   * @return this query
    */
-  TableCreator tableCreator();
+  TableQuery schema(String schema);
 
   /**
-   * @param name to delete
+   * @param tableName to search
+   * @return this query
    */
-  void deleteTable(String name);
+  TableQuery tableName(String tableName);
 
-  @Override
-  void close();
+  /**
+   * @return the tables matched to this query.
+   */
+  Collection<TableInfo> run();
 }
