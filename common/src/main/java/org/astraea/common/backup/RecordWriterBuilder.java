@@ -54,7 +54,7 @@ public class RecordWriterBuilder {
 
   private static class FileWriterImpl implements RecordWriter {
     private final OutputStream fs;
-    int recordCnt;
+    int recordCnt = 0;
 
     @Override
     public void append(Record<byte[], byte[]> record) throws IOException {
@@ -115,7 +115,6 @@ public class RecordWriterBuilder {
 
     private FileWriterImpl(RecordWriterBuilder builder) {
       this.fs = builder.fs;
-      this.recordCnt = 0;
     }
   }
 }
