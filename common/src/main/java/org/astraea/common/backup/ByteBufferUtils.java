@@ -17,6 +17,7 @@
 package org.astraea.common.backup;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -37,6 +38,19 @@ public final class ByteBufferUtils {
     }
   }
 
+  public static int readInt(InputStream fs) {
+    var buf = ByteBuffer.allocate(Integer.BYTES).array();
+    try {
+      var size = fs.read(buf);
+      if (size != Integer.BYTES)
+        throw new IllegalStateException(
+            "The remaining size is " + size + ", but expected is " + Integer.BYTES);
+      return ByteBuffer.wrap(buf).getInt();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
   public static short readShort(ReadableByteChannel channel) {
     var buf = ByteBuffer.allocate(Short.BYTES);
     try {
@@ -45,6 +59,19 @@ public final class ByteBufferUtils {
         throw new IllegalStateException(
             "The remaining size is " + size + ", but expected is " + Short.BYTES);
       return buf.flip().getShort();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  public static short readShort(InputStream fs) {
+    var buf = ByteBuffer.allocate(Short.BYTES).array();
+    try {
+      var size = fs.read(buf);
+      if (size != Short.BYTES)
+        throw new IllegalStateException(
+            "The remaining size is " + size + ", but expected is " + Short.BYTES);
+      return ByteBuffer.wrap(buf).getShort();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

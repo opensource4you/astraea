@@ -16,48 +16,48 @@
  */
 package org.astraea.common.backup;
 
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.zip.GZIPInputStream;
 import org.astraea.common.Header;
 import org.astraea.common.consumer.Record;
 
-public interface RecordReader {
+public class RecordReaderBuilder {
 
-  static Iterator<Record<byte[], byte[]>> read(File file) {
-    try (var reader = new FileInputStream(file)) {
-      var channel = reader.getChannel();
-      var version = ByteBufferUtils.readShort(channel);
-      switch (version) {
-        case 0:
-          return readV0(channel);
-        default:
-          throw new IllegalArgumentException("unsupported version: " + version);
-      }
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+  private InputStream fs;
+
+  public RecordReaderBuilder compression() throws IOException {
+    this.fs = new GZIPInputStream(this.fs);
+    return this;
   }
 
-  private static Iterator<Record<byte[], byte[]>> readV0(SeekableByteChannel channel)
-      throws IOException {
-    var records = new ArrayList<Record<byte[], byte[]>>();
-    var current = channel.position();
-    var count = ByteBufferUtils.readInt(channel.position(channel.size() - Integer.BYTES));
-    channel.position(current);
-    for (var i = 0; i != count; ++i) {
-      var recordSize = ByteBufferUtils.readInt(channel);
+  public RecordReaderBuilder input(InputStream inputStream) {
+    this.fs = inputStream;
+    return this;
+  }
+
+  public RecordReader build() throws IOException {
+    return new RecordReaderImpl(this);
+  }
+
+  private static class RecordReaderImpl implements RecordReader {
+
+    private final InputStream fs;
+    short version;
+    int recordCnt;
+
+    @Override
+    public Record<byte[], byte[]> read() throws IOException {
+      recordCnt--;
+      var recordSize = ByteBufferUtils.readInt(fs);
       var recordBuffer = ByteBuffer.allocate(recordSize);
-      var actualSize = channel.read(recordBuffer);
+      var actualSize = fs.read(recordBuffer.array());
       if (actualSize != recordSize)
         throw new IllegalStateException(
             "expected size is " + recordSize + ", but actual size is " + actualSize);
-      recordBuffer.flip();
       var topic = ByteBufferUtils.readString(recordBuffer, recordBuffer.getShort());
       var partition = recordBuffer.getInt();
       var offset = recordBuffer.getLong();
@@ -71,27 +71,31 @@ public interface RecordReader {
         var headerValue = ByteBufferUtils.readBytes(recordBuffer, recordBuffer.getInt());
         headers.add(Header.of(headerKey, headerValue));
       }
-      records.add(
-          Record.builder()
-              .topic(topic)
-              .partition(partition)
-              .offset(offset)
-              .timestamp(timestamp)
-              .key(key)
-              .value(value)
-              .serializedKeySize(key == null ? 0 : key.length)
-              .serializedValueSize(value == null ? 0 : value.length)
-              .headers(headers)
-              .build());
+      return Record.builder()
+          .topic(topic)
+          .partition(partition)
+          .offset(offset)
+          .timestamp(timestamp)
+          .key(key)
+          .value(value)
+          .serializedKeySize(key == null ? 0 : key.length)
+          .serializedValueSize(value == null ? 0 : value.length)
+          .headers(headers)
+          .build();
     }
-    return records.iterator();
-  }
 
-  Record<byte[], byte[]> read() throws IOException;
+    @Override
+    public boolean hasNext() {
+      return recordCnt > 0;
+    }
 
-  boolean hasNext();
-
-  static RecordReaderBuilder builder() {
-    return new RecordReaderBuilder();
+    private RecordReaderImpl(RecordReaderBuilder builder) throws IOException {
+      this.fs = new BufferedInputStream(builder.fs);
+      this.version = ByteBufferUtils.readShort(fs);
+      fs.mark(fs.available());
+      fs.skip(fs.available() - Integer.BYTES);
+      this.recordCnt = ByteBufferUtils.readInt(fs);
+      fs.reset();
+    }
   }
 }

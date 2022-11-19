@@ -18,10 +18,12 @@ package org.astraea.common.backup;
 
 import static org.astraea.common.consumer.SeekStrategy.DISTANCE_FROM_BEGINNING;
 
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
@@ -96,6 +98,37 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
       throw new RuntimeException(e);
     }
     var iter = RecordReader.read(file);
+    var cnt = 0;
+    while (iter.hasNext()) {
+      var record = iter.next();
+      Assertions.assertEquals(topic, record.topic());
+      Assertions.assertEquals(0, record.partition());
+      Assertions.assertEquals(
+          String.valueOf(cnt), new String(record.key(), StandardCharsets.UTF_8));
+      cnt++;
+    }
+  }
+
+  @Test
+  void testRecordReader() throws IOException {
+    var topic = Utils.randomString();
+    produceData(topic, 100);
+    var file = Files.createTempFile(topic, null).toFile();
+    RecordWriter.write(
+        file,
+        (short) 0,
+        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+            .bootstrapServers(bootstrapServers())
+            .seek(DISTANCE_FROM_BEGINNING, 0)
+            .iterator(List.of(IteratorLimit.count(100))));
+
+    var input = new FileInputStream(file);
+    var reader = RecordReader.builder().input(input).build();
+    var records = new ArrayList<org.astraea.common.consumer.Record<byte[], byte[]>>();
+    while (reader.hasNext()) {
+      records.add(reader.read());
+    }
+    var iter = records.iterator();
     var cnt = 0;
     while (iter.hasNext()) {
       var record = iter.next();
