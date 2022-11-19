@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import com.google.gson.Gson;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -431,7 +430,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, Map.of(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var progress =
           submitPlanGeneration(
               handler,
@@ -464,7 +463,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, Map.of(), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new NoOpExecutor());
 
       // no id offered
       Assertions.assertThrows(
@@ -499,7 +498,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .join();
       Utils.sleep(Duration.ofSeconds(3));
       var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, Map.of(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
 
       // use many threads to increase the chance to trigger a data race
@@ -554,7 +553,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       });
             }
           };
-      var handler = new BalancerHandler(admin, Map.of(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var plan0 = submitPlanGeneration(handler, Map.of());
       var plan1 = submitPlanGeneration(handler, Map.of());
 
@@ -591,7 +590,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var handler = new BalancerHandler(admin, Map.of(), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new NoOpExecutor());
       var theReport =
           submitPlanGeneration(
               handler,
@@ -641,7 +640,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, Map.of(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var theProgress =
           submitPlanGeneration(
               handler,
@@ -697,7 +696,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       });
             }
           };
-      var handler = new BalancerHandler(admin, Map.of(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
       Assertions.assertTrue(progress.generated, "The plan should be generated");
 
@@ -767,7 +766,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       ignored -> CompletableFuture.failedFuture(new RuntimeException("Boom")));
             }
           };
-      var handler = new BalancerHandler(admin, Map.of(), theExecutor);
+      var handler = new BalancerHandler(admin, theExecutor);
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -813,7 +812,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testBadLookupRequest() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, Map.of(), new NoOpExecutor());
+      var handler = new BalancerHandler(admin, new NoOpExecutor());
 
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
@@ -835,7 +834,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, Map.of(), new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin, new StraightPlanExecutor());
       var progress =
           submitPlanGeneration(
               handler,
@@ -881,7 +880,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testCustomBalancer() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin, Map.of(), new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin, new StraightPlanExecutor());
       var balancer = SpyBalancer.class.getName();
       var balancerConfig =
           Map.of(
@@ -1054,10 +1053,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .toJson(
                   Collections.singleton(
                       new BalancerHandler.CostWeight(TimeoutCost.class.getName(), 1)));
-      var sock =
-          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort());
-      var jmx = Map.of(0, sock, 1, sock, 2, sock);
-      var handler = new BalancerHandler(admin, jmx);
+      var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
       var channel =
           Channel.ofRequest(
               PostRequest.of(
@@ -1084,14 +1080,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(bootstrapServers())) {
       var invoked = new AtomicBoolean();
-      var handler =
-          new BalancerHandler(
-              admin,
-              Map.of(
-                  0,
-                  InetSocketAddress.createUnresolved(
-                      jmxServiceURL().getHost(), jmxServiceURL().getPort())),
-              new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
       FetcherAndCost.callback.set(
           (clusterBean) -> {
             var metrics =
@@ -1123,6 +1112,20 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       Assertions.assertTrue(progress.generated);
       Assertions.assertTrue(invoked.get());
+    }
+  }
+
+  @Test
+  void testFreshJmxAddress() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
+      var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
+      var partialJmx =
+          new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
+
+      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
+      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
+      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
     }
   }
 

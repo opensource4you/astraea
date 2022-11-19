@@ -45,6 +45,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -90,25 +91,27 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
   private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
-  private final Map<Integer, InetSocketAddress> brokerJmxAddresses;
+  private final Function<Integer, Optional<Integer>> jmxPortMapper;
   private final Duration sampleInterval = Duration.ofSeconds(1);
 
   BalancerHandler(Admin admin) {
-    this(admin, Map.of(), new StraightPlanExecutor());
+    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor());
   }
 
-  BalancerHandler(Admin admin, Map<Integer, InetSocketAddress> brokerJmxAddresses) {
-    this.admin = admin;
-    this.brokerJmxAddresses = brokerJmxAddresses;
-    this.executor = new StraightPlanExecutor();
+  BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+    this(admin, jmxPortMapper, new StraightPlanExecutor());
+  }
+
+  BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
+    this(admin, (ignore) -> Optional.empty(), executor);
   }
 
   BalancerHandler(
       Admin admin,
-      Map<Integer, InetSocketAddress> brokerJmxAddresses,
+      Function<Integer, Optional<Integer>> jmxPortMapper,
       RebalancePlanExecutor executor) {
     this.admin = admin;
-    this.brokerJmxAddresses = brokerJmxAddresses;
+    this.jmxPortMapper = jmxPortMapper;
     this.executor = executor;
   }
 
@@ -231,10 +234,39 @@ class BalancerHandler implements Handler {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
+      freshJmxAddresses().forEach(collector::registerJmx);
       fetchers.forEach(collector::addFetcher);
-      brokerJmxAddresses.forEach(collector::registerJmx);
       return execution.apply(collector::clusterBean);
     }
+  }
+
+  // visible for test
+  Map<Integer, InetSocketAddress> freshJmxAddresses() {
+    var brokers = admin.brokers().toCompletableFuture().join();
+    var jmxAddresses =
+        brokers.stream()
+            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
+            .filter(entry -> entry.getValue().isPresent())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    e -> e.getKey().id(),
+                    e ->
+                        InetSocketAddress.createUnresolved(
+                            e.getKey().host(), e.getValue().orElseThrow())));
+
+    // JMX is disabled
+    if (jmxAddresses.size() == 0) return Map.of();
+
+    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
+    if (brokers.size() != jmxAddresses.size())
+      throw new IllegalArgumentException(
+          "Some brokers has no JMX port specified in the web service argument: "
+              + brokers.stream()
+                  .map(NodeInfo::id)
+                  .filter(id -> !jmxAddresses.containsKey(id))
+                  .collect(Collectors.toUnmodifiableSet()));
+
+    return jmxAddresses;
   }
 
   // visible for test

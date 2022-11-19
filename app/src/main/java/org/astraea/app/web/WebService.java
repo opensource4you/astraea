@@ -25,9 +25,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.argument.NonNegativeIntegerField;
 import org.astraea.common.argument.StringMapField;
 
@@ -51,7 +49,7 @@ public class WebService {
         "/records", to(new RecordHandler(Admin.of(arg.configs()), arg.bootstrapServers())));
     server.createContext("/reassignments", to(new ReassignmentHandler(Admin.of(arg.configs()))));
     server.createContext(
-        "/balancer", to(new BalancerHandler(Admin.of(arg.configs()), arg.jmxAddresses())));
+        "/balancer", to(new BalancerHandler(Admin.of(arg.configs()), arg.brokerJmxPorts())));
     server.createContext("/throttles", to(new ThrottleHandler(Admin.of(arg.configs()))));
     server.start();
   }
@@ -77,10 +75,18 @@ public class WebService {
 
     @Parameter(
         names = {"--jmx.ports"},
-        description = "Map: the jmx port for each node. For example: 192.168.50.2=19999",
+        description = "Map: the JMX port for each node. For example: 192.168.50.2=19999",
         validateWith = StringMapField.class,
         converter = StringMapField.class)
     Map<String, String> jmxPorts = Map.of();
+
+    @Parameter(
+        names = {"--broker.jmx.ports"},
+        description =
+            "Map: the JMX port for each broker. For example: 1024=19999 means for the broker with id 1024, its JMX port located at 19999 port",
+        validateWith = StringMapField.class,
+        converter = StringMapField.class)
+    Map<String, String> brokerJmxPorts = Map.of();
 
     boolean needJmx() {
       return jmxPort > 0 || !jmxPorts.isEmpty();
@@ -94,17 +100,11 @@ public class WebService {
               .orElseThrow(() -> new NoSuchElementException(name + " has no jmx port"));
     }
 
-    Map<Integer, InetSocketAddress> jmxAddresses() {
-      if (!needJmx()) return Map.of(); // JMX is disabled
-      try (Admin admin = Admin.of(bootstrapServers())) {
-        return admin.brokers().toCompletableFuture().join().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    NodeInfo::id,
-                    broker ->
-                        InetSocketAddress.createUnresolved(
-                            broker.host(), jmxPorts().apply(broker.host()))));
-      }
+    Function<Integer, Optional<Integer>> brokerJmxPorts() {
+      return broker ->
+          Optional.of(brokerJmxPorts.getOrDefault(String.valueOf(broker), String.valueOf(jmxPort)))
+              .map(Integer::valueOf)
+              .filter(i -> i > 0);
     }
   }
 }
