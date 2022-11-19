@@ -162,7 +162,7 @@ public interface FtpServer extends AutoCloseable {
         @Override
         public void close() {
           server.stop();
-          //          Utils.delete(homeFolder);
+          Utils.delete(homeFolder);
         }
 
         @Override
