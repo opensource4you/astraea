@@ -98,7 +98,7 @@ public interface RecordWriter extends AutoCloseable {
 
   void flush() throws IOException;
 
-  static FileWriterBuilder builder() {
-    return new FileWriterBuilder();
+  static RecordWriterBuilder builder() {
+    return new RecordWriterBuilder();
   }
 }

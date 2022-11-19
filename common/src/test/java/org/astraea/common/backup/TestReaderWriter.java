@@ -82,17 +82,16 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
     var file = Files.createTempFile(topic, null).toFile();
     produceData(topic, 10);
     var output = new FileOutputStream(file);
-    var writer = RecordWriter.builder().output(output).version((short) 0).build();
-    var records =
-        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-            .bootstrapServers(bootstrapServers())
-            .seek(DISTANCE_FROM_BEGINNING, 0)
-            .iterator(List.of(IteratorLimit.count(10)));
-    while (records.hasNext()) {
-      writer.append(records.next());
-    }
-    try {
-      writer.close();
+    output.write(ByteBufferUtils.of((short) 0).array());
+    try (var writer = RecordWriter.builder().output(output).build()) {
+      var records =
+          Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+              .bootstrapServers(bootstrapServers())
+              .seek(DISTANCE_FROM_BEGINNING, 0)
+              .iterator(List.of(IteratorLimit.count(10)));
+      while (records.hasNext()) {
+        writer.append(records.next());
+      }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

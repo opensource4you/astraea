@@ -20,38 +20,30 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.consumer.Record;
 
-public class FileWriterBuilder {
+public class RecordWriterBuilder {
 
   private OutputStream fs;
-  private short version = 0;
 
-  public FileWriterBuilder compression() throws IOException {
+  public RecordWriterBuilder compression() throws IOException {
     this.fs = new GZIPOutputStream(this.fs);
     return this;
   }
 
-  public FileWriterBuilder buffered() {
+  public RecordWriterBuilder buffered() {
     this.fs = new BufferedOutputStream(this.fs);
     return this;
   }
 
-  public FileWriterBuilder buffered(int size) {
+  public RecordWriterBuilder buffered(int size) {
     this.fs = new BufferedOutputStream(this.fs, size);
     return this;
   }
 
-  public FileWriterBuilder version(short version) {
-    this.version = version;
-    return this;
-  }
-
-  public FileWriterBuilder output(OutputStream outputStream) {
+  public RecordWriterBuilder output(OutputStream outputStream) {
     this.fs = outputStream;
     return this;
   }
@@ -62,9 +54,7 @@ public class FileWriterBuilder {
 
   private static class FileWriterImpl implements RecordWriter {
     private final OutputStream fs;
-    private final WritableByteChannel channel;
     int recordCnt;
-    short version;
 
     @Override
     public void append(Record<byte[], byte[]> record) throws IOException {
@@ -108,7 +98,7 @@ public class FileWriterBuilder {
                 ByteBufferUtils.putLengthString(recordBuffer, h.key());
                 ByteBufferUtils.putLengthBytes(recordBuffer, h.value());
               });
-      channel.write(recordBuffer.flip());
+      fs.write(recordBuffer.array());
       recordCnt++;
     }
 
@@ -119,17 +109,13 @@ public class FileWriterBuilder {
 
     @Override
     public void close() throws Exception {
-      channel.write(ByteBufferUtils.of(recordCnt));
+      fs.write(ByteBufferUtils.of(recordCnt).array());
       fs.flush();
     }
 
-    private FileWriterImpl(FileWriterBuilder builder) throws IOException {
+    private FileWriterImpl(RecordWriterBuilder builder) {
       this.fs = builder.fs;
-      this.version = builder.version;
-      this.channel = Channels.newChannel(this.fs);
       this.recordCnt = 0;
-
-      channel.write(ByteBufferUtils.of(version));
     }
   }
 }
