@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.fs;
+package org.astraea.fs.ftp;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,14 +26,16 @@ import java.util.stream.Collectors;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
+import org.astraea.common.Configuration;
+import org.astraea.fs.FileSystem;
+import org.astraea.fs.Type;
 
-class FtpFileSystem implements FileSystem {
+public class FtpFileSystem implements FileSystem {
 
-  private enum Type {
-    NONEXISTENT,
-    FILE,
-    FOLDER;
-  }
+  static final String HOSTNAME_KEY = "fs.ftp.hostname";
+  static final String PORT_KEY = "fs.ftp.port";
+  static final String USER_KEY = "fs.ftp.user";
+  static final String PASSWORD_KEY = "fs.ftp.password";
 
   private static FTPClient create(String hostname, int port, String user, String password) {
     try {
@@ -52,11 +54,17 @@ class FtpFileSystem implements FileSystem {
 
   private final FTPClient client;
 
-  FtpFileSystem(String hostname, int port, String user, String password) {
-    client = create(hostname, port, user, password);
+  public FtpFileSystem(Configuration config) {
+    client =
+        create(
+            config.requireString(HOSTNAME_KEY),
+            config.requireInteger(PORT_KEY),
+            config.requireString(USER_KEY),
+            config.requireString(PASSWORD_KEY));
   }
 
-  private Type type(String path) {
+  @Override
+  public Type type(String path) {
     try {
       var stats = client.getStatus(path);
       if (stats == null) return Type.NONEXISTENT;
@@ -73,7 +81,7 @@ class FtpFileSystem implements FileSystem {
   @Override
   public void mkdir(String path) {
     if (type(path) == Type.FOLDER) return;
-    var parent = parent(path);
+    var parent = FileSystem.parent(path);
     if (parent != null && type(path) == Type.NONEXISTENT) mkdir(parent);
     try {
       if (!client.changeWorkingDirectory(path) && !client.makeDirectory(path))
@@ -88,7 +96,7 @@ class FtpFileSystem implements FileSystem {
     if (type(path) != Type.FOLDER) throw new IllegalArgumentException(path + " is not a folder");
     try {
       return Arrays.stream(client.listFiles(path, FTPFile::isFile))
-          .map(f -> path(path, f.getName()))
+          .map(f -> FileSystem.path(path, f.getName()))
           .collect(Collectors.toList());
     } catch (IOException e) {
       throw new UncheckedIOException(e);
@@ -100,7 +108,7 @@ class FtpFileSystem implements FileSystem {
     if (type(path) != Type.FOLDER) throw new IllegalArgumentException(path + " is not a folder");
     try {
       return Arrays.stream(client.listFiles(path, FTPFile::isDirectory))
-          .map(f -> path(path, f.getName()))
+          .map(f -> FileSystem.path(path, f.getName()))
           .collect(Collectors.toList());
     } catch (IOException e) {
       throw new UncheckedIOException(e);
@@ -119,7 +127,7 @@ class FtpFileSystem implements FileSystem {
           return;
         case FOLDER:
           for (var f : client.listFiles(path)) {
-            var sub = path(path, f.getName());
+            var sub = FileSystem.path(path, f.getName());
             if (f.isDirectory()) delete(sub);
             else client.deleteFile(sub);
           }
@@ -165,7 +173,7 @@ class FtpFileSystem implements FileSystem {
   @Override
   public OutputStream write(String path) {
     if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
-    mkdir(parent(path));
+    mkdir(FileSystem.parent(path));
     try {
       var outputStream = client.storeFileStream(path);
       if (outputStream == null)
@@ -208,17 +216,5 @@ class FtpFileSystem implements FileSystem {
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
-  }
-
-  private static String path(String root, String name) {
-    if (root.endsWith("/")) return root + name;
-    return root + "/" + name;
-  }
-
-  private static String parent(String path) {
-    if (path.equals("/")) return null;
-    var index = path.lastIndexOf("/");
-    if (index < 0) throw new IllegalArgumentException("illegal path: " + path);
-    return path.substring(0, index);
   }
 }

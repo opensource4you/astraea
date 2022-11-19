@@ -19,11 +19,18 @@ package org.astraea.fs;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import org.astraea.common.Configuration;
+import org.astraea.fs.ftp.FtpFileSystem;
+import org.astraea.fs.local.LocalFileSystem;
 
 public interface FileSystem extends AutoCloseable {
 
-  static FileSystem ftp(String hostname, int port, String user, String password) {
-    return new FtpFileSystem(hostname, port, user, password);
+  static FileSystem ftp(Configuration configuration) {
+    return new FtpFileSystem(configuration);
+  }
+
+  static FileSystem local(Configuration configuration) {
+    return new LocalFileSystem(configuration);
   }
 
   /**
@@ -66,6 +73,26 @@ public interface FileSystem extends AutoCloseable {
    */
   OutputStream write(String path);
 
+  /**
+   * @param path to check type
+   * @return the type of path
+   */
+  Type type(String path);
+
   @Override
   void close();
+
+  // ---------------------[helper]---------------------//
+
+  static String path(String root, String name) {
+    if (root.endsWith("/")) return root + name;
+    return root + "/" + name;
+  }
+
+  static String parent(String path) {
+    if (path.equals("/")) return null;
+    var index = path.lastIndexOf("/");
+    if (index < 0) throw new IllegalArgumentException("illegal path: " + path);
+    return path.substring(0, index);
+  }
 }

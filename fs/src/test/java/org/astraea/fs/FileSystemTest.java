@@ -18,17 +18,16 @@ package org.astraea.fs;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import org.astraea.it.FtpServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class FtpFileSystemTest {
+public abstract class FileSystemTest {
+
+  protected abstract FileSystem fileSystem();
 
   @Test
-  void testList() throws IOException {
-    try (var server = FtpServer.local();
-        var fs =
-            FileSystem.ftp(server.hostname(), server.port(), server.user(), server.password())) {
+  protected void testList() throws IOException {
+    try (var fs = fileSystem()) {
       Assertions.assertEquals(0, fs.listFiles("/").size());
       Assertions.assertEquals(0, fs.listFolders("/").size());
 
@@ -54,10 +53,8 @@ public class FtpFileSystemTest {
   }
 
   @Test
-  void testMkdir() {
-    try (var server = FtpServer.local();
-        var fs =
-            FileSystem.ftp(server.hostname(), server.port(), server.user(), server.password())) {
+  protected void testMkdir() {
+    try (var fs = fileSystem()) {
       Assertions.assertEquals(0, fs.listFolders("/").size());
       fs.mkdir("/tmp/aa");
 
@@ -67,10 +64,8 @@ public class FtpFileSystemTest {
   }
 
   @Test
-  void testReadWrite() throws IOException {
-    try (var server = FtpServer.local();
-        var fs =
-            FileSystem.ftp(server.hostname(), server.port(), server.user(), server.password())) {
+  protected void testReadWrite() throws IOException {
+    try (var fs = fileSystem()) {
       var path = "/aaa";
       try (var output = fs.write(path)) {
         output.write("abc".getBytes(StandardCharsets.UTF_8));
@@ -82,10 +77,8 @@ public class FtpFileSystemTest {
   }
 
   @Test
-  void testWriteToCreateFolder() throws IOException {
-    try (var server = FtpServer.local();
-        var fs =
-            FileSystem.ftp(server.hostname(), server.port(), server.user(), server.password())) {
+  protected void testWriteToCreateFolder() throws IOException {
+    try (var fs = fileSystem()) {
       var path = "/tmp/aaa";
       try (var output = fs.write(path)) {
         output.write("abc".getBytes(StandardCharsets.UTF_8));
@@ -96,10 +89,8 @@ public class FtpFileSystemTest {
   }
 
   @Test
-  void testDelete() throws IOException {
-    try (var server = FtpServer.local();
-        var fs =
-            FileSystem.ftp(server.hostname(), server.port(), server.user(), server.password())) {
+  protected void testDelete() throws IOException {
+    try (var fs = fileSystem()) {
       var path = "/tmp/aaa/bbb";
       try (var output = fs.write(path)) {
         output.write("abc".getBytes(StandardCharsets.UTF_8));
@@ -110,11 +101,25 @@ public class FtpFileSystemTest {
   }
 
   @Test
-  void testDeleteRoot() {
-    try (var server = FtpServer.local();
-        var fs =
-            FileSystem.ftp(server.hostname(), server.port(), server.user(), server.password())) {
+  protected void testDeleteEmpty() {
+    try (var fs = fileSystem()) {
+      var path = "/tmp/aaa/bbb";
+      Assertions.assertEquals(Type.NONEXISTENT, fs.type(path));
+      fs.delete(path);
+    }
+  }
+
+  @Test
+  protected void testDeleteRoot() {
+    try (var fs = fileSystem()) {
       Assertions.assertThrows(IllegalArgumentException.class, () -> fs.delete("/"));
+    }
+  }
+
+  @Test
+  protected void testMkdirOnRoot() {
+    try (var fs = fileSystem()) {
+      fs.mkdir("/");
     }
   }
 }

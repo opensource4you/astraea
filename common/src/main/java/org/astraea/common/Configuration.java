@@ -88,6 +88,10 @@ public interface Configuration {
     return string(key).map(Integer::parseInt);
   }
 
+  default int requireInteger(String key) {
+    return integer(key).orElseThrow(() -> new NoSuchElementException(key + " is nonexistent"));
+  }
+
   /**
    * @param key the key whose associated value is to be returned
    * @return string value. never null
