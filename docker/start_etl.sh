@@ -157,7 +157,7 @@ function runContainer() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
         --class org.astraea.etl.Spark2Kafka \
-        --driver-class-path /opt/astraea/libs/astraea-common-0.0.1-SNAPSHOT.jar:/opt/astraea/lib/kafka-clients-3.2.1.jar \
+        --driver-class-path /opt/astraea/lib/astraea-common-0.0.1-SNAPSHOT.jar:/opt/astraea/lib/kafka-clients-3.2.1.jar \
         --master "${PROPERTIES_MAP[${MASTER_KEY}]}" \
         --files "${PROPERTIES_MAP[${SOURCE_KEY}]}" \
         /opt/astraea/lib/astraea-common-0.0.1-SNAPSHOT.jar \
