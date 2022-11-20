@@ -70,8 +70,9 @@ public class PartitionerUtils {
     var properties = new Properties();
     try {
       var partitionerConfig = (String) configs.get("partitioner.config");
-      if (partitionerConfig == null){
-        throw new IllegalArgumentException("This Partitioner requires \"partitioner.config\" being set.");
+      if (partitionerConfig == null) {
+        throw new IllegalArgumentException(
+            "This Partitioner requires \"partitioner.config\" being set.");
       }
       properties.load(new FileInputStream(partitionerConfig));
     } catch (IOException e) {
