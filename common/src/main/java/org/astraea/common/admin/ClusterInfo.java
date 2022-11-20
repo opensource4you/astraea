@@ -403,6 +403,27 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
   }
 
+  /**
+   * @return the data folders of all nodes. If such information is not available to a specific node,
+   *     then an empty set will be associated with that node.
+   */
+  default Map<Integer, Set<String>> brokerFolders() {
+    return nodes().stream()
+        .collect(
+            Collectors.toUnmodifiableMap(
+                NodeInfo::id,
+                node -> {
+                  if (node instanceof Broker) {
+                    return ((Broker) node)
+                        .dataFolders().stream()
+                            .map(Broker.DataFolder::path)
+                            .collect(Collectors.toUnmodifiableSet());
+                  } else {
+                    return Set.of();
+                  }
+                }));
+  }
+
   // ---------------------[streams methods]---------------------//
   // implements following methods by smart index to speed up the queries
 
