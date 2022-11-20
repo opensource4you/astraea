@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Configure the path of Spark2Kafka.properties to run. For example: ./docker/start_etl.sh PropertiesPath
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "$DOCKER_FOLDER"/docker_build_common.sh
 
@@ -39,7 +40,7 @@ declare -r RESOURCES_CONFIGS="2G"
 function showHelp() {
   echo "Usage: [ENV] start_etl.sh properties-path"
   echo "Optional Arguments: "
-  echo "    properties-path=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
+  echo "    properties-path=/home/user/Spark2Kafka.properties   The path of Spark2Kafka.properties."
   echo "ENV: "
   echo "    VERSION=3.1.2                    set version of spark distribution"
   echo "    BUILD=false                      set true if you want to build image locally"
