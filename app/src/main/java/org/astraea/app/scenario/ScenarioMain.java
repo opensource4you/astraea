@@ -21,7 +21,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.scenario.Scenario;
 

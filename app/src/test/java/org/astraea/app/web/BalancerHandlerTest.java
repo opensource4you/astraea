@@ -38,9 +38,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.common.Configuration;
 import org.astraea.app.web.BalancerHandler.BalancerPostRequest;
 import org.astraea.app.web.BalancerHandler.CostWeight;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -62,10 +62,10 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
-import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
@@ -111,7 +111,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler,
               Map.of(
                   BALANCER_CONFIGURATION_KEY,
-                  "{\"iteration\":\"3000\"}",
+                  Map.of("iteration", "3000"),
                   COST_WEIGHT_KEY,
                   defaultDecreasing));
       var report = progress.report;
@@ -962,14 +962,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       {
         // default
-        var postRequest = BalancerHandler.parsePostRequest(Channel.EMPTY, clusterInfo, Map.of());
+        var postRequest =
+            BalancerHandler.parsePostRequest(new BalancerPostRequest(), clusterInfo, Map.of());
         var config = postRequest.configBuilder.get().build();
         Assertions.assertTrue(config.algorithmConfig().entrySet().isEmpty());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertEquals(
-            DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
-        Assertions.assertEquals(
-            TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
+            BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
+        Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
         Assertions.assertTrue(
             clusterInfo.topics().stream().allMatch(t -> config.topicFilter().test(t)));
       }
@@ -984,9 +984,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         request.setCostWeights(
             List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
 
-        var postRequest =
-            BalancerHandler.parsePostRequest(
-                request, clusterInfo, Map.of());
+        var postRequest = BalancerHandler.parsePostRequest(request, clusterInfo, Map.of());
         var config = postRequest.configBuilder.get().build();
         Assertions.assertEquals(
             Set.of(Map.entry("KEY", "VALUE")), config.algorithmConfig().entrySet());
@@ -1053,19 +1051,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
       var costFunction =
-          new Gson()
-              .toJson(
-                  Collections.singleton(
-                      new BalancerHandler.CostWeight(TimeoutCost.class.getName(), 1)));
+          Collections.singleton(new BalancerHandler.CostWeight(TimeoutCost.class.getName(), 1));
       var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
       var channel =
           Channel.ofRequest(
-              PostRequest.of(
-                  Map.of(
-                      BalancerHandler.TIMEOUT_KEY,
-                      "10",
-                      BalancerHandler.COST_WEIGHT_KEY,
-                      costFunction)));
+              JsonConverter.defaultConverter()
+                  .toJson(Map.of(TIMEOUT_KEY, "10", COST_WEIGHT_KEY, costFunction)));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(11));
@@ -1098,20 +1089,17 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             invoked.set(true);
           });
       var fetcherAndCost =
-          new Gson()
-              .toJson(
-                  Collections.singleton(
-                      new BalancerHandler.CostWeight(FetcherAndCost.class.getName(), 1)));
+          Collections.singleton(new BalancerHandler.CostWeight(FetcherAndCost.class.getName(), 1));
 
       var progress =
           submitPlanGeneration(
               handler,
               Map.of(
-                  BalancerHandler.TIMEOUT_KEY,
+                  TIMEOUT_KEY,
                   "8",
-                  BalancerHandler.COST_WEIGHT_KEY,
+                  COST_WEIGHT_KEY,
                   fetcherAndCost,
-                  BalancerHandler.TOPICS_KEY,
+                  TOPICS_KEY,
                   String.join(",", topics)));
 
       Assertions.assertTrue(progress.generated);

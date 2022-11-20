@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +39,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.Configuration;
 import org.astraea.app.web.Request.RequestObject;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
@@ -372,7 +373,7 @@ class BalancerHandler implements Handler {
                 .clusterCost(clusterCostFunction)
                 .dataFolders(dataFolders)
                 .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-                .movementConstraint(movementConstraint(channel.request().raw()))
+                .movementConstraint(movementConstraint(balancerPostRequest))
                 .topicFilter(topics::contains)
                 .config(balancerConfig));
   }
