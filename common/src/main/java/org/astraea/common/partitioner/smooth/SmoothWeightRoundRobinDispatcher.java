@@ -19,10 +19,12 @@ package org.astraea.common.partitioner.smooth;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -54,7 +56,12 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   private final Optional<Integer> jmxPortDefault = Optional.empty();
   private final Map<Integer, Integer> jmxPorts = new TreeMap<>();
 
+  /* These two map ("hasPartitions", "hasPartitionsSet") should be updated together. One for random access, one for existence checking*/
+  // Map of "broker id" and "collection of partitions"
+  // TODO: This is not aware of topic.
   private final Map<Integer, List<Integer>> hasPartitions = new TreeMap<>();
+
+  private final Map<Integer, Set<Integer>> hasPartitionsSet = new TreeMap<>();
 
   private final Lazy<SmoothWeightRoundRobin> smoothWeightRoundRobinCal = Lazy.of();
 
@@ -145,11 +152,18 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
 
   private void refreshPartitionMetaData(ClusterInfo<ReplicaInfo> clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
+
     partitions.forEach(
-        p ->
+        p -> {
+          // Check for partition existence. If not (a new partition), add to candidate list
+          if (hasPartitionsSet
+              .computeIfAbsent(p.nodeInfo().id(), ignore -> new HashSet<>())
+              .add(p.partition())) {
             hasPartitions
-                .computeIfAbsent(p.nodeInfo().id(), k -> new ArrayList<>())
-                .add(p.partition()));
+                .computeIfAbsent(p.nodeInfo().id(), ignore -> new ArrayList<>())
+                .add(p.partition());
+          }
+        });
 
     neutralIntegratedCost
         .fetcher()
