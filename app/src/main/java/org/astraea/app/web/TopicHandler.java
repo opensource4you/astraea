@@ -33,20 +33,17 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.DurationField;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
-
-  static final String TOPICS_KEY = "topics";
 
   static final String TOPIC_NAME_KEY = "name";
   static final String NUMBER_OF_PARTITIONS_KEY = "partitions";
   static final String NUMBER_OF_REPLICAS_KEY = "replicas";
   static final String PARTITION_KEY = "partition";
   static final String LIST_INTERNAL = "listInternal";
-  static final String PROBABILITY_INTERNAL = "probability";
-
   static final String POLL_RECORD_TIMEOUT = "poll_timeout";
 
   private final Admin admin;
@@ -173,7 +170,7 @@ class TopicHandler implements Handler {
   }
 
   static class TopicPostRequest implements Request {
-    private List<Map<String, String>> topics;
+    private List<Map<String, String>> topics = List.of();
 
     public List<Map<String, String>> topics() {
       return topics;
@@ -206,8 +203,9 @@ class TopicHandler implements Handler {
 
   @Override
   public CompletionStage<Topics> post(Channel channel) {
-    var postRequest = channel.request().getRequest(TypeRef.of(TopicPostRequest.class));
-    var topics = PostRequest.convert(postRequest.topics(), TypeRef.array(Topic.class));
+    var postRequest = channel.request(TypeRef.of(TopicPostRequest.class));
+    var topics =
+        JsonConverter.defaultConverter().convert(postRequest.topics(), TypeRef.array(Topic.class));
 
     var topicNames = topics.stream().map(Topic::name).collect(Collectors.toSet());
     if (topicNames.size() != topics.size())

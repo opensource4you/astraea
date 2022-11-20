@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.app.web.RecordHandler.ASYNC;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_BEGINNING;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_LATEST;
 import static org.astraea.app.web.RecordHandler.GROUP_ID;
@@ -26,10 +25,8 @@ import static org.astraea.app.web.RecordHandler.KEY_DESERIALIZER;
 import static org.astraea.app.web.RecordHandler.LIMIT;
 import static org.astraea.app.web.RecordHandler.OFFSET;
 import static org.astraea.app.web.RecordHandler.PARTITION;
-import static org.astraea.app.web.RecordHandler.RECORDS;
 import static org.astraea.app.web.RecordHandler.SEEK_TO;
 import static org.astraea.app.web.RecordHandler.TIMEOUT;
-import static org.astraea.app.web.RecordHandler.TRANSACTION_ID;
 import static org.astraea.app.web.RecordHandler.VALUE_DESERIALIZER;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -66,6 +63,10 @@ import org.mockito.Mockito;
 
 public class RecordHandlerTest extends RequireBrokerCluster {
 
+  static final String RECORDS = "records";
+  static final String TRANSACTION_ID = "transactionId";
+  static final String ASYNC = "async";
+
   @Test
   void testInvalidPost() {
     var handler = getRecordHandler();
@@ -73,7 +74,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () ->
             handler
-                .post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, List.of()))))
+                .post(
+                    Channel.ofRequest(
+                        JsonConverter.defaultConverter().toJson(Map.of(RECORDS, List.of()))))
                 .toCompletableFuture()
                 .join(),
         "records should contain at least one record");
@@ -82,7 +85,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () ->
             handler.post(
-                Channel.ofRequest(PostRequest.of(Map.of(RECORDS, List.of(new PostRecord()))))),
+                Channel.ofRequest(
+                    JsonConverter.defaultConverter()
+                        .toJson(Map.of(RECORDS, List.of(new PostRecord()))))),
         "Value `$.records[].topic` is required.");
   }
 
@@ -90,22 +95,25 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testPostTimeout() {
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> getRecordHandler().post(Channel.ofRequest(PostRequest.of(Map.of(TIMEOUT, "foo")))));
+        () ->
+            getRecordHandler()
+                .post(
+                    Channel.ofRequest(
+                        JsonConverter.defaultConverter().toJson(Map.of(TIMEOUT, "foo")))));
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
         getRecordHandler()
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        JsonConverter.defaultConverter()
-                            .toJson(
-                                Map.of(
-                                    TIMEOUT,
-                                    "10s",
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            "test", null, null, null, null, null, null)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                TIMEOUT,
+                                "10s",
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        "test", null, null, null, null, null, null))))))
             .toCompletableFuture()
             .join());
   }
@@ -130,9 +138,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
             getRecordHandler()
-                .post(
-                    Channel.ofRequest(
-                        PostRequest.of(JsonConverter.defaultConverter().toJson(requestParams))))
+                .post(Channel.ofRequest(JsonConverter.defaultConverter().toJson(requestParams)))
                 .toCompletableFuture()
                 .join());
 
@@ -198,22 +204,21 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler
                 .post(
                     Channel.ofRequest(
-                        PostRequest.of(
-                            JsonConverter.defaultConverter()
-                                .toJson(
-                                    Map.of(
-                                        ASYNC,
-                                        "true",
-                                        RECORDS,
-                                        List.of(
-                                            new RecordHandler.PostRecord(
-                                                topic,
-                                                0,
-                                                "string",
-                                                "integer",
-                                                "foo",
-                                                "100",
-                                                currentTimestamp)))))))
+                        JsonConverter.defaultConverter()
+                            .toJson(
+                                Map.of(
+                                    ASYNC,
+                                    "true",
+                                    RECORDS,
+                                    List.of(
+                                        new RecordHandler.PostRecord(
+                                            topic,
+                                            0,
+                                            "string",
+                                            "integer",
+                                            "foo",
+                                            "100",
+                                            currentTimestamp))))))
                 .toCompletableFuture()
                 .join());
     Assertions.assertEquals(Response.ACCEPT, result);
@@ -248,14 +253,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         handler
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        JsonConverter.defaultConverter()
-                            .toJson(
-                                Map.of(
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic, null, serializer, null, actual, null, null)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic, null, serializer, null, actual, null, null))))))
             .toCompletableFuture()
             .join());
 
@@ -652,20 +656,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         handler
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        JsonConverter.defaultConverter()
-                            .toJson(
-                                Map.of(
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic,
-                                            0,
-                                            "string",
-                                            "integer",
-                                            "foo",
-                                            "100",
-                                            currentTimestamp)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic,
+                                        0,
+                                        "string",
+                                        "integer",
+                                        "foo",
+                                        100,
+                                        currentTimestamp))))))
             .toCompletableFuture()
             .join());
 

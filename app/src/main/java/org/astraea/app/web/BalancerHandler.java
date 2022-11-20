@@ -62,20 +62,6 @@ import org.astraea.common.json.TypeRef;
 
 class BalancerHandler implements Handler {
 
-  static final String TOPICS_KEY = "topics";
-
-  static final String TIMEOUT_KEY = "timeout";
-  static final String MAX_MIGRATE_SIZE_KEY = "max-migrated-size";
-  static final String MAX_MIGRATE_LEADER_KEY = "max-migrated-leader";
-  static final String COST_WEIGHT_KEY = "costWeights";
-
-  static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
-
-  static final String BALANCER_CONFIGURATION_KEY = "balancer-config";
-
-  static final int LOOP_DEFAULT = 10000;
-  static final int TIMEOUT_DEFAULT = 3;
-  static final String BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class.getName();
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
@@ -211,7 +197,7 @@ class BalancerHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var balancerPostRequest = channel.request().getRequest(TypeRef.of(BalancerPostRequest.class));
+    var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var newPlanId = UUID.randomUUID().toString();
     var planGeneration =
         FutureUtils.combine(
@@ -390,7 +376,7 @@ class BalancerHandler implements Handler {
 
   @Override
   public CompletionStage<Response> put(Channel channel) {
-    var request = channel.request().getRequest(TypeRef.of(BalancerPutRequest.class));
+    var request = channel.request(TypeRef.of(BalancerPutRequest.class));
 
     final var thePlanId = request.id();
     final var future =

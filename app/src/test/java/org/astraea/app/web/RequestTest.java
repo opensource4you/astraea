@@ -21,7 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,12 +48,21 @@ class RequestTest {
           cls.getDeclaredConstructor();
         });
 
-    // test optional assign
+    // test optional, map, list assigned
     var instance = cls.getDeclaredConstructor().newInstance();
     Arrays.stream(cls.getDeclaredFields())
-        .filter(x -> Optional.class == x.getType())
         .peek(x -> x.setAccessible(true))
-        .forEach(x -> Utils.packException(() -> Objects.nonNull(x.get(instance))));
+        .forEach(
+            x ->
+                Utils.packException(
+                    () -> {
+                      var innerCls = x.getType();
+                      if (Optional.class == innerCls
+                          || Map.class.isAssignableFrom(innerCls)
+                          || List.class.isAssignableFrom(innerCls)) {
+                        Assertions.assertNotNull(x.get(instance));
+                      }
+                    }));
   }
 
   public static class ResponseClassProvider implements ArgumentsProvider {
@@ -68,7 +77,7 @@ class RequestTest {
   }
 
   public static List<Class<?>> getAllFieldPojoCls(Class<?> cls) {
-    if (Utils.isPojo(cls)) {
+    if (isPojo(cls)) {
       return Stream.concat(
               Stream.of(cls),
               Arrays.stream(cls.getDeclaredFields())
@@ -79,5 +88,17 @@ class RequestTest {
     } else {
       return List.of();
     }
+  }
+
+  public static boolean isPojo(Class<?> cls) {
+    return !(cls.isPrimitive()
+        || Utils.isWrapper(cls)
+        || cls.isSynthetic()
+        || cls.isInterface()
+        || Collection.class.isAssignableFrom(cls)
+        || Map.class.isAssignableFrom(cls)
+        || String.class == cls
+        || Optional.class == cls
+        || Object.class == cls);
   }
 }

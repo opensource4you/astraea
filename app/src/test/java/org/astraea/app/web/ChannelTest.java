@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -38,7 +39,7 @@ public class ChannelTest {
     Assertions.assertEquals(Channel.Type.GET, channel.type());
     Assertions.assertEquals(Optional.of("obj"), channel.target());
     Assertions.assertEquals(Map.of("a", "b", "c", "d"), channel.queries());
-    Assertions.assertEquals(PostRequest.EMPTY, channel.request());
+    Assertions.assertEquals(Map.of(), channel.request(TypeRef.map(String.class)));
   }
 
   @Test

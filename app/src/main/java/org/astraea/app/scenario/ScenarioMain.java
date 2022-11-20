@@ -17,7 +17,6 @@
 package org.astraea.app.scenario;
 
 import com.beust.jcommander.Parameter;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
@@ -32,8 +31,8 @@ public class ScenarioMain extends Argument {
       required = true)
   String scenarioClass;
 
-  private static final JsonConverter jsonConverter =
-      JsonConverter.jackson(x -> x.configure(SerializationFeature.INDENT_OUTPUT, true));
+  // this class will be removed , so we don't fix pretty print.
+  private static final JsonConverter jsonConverter = JsonConverter.defaultConverter();
 
   public void execute() {
     var theClass = Utils.packException(() -> Class.forName(scenarioClass));

@@ -17,9 +17,9 @@
 package org.astraea.common.json;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,31 +97,26 @@ class JsonConverterTest {
     var testFieldClass = new TestOptionalClass();
     testFieldClass.optValue = Optional.ofNullable("hello");
     testFieldClass.nestedOpt = Optional.ofNullable(List.of("hello"));
-    testFieldClass.nonInitOpt = Optional.ofNullable("hello");
 
     var json = jsonConverter.toJson(testFieldClass);
-    assertEquals(
-        "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}", json);
+    assertEquals("{\"nestedOpt\":[\"hello\"],\"optValue\":\"hello\"}", json);
 
     testFieldClass.optValue = Optional.empty();
     testFieldClass.nestedOpt = Optional.empty();
-    testFieldClass.nonInitOpt = Optional.empty();
     json = jsonConverter.toJson(testFieldClass);
     assertEquals("{}", json);
 
     var convertedTestFieldClass =
         jsonConverter.fromJson(
-            "{\"nestedOpt\":[\"hello\"],\"nonInitOpt\":\"hello\",\"optValue\":\"hello\"}",
+            "{\"nestedOpt\":[\"hello\"],\"optValue\":\"hello\"}",
             TypeRef.of(TestOptionalClass.class));
     assertEquals("hello", convertedTestFieldClass.optValue.get());
     assertEquals(List.of("hello"), convertedTestFieldClass.nestedOpt.get());
-    assertEquals("hello", convertedTestFieldClass.nonInitOpt.get());
 
     convertedTestFieldClass =
         jsonConverter.fromJson("{\"optValue\":null}", TypeRef.of(TestOptionalClass.class));
     assertTrue(convertedTestFieldClass.optValue.isEmpty());
     assertTrue(convertedTestFieldClass.nestedOpt.isEmpty());
-    assertNull(convertedTestFieldClass.nonInitOpt);
   }
 
   @Test
@@ -131,11 +126,13 @@ class JsonConverterTest {
     var testNestedObjectClass = new TestNestedObjectClass();
     testNestedObjectClass.nestedList = List.of(Map.of("key", "value"));
     testNestedObjectClass.nestedObject = new TestPrimitiveClass();
+    testNestedObjectClass.nestedObject.doubleValue = 5d;
+    testNestedObjectClass.nestedObject.stringValue = "value";
     testNestedObjectClass.nestedMap = Map.of("helloKey", List.of("hello"));
 
     var json = jsonConverter.toJson(testNestedObjectClass);
     var expectedJson =
-        "{\"nestedList\":[{\"key\":\"value\"}],\"nestedMap\":{\"helloKey\":[\"hello\"]},\"nestedObject\":{\"intValue\":0}}";
+        "{\"nestedList\":[{\"key\":\"value\"}],\"nestedMap\":{\"helloKey\":[\"hello\"]},\"nestedObject\":{\"doubleValue\":5.0,\"intValue\":0,\"stringValue\":\"value\"}}";
     assertEquals(expectedJson, json);
 
     var fromJson = jsonConverter.fromJson(expectedJson, TypeRef.of(TestNestedObjectClass.class));
@@ -216,26 +213,164 @@ class JsonConverterTest {
   }
 
   @Test
-  void testFieldNotInJson() {
-    var testFieldNameClass =
-        JsonConverter.defaultConverter()
+  void testFieldNotInJson() throws JsonProcessingException {
+    var testPrimitiveClass =
+        getConverter()
             .fromJson(
-                "{" + "\"actor\":123," + "\"apple\":\"notMatter\"" + "}",
-                TypeRef.of(TestFieldNameClass.class));
+                "{\"doubleValue\":5.0,\"intValue\":0,\"stringValue\":\"value\",\"notInField\":\"value\"}",
+                TypeRef.of(TestPrimitiveClass.class));
 
-    assertEquals(123, testFieldNameClass.actor);
-    assertEquals("notMatter", testFieldNameClass.apple);
-    assertNull(testFieldNameClass.banana);
+    assertEquals(5.0d, testPrimitiveClass.doubleValue);
+    assertEquals(0, testPrimitiveClass.intValue);
+    assertEquals("value", testPrimitiveClass.stringValue);
   }
 
   @Test
   void testByteArray() {
     var foo = new Foo();
     foo.bar = "test".getBytes();
-    var jsonConverter = JsonConverter.defaultConverter();
+    var jsonConverter = getConverter();
     Assertions.assertArrayEquals(
         "test".getBytes(),
         jsonConverter.fromJson(jsonConverter.toJson(foo), TypeRef.of(Foo.class)).bar);
+  }
+
+  @Test
+  void testConvert() {
+    var jsonConverter = getConverter();
+    var obj =
+        jsonConverter.fromJson("{\"foo\":\"fooValue\",\"bar\":500}", TypeRef.of(Object.class));
+
+    var forTestValue = jsonConverter.convert(obj, TypeRef.of(ForTestConvert.class));
+    Assertions.assertEquals("fooValue", forTestValue.foo);
+    Assertions.assertEquals(500, forTestValue.bar);
+
+    var errObj = jsonConverter.fromJson("{\"foo\":\"fooValue\"}", TypeRef.of(Object.class));
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> jsonConverter.convert(errObj, TypeRef.of(ForTestConvert.class)));
+    Assertions.assertEquals("$.bar can not be null", exception.getMessage());
+  }
+
+  @Test
+  void testGetRequestObject() {
+    var jsonConverter = getConverter();
+    var forTestValue =
+        jsonConverter.fromJson(
+            "{\"foo\":\"fooValue\",\"bar\":500}", TypeRef.of(ForTestConvert.class));
+    Assertions.assertEquals("fooValue", forTestValue.foo);
+    Assertions.assertEquals(500, forTestValue.bar);
+
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                jsonConverter.fromJson("{\"foo\":\"fooValue\"}", TypeRef.of(ForTestConvert.class)));
+    Assertions.assertEquals("$.bar can not be null", exception.getMessage());
+  }
+
+  @Test
+  void testGetRequestNested() {
+    var jsonConverter = getConverter();
+    var forTestNested =
+        jsonConverter.fromJson(
+            "{\"forTestValue\":{\"foo\":\"fooValue\",\"bar\":500}}",
+            TypeRef.of(ForTestNested.class));
+    Assertions.assertEquals("fooValue", forTestNested.forTestValue.foo);
+    Assertions.assertEquals(500, forTestNested.forTestValue.bar);
+
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                jsonConverter.fromJson(
+                    "{\"forTestValue\":{\"foo\":\"fooValue\"}}", TypeRef.of(ForTestNested.class)));
+    Assertions.assertEquals("$.forTestValue.bar can not be null", exception.getMessage());
+  }
+
+  @Test
+  void testGetRequestList() {
+    var jsonConverter = getConverter();
+    var forTestList =
+        jsonConverter.fromJson(
+            "{\"forTestValues\":[{\"foo\":\"fooValue\",\"bar\":500}]}",
+            TypeRef.of(ForTestList.class));
+    Assertions.assertEquals("fooValue", forTestList.forTestValues.get(0).foo);
+    Assertions.assertEquals(500, forTestList.forTestValues.get(0).bar);
+
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                jsonConverter.fromJson(
+                    "{\"forTestValues\":[{\"foo\":\"fooValue\"}]}", TypeRef.of(ForTestList.class)));
+    Assertions.assertEquals("$.forTestValues[0].bar can not be null", exception.getMessage());
+  }
+
+  @Test
+  void testGetRequestMap() {
+    var jsonConverter = getConverter();
+    var forTestMap =
+        jsonConverter.fromJson(
+            "{\"forTestValueMap\":{\"mapKey\":{\"foo\":\"fooValue\",\"bar\":500}}}",
+            TypeRef.of(ForTestMap.class));
+    Assertions.assertEquals("fooValue", forTestMap.forTestValueMap.get("mapKey").foo);
+    Assertions.assertEquals(500, forTestMap.forTestValueMap.get("mapKey").bar);
+
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                jsonConverter.fromJson(
+                    "{\"forTestValueMap\":{\"mapKey\":{\"foo\":\"fooValue\"}}}",
+                    TypeRef.of(ForTestMap.class)));
+    Assertions.assertEquals("$.forTestValueMap.mapKey.bar can not be null", exception.getMessage());
+  }
+
+  @Test
+  void testGetRequestOptional() {
+    var jsonConverter = getConverter();
+    var forTestOptional =
+        jsonConverter.fromJson(
+            "{\"forTestValue\":{\"foo\":\"fooValue\",\"bar\":500}}",
+            TypeRef.of(ForTestOptional.class));
+    Assertions.assertEquals("fooValue", forTestOptional.forTestValue.get().foo);
+    Assertions.assertEquals(500, forTestOptional.forTestValue.get().bar);
+
+    var exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                jsonConverter.fromJson(
+                    "{\"forTestValue\":{\"foo\":\"fooValue\"}}",
+                    TypeRef.of(ForTestOptional.class)));
+    Assertions.assertEquals("$.forTestValue.bar can not be null", exception.getMessage());
+  }
+
+  static class ForTestOptional {
+
+    Optional<ForTestConvert> forTestValue = Optional.empty();
+  }
+
+  static class ForTestMap {
+
+    Map<String, ForTestConvert> forTestValueMap;
+  }
+
+  static class ForTestList {
+
+    List<ForTestConvert> forTestValues;
+  }
+
+  static class ForTestNested {
+
+    ForTestConvert forTestValue;
+  }
+
+  static class ForTestConvert {
+    String foo;
+    Integer bar;
   }
 
   private static class Foo {
@@ -264,14 +399,13 @@ class JsonConverterTest {
 
   private static class TestOptionalClass {
 
-    private Optional<String> optValue = Optional.empty();
-    private Optional<List<String>> nestedOpt = Optional.empty();
-
     /**
-     * if opt is not initialized with Optional.empty(), nonInitOpt will be null when nonInitOpt is
-     * not in json fields.
+     * if opt is not initialized with Optional.empty(), it will be null when nonInitOpt is not in
+     * json fields.
      */
-    private Optional<String> nonInitOpt;
+    private Optional<String> optValue = Optional.empty();
+
+    private Optional<List<String>> nestedOpt = Optional.empty();
   }
 
   private static class TestNestedObjectClass {

@@ -29,6 +29,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 interface Channel {
 
@@ -50,15 +52,16 @@ interface Channel {
     return builder().type(Type.GET).queries(queries).build();
   }
 
-  static Channel ofRequest(PostRequest request) {
-    return builder().type(Type.POST).request(request).build();
+  static Channel ofRequest(String json) {
+    return builder().type(Type.POST).request(json).build();
   }
 
   class Builder {
     private Type type = Type.UNKNOWN;
     private Optional<String> target = Optional.empty();
     private Map<String, String> queries = Map.of();
-    private PostRequest request = PostRequest.EMPTY;
+
+    private Optional<String> body = Optional.empty();
     private Consumer<Response> sender = r -> {};
 
     private Builder() {}
@@ -82,8 +85,8 @@ interface Channel {
       return this;
     }
 
-    public Builder request(PostRequest request) {
-      this.request = request;
+    public Builder request(String json) {
+      this.body = Optional.ofNullable(json);
       return this;
     }
 
@@ -105,8 +108,9 @@ interface Channel {
         }
 
         @Override
-        public PostRequest request() {
-          return request;
+        public <T> T request(TypeRef<T> typeRef) {
+          var json = body.orElse("{}");
+          return JsonConverter.defaultConverter().fromJson(json, typeRef);
         }
 
         @Override
@@ -172,11 +176,11 @@ interface Channel {
               .collect(Collectors.toMap(p -> p.split("=")[0], p -> p.split("=")[1]));
         };
 
-    Function<InputStream, PostRequest> parseRequest =
+    Function<InputStream, String> parseRequest =
         stream -> {
           var bs = Utils.packException(stream::readAllBytes);
-          if (bs == null || bs.length == 0) return PostRequest.EMPTY;
-          return PostRequest.of(new String(bs, StandardCharsets.UTF_8));
+          if (bs == null || bs.length == 0) return null;
+          return new String(bs, StandardCharsets.UTF_8);
         };
 
     Function<String, Type> parseType =
@@ -231,7 +235,7 @@ interface Channel {
   /**
    * @return body request
    */
-  PostRequest request();
+  <T> T request(TypeRef<T> typeRef);
 
   /**
    * @return the queries appended to URL

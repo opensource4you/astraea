@@ -95,7 +95,7 @@ public class QuotaHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var postRequest = channel.request().getRequest(TypeRef.of(QuotaPostRequest.class));
+    var postRequest = channel.request(TypeRef.of(QuotaPostRequest.class));
 
     if (isPresent(postRequest.ip(), postRequest.connectionCreationRate()))
       return admin

@@ -111,7 +111,7 @@ public class ThrottleHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var postRequest = channel.request().getRequest(TypeRef.of(ThrottlePostRequest.class));
+    var postRequest = channel.request(TypeRef.of(ThrottlePostRequest.class));
 
     var topicToAppends =
         admin

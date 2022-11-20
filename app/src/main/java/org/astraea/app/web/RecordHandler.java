@@ -52,10 +52,7 @@ import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Serializer;
 
 public class RecordHandler implements Handler {
-  static final String RECORDS = "records";
-  static final String TRANSACTION_ID = "transactionId";
   static final String PARTITION = "partition";
-  static final String ASYNC = "async";
   static final String DISTANCE_FROM_LATEST = "distanceFromLatest";
   static final String DISTANCE_FROM_BEGINNING = "distanceFromBeginning";
   static final String SEEK_TO = "seekTo";
@@ -199,7 +196,7 @@ public class RecordHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var postRequest = channel.request().getRequest(TypeRef.of(RecordPostRequest.class));
+    var postRequest = channel.request(TypeRef.of(RecordPostRequest.class));
 
     var records = postRequest.records();
     if (records.isEmpty())

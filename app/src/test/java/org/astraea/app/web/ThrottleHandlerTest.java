@@ -415,8 +415,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
               new ThrottleHandler.TopicThrottle(topicD, 4, 1, follower),
               new ThrottleHandler.TopicThrottle(topicD, 4, 0, leader));
 
-      var post =
-          handler.post(Channel.ofRequest(PostRequest.of(rawJson))).toCompletableFuture().join();
+      var post = handler.post(Channel.ofRequest(rawJson)).toCompletableFuture().join();
       Assertions.assertEquals(202, post.code());
 
       Utils.sleep(Duration.ofSeconds(5));

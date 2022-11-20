@@ -49,7 +49,7 @@ class TypeRefTest {
 
   @Test
   void testBytes() {
-    assertEquals("lass [B", TypeRef.bytes().getType().toString());
+    assertEquals("class [B", TypeRef.bytes().getType().toString());
   }
 
   @Test

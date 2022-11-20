@@ -21,10 +21,8 @@ import java.io.StringWriter;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -288,18 +286,6 @@ public final class Utils {
         || cls == Character.class
         || cls == Byte.class
         || cls == Boolean.class;
-  }
-
-  public static boolean isPojo(Class<?> cls) {
-    return !(cls.isPrimitive()
-        || Utils.isWrapper(cls)
-        || cls.isSynthetic()
-        || cls.isInterface()
-        || Collection.class.isAssignableFrom(cls)
-        || Map.class.isAssignableFrom(cls)
-        || String.class == cls
-        || Optional.class == cls
-        || Object.class == cls);
   }
 
   private Utils() {}

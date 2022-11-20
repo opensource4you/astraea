@@ -37,16 +37,10 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 
 public class ReassignmentHandler implements Handler {
-  static final String PLANS_KEY = "plans";
-  static final String TOPIC_KEY = "topic";
-  static final String PARTITION_KEY = "partition";
-  static final String FROM_KEY = "from";
-  static final String TO_KEY = "to";
-  static final String BROKER_KEY = "broker";
-  static final String EXCLUDE_KEY = "exclude";
   private final Admin admin;
 
   ReassignmentHandler(Admin admin) {
@@ -98,7 +92,7 @@ public class ReassignmentHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var request = channel.request().getRequest(TypeRef.of(ReassignmentPostRequest.class));
+    var request = channel.request(TypeRef.of(ReassignmentPostRequest.class));
     return FutureUtils.sequence(
             request.plans().stream()
                 .map(
@@ -112,7 +106,8 @@ public class ReassignmentHandler implements Handler {
                                         plan.topic().get(),
                                         plan.partition().get(),
                                         plan.broker().get()),
-                                    PostRequest.convert(plan.to().get(), TypeRef.of(String.class))))
+                                    JsonConverter.defaultConverter()
+                                        .convert(plan.to().get(), TypeRef.of(String.class))))
                             .thenApply(ignored -> Response.ACCEPT)
                             .toCompletableFuture();
 
@@ -122,8 +117,8 @@ public class ReassignmentHandler implements Handler {
                             .moveToBrokers(
                                 Map.of(
                                     TopicPartition.of(plan.topic().get(), plan.partition().get()),
-                                    PostRequest.convert(
-                                        plan.to().get(), TypeRef.array(Integer.class))))
+                                    JsonConverter.defaultConverter()
+                                        .convert(plan.to().get(), TypeRef.array(Integer.class))))
                             .thenApply(ignored -> Response.ACCEPT)
                             .toCompletableFuture();
 
