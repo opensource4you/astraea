@@ -17,23 +17,23 @@
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "$DOCKER_FOLDER"/docker_build_common.sh
 
-# ===============================[global variables]===============================
+# ===============================[global variables]================================
 declare -A PROPERTIES_MAP
 declare -r SINK_KEY="sink_path"
 declare -r SOURCE_KEY="source_path"
 declare -r TOPIC_KEY="topic_name"
 declare -r CHECKPOINT_KEY="checkpoint"
-declare -r MASTER_KEY="deployment_model"
 declare -r VERSION=${REVISION:-${VERSION:-main}}
-declare -r SPARK_VERSION=${SPARK_REVERSION:-${SPARK_VERSION:-3.1.2}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
-
-# ===============================[driver/executor resource]===============================
+# ===============================[software version]========================
+declare -r SPARK_VERSION=${SPARK_REVERSION:-${SPARK_VERSION:-3.1.2}}
+declare -r KAFKA_VERSION=${KAFKA_REVERSION:-${KAFKA_VERSION:-3.3.1}}
+declare -r ASTRAEA_VERSION=${ASTRAEA_REVERSION:-${ASTRAEA_VERSION:-0.0.1}}
+# ===============================[driver/executor resource]========================
 declare -r RESOURCES_CONFIGS="2G"
-
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -109,16 +109,6 @@ WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
 
-function checkConflictContainer() {
-  local name=$(echo "${PROPERTIES_MAP[${SINK_KEY}]}" | tr '/' '-')
-  local container_names=$(docker ps --format "{{.Names}}")
-
-  if [[ $(echo "${container_names}" | grep -P "${name}") != "" ]]; then
-    echo "It is disallowed to run multiples etl in same sink path: $name."
-    exit 2
-  fi
-}
-
 function readProperties() {
     local path=$1
     if [ -f "$path" ]
@@ -140,10 +130,7 @@ function readProperties() {
 function runContainer() {
     local sourcePath=$(echo "${PROPERTIES_MAP[${SOURCE_KEY}]}" | tr '/' '-')
     local etlProperties="/tmp/etl${sourcePath}.properties"
-    echo "$1"
-    echo "$etlProperties"
     cat "$1" >> "$etlProperties"
-
 
     docker run -d --init \
         --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
@@ -154,18 +141,18 @@ function runContainer() {
         -e JAVA_OPTS="$HEAP_OPTS" \
         "$IMAGE_NAME" \
         ./bin/spark-submit \
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:"$SPARK_VERSION" \
         --executor-memory "$RESOURCES_CONFIGS" \
         --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
         --class org.astraea.etl.Spark2Kafka \
-        --driver-class-path /opt/astraea/lib/astraea-common-0.0.1-SNAPSHOT.jar:/opt/astraea/lib/kafka-clients-3.2.1.jar \
-        --master "${PROPERTIES_MAP[${MASTER_KEY}]}" \
+        --driver-class-path /opt/astraea/lib/astraea-common-"$ASTRAEA_VERSION"-SNAPSHOT.jar:/opt/astraea/lib/kafka-clients-"$KAFKA_VERSION".jar \
+        --master local \
         --files "${PROPERTIES_MAP[${SOURCE_KEY}]}" \
-        /opt/astraea/lib/astraea-common-0.0.1-SNAPSHOT.jar \
+        /opt/astraea/lib/astraea-etl-"$ASTRAEA_VERSION"-SNAPSHOT.jar \
         "$1"
 }
 
 # ===================================[main]===================================
-
 checkDocker
 generateDockerfile
 buildImageIfNeed "$IMAGE_NAME"
