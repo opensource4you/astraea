@@ -99,7 +99,7 @@ public class GreedyBalancer implements Balancer {
     BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
         (currentAllocation, currentCost) ->
             allocationTweaker
-                .generate(currentClusterInfo.brokerFolders(), currentAllocation)
+                .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
                     newAllocation -> {

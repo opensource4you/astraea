@@ -43,8 +43,7 @@ class ShuffleTweakerTest {
   void testRun() {
     final var shuffleTweaker = new ShuffleTweaker(5, 10);
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
-    final var stream =
-        shuffleTweaker.generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster));
+    final var stream = shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster));
     final var iterator = stream.iterator();
 
     Assertions.assertDoesNotThrow(() -> System.out.println(iterator.next()));
@@ -60,7 +59,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = new ShuffleTweaker(() -> shuffle);
 
     shuffleTweaker
-        .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
+        .generate(ClusterLogAllocation.of(fakeCluster))
         .limit(100)
         .forEach(
             that -> {
@@ -83,31 +82,18 @@ class ShuffleTweakerTest {
 
     Assertions.assertEquals(
         0,
-        (int)
-            shuffleTweaker
-                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
-                .count(),
+        (int) shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).count(),
         "No possible tweak");
   }
 
   @Test
   void testOneNode() {
-    final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1);
+    final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1, 1);
     final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
         0,
-        (int)
-            shuffleTweaker
-                .generate(
-                    fakeCluster.brokerFolders().entrySet().stream()
-                        .limit(1)
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().stream().limit(1).collect(Collectors.toSet()))),
-                    ClusterLogAllocation.of(fakeCluster))
-                .count(),
+        (int) shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).count(),
         "No possible tweak");
   }
 
@@ -118,10 +104,7 @@ class ShuffleTweakerTest {
 
     Assertions.assertEquals(
         0,
-        (int)
-            shuffleTweaker
-                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
-                .count(),
+        (int) shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).count(),
         "No possible tweak");
   }
 
@@ -148,10 +131,7 @@ class ShuffleTweakerTest {
 
     final long s = System.nanoTime();
     final var count =
-        shuffleTweaker
-            .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
-            .limit(size)
-            .count();
+        shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).limit(size).count();
     final long t = System.nanoTime();
     Assertions.assertEquals(size, count);
     System.out.printf("[%s]%n", scenario);
@@ -171,7 +151,7 @@ class ShuffleTweakerTest {
     Assertions.assertDoesNotThrow(
         () ->
             shuffleTweaker
-                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
+                .generate(ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .limit(100)
                 .count());
@@ -189,7 +169,7 @@ class ShuffleTweakerTest {
     forkJoinPool.submit(
         () ->
             shuffleTweaker
-                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
+                .generate(ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .forEach((ignore) -> counter.increment()));
 
@@ -258,7 +238,7 @@ class ShuffleTweakerTest {
                     Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
                     Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build())));
     shuffleTweaker
-        .generate(dataDir, allocation)
+        .generate(allocation)
         .limit(30)
         .forEach(
             newAllocation -> {

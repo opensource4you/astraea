@@ -35,6 +35,11 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
 
   public static FakeClusterInfo of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount) {
+    return of(nodeCount, topicCount, partitionCount, replicaCount, 3);
+  }
+
+  public static FakeClusterInfo of(
+      int nodeCount, int topicCount, int partitionCount, int replicaCount, int folderCount) {
     final var random = new Random();
     random.setSeed(0);
 
@@ -43,6 +48,7 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
         topicCount,
         partitionCount,
         replicaCount,
+        folderCount,
         (partition) ->
             IntStream.range(0, partition)
                 .mapToObj(
@@ -63,10 +69,10 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
       int topicCount,
       int partitionCount,
       int replicaCount,
+      int folderCount,
       Function<Integer, Set<String>> topicNameGenerator) {
-    final var dataDirCount = 3;
     final var dataDirectories =
-        IntStream.range(0, dataDirCount)
+        IntStream.range(0, folderCount)
             .mapToObj(i -> "/tmp/data-directory-" + i)
             .collect(Collectors.toUnmodifiableSet());
     final var nodes =
