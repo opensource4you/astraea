@@ -58,7 +58,7 @@ public class SensorTest {
 
   @Test
   void testMetrics() {
-    var sensor = new SensorBuilder<Double>().addStat("average", new Avg()).build();
+    var sensor = new SensorBuilder<Double>().addStat("average", Avg.of()).build();
     sensor.record(1.0);
     var metrics = sensor.metrics();
     Assertions.assertEquals(1.0, metrics.get("average").measure());

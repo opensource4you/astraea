@@ -16,13 +16,14 @@
  */
 package org.astraea.common.metrics.stats;
 
+import java.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class AvgTest {
   @Test
   void testAvg() {
-    var stat = new Avg();
+    var stat = Avg.of();
     stat.record(2.0);
     stat.record(7.0);
     stat.record(6.0);
@@ -32,7 +33,37 @@ public class AvgTest {
 
   @Test
   void testException() {
-    var stat = new Avg();
+    var stat = Avg.of();
     Assertions.assertThrows(RuntimeException.class, stat::measure);
+  }
+
+  @Test
+  void testRateByTime() throws InterruptedException {
+    var rateByTime = Avg.rateByTime(Duration.ofSeconds(1));
+    rateByTime.record(10.0);
+    rateByTime.record(10.0);
+    Thread.sleep(1000);
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals((10 + 50) / 2.0, rateByTime.measure());
+
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals((10 + 50) / 2.0, rateByTime.measure());
+  }
+
+  @Test
+  void testExpWeightByTime() throws InterruptedException {
+    var rateByTime = Avg.expWeightByTime(Duration.ofSeconds(1), 0.5);
+    rateByTime.record(10.0);
+    rateByTime.record(10.0);
+    Thread.sleep(1000);
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
+
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
   }
 }
