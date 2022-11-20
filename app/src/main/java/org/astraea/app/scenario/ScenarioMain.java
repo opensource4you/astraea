@@ -17,6 +17,7 @@
 package org.astraea.app.scenario;
 
 import com.beust.jcommander.Parameter;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;

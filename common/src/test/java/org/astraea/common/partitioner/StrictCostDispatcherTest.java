@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -30,7 +31,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeThroughputCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -288,11 +288,9 @@ public class StrictCostDispatcherTest {
           dispatcher.jmxPortGetter = id -> Optional.of(1111);
           dispatcher.tryToUpdateFetcher(clusterInfo);
           Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
-          Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
 
           dispatcher.tryToUpdateFetcher(clusterInfo);
           Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
-          Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
         }
       }
     }

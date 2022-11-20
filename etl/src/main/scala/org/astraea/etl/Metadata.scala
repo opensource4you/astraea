@@ -29,9 +29,7 @@ import scala.collection.JavaConverters._
   * @param sinkPath
   *   The data sink path should be a directory.
   * @param column
-  *   The CSV Column Name.For example:stringA,stringB,stringC...
-  * @param primaryKeys
-  *   Primary keys.
+  *   The CSV Column metadata.Contains column name, data type and is pk or not.
   * @param kafkaBootstrapServers
   *   The Kafka bootstrap servers.
   * @param topicName
@@ -44,13 +42,13 @@ import scala.collection.JavaConverters._
   * @param topicConfig
   *   The rest of the topic can be configured parameters.For example:
   *   keyA:valueA,keyB:valueB,keyC:valueC...
-  * @param deploymentModel
+  * @param deployModel
   *   Set deployment model, which will be used in
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
   */
 case class Metadata private (
-    var deploymentModel: String,
+    var deployModel: String,
     var sourcePath: File,
     var sinkPath: File,
     var column: Seq[DataColumn],
@@ -71,8 +69,7 @@ object Metadata {
   private[this] val TOPIC_PARTITIONS = "topic.partitions"
   private[this] val TOPIC_REPLICAS = "topic.replicas"
   private[this] val TOPIC_CONFIG = "topic.config"
-  private[this] val DEPLOYMENT_MODEL = "deployment.model"
-
+  private[this] val DEPLOY_MODEL = "deploy.model"
   private[this] val DEFAULT_PARTITIONS = "15"
   private[this] val DEFAULT_REPLICAS = "1"
 
@@ -87,7 +84,7 @@ object Metadata {
     var metadataBuilder = Metadata.builder()
     properties.foreach(entry =>
       entry._1 match {
-        case DEPLOYMENT_MODEL =>
+        case DEPLOY_MODEL =>
           metadataBuilder =
             metadataBuilder.deploymentMode(DeployModel.process(entry._2))
         case SOURCE_PATH =>
@@ -224,9 +221,9 @@ object Metadata {
     }
   }
 
-  case object DeployModel extends MetaDataType(DEPLOYMENT_MODEL, true, "") {
+  case object DeployModel extends MetaDataType(DEPLOY_MODEL, true, "") {
     def process(str: String): String = {
-      requireDeployMode(DEPLOYMENT_MODEL, parseEmptyStr(str))
+      requireDeployMode(DEPLOY_MODEL, parseEmptyStr(str))
     }
   }
 

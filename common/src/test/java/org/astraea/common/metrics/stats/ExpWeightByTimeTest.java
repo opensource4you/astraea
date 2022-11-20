@@ -24,7 +24,7 @@ class ExpWeightByTimeTest {
 
   @Test
   void testMeasure() throws InterruptedException {
-    var rateByTime = new ExpWeightAvgByTime(Duration.ofSeconds(1), 0.5);
+    var rateByTime = Avg.expWeightByTime(Duration.ofSeconds(1), 0.5);
     rateByTime.record(10.0);
     rateByTime.record(10.0);
     Thread.sleep(1000);

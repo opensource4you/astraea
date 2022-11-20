@@ -115,9 +115,7 @@ public interface Admin extends AutoCloseable {
 
   default CompletionStage<Map<TopicPartition, List<Record<byte[], byte[]>>>> latestRecords(
       Set<TopicPartition> topicPartitions, int records, Duration timeout) {
-    return brokers()
-        .thenApply(
-            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
+    return bootstrapServers()
         .thenApply(
             bootstrap ->
                 StreamSupport.stream(

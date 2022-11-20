@@ -19,6 +19,7 @@ package org.astraea.common.admin;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -1865,6 +1866,30 @@ public class AdminTest extends RequireBrokerCluster {
               .filter(entry -> BrokerConfigs.DYNAMICAL_CONFIGS.contains(entry.getKey()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       admin.setBrokerConfigs(Map.of(broker.id(), sets)).toCompletableFuture().join();
+    }
+  }
+
+  @Test
+  void testBootstrapServers() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var bootstrapServers =
+          admin
+              .brokers()
+              .thenApply(
+                  brokers ->
+                      brokers.stream()
+                          .map(broker -> broker.host() + ":" + broker.port())
+                          .collect(Collectors.toList()))
+              .toCompletableFuture()
+              .join();
+      admin
+          .bootstrapServers()
+          .thenAccept(
+              bs ->
+                  Arrays.stream(bs.split(","))
+                      .forEach(
+                          bootstrapServer ->
+                              Assertions.assertTrue(bootstrapServers.contains(bootstrapServer))));
     }
   }
 }
