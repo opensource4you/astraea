@@ -44,8 +44,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = new ShuffleTweaker(5, 10);
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
     final var stream =
-        shuffleTweaker.generate(
-            fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster));
+        shuffleTweaker.generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster));
     final var iterator = stream.iterator();
 
     Assertions.assertDoesNotThrow(() -> System.out.println(iterator.next()));
@@ -61,7 +60,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = new ShuffleTweaker(() -> shuffle);
 
     shuffleTweaker
-        .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+        .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
         .limit(100)
         .forEach(
             that -> {
@@ -86,7 +85,7 @@ class ShuffleTweakerTest {
         0,
         (int)
             shuffleTweaker
-                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
                 .count(),
         "No possible tweak");
   }
@@ -101,7 +100,7 @@ class ShuffleTweakerTest {
         (int)
             shuffleTweaker
                 .generate(
-                    fakeCluster.dataDirectories().entrySet().stream()
+                    fakeCluster.brokerFolders().entrySet().stream()
                         .limit(1)
                         .collect(
                             Collectors.toMap(
@@ -121,7 +120,7 @@ class ShuffleTweakerTest {
         0,
         (int)
             shuffleTweaker
-                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
                 .count(),
         "No possible tweak");
   }
@@ -150,7 +149,7 @@ class ShuffleTweakerTest {
     final long s = System.nanoTime();
     final var count =
         shuffleTweaker
-            .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+            .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
             .limit(size)
             .count();
     final long t = System.nanoTime();
@@ -172,7 +171,7 @@ class ShuffleTweakerTest {
     Assertions.assertDoesNotThrow(
         () ->
             shuffleTweaker
-                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .limit(100)
                 .count());
@@ -190,7 +189,7 @@ class ShuffleTweakerTest {
     forkJoinPool.submit(
         () ->
             shuffleTweaker
-                .generate(fakeCluster.dataDirectories(), ClusterLogAllocation.of(fakeCluster))
+                .generate(fakeCluster.brokerFolders(), ClusterLogAllocation.of(fakeCluster))
                 .parallel()
                 .forEach((ignore) -> counter.increment()));
 

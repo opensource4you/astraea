@@ -24,7 +24,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Config;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -62,15 +64,77 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
       int partitionCount,
       int replicaCount,
       Function<Integer, Set<String>> topicNameGenerator) {
-    final var nodes =
-        IntStream.range(0, nodeCount)
-            .mapToObj(nodeId -> NodeInfo.of(nodeId, "host" + nodeId, 9092))
-            .collect(Collectors.toUnmodifiableList());
     final var dataDirCount = 3;
     final var dataDirectories =
         IntStream.range(0, dataDirCount)
             .mapToObj(i -> "/tmp/data-directory-" + i)
             .collect(Collectors.toUnmodifiableSet());
+    final var nodes =
+        IntStream.range(0, nodeCount)
+            .mapToObj(nodeId -> NodeInfo.of(nodeId, "host" + nodeId, 9092))
+            .map(
+                node ->
+                    new Broker() {
+                      @Override
+                      public boolean isController() {
+                        throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public Config config() {
+                        throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public List<DataFolder> dataFolders() {
+                        return dataDirectories.stream()
+                            .map(
+                                x ->
+                                    new DataFolder() {
+                                      @Override
+                                      public String path() {
+                                        return x;
+                                      }
+
+                                      @Override
+                                      public Map<TopicPartition, Long> partitionSizes() {
+                                        throw new UnsupportedOperationException();
+                                      }
+
+                                      @Override
+                                      public Map<TopicPartition, Long> orphanPartitionSizes() {
+                                        throw new UnsupportedOperationException();
+                                      }
+                                    })
+                            .collect(Collectors.toUnmodifiableList());
+                      }
+
+                      @Override
+                      public Set<TopicPartition> topicPartitions() {
+                        throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public Set<TopicPartition> topicPartitionLeaders() {
+                        throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public String host() {
+                        return node.host();
+                      }
+
+                      @Override
+                      public int port() {
+                        return node.port();
+                      }
+
+                      @Override
+                      public int id() {
+                        return node.id();
+                      }
+                    })
+            .collect(Collectors.toUnmodifiableList());
     final var dataDirectoryList = List.copyOf(dataDirectories);
     final var topics = topicNameGenerator.apply(topicCount);
     final var replicas =
@@ -101,22 +165,10 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
                                     .build()))
             .collect(Collectors.toUnmodifiableList());
 
-    return new FakeClusterInfo(
-        new HashSet<>(nodes),
-        nodes.stream()
-            .collect(Collectors.toMap(NodeInfo::id, n -> new HashSet<String>(dataDirectories))),
-        replicas);
+    return new FakeClusterInfo(new HashSet<>(nodes), replicas);
   }
 
-  private final Map<Integer, Set<String>> dataDirectories;
-
-  FakeClusterInfo(
-      Set<NodeInfo> nodes, Map<Integer, Set<String>> dataDirectories, List<Replica> replicas) {
+  FakeClusterInfo(Set<NodeInfo> nodes, List<Replica> replicas) {
     super(nodes, replicas);
-    this.dataDirectories = dataDirectories;
-  }
-
-  public Map<Integer, Set<String>> dataDirectories() {
-    return dataDirectories;
   }
 }

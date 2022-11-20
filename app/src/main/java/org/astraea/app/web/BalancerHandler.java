@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -41,7 +40,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -153,11 +151,12 @@ class BalancerHandler implements Handler {
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
     var planGeneration =
-        FutureUtils.combine(
-                admin.topicNames(false).thenCompose(admin::clusterInfo),
-                admin.brokerFolders(),
-                (currentClusterInfo, brokerFolders) -> {
-                  var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
+        admin
+            .topicNames(false)
+            .thenCompose(admin::clusterInfo)
+            .thenApply(
+                currentClusterInfo -> {
+                  var request = parsePostRequest(channel, currentClusterInfo);
                   var fetchers =
                       Stream.concat(
                               request
@@ -270,10 +269,7 @@ class BalancerHandler implements Handler {
   }
 
   // visible for test
-  static PostRequest parsePostRequest(
-      Channel channel,
-      ClusterInfo<Replica> currentClusterInfo,
-      Map<Integer, Set<String>> dataFolders) {
+  static PostRequest parsePostRequest(Channel channel, ClusterInfo<Replica> currentClusterInfo) {
     var balancerClasspath =
         channel.request().get(BALANCER_IMPLEMENTATION_KEY).orElse(BALANCER_IMPLEMENTATION_DEFAULT);
     var balancerConfig =
@@ -313,7 +309,6 @@ class BalancerHandler implements Handler {
         () ->
             AlgorithmConfig.builder()
                 .clusterCost(clusterCostFunction)
-                .dataFolders(dataFolders)
                 .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
                 .movementConstraint(movementConstraint(channel.request().raw()))
                 .topicFilter(topics::contains)

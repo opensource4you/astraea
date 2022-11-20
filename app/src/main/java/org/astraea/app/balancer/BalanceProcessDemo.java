@@ -44,14 +44,12 @@ public class BalanceProcessDemo {
               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
               .join();
-      var brokerFolders = admin.brokerFolders().toCompletableFuture().join();
       Predicate<String> filter = topic -> !argument.ignoredTopics.contains(topic);
       var plan =
           Balancer.Official.SingleStep.create(
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
                       .topicFilter(filter)
-                      .dataFolders(brokerFolders)
                       .config("iteration", "1000")
                       .build())
               .offer(clusterInfo, Duration.ofSeconds(3));
