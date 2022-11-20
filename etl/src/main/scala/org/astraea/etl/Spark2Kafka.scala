@@ -47,16 +47,13 @@ object Spark2Kafka {
         .of()
         .dataFrameOp(df)
         .target(metaData.topicName)
-        .checkpoint(metaData.sinkPath + "/checkpoint")
+        .checkpoint(metaData.checkpoint.toString)
         .writeToKafka(metaData.kafkaBootstrapServers)
         .start()
-      println("start")
       if (duration > 0) {
         query.awaitTermination(Duration(duration, TimeUnit.SECONDS).toMillis)
       } else {
-        println("start:Inf")
         query.awaitTermination()
-        println("start:fin")
       }
     }
   }

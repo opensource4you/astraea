@@ -58,7 +58,8 @@ case class Metadata private (
     var topicName: String,
     var numPartitions: Int,
     var numReplicas: Short,
-    var topicConfig: Map[String, String]
+    var topicConfig: Map[String, String],
+    var checkpoint: File
 )
 
 object Metadata {
@@ -72,6 +73,7 @@ object Metadata {
   private[this] val TOPIC_REPLICAS = "topic.replicas"
   private[this] val TOPIC_CONFIG = "topic.config"
   private[this] val DEPLOYMENT_MODEL = "deployment.model"
+  private[this] val CHECKPOINT = "checkpoint"
 
   private[this] val DEFAULT_PARTITIONS = "15"
   private[this] val DEFAULT_REPLICAS = "1"
@@ -115,6 +117,9 @@ object Metadata {
         case TOPIC_CONFIG =>
           metadataBuilder =
             metadataBuilder.topicConfig(TopicConfig.process(entry._2))
+        case CHECKPOINT =>
+          metadataBuilder =
+            metadataBuilder.checkpoint(Checkpoint.process(entry._2))
         case _ =>
       }
     )
@@ -198,6 +203,14 @@ object Metadata {
   }
 
   case object SinkPath extends MetaDataType(SINK_PATH, true, "") {
+    def process(str: String): File = {
+      Utils.requireFolder(
+        parseEmptyStr(str)
+      )
+    }
+  }
+
+  case object Checkpoint extends MetaDataType(CHECKPOINT, true, "") {
     def process(str: String): File = {
       Utils.requireFolder(
         parseEmptyStr(str)
@@ -296,7 +309,8 @@ object Metadata {
       private var topicName: String,
       private var numPartitions: Int,
       private var numReplicas: Short,
-      private var topicConfig: Map[String, String]
+      private var topicConfig: Map[String, String],
+      private var checkpoint: File
   ) {
     protected def this() = this(
       "deploymentModel",
@@ -307,7 +321,8 @@ object Metadata {
       "topicName",
       -1,
       -1,
-      Map.empty
+      Map.empty,
+      new File("")
     )
 
     def deploymentMode(str: String): MetadataBuilder = {
@@ -355,6 +370,11 @@ object Metadata {
       this
     }
 
+    def checkpoint(file: File): MetadataBuilder = {
+      this.checkpoint = file
+      this
+    }
+
     def build(): Metadata = {
       Metadata(
         this.deploymentModel,
@@ -365,7 +385,8 @@ object Metadata {
         this.topicName,
         this.numPartitions,
         this.numReplicas,
-        this.topicConfig
+        this.topicConfig,
+        this.checkpoint
       )
     }
   }

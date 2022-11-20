@@ -15,20 +15,24 @@
 # limitations under the License.
 
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+source "$DOCKER_FOLDER"/docker_build_common.sh
 
+# ===============================[global variables]===============================
 declare -A PROPERTIES_MAP
 declare -r SINK_KEY="sink_path"
 declare -r SOURCE_KEY="source_path"
 declare -r TOPIC_KEY="topic_name"
-
-source $DOCKER_FOLDER/docker_build_common.sh
-
-# ===============================[global variables]===============================
+declare -r CHECKPOINT_KEY="checkpoint"
+declare -r MASTER_KEY="deployment_model"
 declare -r VERSION=${REVISION:-${VERSION:-main}}
+declare -r SPARK_VERSION=${SPARK_REVERSION:-${SPARK_VERSION:-3.1.2}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
-declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
-declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
+declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
+declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
+
+# ===============================[driver/executor resource]===============================
+declare -r RESOURCES_CONFIGS="2G"
 
 # ===================================[functions]===================================
 
@@ -44,8 +48,8 @@ function showHelp() {
 }
 
 function generateDockerfile() {
-  echo "# this dockerfile is generated dynamically
-FROM ghcr.io/skiptests/astraea/deps AS build
+echo "# this dockerfile is generated dynamically
+FROM ghcr.io/skiptests/astraea/deps AS astraeabuild
 
 # clone repo
 WORKDIR /tmp
@@ -58,24 +62,53 @@ RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
 RUN tar -xvf \$(find ./etl/build/distributions/ -maxdepth 1 -type f -name etl-*.tar) -C /opt/astraea/ --strip-components=1
 
-FROM ubuntu:22.04
+FROM ubuntu:20.04
 
 # install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre
 
 # copy astraea
-COPY --from=build /opt/astraea /opt/astraea
+COPY --from=astraeabuild /opt/astraea /opt/astraea
+
+# add user
+RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+# export ENV
+ENV ASTRAEA_HOME /opt/astraea
+
+# install tools
+RUN apt-get update && apt-get install -y wget unzip
+
+# download spark
+WORKDIR /tmp
+RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz
+RUN mkdir /opt/spark
+RUN tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
+
+# the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
+# The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
+
+# Do not ask for confirmations when running apt-get, etc.
+ENV DEBIAN_FRONTEND noninteractive
+
+FROM ubuntu:20.04 AS build
+
+# install tools
+RUN apt-get update && apt-get install -y python3 python3-pip
+
+# copy spark
+COPY --from=build /opt/spark /opt/spark
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
 # change user
-RUN chown -R $USER:$USER /opt/astraea
+RUN chown -R $USER:$USER /opt/spark
 USER $USER
 
 # export ENV
-ENV ASTRAEA_HOME /opt/astraea
-WORKDIR /opt/astraea
+ENV SPARK_HOME /opt/spark
+WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
 
@@ -96,8 +129,8 @@ function readProperties() {
             echo "$path found."
             while IFS='=' read -r key value
             do
-                    key=$(echo $key | tr '.' '_')
-                    value=$(echo $value | grep -o -P '.+')
+                    key=$(echo "$key" | tr '.' '_')
+                    value=$(echo "$value" | grep -o -P '.+')
 
                     [[ -n $(echo "$key" | grep -P '^\w+') ]] \
                             && PROPERTIES_MAP[${key}]=${value}
@@ -108,20 +141,30 @@ function readProperties() {
 }
 
 function runContainer() {
-    local args=$1
-        echo "$args"
-        echo "$IMAGE_NAME"
-        echo "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}-${PROPERTIES_MAP[${SOURCE_KEY}]}"
-        echo "$(echo "${PROPERTIES_MAP[${SINK_KEY}]}" | tr '/' '-')"
+    local sourcePath=$(echo "${PROPERTIES_MAP[${SOURCE_KEY}]}" | tr '/' '-')
+    local etlProperties="/tmp/etl${sourcePath}.properties"
+    echo "$1"
+    echo "$etlProperties"
+    cat "$1" >> "$etlProperties"
+
 
     docker run -d --init \
-        --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}-$(echo "${PROPERTIES_MAP[${SINK_KEY}]}" | tr '/' '-')" \
-        -v "/home/warren":/home/warren \
-        -v "${PROPERTIES_MAP[${SINK_KEY}]}":/tmp/sink_path \
-        -v "${PROPERTIES_MAP[${SOURCE_KEY}]}":/tmp/source_path:ro \
+        --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
+        -v "$1":"$1":ro \
+        -v "${PROPERTIES_MAP[${SINK_KEY}]}":"${PROPERTIES_MAP[${SINK_KEY}]}" \
+        -v "${PROPERTIES_MAP[${SOURCE_KEY}]}":"${PROPERTIES_MAP[${SOURCE_KEY}]}":ro \
+        -v "${PROPERTIES_MAP[${CHECKPOINT_KEY}]}":"${PROPERTIES_MAP[${CHECKPOINT_KEY}]}" \
         -e JAVA_OPTS="$HEAP_OPTS" \
         "$IMAGE_NAME" \
-        /opt/astraea/bin/etl "/home/warren/spark2kafka.properties"
+        ./bin/spark-submit \
+        --executor-memory "$RESOURCES_CONFIGS" \
+        --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
+        --class org.astraea.etl.Spark2Kafka \
+        --driver-class-path /opt/astraea/libs/astraea-common-0.0.1-SNAPSHOT.jar:/opt/astraea/libs/kafka-clients-3.2.1.jar \
+        --master "${PROPERTIES_MAP[${MASTER_KEY}]}" \
+        --files "${PROPERTIES_MAP[${SOURCE_KEY}]}" \
+        /opt/astraea/libs/astraea-common-0.0.1-SNAPSHOT.jar \
+        "$1"
 }
 
 # ===================================[main]===================================
