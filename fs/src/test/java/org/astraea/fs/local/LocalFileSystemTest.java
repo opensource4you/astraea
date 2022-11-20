@@ -14,33 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.fs.local;
 
-public interface TableCreator {
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.util.Map;
+import org.astraea.common.Configuration;
+import org.astraea.fs.FileSystem;
+import org.astraea.fs.FileSystemTest;
 
-  /**
-   * @param name table name
-   * @return this creator
-   */
-  TableCreator name(String name);
+public class LocalFileSystemTest extends FileSystemTest {
 
-  /**
-   * create a normal column
-   *
-   * @param name column name
-   * @param type column type
-   * @return this creator
-   */
-  TableCreator column(String name, String type);
-
-  /**
-   * create a primary key
-   *
-   * @param name primary key name
-   * @param type primary key type
-   * @return this creator
-   */
-  TableCreator primaryKey(String name, String type);
-
-  void run();
+  @Override
+  protected FileSystem fileSystem() {
+    try {
+      var tmp = Files.createTempDirectory("test_local_fs");
+      return FileSystem.local(Configuration.of(Map.of(LocalFileSystem.ROOT_KEY, tmp.toString())));
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
 }

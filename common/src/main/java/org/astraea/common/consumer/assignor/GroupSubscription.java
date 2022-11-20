@@ -14,43 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.common.consumer.assignor;
 
-import java.util.Collection;
-import java.util.Objects;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-public class TableInfo {
-  private final String name;
-  private final Collection<ColumnInfo> columns;
+public final class GroupSubscription {
+  private final Map<String, Subscription> subscriptions;
 
-  public TableInfo(String name, Collection<ColumnInfo> columns) {
-    this.name = name;
-    this.columns = columns;
+  public GroupSubscription(Map<String, Subscription> subscriptions) {
+    this.subscriptions = subscriptions;
   }
 
-  public String name() {
-    return name;
+  public Map<String, Subscription> groupSubscription() {
+    return subscriptions;
   }
 
-  public Collection<ColumnInfo> columns() {
-    return columns;
+  public static GroupSubscription from(
+      org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription
+          groupSubscription) {
+    return new GroupSubscription(
+        groupSubscription.groupSubscription().entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> Subscription.from(e.getValue()))));
   }
 
   @Override
   public String toString() {
-    return "TableInfo{" + "name='" + name + '\'' + ", columns=" + columns + '}';
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    TableInfo tableInfo = (TableInfo) o;
-    return Objects.equals(name, tableInfo.name) && Objects.equals(columns, tableInfo.columns);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(name, columns);
+    return "GroupSubscription(" + "subscriptions=" + subscriptions + ")";
   }
 }

@@ -165,6 +165,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
             new Balancer.Plan(
                 ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
+                new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 List.of(MoveCost.builder().build())));
     Assertions.assertEquals(results.size(), 1);
     Assertions.assertEquals(results.get(0).get("topic"), topic);

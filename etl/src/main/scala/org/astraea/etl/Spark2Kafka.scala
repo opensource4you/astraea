@@ -32,7 +32,7 @@ object Spark2Kafka {
       Await.result(createTopic(admin, metaData), Duration.Inf)
       val df = Reader
         .of()
-        .spark(metaData.deploymentModel)
+        .spark(metaData.deployModel)
         .schema(
           createSchema(
             metaData.column.map(col => (col.name, col.dataType)).toMap

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost;
+package org.astraea.common;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -86,6 +86,10 @@ public interface Configuration {
    */
   default Optional<Integer> integer(String key) {
     return string(key).map(Integer::parseInt);
+  }
+
+  default int requireInteger(String key) {
+    return integer(key).orElseThrow(() -> new NoSuchElementException(key + " is nonexistent"));
   }
 
   /**

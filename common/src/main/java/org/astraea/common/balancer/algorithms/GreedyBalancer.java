@@ -89,6 +89,7 @@ public class GreedyBalancer implements Balancer {
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunctions();
+    final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
@@ -106,15 +107,18 @@ public class GreedyBalancer implements Balancer {
                           ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
                       return new Balancer.Plan(
                           newAllocation,
+                          initialCost,
                           clusterCostFunction.clusterCost(newClusterInfo, metrics),
                           moveCostFunction.stream()
                               .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))
                               .collect(Collectors.toList()));
                     })
-                .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+                .filter(
+                    plan ->
+                        config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
-    var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
+    var currentCost = initialCost;
     var currentAllocation =
         ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, config.topicFilter()));
     var currentPlan = Optional.<Balancer.Plan>empty();
@@ -124,7 +128,7 @@ public class GreedyBalancer implements Balancer {
       var newPlan = next.apply(currentAllocation, currentCost);
       if (newPlan.isEmpty()) break;
       currentPlan = newPlan;
-      currentCost = currentPlan.get().clusterCost();
+      currentCost = currentPlan.get().proposalClusterCost();
       currentAllocation = currentPlan.get().proposal();
     }
     return currentPlan;

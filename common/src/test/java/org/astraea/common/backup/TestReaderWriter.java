@@ -51,27 +51,31 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
   }
 
   @Test
-  void testReadWrite() throws IOException {
+  void testRecordWriter() throws IOException {
     var topic = Utils.randomString();
-    produceData(topic, 100);
     var file = Files.createTempFile(topic, null).toFile();
-    RecordWriter.write(
-        file,
-        (short) 0,
-        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-            .bootstrapServers(bootstrapServers())
-            .seek(DISTANCE_FROM_BEGINNING, 0)
-            .iterator(List.of(IteratorLimit.count(100))));
-
+    produceData(topic, 10);
+    try (var writer = RecordWriter.builder(file).build()) {
+      var records =
+          Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+              .bootstrapServers(bootstrapServers())
+              .seek(DISTANCE_FROM_BEGINNING, 0)
+              .iterator(List.of(IteratorLimit.count(10)));
+      while (records.hasNext()) {
+        writer.append(records.next());
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
     var iter = RecordReader.read(file);
-    var count = 0;
+    var cnt = 0;
     while (iter.hasNext()) {
       var record = iter.next();
       Assertions.assertEquals(topic, record.topic());
       Assertions.assertEquals(0, record.partition());
       Assertions.assertEquals(
-          String.valueOf(count), new String(record.key(), StandardCharsets.UTF_8));
-      count++;
+          String.valueOf(cnt), new String(record.key(), StandardCharsets.UTF_8));
+      cnt++;
     }
   }
 }

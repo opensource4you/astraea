@@ -8,21 +8,18 @@ repositories {
 }
 
 def versions = [
-        kafka    : project.properties['kafka.version'] ?: "3.3.1",
-        junit    : project.properties['junit.version'] ?: "5.9.1",
-        wix      : project.properties['wix.version'] ?: "4.6.2",
-        mysql    : project.properties['mysql.version'] ?: "8.0.31",
+        kafka: project.properties['kafka.version'] ?: "3.3.1",
+        junit: project.properties['junit.version'] ?: "5.9.1",
 ]
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
-    testImplementation "com.wix:wix-embedded-mysql:${versions["wix"]}"
-    testImplementation "mysql:mysql-connector-java:${versions["mysql"]}"
     testImplementation project(':it')
+
+    implementation project(':common')
     implementation "org.apache.kafka:connect-runtime:${versions["kafka"]}"
     implementation "org.apache.kafka:connect-json:${versions["kafka"]}"
     implementation "org.apache.kafka:connect-api:${versions["kafka"]}"
-    implementation project(':common')
 }
 
 java {

@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import com.google.gson.reflect.TypeToken;
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
@@ -33,15 +34,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -51,13 +56,14 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricCollector;
 
 class BalancerHandler implements Handler {
 
@@ -72,7 +78,6 @@ class BalancerHandler implements Handler {
 
   static final String BALANCER_CONFIGURATION_KEY = "balancer-config";
 
-  static final int LOOP_DEFAULT = 10000;
   static final int TIMEOUT_DEFAULT = 3;
   static final String BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class.getName();
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
@@ -86,13 +91,27 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
   private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
+  private final Function<Integer, Optional<Integer>> jmxPortMapper;
+  private final Duration sampleInterval = Duration.ofSeconds(1);
 
   BalancerHandler(Admin admin) {
-    this(admin, new StraightPlanExecutor());
+    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor());
+  }
+
+  BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+    this(admin, jmxPortMapper, new StraightPlanExecutor());
   }
 
   BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
+    this(admin, (ignore) -> Optional.empty(), executor);
+  }
+
+  BalancerHandler(
+      Admin admin,
+      Function<Integer, Optional<Integer>> jmxPortMapper,
+      RebalancePlanExecutor executor) {
     this.admin = admin;
+    this.jmxPortMapper = jmxPortMapper;
     this.executor = executor;
   }
 
@@ -139,15 +158,30 @@ class BalancerHandler implements Handler {
                 admin.brokerFolders(),
                 (currentClusterInfo, brokerFolders) -> {
                   var request = parsePostRequest(channel, currentClusterInfo, brokerFolders);
-                  var cost =
-                      request
-                          .algorithmConfig
-                          .clusterCostFunction()
-                          .clusterCost(currentClusterInfo, ClusterBean.EMPTY)
-                          .value();
+                  var fetchers =
+                      Stream.concat(
+                              request
+                                  .configBuilder
+                                  .get()
+                                  .build()
+                                  .clusterCostFunction()
+                                  .fetcher()
+                                  .stream(),
+                              request.configBuilder.get().build().moveCostFunctions().stream()
+                                  .flatMap(c -> c.fetcher().stream()))
+                          .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
-                      Balancer.create(request.balancerClasspath, request.algorithmConfig)
-                          .offer(currentClusterInfo, request.executionTime);
+                      metricContext(
+                          fetchers,
+                          (metricSource) ->
+                              Balancer.create(
+                                      request.balancerClasspath,
+                                      request
+                                          .configBuilder
+                                          .get()
+                                          .metricSource(metricSource)
+                                          .build())
+                                  .retryOffer(currentClusterInfo, request.executionTime));
                   var changes =
                       bestPlan
                           .map(
@@ -171,10 +205,9 @@ class BalancerHandler implements Handler {
                           .orElse(List.of());
                   var report =
                       new Report(
-                          newPlanId,
-                          cost,
-                          bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                          request.algorithmConfig.clusterCostFunction().getClass().getSimpleName(),
+                          bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
+                          bestPlan.map(p -> p.proposalClusterCost().value()).orElse(null),
+                          request.configBuilder.get().build().clusterCostFunction().toString(),
                           changes,
                           bestPlan
                               .map(
@@ -193,6 +226,47 @@ class BalancerHandler implements Handler {
                 });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  private Optional<Balancer.Plan> metricContext(
+      Collection<Fetcher> fetchers,
+      Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
+    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
+    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
+    try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
+      freshJmxAddresses().forEach(collector::registerJmx);
+      fetchers.forEach(collector::addFetcher);
+      return execution.apply(collector::clusterBean);
+    }
+  }
+
+  // visible for test
+  Map<Integer, InetSocketAddress> freshJmxAddresses() {
+    var brokers = admin.brokers().toCompletableFuture().join();
+    var jmxAddresses =
+        brokers.stream()
+            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
+            .filter(entry -> entry.getValue().isPresent())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    e -> e.getKey().id(),
+                    e ->
+                        InetSocketAddress.createUnresolved(
+                            e.getKey().host(), e.getValue().orElseThrow())));
+
+    // JMX is disabled
+    if (jmxAddresses.size() == 0) return Map.of();
+
+    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
+    if (brokers.size() != jmxAddresses.size())
+      throw new IllegalArgumentException(
+          "Some brokers has no JMX port specified in the web service argument: "
+              + brokers.stream()
+                  .map(NodeInfo::id)
+                  .filter(id -> !jmxAddresses.containsKey(id))
+                  .collect(Collectors.toUnmodifiableSet()));
+
+    return jmxAddresses;
   }
 
   // visible for test
@@ -236,14 +310,14 @@ class BalancerHandler implements Handler {
     return new PostRequest(
         balancerClasspath,
         timeout,
-        AlgorithmConfig.builder()
-            .clusterCost(clusterCostFunction)
-            .dataFolders(dataFolders)
-            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-            .movementConstraint(movementConstraint(channel.request().raw()))
-            .topicFilter(topics::contains)
-            .config(balancerConfig)
-            .build());
+        () ->
+            AlgorithmConfig.builder()
+                .clusterCost(clusterCostFunction)
+                .dataFolders(dataFolders)
+                .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+                .movementConstraint(movementConstraint(channel.request().raw()))
+                .topicFilter(topics::contains)
+                .config(balancerConfig));
   }
 
   @SuppressWarnings("unchecked")
@@ -436,12 +510,15 @@ class BalancerHandler implements Handler {
   static class PostRequest {
     final String balancerClasspath;
     final Duration executionTime;
-    final AlgorithmConfig algorithmConfig;
+    final Supplier<AlgorithmConfig.Builder> configBuilder;
 
-    PostRequest(String balancerClasspath, Duration executionTime, AlgorithmConfig algorithmConfig) {
+    PostRequest(
+        String balancerClasspath,
+        Duration executionTime,
+        Supplier<AlgorithmConfig.Builder> configBuilder) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
-      this.algorithmConfig = algorithmConfig;
+      this.configBuilder = configBuilder;
     }
   }
 
@@ -501,8 +578,8 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    final String id;
-    final double cost;
+    // initial cost might be unavailable due to unable to evaluate cost function
+    final Double cost;
 
     // don't generate new cost if there is no best plan
     final Double newCost;
@@ -512,13 +589,11 @@ class BalancerHandler implements Handler {
     final List<MigrationCost> migrationCosts;
 
     Report(
-        String id,
-        double cost,
+        Double cost,
         Double newCost,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
-      this.id = id;
       this.cost = cost;
       this.newCost = newCost;
       this.function = function;

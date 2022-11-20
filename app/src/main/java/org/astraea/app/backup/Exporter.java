@@ -21,11 +21,9 @@ import java.io.File;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.PathField;
@@ -34,7 +32,6 @@ import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.IteratorLimit;
-import org.astraea.common.consumer.Record;
 
 public class Exporter {
 
@@ -63,28 +60,17 @@ public class Exporter {
       if (!iter.hasNext()) continue;
       // TODO: we should create the folder for each partition
       var file = new File(root, t);
-      var count = new AtomicLong();
-      RecordWriter.write(
-          file,
-          (short) 0,
-          new Iterator<>() {
-            @Override
-            public boolean hasNext() {
-              return iter.hasNext();
-            }
-
-            @Override
-            public Record<byte[], byte[]> next() {
-              var record = iter.next();
-              if (record != null) {
-                count.incrementAndGet();
-                recordCount.compute(
-                    TopicPartition.of(record.topic(), record.partition()),
-                    (k, v) -> v == null ? 1 : v + 1);
-              }
-              return record;
-            }
-          });
+      var count = 0;
+      try (var writer = RecordWriter.builder(file).build()) {
+        while (iter.hasNext()) {
+          var record = iter.next();
+          writer.append(record);
+          count++;
+          recordCount.compute(
+              TopicPartition.of(record.topic(), record.partition()),
+              (k, v) -> v == null ? 1 : v + 1);
+        }
+      }
       System.out.println("read " + count + " records from " + t);
     }
     return new Result(recordCount);

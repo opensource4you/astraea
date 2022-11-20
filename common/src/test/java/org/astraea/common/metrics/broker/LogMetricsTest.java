@@ -54,9 +54,6 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
               d ->
                   Assertions.assertTrue(
                       beans.containsKey(d), "beans: " + beans.keySet() + " d:" + d));
-      //      dataFolders().values().forEach(ds ->
-      // Assertions.assertTrue(beans.keySet().containsAll(ds), "beans: " + beans.keySet() + " ds: "
-      // + ds));
     }
   }
 

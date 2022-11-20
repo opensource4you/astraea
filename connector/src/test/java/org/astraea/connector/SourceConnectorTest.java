@@ -19,7 +19,7 @@ package org.astraea.connector;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.astraea.common.cost.Configuration;
+import org.astraea.common.Configuration;
 import org.astraea.common.http.HttpExecutor;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Record;

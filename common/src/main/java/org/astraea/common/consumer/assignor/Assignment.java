@@ -14,33 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.common.consumer.assignor;
 
-public interface DatabaseClient extends AutoCloseable {
+import java.util.List;
+import java.util.Map;
+import org.astraea.common.admin.TopicPartition;
 
-  static Builder builder() {
-    return new Builder();
+public final class Assignment {
+  private List<TopicPartition> partitions;
+  private Map<String, String> userData;
+
+  public Assignment(List<TopicPartition> partitions, Map<String, String> userData) {
+    this.partitions = partitions;
+    this.userData = userData;
   }
 
-  /**
-   * start to query tables
-   *
-   * @return Table Query
-   */
-  TableQuery query();
+  public Assignment(List<TopicPartition> partitions) {
+    this(partitions, null);
+  }
 
-  /**
-   * start to create new table
-   *
-   * @return Table Creator
-   */
-  TableCreator tableCreator();
+  public List<TopicPartition> partitions() {
+    return partitions;
+  }
 
-  /**
-   * @param name to delete
-   */
-  void deleteTable(String name);
+  public Map<String, String> userData() {
+    return userData;
+  }
 
   @Override
-  void close();
+  public String toString() {
+    return "Assignment("
+        + "partitions="
+        + partitions
+        + (userData == null ? "" : ", user data= " + userData)
+        + ')';
+  }
 }

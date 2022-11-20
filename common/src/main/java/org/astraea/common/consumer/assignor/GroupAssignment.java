@@ -14,36 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.common.consumer.assignor;
 
-import java.util.Collection;
+import java.util.Map;
 
-public interface TableQuery {
+public final class GroupAssignment {
+  private final Map<String, Assignment> assignments;
 
-  /**
-   * Normally, catalog in database is server instance or database instance.
-   *
-   * @param catalog to search
-   * @return this query
-   */
-  TableQuery catalog(String catalog);
+  public GroupAssignment(Map<String, Assignment> assignments) {
+    this.assignments = assignments;
+  }
 
-  /**
-   * Normally, schema in database is namespace.
-   *
-   * @param schema to search
-   * @return this query
-   */
-  TableQuery schema(String schema);
+  public Map<String, Assignment> groupAssignment() {
+    return assignments;
+  }
 
-  /**
-   * @param tableName to search
-   * @return this query
-   */
-  TableQuery tableName(String tableName);
-
-  /**
-   * @return the tables matched to this query.
-   */
-  Collection<TableInfo> run();
+  @Override
+  public String toString() {
+    return "GroupAssignment(" + "assignments=" + assignments + ")";
+  }
 }

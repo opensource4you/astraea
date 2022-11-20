@@ -14,12 +14,6 @@ RUN tar -xvf $(find ./etl/build/distributions/ -maxdepth 1 -type f -name etl-*.t
 
 FROM ubuntu:20.04 AS build
 
-# install tools
-RUN apt-get update && apt-get install -y openjdk-11-jre
-
-# copy astraea
-COPY --from=astraeabuild /opt/astraea /opt/astraea
-
 # add user
 RUN groupadd astraea && useradd -ms /bin/bash -g astraea astraea
 
@@ -38,14 +32,19 @@ RUN tar -zxvf spark-3.1.2-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
 # the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
 # The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
 
+FROM ubuntu:20.04
+
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get install -y python3 python3-pip
+RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
 
 # copy spark
 COPY --from=build /opt/spark /opt/spark
+
+# copy astraea
+COPY --from=astraeabuild /opt/astraea /opt/astraea
 
 # add user
 RUN groupadd astraea && useradd -ms /bin/bash -g astraea astraea

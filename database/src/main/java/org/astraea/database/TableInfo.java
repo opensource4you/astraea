@@ -14,49 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.database;
 
+import java.util.Collection;
 import java.util.Objects;
 
-public class ColumnInfo {
-
+public class TableInfo {
   private final String name;
-  private final String type;
-  private final boolean pk;
+  private final Collection<ColumnInfo> columns;
 
-  public ColumnInfo(String name, String type, boolean pk) {
+  public TableInfo(String name, Collection<ColumnInfo> columns) {
     this.name = name;
-    this.type = type;
-    this.pk = pk;
+    this.columns = columns;
   }
 
   public String name() {
     return name;
   }
 
-  public String type() {
-    return type;
-  }
-
-  public boolean pk() {
-    return pk;
+  public Collection<ColumnInfo> columns() {
+    return columns;
   }
 
   @Override
   public String toString() {
-    return "ColumnInfo{" + "name='" + name + '\'' + ", type='" + type + '\'' + ", pk=" + pk + '}';
+    return "TableInfo{" + "name='" + name + '\'' + ", columns=" + columns + '}';
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    ColumnInfo that = (ColumnInfo) o;
-    return pk == that.pk && Objects.equals(name, that.name) && Objects.equals(type, that.type);
+    TableInfo tableInfo = (TableInfo) o;
+    return Objects.equals(name, tableInfo.name) && Objects.equals(columns, tableInfo.columns);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, type, pk);
+    return Objects.hash(name, columns);
   }
 }

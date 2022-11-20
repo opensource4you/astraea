@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.database;
+package org.astraea.database;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
 
 public class Builder {
   private String url;
@@ -56,15 +55,20 @@ public class Builder {
     return this;
   }
 
+  private Connection connection() {
+    try {
+      return DriverManager.getConnection(
+          Objects.requireNonNull(url, "url must be defined"),
+          Objects.requireNonNull(user, "user must be defined"),
+          Objects.requireNonNull(password, "password must be defined"));
+    } catch (SQLException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   public DatabaseClient build() {
     return new DatabaseClient() {
-      private final Connection connection =
-          Utils.packException(
-              () ->
-                  DriverManager.getConnection(
-                      Objects.requireNonNull(url, "url must be defined"),
-                      Objects.requireNonNull(user, "user must be defined"),
-                      Objects.requireNonNull(password, "password must be defined")));
+      private final Connection connection = connection();
 
       @Override
       public TableQuery query() {
@@ -93,33 +97,30 @@ public class Builder {
 
           @Override
           public Collection<TableInfo> run() {
-            return Utils.packException(
-                () -> {
-                  var md = connection.getMetaData();
-                  return catalogAndNames(md.getTables(catalog, schema, tableName, null)).stream()
-                      .map(
-                          e -> {
-                            var catalog = e.getKey();
-                            var tableName = e.getValue();
-                            var pks =
-                                primaryKeys(
-                                    Utils.packException(
-                                        () -> md.getPrimaryKeys(catalog, null, tableName)));
-                            var columnNameAndTypes =
-                                columnNameAndTypes(
-                                    Utils.packException(
-                                        () -> md.getColumns(catalog, null, tableName, null)));
-                            return new TableInfo(
-                                tableName,
-                                columnNameAndTypes.entrySet().stream()
-                                    .map(
-                                        c ->
-                                            new ColumnInfo(
-                                                c.getKey(), c.getValue(), pks.contains(c.getKey())))
-                                    .collect(Collectors.toUnmodifiableList()));
-                          })
-                      .collect(Collectors.toUnmodifiableList());
-                });
+            try {
+              var md = connection.getMetaData();
+              var catalogAndNames = catalogAndNames(md.getTables(catalog, schema, tableName, null));
+              var tableInfos = new ArrayList<TableInfo>(catalogAndNames.size());
+              for (var e : catalogAndNames) {
+                var catalog = e.getKey();
+                var tableName = e.getValue();
+                var pks = primaryKeys(md.getPrimaryKeys(catalog, null, tableName));
+                var columnNameAndTypes =
+                    columnNameAndTypes(md.getColumns(catalog, null, tableName, null));
+                tableInfos.add(
+                    new TableInfo(
+                        tableName,
+                        columnNameAndTypes.entrySet().stream()
+                            .map(
+                                c ->
+                                    new ColumnInfo(
+                                        c.getKey(), c.getValue(), pks.contains(c.getKey())))
+                            .collect(Collectors.toUnmodifiableList())));
+              }
+              return tableInfos;
+            } catch (SQLException e) {
+              throw new IllegalStateException(e);
+            }
           }
         };
       }
@@ -152,7 +153,7 @@ public class Builder {
 
           @Override
           public void run() {
-            if (pks.isEmpty()) throw new IllegalArgumentException("primary keys must be defined");
+            if (pks.isEmpty()) throw new IllegalStateException("primary keys must be defined");
             var sql =
                 "CREATE TABLE \""
                     + Objects.requireNonNull(tableName, "table name must be defined")
@@ -175,14 +176,18 @@ public class Builder {
 
       @Override
       public void close() {
-        Utils.packException(connection::close);
+        try {
+          connection.close();
+        } catch (SQLException e) {
+          throw new IllegalStateException(e);
+        }
       }
 
       private void execute(String sql) {
         try (var statement = connection.createStatement()) {
           statement.execute(sql);
         } catch (SQLException e) {
-          throw new RuntimeException(e);
+          throw new IllegalStateException(e);
         }
       }
     };
@@ -220,28 +225,26 @@ public class Builder {
     }
   }
 
-  private static String catalog(ResultSet rs) {
-    return Utils.packException(() -> rs.getString("TABLE_CAT"));
+  private static String catalog(ResultSet rs) throws SQLException {
+    return rs.getString("TABLE_CAT");
   }
 
-  private static String tableName(ResultSet rs) {
-    return Utils.packException(() -> rs.getString("TABLE_NAME"));
+  private static String tableName(ResultSet rs) throws SQLException {
+    return rs.getString("TABLE_NAME");
   }
 
-  private static String columnName(ResultSet rs) {
-    return Utils.packException(() -> rs.getString("COLUMN_NAME"));
+  private static String columnName(ResultSet rs) throws SQLException {
+    return rs.getString("COLUMN_NAME");
   }
 
-  private static String columnType(ResultSet rs) {
-    return Utils.packException(() -> rs.getString("TYPE_NAME"));
+  private static String columnType(ResultSet rs) throws SQLException {
+    return rs.getString("TYPE_NAME");
   }
 
-  private static boolean isNormalTable(ResultSet rs) {
-    return Utils.packException(
-        () -> {
-          var r = rs.getString("TABLE_TYPE");
-          if (r == null) return true;
-          return !Arrays.asList(r.split(" ")).contains("SYSTEM");
-        });
+  private static boolean isNormalTable(ResultSet rs) throws SQLException {
+
+    var r = rs.getString("TABLE_TYPE");
+    if (r == null) return true;
+    return !Arrays.asList(r.split(" ")).contains("SYSTEM");
   }
 }
