@@ -254,7 +254,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testGetRequestObject() {
+  void testNullObject() {
     var jsonConverter = getConverter();
     var forTestValue =
         jsonConverter.fromJson(
@@ -271,7 +271,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testGetRequestNested() {
+  void testNullNested() {
     var jsonConverter = getConverter();
     var forTestNested =
         jsonConverter.fromJson(
@@ -290,7 +290,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testGetRequestList() {
+  void testNullList() {
     var jsonConverter = getConverter();
     var forTestList =
         jsonConverter.fromJson(
@@ -309,7 +309,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testGetRequestMap() {
+  void testNullMap() {
     var jsonConverter = getConverter();
     var forTestMap =
         jsonConverter.fromJson(
@@ -329,7 +329,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testGetRequestOptional() {
+  void testNullOptional() {
     var jsonConverter = getConverter();
     var forTestOptional =
         jsonConverter.fromJson(
