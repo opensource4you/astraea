@@ -1,6 +1,6 @@
 # Astraea Balancer 測試 #1
 
-這個測試展示目前的 Astraea Balancer [(5883c0d)](https://github.com/skiptests/astraea/commit/5883c0d5fbfb178714a4b3ab375d264ffcf7408d) 
+這個測試展示目前的 Astraea Balancer [(5883c0d)](https://github.com/skiptests/astraea/tree/5883c0d5fbfb178714a4b3ab375d264ffcf7408d) 
 能在特定的系統環境中，平衡每個節點的 leader 數。
 
 在這次實驗中，Astraea Balancer 得到了以下結果：
