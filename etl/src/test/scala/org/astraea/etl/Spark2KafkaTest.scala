@@ -173,7 +173,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
     val TOPIC_PARTITIONS = "topic.partitions"
     val TOPIC_REPLICAS = "topic.replicas"
     val TOPIC_CONFIG = "topic.config"
-    val DEPLOYMENT_MODEL = "deployment.model"
+    val DEPLOY_MODEL = "deploy.model"
 
     Utils.Using(new FileOutputStream(file)) { fileOut =>
       val properties = new Properties()
@@ -189,7 +189,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(TOPIC_PARTITIONS, "10")
       properties.setProperty(TOPIC_REPLICAS, "2")
       properties.setProperty(TOPIC_CONFIG, "compression.type=lz4")
-      properties.setProperty(DEPLOYMENT_MODEL, "local[1]")
+      properties.setProperty(DEPLOY_MODEL, "local[1]")
 
       properties.store(fileOut, "Favorite Things");
     }

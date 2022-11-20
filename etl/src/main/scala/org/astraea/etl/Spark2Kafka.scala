@@ -20,11 +20,8 @@ import org.astraea.common.admin.Admin
 import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
 
-import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
 
 object Spark2Kafka {
   def executor(args: Array[String], duration: Duration): Unit = {
@@ -34,7 +31,7 @@ object Spark2Kafka {
       Await.result(createTopic(admin, metaData), Duration.Inf)
       val df = Reader
         .of()
-        .spark(metaData.deploymentModel)
+        .spark(metaData.deployModel)
         .schema(
           createSchema(
             metaData.column.map(col => (col.name, col.dataType)).toMap
@@ -45,14 +42,21 @@ object Spark2Kafka {
         .readCSV(metaData.sourcePath.getPath)
         .csvToJSON(pk)
 
-      Writer
+      val query = Writer
         .of()
         .dataFrameOp(df)
         .target(metaData.topicName)
         .checkpoint(metaData.sinkPath + "/checkpoint")
         .writeToKafka(metaData.kafkaBootstrapServers)
         .start()
-        .awaitTermination(duration.toMillis)
+      if (duration == Duration.Inf) {
+        query
+          .awaitTermination()
+      } else {
+        query
+          .awaitTermination(duration.toMillis)
+      }
+
     }
   }
 

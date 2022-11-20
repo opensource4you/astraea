@@ -14,32 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.common.consumer.assignor;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
-import java.io.UncheckedIOException;
-import org.astraea.common.consumer.Record;
+import java.util.Map;
 
-public interface RecordWriter extends AutoCloseable {
-  void append(Record<byte[], byte[]> record);
+public final class GroupAssignment {
+  private final Map<String, Assignment> assignments;
 
-  void flush();
-
-  @Override
-  void close();
-
-  static RecordWriterBuilder builder(File file) {
-    try {
-      return builder(new FileOutputStream(file));
-    } catch (FileNotFoundException e) {
-      throw new UncheckedIOException(e);
-    }
+  public GroupAssignment(Map<String, Assignment> assignments) {
+    this.assignments = assignments;
   }
 
-  static RecordWriterBuilder builder(OutputStream outputStream) {
-    return new RecordWriterBuilder(RecordWriterBuilder.LATEST_VERSION, outputStream);
+  public Map<String, Assignment> groupAssignment() {
+    return assignments;
+  }
+
+  @Override
+  public String toString() {
+    return "GroupAssignment(" + "assignments=" + assignments + ")";
   }
 }

@@ -14,37 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.consumer.assignor;
 
-import scala.util.matching.Regex
+import java.util.List;
+import java.util.Map;
+import org.astraea.common.admin.TopicPartition;
 
-sealed abstract class DeployMode(pattern: Regex) {
-  def r: Regex = {
-    pattern
-  }
-}
+public final class Assignment {
+  private List<TopicPartition> partitions;
+  private Map<String, String> userData;
 
-object DeployMode {
-  // Whether it is a local mode string.
-  case object Local extends DeployMode("local(\\[)[\\d{1}](])".r)
-  // Whether it is a standalone mode string.
-  case object Standalone extends DeployMode("spark://(.+)".r)
-
-  def of(str: String): DeployMode = {
-    val patterns = all().filter(_.r.findAllIn(str).hasNext)
-    if (patterns.isEmpty) {
-      throw new IllegalArgumentException(
-        s"$str does not belong to any of the deploy modes."
-      )
-    }
-    patterns.head
+  public Assignment(List<TopicPartition> partitions, Map<String, String> userData) {
+    this.partitions = partitions;
+    this.userData = userData;
   }
 
-  def deployMatch(str: String): Boolean = {
-    all().exists(_.r.findAllIn(str).hasNext)
+  public Assignment(List<TopicPartition> partitions) {
+    this(partitions, null);
   }
 
-  def all(): Seq[DeployMode] = {
-    Seq(Local, Standalone)
+  public List<TopicPartition> partitions() {
+    return partitions;
+  }
+
+  public Map<String, String> userData() {
+    return userData;
+  }
+
+  @Override
+  public String toString() {
+    return "Assignment("
+        + "partitions="
+        + partitions
+        + (userData == null ? "" : ", user data= " + userData)
+        + ')';
   }
 }
