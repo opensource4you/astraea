@@ -1,16 +1,16 @@
 # Astraea Balancer 測試 #1
 
-這個測試展示目前的 Astraea Balancer [(5883c0d)](https://github.com/skiptests/astraea/commit/5883c0d5fbfb178714a4b3ab375d264ffcf7408d) 
+這個測試展示目前的 Astraea Balancer [(7596f59)](https://github.com/skiptests/astraea/tree/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4) 
 能在特定的系統環境中，平衡每個節點的 leader 數。
 
 在這次實驗中，Astraea Balancer 得到了以下結果：
 
-* 執行前節點的 Leader 數量最大最小分別為 83 和 17，執行後所有節點都服務 50 個 leader，達到完全平衡。
-* 執行前節點流量最大最小為 372 MiB/s 和 33.3 MiB/s，執行後各節點流量都控制在 210 MiB/s 附近。
+* 執行前節點的 Leader 數量最大最小分別為 77 和 9，執行後所有節點都服務 50 個 leader，達到完全平衡。
+* 執行前節點流量最大最小為 400 MiB/s 和 50 MiB/s，執行後各節點流量都控制在 250 MiB/s 附近。
 
 ## 測試情境
 
-我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
+我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
 工具來對測試叢集產生一個 Leader 數量不平衡的情境。WebAPI 在建立 topic 時能夠透過特定參數來以 Binomial Distribution 營造 topic logs 
 在叢集內分佈不均的情況。這最終形成的分佈類似於對生產環境 Kafka 叢集不斷加減 topics/partitions/nodes 所導致的資料配置不均勻狀態。
 
@@ -61,9 +61,9 @@
 
 這個實驗中包含：
 
-* 5 個 Apache Kafka Broker 節點（version 3.3.1）。
+* 5 個 Apache Kafka Broker 節點（version 3.1.0）。
   * 各個節點包含 3 個 log dir，每個有 844GB 空間的 SSD
-* 1 個 Zookeeper 節點（version 3.8.0）。
+* 1 個 Zookeeper 節點（version 3.7.1）。
 * 1 個 Performance Tool 施打資料
 
 以下為建構環境的步驟：
@@ -71,8 +71,8 @@
 ### 建立 Kafka 叢集
 
 請依照上述的環境建立叢集，您可以使用專案內的 
-[./docker/start_zookeeper.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_zookeeper.md) 和
-[./docker/start_broker.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_kafka_broker.md) 來建立叢集。
+[./docker/start_zookeeper.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_zookeeper.md) 和
+[./docker/start_broker.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_kafka_broker.md) 來建立叢集。
 
 ## 效能資料攝取
 
@@ -81,9 +81,9 @@
 進行底層硬體效能資料的攝取。
 
 您可以使用專案內的 
-[./docker/start_node_exporter.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_node_exporter.md),
-[./docker/start_prometheus.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_prometheus.md) 和
-[./docker/start_grafana.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_grafana.md) 來建構監控環境。
+[./docker/start_node_exporter.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_node_exporter.md),
+[./docker/start_prometheus.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_prometheus.md) 和
+[./docker/start_grafana.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_grafana.md) 來建構監控環境。
 
 本次實驗所使用的 Dashboard 可以在[這裡](resources/experiment_1_grafana-1663659783116.json)找到
 
@@ -94,7 +94,7 @@
 ```script
 git clone https://github.com/skiptests/astraea.git
 cd astraea
-git checkout 5883c0d5fbfb178714a4b3ab375d264ffcf7408d
+git checkout 7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4
 ```
 
 接著執行 Astraea Web Service，Astraea Web Service 提供一系列的功能，能幫助我們對 Kafka 進行管理和操作。
@@ -117,7 +117,7 @@ curl -X POST http://localhost:8001/topics \
 
 
 接着要開始對叢集輸入資料，我們在 P1 設備上執行下面的指令以啓動 
-[Astraea Performance Tool](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/performance_benchmark.md)
+[Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
 
 ```shell
 ./gradlew run --args="performance --bootstrap.servers <broker-addresses> --topics imbalance-topic --producers 8 --consumers 16 --key.size 10KiB --run.until 3h"
@@ -138,76 +138,19 @@ curl -X POST http://localhost:8001/topics \
 從圖中可以看出有一定的負載不平衡現象存在着。接着我們要開始做負載平衡，透過以下指令來執行 Leader Balance
 
 ```shell
-curl -X POST http://localhost:8001/balancer \
-    -H "Content-Type: application/json" \
-    -d '{ 
-      "timeout": "10s" ,
-      "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-      "balancer-config": {
-        "shuffle.plan.generator.min.step": "1",
-        "shuffle.plan.generator.max.step": "5"
-      },
-      "costWeights": [ { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight":  1} ],
-      "max-migrated-leader": "10"
-    }'
+./gradlew run --args="balance-demo --bootstrap.servers <broker-addresses>"
 ```
 
-上述指令對本機的 Web Service 發起一個 `POST /balancer` 的 HTTP Request，這個 Request 請 Web Service 根據我們給定的參數和
-目前叢集的狀態，去生成一個新的負載平衡計劃。以下是關於這個計劃的細節
+> 未來 Balancer 的運作和執行都會透過 Web API 來操作
 
-* `"timeout": "10s"`: 此計劃要在 10 秒內生成
-* `"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer"`:  計劃生成演算法實作
-* `"balancer-config": { ... }`: 計劃生成演算法的參數
-* `"costWeights": [ ... ]`: 計劃所採用的 Cost Functions，用來在生成算法中衡量叢集的好壞
-* `"max-migrated-leader": "10"`: 計劃的限制，最多只能移動 10 個 leader
-
-執行完成後後會在 terminal 上印出負載平衡計劃的編號：
-
-```shell
-# Something like this: {"id":"9b25bf14-a885-4c5b-97bf-59ff025b61d2"}
-{"id":"Your-Balance-Plan-Id"}
-```
-
-之後可以透過 `GET /balancer/Your-Balance-Plan-Id` 來查詢關於這個計劃的狀態，比如這個計劃是否生成完成，或是已經排程執行。
-
-```shell
-curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
-
-# {
-#   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a", // 計劃的編號
-#   "generated": true,  // 計劃是否已經完成生成
-#   "scheduled": false, // 計劃是否已經排程執行
-#   "done": false,      // 計劃是否已經執行完成
-#   "report": { ... }   // 關於這個計劃的細節，計劃生成後才會有此詳細資訊
-# }
-```
-
-如果 `GET /balancer/Your-Balance-Plan-Id` 回傳結果中 `generated` 為 `true` 且 `report.changes` 內有詳細的移動資訊，則代表計劃已經完成生成。
-
-> 如果計劃生成失敗，可以檢查 `exception` 欄位的訊息，或是查看 Web Service 是否有印出錯誤的資訊，來做進一步的診斷。
-
-計劃成功生成後，可以透過 `PUT /balancer` 來執行負載平衡的計劃。
-
-```shell
-curl -X PUT http://localhost:8001/balancer \
-    -H "Content-Type: application/json" \
-    -d '{ "id": "Your-Balance-Plan-Id" }'
-```
-
-過程中可以透過 `GET /balancer/Your-Balance-Plan-Id` 來檢查執行的狀態，當輸出結果中的 `done` 為 `true` 時意味著計劃已經完成執行。
-
-> 如果計劃執行失敗，可以檢查 `exception` 欄位的訊息，或是查看 Web Service 是否有印出錯誤的資訊，來做進一步的診斷。
-
-> 詳細的 `/balancer` API 文件，可以參考[這裡](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/web_server/web_api_balancer_chinese.md)
-
-每次執行上述步驟都會做一輪的負載平衡，每次都會給叢集帶來一定程度的進步，通常情況下您會需要重複執行多次上述的指令，直到您覺得叢集負載不平衡情況減緩爲止。
-這次實驗中我們總共執行了 8 次 Balancer。以下爲各項結果圖表：
+每次執行都會做一輪的負載平衡，每次都會給叢集帶來一定程度的進步，通常情況下您會需要重複執行多次上述的指令，直到您覺得叢集負載不平衡情況減緩爲止。
+這次實驗中我們總共執行了 9 次 Balancer。以下爲各項結果圖表：
 
 ### Leader Count Time Series
 
 ![leader count](resources/experiment_1_7.png)
 
-上圖爲各節點的 leader 數量隨時間的變化，可以發現在經過 8 次負載平衡後，每個節點所維護的 leader 數量都達到 50 個，就這個指標來說非常平衡。
+上圖爲各節點的 leader 數量隨時間的變化，可以發現在經過 9 次負載平衡後，每個節點所維護的 leader 數量都達到 50 個，就這個指標來說非常平衡。
 
 > 先前用 web service 建立的 `imbalance-topic` 有著 200 個 partitions，而 consumer 運作所需的 `__consumer_offsets` 另外貢獻 50 個
 > partitions。兩者加起來正好 50 * 5 = 250 個 partitions，分散在五個節點上。
@@ -230,7 +173,7 @@ curl -X PUT http://localhost:8001/balancer \
 
 ![ongoing reassignment bandwidth](resources/experiment_1_6.png)
 
-上圖爲各各節點所統計的負載平衡流量，每次負載平衡都會給叢集帶來額外的效能開銷，從圖中可以看到我們總共經歷了 8 次的負載平衡過程。
+上圖爲各各節點所統計的負載平衡流量，每次負載平衡都會給叢集帶來額外的效能開銷，從圖中可以看到我們總共經歷了 9 次的負載平衡過程。
 
 ### Network IO (hardware)
 
