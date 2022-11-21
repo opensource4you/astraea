@@ -28,6 +28,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Deprecated
 public interface PostRequest {
 
   PostRequest EMPTY = PostRequest.of(Map.of());
