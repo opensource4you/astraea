@@ -49,9 +49,9 @@ public class Importer {
       Consumer<File> process =
           file -> {
             var count = 0L;
-            var iter = RecordReader.builder(file).build().read();
-            while (iter.hasNext()) {
-              var record = iter.next();
+            var reader = RecordReader.builder(file).build();
+            while (reader.hasNext()) {
+              var record = reader.next();
               if (record.key() == null && record.value() == null) continue;
               producer.send(
                   Record.builder()

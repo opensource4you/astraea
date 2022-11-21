@@ -68,10 +68,9 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
       throw new RuntimeException(e);
     }
     var reader = RecordReader.builder(file).build();
-    var iter = reader.read();
     var cnt = 0;
-    while (iter.hasNext()) {
-      var record = iter.next();
+    while (reader.hasNext()) {
+      var record = reader.next();
       Assertions.assertEquals(topic, record.topic());
       Assertions.assertEquals(0, record.partition());
       Assertions.assertEquals(

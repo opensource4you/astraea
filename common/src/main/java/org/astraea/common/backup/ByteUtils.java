@@ -49,13 +49,13 @@ public final class ByteUtils {
   }
 
   public static int readInt(InputStream fs) {
-    var buf = ByteBuffer.allocate(Integer.BYTES).array();
+    var byteArray = new byte[Integer.BYTES];
     try {
-      var size = fs.read(buf);
+      var size = fs.read(byteArray);
       if (size != Integer.BYTES)
         throw new IllegalStateException(
             "The remaining size is " + size + ", but expected is " + Integer.BYTES);
-      return ByteBuffer.wrap(buf).getInt();
+      return ByteBuffer.wrap(byteArray).getInt();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -75,13 +75,13 @@ public final class ByteUtils {
   }
 
   public static short readShort(InputStream fs) {
-    var buf = ByteBuffer.allocate(Short.BYTES).array();
+    var byteArray = new byte[Short.BYTES];
     try {
-      var size = fs.read(buf);
+      var size = fs.read(byteArray);
       if (size != Short.BYTES)
         throw new IllegalStateException(
             "The remaining size is " + size + ", but expected is " + Short.BYTES);
-      return ByteBuffer.wrap(buf).getShort();
+      return ByteBuffer.wrap(byteArray).getShort();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

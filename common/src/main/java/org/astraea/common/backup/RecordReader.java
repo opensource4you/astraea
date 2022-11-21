@@ -24,8 +24,7 @@ import java.io.UncheckedIOException;
 import java.util.Iterator;
 import org.astraea.common.consumer.Record;
 
-public interface RecordReader {
-  Iterator<Record<byte[], byte[]>> read();
+public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
 
   static RecordReaderBuilder builder(File file) {
     try {
