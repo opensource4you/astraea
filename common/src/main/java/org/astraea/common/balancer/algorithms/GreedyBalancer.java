@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -83,8 +83,6 @@ public class GreedyBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
-    Jmx jmx = new Jmx();
-
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -122,9 +120,22 @@ public class GreedyBalancer implements Balancer {
     var currentAllocation =
         ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, config.topicFilter()));
     var currentPlan = Optional.<Balancer.Plan>empty();
+
+    // register JMX
+    var currentIteration = new LongAdder();
+    var currentMinCost = new DoubleAccumulator(Math::min, initialCost.value());
+    MBeanRegister.local()
+        .setDomainName("astraea.balancer")
+        .addProperty("id", config.executionId())
+        .addProperty("algorithm", GreedyBalancer.class.getSimpleName())
+        .addProperty("run", Integer.toString(run.getAndIncrement()))
+        .addAttribute("Iteration", Long.class, currentIteration::sum)
+        .addAttribute("MinCost", Double.class, currentMinCost::get)
+        .register();
+
     while (true) {
-      jmx.nextIteration();
-      jmx.newCost(currentCost.value());
+      currentIteration.add(1);
+      currentMinCost.accumulate(currentCost.value());
       var newPlan = next.apply(currentAllocation, currentCost);
       if (newPlan.isEmpty()) break;
       currentPlan = newPlan;
@@ -132,41 +143,5 @@ public class GreedyBalancer implements Balancer {
       currentAllocation = currentPlan.get().proposal();
     }
     return currentPlan;
-  }
-
-  // visible for test
-  static long minLongDouble(long lhs, long rhs) {
-    double l = Double.longBitsToDouble(lhs);
-    double r = Double.longBitsToDouble(rhs);
-    double out = (Double.isNaN(r) || l < r) ? l : r;
-    return Double.doubleToRawLongBits(out);
-  }
-
-  private class Jmx {
-
-    private final LongAdder currentIteration = new LongAdder();
-    private final LongAccumulator currentMinCost =
-        new LongAccumulator(GreedyBalancer::minLongDouble, Double.doubleToRawLongBits(Double.NaN));
-
-    Jmx() {
-      final var runId = run.getAndIncrement();
-      MBeanRegister.local()
-          .setDomainName("astraea.balancer")
-          .addProperty("id", config.executionId())
-          .addProperty("algorithm", GreedyBalancer.class.getSimpleName())
-          .addProperty("run", Integer.toString(runId))
-          .addAttribute("Iteration", Long.class, currentIteration::sum)
-          .addAttribute(
-              "MinCost", Double.class, () -> Double.longBitsToDouble(currentMinCost.get()))
-          .register();
-    }
-
-    void nextIteration() {
-      currentIteration.increment();
-    }
-
-    void newCost(double cost) {
-      currentMinCost.accumulate(Double.doubleToRawLongBits(cost));
-    }
   }
 }
