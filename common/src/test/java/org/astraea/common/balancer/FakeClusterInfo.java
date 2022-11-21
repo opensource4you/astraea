@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -31,14 +30,14 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 
-public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
+public class FakeClusterInfo {
 
-  public static FakeClusterInfo of(
+  public static ClusterInfo<Replica> of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount) {
     return of(nodeCount, topicCount, partitionCount, replicaCount, 3);
   }
 
-  public static FakeClusterInfo of(
+  public static ClusterInfo<Replica> of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount, int folderCount) {
     final var random = new Random();
     random.setSeed(0);
@@ -64,7 +63,7 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
                 .collect(Collectors.toUnmodifiableSet()));
   }
 
-  public static FakeClusterInfo of(
+  public static ClusterInfo<Replica> of(
       int nodeCount,
       int topicCount,
       int partitionCount,
@@ -171,10 +170,6 @@ public class FakeClusterInfo extends ClusterInfo.Optimized<Replica> {
                                     .build()))
             .collect(Collectors.toUnmodifiableList());
 
-    return new FakeClusterInfo(new HashSet<>(nodes), replicas);
-  }
-
-  FakeClusterInfo(Set<NodeInfo> nodes, List<Replica> replicas) {
-    super(nodes, replicas);
+    return ClusterInfo.of(Set.copyOf(nodes), replicas);
   }
 }
