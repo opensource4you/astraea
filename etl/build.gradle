@@ -43,6 +43,9 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
+    // there are unit tests requiring spark, so we add them back for test scope
+    testImplementation "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
+    testImplementation "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
     testImplementation project(':it')
 }
 
