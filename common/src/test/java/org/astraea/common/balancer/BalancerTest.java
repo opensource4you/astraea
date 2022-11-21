@@ -97,7 +97,6 @@ class BalancerTest extends RequireBrokerCluster {
                   theClass,
                   AlgorithmConfig.builder()
                       .clusterCost(new ReplicaLeaderCost())
-                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                       .topicFilter(topic -> topic.equals(topicName))
                       .build())
               .offer(
@@ -150,13 +149,11 @@ class BalancerTest extends RequireBrokerCluster {
               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
               .join();
-      var brokerFolders = admin.brokerFolders().toCompletableFuture().join();
       var newAllocation =
           Balancer.create(
                   theClass,
                   AlgorithmConfig.builder()
                       .topicFilter(t -> t.equals(theTopic))
-                      .dataFolders(brokerFolders)
                       .clusterCost(randomScore)
                       .config("iteration", "500")
                       .build())
@@ -198,7 +195,6 @@ class BalancerTest extends RequireBrokerCluster {
                           theClass,
                           AlgorithmConfig.builder()
                               .clusterCost((clusterInfo, bean) -> Math::random)
-                              .dataFolders(admin.brokerFolders().toCompletableFuture().join())
                               .build())
                       .offer(
                           admin
@@ -254,7 +250,6 @@ class BalancerTest extends RequireBrokerCluster {
                   theClass,
                   AlgorithmConfig.builder()
                       .clusterCost(theCostFunction)
-                      .dataFolders(Map.of())
                       .metricSource(metricSource)
                       .config("iteration", "500")
                       .build())

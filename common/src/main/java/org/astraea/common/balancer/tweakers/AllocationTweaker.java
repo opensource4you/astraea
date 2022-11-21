@@ -16,8 +16,6 @@
  */
 package org.astraea.common.balancer.tweakers;
 
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.astraea.common.balancer.log.ClusterLogAllocation;
 
@@ -40,10 +38,8 @@ public interface AllocationTweaker {
    * original {@link ClusterLogAllocation} as part of the Stream result. Since there is no tweaking
    * occurred.
    *
-   * @param brokerFolders key is the broker id, and the value is the folder used to keep data
    * @param baseAllocation the {@link ClusterLogAllocation} as the base being tweaked.
    * @return a {@link Stream} of possible tweaked {@link ClusterLogAllocation}.
    */
-  Stream<ClusterLogAllocation> generate(
-      Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation);
+  Stream<ClusterLogAllocation> generate(ClusterLogAllocation baseAllocation);
 }
