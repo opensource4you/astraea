@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 plugins {
-    // Apply the scala Plugin to add support for Scala.
+    id "com.github.johnrengelman.shadow" version "7.1.2"
     id 'scala'
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
-}
-
-shadowJar{
-    minimize {
-        exclude(dependency('org.scala-lang:.*:.*'))
-        exclude(dependency('org.apache.spark:.*:.*'))
-    }
 }
 
 def versions = [
@@ -42,18 +34,20 @@ def versions = [
 ]
 
 dependencies {
-    implementation "org.scala-lang:scala-library:${versions["scala"]}"
+    // Astraea etl is run by spark framework, so we don't need to package spark-related dependencies
+    compileOnly "org.scala-lang:scala-library:${versions["scala"]}"
+    compileOnly "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
+    compileOnly "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
-    implementation "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
-    implementation "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
     implementation project(':common')
 
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
+    // there are unit tests requiring spark, so we add them back for test scope
+    testImplementation "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
+    testImplementation "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
     testImplementation project(':it')
 }
-
-archivesBaseName = "astraea-etl"
 
 ext {
     numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)

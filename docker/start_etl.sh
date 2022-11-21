@@ -59,9 +59,7 @@ RUN git clone https://github.com/$ACCOUNT/astraea
 # pre-build project to collect all dependencies
 WORKDIR /tmp/astraea
 RUN git checkout $VERSION
-RUN ./gradlew clean build -x test --no-daemon
-RUN mkdir /opt/astraea
-RUN tar -xvf \$(find ./etl/build/distributions/ -maxdepth 1 -type f -name etl-*.tar) -C /opt/astraea/ --strip-components=1
+RUN ./gradlew clean shadowJar
 
 FROM ubuntu:20.04 AS build
 
@@ -95,7 +93,7 @@ RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
 COPY --from=build /opt/spark /opt/spark
 
 # copy astraea
-COPY --from=astraeabuild /opt/astraea /opt/astraea
+COPY --from=astraeabuild /tmp/astraea /opt/astraea
 
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
@@ -128,6 +126,7 @@ function readProperties() {
     fi
 }
 
+#run spark submit local mode
 function runContainer() {
     local sourcePath=$(echo "${PROPERTIES_MAP[${SOURCE_KEY}]}" | tr '/' '-')
     local etlProperties="/tmp/etl${sourcePath}.properties"
@@ -146,10 +145,9 @@ function runContainer() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
         --class org.astraea.etl.Spark2Kafka \
-        --driver-class-path /opt/astraea/lib/astraea-common-"$ASTRAEA_VERSION"-SNAPSHOT.jar:/opt/astraea/lib/kafka-clients-"$KAFKA_VERSION".jar \
         --master local \
         --files "${PROPERTIES_MAP[${SOURCE_KEY}]}" \
-        /opt/astraea/lib/astraea-etl-"$ASTRAEA_VERSION"-SNAPSHOT.jar \
+        /opt/astraea/etl/build/libs/astraea-etl-0.0.1-SNAPSHOT-all.jar \
         "$1"
 }
 
