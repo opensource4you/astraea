@@ -176,6 +176,7 @@ public class RecordHandler implements Handler {
     var postRequest = channel.request(TypeRef.of(RecordPostRequest.class));
 
     var records = postRequest.records();
+
     if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");
 
