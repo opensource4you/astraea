@@ -156,9 +156,8 @@ public class BalancerNode {
   }
 
   static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
-    var converter = new DataSize.Field();
     var replicaSizeLimit =
-        Optional.ofNullable(input.get(MAX_MIGRATE_LOG_SIZE)).map(x -> converter.convert(x).bytes());
+        Optional.ofNullable(input.get(MAX_MIGRATE_LOG_SIZE)).map(x -> DataSize.of(x).bytes());
     var leaderNumLimit =
         Optional.ofNullable(input.get(MAX_MIGRATE_LEADER_NUM)).map(Integer::parseInt);
     return moveCosts ->

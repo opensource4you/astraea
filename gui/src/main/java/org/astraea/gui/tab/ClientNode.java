@@ -40,12 +40,12 @@ import javafx.stage.FileChooser;
 import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.csv.CsvReader;
 import org.astraea.common.json.JsonConverter;
@@ -318,7 +318,7 @@ public class ClientNode {
                                         argument.get(recordsKey).map(Integer::parseInt).orElse(1),
                                         argument
                                             .get(timeoutKey)
-                                            .map(DurationField::toDuration)
+                                            .map(Utils::toDuration)
                                             .orElse(Duration.ofSeconds(3))))
                         .thenApply(
                             data ->

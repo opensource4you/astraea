@@ -47,7 +47,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Builder;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -111,7 +110,7 @@ public class RecordHandler implements Handler {
     var limit = Integer.parseInt(channel.queries().getOrDefault(LIMIT, "1"));
     var timeout =
         Optional.ofNullable(channel.queries().get(TIMEOUT))
-            .map(DurationField::toDuration)
+            .map(Utils::toDuration)
             .orElse(Duration.ofSeconds(5));
 
     var consumerBuilder =
@@ -182,7 +181,7 @@ public class RecordHandler implements Handler {
   public CompletionStage<Response> post(Channel channel) {
     var async = channel.request().getBoolean(ASYNC).orElse(false);
     var timeout =
-        channel.request().get(TIMEOUT).map(DurationField::toDuration).orElse(Duration.ofSeconds(5));
+        channel.request().get(TIMEOUT).map(Utils::toDuration).orElse(Duration.ofSeconds(5));
     var records = channel.request().values(RECORDS, PostRecord.class);
     if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");

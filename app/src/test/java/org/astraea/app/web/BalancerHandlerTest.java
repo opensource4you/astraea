@@ -381,8 +381,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           migrationCost -> {
             switch (migrationCost.function) {
               case ReplicaSizeCost.COST_NAME:
-                Assertions.assertTrue(
-                    migrationCost.totalCost <= new DataSize.Field().convert(sizeLimit).bytes());
+                Assertions.assertTrue(migrationCost.totalCost <= DataSize.of(sizeLimit).bytes());
                 break;
               case ReplicaLeaderCost.COST_NAME:
                 Assertions.assertTrue(migrationCost.totalCost <= Integer.parseInt(leaderLimit));
