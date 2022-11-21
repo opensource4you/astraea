@@ -44,6 +44,7 @@ dependencies {
     testImplementation project(':it')
 
     implementation project(':common')
+    implementation project(':fs')
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
     implementation "com.beust:jcommander:${versions["jcommander"]}"
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.

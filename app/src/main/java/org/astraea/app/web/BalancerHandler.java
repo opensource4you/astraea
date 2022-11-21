@@ -50,7 +50,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -287,7 +286,7 @@ class BalancerHandler implements Handler {
         channel
             .request()
             .get(TIMEOUT_KEY)
-            .map(DurationField::toDuration)
+            .map(Utils::toDuration)
             .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
     var topics =
         channel

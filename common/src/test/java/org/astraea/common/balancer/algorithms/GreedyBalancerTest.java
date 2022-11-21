@@ -87,33 +87,4 @@ class GreedyBalancerTest {
               });
     }
   }
-
-  @Test
-  void testMinLongDouble() {
-    long nan = Double.doubleToRawLongBits(Double.NaN);
-    long pInf = Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
-    long nInf = Double.doubleToRawLongBits(Double.NEGATIVE_INFINITY);
-    long one = Double.doubleToRawLongBits(1.0);
-    long two = Double.doubleToRawLongBits(2.0);
-
-    Assertions.assertEquals(nan, GreedyBalancer.minLongDouble(nan, nan));
-    Assertions.assertEquals(pInf, GreedyBalancer.minLongDouble(pInf, nan));
-    Assertions.assertEquals(pInf, GreedyBalancer.minLongDouble(nan, pInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nInf, nan));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nan, nInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nInf, pInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(pInf, nInf));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, one));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, two));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(two, one));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, nan));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(nan, one));
-    Assertions.assertEquals(two, GreedyBalancer.minLongDouble(two, nan));
-    Assertions.assertEquals(two, GreedyBalancer.minLongDouble(nan, two));
-    Assertions.assertEquals(two, GreedyBalancer.minLongDouble(two, two));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(one, nInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nInf, one));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, pInf));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(pInf, one));
-  }
 }

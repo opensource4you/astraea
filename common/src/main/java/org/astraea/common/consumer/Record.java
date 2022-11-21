@@ -44,6 +44,10 @@ public interface Record<Key, Value> {
     return new Builder<>();
   }
 
+  default TopicPartition topicPartition() {
+    return TopicPartition.of(topic(), partition());
+  }
+
   String topic();
 
   List<Header> headers();

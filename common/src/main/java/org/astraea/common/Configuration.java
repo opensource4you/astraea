@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 
 public interface Configuration {
 
+  Configuration EMPTY = Configuration.of(Map.of());
+
   static Configuration of(Map<String, String> configs) {
     return new Configuration() {
       @Override
