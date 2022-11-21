@@ -31,34 +31,20 @@ public class RecordReaderBuilder {
   private static final Function<InputStream, RecordReader> V0 =
       inputStream ->
           new RecordReader() {
-            private final BufferedInputStream fs;
-            private int recordCnt;
-
-            {
-              try {
-                fs = new BufferedInputStream(inputStream);
-                fs.mark(fs.available());
-                fs.skip(fs.available() - Integer.BYTES);
-                recordCnt = ByteUtils.readInt(fs);
-                fs.reset();
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            }
+            private boolean hasNext = true;
 
             @Override
             public boolean hasNext() {
-              return recordCnt > 0;
+              return hasNext;
             }
 
             @Override
             public Record<byte[], byte[]> next() {
-              recordCnt--;
-              var recordSize = ByteUtils.readInt(fs);
+              var recordSize = ByteUtils.readInt(inputStream);
               var recordBuffer = ByteBuffer.allocate(recordSize);
               int actualSize;
               try {
-                actualSize = fs.read(recordBuffer.array());
+                actualSize = inputStream.read(recordBuffer.array());
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -77,6 +63,13 @@ public class RecordReaderBuilder {
                 var headerKey = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
                 var headerValue = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
                 headers.add(Header.of(headerKey, headerValue));
+              }
+              try {
+                if (inputStream.available() == Integer.BYTES) {
+                  hasNext = false;
+                }
+              } catch (IOException e) {
+                throw new RuntimeException(e);
               }
 
               return Record.builder()
