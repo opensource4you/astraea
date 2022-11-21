@@ -129,7 +129,7 @@ public interface Query {
                           if (e.getValue() instanceof DataSize) {
                             var size = ((DataSize) e.getValue());
                             return keyPattern.matcher(e.getKey()).matches()
-                                && size.smallerThan(new DataSize.Field().convert(valueString));
+                                && size.smallerThan(DataSize.of(valueString));
                           }
                           if (e.getValue() instanceof LocalDateTime) {
                             var time = ((LocalDateTime) e.getValue());
@@ -166,7 +166,7 @@ public interface Query {
                           if (e.getValue() instanceof DataSize) {
                             var size = ((DataSize) e.getValue());
                             return keyPattern.matcher(e.getKey()).matches()
-                                && size.equals(new DataSize.Field().convert(valueString));
+                                && size.equals(DataSize.of(valueString));
                           }
                           if (e.getValue() instanceof LocalDateTime) {
                             var time = ((LocalDateTime) e.getValue());
@@ -203,7 +203,7 @@ public interface Query {
                           if (e.getValue() instanceof DataSize) {
                             var size = ((DataSize) e.getValue());
                             return keyPattern.matcher(e.getKey()).matches()
-                                && size.greaterThan(new DataSize.Field().convert(valueString));
+                                && size.greaterThan(DataSize.of(valueString));
                           }
                           if (e.getValue() instanceof LocalDateTime) {
                             var time = ((LocalDateTime) e.getValue());
