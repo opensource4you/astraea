@@ -20,10 +20,14 @@ import com.beust.jcommander.Parameter;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.LongAdder;
+import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.PathField;
@@ -32,6 +36,7 @@ import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.IteratorLimit;
+import org.astraea.fs.FileSystem;
 
 public class Exporter {
 
@@ -42,38 +47,50 @@ public class Exporter {
     System.out.println(result);
   }
 
-  public static Result execute(Argument argument) {
+  public static Map<TopicPartition, Stat> execute(Argument argument) {
     if (!argument.output.toFile().isDirectory())
       throw new IllegalArgumentException("--output must be a existent folder");
-    var root = argument.output.toFile();
-    var recordCount = new HashMap<TopicPartition, Long>();
-    for (var t : argument.topics) {
+    try (var fs = FileSystem.local(Configuration.EMPTY)) {
       var iter =
-          Consumer.forTopics(Set.of(t))
+          Consumer.forTopics(Set.copyOf(argument.topics))
               .bootstrapServers(argument.bootstrapServers())
               .config(
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .config(ConsumerConfigs.GROUP_ID_CONFIG, argument.group)
               .iterator(List.of(IteratorLimit.idle(Duration.ofSeconds(3))));
-      // skip empty iter to avoid creating empty file
-      if (!iter.hasNext()) continue;
-      // TODO: we should create the folder for each partition
-      var file = new File(root, t);
-      var count = 0;
-      try (var writer = RecordWriter.builder(file).build()) {
-        while (iter.hasNext()) {
-          var record = iter.next();
-          writer.append(record);
-          count++;
-          recordCount.compute(
-              TopicPartition.of(record.topic(), record.partition()),
-              (k, v) -> v == null ? 1 : v + 1);
+      var stats = new HashMap<TopicPartition, Stat>();
+      var writers = new HashMap<TopicPartition, RecordWriter>();
+      while (iter.hasNext()) {
+        var record = iter.next();
+        var writer =
+            writers.computeIfAbsent(
+                record.topicPartition(),
+                ignored -> {
+                  var topicFolder = new File(argument.output.toFile(), record.topic());
+                  var partitionFolder = new File(topicFolder, String.valueOf(record.partition()));
+                  var file = new File(partitionFolder, String.valueOf(record.offset()));
+                  return RecordWriter.builder(fs.write(file.getAbsolutePath())).build();
+                });
+        writer.append(record);
+        // roll new writer in the future
+        if (writer.size().greaterThan(argument.size)) {
+          var stat = stats.computeIfAbsent(record.topicPartition(), Stat::new);
+          stat.count.add(writer.count());
+          stat.size.add(writer.size().bytes());
+          writers.remove(record.topicPartition()).close();
         }
       }
-      System.out.println("read " + count + " records from " + t);
+      // close all writers
+      writers.forEach(
+          (tp, writer) -> {
+            var stat = stats.computeIfAbsent(tp, Stat::new);
+            stat.count.add(writer.count());
+            stat.size.add(writer.size().bytes());
+            writer.close();
+          });
+      return Collections.unmodifiableMap(stats);
     }
-    return new Result(recordCount);
   }
 
   static class Argument extends org.astraea.common.argument.Argument {
@@ -98,22 +115,38 @@ public class Exporter {
         description =
             "String: the group id used by this exporter. You can run multiples exporter with same id in parallel")
     String group = Utils.randomString();
+
+    @Parameter(
+        names = {"--archive.size"},
+        description = "DataSize: the max size of a archive file",
+        converter = DataSize.Field.class)
+    DataSize size = DataSize.MB.of(100);
   }
 
-  public static class Result {
-    private final Map<TopicPartition, Long> recordCount;
-
-    private Result(Map<TopicPartition, Long> recordCount) {
-      this.recordCount = recordCount;
+  public static class Stat {
+    public TopicPartition partition() {
+      return partition;
     }
 
-    public Map<TopicPartition, Long> recordCount() {
-      return recordCount;
+    public long count() {
+      return count.sum();
+    }
+
+    public DataSize size() {
+      return DataSize.Byte.of(size.sum());
+    }
+
+    private final TopicPartition partition;
+    private final LongAdder count = new LongAdder();
+    private final LongAdder size = new LongAdder();
+
+    public Stat(TopicPartition partition) {
+      this.partition = partition;
     }
 
     @Override
     public String toString() {
-      return "Result{" + "recordCount=" + recordCount + '}';
+      return "Stat{" + "partition=" + partition + ", count=" + count + ", size=" + size + '}';
     }
   }
 }
