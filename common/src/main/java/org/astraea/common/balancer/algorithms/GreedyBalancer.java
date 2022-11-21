@@ -123,7 +123,8 @@ public class GreedyBalancer implements Balancer {
 
     // register JMX
     var currentIteration = new LongAdder();
-    var currentMinCost = new DoubleAccumulator(Math::min, initialCost.value());
+    var currentMinCost =
+        new DoubleAccumulator((l, r) -> Double.isNaN(r) ? l : Math.min(l, r), initialCost.value());
     MBeanRegister.local()
         .setDomainName("astraea.balancer")
         .addProperty("id", config.executionId())
