@@ -17,11 +17,19 @@
 plugins {
     // Apply the scala Plugin to add support for Scala.
     id 'scala'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
+}
+
+shadowJar{
+    minimize {
+        exclude(dependency('org.scala-lang:.*:.*'))
+        exclude(dependency('org.apache.spark:.*:.*'))
+    }
 }
 
 def versions = [
@@ -48,8 +56,6 @@ dependencies {
 ext {
     numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
 }
-
-archivesBaseName = "astraea-etl"
 
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
