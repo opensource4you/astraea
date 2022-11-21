@@ -29,11 +29,8 @@ declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
-# ===============================[software version]========================
 declare -r SPARK_VERSION=${SPARK_REVERSION:-${SPARK_VERSION:-3.1.2}}
-declare -r KAFKA_VERSION=${KAFKA_REVERSION:-${KAFKA_VERSION:-3.3.1}}
-declare -r ASTRAEA_VERSION=${ASTRAEA_REVERSION:-${ASTRAEA_VERSION:-0.0.1}}
-# ===============================[driver/executor resource]========================
+# ===============================[spark driver/executor resource]==================
 declare -r RESOURCES_CONFIGS="2G"
 # ===================================[functions]===================================
 
