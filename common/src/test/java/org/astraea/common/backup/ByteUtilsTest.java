@@ -36,7 +36,7 @@ public class ByteUtilsTest {
   @Test
   void testChar2Bytes() {
     Assertions.assertEquals(
-        '©', new String(ByteUtils.toBytes('©'), StandardCharsets.UTF_8).charAt(0));
+        'c', new String(ByteUtils.toBytes('c'), StandardCharsets.UTF_8).charAt(0));
   }
 
   @Test
