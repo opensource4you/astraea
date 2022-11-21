@@ -34,6 +34,43 @@ public final class ByteUtils {
     };
   }
 
+  public static byte[] toBytes(long value) {
+    byte[] result = new byte[8];
+    for (int i = 0; i < 8; i++) {
+      result[i] = (byte) ((value >> (7 - i) * 8) & 0xff);
+    }
+    return result;
+  }
+
+  public static byte[] toBytes(String value) {
+    return value.getBytes(StandardCharsets.UTF_8);
+  }
+
+  public static byte[] toBytes(char value) {
+    return String.valueOf(value).getBytes(StandardCharsets.UTF_8);
+  }
+
+  public static byte[] toBytes(float value) {
+    int intBits = Float.floatToIntBits(value);
+    return new byte[] {
+      (byte) (intBits >> 24), (byte) (intBits >> 16), (byte) (intBits >> 8), (byte) intBits
+    };
+  }
+
+  public static byte[] toBytes(Double value) {
+    byte[] result = new byte[8];
+    long longBits = Double.doubleToLongBits(value);
+    for (int i = 0; i < 8; i++) {
+      result[i] = (byte) ((longBits >> (7 - i) * 8) & 0xff);
+    }
+    return result;
+  }
+
+  public static byte[] toBytes(Boolean value) {
+    if (value) return new byte[] {1};
+    return new byte[] {0};
+  }
+
   public static int readInt(ReadableByteChannel channel) {
     var buf = ByteBuffer.allocate(Integer.BYTES);
     try {
