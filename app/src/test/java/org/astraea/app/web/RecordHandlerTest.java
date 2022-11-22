@@ -121,16 +121,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testPostRawString() {
     var topic = "testPostRawString";
-    var currentTimestamp = System.currentTimeMillis();
-
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
             getRecordHandler()
                 .post(
                     Channel.ofRequest(
-                        PostRequest.of(
-                            "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}")))
+                        "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}"))
                 .toCompletableFuture()
                 .join());
 
