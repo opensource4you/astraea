@@ -21,7 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.astraea.app.CleanCsv.CleanCsv;
+import org.astraea.app.ImportCsv.ImportCsv;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.backup.Exporter;
 import org.astraea.app.backup.Importer;
@@ -51,7 +51,7 @@ public class App {
           "import",
           Importer.class,
           "clean-csv",
-          CleanCsv.class);
+          ImportCsv.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 

@@ -22,7 +22,7 @@ import java.util.List;
 
 public interface CsvReader extends AutoCloseable, Iterator<List<String>> {
 
-  static CsvReaderBuilder builder(Reader source) {
+  static CsvReaderBuilder of(Reader source) {
     return new CsvReaderBuilder(source);
   }
   /**

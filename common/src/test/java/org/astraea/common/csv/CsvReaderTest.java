@@ -55,8 +55,7 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,"
                 .split(",")));
 
-    try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+    try (var reader = CsvReader.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.next();
       reader.skip(2);
       assertThrows(
@@ -85,8 +84,7 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,2019-12-07 05:24:00,-48,013CAMPBELLCLIM50501VUE-500001112"
                 .split(",")));
 
-    try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+    try (var reader = CsvReader.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(4);
       assertEquals(
           mkString(reader.next()),
@@ -113,8 +111,7 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,"
                 .split(",")));
 
-    try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+    try (var reader = CsvReader.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
@@ -143,8 +140,7 @@ public class CsvReaderTest {
             "2015-12-05 00:00:00,333,2015-12-07 23:59:00,10.53,0,0.112,9.638579,20.8,16.42,0,29.52,2019-12-07 02:36:00,16.69,14.5,2019-12-07 19:01:00,15.6,2019-12-07 04:59:00,14.91368,1024.1,2019-12-07 22:44:00,1019.6,2019-12-07 01:22:00,90,65.3,18.2,15.7,26,2019-12-07 01:16:00,-33.4,2019-12-07 01:26:00,61.1,"
                 .split(",")));
 
-    try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+    try (var reader = CsvReader.of(Utils.packException(() -> new FileReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);

@@ -92,7 +92,7 @@ public class ClientNode {
                         Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
                             .map(Integer::parseInt)
                             .orElse(LINE_LIMIT_DEFAULT);
-                    try (var reader = CsvReader.builder(new FileReader(f)).build()) {
+                    try (var reader = CsvReader.of(new FileReader(f)).build()) {
                       if (!reader.hasNext())
                         throw new IllegalArgumentException("there is no header");
                       var header = reader.rawNext();
