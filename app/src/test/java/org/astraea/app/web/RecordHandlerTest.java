@@ -118,6 +118,41 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             .join());
   }
 
+  @Test
+  void testPostRawString() {
+    var topic = "testPostRawString";
+    var currentTimestamp = System.currentTimeMillis();
+
+    var response =
+        Assertions.assertInstanceOf(
+            RecordHandler.PostResponse.class,
+            getRecordHandler()
+                .post(
+                    Channel.ofRequest(
+                        PostRequest.of(
+                            "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}")))
+                .toCompletableFuture()
+                .join());
+
+    Assertions.assertEquals(1, response.results.size());
+
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .keyDeserializer(Deserializer.STRING)
+            .valueDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(1, Duration.ofSeconds(5));
+      Assertions.assertEquals(1, records.size());
+      Assertions.assertEquals(0, records.get(0).partition());
+      Assertions.assertEquals("abc", records.get(0).key());
+      Assertions.assertEquals("abcd", records.get(0).value());
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testPost(boolean isTransaction) {

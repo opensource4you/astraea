@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
@@ -45,11 +44,6 @@ public interface AlgorithmConfig {
    *     logging usage.
    */
   String executionId();
-
-  /**
-   * @return the data folders of al brokers.
-   */
-  Map<Integer, Set<String>> dataFolders();
 
   /**
    * @return the cluster cost function for this problem.
@@ -90,7 +84,6 @@ public interface AlgorithmConfig {
 
     private String executionId = "noname-" + UUID.randomUUID();
     private HasClusterCost clusterCostFunction;
-    private Map<Integer, Set<String>> dataFolders;
     private List<HasMoveCost> moveCostFunction = List.of(HasMoveCost.EMPTY);
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
@@ -107,18 +100,6 @@ public interface AlgorithmConfig {
      */
     public Builder executionId(String id) {
       this.executionId = id;
-      return this;
-    }
-
-    /**
-     * Specify the data folders of all brokers
-     *
-     * @return this.
-     */
-    public Builder dataFolders(Map<Integer, Set<String>> dataFolders) {
-      // TODO: Embedded these data folders information into ClusterInfo
-      //       see https://github.com/skiptests/astraea/issues/1106
-      this.dataFolders = Objects.requireNonNull(dataFolders);
       return this;
     }
 
@@ -221,17 +202,11 @@ public interface AlgorithmConfig {
 
     public AlgorithmConfig build() {
       Objects.requireNonNull(clusterCostFunction);
-      Objects.requireNonNull(dataFolders);
 
       return new AlgorithmConfig() {
         @Override
         public String executionId() {
           return executionId;
-        }
-
-        @Override
-        public Map<Integer, Set<String>> dataFolders() {
-          return dataFolders;
         }
 
         @Override

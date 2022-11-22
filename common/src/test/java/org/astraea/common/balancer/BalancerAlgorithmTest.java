@@ -86,10 +86,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
       var planOfGreedy =
           Balancer.create(
                   GreedyBalancer.class,
-                  AlgorithmConfig.builder()
-                      .clusterCost(new ReplicaNumberCost())
-                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
-                      .build())
+                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -101,10 +98,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
       var plan =
           Balancer.create(
                   SingleStepBalancer.class,
-                  AlgorithmConfig.builder()
-                      .clusterCost(new ReplicaNumberCost())
-                      .dataFolders(admin.brokerFolders().toCompletableFuture().join())
-                      .build())
+                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())

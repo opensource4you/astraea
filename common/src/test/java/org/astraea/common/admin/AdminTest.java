@@ -181,6 +181,17 @@ public class AdminTest extends RequireBrokerCluster {
             replicas.forEach(r -> Assertions.assertFalse(r.isAdding()));
             replicas.forEach(r -> Assertions.assertFalse(r.isRemoving()));
           });
+
+      var clusterInfo =
+          admin
+              .clusterInfo(topics.stream().map(Topic::name).collect(Collectors.toUnmodifiableSet()))
+              .toCompletableFuture()
+              .join();
+
+      Assertions.assertEquals(
+          logFolders(),
+          clusterInfo.brokerFolders(),
+          "The log folder information is available from the admin version of ClusterInfo");
     }
   }
 
