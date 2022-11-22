@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -262,42 +263,39 @@ public class RecordHandler implements Handler {
   enum SerDe implements EnumInfo {
     BYTEARRAY(
         (topic, value) ->
-            Optional.ofNullable(value)
-                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.bytes()))
-                .orElse(null),
+            Optional.ofNullable(value).map(v -> Base64.getDecoder().decode(v)).orElse(null),
         Deserializer.BYTE_ARRAY),
     STRING(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(String.class)))
-                .map(v -> Serializer.STRING.serialize(topic, List.of(), v))
+                .map(v -> Serializer.STRING.serialize(topic, List.of(), value))
                 .orElse(null),
         Deserializer.STRING),
     LONG(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Long.class)))
+                .map(Long::parseLong)
                 .map(longVal -> Serializer.LONG.serialize(topic, List.of(), longVal))
                 .orElse(null),
         Deserializer.LONG),
     INTEGER(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Integer.class)))
+                .map(Integer::parseInt)
                 .map(intVal -> Serializer.INTEGER.serialize(topic, List.of(), intVal))
                 .orElse(null),
         Deserializer.INTEGER),
     FLOAT(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Float.class)))
+                .map(Float::parseFloat)
                 .map(floatVal -> Serializer.FLOAT.serialize(topic, List.of(), floatVal))
                 .orElse(null),
         Deserializer.FLOAT),
     DOUBLE(
         (topic, value) ->
             Optional.ofNullable(value)
-                .map(x -> JsonConverter.defaultConverter().fromJson(x, TypeRef.of(Double.class)))
+                .map(Double::parseDouble)
                 .map(doubleVal -> Serializer.DOUBLE.serialize(topic, List.of(), doubleVal))
                 .orElse(null),
         Deserializer.DOUBLE);
@@ -337,12 +335,9 @@ public class RecordHandler implements Handler {
     var keySerializer = SerDe.ofAlias(postRecord.keySerializer).serializer;
     var valueSerializer = SerDe.ofAlias(postRecord.valueSerializer).serializer;
     postRecord.key.ifPresent(
-        key ->
-            builder.key(keySerializer.apply(topic, JsonConverter.defaultConverter().toJson(key))));
+        key -> builder.key(keySerializer.apply(topic, PostRequest.handle(key))));
     postRecord.value.ifPresent(
-        value ->
-            builder.value(
-                valueSerializer.apply(topic, JsonConverter.defaultConverter().toJson(value))));
+        value -> builder.value(valueSerializer.apply(topic, PostRequest.handle(value))));
     postRecord.timestamp.ifPresent(builder::timestamp);
     postRecord.partition.ifPresent(builder::partition);
     return builder.build();
