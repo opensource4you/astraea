@@ -19,17 +19,18 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source "$DOCKER_FOLDER"/docker_build_common.sh
 
 # ===============================[global variables]================================
-declare -A PROPERTIES_MAP
-declare -r SINK_KEY="sink_path"
-declare -r SOURCE_KEY="source_path"
-declare -r TOPIC_KEY="topic_name"
-declare -r CHECKPOINT_KEY="checkpoint"
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
 declare -r SPARK_VERSION=${SPARK_REVERSION:-${SPARK_VERSION:-3.1.2}}
+declare -r PROPERTIES=$1
+# ===============================[properties keys]=================================
+declare -r SINK_KEY="sink.path"
+declare -r SOURCE_KEY="source.path"
+declare -r TOPIC_KEY="topic.name"
+declare -r CHECKPOINT_KEY="checkpoint"
 # ===============================[spark driver/executor resource]==================
 declare -r RESOURCES_CONFIGS="2G"
 # ===================================[functions]===================================
@@ -123,27 +124,33 @@ function readProperties() {
     fi
 }
 
+function prop() {
+	[ -f "$PROPERTIES" ] && grep -P "^\s*[^#]?${1}=.*$" "$PROPERTIES" | cut -d'=' -f2
+}
+
 #run spark submit local mode
 function runContainer() {
-    local sourcePath=$(echo "${PROPERTIES_MAP[${SOURCE_KEY}]}" | tr '/' '-')
-    local etlProperties="/tmp/etl${sourcePath}.properties"
-    cat "$1" >> "$etlProperties"
+    local path=$1
+
+    sink_path=$(prop $SINK_KEY)
+    source_path=$(prop $SOURCE_KEY)
+    topic=$(prop $TOPIC_KEY)
+    checkpoint_path=$(prop $CHECKPOINT_KEY)
+    source_name=$(echo "${source_path}" | tr '/' '-')
 
     docker run -d --init \
-        --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
+        --name "csv-kafka-${topic}${source_name}" \
         -v "$1":"$1":ro \
-        -v "${PROPERTIES_MAP[${SINK_KEY}]}":"${PROPERTIES_MAP[${SINK_KEY}]}" \
-        -v "${PROPERTIES_MAP[${SOURCE_KEY}]}":"${PROPERTIES_MAP[${SOURCE_KEY}]}":ro \
-        -v "${PROPERTIES_MAP[${CHECKPOINT_KEY}]}":"${PROPERTIES_MAP[${CHECKPOINT_KEY}]}" \
+        -v "${sink_path}":"${sink_path}" \
+        -v "${source_path}":"${source_path}":ro \
+        -v "${checkpoint_path}":"${checkpoint_path}" \
         -e JAVA_OPTS="$HEAP_OPTS" \
         "$IMAGE_NAME" \
         ./bin/spark-submit \
         --packages org.apache.spark:spark-sql-kafka-0-10_2.12:"$SPARK_VERSION" \
         --executor-memory "$RESOURCES_CONFIGS" \
-        --name "csv-kafka-${PROPERTIES_MAP[${TOPIC_KEY}]}${sourcePath}" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        --files "${PROPERTIES_MAP[${SOURCE_KEY}]}" \
         /opt/astraea/etl/build/libs/astraea-etl-0.0.1-SNAPSHOT-all.jar \
         "$1"
 }
