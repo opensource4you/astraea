@@ -20,12 +20,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.Configurable;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
 public interface ConsumerPartitionAssignor
-    extends org.apache.kafka.clients.consumer.ConsumerPartitionAssignor {
+    extends org.apache.kafka.clients.consumer.ConsumerPartitionAssignor, Configurable {
 
   /**
    * Perform the group assignment given the member subscriptions and current cluster metadata.
@@ -37,6 +39,21 @@ public interface ConsumerPartitionAssignor
   Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,
       ClusterInfo<ReplicaInfo> metadata);
+
+  /**
+   * Configure the assignor. The method is called only once.
+   *
+   * @param config configuration
+   */
+  default void configure(Configuration config) {}
+
+  @Override
+  default void configure(Map<String, ?> configs) {
+    configure(
+        Configuration.of(
+            configs.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString()))));
+  }
 
   @Override
   default String name() {
