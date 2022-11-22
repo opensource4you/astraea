@@ -25,7 +25,6 @@ import org.astraea.app.CleanCsv.CleanCsv;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.backup.Exporter;
 import org.astraea.app.backup.Importer;
-import org.astraea.app.balancer.BalanceProcessDemo;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.scenario.ScenarioMain;
 import org.astraea.app.version.Version;
@@ -40,8 +39,6 @@ public class App {
           Automation.class,
           "web",
           WebService.class,
-          "balance-demo",
-          BalanceProcessDemo.class,
           "scenario",
           ScenarioMain.class,
           "version",
