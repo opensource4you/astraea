@@ -16,8 +16,10 @@
  */
 package org.astraea.app.web;
 
-public interface Request {
-
-  /** Indicates the object used in the request */
-  interface RequestObject {}
-}
+/**
+ * This interface is a kind of PUT/POST request. The {@link Channel} is able to convert json string
+ * to obj which implements this Request interface. For another, the unit test of Request is able to
+ * find out the invalid declaration for Request implementations. Hence, each handle ought to
+ * consider applying this interface to all POST/PUT request.
+ */
+public interface Request {}
