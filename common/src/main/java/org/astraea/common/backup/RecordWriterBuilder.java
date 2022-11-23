@@ -31,7 +31,6 @@ public class RecordWriterBuilder {
   private static final Function<OutputStream, RecordWriter> V0 =
       outputStream ->
           new RecordWriter() {
-            private int recordCnt = 0;
 
             @Override
             public void append(Record<byte[], byte[]> record) {
@@ -82,7 +81,6 @@ public class RecordWriterBuilder {
               } catch (IOException e) {
                 throw new UncheckedIOException(e);
               }
-              recordCnt++;
             }
 
             @Override
@@ -97,7 +95,7 @@ public class RecordWriterBuilder {
             @Override
             public void close() {
               try {
-                outputStream.write(ByteUtils.of(recordCnt).array());
+                outputStream.write(ByteUtils.of(-1).array());
                 outputStream.flush();
               } catch (IOException e) {
                 throw new UncheckedIOException(e);
