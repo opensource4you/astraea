@@ -82,8 +82,8 @@ public interface Replica extends ReplicaInfo {
         + ", path='"
         + replica.path()
         + '\''
-        + ", leader="
-        + replica.isLeader()
+        + ", "
+        + (replica.isOffline() ? "offline" : replica.isLeader() ? "leader" : "follower")
         + '}';
   }
 }
