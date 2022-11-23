@@ -58,11 +58,43 @@ function generateDockerfile() {
   fi
 }
 
-function generateDockerfile() {
+function generateDockerfileByLocal() {
     echo "# this dockerfile is generated dynamically
+      FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION AS build
+
+      FROM ubuntu:20.04
+      # Do not ask for confirmations when running apt-get, etc.
+      ENV DEBIAN_FRONTEND noninteractive
+
+      # install tools
+      RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
+
+      # copy spark
+      COPY --from=build /opt/spark /opt/spark
+
+      # export ENV
+      ENV SPARK_HOME /opt/spark
+      WORKDIR /opt/spark
+      " >"$DOCKERFILE"
+}
+
+function generateDockerfileByGithub() {
+  echo "# this dockerfile is generated dynamically
+    FROM ghcr.io/skiptests/astraea/deps AS astraeabuild
+
+    # clone repo
+    WORKDIR /tmp
+    RUN git clone https://github.com/$ACCOUNT/astraea
+
+    # pre-build project to collect all dependencies
+    WORKDIR /tmp/astraea
+    RUN git checkout $VERSION
+    RUN ./gradlew clean shadowJar
+
     FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION AS build
 
     FROM ubuntu:20.04
+
     # Do not ask for confirmations when running apt-get, etc.
     ENV DEBIAN_FRONTEND noninteractive
 
@@ -72,78 +104,38 @@ function generateDockerfile() {
     # copy spark
     COPY --from=build /opt/spark /opt/spark
 
+    # copy astraea
+    COPY --from=astraeabuild /tmp/astraea /opt/astraea
+
+    # add user
+    RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
+
+    # change user
+    RUN chown -R $USER:$USER /opt/spark
+    USER $USER
+
     # export ENV
     ENV SPARK_HOME /opt/spark
     WORKDIR /opt/spark
     " >"$DOCKERFILE"
 }
 
-function generateDockerfile1() {
-echo "# this dockerfile is generated dynamically
-FROM ghcr.io/skiptests/astraea/deps AS astraeabuild
-
-# clone repo
-WORKDIR /tmp
-RUN git clone https://github.com/$ACCOUNT/astraea
-
-# pre-build project to collect all dependencies
-WORKDIR /tmp/astraea
-RUN git checkout $VERSION
-RUN ./gradlew clean shadowJar
-
-FROM ubuntu:20.04 AS build
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-
-# export ENV
-ENV ASTRAEA_HOME /opt/astraea
-
-# install tools
-RUN apt-get update && apt-get install -y wget unzip
-
-# download spark
-WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.2.tgz
-RUN mkdir /opt/spark
-RUN tar -zxvf spark-${SPARK_VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
-
-# the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
-# The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
-
-FROM ubuntu:20.04
-
-# Do not ask for confirmations when running apt-get, etc.
-ENV DEBIAN_FRONTEND noninteractive
-
-# install tools
-RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
-
-# copy spark
-COPY --from=build /opt/spark /opt/spark
-
-# copy astraea
-COPY --from=astraeabuild /tmp/astraea /opt/astraea
-
-# add user
-RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-
-# change user
-RUN chown -R $USER:$USER /opt/spark
-USER $USER
-
-# export ENV
-ENV SPARK_HOME /opt/spark
-WORKDIR /opt/spark
-" >"$DOCKERFILE"
-}
-
 function prop() {
 	[ -f "$PROPERTIES" ] && grep -P "^\s*[^#]?${1}=.*$" "$PROPERTIES" | cut -d'=' -f2
 }
 
+function checkPath() {
+  mkdir -p "$1"
+  if [ $? -ne 0 ]; then
+      echo "mkdir $1 failed"
+      exit 2
+  fi
+  echo "$1"
+}
+
 function runContainer() {
   if [[ -n "$BY_LOCAL" ]]; then
+    echo "local"
     ./gradlew clean shadowJar
     runContainerByLocal "$1"
   else
@@ -152,13 +144,13 @@ function runContainer() {
 }
 
 #run spark submit local mode
-function runContainerByLocal() {
+function runContainerByGithub() {
     local propertiesPath=$1
 
-    sink_path=$(prop $SINK_KEY)
-    source_path=$(prop $SOURCE_KEY)
+    sink_path=$(checkPath "$(prop $SINK_KEY)")
+    source_path=$(checkPath "$(prop $SOURCE_KEY)")
     topic=$(prop $TOPIC_KEY)
-    checkpoint_path=$(prop $CHECKPOINT_KEY)
+    checkpoint_path=$(checkPath "$(prop $CHECKPOINT_KEY)")
     source_name=$(echo "${source_path}" | tr '/' '-')
 
     docker run -d --init \
@@ -178,13 +170,13 @@ function runContainerByLocal() {
         "$propertiesPath"
 }
 
-function runContainerByGithub() {
+function runContainerByLocal() {
     local propertiesPath=$1
 
-    sink_path=$(prop $SINK_KEY)
-    source_path=$(prop $SOURCE_KEY)
+    sink_path=$(checkPath "$(prop $SINK_KEY)")
+    source_path=$(checkPath "$(prop $SOURCE_KEY)")
     topic=$(prop $TOPIC_KEY)
-    checkpoint_path=$(prop $CHECKPOINT_KEY)
+    checkpoint_path=$(checkPath "$(prop $CHECKPOINT_KEY)")
     source_name=$(echo "${source_path}" | tr '/' '-')
 
     docker run -d --init \
@@ -193,7 +185,7 @@ function runContainerByGithub() {
         -v "${sink_path}":"${sink_path}" \
         -v "${source_path}":"${source_path}":ro \
         -v "${checkpoint_path}":"${checkpoint_path}" \
-        -v "$LOCAL_PATH":"$LOCAL_PATH":ro \
+        -v "${LOCAL_PATH}":"${LOCAL_PATH}":ro \
         -e JAVA_OPTS="$HEAP_OPTS" \
         "$IMAGE_NAME" \
         ./bin/spark-submit \
