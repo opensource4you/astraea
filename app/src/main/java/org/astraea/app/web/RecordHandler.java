@@ -335,9 +335,10 @@ public class RecordHandler implements Handler {
     var keySerializer = SerDe.ofAlias(postRecord.keySerializer).serializer;
     var valueSerializer = SerDe.ofAlias(postRecord.valueSerializer).serializer;
     postRecord.key.ifPresent(
-        key -> builder.key(keySerializer.apply(topic, PostRequest.handle(key))));
+        // TODO: 2022-11-23 astraea-1163 key and value should be Json String or Json Number
+        key -> builder.key(keySerializer.apply(topic, key.toString())));
     postRecord.value.ifPresent(
-        value -> builder.value(valueSerializer.apply(topic, PostRequest.handle(value))));
+        value -> builder.value(valueSerializer.apply(topic, value.toString())));
     postRecord.timestamp.ifPresent(builder::timestamp);
     postRecord.partition.ifPresent(builder::partition);
     return builder.build();
