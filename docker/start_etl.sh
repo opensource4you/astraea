@@ -18,13 +18,17 @@
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "$DOCKER_FOLDER"/docker_build_common.sh
 
+# ===============================[version control]=================================
+declare -r SPARK_VERSION=${SPARK_VERSION:-3.1.2}
+declare -r ASTRAEA_VERSION=${ASTRAEA_VERSION:-0.0.1}
 # ===============================[global variables]================================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
+declare -r BUILD_BY=${BY_LOCAL:-${BUILD_BY:-github}}
+declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)/etl/build/libs/astraea-etl-${ASTRAEA_VERSION}-SNAPSHOT-all.jar
 declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
-declare -r SPARK_VERSION=${SPARK_REVERSION:-${SPARK_VERSION:-3.1.2}}
 declare -r PROPERTIES=$1
 # ===============================[properties keys]=================================
 declare -r SINK_KEY="sink.path"
@@ -40,13 +44,41 @@ function showHelp() {
   echo "Optional Arguments: "
   echo "    properties-path=/home/user/Spark2Kafka.properties   The path of Spark2Kafka.properties."
   echo "ENV: "
-  echo "    VERSION=3.1.2                    set version of spark distribution"
+  echo "    VERSION=$SPARK_VERSION                    set version of spark distribution"
   echo "    BUILD=false                      set true if you want to build image locally"
   echo "    RUN=false                        set false if you want to build/pull image only"
   echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
 }
 
 function generateDockerfile() {
+  if [[ -n "$BY_LOCAL" ]]; then
+    generateDockerfileByLocal
+  else
+    generateDockerfileByGithub
+  fi
+}
+
+function generateDockerfile() {
+    echo "# this dockerfile is generated dynamically
+    FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION AS build
+
+    FROM ubuntu:20.04
+    # Do not ask for confirmations when running apt-get, etc.
+    ENV DEBIAN_FRONTEND noninteractive
+
+    # install tools
+    RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
+
+    # copy spark
+    COPY --from=build /opt/spark /opt/spark
+
+    # export ENV
+    ENV SPARK_HOME /opt/spark
+    WORKDIR /opt/spark
+    " >"$DOCKERFILE"
+}
+
+function generateDockerfile1() {
 echo "# this dockerfile is generated dynamically
 FROM ghcr.io/skiptests/astraea/deps AS astraeabuild
 
@@ -106,31 +138,22 @@ WORKDIR /opt/spark
 " >"$DOCKERFILE"
 }
 
-function readProperties() {
-    local path=$1
-    if [ -f "$path" ]
-    then
-            echo "$path found."
-            while IFS='=' read -r key value
-            do
-                    key=$(echo "$key" | tr '.' '_')
-                    value=$(echo "$value" | grep -o -P '.+')
-
-                    [[ -n $(echo "$key" | grep -P '^\w+') ]] \
-                            && PROPERTIES_MAP[${key}]=${value}
-            done < "$path"
-    else
-            echo "$path not found."
-    fi
-}
-
 function prop() {
 	[ -f "$PROPERTIES" ] && grep -P "^\s*[^#]?${1}=.*$" "$PROPERTIES" | cut -d'=' -f2
 }
 
-#run spark submit local mode
 function runContainer() {
-    local path=$1
+  if [[ -n "$BY_LOCAL" ]]; then
+    ./gradlew clean shadowJar
+    runContainerByLocal "$1"
+  else
+    runContainerByGithub "$1"
+  fi
+}
+
+#run spark submit local mode
+function runContainerByLocal() {
+    local propertiesPath=$1
 
     sink_path=$(prop $SINK_KEY)
     source_path=$(prop $SOURCE_KEY)
@@ -140,7 +163,7 @@ function runContainer() {
 
     docker run -d --init \
         --name "csv-kafka-${topic}${source_name}" \
-        -v "$1":"$1":ro \
+        -v "$propertiesPath":"$propertiesPath":ro \
         -v "${sink_path}":"${sink_path}" \
         -v "${source_path}":"${source_path}":ro \
         -v "${checkpoint_path}":"${checkpoint_path}" \
@@ -151,8 +174,35 @@ function runContainer() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        /opt/astraea/etl/build/libs/astraea-etl-0.0.1-SNAPSHOT-all.jar \
-        "$1"
+        /opt/astraea/etl/build/libs/astraea-etl-"${ASTRAEA_VERSION}"-SNAPSHOT-all.jar \
+        "$propertiesPath"
+}
+
+function runContainerByGithub() {
+    local propertiesPath=$1
+
+    sink_path=$(prop $SINK_KEY)
+    source_path=$(prop $SOURCE_KEY)
+    topic=$(prop $TOPIC_KEY)
+    checkpoint_path=$(prop $CHECKPOINT_KEY)
+    source_name=$(echo "${source_path}" | tr '/' '-')
+
+    docker run -d --init \
+        --name "csv-kafka-${topic}${source_name}" \
+        -v "$propertiesPath":"$propertiesPath":ro \
+        -v "${sink_path}":"${sink_path}" \
+        -v "${source_path}":"${source_path}":ro \
+        -v "${checkpoint_path}":"${checkpoint_path}" \
+        -v "$LOCAL_PATH":"$LOCAL_PATH":ro \
+        -e JAVA_OPTS="$HEAP_OPTS" \
+        "$IMAGE_NAME" \
+        ./bin/spark-submit \
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:"$SPARK_VERSION" \
+        --executor-memory "$RESOURCES_CONFIGS" \
+        --class org.astraea.etl.Spark2Kafka \
+        --master local \
+        "$LOCAL_PATH" \
+        "$propertiesPath"
 }
 
 # ===================================[main]===================================
@@ -166,7 +216,6 @@ if [[ "$RUN" != "true" ]]; then
 fi
 
 if [[ -n "$1" ]]; then
-  readProperties "$*"
   runContainer "$*"
 else
   showHelp
