@@ -28,9 +28,9 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
@@ -75,7 +75,7 @@ class TopicHandler implements Handler {
                 get(
                     topics,
                     Optional.ofNullable(channel.queries().get(POLL_RECORD_TIMEOUT))
-                        .map(DurationField::toDuration)
+                        .map(Utils::toDuration)
                         .orElse(null),
                     partition ->
                         !channel.queries().containsKey(PARTITION_KEY)

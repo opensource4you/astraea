@@ -21,10 +21,21 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import org.astraea.common.DataSize;
 import org.astraea.common.consumer.Record;
 
 public interface RecordWriter extends AutoCloseable {
   void append(Record<byte[], byte[]> record);
+
+  /**
+   * @return size of all records
+   */
+  DataSize size();
+
+  /**
+   * @return count of all records
+   */
+  int count();
 
   void flush();
 

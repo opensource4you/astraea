@@ -76,20 +76,33 @@ public class TestImportExport extends RequireBrokerCluster {
               "--bootstrap.servers", bootstrapServers(),
               "--topics", String.join(",", topics),
               "--output", file.toString(),
+              "--archive.size", "10Byte",
               "--group", group
             });
-    var exportResult = Exporter.execute(exportArg);
-    Assertions.assertEquals(topics.size(), exportResult.recordCount().size());
-    exportResult.recordCount().values().forEach(v -> Assertions.assertEquals(records, v));
-    // TODO: we should create the folder for each partition
-    Assertions.assertEquals(
-        topics.size(),
+    var stats = Exporter.execute(exportArg);
+    Assertions.assertEquals(topics.size(), stats.size());
+    stats.values().forEach(stat -> Assertions.assertEquals(records, stat.count()));
+    var topicFolders =
         Arrays.stream(Objects.requireNonNull(file.toFile().listFiles()))
-            .filter(File::isFile)
-            .count());
+            .filter(File::isDirectory)
+            .collect(Collectors.toList());
+    Assertions.assertEquals(topics.size(), topicFolders.size());
+
+    var partitionFolders =
+        topicFolders.stream()
+            .flatMap(f -> Arrays.stream(Objects.requireNonNull(f.listFiles(File::isDirectory))))
+            .collect(Collectors.toList());
+    // each topic has single partition
+    Assertions.assertEquals(topics.size(), partitionFolders.size());
+    // archive size is very small, so it should export many files
+    partitionFolders.forEach(
+        folder ->
+            Assertions.assertTrue(
+                Objects.requireNonNull(folder.listFiles(File::isFile)).length > 1,
+                "files: " + Objects.requireNonNull(folder.listFiles(File::isFile)).length));
 
     // use the same group and there is no more records
-    Assertions.assertEquals(0, Exporter.execute(exportArg).recordCount().size());
+    Assertions.assertEquals(0, Exporter.execute(exportArg).size());
 
     // cleanup topics
     try (var admin = Admin.of(bootstrapServers())) {
