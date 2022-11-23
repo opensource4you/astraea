@@ -16,13 +16,13 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.reflect.TypeToken;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -34,6 +34,7 @@ import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.json.TypeRef;
 
 public class ThrottleHandler implements Handler {
   private final Admin admin;
@@ -62,7 +63,7 @@ public class ThrottleHandler implements Handler {
                                     .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                                     .map(Long::valueOf)
                                     .orElse(null)))
-                    .filter(b -> b.leader != null || b.follower != null)
+                    .filter(b -> b.leader.isPresent() || b.follower.isPresent())
                     .collect(Collectors.toUnmodifiableSet()),
                 simplify(
                     topics.stream()
@@ -95,6 +96,8 @@ public class ThrottleHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
+    var postRequest = channel.request(TypeRef.of(ThrottlePostRequest.class));
+
     var topicToAppends =
         admin
             .nodeInfos()
@@ -103,14 +106,7 @@ public class ThrottleHandler implements Handler {
             .thenCompose(admin::topicPartitionReplicas)
             .thenApply(
                 replicas ->
-                    channel
-                        .request()
-                        .<Collection<TopicThrottle>>get(
-                            "topics",
-                            TypeToken.getParameterized(Collection.class, TopicThrottle.class)
-                                .getType())
-                        .orElse(List.of())
-                        .stream()
+                    postRequest.topics().stream()
                         .flatMap(
                             t -> {
                               var keys =
@@ -120,12 +116,12 @@ public class ThrottleHandler implements Handler {
                                           TopicConfigs.LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
                                       .filter(
                                           key ->
-                                              t.type == null
-                                                  || (t.type.equals("leader")
+                                              t.type.isEmpty()
+                                                  || (t.type.get().equals("leader")
                                                       && key.equals(
                                                           TopicConfigs
                                                               .LEADER_REPLICATION_THROTTLED_REPLICAS_CONFIG))
-                                                  || (t.type.equals("follower")
+                                                  || (t.type.get().equals("follower")
                                                       && key.equals(
                                                           TopicConfigs
                                                               .FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)))
@@ -133,10 +129,11 @@ public class ThrottleHandler implements Handler {
                               return replicas.stream()
                                   .filter(
                                       r ->
-                                          (t.name == null || r.topic().equals(t.name))
-                                              && (t.partition == null
-                                                  || r.partition() == t.partition)
-                                              && (t.broker == null || r.brokerId() == t.broker))
+                                          (t.name.isEmpty() || r.topic().equals(t.name.get()))
+                                              && (t.partition.isEmpty()
+                                                  || r.partition() == t.partition.get())
+                                              && (t.broker.isEmpty()
+                                                  || r.brokerId() == t.broker.get()))
                                   .collect(Collectors.groupingBy(TopicPartitionReplica::topic))
                                   .entrySet()
                                   .stream()
@@ -170,26 +167,22 @@ public class ThrottleHandler implements Handler {
                                 })));
 
     Map<Integer, Map<String, String>> brokerToSets =
-        channel
-            .request()
-            .<Collection<BrokerThrottle>>get(
-                "brokers",
-                TypeToken.getParameterized(Collection.class, BrokerThrottle.class).getType())
-            .orElse(List.of())
-            .stream()
+        postRequest.brokers().stream()
             .collect(
                 Collectors.toMap(
                     b -> b.id,
                     b -> {
                       var result = new HashMap<String, String>();
-                      if (b.follower != null)
-                        result.put(
-                            BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
-                            String.valueOf(b.follower));
-                      if (b.leader != null)
-                        result.put(
-                            BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                            String.valueOf(b.leader));
+                      b.follower.ifPresent(
+                          aLong ->
+                              result.put(
+                                  BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                  String.valueOf(aLong)));
+                      b.leader.ifPresent(
+                          aLong ->
+                              result.put(
+                                  BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                  String.valueOf(aLong)));
                       return result;
                     }));
 
@@ -350,10 +343,26 @@ public class ThrottleHandler implements Handler {
         .collect(Collectors.toUnmodifiableSet());
   }
 
+  static class ThrottlePostRequest implements Request {
+
+    private List<TopicThrottle> topics = List.of();
+    private List<BrokerThrottle> brokers = List.of();
+
+    public List<TopicThrottle> topics() {
+      return topics;
+    }
+
+    public List<BrokerThrottle> brokers() {
+      return brokers;
+    }
+  }
+
   static class ThrottleSetting implements Response {
 
-    final Collection<BrokerThrottle> brokers;
-    final Collection<TopicThrottle> topics;
+    Collection<BrokerThrottle> brokers;
+    Collection<TopicThrottle> topics;
+
+    public ThrottleSetting() {}
 
     ThrottleSetting(Collection<BrokerThrottle> brokers, Collection<TopicThrottle> topics) {
       this.brokers = brokers;
@@ -361,15 +370,17 @@ public class ThrottleHandler implements Handler {
     }
   }
 
-  static class BrokerThrottle {
-    final int id;
-    final Long follower;
-    final Long leader;
+  static class BrokerThrottle implements Request {
+    int id;
+    Optional<Long> follower = Optional.empty();
+    Optional<Long> leader = Optional.empty();
+
+    public BrokerThrottle() {}
 
     BrokerThrottle(int id, Long ingress, Long egress) {
       this.id = id;
-      this.follower = ingress;
-      this.leader = egress;
+      this.follower = Optional.ofNullable(ingress);
+      this.leader = Optional.ofNullable(egress);
     }
 
     @Override
@@ -400,11 +411,13 @@ public class ThrottleHandler implements Handler {
     }
   }
 
-  static class TopicThrottle {
-    final String name;
-    final Integer partition;
-    final Integer broker;
-    final String type;
+  static class TopicThrottle implements Request {
+    Optional<String> name = Optional.empty();
+    Optional<Integer> partition = Optional.empty();
+    Optional<Integer> broker = Optional.empty();
+    Optional<String> type = Optional.empty();
+
+    public TopicThrottle() {}
 
     @Override
     public boolean equals(Object o) {
@@ -423,10 +436,10 @@ public class ThrottleHandler implements Handler {
     }
 
     TopicThrottle(String name, Integer partition, Integer broker, LogIdentity identity) {
-      this.name = Objects.requireNonNull(name);
-      this.partition = partition;
-      this.broker = broker;
-      this.type = (identity == null) ? null : identity.name();
+      this.name = Optional.of(Objects.requireNonNull(name));
+      this.partition = Optional.ofNullable(partition);
+      this.broker = Optional.ofNullable(broker);
+      this.type = Optional.ofNullable(identity == null ? null : identity.name());
     }
 
     @Override
