@@ -29,6 +29,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 interface Channel {
 
@@ -50,15 +52,21 @@ interface Channel {
     return builder().type(Type.GET).queries(queries).build();
   }
 
+  @Deprecated
   static Channel ofRequest(PostRequest request) {
     return builder().type(Type.POST).request(request).build();
+  }
+
+  static Channel ofRequest(String json) {
+    return builder().type(Type.POST).request(json).build();
   }
 
   class Builder {
     private Type type = Type.UNKNOWN;
     private Optional<String> target = Optional.empty();
     private Map<String, String> queries = Map.of();
-    private PostRequest request = PostRequest.EMPTY;
+    private Optional<String> body = Optional.empty();
+    @Deprecated private PostRequest request = PostRequest.EMPTY;
     private Consumer<Response> sender = r -> {};
 
     private Builder() {}
@@ -82,10 +90,17 @@ interface Channel {
       return this;
     }
 
+    @Deprecated
     public Builder request(Map<String, Object> request) {
       return request(PostRequest.of(request));
     }
 
+    public Builder request(String json) {
+      this.body = Optional.ofNullable(json);
+      return this;
+    }
+
+    @Deprecated
     public Builder request(PostRequest request) {
       this.request = request;
       return this;
@@ -111,6 +126,12 @@ interface Channel {
         @Override
         public PostRequest request() {
           return request;
+        }
+
+        @Override
+        public <T> T request(TypeRef<T> typeRef) {
+          var json = body.orElse("{}");
+          return JsonConverter.defaultConverter().fromJson(json, typeRef);
         }
 
         @Override
@@ -176,11 +197,18 @@ interface Channel {
               .collect(Collectors.toMap(p -> p.split("=")[0], p -> p.split("=")[1]));
         };
 
-    Function<InputStream, PostRequest> parseRequest =
+    Function<InputStream, PostRequest> parsePostRequest =
         stream -> {
           var bs = Utils.packException(stream::readAllBytes);
           if (bs == null || bs.length == 0) return PostRequest.EMPTY;
           return PostRequest.of(new String(bs, StandardCharsets.UTF_8));
+        };
+
+    Function<InputStream, String> parseRequest =
+        stream -> {
+          var bs = Utils.packException(stream::readAllBytes);
+          if (bs == null || bs.length == 0) return null;
+          return new String(bs, StandardCharsets.UTF_8);
         };
 
     Function<String, Type> parseType =
@@ -202,6 +230,7 @@ interface Channel {
         .type(parseType.apply(exchange.getRequestMethod()))
         .target(parseTarget.apply(exchange.getRequestURI()))
         .queries(parseQueries.apply(exchange.getRequestURI()))
+        .request(parsePostRequest.apply(exchange.getRequestBody()))
         .request(parseRequest.apply(exchange.getRequestBody()))
         .sender(
             response -> {
@@ -235,7 +264,13 @@ interface Channel {
   /**
    * @return body request
    */
+  @Deprecated
   PostRequest request();
+
+  /**
+   * @return body request
+   */
+  <T> T request(TypeRef<T> typeRef);
 
   /**
    * @return the queries appended to URL

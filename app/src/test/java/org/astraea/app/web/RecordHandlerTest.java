@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.app.web.RecordHandler.ASYNC;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_BEGINNING;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_LATEST;
 import static org.astraea.app.web.RecordHandler.GROUP_ID;
@@ -26,15 +25,11 @@ import static org.astraea.app.web.RecordHandler.KEY_DESERIALIZER;
 import static org.astraea.app.web.RecordHandler.LIMIT;
 import static org.astraea.app.web.RecordHandler.OFFSET;
 import static org.astraea.app.web.RecordHandler.PARTITION;
-import static org.astraea.app.web.RecordHandler.RECORDS;
 import static org.astraea.app.web.RecordHandler.SEEK_TO;
 import static org.astraea.app.web.RecordHandler.TIMEOUT;
-import static org.astraea.app.web.RecordHandler.TRANSACTION_ID;
 import static org.astraea.app.web.RecordHandler.VALUE_DESERIALIZER;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Base64;
@@ -46,15 +41,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
-import org.astraea.common.ExecutionRuntimeException;
+import org.astraea.app.web.RecordHandler.PostRecord;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
@@ -68,6 +63,10 @@ import org.mockito.Mockito;
 
 public class RecordHandlerTest extends RequireBrokerCluster {
 
+  static final String RECORDS = "records";
+  static final String TRANSACTION_ID = "transactionId";
+  static final String ASYNC = "async";
+
   @Test
   void testInvalidPost() {
     var handler = getRecordHandler();
@@ -75,39 +74,46 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () ->
             handler
-                .post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[]"))))
+                .post(
+                    Channel.ofRequest(
+                        JsonConverter.defaultConverter().toJson(Map.of(RECORDS, List.of()))))
                 .toCompletableFuture()
                 .join(),
         "records should contain at least one record");
-    var executionRuntimeException =
-        Assertions.assertThrows(
-            ExecutionRuntimeException.class,
-            () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[{}]")))),
-            "topic must be set");
-    Assertions.assertEquals(
-        IllegalArgumentException.class, executionRuntimeException.getRootCause().getClass());
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            handler.post(
+                Channel.ofRequest(
+                    JsonConverter.defaultConverter()
+                        .toJson(Map.of(RECORDS, List.of(new PostRecord()))))),
+        "Value `$.records[].topic` is required.");
   }
 
   @Test
   void testPostTimeout() {
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> getRecordHandler().post(Channel.ofRequest(PostRequest.of(Map.of(TIMEOUT, "foo")))));
+        () ->
+            getRecordHandler()
+                .post(
+                    Channel.ofRequest(
+                        JsonConverter.defaultConverter().toJson(Map.of(TIMEOUT, "foo")))));
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
         getRecordHandler()
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    TIMEOUT,
-                                    "10s",
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            "test", null, null, null, null, null, null)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                TIMEOUT,
+                                "10s",
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        "test", null, null, null, null, null, null))))))
             .toCompletableFuture()
             .join());
   }
@@ -115,16 +121,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testPostRawString() {
     var topic = "testPostRawString";
-    var currentTimestamp = System.currentTimeMillis();
-
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
             getRecordHandler()
                 .post(
                     Channel.ofRequest(
-                        PostRequest.of(
-                            "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}")))
+                        "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}"))
                 .toCompletableFuture()
                 .join());
 
@@ -167,7 +170,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
             getRecordHandler()
-                .post(Channel.ofRequest(PostRequest.of(new Gson().toJson(requestParams))))
+                .post(Channel.ofRequest(JsonConverter.defaultConverter().toJson(requestParams)))
                 .toCompletableFuture()
                 .join());
 
@@ -233,22 +236,21 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler
                 .post(
                     Channel.ofRequest(
-                        PostRequest.of(
-                            new Gson()
-                                .toJson(
-                                    Map.of(
-                                        ASYNC,
-                                        "true",
-                                        RECORDS,
-                                        List.of(
-                                            new RecordHandler.PostRecord(
-                                                topic,
-                                                0,
-                                                "string",
-                                                "integer",
-                                                "foo",
-                                                "100",
-                                                currentTimestamp)))))))
+                        JsonConverter.defaultConverter()
+                            .toJson(
+                                Map.of(
+                                    ASYNC,
+                                    "true",
+                                    RECORDS,
+                                    List.of(
+                                        new RecordHandler.PostRecord(
+                                            topic,
+                                            0,
+                                            "string",
+                                            "integer",
+                                            "foo",
+                                            "100",
+                                            currentTimestamp))))))
                 .toCompletableFuture()
                 .join());
     Assertions.assertEquals(Response.ACCEPT, result);
@@ -283,14 +285,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         handler
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic, null, serializer, null, actual, null, null)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic, null, serializer, null, actual, null, null))))))
             .toCompletableFuture()
             .join());
 
@@ -653,47 +654,28 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 .toCompletableFuture()
                 .join());
 
-    Assertions.assertEquals(
+    var expected =
         "{\"records\":[{"
-            + "\"topic\":\""
-            + topic
-            + "\","
-            + "\"partition\":0,"
-            + "\"offset\":0,"
-            + "\"timestamp\":"
-            + timestamp
-            + ","
-            + "\"serializedKeySize\":7,"
-            + "\"serializedValueSize\":4,"
             + "\"headers\":[{\"key\":\"a\"}],"
             + "\"key\":\""
             + Base64.getEncoder().encodeToString("astraea".getBytes(UTF_8))
             + "\","
-            + "\"value\":100,"
-            + "\"leaderEpoch\":0"
-            + "}]}",
-        response.json());
+            + "\"leaderEpoch\":0,"
+            + "\"offset\":0,"
+            + "\"partition\":0,"
+            + "\"serializedKeySize\":7,"
+            + "\"serializedValueSize\":4,"
+            + "\"timestamp\":"
+            + timestamp
+            + ","
+            + "\"topic\":\""
+            + topic
+            + "\","
+            + "\"value\":100}]}";
+    Assertions.assertEquals(expected, response.json());
 
     // close consumer
     response.onComplete(null);
-  }
-
-  @Test
-  void testByteArrayToBase64TypeAdapter() {
-    var foo = new Foo("test".getBytes());
-    var gson =
-        new GsonBuilder()
-            .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
-            .create();
-    Assertions.assertArrayEquals(foo.bar, gson.fromJson(gson.toJson(foo), Foo.class).bar);
-  }
-
-  private static class Foo {
-    final byte[] bar;
-
-    public Foo(byte[] bar) {
-      this.bar = bar;
-    }
   }
 
   @Test
@@ -706,20 +688,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
         handler
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic,
-                                            0,
-                                            "string",
-                                            "integer",
-                                            "foo",
-                                            "100",
-                                            currentTimestamp)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic,
+                                        0,
+                                        "string",
+                                        "integer",
+                                        "foo",
+                                        100,
+                                        currentTimestamp))))))
             .toCompletableFuture()
             .join());
 
