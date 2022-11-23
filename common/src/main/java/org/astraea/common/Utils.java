@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -349,6 +350,11 @@ public final class Utils {
         || cls == Character.class
         || cls == Byte.class
         || cls == Boolean.class;
+  }
+
+  /** all optional are present */
+  public static boolean isPresent(Optional<?>... fields) {
+    return Arrays.stream(fields).allMatch(Optional::isPresent);
   }
 
   private Utils() {}
