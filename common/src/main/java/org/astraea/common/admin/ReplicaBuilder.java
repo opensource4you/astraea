@@ -255,6 +255,11 @@ public class ReplicaBuilder {
     }
 
     @Override
+    public String toString() {
+      return Replica.toString(this);
+    }
+
+    @Override
     public int hashCode() {
       return Objects.hash(
           topic,
