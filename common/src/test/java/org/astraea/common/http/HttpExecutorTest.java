@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Test;
@@ -209,6 +210,45 @@ class HttpExecutorTest {
                           .join());
           assertEquals(StringResponseException.class, executionException.getCause().getClass());
         });
+  }
+
+  @Test
+  void testException() {
+    var httpExecutor = HttpExecutor.builder().build();
+    HttpTestUtil.testWithServer(
+        httpServer ->
+            httpServer.createContext(
+                "/test", HttpTestUtil.createErrorHandler(405, "don't allow this method to you!!!")),
+        x ->
+            Utils.packException(
+                () -> {
+                  var respException =
+                      assertThrows(
+                          CompletionException.class,
+                          () ->
+                              httpExecutor
+                                  .get(getUrl(x, "/test"), TypeRef.of(TestResponse.class))
+                                  .thenApply(Response::body)
+                                  .toCompletableFuture()
+                                  .join());
+
+                  var voidException =
+                      assertThrows(
+                          CompletionException.class,
+                          () ->
+                              httpExecutor.delete(getUrl(x, "/test")).toCompletableFuture().join());
+
+                  List.of(respException, voidException)
+                      .forEach(
+                          e -> {
+                            assertEquals(StringResponseException.class, e.getCause().getClass());
+                            var stringResponseException = (StringResponseException) e.getCause();
+                            assertEquals(405, stringResponseException.statusCode());
+                            assertEquals(
+                                "don't allow this method to you!!!",
+                                stringResponseException.body());
+                          });
+                }));
   }
 
   private String getUrl(InetSocketAddress socketAddress, String path) {
