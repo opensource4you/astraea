@@ -174,7 +174,7 @@ class TopicHandler implements Handler {
     var topics =
         JsonConverter.defaultConverter().convert(postRequest.topics(), TypeRef.array(Topic.class));
 
-    var topicNames = topics.stream().map(Topic::name).collect(Collectors.toSet());
+    var topicNames = topics.stream().map(x -> x.name).collect(Collectors.toSet());
     if (topicNames.size() != topics.size())
       throw new IllegalArgumentException("duplicate topic name: " + topicNames);
     return FutureUtils.sequence(
@@ -184,12 +184,12 @@ class TopicHandler implements Handler {
                       var topic = topics.get(i);
                       var configs = postRequest.topics().get(i);
 
-                      var topicName = topic.name();
-                      var numberOfPartitions = topic.partitions();
-                      var numberOfReplicas = topic.replicas();
+                      var topicName = topic.name;
+                      var numberOfPartitions = topic.partitions;
+                      var numberOfReplicas = topic.replicas;
 
-                      if (topic.probability().isPresent()) {
-                        return Scenario.build(topic.probability().get())
+                      if (topic.probability.isPresent()) {
+                        return Scenario.build(topic.probability.get())
                             .topicName(topicName)
                             .numberOfPartitions(numberOfPartitions)
                             .numberOfReplicas(numberOfReplicas)
@@ -239,24 +239,7 @@ class TopicHandler implements Handler {
     private String name;
     private int partitions = 1;
     private short replicas = 1;
-
     private Optional<Double> probability = Optional.empty();
-
-    public String name() {
-      return name;
-    }
-
-    public int partitions() {
-      return partitions;
-    }
-
-    public short replicas() {
-      return replicas;
-    }
-
-    public Optional<Double> probability() {
-      return probability;
-    }
   }
 
   static class Topics implements Response {
