@@ -106,7 +106,7 @@ public class ThrottleHandler implements Handler {
             .thenCompose(admin::topicPartitionReplicas)
             .thenApply(
                 replicas ->
-                    postRequest.topics().stream()
+                    postRequest.topics.stream()
                         .flatMap(
                             t -> {
                               var keys =
@@ -167,7 +167,7 @@ public class ThrottleHandler implements Handler {
                                 })));
 
     Map<Integer, Map<String, String>> brokerToSets =
-        postRequest.brokers().stream()
+        postRequest.brokers.stream()
             .collect(
                 Collectors.toMap(
                     b -> b.id,
@@ -347,14 +347,6 @@ public class ThrottleHandler implements Handler {
 
     private List<TopicThrottle> topics = List.of();
     private List<BrokerThrottle> brokers = List.of();
-
-    public List<TopicThrottle> topics() {
-      return topics;
-    }
-
-    public List<BrokerThrottle> brokers() {
-      return brokers;
-    }
   }
 
   static class ThrottleSetting implements Response {
