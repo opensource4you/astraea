@@ -14,17 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.ImportCsv;
+package org.astraea.app.backup;
 
+import static org.astraea.app.backup.ImportCsv.nonEqualPath;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.beust.jcommander.ParameterException;
 import com.opencsv.CSVReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,7 +55,7 @@ public class ImportCsvTest {
     List<String[]> ansLists = new ArrayList<>();
     testCsvGenerator(source, ansLists, DATA_MAME);
 
-    String[] arguments = {"--source", "local://" + source, "--sink", "local://" + sink};
+    String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
     ImportCsv.main(arguments);
 
     var target = new File(sink + "/" + DATA_MAME);
@@ -70,7 +75,7 @@ public class ImportCsvTest {
     assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
 
     String[] arguments = {
-      "--source", "local://" + source, "--sink", "local://" + sink, "--cleanSource", "delete",
+      "--source", "local:" + source, "--sink", "local:" + sink, "--cleanSource", "delete",
     };
     ImportCsv.main(arguments);
     assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
@@ -90,13 +95,13 @@ public class ImportCsvTest {
 
     String[] arguments = {
       "--source",
-      "local://" + source,
+      "local:" + source,
       "--sink",
-      "local://" + sink,
+      "local:" + sink,
       "--cleanSource",
       "archive",
       "--sourceArchiveDir",
-      "local://" + archive
+      "local:" + archive
     };
     ImportCsv.main(arguments);
     assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
@@ -117,7 +122,7 @@ public class ImportCsvTest {
 
     assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
     assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
-    String[] arguments = {"--source", "local://" + source, "--sink", "local://" + sink};
+    String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
     ImportCsv.main(arguments);
 
     var target1 = new File(sink + "/" + DATA_MAME);
@@ -128,6 +133,28 @@ public class ImportCsvTest {
 
     checkFile(target1, ansLists1);
     checkFile(target2, ansLists2);
+  }
+
+  @Test
+  void nonEqualPathTest() {
+    assertThrows(
+        ParameterException.class,
+        () -> nonEqualPath(URI.create("local:/home/warren"), URI.create("local:/home/warren")));
+    assertDoesNotThrow(
+        () ->
+            nonEqualPath(
+                URI.create("ftp://0.0.0.0:8888/home/warren"), URI.create("local:/home/warren")));
+    assertThrows(
+        ParameterException.class,
+        () ->
+            nonEqualPath(
+                URI.create("ftp://0.0.0.0:8888/home/warren"),
+                URI.create("ftp://0.0.0.0:8888/home/warren")));
+    assertDoesNotThrow(
+        () ->
+            nonEqualPath(
+                URI.create("ftp://0.0.0.0:8888/home/warren"),
+                URI.create("ftp://0.0.0.0:7777/home/warren")));
   }
 
   private List<String[]> testCsvGenerator(Path source, List<String[]> ansLists, String name) {

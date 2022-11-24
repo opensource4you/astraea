@@ -18,12 +18,39 @@ package org.astraea.fs;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import org.astraea.common.Configuration;
 import org.astraea.fs.ftp.FtpFileSystem;
 import org.astraea.fs.local.LocalFileSystem;
 
 public interface FileSystem extends AutoCloseable {
+  static FileSystem of(URI uri) {
+    var HOSTNAME_KEY = "fs.ftp.hostname";
+    var PORT_KEY = "fs.ftp.port";
+    var USER_KEY = "fs.ftp.user";
+    var PASSWORD_KEY = "fs.ftp.password";
+
+    if (uri.getScheme().equals("local")) {
+      return FileSystem.local(Configuration.of(Map.of()));
+    } else if (uri.getScheme().equals("ftp")) {
+      String[] userInfo = uri.getUserInfo().split(":", 2);
+      return FileSystem.ftp(
+          Configuration.of(
+              Map.of(
+                  HOSTNAME_KEY,
+                  uri.getHost(),
+                  PORT_KEY,
+                  String.valueOf(uri.getPort()),
+                  USER_KEY,
+                  userInfo[0],
+                  PASSWORD_KEY,
+                  userInfo[1])));
+    } else {
+      throw new IllegalArgumentException(uri.getScheme() + ", schema mismatch.");
+    }
+  }
 
   static FileSystem ftp(Configuration configuration) {
     return new FtpFileSystem(configuration);
