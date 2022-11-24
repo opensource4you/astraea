@@ -112,7 +112,7 @@ public class RecordWriterBuilder {
             @Override
             public void close() {
               try {
-                outputStream.write(ByteUtils.of(count()).array());
+                outputStream.write(ByteUtils.of(-1).array());
                 outputStream.flush();
               } catch (IOException e) {
                 throw new UncheckedIOException(e);
