@@ -16,8 +16,6 @@
  */
 package org.astraea.app.web;
 
-import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +24,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.web.RecordHandler.PostRecord;
 import org.astraea.app.web.RecordHandler.RecordPostRequest;
-import org.astraea.app.web.Request.RequestObject;
-import org.astraea.common.Utils;
 import org.astraea.web.TestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,130 +32,80 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.opentest4j.AssertionFailedError;
 
 class RequestTest {
 
   @ParameterizedTest
   @ArgumentsSource(RequestClassProvider.class)
-  void testRequestImpl(Class<?> cls) {
-    validateDefaultConstructor(cls);
+  void testRequestImpl(Class<?> cls) throws Exception {
     validateDefaultAssign(cls);
   }
 
   @Test
-  void testRequestClassProvider() {
-    var classes =
-        new RequestClassProvider()
-            .provideArguments(null)
-            .map(x -> (Class<?>) x.get()[0])
-            .collect(Collectors.toList());
-
+  void testListRequests() {
+    var classes = requestClasses();
+    Assertions.assertNotEquals(0, requestClasses().size());
     Assertions.assertTrue(classes.contains(RecordPostRequest.class));
     Assertions.assertTrue(classes.contains(PostRecord.class));
   }
 
   @Test
-  void testValidateConstructor() {
-    Assertions.assertThrows(
-        Throwable.class, () -> validateDefaultConstructor(NoDefaultConstructor.class));
-
-    validateDefaultConstructor(NoDefaultAssignMap.class);
+  void testNestedNonRequest() {
+    // C0 does not implement Request
+    Assertions.assertThrows(AssertionFailedError.class, () -> validateDefaultAssign(C1.class));
   }
 
-  @Test
-  void testValidateAssign() {
-    Assertions.assertThrows(
-        Throwable.class, () -> validateDefaultAssign(NoDefaultAssignList.class));
-    Assertions.assertThrows(
-        Throwable.class, () -> validateDefaultAssign(NoDefaultAssignOptional.class));
-    Assertions.assertThrows(Throwable.class, () -> validateDefaultAssign(NoDefaultAssignMap.class));
-
-    validateDefaultAssign(HasDefaultAssignList.class);
-  }
-
-  private void validateDefaultConstructor(Class<?> cls) {
-    Assertions.assertDoesNotThrow(
-        () -> {
-          cls.getDeclaredConstructor();
-        });
-  }
-
-  /** test optional, map, list assigned */
-  private void validateDefaultAssign(Class<?> cls) {
-    var instance = Utils.packException(() -> cls.getDeclaredConstructor().newInstance());
-    Arrays.stream(cls.getDeclaredFields())
-        .peek(x -> x.setAccessible(true))
-        .forEach(
-            x ->
-                Utils.packException(
-                    () -> {
-                      var innerCls = x.getType();
-                      if (Optional.class == innerCls
-                          || Map.class.isAssignableFrom(innerCls)
-                          || List.class.isAssignableFrom(innerCls)) {
-                        Assertions.assertNotNull(x.get(instance));
-                      }
-                    }));
+  private static List<Class<?>> requestClasses() {
+    return TestUtils.getProductionClass().stream()
+        .filter(Request.class::isAssignableFrom)
+        .filter(c -> !c.isInterface())
+        .collect(Collectors.toList());
   }
 
   public static class RequestClassProvider implements ArgumentsProvider {
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-      return TestUtils.getProductionClass().stream()
-          .filter(x -> Request.class.isAssignableFrom(x) || RequestObject.class.isAssignableFrom(x))
-          .map(RequestTest::getAllFieldPojoCls)
-          .flatMap(Collection::stream)
-          .map(Arguments::of);
+      return requestClasses().stream().map(Arguments::of);
     }
   }
 
-  public static List<Class<?>> getAllFieldPojoCls(Class<?> cls) {
-    if (isPojo(cls)) {
-      return Stream.concat(
-              Stream.of(cls),
-              Arrays.stream(cls.getDeclaredFields())
-                  .peek(x -> System.out.println(x.getName()))
-                  .map(Field::getType)
-                  .flatMap(x -> getAllFieldPojoCls(x).stream()))
-          .collect(Collectors.toList());
-    } else {
-      return List.of();
+  private void validateDefaultAssign(Class<?> cls) throws Exception {
+    // 1) Each request should have default constructor.
+    var instance = cls.getDeclaredConstructor().newInstance();
+    for (var x : cls.getDeclaredFields()) {
+      x.setAccessible(true);
+      var innerCls = x.getType();
+      // 2) Optional, Collection and Map field should be initialized
+      if (Optional.class == innerCls
+          || Map.class.isAssignableFrom(innerCls)
+          || Collection.class.isAssignableFrom(innerCls)) {
+        Assertions.assertNotNull(x.get(instance));
+        return;
+      }
+      if (innerCls.isPrimitive()
+          || innerCls == Double.class
+          || innerCls == Float.class
+          || innerCls == Long.class
+          || innerCls == Integer.class
+          || innerCls == Short.class
+          || innerCls == Character.class
+          || innerCls == Byte.class
+          || innerCls == Boolean.class
+          || innerCls == String.class
+          || innerCls == Object.class) {
+        return;
+      }
+      // The other allowed type is only `Request`
+      Assertions.assertEquals(Request.class, innerCls);
     }
   }
 
-  static class NoDefaultConstructor {
-    String a;
-
-    public NoDefaultConstructor(String a) {
-      this.a = a;
-    }
+  private static class C0 {
+    Integer a;
   }
 
-  static class NoDefaultAssignMap {
-    Map<String, String> map;
-  }
-
-  static class NoDefaultAssignList {
-    List<String> list;
-  }
-
-  static class NoDefaultAssignOptional {
-    Optional<String> opt;
-  }
-
-  static class HasDefaultAssignList {
-    List<String> list = List.of();
-  }
-
-  public static boolean isPojo(Class<?> cls) {
-    return !(cls.isPrimitive()
-        || Utils.isWrapper(cls)
-        || cls.isSynthetic()
-        || cls.isInterface()
-        || Collection.class.isAssignableFrom(cls)
-        || Map.class.isAssignableFrom(cls)
-        || String.class == cls
-        || Optional.class == cls
-        || Object.class == cls);
+  private static class C1 implements Request {
+    C0 c0;
   }
 }

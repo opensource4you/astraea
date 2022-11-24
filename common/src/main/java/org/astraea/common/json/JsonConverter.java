@@ -115,25 +115,33 @@ public interface JsonConverter {
         preventNull(name + "[" + i + "]", c);
         i++;
       }
-    } else if (Optional.class == objClass) {
+      return;
+    }
+    if (Optional.class == objClass) {
       var opt = (Optional<?>) obj;
       opt.ifPresent(o -> preventNull(name, o));
-    } else if (Map.class.isAssignableFrom(objClass)) {
+      return;
+    }
+    if (Map.class.isAssignableFrom(objClass)) {
       var map = (Map<?, ?>) obj;
       map.forEach((k, v) -> preventNull(name + "." + k, v));
-    } else if (objClass.isPrimitive()
-        || Utils.isWrapper(objClass)
-        || String.class == objClass
-        || Object.class == objClass) {
       return;
-    } else {
-      var declaredFields = objClass.getDeclaredFields();
-      Arrays.stream(declaredFields)
-          .forEach(
-              x -> {
-                x.setAccessible(true);
-                preventNull(name + "." + x.getName(), Utils.packException(() -> x.get(obj)));
-              });
     }
+    if (objClass.isPrimitive()
+        || objClass == Double.class
+        || objClass == Float.class
+        || objClass == Long.class
+        || objClass == Integer.class
+        || objClass == Short.class
+        || objClass == Character.class
+        || objClass == Byte.class
+        || objClass == Boolean.class
+        || objClass == String.class
+        || objClass == Object.class) {
+      return;
+    }
+    Arrays.stream(objClass.getDeclaredFields())
+        .peek(x -> x.setAccessible(true))
+        .forEach(x -> preventNull(name + "." + x.getName(), Utils.packException(() -> x.get(obj))));
   }
 }
