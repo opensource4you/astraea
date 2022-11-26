@@ -348,24 +348,6 @@ class JsonConverterTest {
     assertNotNull(forTestDefault.opt);
   }
 
-  @Test
-  void testConvert() {
-    var jsonConverter = getConverter();
-    var obj =
-        jsonConverter.fromJson("{\"foo\":\"fooValue\",\"bar\":500}", TypeRef.of(Object.class));
-
-    var forTestValue = jsonConverter.convert(obj, TypeRef.of(ForTestConvert.class));
-    Assertions.assertEquals("fooValue", forTestValue.foo);
-    Assertions.assertEquals(500, forTestValue.bar);
-
-    var errObj = jsonConverter.fromJson("{\"foo\":\"fooValue\"}", TypeRef.of(Object.class));
-    var exception =
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> jsonConverter.convert(errObj, TypeRef.of(ForTestConvert.class)));
-    Assertions.assertEquals("$.bar can not be null", exception.getMessage());
-  }
-
   static class ForTestDefault {
     Optional<ForTestConvert> opt = Optional.empty();
     Map<String, ForTestConvert> map = Map.of();

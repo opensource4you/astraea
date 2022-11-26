@@ -43,11 +43,6 @@ public interface JsonConverter {
   /** for nested generic object ,the return value should specify typeRef , Example: List<String> */
   <T> T fromJson(String json, TypeRef<T> typeRef);
 
-  /** Convert object to the type T. */
-  default <T> T convert(Object obj, TypeRef<T> typeRef) {
-    return fromJson(toJson(obj), typeRef);
-  }
-
   static JsonConverter defaultConverter() {
     return jackson();
   }
