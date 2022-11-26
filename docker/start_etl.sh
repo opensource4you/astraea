@@ -110,7 +110,6 @@ function runContainer() {
   if [[ "$BUILD" == "false" ]]; then
     runContainerByGithub "$1"
   else
-    echo "local"
     ./gradlew clean shadowJar
     runContainerByLocal "$1"
   fi
