@@ -36,7 +36,7 @@ public class CsvWriterTest {
     var target = new File(sink + "/" + DATA_MAME);
 
     try (var writer =
-        CsvWriterBuilder.of(Utils.packException(() -> new FileWriter(target))).build()) {
+        CsvWriterBuilder.builder(Utils.packException(() -> new FileWriter(target))).build()) {
       writer.append(
           List.of(
               "TIMESTAMP,RECORD,StartTime2,Batt_V_Min,Rain_mm_Tot,SlrFD_kW_Avg,SlrTF_MJ_Tot,WS_ms_WVc(1),WS_ms_WVc(2),WS_ms_S_WVT,MaxWS_ms_Max,MaxWS_ms_TMx,AirT_C_Avg,AirT_C_Max,AirT_C_TMx,AirT_C_Min,AirT_C_TMn,VP_hPa_Avg,BP_hPa_Max,BP_hPa_TMx,BP_hPa_Min,BP_hPa_TMn,RH_Max,RH_Min,RHT_C_Max,RHT_C_Min,TiltNS_deg_Max,TiltNS_deg_TMx,TiltNS_deg_Min,TiltNS_deg_TMn,TiltWE_deg_Max,TiltWE_deg_TMx,TiltWE_deg_Min,CVMeta"
@@ -61,7 +61,7 @@ public class CsvWriterTest {
     var sink = mkdir(local_csv + "/sink");
     var target = new File(sink + "/" + DATA_MAME);
     try (var writer =
-        CsvWriterBuilder.of(Utils.packException(() -> new FileWriter(target))).build()) {
+        CsvWriterBuilder.builder(Utils.packException(() -> new FileWriter(target))).build()) {
       assertThrows(RuntimeException.class, () -> writer.append(null));
     }
   }

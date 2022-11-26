@@ -37,10 +37,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.csv.CsvWriterBuilder;
+import org.astraea.fs.local.LocalFileSystem;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -49,90 +52,109 @@ public class ImportCsvTest {
 
   @Test
   void runTest() {
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    List<String[]> ansLists = new ArrayList<>();
-    testCsvGenerator(source, ansLists, DATA_MAME);
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of())); ) {
+      var local_csv = createTempDirectory("local_CSV");
+      var source = local_csv.toString() + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
 
-    String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
-    ImportCsv.main(arguments);
+      List<String[]> ansLists = new ArrayList<>();
+      testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
+      ImportCsv.main(arguments);
 
-    var target = new File(sink + "/" + DATA_MAME);
-    assertTrue(Files.exists(target.toPath()));
-    checkFile(target, ansLists);
+      var target = new File(sink + "/" + DATA_MAME);
+      assertTrue(Files.exists(target.toPath()));
+      checkFile(target, ansLists);
+    }
   }
 
   @Test
   void deleteTest() {
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    List<String[]> ansLists = new ArrayList<>();
-    List<String[]> lists = testCsvGenerator(source, ansLists, DATA_MAME);
-    writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
+      Path local_csv = createTempDirectory("local_CSV");
+      var source = local_csv.toString() + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
+      localFileSystem.mkdir(sink);
 
-    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      List<String[]> ansLists = new ArrayList<>();
+      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
 
-    String[] arguments = {
-      "--source", "local:" + source, "--sink", "local:" + sink, "--cleanSource", "delete",
-    };
-    ImportCsv.main(arguments);
-    assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+
+      String[] arguments = {
+        "--source", "local:" + source, "--sink", "local:" + sink, "--cleanSource", "delete",
+      };
+      ImportCsv.main(arguments);
+      assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+    }
   }
 
   @Test
   void archiveTest() {
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    Path archive = mkdir(local_csv + "/archive");
-    List<String[]> ansLists = new ArrayList<>();
-    List<String[]> lists = testCsvGenerator(source, ansLists, DATA_MAME);
-    writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
+      Path local_csv = createTempDirectory("local_CSV");
+      var source = local_csv + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
+      localFileSystem.mkdir(sink);
+      var archive = local_csv + "/archive";
+      localFileSystem.mkdir(archive);
 
-    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      List<String[]> ansLists = new ArrayList<>();
+      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
 
-    String[] arguments = {
-      "--source",
-      "local:" + source,
-      "--sink",
-      "local:" + sink,
-      "--cleanSource",
-      "archive",
-      "--sourceArchiveDir",
-      "local:" + archive
-    };
-    ImportCsv.main(arguments);
-    assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
-    assertTrue(Files.exists(new File(archive + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+
+      String[] arguments = {
+        "--source",
+        "local:" + source,
+        "--sink",
+        "local:" + sink,
+        "--cleanSource",
+        "archive",
+        "--sourceArchiveDir",
+        "local:" + archive
+      };
+      ImportCsv.main(arguments);
+      assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(archive + "/" + DATA_MAME).toPath()));
+    }
   }
 
   @Test
   void multipleFileTest() {
-    var name2 = "20220202_AAA999_min.dat";
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
+      var name2 = "20220202_AAA999_min.dat";
 
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    List<String[]> ansLists1 = new ArrayList<>();
-    List<String[]> ansLists2 = new ArrayList<>();
-    testCsvGenerator(source, ansLists1, DATA_MAME);
-    testCsvGenerator(source, ansLists2, name2);
+      Path local_csv = createTempDirectory("local_CSV");
+      var source = Path.of(local_csv.toString() + "/source");
+      localFileSystem.mkdir(source.toString());
+      var sink = local_csv + "/sink";
+      localFileSystem.mkdir(sink);
 
-    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
-    assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
-    String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
-    ImportCsv.main(arguments);
+      List<String[]> ansLists1 = new ArrayList<>();
+      List<String[]> ansLists2 = new ArrayList<>();
+      testCsvGenerator(source, ansLists1, DATA_MAME);
+      testCsvGenerator(source, ansLists2, name2);
 
-    var target1 = new File(sink + "/" + DATA_MAME);
-    var target2 = new File(sink + "/" + name2);
+      assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
+      String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
+      ImportCsv.main(arguments);
 
-    assertTrue(Files.exists(new File(sink + "/" + DATA_MAME).toPath()));
-    assertTrue(Files.exists(new File(sink + "/" + name2).toPath()));
+      var target1 = new File(sink + "/" + DATA_MAME);
+      var target2 = new File(sink + "/" + name2);
 
-    checkFile(target1, ansLists1);
-    checkFile(target2, ansLists2);
+      assertTrue(Files.exists(new File(sink + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(sink + "/" + name2).toPath()));
+
+      checkFile(target1, ansLists1);
+      checkFile(target2, ansLists2);
+    }
   }
 
   @Test
@@ -215,7 +237,8 @@ public class ImportCsvTest {
 
   private void writeCSV(Path sink, List<String[]> lists) {
     try (var writer =
-        Utils.packException(() -> CsvWriterBuilder.of(new FileWriter(sink.toFile())).build())) {
+        Utils.packException(
+            () -> CsvWriterBuilder.builder(new FileWriter(sink.toFile())).build())) {
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }
@@ -241,12 +264,6 @@ public class ImportCsvTest {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  private Path mkdir(String string) {
-    var file = new File(string);
-    file.mkdir();
-    return file.toPath();
   }
 
   private String mkString(List<String> arr) {

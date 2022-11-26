@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.URIField;
-import org.astraea.common.csv.CsvReader;
+import org.astraea.common.csv.CsvReaderBuilder;
 import org.astraea.common.csv.CsvWriterBuilder;
 import org.astraea.fs.FileSystem;
 
@@ -63,9 +63,11 @@ public class ImportCsv {
                 var archivePath = argument.archive.getPath() + "/" + csvName;
 
                 try (var reader =
-                        CsvReader.of(new InputStreamReader(source.read(sourcePath))).build();
+                        CsvReaderBuilder.of(new InputStreamReader(source.read(sourcePath)))
+                            .build();
                     var writer =
-                        CsvWriterBuilder.of(new OutputStreamWriter(sink.write(sinkPath))).build()) {
+                        CsvWriterBuilder.builder(new OutputStreamWriter(sink.write(sinkPath)))
+                            .build()) {
 
                   var headers =
                       Arrays.stream(
@@ -97,10 +99,10 @@ public class ImportCsv {
                         nonEqualPath(argument.source, argument.archive);
 
                         try (var archiveReader =
-                                CsvReader.of(new InputStreamReader(source.read(sourcePath)))
+                                CsvReaderBuilder.of(new InputStreamReader(source.read(sourcePath)))
                                     .build();
                             var archiveWriter =
-                                CsvWriterBuilder.of(
+                                CsvWriterBuilder.builder(
                                         new OutputStreamWriter(archive.write(archivePath)))
                                     .build()) {
                           while (archiveReader.hasNext()) {
@@ -132,7 +134,7 @@ public class ImportCsv {
     @Parameter(
         names = {"--sink"},
         description = "String: The directory where the cleaned data is stored.",
-        validateWith = NonEmptyStringField.class,
+        validateWith = URIField.class,
         required = true)
     URI sink = URI.create("local:///");
 
@@ -145,7 +147,7 @@ public class ImportCsv {
     @Parameter(
         names = {"--sourceArchiveDir"},
         description = "Source archive directory.",
-        validateWith = NonEmptyStringField.class)
+        validateWith = URIField.class)
     URI archive = URI.create("local:///");
   }
 

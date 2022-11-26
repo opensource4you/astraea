@@ -23,6 +23,10 @@ import java.io.Reader;
 public class CsvReaderBuilder {
   private final CSVReaderBuilder csvReaderBuilder;
 
+  public static CsvReaderBuilder of(Reader source) {
+    return new CsvReaderBuilder(source);
+  }
+
   CsvReaderBuilder(Reader source) {
     this.csvReaderBuilder = new CSVReaderBuilder(source);
   }

@@ -27,7 +27,7 @@ public class CsvWriterBuilder {
     this.csvWriterBuilder = new CSVWriterBuilder(sink);
   }
 
-  public static CsvWriterBuilder of(Writer sink) {
+  public static CsvWriterBuilder builder(Writer sink) {
     return new CsvWriterBuilder(sink);
   }
 

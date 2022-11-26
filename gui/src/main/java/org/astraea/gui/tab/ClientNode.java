@@ -47,7 +47,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.csv.CsvReader;
+import org.astraea.common.csv.CsvReaderBuilder;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -92,7 +92,7 @@ public class ClientNode {
                         Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
                             .map(Integer::parseInt)
                             .orElse(LINE_LIMIT_DEFAULT);
-                    try (var reader = CsvReader.of(new FileReader(f)).build()) {
+                    try (var reader = CsvReaderBuilder.of(new FileReader(f)).build()) {
                       if (!reader.hasNext())
                         throw new IllegalArgumentException("there is no header");
                       var header = reader.rawNext();

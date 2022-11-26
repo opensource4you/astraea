@@ -16,15 +16,11 @@
  */
 package org.astraea.common.csv;
 
-import java.io.Reader;
 import java.util.Iterator;
 import java.util.List;
 
 public interface CsvReader extends AutoCloseable, Iterator<List<String>> {
 
-  static CsvReaderBuilder of(Reader source) {
-    return new CsvReaderBuilder(source);
-  }
   /**
    * Skip a given number of lines.
    *
