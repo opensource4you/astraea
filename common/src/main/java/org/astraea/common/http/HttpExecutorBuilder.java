@@ -119,12 +119,11 @@ public class HttpExecutorBuilder {
               HttpRequest request = HttpRequest.newBuilder().DELETE().uri(new URI(url)).build();
               return client
                   .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                  .thenApply(this::toVoidHttpResponse)
+                  .thenApply(r -> new MappedHttpResponse<String, Void>(withException(r), x -> null))
                   .thenApply(Response::of);
             });
       }
 
-      /** handle json or void {@link #toVoidHttpResponse(HttpResponse)} */
       private <T> HttpResponse<T> toJsonHttpResponse(
           HttpResponse<String> response, TypeRef<T> typeRef) throws StringResponseException {
         var innerResponse = withException(response);
@@ -137,12 +136,6 @@ public class HttpExecutorBuilder {
                 throw new StringResponseException(innerResponse, typeRef.getType(), e);
               }
             });
-      }
-
-      /** handle void or json {@link #toJsonHttpResponse(HttpResponse, TypeRef)} (HttpResponse)} */
-      private HttpResponse<Void> toVoidHttpResponse(HttpResponse<String> response) {
-        var innerResponse = withException(response);
-        return new MappedHttpResponse<>(innerResponse, x -> null);
       }
 
       private <T> HttpResponse<T> withException(HttpResponse<T> response) {
