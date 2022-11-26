@@ -35,7 +35,7 @@ declare -r SOURCE_KEY="source.path"
 declare -r TOPIC_KEY="topic.name"
 declare -r CHECKPOINT_KEY="checkpoint"
 # ===============================[spark driver/executor resource]==================
-declare -r RESOURCES_CONFIGS="2G"
+declare -r RESOURCES_CONFIGS="${RESOURCES_CONFIGS:-"2G"}"
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -44,10 +44,11 @@ function showHelp() {
   echo "    properties_path                         The path of Spark2Kafka.properties."
   echo "ENV: "
   echo "    ACCOUNT=skiptests                       set the account to clone from"
-  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"             set broker JVM memory"
   echo "    VERSION=main                            set branch of astraea"
   echo "    BUILD=false                             set true if you want to build image locally"
   echo "    RUN=false                               set false if you want to build/pull image only"
+  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"             set broker JVM memory"
+  echo "    RESOURCES_CONFIGS=\"-Xmx2G -Xms2G\"     set spark memory"
 }
 
 function generateDockerfile() {
