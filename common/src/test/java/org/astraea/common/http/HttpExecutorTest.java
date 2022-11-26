@@ -18,6 +18,7 @@ package org.astraea.common.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -247,6 +248,10 @@ class HttpExecutorTest {
                             assertEquals(
                                 "don't allow this method to you!!!",
                                 stringResponseException.body());
+                            assertTrue(
+                                stringResponseException
+                                    .toString()
+                                    .contains("don't allow this method to you!!!"));
                           });
                 }));
   }
