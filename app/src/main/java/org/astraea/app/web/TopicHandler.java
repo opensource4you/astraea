@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -27,20 +26,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
 
-  static final String TOPIC_NAME_KEY = "name";
-  static final String NUMBER_OF_PARTITIONS_KEY = "partitions";
-  static final String NUMBER_OF_REPLICAS_KEY = "replicas";
   static final String PARTITION_KEY = "partition";
   static final String LIST_INTERNAL = "listInternal";
   static final String POLL_RECORD_TIMEOUT = "poll_timeout";
@@ -160,30 +154,17 @@ class TopicHandler implements Handler {
         });
   }
 
-  static Map<String, String> remainingConfigs(Map<String, String> allConfigs) {
-    var configs = new HashMap<>(allConfigs);
-    configs.remove(TOPIC_NAME_KEY);
-    configs.remove(NUMBER_OF_PARTITIONS_KEY);
-    configs.remove(NUMBER_OF_REPLICAS_KEY);
-    return configs;
-  }
-
   @Override
   public CompletionStage<Topics> post(Channel channel) {
     var postRequest = channel.request(TypeRef.of(TopicPostRequest.class));
-    var topics =
-        JsonConverter.defaultConverter().convert(postRequest.topics(), TypeRef.array(Topic.class));
 
-    var topicNames = topics.stream().map(x -> x.name).collect(Collectors.toSet());
-    if (topicNames.size() != topics.size())
+    var topicNames = postRequest.topics.stream().map(x -> x.name).collect(Collectors.toSet());
+    if (topicNames.size() != postRequest.topics.size())
       throw new IllegalArgumentException("duplicate topic name: " + topicNames);
     return FutureUtils.sequence(
-            IntStream.range(0, topics.size())
-                .mapToObj(
-                    i -> {
-                      var topic = topics.get(i);
-                      var configs = postRequest.topics().get(i);
-
+            postRequest.topics.stream()
+                .map(
+                    topic -> {
                       var topicName = topic.name;
                       var numberOfPartitions = topic.partitions;
                       var numberOfReplicas = topic.replicas;
@@ -204,7 +185,7 @@ class TopicHandler implements Handler {
                           .topic(topicName)
                           .numberOfPartitions(numberOfPartitions)
                           .numberOfReplicas(numberOfReplicas)
-                          .configs(remainingConfigs(configs))
+                          .configs(topic.configs)
                           .run()
                           .thenApply(ignored -> null)
                           .toCompletableFuture();
@@ -228,11 +209,7 @@ class TopicHandler implements Handler {
   }
 
   static class TopicPostRequest implements Request {
-    private List<Map<String, String>> topics = List.of();
-
-    public List<Map<String, String>> topics() {
-      return topics;
-    }
+    private List<Topic> topics = List.of();
   }
 
   static class Topic implements Request {
@@ -240,6 +217,7 @@ class TopicHandler implements Handler {
     private int partitions = 1;
     private short replicas = 1;
     private Optional<Double> probability = Optional.empty();
+    private Map<String, String> configs = Map.of();
   }
 
   static class Topics implements Response {

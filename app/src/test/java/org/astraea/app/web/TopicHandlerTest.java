@@ -228,7 +228,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       var request =
           Channel.ofRequest(
               String.format(
-                  "{\"topics\":[{\"name\":\"%s\",\"partitions\":\"%s\",\"replicas\":\"%s\", \"segment.ms\":\"3000\"}]}",
+                  "{\"topics\":[{\"name\":\"%s\",\"partitions\":\"%s\",\"replicas\":\"%s\", \"configs\":{\"segment.ms\":\"3000\"}}]}",
                   topicName, "2", "2"));
       var topics = handler.post(request).toCompletableFuture().join();
       Assertions.assertEquals(1, topics.topics.size());
@@ -263,26 +263,6 @@ public class TopicHandlerTest extends RequireBrokerCluster {
               .value("segment.ms")
               .get());
     }
-  }
-
-  @Test
-  void testRemainingConfigs() {
-    Assertions.assertEquals(
-        0,
-        TopicHandler.remainingConfigs(
-                Map.of(
-                    TopicHandler.TOPIC_NAME_KEY,
-                    "abc",
-                    TopicHandler.NUMBER_OF_PARTITIONS_KEY,
-                    "2",
-                    TopicHandler.NUMBER_OF_REPLICAS_KEY,
-                    "2"))
-            .size());
-
-    Assertions.assertEquals(
-        1,
-        TopicHandler.remainingConfigs(Map.of(TopicHandler.TOPIC_NAME_KEY, "abc", "key", "value"))
-            .size());
   }
 
   @Test
