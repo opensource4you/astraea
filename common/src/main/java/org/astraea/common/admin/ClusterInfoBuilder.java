@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-/** A builder for building a fake {@link ClusterInfo}. */
+/** A builder with utility functions for modifying a {@link ClusterInfo}. */
 public class ClusterInfoBuilder {
 
   private final ClusterInfo<Replica> sourceCluster;
@@ -53,25 +53,57 @@ public class ClusterInfoBuilder {
     return new ClusterInfoBuilder(source);
   }
 
+  /**
+   * Add an alteration to the cluster state.
+   *
+   * @param alteration the alteration that will be applied to the cluster state, all the given data
+   *     structure are mutable but not thread-safe.
+   * @return this.
+   */
   public ClusterInfoBuilder apply(BiConsumer<Set<NodeInfo>, List<Replica>> alteration) {
     this.alterations.add(alteration);
     return this;
   }
 
+  /**
+   * Add fake brokers into the cluster state.
+   *
+   * @param brokerIds the id of fake brokers.
+   * @return this.
+   */
   public ClusterInfoBuilder addNode(Integer... brokerIds) {
     return addNode(Arrays.asList(brokerIds));
   }
 
+  /**
+   * Add fake brokers into the cluster state.
+   *
+   * @param brokerIds the id of fake brokers.
+   * @return this.
+   */
   public ClusterInfoBuilder addNode(List<Integer> brokerIds) {
     return apply(
         (nodes, replicas) ->
             brokerIds.stream().map(ClusterInfoBuilder::fakeNode).forEach(nodes::add));
   }
 
+  /**
+   * Add some fake folders to a specific broker.
+   *
+   * @param brokerId the target broker.
+   * @param folders the path of fake folders.
+   * @return this.
+   */
   public ClusterInfoBuilder addFolders(int brokerId, String... folders) {
     return addFolders(Map.of(brokerId, Set.copyOf(Arrays.asList(folders))));
   }
 
+  /**
+   * Add some fake folders to a specific broker.
+   *
+   * @param folders the path of fake folders associated with each broker.
+   * @return this.
+   */
   public ClusterInfoBuilder addFolders(Map<Integer, Set<String>> folders) {
     return apply(
         (nodes, replicas) ->
@@ -92,10 +124,27 @@ public class ClusterInfoBuilder {
                 }));
   }
 
+  /**
+   * Add a fake topic to the cluster.
+   *
+   * @param topicName the name of the topic.
+   * @param partitionSize the size of the partition.
+   * @param replicaFactor the number of replica for each partition.
+   * @return this.
+   */
   public ClusterInfoBuilder addTopic(String topicName, int partitionSize, short replicaFactor) {
     return addTopic(topicName, partitionSize, replicaFactor, x -> x);
   }
 
+  /**
+   * Add a fake topic to the cluster.
+   *
+   * @param topicName the name of the topic.
+   * @param partitionSize the size of the partition.
+   * @param replicaFactor the number of replica for each partition.
+   * @param mapper modification applied to the newly created replicas.
+   * @return this.
+   */
   public ClusterInfoBuilder addTopic(
       String topicName, int partitionSize, short replicaFactor, Function<Replica, Replica> mapper) {
     return apply(
@@ -172,6 +221,13 @@ public class ClusterInfoBuilder {
         });
   }
 
+  /**
+   * Apply alteration to specific replicas.
+   *
+   * @param filter the target for alteration.
+   * @param mapper modification applied to the matched replica.
+   * @return this.
+   */
   public ClusterInfoBuilder mapLog(Predicate<Replica> filter, Function<Replica, Replica> mapper) {
     return apply(
         (nodes, replicas) -> {
@@ -183,15 +239,33 @@ public class ClusterInfoBuilder {
         });
   }
 
+  /**
+   * Apply alteration to all the replicas under the specific topic.
+   *
+   * @param topic the name of the topic.
+   * @param mapper modification applied to the matched replica.
+   * @return this.
+   */
   public ClusterInfoBuilder mapTopic(String topic, Function<Replica, Replica> mapper) {
     return mapLog(replica -> replica.topic().equals(topic), mapper);
   }
 
+  /**
+   * Apply alteration to all the replicas under the specific topic/partition.
+   *
+   * @param topicPartition the target.
+   * @param mapper modification applied to the matched replica.
+   * @return this.
+   */
   public ClusterInfoBuilder mapTopicPartition(
       TopicPartition topicPartition, Function<Replica, Replica> mapper) {
     return mapLog(replica -> topicPartition.equals(replica.topicPartition()), mapper);
   }
 
+  /**
+   * Apply the pending alteration to the source cluster, and return the transformed {@link
+   * ClusterInfo}.
+   */
   public ClusterInfo<Replica> build() {
     final var nodes = new HashSet<>(sourceCluster.nodes());
     final var replicas = new ArrayList<>(sourceCluster.replicas());
