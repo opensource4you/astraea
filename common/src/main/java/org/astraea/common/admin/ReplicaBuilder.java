@@ -256,7 +256,20 @@ public class ReplicaBuilder {
 
     @Override
     public String toString() {
-      return Replica.toString(this);
+      return "Replica{"
+          + "topic='"
+          + topic()
+          + '\''
+          + ", partition="
+          + partition()
+          + ", broker="
+          + nodeInfo()
+          + ", path='"
+          + path()
+          + '\''
+          + ", "
+          + (isOffline() ? "offline" : isLeader() ? "leader" : "follower")
+          + '}';
     }
 
     @Override

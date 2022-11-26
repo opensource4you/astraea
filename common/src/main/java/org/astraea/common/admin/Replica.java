@@ -69,21 +69,4 @@ public interface Replica extends ReplicaInfo {
    * @return true if this replica belongs to internal topic
    */
   boolean internal();
-
-  static String toString(Replica replica) {
-    return "Replica{"
-        + "topic='"
-        + replica.topic()
-        + '\''
-        + ", partition="
-        + replica.partition()
-        + ", broker="
-        + replica.nodeInfo()
-        + ", path='"
-        + replica.path()
-        + '\''
-        + ", "
-        + (replica.isOffline() ? "offline" : replica.isLeader() ? "leader" : "follower")
-        + '}';
-  }
 }
