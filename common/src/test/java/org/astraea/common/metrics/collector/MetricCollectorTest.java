@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -32,9 +33,12 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.SensorBuilder;
+import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
+import org.astraea.common.metrics.stats.Avg;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
@@ -54,6 +58,18 @@ class MetricCollectorTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(1, collector.listFetchers().size());
       Assertions.assertTrue(collector.listFetchers().contains(memoryFetcher));
+    }
+  }
+
+  @Test
+  void addSensor() {
+    try (var collector = MetricCollector.builder().build()) {
+      collector.addSensors(
+          Map.of(
+              LogMetrics.Log.SIZE.metricName(),
+              Map.of(1, new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build())));
+      Assertions.assertEquals(1, collector.sensors().size());
+      Assertions.assertTrue(collector.sensors().containsKey(LogMetrics.Log.SIZE.metricName()));
     }
   }
 

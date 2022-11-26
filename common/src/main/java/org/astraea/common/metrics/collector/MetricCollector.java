@@ -26,6 +26,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.Sensor;
 
 public interface MetricCollector extends AutoCloseable {
 
@@ -56,6 +57,13 @@ public interface MetricCollector extends AutoCloseable {
   default void addFetcher(Fetcher fetcher) {
     addFetcher(fetcher, (i0, i1) -> {});
   }
+
+  /**
+   * Add multiple {@link Sensor} for real-time statistics
+   *
+   * @param sensors to statistical data
+   */
+  void addSensors(Map<String, Map<?, Sensor<Double>>> sensors);
 
   /** Register a JMX server. */
   void registerJmx(int identity, InetSocketAddress socketAddress);
@@ -92,6 +100,11 @@ public interface MetricCollector extends AutoCloseable {
   <T extends HasBeanObject> List<T> metrics(Class<T> metricClass, int identity, long since);
 
   /**
+   * @return all {@link Sensor}
+   */
+  Map<String, Map<?, Sensor<Double>>> sensors();
+
+  /**
    * @return the {@link ClusterBean}.
    */
   default ClusterBean clusterBean() {
@@ -106,8 +119,7 @@ public interface MetricCollector extends AutoCloseable {
                             .map(mClass -> metrics(mClass, broker, 0))
                             .flatMap(Collection::stream)
                             .collect(Collectors.toUnmodifiableSet())));
-
-    return ClusterBean.of(metrics);
+    return ClusterBean.of(metrics, sensors());
   }
 
   @Override

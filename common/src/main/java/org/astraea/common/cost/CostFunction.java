@@ -16,8 +16,10 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.Optional;
 import org.astraea.common.Configuration;
+import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /**
@@ -41,5 +43,13 @@ public interface CostFunction {
    */
   default Optional<Fetcher> fetcher() {
     return Optional.empty();
+  }
+
+  /**
+   * @return the {@link Sensor} and the type of {@link org.astraea.common.metrics.stats.Stat} name
+   *     to use.
+   */
+  default Map<String, Sensor<Double>> sensors() {
+    return Map.of();
   }
 }

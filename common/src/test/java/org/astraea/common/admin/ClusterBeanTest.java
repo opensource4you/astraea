@@ -19,9 +19,11 @@ package org.astraea.common.admin;
 import java.util.List;
 import java.util.Map;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.SensorBuilder;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.stats.Avg;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -97,5 +99,52 @@ class ClusterBeanTest {
     Assertions.assertEquals(2, clusterBean.mapByReplica().size());
     Assertions.assertEquals(
         2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
+  }
+
+  @Test
+  void testStatistic() {
+    var topicName = "testStatistic";
+    var clusterBean = clusterBean(topicName);
+    var tprValue = clusterBean.statisticsByReplica(LogMetrics.Log.SIZE.metricName(), Avg.AVG_KEY);
+    var brokerValue =
+        clusterBean.statisticsByNode(
+            ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(), Avg.AVG_KEY);
+    Assertions.assertEquals(
+        (100.0 + 1000) / 2, tprValue.get(TopicPartitionReplica.of(topicName, 0, 0)));
+    Assertions.assertEquals(
+        (100.0 + 200) / 2, tprValue.get(TopicPartitionReplica.of(topicName, 1, 1)));
+    Assertions.assertEquals(
+        (10.0 + 20) / 2, tprValue.get(TopicPartitionReplica.of(topicName, 2, 2)));
+    Assertions.assertEquals((100.0 + 1000) / 2, brokerValue.get(0));
+    Assertions.assertEquals((100.0 + 200) / 2, brokerValue.get(1));
+    Assertions.assertEquals((10.0 + 20) / 2, brokerValue.get(2));
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  private static ClusterBean clusterBean(String topicName) {
+    var sensors =
+        List.of(
+            new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
+            new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
+            new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build());
+    sensors.get(0).record(100.0);
+    sensors.get(0).record(1000.0);
+    sensors.get(1).record(100.0);
+    sensors.get(1).record(200.0);
+    sensors.get(2).record(10.0);
+    sensors.get(2).record(20.0);
+    return ClusterBean.of(
+        Map.of(),
+        Map.of(
+            LogMetrics.Log.SIZE.metricName(),
+            Map.of(
+                TopicPartitionReplica.of(topicName, 0, 0), sensors.get(0),
+                TopicPartitionReplica.of(topicName, 1, 1), sensors.get(1),
+                TopicPartitionReplica.of(topicName, 2, 2), sensors.get(2)),
+            ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(),
+            Map.of(
+                0, sensors.get(0),
+                1, sensors.get(1),
+                2, sensors.get(2))));
   }
 }

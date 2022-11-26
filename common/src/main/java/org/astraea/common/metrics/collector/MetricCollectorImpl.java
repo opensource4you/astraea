@@ -44,8 +44,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 
 public class MetricCollectorImpl implements MetricCollector {
 
@@ -55,6 +59,7 @@ public class MetricCollectorImpl implements MetricCollector {
   private final Duration interval;
   private final Map<Class<? extends HasBeanObject>, MetricStorage<? extends HasBeanObject>>
       storages;
+  private final Map<String, Map<?, Sensor<Double>>> sensors;
   private final ScheduledExecutorService executorService;
   private final DelayQueue<DelayedIdentity> delayedWorks;
   private final ThreadTimeHighWatermark threadTime;
@@ -63,6 +68,7 @@ public class MetricCollectorImpl implements MetricCollector {
       int threadCount, Duration expiration, Duration interval, Duration cleanerInterval) {
     this.mBeanClients = new ConcurrentHashMap<>();
     this.fetchers = new CopyOnWriteArrayList<>();
+    this.sensors = new ConcurrentHashMap<>();
     this.expiration = expiration;
     this.interval = interval;
     this.storages = new ConcurrentHashMap<>();
@@ -79,6 +85,11 @@ public class MetricCollectorImpl implements MetricCollector {
   @Override
   public void addFetcher(Fetcher fetcher, BiConsumer<Integer, Exception> noSuchMetricHandler) {
     this.fetchers.add(Map.entry(fetcher, noSuchMetricHandler));
+  }
+
+  @Override
+  public void addSensors(Map<String, Map<?, Sensor<Double>>> sensors) {
+    this.sensors.putAll(sensors);
   }
 
   @Override
@@ -150,14 +161,42 @@ public class MetricCollectorImpl implements MetricCollector {
                 .collect(Collectors.toUnmodifiableList());
   }
 
+  @Override
+  public Map<String, Map<?, Sensor<Double>>> sensors() {
+    return this.sensors;
+  }
+
   /** Store the metrics into the storage of specific identity */
   private void store(int identity, Collection<? extends HasBeanObject> metrics) {
     metrics.forEach(
-        (metric) ->
-            storages
-                .computeIfAbsent(
-                    metric.getClass(), (ignore) -> new MetricStorage<>(metric.getClass()))
-                .put(identity, metric));
+        (metric) -> {
+          var metricName = metric.beanObject().properties().get("name");
+          if (metricName != null && sensors.containsKey(metricName))
+            switch (metric.beanObject().domainName()) {
+              case LogMetrics.DOMAIN_NAME:
+                sensors
+                    .get(metricName)
+                    .get(
+                        TopicPartitionReplica.of(
+                            metric.beanObject().properties().get("topic"),
+                            Integer.parseInt(metric.beanObject().properties().get("partition")),
+                            identity))
+                    .record(
+                        Double.valueOf(metric.beanObject().attributes().get("Value").toString()));
+                break;
+              case ServerMetrics.DOMAIN_NAME:
+                sensors
+                    .get(metricName)
+                    .get(identity)
+                    .record(
+                        Double.valueOf(metric.beanObject().attributes().get("Value").toString()));
+                break;
+            }
+          storages
+              .computeIfAbsent(
+                  metric.getClass(), (ignore) -> new MetricStorage<>(metric.getClass()))
+              .put(identity, metric);
+        });
   }
 
   /** Return a {@link Runnable} that perform the metric sampling task */
