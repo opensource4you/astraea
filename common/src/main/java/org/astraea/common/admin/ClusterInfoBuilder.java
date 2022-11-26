@@ -23,8 +23,9 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -126,61 +127,46 @@ public class ClusterInfoBuilder {
               replica ->
                   folderLogCounter.get(replica.nodeInfo()).get(replica.path()).incrementAndGet());
 
+          folderLogCounter.forEach(
+              (node, folders) -> {
+                if (folders.size() == 0)
+                  throw new IllegalArgumentException("This broker has no folder: " + node);
+              });
+
           IntStream.range(0, partitionSize)
               .mapToObj(partition -> TopicPartition.of(topicName, partition))
               .flatMap(
                   tp ->
                       IntStream.range(0, replicaFactor)
                           .mapToObj(
-                              index ->
-                                  new FakeReplica() {
-                                    final Broker broker = nodeSelector.next();
-                                    final String path =
-                                        folderLogCounter.get(broker).entrySet().stream()
-                                            .min(Comparator.comparing(x -> x.getValue().get()))
-                                            .map(
-                                                entry -> {
-                                                  entry.getValue().incrementAndGet();
-                                                  return entry.getKey();
-                                                })
-                                            .orElseThrow();
-                                    final boolean leader = index == 0;
+                              index -> {
+                                final Broker broker = nodeSelector.next();
+                                final String path =
+                                    folderLogCounter.get(broker).entrySet().stream()
+                                        .min(Comparator.comparing(x -> x.getValue().get()))
+                                        .map(
+                                            entry -> {
+                                              entry.getValue().incrementAndGet();
+                                              return entry.getKey();
+                                            })
+                                        .orElseThrow();
 
-                                    @Override
-                                    public boolean isPreferredLeader() {
-                                      return leader;
-                                    }
-
-                                    @Override
-                                    public String path() {
-                                      return path;
-                                    }
-
-                                    @Override
-                                    public String topic() {
-                                      return tp.topic();
-                                    }
-
-                                    @Override
-                                    public int partition() {
-                                      return tp.partition();
-                                    }
-
-                                    @Override
-                                    public NodeInfo nodeInfo() {
-                                      return broker;
-                                    }
-
-                                    @Override
-                                    public boolean isLeader() {
-                                      return leader;
-                                    }
-
-                                    @Override
-                                    public String toString() {
-                                      return Replica.toString(this);
-                                    }
-                                  }))
+                                return Replica.builder()
+                                    .topic(tp.topic())
+                                    .partition(tp.partition())
+                                    .nodeInfo(broker)
+                                    .isAdding(false)
+                                    .isRemoving(false)
+                                    .lag(0)
+                                    .internal(false)
+                                    .isLeader(index == 0)
+                                    .inSync(true)
+                                    .isFuture(false)
+                                    .isOffline(false)
+                                    .isPreferredLeader(index == 0)
+                                    .path(path)
+                                    .build();
+                              }))
               .map(mapper)
               .forEach(replicas::add);
         });
@@ -216,35 +202,10 @@ public class ClusterInfoBuilder {
 
   private static Broker fakeNode(int brokerId) {
     var host = "fake-node-" + brokerId;
-    var port = ThreadLocalRandom.current().nextInt(1024, 65536);
+    var port = new Random(brokerId).nextInt(65535) + 1;
     var folders = Collections.synchronizedList(new ArrayList<Broker.DataFolder>());
 
-    return new FakeBroker() {
-      @Override
-      public List<DataFolder> dataFolders() {
-        return folders;
-      }
-
-      @Override
-      public String host() {
-        return host;
-      }
-
-      @Override
-      public int port() {
-        return port;
-      }
-
-      @Override
-      public int id() {
-        return brokerId;
-      }
-
-      @Override
-      public String toString() {
-        return "FakeNodeInfo{" + "host=" + host() + ", id=" + id() + ", port=" + port() + '}';
-      }
-    };
+    return FakeBroker.of(brokerId, host, port, folders);
   }
 
   private static void addFolder(FakeBroker fakeBroker, String path) {
@@ -252,6 +213,51 @@ public class ClusterInfoBuilder {
   }
 
   interface FakeBroker extends Broker {
+
+    static FakeBroker of(int id, String host, int port, List<DataFolder> folders) {
+      var hashCode = Objects.hash(id, host, port);
+      return new FakeBroker() {
+        @Override
+        public List<DataFolder> dataFolders() {
+          return folders;
+        }
+
+        @Override
+        public String host() {
+          return host;
+        }
+
+        @Override
+        public int port() {
+          return port;
+        }
+
+        @Override
+        public int id() {
+          return id;
+        }
+
+        @Override
+        public String toString() {
+          return "FakeNodeInfo{" + "host=" + host() + ", id=" + id() + ", port=" + port() + '}';
+        }
+
+        @Override
+        public int hashCode() {
+          return hashCode;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+          if (other instanceof NodeInfo) {
+            var node = (NodeInfo) other;
+            return id() == node.id() && port() == node.port() && host().equals(node.host());
+          }
+          return false;
+        }
+      };
+    }
+
     @Override
     default boolean isController() {
       throw new UnsupportedOperationException();
@@ -282,49 +288,6 @@ public class ClusterInfoBuilder {
     @Override
     default Map<TopicPartition, Long> orphanPartitionSizes() {
       throw new UnsupportedOperationException();
-    }
-  }
-
-  interface FakeReplica extends Replica {
-
-    @Override
-    default boolean isFuture() {
-      return false;
-    }
-
-    @Override
-    default long lag() {
-      return 0;
-    }
-
-    @Override
-    default long size() {
-      return 0;
-    }
-
-    @Override
-    default boolean internal() {
-      return false;
-    }
-
-    @Override
-    default boolean inSync() {
-      return true;
-    }
-
-    @Override
-    default boolean isOffline() {
-      return false;
-    }
-
-    @Override
-    default boolean isAdding() {
-      return false;
-    }
-
-    @Override
-    default boolean isRemoving() {
-      return false;
     }
   }
 }
