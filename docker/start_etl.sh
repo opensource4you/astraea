@@ -60,17 +60,7 @@ function generateDockerfile() {
 
 function generateDockerfileByLocal() {
     echo "# this dockerfile is generated dynamically
-      FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION AS build
-
-      FROM ubuntu:20.04
-      # Do not ask for confirmations when running apt-get, etc.
-      ENV DEBIAN_FRONTEND noninteractive
-
-      # install tools
-      RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
-
-      # copy spark
-      COPY --from=build /opt/spark /opt/spark
+      FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION
 
       # export ENV
       ENV SPARK_HOME /opt/spark
@@ -80,7 +70,7 @@ function generateDockerfileByLocal() {
 
 function generateDockerfileByGithub() {
   echo "# this dockerfile is generated dynamically
-    FROM ghcr.io/skiptests/astraea/deps AS astraeabuild
+    FROM ghcr.io/skiptests/astraea/deps AS build
 
     # clone repo
     WORKDIR /tmp
@@ -91,28 +81,10 @@ function generateDockerfileByGithub() {
     RUN git checkout $VERSION
     RUN ./gradlew clean shadowJar
 
-    FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION AS build
-
-    FROM ubuntu:20.04
-
-    # Do not ask for confirmations when running apt-get, etc.
-    ENV DEBIAN_FRONTEND noninteractive
-
-    # install tools
-    RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
-
-    # copy spark
-    COPY --from=build /opt/spark /opt/spark
+    FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION
 
     # copy astraea
-    COPY --from=astraeabuild /tmp/astraea /opt/astraea
-
-    # add user
-    RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
-
-    # change user
-    RUN chown -R $USER:$USER /opt/spark
-    USER $USER
+    COPY --from=build /tmp/astraea /opt/astraea
 
     # export ENV
     ENV SPARK_HOME /opt/spark
