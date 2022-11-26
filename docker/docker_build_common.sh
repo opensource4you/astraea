@@ -52,6 +52,7 @@ function buildImageIfNeed() {
       fi
     fi
     if [[ "$needToBuild" == "true" ]]; then
+      echo "local!!!!!!!"
       generateDockerfile
       docker build --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
       if [[ "$?" != "0" ]]; then

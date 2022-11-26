@@ -25,7 +25,6 @@ declare -r ASTRAEA_VERSION=${ASTRAEA_VERSION:-0.0.1}
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
-declare -r BUILD_BY=${BY_LOCAL:-${BUILD_BY:-github}}
 declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)/etl/build/libs/astraea-etl-${ASTRAEA_VERSION}-SNAPSHOT-all.jar
 declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
@@ -40,21 +39,22 @@ declare -r RESOURCES_CONFIGS="2G"
 # ===================================[functions]===================================
 
 function showHelp() {
-  echo "Usage: [ENV] start_etl.sh properties-path"
+  echo "Usage: [ENV] start_etl.sh properties_path"
   echo "Optional Arguments: "
-  echo "    properties-path=/home/user/Spark2Kafka.properties   The path of Spark2Kafka.properties."
+  echo "    properties_path                         The path of Spark2Kafka.properties."
   echo "ENV: "
-  echo "    VERSION=$SPARK_VERSION                    set version of spark distribution"
-  echo "    BUILD=false                      set true if you want to build image locally"
-  echo "    RUN=false                        set false if you want to build/pull image only"
-  echo "    PYTHON_DEPS=delta-spark=1.0.0    set the python dependencies which are pre-installed in the docker image"
+  echo "    ACCOUNT=skiptests                       set the account to clone from"
+  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"             set broker JVM memory"
+  echo "    VERSION=main                            set branch of astraea"
+  echo "    BUILD=false                             set true if you want to build image locally"
+  echo "    RUN=false                               set false if you want to build/pull image only"
 }
 
 function generateDockerfile() {
-  if [[ -n "$BY_LOCAL" ]]; then
-    generateDockerfileByLocal
-  else
+  if [[ "$BUILD" == "false" ]]; then
     generateDockerfileByGithub
+  else
+    generateDockerfileByLocal
   fi
 }
 
@@ -106,12 +106,12 @@ function checkPath() {
 }
 
 function runContainer() {
-  if [[ -n "$BY_LOCAL" ]]; then
+  if [[ "$BUILD" == "false" ]]; then
+    runContainerByGithub "$1"
+  else
     echo "local"
     ./gradlew clean shadowJar
     runContainerByLocal "$1"
-  else
-    runContainerByGithub "$1"
   fi
 }
 
