@@ -26,8 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.URIField;
-import org.astraea.common.csv.CsvReaderBuilder;
-import org.astraea.common.csv.CsvWriterBuilder;
+import org.astraea.common.csv.CsvReader;
+import org.astraea.common.csv.CsvWriter;
 import org.astraea.fs.FileSystem;
 
 public class ImportCsv {
@@ -63,11 +63,9 @@ public class ImportCsv {
                 var archivePath = argument.archive.getPath() + "/" + csvName;
 
                 try (var reader =
-                        CsvReaderBuilder.of(new InputStreamReader(source.read(sourcePath)))
-                            .build();
+                        CsvReader.builder(new InputStreamReader(source.read(sourcePath))).build();
                     var writer =
-                        CsvWriterBuilder.builder(new OutputStreamWriter(sink.write(sinkPath)))
-                            .build()) {
+                        CsvWriter.builder(new OutputStreamWriter(sink.write(sinkPath))).build()) {
 
                   var headers =
                       Arrays.stream(
@@ -99,10 +97,10 @@ public class ImportCsv {
                         nonEqualPath(argument.source, argument.archive);
 
                         try (var archiveReader =
-                                CsvReaderBuilder.of(new InputStreamReader(source.read(sourcePath)))
+                                CsvReader.builder(new InputStreamReader(source.read(sourcePath)))
                                     .build();
                             var archiveWriter =
-                                CsvWriterBuilder.builder(
+                                CsvWriter.builder(
                                         new OutputStreamWriter(archive.write(archivePath)))
                                     .build()) {
                           while (archiveReader.hasNext()) {

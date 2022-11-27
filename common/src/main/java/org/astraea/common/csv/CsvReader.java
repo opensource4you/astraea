@@ -16,10 +16,20 @@
  */
 package org.astraea.common.csv;
 
+import java.io.Reader;
 import java.util.Iterator;
 import java.util.List;
 
 public interface CsvReader extends AutoCloseable, Iterator<List<String>> {
+  /**
+   * Csv Reader builder
+   *
+   * @param source target csv reader
+   * @return CsvReaderBuilder
+   */
+  static CsvReaderBuilder builder(Reader source) {
+    return new CsvReaderBuilder(source);
+  }
 
   /**
    * Skip a given number of lines.

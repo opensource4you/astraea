@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.csv.CsvWriterBuilder;
+import org.astraea.common.csv.CsvWriter;
 import org.astraea.fs.local.LocalFileSystem;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -237,8 +237,7 @@ public class ImportCsvTest {
 
   private void writeCSV(Path sink, List<String[]> lists) {
     try (var writer =
-        Utils.packException(
-            () -> CsvWriterBuilder.builder(new FileWriter(sink.toFile())).build())) {
+        Utils.packException(() -> CsvWriter.builder(new FileWriter(sink.toFile())).build())) {
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }
