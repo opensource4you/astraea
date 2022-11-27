@@ -31,27 +31,13 @@ class ResponseTest {
 
   @Test
   void testStatusCode() {
-    var response =
-        Response.of(
-            new EmptyResponseImpl() {
-              @Override
-              public int statusCode() {
-                return 10;
-              }
-            });
+    var response = Response.of("aa", 10);
     assertEquals(10, response.statusCode());
   }
 
   @Test
   void testBody() {
-    var response =
-        Response.of(
-            new EmptyResponseImpl() {
-              @Override
-              public String body() {
-                return "bodyValue";
-              }
-            });
+    var response = Response.of("bodyValue", 10);
     assertEquals("bodyValue", response.body());
   }
 
