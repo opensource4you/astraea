@@ -27,174 +27,97 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 
 public class HttpExecutorBuilder {
 
-  JsonConverter jsonConverter;
+  JsonConverter jsonConverter = JsonConverter.defaultConverter();
 
-  public HttpExecutorBuilder() {
-    this.jsonConverter = JsonConverter.defaultConverter();
-  }
+  HttpExecutorBuilder() {}
 
   public HttpExecutorBuilder jsonConverter(JsonConverter jsonConverter) {
-    this.jsonConverter = jsonConverter;
+    this.jsonConverter = Objects.requireNonNull(jsonConverter);
     return this;
   }
 
   public HttpExecutor build() {
-    var client = HttpClient.newHttpClient();
-    var jsonConverter = this.jsonConverter;
-
     return new HttpExecutor() {
+      private final JsonConverter jsonConverter = HttpExecutorBuilder.this.jsonConverter;
+      private final HttpClient client = HttpClient.newHttpClient();
+
+      private <T> CompletionStage<Response<T>> send(HttpRequest request, TypeRef<T> typeRef) {
+        return client
+            .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+            .thenApply(
+                r -> {
+                  if (r.statusCode() < 400) {
+                    if (typeRef != null && r.body() == null)
+                      throw new IllegalStateException("There is no body!!!");
+                    return Response.of(jsonConverter.fromJson(r.body(), typeRef), r.statusCode());
+                  }
+                  if (r.body() == null)
+                    throw new IllegalStateException("receive error code: " + r.statusCode());
+                  throw new IllegalStateException(r.body());
+                });
+      }
+
       @Override
       public <T> CompletionStage<Response<T>> get(String url, TypeRef<T> typeRef) {
-        return Utils.packException(
-            () -> {
-              HttpRequest request = HttpRequest.newBuilder().GET().uri(new URI(url)).build();
-              return client
-                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
-                  .thenApply(Response::of);
-            });
+        return send(HttpRequest.newBuilder().GET().uri(uri(url, Map.of())).build(), typeRef);
       }
 
       @Override
       public <T> CompletionStage<Response<T>> get(
           String url, Map<String, String> param, TypeRef<T> typeRef) {
-        return Utils.packException(
-            () -> {
-              HttpRequest request =
-                  HttpRequest.newBuilder().GET().uri(getParameterURI(url, param)).build();
-
-              return client
-                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
-                  .thenApply(Response::of);
-            });
+        return send(HttpRequest.newBuilder().GET().uri(uri(url, param)).build(), typeRef);
       }
 
       @Override
       public <T> CompletionStage<Response<T>> post(String url, Object body, TypeRef<T> typeRef) {
-        return Utils.packException(
-            () -> {
-              HttpRequest request =
-                  HttpRequest.newBuilder()
-                      .POST(jsonRequestHandler(body))
-                      .header("Content-type", "application/json")
-                      .uri(new URI(url))
-                      .build();
-
-              return client
-                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
-                  .thenApply(Response::of);
-            });
+        return send(
+            HttpRequest.newBuilder()
+                .POST(HttpRequest.BodyPublishers.ofString(jsonConverter.toJson(body)))
+                .header("Content-type", "application/json")
+                .uri(uri(url, Map.of()))
+                .build(),
+            typeRef);
       }
 
       @Override
       public <T> CompletionStage<Response<T>> put(String url, Object body, TypeRef<T> typeRef) {
-        return Utils.packException(
-            () -> {
-              HttpRequest request =
-                  HttpRequest.newBuilder()
-                      .PUT(jsonRequestHandler(body))
-                      .header("Content-type", "application/json")
-                      .uri(new URI(url))
-                      .build();
-
-              return client
-                  .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                  .thenApply(stringHttpResponse -> toJsonHttpResponse(stringHttpResponse, typeRef))
-                  .thenApply(Response::of);
-            });
+        return send(
+            HttpRequest.newBuilder()
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonConverter.toJson(body)))
+                .header("Content-type", "application/json")
+                .uri(uri(url, Map.of()))
+                .build(),
+            typeRef);
       }
 
       @Override
       public CompletionStage<Response<Void>> delete(String url) {
-        return Utils.packException(
-            () -> {
-              HttpRequest request = HttpRequest.newBuilder().DELETE().uri(new URI(url)).build();
-              return client
-                  .sendAsync(request, HttpResponse.BodyHandlers.discarding())
-                  .thenApply(this::withException)
-                  .thenApply(Response::of);
-            });
-      }
-
-      /**
-       * if return value is Json , then we can convert it to Object. Or we just simply handle
-       * exception by {@link #withException(HttpResponse)}
-       */
-      private <T> HttpResponse<T> toJsonHttpResponse(
-          HttpResponse<String> response, TypeRef<T> typeRef) throws StringResponseException {
-        var innerResponse = withException(response);
-        return new MappedHttpResponse<>(
-            innerResponse,
-            x -> {
-              try {
-                return jsonConverter.fromJson(x, typeRef);
-              } catch (Exception e) {
-                throw new StringResponseException(innerResponse, typeRef.getType());
-              }
-            });
-      }
-
-      /**
-       * Handle exception with non json type response . If return value is json , we can use {@link
-       * #toJsonHttpResponse(HttpResponse, TypeRef)}
-       */
-      private <T> HttpResponse<T> withException(HttpResponse<T> response) {
-        if (response.statusCode() >= 400) {
-          throw new StringResponseException(toStringResponse(response));
-        } else {
-          return response;
-        }
-      }
-
-      /**
-       * if api return error code, then response type will be changed. So we throw an exception to
-       * identify that error.
-       */
-      @SuppressWarnings("unchecked")
-      private <T> HttpResponse<String> toStringResponse(HttpResponse<T> httpResponse)
-          throws StringResponseException {
-        HttpResponse<String> stringHttpResponse;
-        if (Objects.isNull(httpResponse.body())) {
-          stringHttpResponse = new MappedHttpResponse<>(httpResponse, (x) -> null);
-        } else if (httpResponse.body() instanceof String) {
-          stringHttpResponse = (HttpResponse<String>) httpResponse;
-        } else {
-          stringHttpResponse = new MappedHttpResponse<>(httpResponse, Object::toString);
-        }
-        throw new StringResponseException(stringHttpResponse);
-      }
-
-      private URI getParameterURI(String url, Map<String, String> parameter)
-          throws URISyntaxException {
-        return getQueryUri(url, parameter);
-      }
-
-      private HttpRequest.BodyPublisher jsonRequestHandler(Object t) {
-        return HttpRequest.BodyPublishers.ofString(jsonConverter.toJson(t));
+        return send(HttpRequest.newBuilder().DELETE().uri(uri(url, Map.of())).build(), null);
       }
     };
   }
 
-  static URI getQueryUri(String url, Map<String, String> parameters) throws URISyntaxException {
-    var uri = new URI(url);
-    var queryString =
-        parameters.entrySet().stream()
-            .map(
-                x -> {
-                  var key = x.getKey();
-                  return key + "=" + URLEncoder.encode(x.getValue(), StandardCharsets.UTF_8);
-                })
-            .collect(Collectors.joining("&"));
+  static URI uri(String url, Map<String, String> parameters) {
+    try {
+      var uri = new URI(url);
+      var queryString =
+          parameters.entrySet().stream()
+              .map(
+                  x -> {
+                    var key = x.getKey();
+                    return key + "=" + URLEncoder.encode(x.getValue(), StandardCharsets.UTF_8);
+                  })
+              .collect(Collectors.joining("&"));
 
-    return new URI(
-        uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
+      return new URI(
+          uri.getScheme(), uri.getAuthority(), uri.getPath(), queryString, uri.getFragment());
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 }

@@ -56,7 +56,7 @@ class HttpExecutorTest {
                           .thenApply(Response::body)
                           .toCompletableFuture()
                           .join());
-          assertEquals(StringResponseException.class, executionException.getCause().getClass());
+          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
         });
   }
 
@@ -89,7 +89,7 @@ class HttpExecutorTest {
                           .thenApply(Response::body)
                           .toCompletableFuture()
                           .join());
-          assertEquals(StringResponseException.class, executionException.getCause().getClass());
+          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
         });
   }
 
@@ -146,7 +146,7 @@ class HttpExecutorTest {
                           .thenApply(Response::body)
                           .toCompletableFuture()
                           .join());
-          assertEquals(StringResponseException.class, executionException.getCause().getClass());
+          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
         });
   }
 
@@ -184,7 +184,7 @@ class HttpExecutorTest {
                           .thenApply(Response::body)
                           .toCompletableFuture()
                           .join());
-          assertEquals(StringResponseException.class, executionException.getCause().getClass());
+          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
         });
   }
 
@@ -207,7 +207,7 @@ class HttpExecutorTest {
                           .thenApply(Response::body)
                           .toCompletableFuture()
                           .join());
-          assertEquals(StringResponseException.class, executionException.getCause().getClass());
+          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
         });
   }
 
