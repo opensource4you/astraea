@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import java.util.Map;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.QuotaConfigs;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,12 +38,13 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
               handler
                   .post(
                       Channel.ofRequest(
-                          PostRequest.of(
-                              Map.of(
-                                  QuotaConfigs.IP,
-                                  ip,
-                                  QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
-                                  "10"))))
+                          JsonConverter.defaultConverter()
+                              .toJson(
+                                  Map.of(
+                                      QuotaConfigs.IP,
+                                      ip,
+                                      QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
+                                      "10"))))
                   .toCompletableFuture()
                   .join());
       Assertions.assertEquals(1, result.quotas.size());
@@ -64,15 +66,19 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
       handler
           .post(
               Channel.ofRequest(
-                  PostRequest.of(
-                      Map.of(QuotaConfigs.IP, ip0, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "10"))))
+                  JsonConverter.defaultConverter()
+                      .toJson(
+                          Map.of(
+                              QuotaConfigs.IP, ip0, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "10"))))
           .toCompletableFuture()
           .join();
       handler
           .post(
               Channel.ofRequest(
-                  PostRequest.of(
-                      Map.of(QuotaConfigs.IP, ip1, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "20"))))
+                  JsonConverter.defaultConverter()
+                      .toJson(
+                          Map.of(
+                              QuotaConfigs.IP, ip1, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "20"))))
           .toCompletableFuture()
           .join();
       Assertions.assertEquals(

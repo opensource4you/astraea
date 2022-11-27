@@ -16,16 +16,21 @@
  */
 package org.astraea.app.web;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.QuotaConfigs;
+import org.astraea.common.json.TypeRef;
 
 public class QuotaHandler implements Handler {
 
@@ -51,88 +56,87 @@ public class QuotaHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    if (channel.request().has(QuotaConfigs.IP, QuotaConfigs.IP_CONNECTION_RATE_CONFIG))
+    var postRequest = channel.request(TypeRef.of(QuotaPostRequest.class));
+
+    if (postRequest.ip.isPresent() && postRequest.connectionCreationRate.isPresent())
       return admin
           .setConnectionQuotas(
-              Map.of(
-                  channel.request().value(QuotaConfigs.IP),
-                  channel.request().intValue(QuotaConfigs.IP_CONNECTION_RATE_CONFIG)))
+              Map.of(postRequest.ip.get(), postRequest.connectionCreationRate.get()))
           .thenCompose(
               ignored ->
                   admin
-                      .quotas(
-                          Map.of(QuotaConfigs.IP, Set.of(channel.request().value(QuotaConfigs.IP))))
+                      .quotas(Map.of(QuotaConfigs.IP, Set.of(postRequest.ip.get())))
                       .thenApply(Quotas::new));
 
     // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
     // see https://github.com/skiptests/astraea/issues/490
-    if (channel
-        .request()
-        .has(
-            QuotaConfigs.CLIENT_ID,
-            QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
-            QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-      return admin
-          .setProducerQuotas(
-              Map.of(
-                  channel.request().value(QuotaConfigs.CLIENT_ID),
-                  DataRate.Byte.of(
-                          channel.request().longValue(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
-                      .perSecond()))
-          .thenCompose(
-              ignored ->
-                  admin.setConsumerQuotas(
-                      Map.of(
-                          channel.request().value(QuotaConfigs.CLIENT_ID),
-                          DataRate.Byte.of(
-                                  channel
-                                      .request()
-                                      .longValue(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-                              .perSecond())))
-          .thenCompose(
-              ignored ->
-                  admin
-                      .quotas(
-                          Map.of(
-                              QuotaConfigs.CLIENT_ID,
-                              Set.of(channel.request().value(QuotaConfigs.CLIENT_ID))))
-                      .thenApply(Quotas::new));
+    if (postRequest.clientId.isPresent()) {
+      var clientId = postRequest.clientId.get();
 
-    if (channel.request().has(QuotaConfigs.CLIENT_ID, QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-      return admin
-          .setConsumerQuotas(
-              Map.of(
-                  channel.request().value(QuotaConfigs.CLIENT_ID),
-                  DataRate.Byte.of(
-                          channel.request().longValue(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-                      .perSecond()))
-          .thenCompose(
-              ignored ->
-                  admin
-                      .quotas(
+      List<Supplier<CompletionStage<Void>>> quotaStages = new ArrayList<>();
+      postRequest.producerByteRate.ifPresent(
+          producerRate ->
+              quotaStages.add(
+                  () ->
+                      admin.setProducerQuotas(
                           Map.of(
-                              QuotaConfigs.CLIENT_ID,
-                              Set.of(channel.request().value(QuotaConfigs.CLIENT_ID))))
-                      .thenApply(Quotas::new));
+                              clientId,
+                              DataRate.Byte.of(postRequest.producerByteRate.get()).perSecond()))));
 
-    if (channel.request().has(QuotaConfigs.CLIENT_ID, QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
-      return admin
-          .setProducerQuotas(
-              Map.of(
-                  channel.request().value(QuotaConfigs.CLIENT_ID),
-                  DataRate.Byte.of(
-                          channel.request().longValue(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
-                      .perSecond()))
-          .thenCompose(
-              ignored ->
-                  admin
-                      .quotas(
+      postRequest.consumerByteRate.ifPresent(
+          producerRate ->
+              quotaStages.add(
+                  () ->
+                      admin.setProducerQuotas(
                           Map.of(
-                              QuotaConfigs.CLIENT_ID,
-                              Set.of(channel.request().value(QuotaConfigs.CLIENT_ID))))
-                      .thenApply(Quotas::new));
+                              clientId,
+                              DataRate.Byte.of(postRequest.consumerByteRate.get()).perSecond()))));
+
+      if (!quotaStages.isEmpty()) {
+        return runSequence(quotaStages)
+            .thenCompose(
+                ignored ->
+                    admin
+                        .quotas(Map.of(QuotaConfigs.CLIENT_ID, Set.of(clientId)))
+                        .thenApply(Quotas::new));
+      }
+    }
 
     return CompletableFuture.completedFuture(Response.NOT_FOUND);
+  }
+
+  private CompletionStage<Void> runSequence(
+      List<Supplier<CompletionStage<Void>>> completeSuppliers) {
+    if (completeSuppliers.isEmpty()) {
+      return CompletableFuture.completedStage(null);
+    }
+    if (completeSuppliers.size() == 1) {
+      return completeSuppliers.get(0).get();
+    }
+    var current = completeSuppliers.get(0).get();
+    for (Supplier<CompletionStage<Void>> completeSupplier :
+        completeSuppliers.subList(1, completeSuppliers.size())) {
+      current = current.thenCompose(ignored -> completeSupplier.get());
+    }
+    return current;
+  }
+
+  static class QuotaPostRequest implements Request {
+    private Optional<String> ip = Optional.empty();
+
+    @JsonAlias("connection_creation_rate")
+    private Optional<Integer> connectionCreationRate = Optional.empty();
+
+    @JsonAlias("client-id")
+    private Optional<String> clientId = Optional.empty();
+
+    @JsonAlias("producer_byte_rate")
+    private Optional<Long> producerByteRate = Optional.empty();
+
+    @JsonAlias("consumer_byte_rate")
+    private Optional<Long> consumerByteRate = Optional.empty();
+
+    public QuotaPostRequest() {}
   }
 
   static class Target implements Response {
