@@ -37,10 +37,9 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
         var handler = new TopicHandler(admin);
         var request =
             Channel.ofRequest(
-                PostRequest.of(
-                    String.format(
-                        "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
-                        topicName)));
+                String.format(
+                    "{\"topics\":[{\"name\":\"%s\", \"partitions\":30, \"probability\": 0.15}]}",
+                    topicName));
         var topics = handler.post(request).toCompletableFuture().join();
         Assertions.assertEquals(1, topics.topics.size());
         Utils.waitFor(

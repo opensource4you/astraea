@@ -14,25 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.csv;
+package org.astraea.common.argument;
 
-import com.opencsv.CSVWriterBuilder;
-import java.io.Writer;
+import java.net.URI;
 
-/** Construct CSVWriterBuilder so that we can use its build pattern. */
-public class CsvWriterBuilder {
-  private final CSVWriterBuilder csvWriterBuilder;
-
-  CsvWriterBuilder(Writer sink) {
-    this.csvWriterBuilder = new CSVWriterBuilder(sink);
-  }
-
-  public CsvWriterBuilder withLineEnd(String string) {
-    this.csvWriterBuilder.withLineEnd(string);
-    return this;
-  }
-
-  public CsvWriter build() {
-    return new CsvWriterImpl(csvWriterBuilder);
+public class URIField extends Field<URI> {
+  @Override
+  public URI convert(String value) {
+    return URI.create(value);
   }
 }
