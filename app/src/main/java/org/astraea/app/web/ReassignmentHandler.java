@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.astraea.app.web.Request.RequestObject;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -51,40 +50,38 @@ public class ReassignmentHandler implements Handler {
   public CompletionStage<Response> post(Channel channel) {
     var request = channel.request(TypeRef.of(ReassignmentPostRequest.class));
     return FutureUtils.sequence(
-            request.plans().stream()
+            request.plans.stream()
                 .map(
                     plan -> {
                       // case 0: move replica to another folder
-                      if (Utils.isPresent(plan.broker(), plan.topic(), plan.partition(), plan.to()))
+                      if (Utils.isPresent(plan.broker, plan.topic, plan.partition, plan.to))
                         return admin
                             .moveToFolders(
                                 Map.of(
                                     TopicPartitionReplica.of(
-                                        plan.topic().get(),
-                                        plan.partition().get(),
-                                        plan.broker().get()),
+                                        plan.topic.get(), plan.partition.get(), plan.broker.get()),
                                     JsonConverter.defaultConverter()
-                                        .convert(plan.to().get(), TypeRef.of(String.class))))
+                                        .convert(plan.to.get(), TypeRef.of(String.class))))
                             .thenApply(ignored -> Response.ACCEPT)
                             .toCompletableFuture();
 
                       // case 1: move replica to another broker
-                      if (Utils.isPresent(plan.topic(), plan.partition(), plan.to()))
+                      if (Utils.isPresent(plan.topic, plan.partition, plan.to))
                         return admin
                             .moveToBrokers(
                                 Map.of(
-                                    TopicPartition.of(plan.topic().get(), plan.partition().get()),
+                                    TopicPartition.of(plan.topic.get(), plan.partition.get()),
                                     JsonConverter.defaultConverter()
-                                        .convert(plan.to().get(), TypeRef.array(Integer.class))))
+                                        .convert(plan.to.get(), TypeRef.array(Integer.class))))
                             .thenApply(ignored -> Response.ACCEPT)
                             .toCompletableFuture();
 
-                      if (plan.exclude().isPresent())
+                      if (plan.exclude.isPresent())
                         return admin
                             .brokers()
                             .thenCompose(
                                 brokers -> {
-                                  var exclude = plan.exclude().get();
+                                  var exclude = plan.exclude.get();
                                   var excludedBroker =
                                       brokers.stream().filter(b -> b.id() == exclude).findFirst();
                                   if (excludedBroker.isEmpty())
@@ -97,8 +94,8 @@ public class ReassignmentHandler implements Handler {
                                       excludedBroker.get().topicPartitions().stream()
                                           .filter(
                                               tp ->
-                                                  plan.topic().isEmpty()
-                                                      || tp.topic().equals(plan.topic().get()))
+                                                  plan.topic.isEmpty()
+                                                      || tp.topic().equals(plan.topic.get()))
                                           .collect(Collectors.toSet());
                                   if (partitions.isEmpty())
                                     return CompletableFuture.completedFuture(Response.BAD_REQUEST);
@@ -170,10 +167,6 @@ public class ReassignmentHandler implements Handler {
     private List<Plan> plans = List.of();
 
     public ReassignmentPostRequest() {}
-
-    public List<Plan> plans() {
-      return plans;
-    }
   }
 
   static class Plan implements Request {
@@ -187,26 +180,6 @@ public class ReassignmentHandler implements Handler {
     private Optional<Integer> exclude = Optional.empty();
 
     public Plan() {}
-
-    public Optional<Integer> broker() {
-      return broker;
-    }
-
-    public Optional<String> topic() {
-      return topic;
-    }
-
-    public Optional<Integer> partition() {
-      return partition;
-    }
-
-    public Optional<Object> to() {
-      return to;
-    }
-
-    public Optional<Integer> exclude() {
-      return exclude;
-    }
   }
 
   static class AddingReplica implements Response {

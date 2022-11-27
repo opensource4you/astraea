@@ -341,5 +341,10 @@ public final class Utils {
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 
+  /** all optional are present */
+  public static boolean isPresent(Optional<?>... fields) {
+    return Arrays.stream(fields).allMatch(Optional::isPresent);
+  }
+
   private Utils() {}
 }
