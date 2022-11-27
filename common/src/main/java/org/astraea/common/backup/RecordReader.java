@@ -18,72 +18,23 @@ package org.astraea.common.backup;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.util.ArrayList;
 import java.util.Iterator;
-import org.astraea.common.Header;
 import org.astraea.common.consumer.Record;
 
-public interface RecordReader {
+public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
 
-  static Iterator<Record<byte[], byte[]>> read(File file) {
-    try (var reader = new FileInputStream(file)) {
-      var channel = reader.getChannel();
-      var version = ByteUtils.readShort(channel);
-      switch (version) {
-        case 0:
-          return readV0(channel);
-        default:
-          throw new IllegalArgumentException("unsupported version: " + version);
-      }
-    } catch (IOException e) {
+  static RecordReaderBuilder builder(File file) {
+    try {
+      return builder(new FileInputStream(file));
+    } catch (FileNotFoundException e) {
       throw new UncheckedIOException(e);
     }
   }
 
-  private static Iterator<Record<byte[], byte[]>> readV0(SeekableByteChannel channel)
-      throws IOException {
-    var records = new ArrayList<Record<byte[], byte[]>>();
-    var current = channel.position();
-    var count = ByteUtils.readInt(channel.position(channel.size() - Integer.BYTES));
-    channel.position(current);
-    for (var i = 0; i != count; ++i) {
-      var recordSize = ByteUtils.readInt(channel);
-      var recordBuffer = ByteBuffer.allocate(recordSize);
-      var actualSize = channel.read(recordBuffer);
-      if (actualSize != recordSize)
-        throw new IllegalStateException(
-            "expected size is " + recordSize + ", but actual size is " + actualSize);
-      recordBuffer.flip();
-      var topic = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
-      var partition = recordBuffer.getInt();
-      var offset = recordBuffer.getLong();
-      var timestamp = recordBuffer.getLong();
-      var key = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-      var value = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-      var headerCnt = recordBuffer.getInt();
-      var headers = new ArrayList<Header>(headerCnt);
-      for (int headerIndex = 0; headerIndex < headerCnt; headerIndex++) {
-        var headerKey = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
-        var headerValue = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-        headers.add(Header.of(headerKey, headerValue));
-      }
-      records.add(
-          Record.builder()
-              .topic(topic)
-              .partition(partition)
-              .offset(offset)
-              .timestamp(timestamp)
-              .key(key)
-              .value(value)
-              .serializedKeySize(key == null ? 0 : key.length)
-              .serializedValueSize(value == null ? 0 : value.length)
-              .headers(headers)
-              .build());
-    }
-    return records.iterator();
+  static RecordReaderBuilder builder(InputStream inputStream) {
+    return new RecordReaderBuilder(inputStream);
   }
 }

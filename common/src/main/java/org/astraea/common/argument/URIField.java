@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.web;
+package org.astraea.common.argument;
 
-/**
- * This interface is a kind of PUT/POST request. The {@link Channel} is able to convert json string
- * to obj which implements this Request interface. For another, the unit test of Request is able to
- * find out the invalid declaration for Request implementations. Hence, each handle ought to
- * consider applying this interface to all POST/PUT request.
- */
-public interface Request {}
+import java.net.URI;
+
+public class URIField extends Field<URI> {
+  @Override
+  public URI convert(String value) {
+    return URI.create(value);
+  }
+}

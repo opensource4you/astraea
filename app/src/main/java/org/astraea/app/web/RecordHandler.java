@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.app.web.Request.RequestObject;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
@@ -450,7 +449,7 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class PostRecord implements RequestObject {
+  static class PostRecord implements Request {
     String topic;
     Optional<Integer> partition = Optional.empty();
     String keySerializer = "STRING";

@@ -129,7 +129,7 @@ interface Channel {
         }
 
         @Override
-        public <T> T request(TypeRef<T> typeRef) {
+        public <T extends Request> T request(TypeRef<T> typeRef) {
           var json = body.orElse("{}");
           return JsonConverter.defaultConverter().fromJson(json, typeRef);
         }
@@ -270,7 +270,7 @@ interface Channel {
   /**
    * @return body request
    */
-  <T> T request(TypeRef<T> typeRef);
+  <T extends Request> T request(TypeRef<T> typeRef);
 
   /**
    * @return the queries appended to URL

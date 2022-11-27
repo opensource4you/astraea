@@ -341,21 +341,5 @@ public final class Utils {
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 
-  public static boolean isWrapper(Class<?> cls) {
-    return cls == Double.class
-        || cls == Float.class
-        || cls == Long.class
-        || cls == Integer.class
-        || cls == Short.class
-        || cls == Character.class
-        || cls == Byte.class
-        || cls == Boolean.class;
-  }
-
-  /** all optional are present */
-  public static boolean isPresent(Optional<?>... fields) {
-    return Arrays.stream(fields).allMatch(Optional::isPresent);
-  }
-
   private Utils() {}
 }
