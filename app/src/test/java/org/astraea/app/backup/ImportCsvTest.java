@@ -14,17 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.CleanCsv;
+package org.astraea.app.backup;
 
+import static org.astraea.app.backup.ImportCsv.nonEqualPath;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.beust.jcommander.ParameterException;
 import com.opencsv.CSVReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -32,103 +37,146 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.csv.CsvWriterBuilder;
+import org.astraea.common.csv.CsvWriter;
+import org.astraea.fs.local.LocalFileSystem;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class CleanCsvTest {
+public class ImportCsvTest {
   private final String DATA_MAME = "20220202_AAA888_min.dat";
 
   @Test
-  void runTest() throws IOException {
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    List<String[]> ansLists = new ArrayList<>();
-    testCsvGenerator(source, ansLists, DATA_MAME);
+  void runTest() {
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of())); ) {
+      var local_csv = createTempDirectory("local_CSV");
+      var source = local_csv.toString() + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
 
-    String[] arguments = {
-      "--source", source.toString(), "--sink", sink.toString(), "--suffixes", ".dat"
-    };
-    CleanCsv.main(arguments);
+      List<String[]> ansLists = new ArrayList<>();
+      testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
+      ImportCsv.main(arguments);
 
-    var target = new File(sink + "/" + DATA_MAME);
-    assertTrue(Files.exists(target.toPath()));
-    checkFile(target, ansLists);
+      var target = new File(sink + "/" + DATA_MAME);
+      assertTrue(Files.exists(target.toPath()));
+      checkFile(target, ansLists);
+    }
   }
 
   @Test
-  void deletionTest() {
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    List<String[]> ansLists = new ArrayList<>();
-    List<String[]> lists = testCsvGenerator(source, ansLists, DATA_MAME);
-    writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+  void deleteTest() {
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
+      Path local_csv = createTempDirectory("local_CSV");
+      var source = local_csv.toString() + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
+      localFileSystem.mkdir(sink);
 
-    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      List<String[]> ansLists = new ArrayList<>();
+      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
 
-    String[] arguments = {
-      "--source",
-      source.toString(),
-      "--sink",
-      sink.toString(),
-      "--deletion",
-      "true",
-      "--suffixes",
-      ".dat"
-    };
-    CleanCsv.main(arguments);
-    assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+
+      String[] arguments = {
+        "--source", "local:" + source, "--sink", "local:" + sink, "--cleanSource", "delete",
+      };
+      ImportCsv.main(arguments);
+      assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+    }
+  }
+
+  @Test
+  void archiveTest() {
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
+      Path local_csv = createTempDirectory("local_CSV");
+      var source = local_csv + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
+      localFileSystem.mkdir(sink);
+      var archive = local_csv + "/archive";
+      localFileSystem.mkdir(archive);
+
+      List<String[]> ansLists = new ArrayList<>();
+      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+
+      assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+
+      String[] arguments = {
+        "--source",
+        "local:" + source,
+        "--sink",
+        "local:" + sink,
+        "--cleanSource",
+        "archive",
+        "--sourceArchiveDir",
+        "local:" + archive
+      };
+      ImportCsv.main(arguments);
+      assertFalse(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(archive + "/" + DATA_MAME).toPath()));
+    }
   }
 
   @Test
   void multipleFileTest() {
-    var name2 = "20220202_AAA999_min.dat";
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
+      var name2 = "20220202_AAA999_min.dat";
 
-    Path local_csv = createTempDirectory("local_CSV");
-    Path source = mkdir(local_csv.toString() + "/source");
-    Path sink = mkdir(local_csv + "/sink");
-    List<String[]> ansLists1 = new ArrayList<>();
-    List<String[]> ansLists2 = new ArrayList<>();
-    testCsvGenerator(source, ansLists1, DATA_MAME);
-    testCsvGenerator(source, ansLists2, name2);
+      Path local_csv = createTempDirectory("local_CSV");
+      var source = Path.of(local_csv.toString() + "/source");
+      localFileSystem.mkdir(source.toString());
+      var sink = local_csv + "/sink";
+      localFileSystem.mkdir(sink);
 
-    assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
-    assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
-    String[] arguments = {
-      "--source",
-      source.toString(),
-      "--sink",
-      sink.toString(),
-      "--deletion",
-      "true",
-      "--suffixes",
-      ".dat"
-    };
-    CleanCsv.main(arguments);
+      List<String[]> ansLists1 = new ArrayList<>();
+      List<String[]> ansLists2 = new ArrayList<>();
+      testCsvGenerator(source, ansLists1, DATA_MAME);
+      testCsvGenerator(source, ansLists2, name2);
 
-    var target1 = new File(sink + "/" + DATA_MAME);
-    var target2 = new File(sink + "/" + name2);
+      assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
+      String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
+      ImportCsv.main(arguments);
 
-    assertTrue(Files.exists(new File(sink + "/" + DATA_MAME).toPath()));
-    assertTrue(Files.exists(new File(sink + "/" + name2).toPath()));
+      var target1 = new File(sink + "/" + DATA_MAME);
+      var target2 = new File(sink + "/" + name2);
 
-    checkFile(target1, ansLists1);
-    checkFile(target2, ansLists2);
+      assertTrue(Files.exists(new File(sink + "/" + DATA_MAME).toPath()));
+      assertTrue(Files.exists(new File(sink + "/" + name2).toPath()));
+
+      checkFile(target1, ansLists1);
+      checkFile(target2, ansLists2);
+    }
   }
 
   @Test
-  void getListOfFilesTest() throws IOException {
-    var str = "test_dat" + new Random().nextInt();
-    var tempFile = File.createTempFile(str, ".dat");
-    try (var listOfFiles = CleanCsv.getListOfFiles(tempFile.getAbsolutePath(), str)) {
-      Assertions.assertEquals(listOfFiles.findFirst().orElse(null), tempFile.toPath());
-    }
+  void nonEqualPathTest() {
+    assertThrows(
+        ParameterException.class,
+        () -> nonEqualPath(URI.create("local:/home/warren"), URI.create("local:/home/warren")));
+    assertDoesNotThrow(
+        () ->
+            nonEqualPath(
+                URI.create("ftp://0.0.0.0:8888/home/warren"), URI.create("local:/home/warren")));
+    assertThrows(
+        ParameterException.class,
+        () ->
+            nonEqualPath(
+                URI.create("ftp://0.0.0.0:8888/home/warren"),
+                URI.create("ftp://0.0.0.0:8888/home/warren")));
+    assertDoesNotThrow(
+        () ->
+            nonEqualPath(
+                URI.create("ftp://0.0.0.0:8888/home/warren"),
+                URI.create("ftp://0.0.0.0:7777/home/warren")));
   }
 
   private List<String[]> testCsvGenerator(Path source, List<String[]> ansLists, String name) {
@@ -189,7 +237,7 @@ public class CleanCsvTest {
 
   private void writeCSV(Path sink, List<String[]> lists) {
     try (var writer =
-        Utils.packException(() -> CsvWriterBuilder.of(new FileWriter(sink.toFile())).build())) {
+        Utils.packException(() -> CsvWriter.builder(new FileWriter(sink.toFile())).build())) {
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }
@@ -215,12 +263,6 @@ public class CleanCsvTest {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  private Path mkdir(String string) {
-    var file = new File(string);
-    file.mkdir();
-    return file.toPath();
   }
 
   private String mkString(List<String> arr) {

@@ -158,7 +158,7 @@ public class CsvReaderTest {
 
   private void writeCSV(Path sink, List<String[]> lists) {
     try (var writer =
-        CsvWriterBuilder.of(Utils.packException(() -> new FileWriter(sink.toFile()))).build()) {
+        CsvWriter.builder(Utils.packException(() -> new FileWriter(sink.toFile()))).build()) {
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }
