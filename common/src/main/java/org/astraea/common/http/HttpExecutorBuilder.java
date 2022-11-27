@@ -58,6 +58,7 @@ public class HttpExecutorBuilder {
                   }
                   if (r.body() == null)
                     throw new IllegalStateException("receive error code: " + r.statusCode());
+                  // TODO: parse the json body to generate more readable exception
                   throw new IllegalStateException(r.body());
                 });
       }
