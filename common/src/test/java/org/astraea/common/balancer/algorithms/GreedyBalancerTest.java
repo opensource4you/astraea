@@ -60,7 +60,6 @@ class GreedyBalancerTest {
             GreedyBalancer.class,
             AlgorithmConfig.builder()
                 .executionId(id)
-                .dataFolders(clusterInfo.dataDirectories())
                 .clusterCost(cost)
                 .config(GreedyBalancer.ITERATION_CONFIG, "100")
                 .build());

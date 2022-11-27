@@ -20,10 +20,12 @@ import com.beust.jcommander.Parameter;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.argument.PathField;
 import org.astraea.common.backup.RecordReader;
@@ -49,9 +51,9 @@ public class Importer {
       Consumer<File> process =
           file -> {
             var count = 0L;
-            var iter = RecordReader.read(file);
-            while (iter.hasNext()) {
-              var record = iter.next();
+            var reader = RecordReader.builder(file).build();
+            while (reader.hasNext()) {
+              var record = reader.next();
               if (record.key() == null && record.value() == null) continue;
               producer.send(
                   Record.builder()
@@ -76,7 +78,14 @@ public class Importer {
         if (current.isDirectory()) {
           var fs = current.listFiles();
           if (fs == null) continue;
-          files.addAll(Arrays.asList(fs));
+          // add files first
+          files.addAll(
+              Arrays.stream(fs)
+                  .filter(File::isFile)
+                  .sorted(Comparator.comparing(f -> Long.parseLong(f.getName())))
+                  .collect(Collectors.toList()));
+          // add folders
+          files.addAll(Arrays.stream(fs).filter(File::isDirectory).collect(Collectors.toList()));
         }
         if (current.isFile()) process.accept(current);
       }

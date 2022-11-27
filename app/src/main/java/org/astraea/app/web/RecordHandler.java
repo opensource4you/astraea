@@ -19,15 +19,6 @@ package org.astraea.app.web;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
@@ -53,15 +44,14 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Serializer;
 
 public class RecordHandler implements Handler {
-  static final String RECORDS = "records";
-  static final String TRANSACTION_ID = "transactionId";
   static final String PARTITION = "partition";
-  static final String ASYNC = "async";
   static final String DISTANCE_FROM_LATEST = "distanceFromLatest";
   static final String DISTANCE_FROM_BEGINNING = "distanceFromBeginning";
   static final String SEEK_TO = "seekTo";
@@ -179,19 +169,14 @@ public class RecordHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    var async = channel.request().getBoolean(ASYNC).orElse(false);
-    var timeout =
-        channel.request().get(TIMEOUT).map(Utils::toDuration).orElse(Duration.ofSeconds(5));
-    var records = channel.request().values(RECORDS, PostRecord.class);
+    var postRequest = channel.request(TypeRef.of(RecordPostRequest.class));
+
+    var records = postRequest.records();
     if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");
 
     var producer =
-        channel
-            .request()
-            .get(TRANSACTION_ID)
-            .map(transactionalProducerCache::get)
-            .orElse(this.producer);
+        postRequest.transactionId().map(transactionalProducerCache::get).orElse(this.producer);
 
     var result =
         CompletableFuture.supplyAsync(
@@ -224,10 +209,13 @@ public class RecordHandler implements Handler {
                             .map(CompletionStage::toCompletableFuture)
                             .collect(toList())));
 
-    if (async) return CompletableFuture.completedFuture(Response.ACCEPT);
+    if (postRequest.async()) return CompletableFuture.completedFuture(Response.ACCEPT);
     return CompletableFuture.completedFuture(
         Utils.packException(
-            () -> new PostResponse(result.get(timeout.toNanos(), TimeUnit.NANOSECONDS))));
+            () ->
+                new PostResponse(
+                    result.get(
+                        Utils.toDuration(postRequest.timeout()).toNanos(), TimeUnit.NANOSECONDS))));
   }
 
   @Override
@@ -325,7 +313,9 @@ public class RecordHandler implements Handler {
       return alias();
     }
 
+    /** (topic, json) convert to bytes */
     final BiFunction<String, String, byte[]> serializer;
+
     final Deserializer<?> deserializer;
 
     SerDe(BiFunction<String, String, byte[]> serializer, Deserializer<?> deserializer) {
@@ -336,28 +326,47 @@ public class RecordHandler implements Handler {
 
   private static org.astraea.common.producer.Record<byte[], byte[]> createRecord(
       Producer<byte[], byte[]> producer, PostRecord postRecord) {
-    var topic =
-        Optional.ofNullable(postRecord.topic)
-            .orElseThrow(() -> new IllegalArgumentException("topic must be set"));
+    var topic = postRecord.topic;
     var builder = org.astraea.common.producer.Record.<byte[], byte[]>builder().topic(topic);
+
     // TODO: Support headers
     // (https://github.com/skiptests/astraea/issues/422)
-    var keySerializer =
-        Optional.ofNullable(postRecord.keySerializer)
-            .map(name -> SerDe.ofAlias(name).serializer)
-            .orElse(SerDe.STRING.serializer);
-    var valueSerializer =
-        Optional.ofNullable(postRecord.valueSerializer)
-            .map(name -> SerDe.ofAlias(name).serializer)
-            .orElse(SerDe.STRING.serializer);
-
-    Optional.ofNullable(postRecord.key)
-        .ifPresent(key -> builder.key(keySerializer.apply(topic, PostRequest.handle(key))));
-    Optional.ofNullable(postRecord.value)
-        .ifPresent(value -> builder.value(valueSerializer.apply(topic, PostRequest.handle(value))));
-    Optional.ofNullable(postRecord.timestamp).ifPresent(builder::timestamp);
-    Optional.ofNullable(postRecord.partition).ifPresent(builder::partition);
+    var keySerializer = SerDe.ofAlias(postRecord.keySerializer).serializer;
+    var valueSerializer = SerDe.ofAlias(postRecord.valueSerializer).serializer;
+    postRecord.key.ifPresent(
+        // TODO: 2022-11-23 astraea-1163 key and value should be Json String or Json Number
+        key -> builder.key(keySerializer.apply(topic, key.toString())));
+    postRecord.value.ifPresent(
+        value -> builder.value(valueSerializer.apply(topic, value.toString())));
+    postRecord.timestamp.ifPresent(builder::timestamp);
+    postRecord.partition.ifPresent(builder::partition);
     return builder.build();
+  }
+
+  static class RecordPostRequest implements Request {
+    private boolean async = false;
+    private String timeout = "5s";
+    private List<PostRecord> records = List.of();
+
+    private Optional<String> transactionId = Optional.empty();
+
+    public RecordPostRequest() {}
+
+    public boolean async() {
+      return async;
+    }
+
+    public String timeout() {
+      return timeout;
+    }
+
+    public List<PostRecord> records() {
+      return records;
+    }
+
+    public Optional<String> transactionId() {
+      return transactionId;
+    }
   }
 
   static class Metadata implements Response {
@@ -389,12 +398,7 @@ public class RecordHandler implements Handler {
 
     @Override
     public String json() {
-      return new GsonBuilder()
-          // gson will do html escape by default (e.g. convert = to \u003d)
-          .disableHtmlEscaping()
-          .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
-          .create()
-          .toJson(this);
+      return JsonConverter.defaultConverter().toJson(this);
     }
 
     @Override
@@ -445,26 +449,16 @@ public class RecordHandler implements Handler {
     }
   }
 
-  static class ByteArrayToBase64TypeAdapter
-      implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
-    public byte[] deserialize(JsonElement json, Type type, JsonDeserializationContext context)
-        throws JsonParseException {
-      return Base64.getDecoder().decode(json.getAsString());
-    }
+  static class PostRecord implements Request {
+    String topic;
+    Optional<Integer> partition = Optional.empty();
+    String keySerializer = "STRING";
+    String valueSerializer = "STRING";
+    Optional<Object> key = Optional.empty();
+    Optional<Object> value = Optional.empty();
+    Optional<Long> timestamp = Optional.empty();
 
-    public JsonElement serialize(byte[] src, Type type, JsonSerializationContext context) {
-      return new JsonPrimitive(Base64.getEncoder().encodeToString(src));
-    }
-  }
-
-  static class PostRecord {
-    final String topic;
-    final Integer partition;
-    final String keySerializer;
-    final String valueSerializer;
-    final Object key;
-    final Object value;
-    final Long timestamp;
+    public PostRecord() {}
 
     PostRecord(
         String topic,
@@ -475,12 +469,12 @@ public class RecordHandler implements Handler {
         Object value,
         Long timestamp) {
       this.topic = topic;
-      this.partition = partition;
-      this.keySerializer = keySerializer;
-      this.valueSerializer = valueSerializer;
-      this.key = key;
-      this.value = value;
-      this.timestamp = timestamp;
+      this.partition = Optional.ofNullable(partition);
+      this.keySerializer = Optional.ofNullable(keySerializer).orElse("STRING");
+      this.valueSerializer = Optional.ofNullable(valueSerializer).orElse("STRING");
+      this.key = Optional.ofNullable(key);
+      this.value = Optional.ofNullable(value);
+      this.timestamp = Optional.ofNullable(timestamp);
     }
   }
 

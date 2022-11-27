@@ -181,49 +181,37 @@ public class BalancerNode {
             .admin()
             .topicNames(false)
             .thenCompose(context.admin()::clusterInfo)
-            .thenCompose(
-                clusterInfo ->
-                    context
-                        .admin()
-                        .brokerFolders()
-                        .thenApply(
-                            brokerFolders -> {
-                              var patterns =
-                                  argument
-                                      .texts()
-                                      .get(TOPIC_NAME_KEY)
-                                      .map(
-                                          ss ->
-                                              Arrays.stream(ss.split(","))
-                                                  .map(Utils::wildcardToPattern)
-                                                  .collect(Collectors.toList()))
-                                      .orElse(List.of());
-                              logger.log("searching better assignments ... ");
-                              return Map.entry(
-                                  clusterInfo,
-                                  Balancer.create(
-                                          GreedyBalancer.class,
-                                          AlgorithmConfig.builder()
-                                              .clusterCost(
-                                                  HasClusterCost.of(
-                                                      clusterCosts(argument.selectedKeys())))
-                                              .dataFolders(brokerFolders)
-                                              .moveCost(
-                                                  List.of(
-                                                      new ReplicaSizeCost(),
-                                                      new ReplicaLeaderCost()))
-                                              .movementConstraint(
-                                                  movementConstraint(argument.nonEmptyTexts()))
-                                              .topicFilter(
-                                                  topic ->
-                                                      patterns.isEmpty()
-                                                          || patterns.stream()
-                                                              .anyMatch(
-                                                                  p -> p.matcher(topic).matches()))
-                                              .config("iteration", "10000")
-                                              .build())
-                                      .offer(clusterInfo, Duration.ofSeconds(10)));
-                            }))
+            .thenApply(
+                clusterInfo -> {
+                  var patterns =
+                      argument
+                          .texts()
+                          .get(TOPIC_NAME_KEY)
+                          .map(
+                              ss ->
+                                  Arrays.stream(ss.split(","))
+                                      .map(Utils::wildcardToPattern)
+                                      .collect(Collectors.toList()))
+                          .orElse(List.of());
+                  logger.log("searching better assignments ... ");
+                  return Map.entry(
+                      clusterInfo,
+                      Balancer.create(
+                              GreedyBalancer.class,
+                              AlgorithmConfig.builder()
+                                  .clusterCost(
+                                      HasClusterCost.of(clusterCosts(argument.selectedKeys())))
+                                  .moveCost(List.of(new ReplicaSizeCost(), new ReplicaLeaderCost()))
+                                  .movementConstraint(movementConstraint(argument.nonEmptyTexts()))
+                                  .topicFilter(
+                                      topic ->
+                                          patterns.isEmpty()
+                                              || patterns.stream()
+                                                  .anyMatch(p -> p.matcher(topic).matches()))
+                                  .config("iteration", "10000")
+                                  .build())
+                          .offer(clusterInfo, Duration.ofSeconds(10)));
+                })
             .thenApply(
                 entry -> {
                   entry.getValue().ifPresent(LAST_PLAN::set);

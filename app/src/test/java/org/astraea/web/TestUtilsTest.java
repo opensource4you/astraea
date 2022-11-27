@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.web;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.util.Iterator;
-import org.astraea.common.consumer.Record;
+import org.astraea.app.version.Version;
+import org.astraea.app.web.RecordHandler;
+import org.astraea.app.web.RecordHandlerTest;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
+public class TestUtilsTest {
 
-  static RecordReaderBuilder builder(File file) {
-    try {
-      return builder(new FileInputStream(file));
-    } catch (FileNotFoundException e) {
-      throw new UncheckedIOException(e);
-    }
-  }
+  @Test
+  void testGetProductionClass() {
+    var productionClass = TestUtils.getProductionClass();
+    Assertions.assertTrue(productionClass.size() > 100);
+    Assertions.assertTrue(productionClass.contains(RecordHandler.class));
+    Assertions.assertTrue(productionClass.contains(Version.class));
 
-  static RecordReaderBuilder builder(InputStream inputStream) {
-    return new RecordReaderBuilder(inputStream);
+    Assertions.assertFalse(productionClass.contains(RecordHandlerTest.class));
   }
 }

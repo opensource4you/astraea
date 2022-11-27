@@ -22,8 +22,11 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
+import org.astraea.common.DataSize;
 import org.astraea.common.consumer.Record;
 
 public class RecordWriterBuilder {
@@ -31,7 +34,8 @@ public class RecordWriterBuilder {
   private static final Function<OutputStream, RecordWriter> V0 =
       outputStream ->
           new RecordWriter() {
-            private int recordCnt = 0;
+            private final AtomicInteger count = new AtomicInteger();
+            private final LongAdder size = new LongAdder();
 
             @Override
             public void append(Record<byte[], byte[]> record) {
@@ -60,6 +64,7 @@ public class RecordWriterBuilder {
                                       + (h.value() == null ? 0 : h.value().length) // [header value]
                               )
                           .sum();
+              size.add(recordSize);
               // TODO reuse the recordBuffer
               var recordBuffer = ByteBuffer.allocate(4 + recordSize);
               recordBuffer.putInt(recordSize);
@@ -82,7 +87,17 @@ public class RecordWriterBuilder {
               } catch (IOException e) {
                 throw new UncheckedIOException(e);
               }
-              recordCnt++;
+              count.incrementAndGet();
+            }
+
+            @Override
+            public DataSize size() {
+              return DataSize.Byte.of(size.sum());
+            }
+
+            @Override
+            public int count() {
+              return count.get();
             }
 
             @Override
@@ -97,7 +112,7 @@ public class RecordWriterBuilder {
             @Override
             public void close() {
               try {
-                outputStream.write(ByteUtils.of(recordCnt).array());
+                outputStream.write(ByteUtils.of(-1).array());
                 outputStream.flush();
               } catch (IOException e) {
                 throw new UncheckedIOException(e);

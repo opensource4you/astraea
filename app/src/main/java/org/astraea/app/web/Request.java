@@ -14,27 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.app.web;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.util.Iterator;
-import org.astraea.common.consumer.Record;
-
-public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
-
-  static RecordReaderBuilder builder(File file) {
-    try {
-      return builder(new FileInputStream(file));
-    } catch (FileNotFoundException e) {
-      throw new UncheckedIOException(e);
-    }
-  }
-
-  static RecordReaderBuilder builder(InputStream inputStream) {
-    return new RecordReaderBuilder(inputStream);
-  }
-}
+/**
+ * This interface is a kind of PUT/POST request. The {@link Channel} is able to convert json string
+ * to obj which implements this Request interface. For another, the unit test of Request is able to
+ * find out the invalid declaration for Request implementations. Hence, each handle ought to
+ * consider applying this interface to all POST/PUT request.
+ */
+public interface Request {}

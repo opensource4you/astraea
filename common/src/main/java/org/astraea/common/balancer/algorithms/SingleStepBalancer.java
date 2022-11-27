@@ -83,7 +83,7 @@ public class SingleStepBalancer implements Balancer {
 
     var start = System.currentTimeMillis();
     return allocationTweaker
-        .generate(config.dataFolders(), ClusterLogAllocation.of(generatorClusterInfo))
+        .generate(ClusterLogAllocation.of(generatorClusterInfo))
         .parallel()
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= timeout.toMillis())
