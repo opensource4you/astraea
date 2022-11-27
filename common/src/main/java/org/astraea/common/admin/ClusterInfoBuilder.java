@@ -17,7 +17,6 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -29,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -71,31 +69,10 @@ public class ClusterInfoBuilder {
    * @param brokerIds the id of fake brokers.
    * @return this.
    */
-  public ClusterInfoBuilder addNode(Integer... brokerIds) {
-    return addNode(Arrays.asList(brokerIds));
-  }
-
-  /**
-   * Add fake brokers into the cluster state.
-   *
-   * @param brokerIds the id of fake brokers.
-   * @return this.
-   */
-  public ClusterInfoBuilder addNode(List<Integer> brokerIds) {
+  public ClusterInfoBuilder addNode(Set<Integer> brokerIds) {
     return apply(
         (nodes, replicas) ->
             brokerIds.stream().map(ClusterInfoBuilder::fakeNode).forEach(nodes::add));
-  }
-
-  /**
-   * Add some fake folders to a specific broker.
-   *
-   * @param brokerId the target broker.
-   * @param folders the path of fake folders.
-   * @return this.
-   */
-  public ClusterInfoBuilder addFolders(int brokerId, String... folders) {
-    return addFolders(Map.of(brokerId, Set.copyOf(Arrays.asList(folders))));
   }
 
   /**
@@ -224,42 +201,18 @@ public class ClusterInfoBuilder {
   /**
    * Apply alteration to specific replicas.
    *
-   * @param filter the target for alteration.
    * @param mapper modification applied to the matched replica.
    * @return this.
    */
-  public ClusterInfoBuilder mapLog(Predicate<Replica> filter, Function<Replica, Replica> mapper) {
+  public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
     return apply(
         (nodes, replicas) -> {
           var iterator = replicas.listIterator();
           while (iterator.hasNext()) {
             var replica = iterator.next();
-            if (filter.test(replica)) iterator.set(mapper.apply(replica));
+            iterator.set(mapper.apply(replica));
           }
         });
-  }
-
-  /**
-   * Apply alteration to all the replicas under the specific topic.
-   *
-   * @param topic the name of the topic.
-   * @param mapper modification applied to the matched replica.
-   * @return this.
-   */
-  public ClusterInfoBuilder mapTopic(String topic, Function<Replica, Replica> mapper) {
-    return mapLog(replica -> replica.topic().equals(topic), mapper);
-  }
-
-  /**
-   * Apply alteration to all the replicas under the specific topic/partition.
-   *
-   * @param topicPartition the target.
-   * @param mapper modification applied to the matched replica.
-   * @return this.
-   */
-  public ClusterInfoBuilder mapTopicPartition(
-      TopicPartition topicPartition, Function<Replica, Replica> mapper) {
-    return mapLog(replica -> topicPartition.equals(replica.topicPartition()), mapper);
   }
 
   /**
