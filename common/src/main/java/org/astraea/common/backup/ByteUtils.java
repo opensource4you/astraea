@@ -35,11 +35,16 @@ public final class ByteUtils {
   }
 
   public static byte[] toBytes(long value) {
-    byte[] result = new byte[8];
-    for (int i = 0; i < 8; i++) {
-      result[i] = (byte) ((value >> (7 - i) * 8) & 0xff);
-    }
-    return result;
+    return new byte[] {
+      (byte) (value >>> 56),
+      (byte) (value >>> 48),
+      (byte) (value >>> 40),
+      (byte) (value >>> 32),
+      (byte) (value >>> 24),
+      (byte) (value >>> 16),
+      (byte) (value >>> 8),
+      (byte) value
+    };
   }
 
   public static byte[] toBytes(String value) {
@@ -58,12 +63,17 @@ public final class ByteUtils {
   }
 
   public static byte[] toBytes(Double value) {
-    byte[] result = new byte[8];
     long longBits = Double.doubleToLongBits(value);
-    for (int i = 0; i < 8; i++) {
-      result[i] = (byte) ((longBits >> (7 - i) * 8) & 0xff);
-    }
-    return result;
+    return new byte[] {
+      (byte) (longBits >> 56),
+      (byte) (longBits >> 48),
+      (byte) (longBits >> 40),
+      (byte) (longBits >> 32),
+      (byte) (longBits >> 24),
+      (byte) (longBits >> 16),
+      (byte) (longBits >> 8),
+      (byte) longBits
+    };
   }
 
   public static byte[] toBytes(Boolean value) {
