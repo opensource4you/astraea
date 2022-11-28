@@ -35,6 +35,53 @@ public final class ByteUtils {
     };
   }
 
+  public static byte[] toBytes(long value) {
+    return new byte[] {
+      (byte) (value >>> 56),
+      (byte) (value >>> 48),
+      (byte) (value >>> 40),
+      (byte) (value >>> 32),
+      (byte) (value >>> 24),
+      (byte) (value >>> 16),
+      (byte) (value >>> 8),
+      (byte) value
+    };
+  }
+
+  public static byte[] toBytes(String value) {
+    return value.getBytes(StandardCharsets.UTF_8);
+  }
+
+  public static byte[] toBytes(char value) {
+    return String.valueOf(value).getBytes(StandardCharsets.UTF_8);
+  }
+
+  public static byte[] toBytes(float value) {
+    int intBits = Float.floatToIntBits(value);
+    return new byte[] {
+      (byte) (intBits >> 24), (byte) (intBits >> 16), (byte) (intBits >> 8), (byte) intBits
+    };
+  }
+
+  public static byte[] toBytes(double value) {
+    long longBits = Double.doubleToLongBits(value);
+    return new byte[] {
+      (byte) (longBits >> 56),
+      (byte) (longBits >> 48),
+      (byte) (longBits >> 40),
+      (byte) (longBits >> 32),
+      (byte) (longBits >> 24),
+      (byte) (longBits >> 16),
+      (byte) (longBits >> 8),
+      (byte) longBits
+    };
+  }
+
+  public static byte[] toBytes(boolean value) {
+    if (value) return new byte[] {1};
+    return new byte[] {0};
+  }
+
   public static int readInt(ReadableByteChannel channel) {
     var buf = ByteBuffer.allocate(Integer.BYTES);
     try {
