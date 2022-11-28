@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
@@ -34,10 +35,18 @@ public class HttpExecutorBuilder {
 
   JsonConverter jsonConverter = JsonConverter.defaultConverter();
 
+  BiFunction<String, JsonConverter, String> errorMessageHandler = (body, converter) -> body;
+
   HttpExecutorBuilder() {}
 
   public HttpExecutorBuilder jsonConverter(JsonConverter jsonConverter) {
     this.jsonConverter = Objects.requireNonNull(jsonConverter);
+    return this;
+  }
+
+  public HttpExecutorBuilder errorMessageHandler(
+      BiFunction<String, JsonConverter, String> errorMessageHandler) {
+    this.errorMessageHandler = Objects.requireNonNull(errorMessageHandler);
     return this;
   }
 
@@ -54,12 +63,13 @@ public class HttpExecutorBuilder {
                   if (r.statusCode() < 400) {
                     if (typeRef != null && r.body() == null)
                       throw new IllegalStateException("There is no body!!!");
+                    if (typeRef == null) return Response.of(null, r.statusCode());
                     return Response.of(jsonConverter.fromJson(r.body(), typeRef), r.statusCode());
                   }
-                  if (r.body() == null)
-                    throw new IllegalStateException("receive error code: " + r.statusCode());
-                  // TODO: parse the json body to generate more readable exception
-                  throw new IllegalStateException(r.body());
+                  if (r.body() == null || r.body().isBlank())
+                    throw new HttpRequestException(r.statusCode());
+                  throw new HttpRequestException(
+                      r.statusCode(), errorMessageHandler.apply(r.body(), jsonConverter));
                 });
       }
 
