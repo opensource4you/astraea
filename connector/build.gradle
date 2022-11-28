@@ -1,0 +1,50 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+def versions = [
+        kafka: project.properties['kafka.version'] ?: "3.3.1",
+        junit: project.properties['junit.version'] ?: "5.9.1",
+]
+
+dependencies {
+    testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
+    testImplementation project(':it')
+
+    implementation project(':common')
+    implementation "org.apache.kafka:connect-runtime:${versions["kafka"]}"
+    implementation "org.apache.kafka:connect-json:${versions["kafka"]}"
+    implementation "org.apache.kafka:connect-api:${versions["kafka"]}"
+}
+
+java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+}
+
+ext {
+    numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
+}
+
+archivesBaseName = "astraea-it"
+
+tasks.named('test') {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+
+    maxParallelForks = numberOfForks
+    // make isolation for tests. It may be expensive but stability is first choice.
+    forkEvery = 1
+    testLogging {
+        events "PASSED", "STARTED", "FAILED", "SKIPPED"
+        exceptionFormat = 'full'
+    }
+
+    minHeapSize = "512m"
+    maxHeapSize = "2048m"
+}

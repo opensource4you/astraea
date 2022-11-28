@@ -28,7 +28,7 @@ object DeployMode {
   // Whether it is a local mode string.
   case object Local extends DeployMode("local(\\[)[\\d{1}](])".r)
   // Whether it is a standalone mode string.
-  case object Standalone extends DeployMode("spark://(.+):(\\d+)".r)
+  case object Standalone extends DeployMode("spark://(.+)".r)
 
   def of(str: String): DeployMode = {
     val patterns = all().filter(_.r.findAllIn(str).hasNext)

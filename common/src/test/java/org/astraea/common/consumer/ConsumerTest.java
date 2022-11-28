@@ -26,14 +26,17 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -60,12 +63,12 @@ public class ConsumerTest extends RequireBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                      .value(Utils.randomString().getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      org.astraea.common.producer.Record.builder()
+                          .topic(topic)
+                          .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .value(Utils.randomString().getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
   }
@@ -181,11 +184,11 @@ public class ConsumerTest extends RequireBrokerCluster {
       IntStream.range(0, count)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .value(String.valueOf(count).getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      org.astraea.common.producer.Record.builder()
+                          .topic(topic)
+                          .value(String.valueOf(count).getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
     try (var consumer =
@@ -241,12 +244,12 @@ public class ConsumerTest extends RequireBrokerCluster {
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
-          producer
-              .sender()
-              .topic(topic)
-              .partition(partitionId)
-              .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
-              .run();
+          producer.send(
+              org.astraea.common.producer.Record.builder()
+                  .topic(topic)
+                  .partition(partitionId)
+                  .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                  .build());
         }
       }
       producer.flush();
@@ -283,7 +286,8 @@ public class ConsumerTest extends RequireBrokerCluster {
         var producer = Producer.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      producer.sender().topic(topic).value(new byte[10]).run();
+      producer.send(
+          org.astraea.common.producer.Record.builder().topic(topic).value(new byte[10]).build());
       producer.flush();
 
       var groupId = Utils.randomString(10);
@@ -554,5 +558,127 @@ public class ConsumerTest extends RequireBrokerCluster {
     // test elapsed time limit
     Assertions.assertEquals(
         records, supplier.apply(IteratorLimit.elapsed(Duration.ofSeconds(3))).count());
+  }
+
+  @Test
+  void testRandomAssignorWithSingleConsumer() {
+    var topic = "testAssignor";
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
+      var partitionNum = 3;
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(partitionNum)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
+        for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
+          producer.send(
+              org.astraea.common.producer.Record.builder()
+                  .topic(topic)
+                  .partition(partitionId)
+                  .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                  .build());
+        }
+      }
+      producer.flush();
+    }
+
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .config(
+                ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
+                org.astraea.common.consumer.assignor.RandomAssignor.class.getName())
+            .seek(DISTANCE_FROM_BEGINNING, (long) 0)
+            .build()) {
+      var records = consumer.poll(30, Duration.ofSeconds(5));
+      Assertions.assertEquals(30, records.size());
+      Assertions.assertEquals(3, consumer.assignments().size());
+    }
+  }
+
+  @Test
+  void testRandomAssignorWithTwoTopicsAndMultipleConsumers() {
+    var topic1 = "test1";
+    var topic2 = "test2";
+    var topics = Set.of(topic1, topic2);
+    var partitions = 0;
+    var random = new Random();
+    try (var admin = Admin.of(bootstrapServers());
+        var producer = Producer.of(bootstrapServers())) {
+      var partitionNum = random.nextInt(15) + 1;
+      admin
+          .creator()
+          .topic(topic1)
+          .numberOfPartitions(partitionNum)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(topic2)
+          .numberOfPartitions(partitionNum)
+          .run()
+          .toCompletableFuture()
+          .join();
+      partitions = 2 * partitionNum;
+      Utils.sleep(Duration.ofSeconds(6));
+      for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
+        for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
+          for (var topic : topics) {
+            producer.send(
+                org.astraea.common.producer.Record.builder()
+                    .topic(topic)
+                    .partition(partitionId)
+                    .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                    .build());
+          }
+        }
+      }
+      producer.flush();
+    }
+    var consumers = 3;
+    var groupId = "astraea";
+    var closed = new AtomicBoolean(false);
+    var assignments = new ConcurrentHashMap<Integer, Integer>();
+    var totalPartitions = new AtomicInteger();
+    var latches = new CountDownLatch(consumers);
+    var futures =
+        FutureUtils.sequence(
+            IntStream.range(0, consumers)
+                .mapToObj(
+                    index ->
+                        CompletableFuture.runAsync(
+                            () -> {
+                              try (var consumer =
+                                  Consumer.forTopics(topics)
+                                      .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
+                                      .config(
+                                          ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
+                                          org.astraea.common.consumer.assignor.RandomAssignor.class
+                                              .getName())
+                                      .bootstrapServers(bootstrapServers())
+                                      .seek(SEEK_TO, 0)
+                                      .consumerRebalanceListener(
+                                          ps -> {
+                                            assignments.put(index, ps.size());
+                                            latches.countDown();
+                                          })
+                                      .build()) {
+                                while (!closed.get()) consumer.poll(Duration.ofSeconds(2));
+                              }
+                            }))
+                .collect(Collectors.toUnmodifiableList()));
+    Utils.waitFor(() -> latches.getCount() == 0, Duration.ofSeconds(10));
+    assignments.values().forEach(v -> totalPartitions.set(totalPartitions.get() + v));
+
+    Assertions.assertEquals(partitions, totalPartitions.get());
+    closed.set(true);
+    futures.join();
   }
 }

@@ -16,8 +16,8 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.time.Duration;
 import java.util.Comparator;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -72,8 +72,7 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Balancer.Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
+  public Optional<Balancer.Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -83,25 +82,25 @@ public class SingleStepBalancer implements Balancer {
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
 
     var start = System.currentTimeMillis();
-    var executionTime = config.executionTime().toMillis();
     return allocationTweaker
-        .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
+        .generate(ClusterLogAllocation.of(generatorClusterInfo))
         .parallel()
         .limit(iteration)
-        .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime)
+        .takeWhile(ignored -> System.currentTimeMillis() - start <= timeout.toMillis())
         .map(
             newAllocation -> {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Balancer.Plan(
                   newAllocation,
+                  currentCost,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
                   moveCostFunction.stream()
                       .map(
                           cf -> cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
                       .collect(Collectors.toList()));
             })
-        .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+        .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .min(Comparator.comparing(plan -> plan.clusterCost().value()));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }
 }

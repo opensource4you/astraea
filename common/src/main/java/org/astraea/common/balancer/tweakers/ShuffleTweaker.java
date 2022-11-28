@@ -57,17 +57,16 @@ public class ShuffleTweaker implements AllocationTweaker {
   }
 
   @Override
-  public Stream<ClusterLogAllocation> generate(
-      Map<Integer, Set<String>> brokerFolders, ClusterLogAllocation baseAllocation) {
+  public Stream<ClusterLogAllocation> generate(ClusterLogAllocation baseAllocation) {
     // There is no broker
-    if (brokerFolders.isEmpty()) return Stream.of();
+    if (baseAllocation.nodes().isEmpty()) return Stream.of();
 
     // No non-ignored topic to working on.
     if (baseAllocation.topicPartitions().isEmpty()) return Stream.of();
 
     // Only one broker & one folder exists, unable to do any log migration
-    if (brokerFolders.size() == 1
-        && brokerFolders.values().stream().findFirst().orElseThrow().size() == 1)
+    if (baseAllocation.nodes().size() == 1
+        && baseAllocation.brokerFolders().values().stream().findFirst().orElseThrow().size() == 1)
       return Stream.of();
 
     return Stream.generate(
@@ -76,7 +75,7 @@ public class ShuffleTweaker implements AllocationTweaker {
 
           var candidates =
               IntStream.range(0, shuffleCount)
-                  .mapToObj(i -> allocationGenerator(brokerFolders))
+                  .mapToObj(i -> allocationGenerator(baseAllocation.brokerFolders()))
                   .collect(Collectors.toUnmodifiableList());
 
           var currentAllocation = baseAllocation;

@@ -585,7 +585,15 @@ class AdminImpl implements Admin {
 
   @Override
   public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
+    return FutureUtils.combine(
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream()
+                        .map(x -> (NodeInfo) x)
+                        .collect(Collectors.toUnmodifiableSet())),
+        replicas(topics),
+        ClusterInfo::of);
   }
 
   private CompletionStage<List<Replica>> replicas(Set<String> topics) {

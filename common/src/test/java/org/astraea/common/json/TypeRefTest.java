@@ -48,6 +48,11 @@ class TypeRefTest {
   }
 
   @Test
+  void testBytes() {
+    assertEquals("class [B", TypeRef.bytes().getType().toString());
+  }
+
+  @Test
   void testArray() {
     assertEquals(
         "java.util.List<java.lang.String>", TypeRef.array(String.class).getType().toString());

@@ -1,5 +1,4 @@
 plugins {
-    id 'application'
     id 'org.openjfx.javafxplugin' version '0.0.13'
     id "com.github.johnrengelman.shadow" version "7.1.2"
     id 'maven-publish'
@@ -29,22 +28,25 @@ ext {
 }
 
 archivesBaseName = "astraea-gui"
-mainClassName = 'org.astraea.gui.Main'
+jar {
+    manifest {
+        attributes 'Main-Class': 'org.astraea.gui.Main'
+    }
+}
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation project(':it')
     implementation project(':common')
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
-    implementation "com.beust:jcommander:${versions["jcommander"]}"
 }
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        binary(MavenPublication) {
             groupId = 'org.astraea'
             artifactId = 'astraea-gui'
-            from components.java
+            artifact shadowJar
         }
     }
     repositories {

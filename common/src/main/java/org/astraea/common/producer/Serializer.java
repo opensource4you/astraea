@@ -25,7 +25,7 @@ import org.apache.kafka.common.serialization.FloatSerializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.astraea.common.consumer.Header;
+import org.astraea.common.Header;
 
 @FunctionalInterface
 public interface Serializer<T> {

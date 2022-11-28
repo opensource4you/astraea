@@ -17,53 +17,40 @@
 package org.astraea.common.backup;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
-import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import org.astraea.common.DataSize;
 import org.astraea.common.consumer.Record;
 
-public interface RecordWriter {
+public interface RecordWriter extends AutoCloseable {
+  void append(Record<byte[], byte[]> record);
 
-  static void write(File file, short version, Iterator<Record<byte[], byte[]>> records) {
-    switch (version) {
-      case 0:
-        try (var writer = new FileOutputStream(file)) {
-          var channel = writer.getChannel();
-          channel.write(ByteBufferUtils.of(version));
-          writeV0(channel, records);
-          writer.flush();
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("unsupported version: " + version);
+  /**
+   * @return size of all records
+   */
+  DataSize size();
+
+  /**
+   * @return count of all records
+   */
+  int count();
+
+  void flush();
+
+  @Override
+  void close();
+
+  static RecordWriterBuilder builder(File file) {
+    try {
+      return builder(new FileOutputStream(file));
+    } catch (FileNotFoundException e) {
+      throw new UncheckedIOException(e);
     }
   }
 
-  private static void writeV0(WritableByteChannel channel, Iterator<Record<byte[], byte[]>> records)
-      throws IOException {
-    // TODO: append full records
-    var count = 0;
-    while (records.hasNext()) {
-      var record = records.next();
-      var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
-      // [topic size 2bytes][topic][partition 4bytes][key length 4bytes][key]
-      var recordSize =
-          2 + topicBytes.length + 4 + 4 + (record.key() == null ? 0 : record.key().length);
-      var recordBuffer = ByteBuffer.allocate(4 + recordSize);
-      recordBuffer.putInt(recordSize);
-      recordBuffer.putShort((short) topicBytes.length);
-      recordBuffer.put(ByteBuffer.wrap(topicBytes));
-      recordBuffer.putInt(record.partition());
-      recordBuffer.putInt(record.key() == null ? -1 : record.key().length);
-      if (record.key() != null) recordBuffer.put(record.key());
-      channel.write(recordBuffer.flip());
-      count++;
-    }
-    channel.write(ByteBufferUtils.of(count));
+  static RecordWriterBuilder builder(OutputStream outputStream) {
+    return new RecordWriterBuilder(RecordWriterBuilder.LATEST_VERSION, outputStream);
   }
 }

@@ -29,6 +29,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.IteratorLimit;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -40,37 +41,41 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
-                      .run());
+                  producer.send(
+                      Record.builder()
+                          .topic(topic)
+                          .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .build()));
       producer.flush();
     }
   }
 
   @Test
-  void testReadWrite() throws IOException {
+  void testRecordWriter() throws IOException {
     var topic = Utils.randomString();
-    produceData(topic, 100);
     var file = Files.createTempFile(topic, null).toFile();
-    RecordWriter.write(
-        file,
-        (short) 0,
-        Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-            .bootstrapServers(bootstrapServers())
-            .seek(DISTANCE_FROM_BEGINNING, 0)
-            .iterator(List.of(IteratorLimit.count(100))));
-
-    var iter = RecordReader.read(file);
-    var count = 0;
-    while (iter.hasNext()) {
-      var record = iter.next();
+    produceData(topic, 10);
+    try (var writer = RecordWriter.builder(file).build()) {
+      var records =
+          Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
+              .bootstrapServers(bootstrapServers())
+              .seek(DISTANCE_FROM_BEGINNING, 0)
+              .iterator(List.of(IteratorLimit.count(10)));
+      while (records.hasNext()) {
+        writer.append(records.next());
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    var reader = RecordReader.builder(file).build();
+    var cnt = 0;
+    while (reader.hasNext()) {
+      var record = reader.next();
       Assertions.assertEquals(topic, record.topic());
       Assertions.assertEquals(0, record.partition());
       Assertions.assertEquals(
-          String.valueOf(count), new String(record.key(), StandardCharsets.UTF_8));
-      count++;
+          String.valueOf(cnt), new String(record.key(), StandardCharsets.UTF_8));
+      cnt++;
     }
   }
 }

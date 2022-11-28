@@ -21,10 +21,14 @@ import java.time.Duration;
 /** Calculate the difference of the latest two ranged data. */
 public class RateByTime implements Stat<Double, Double> {
 
-  private final Double[] oldValue = new Double[2];
+  private final double[] oldValue = new double[2];
 
   private final Debounce<Double> debounce;
 
+  /**
+   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
+   *     within the duration, it will be regarded as one
+   */
   public RateByTime(Duration period) {
     this.debounce = Debounce.of(period);
   }

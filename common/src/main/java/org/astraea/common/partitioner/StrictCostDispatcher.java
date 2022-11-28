@@ -25,13 +25,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.cost.BrokerCost;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -90,7 +89,6 @@ public class StrictCostDispatcher implements Dispatcher {
                                         metricCollector.registerJmx(
                                             node.id(),
                                             InetSocketAddress.createUnresolved(node.host(), port)));
-                            metricCollector.addFetcher(fetcher);
                           }
                         }));
   }
@@ -158,7 +156,7 @@ public class StrictCostDispatcher implements Dispatcher {
         PartitionerUtils.parseIdJMXPort(config),
         config
             .string(ROUND_ROBIN_LEASE_KEY)
-            .map(DurationField::toDuration)
+            .map(Utils::toDuration)
             // The duration of updating beans is 4 seconds, so
             // the default duration of updating RR is 4 seconds.
             .orElse(Duration.ofSeconds(4)));

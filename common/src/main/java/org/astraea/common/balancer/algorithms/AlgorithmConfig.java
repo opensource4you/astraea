@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,10 +24,10 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ClusterCost;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -67,11 +66,6 @@ public interface AlgorithmConfig {
   Predicate<List<MoveCost>> movementConstraint();
 
   /**
-   * @return the limit of algorithm execution time
-   */
-  Duration executionTime();
-
-  /**
    * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
    */
   Predicate<String> topicFilter();
@@ -94,7 +88,6 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
-    private Duration executionTime = Duration.ofSeconds(3);
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
     private final Map<String, String> config = new HashMap<>();
@@ -162,15 +155,6 @@ public interface AlgorithmConfig {
     }
 
     /**
-     * @param limit the execution time of searching best plan.
-     * @return this
-     */
-    public Builder limit(Duration limit) {
-      this.executionTime = limit;
-      return this;
-    }
-
-    /**
      * Specify the source of bean metrics. The default supplier return {@link ClusterBean#EMPTY}
      * only, which means any cost function that interacts with metrics won't work. To use a cost
      * function with metrics requirement, one must specify the concrete bean metric source by
@@ -217,6 +201,8 @@ public interface AlgorithmConfig {
     }
 
     public AlgorithmConfig build() {
+      Objects.requireNonNull(clusterCostFunction);
+
       return new AlgorithmConfig() {
         @Override
         public String executionId() {
@@ -241,11 +227,6 @@ public interface AlgorithmConfig {
         @Override
         public Predicate<List<MoveCost>> movementConstraint() {
           return movementConstraint;
-        }
-
-        @Override
-        public Duration executionTime() {
-          return executionTime;
         }
 
         @Override

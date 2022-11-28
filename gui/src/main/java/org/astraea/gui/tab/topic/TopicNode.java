@@ -163,7 +163,7 @@ public class TopicNode {
                 List.of(
                     TextInput.of(
                         TopicConfigs.ALL_CONFIGS, EditableText.singleLine().disable().build()))),
-            "ALERT",
+            "ALTER",
             (tables, input, logger) -> {
               var topicsToAlter =
                   tables.stream()

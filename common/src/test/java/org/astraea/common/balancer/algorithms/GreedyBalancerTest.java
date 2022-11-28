@@ -20,10 +20,10 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.FakeClusterInfo;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
@@ -54,22 +54,21 @@ class GreedyBalancerTest {
   void testJmx() {
     var cost = new DecreasingCost(Configuration.of(Map.of()));
     var id = "TestJmx-" + UUID.randomUUID();
+    var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
     var balancer =
         Balancer.create(
             GreedyBalancer.class,
             AlgorithmConfig.builder()
                 .executionId(id)
                 .clusterCost(cost)
-                .limit(Duration.ofMillis(300))
                 .config(GreedyBalancer.ITERATION_CONFIG, "100")
                 .build());
-    var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
 
     try (MBeanClient client = MBeanClient.local()) {
       IntStream.range(0, 10)
           .forEach(
               run -> {
-                var plan = balancer.offer(clusterInfo, clusterInfo.dataDirectories());
+                var plan = balancer.offer(clusterInfo, Duration.ofMillis(300));
                 Assertions.assertTrue(plan.isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(
@@ -86,34 +85,5 @@ class GreedyBalancerTest {
                 Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
               });
     }
-  }
-
-  @Test
-  void testMinLongDouble() {
-    long nan = Double.doubleToRawLongBits(Double.NaN);
-    long pInf = Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
-    long nInf = Double.doubleToRawLongBits(Double.NEGATIVE_INFINITY);
-    long one = Double.doubleToRawLongBits(1.0);
-    long two = Double.doubleToRawLongBits(2.0);
-
-    Assertions.assertEquals(nan, GreedyBalancer.minLongDouble(nan, nan));
-    Assertions.assertEquals(pInf, GreedyBalancer.minLongDouble(pInf, nan));
-    Assertions.assertEquals(pInf, GreedyBalancer.minLongDouble(nan, pInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nInf, nan));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nan, nInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nInf, pInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(pInf, nInf));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, one));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, two));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(two, one));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, nan));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(nan, one));
-    Assertions.assertEquals(two, GreedyBalancer.minLongDouble(two, nan));
-    Assertions.assertEquals(two, GreedyBalancer.minLongDouble(nan, two));
-    Assertions.assertEquals(two, GreedyBalancer.minLongDouble(two, two));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(one, nInf));
-    Assertions.assertEquals(nInf, GreedyBalancer.minLongDouble(nInf, one));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(one, pInf));
-    Assertions.assertEquals(one, GreedyBalancer.minLongDouble(pInf, one));
   }
 }

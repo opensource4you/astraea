@@ -18,6 +18,8 @@ package org.astraea.common.json;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -27,6 +29,11 @@ import com.fasterxml.jackson.databind.introspect.VisibilityChecker.Std;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.astraea.common.Utils;
 
 public interface JsonConverter {
@@ -56,6 +63,14 @@ public interface JsonConverter {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
             .visibility(new Std(JsonAutoDetect.Visibility.NONE).with(JsonAutoDetect.Visibility.ANY))
+            .withConfigOverride(
+                List.class,
+                o ->
+                    o.setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY)))
+            .withConfigOverride(
+                Map.class,
+                o ->
+                    o.setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY)))
             .serializationInclusion(Include.NON_EMPTY)
             .build();
 
@@ -67,17 +82,66 @@ public interface JsonConverter {
 
       @Override
       public <T> T fromJson(String json, TypeRef<T> typeRef) {
-        return Utils.packException(
-            () ->
-                objectMapper.readValue(
-                    json,
-                    new TypeReference<T>() { // astraea-986 diamond not work (jdk bug)
-                      @Override
-                      public Type getType() {
-                        return typeRef.getType();
-                      }
-                    }));
+        var t =
+            Utils.packException(
+                () ->
+                    objectMapper.readValue(
+                        json,
+                        new TypeReference<T>() { // astraea-986 diamond not work (jdk bug)
+                          @Override
+                          public Type getType() {
+                            return typeRef.getType();
+                          }
+                        }));
+        preventNull("$", t);
+        return t;
       }
     };
+  }
+
+  /**
+   * User Optional to handle null value.
+   *
+   * @param name use prefix to locate the error key
+   */
+  private static void preventNull(String name, Object obj) {
+    if (obj == null) throw new IllegalArgumentException(name + " can not be null");
+
+    var objClass = obj.getClass();
+
+    if (Collection.class.isAssignableFrom(objClass)) {
+      var i = 0;
+      for (var c : (Collection<?>) obj) {
+        preventNull(name + "[" + i + "]", c);
+        i++;
+      }
+      return;
+    }
+    if (Optional.class == objClass) {
+      var opt = (Optional<?>) obj;
+      opt.ifPresent(o -> preventNull(name, o));
+      return;
+    }
+    if (Map.class.isAssignableFrom(objClass)) {
+      var map = (Map<?, ?>) obj;
+      map.forEach((k, v) -> preventNull(name + "." + k, v));
+      return;
+    }
+    if (objClass.isPrimitive()
+        || objClass == Double.class
+        || objClass == Float.class
+        || objClass == Long.class
+        || objClass == Integer.class
+        || objClass == Short.class
+        || objClass == Character.class
+        || objClass == Byte.class
+        || objClass == Boolean.class
+        || objClass == String.class
+        || objClass == Object.class) {
+      return;
+    }
+    Arrays.stream(objClass.getDeclaredFields())
+        .peek(x -> x.setAccessible(true))
+        .forEach(x -> preventNull(name + "." + x.getName(), Utils.packException(() -> x.get(obj))));
   }
 }
