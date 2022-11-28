@@ -20,7 +20,7 @@ import java.time.Duration;
 import java.util.LinkedList;
 
 /** Ratio of increased/decreased value and past value. */
-public class WindowedRate implements Stat<Double, Double> {
+public class WindowedRate implements Stat<Double> {
   private Double currentValue;
 
   private final LinkedList<ValueAndTime> past = new LinkedList<>();

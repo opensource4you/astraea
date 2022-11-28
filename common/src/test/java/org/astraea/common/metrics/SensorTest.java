@@ -66,7 +66,7 @@ public class SensorTest {
     Assertions.assertEquals(1.0, (Double) metrics.get("average").measure());
   }
 
-  private Stat<Double, Integer> countRecord(AtomicInteger counter) {
+  private Stat<Double> countRecord(AtomicInteger counter) {
     return new Stat<>() {
       @Override
       public void record(Double value) {
@@ -74,8 +74,8 @@ public class SensorTest {
       }
 
       @Override
-      public Integer measure() {
-        return 0;
+      public Double measure() {
+        return 0.0;
       }
     };
   }

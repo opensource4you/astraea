@@ -16,7 +16,7 @@
  */
 package org.astraea.common.metrics.stats;
 
-public class Min<V extends Comparable<V>> implements Stat<V, V> {
+public class Min<V extends Comparable<V>> implements Stat<V> {
   private V min;
 
   public Min() {

@@ -17,13 +17,13 @@
 package org.astraea.common.metrics.stats;
 
 /** This should be thread safe */
-public interface Stat<V, S> {
+public interface Stat<V> {
   void record(V value);
 
-  S measure();
+  V measure();
 
   /** Make a readonly copy of this object. */
-  default Stat<V, S> snapshot() {
+  default Stat<V> snapshot() {
     var statistics = measure();
     return new Stat<>() {
       @Override
@@ -32,7 +32,7 @@ public interface Stat<V, S> {
       }
 
       @Override
-      public S measure() {
+      public V measure() {
         return statistics;
       }
     };

@@ -19,7 +19,7 @@ package org.astraea.common.metrics.stats;
 import java.time.Duration;
 
 /** Calculate the difference of the latest two ranged data. */
-public class RateByTime implements Stat<Double, Double> {
+public class RateByTime implements Stat<Double> {
 
   private final double[] oldValue = new double[2];
 

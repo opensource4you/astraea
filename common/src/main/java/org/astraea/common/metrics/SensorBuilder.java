@@ -22,14 +22,14 @@ import java.util.stream.Collectors;
 import org.astraea.common.metrics.stats.Stat;
 
 public class SensorBuilder<V> {
-  private final HashMap<String, Stat<V, ?>> stats = new HashMap<>();
+  private final HashMap<String, Stat<V>> stats = new HashMap<>();
 
-  public SensorBuilder<V> addStat(String name, Stat<V, ?> stat) {
+  public SensorBuilder<V> addStat(String name, Stat<V> stat) {
     stats.put(name, stat);
     return this;
   }
 
-  public SensorBuilder<V> addStats(Map<String, Stat<V, ?>> stats) {
+  public SensorBuilder<V> addStats(Map<String, Stat<V>> stats) {
     this.stats.putAll(stats);
     return this;
   }
@@ -43,12 +43,12 @@ public class SensorBuilder<V> {
       }
 
       @Override
-      public Stat<V, ?> measure(String metricName) {
+      public Stat<V> measure(String metricName) {
         return stats.get(metricName);
       }
 
       @Override
-      public synchronized Map<String, Stat<V, ?>> metrics() {
+      public synchronized Map<String, Stat<V>> metrics() {
         return stats.entrySet().stream()
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().snapshot()));
       }

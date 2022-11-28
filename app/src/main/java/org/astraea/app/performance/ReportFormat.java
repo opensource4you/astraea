@@ -211,12 +211,11 @@ public enum ReportFormat implements EnumInfo {
                   CSVContentElement.create(
                       "Consumer[" + i + "] partition difference",
                       () ->
-                          Integer.toString(
-                              (int)
-                                  ConsumerThread.CLIENT_ID_PARTITION_SENSOR
-                                      .get(consumerReports.get(i).clientId())
-                                      .measure("windowed rate")
-                                      .measure())));
+                          ConsumerThread.CLIENT_ID_PARTITION_SENSOR
+                              .get(consumerReports.get(i).clientId())
+                              .measure("windowed rate")
+                              .measure()
+                              .toString()));
             });
     return elements;
   }
