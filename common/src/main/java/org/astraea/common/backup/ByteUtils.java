@@ -62,7 +62,7 @@ public final class ByteUtils {
     };
   }
 
-  public static byte[] toBytes(Double value) {
+  public static byte[] toBytes(double value) {
     long longBits = Double.doubleToLongBits(value);
     return new byte[] {
       (byte) (longBits >> 56),
@@ -76,7 +76,7 @@ public final class ByteUtils {
     };
   }
 
-  public static byte[] toBytes(Boolean value) {
+  public static byte[] toBytes(boolean value) {
     if (value) return new byte[] {1};
     return new byte[] {0};
   }
