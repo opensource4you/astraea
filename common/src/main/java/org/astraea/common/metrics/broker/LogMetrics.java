@@ -27,6 +27,7 @@ import org.astraea.common.metrics.MBeanClient;
 
 public final class LogMetrics {
   public static final String DOMAIN_NAME = "kafka.log";
+  public static final String LOG_TYPE = "log";
 
   public enum LogCleanerManager implements EnumInfo {
     UNCLEANABLE_BYTES("uncleanable-bytes"),
@@ -142,7 +143,7 @@ public final class LogMetrics {
           .queryBeans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
-                  .property("type", "Log")
+                  .property("type", LOG_TYPE)
                   .property("topic", "*")
                   .property("partition", "*")
                   .property("name", metricName)

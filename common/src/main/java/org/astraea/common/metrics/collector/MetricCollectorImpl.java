@@ -49,7 +49,6 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.LogMetrics;
-import org.astraea.common.metrics.broker.ServerMetrics;
 
 public class MetricCollectorImpl implements MetricCollector {
 
@@ -172,26 +171,22 @@ public class MetricCollectorImpl implements MetricCollector {
         (metric) -> {
           var metricName = metric.beanObject().properties().get("name");
           if (metricName != null && sensors.containsKey(metricName))
-            switch (metric.beanObject().domainName()) {
-              case LogMetrics.DOMAIN_NAME:
-                sensors
-                    .get(metricName)
-                    .get(
-                        TopicPartitionReplica.of(
-                            metric.beanObject().properties().get("topic"),
-                            Integer.parseInt(metric.beanObject().properties().get("partition")),
-                            identity))
-                    .record(
-                        Double.valueOf(metric.beanObject().attributes().get("Value").toString()));
-                break;
-              case ServerMetrics.DOMAIN_NAME:
-                sensors
-                    .get(metricName)
-                    .get(identity)
-                    .record(
-                        Double.valueOf(metric.beanObject().attributes().get("Value").toString()));
-                break;
-            }
+            if (metric.beanObject().domainName().equals(LogMetrics.DOMAIN_NAME)
+                && metric.beanObject().properties().get("type").equals(LogMetrics.LOG_TYPE))
+              sensors
+                  .get(metricName)
+                  .get(
+                      TopicPartitionReplica.of(
+                          metric.beanObject().properties().get("topic"),
+                          Integer.parseInt(metric.beanObject().properties().get("partition")),
+                          identity))
+                  .record(Double.valueOf(metric.beanObject().attributes().get("Value").toString()));
+            else
+              sensors
+                  .get(metricName)
+                  .get(identity)
+                  .record(Double.valueOf(metric.beanObject().attributes().get("Value").toString()));
+
           storages
               .computeIfAbsent(
                   metric.getClass(), (ignore) -> new MetricStorage<>(metric.getClass()))
