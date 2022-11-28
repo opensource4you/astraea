@@ -13,6 +13,9 @@
 2. End-to-End latency : 一筆record從producer端到consumer端的時間
 3. Consume rate : consumer拉取資料的速率(MB/s)
 4. Produce rate : producer送資料的速率(MB/s)
+5. Produce record error rate : 發送資料時錯誤的頻率
+6. rebalance latency : consumer group 平衡所花的時間
+7. consumer assigned partitions : consumer 被 assigned partition 數量、數量差
 
 #### Performance Benchmark Configurations
 
@@ -52,12 +55,12 @@
 使用`docker`執行`performance benchmark`
 
 ```bash 
-docker/start_app.sh performance --bootstrap.servers localhost:9092
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic
 ```
 
 (localhost, 9092 替換成自己Kafka server 的 ip 和 port)
 
-![performance_tool_demo](pictures/performance_tool_demo.jpg)
+![performance_tool_demo](pictures/performance_tool_demo.png)
 
 `performance benchmark`可以指定各種參數如資料大小、分佈、執行時間... 等等。全部參數可以參考上述表格。
 
@@ -65,26 +68,26 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092
 
 ```bash
 # 開啟 1 個 producer 打 25 分鐘資料， 1 個 consumer 消費資料
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --run.until 25m
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --run.until 25m
 ```
 
 ```bash
 # 開啟 1 個 producer ，打 10000 筆資料 且 沒有consumer
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --run.until 10000records --consumers 0
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --run.until 10000records --consumers 0
 ```
 
 ```bash
 # 打50秒資料、每筆大小10KiB、固定大小、使用4個producer threads、10個consumer threads，指定topic名稱，producer送資料前使用 lz4 壓縮演算法
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --value.size 10KiB --value.distribution fixed --run.until 50s --producers 4 --consumers 10 --topic partition60Replica1 --compression lz4
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --value.size 10KiB --value.distribution fixed --run.until 50s --producers 4 --consumers 10 --topics MyTopic --configs compression.type=lz4
 ```
 
 ```bash
 # 使用astraea的 partitioner ，傳入config檔案路徑，裡面可以放 partitioner 所需的參數，如jmx port等
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.app.partitioner.smooth.SmoothWeightRoundRobinDispatcher --prop.file ./config
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --prop.file ./config
 ```
 
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
 
