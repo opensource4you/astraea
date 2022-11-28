@@ -49,6 +49,11 @@ public class JvmMemory implements HasJvmMemory {
   }
 
   @Override
+  public String metricName() {
+    return beanObject().properties().get("name");
+  }
+
+  @Override
   public String toString() {
     StringBuilder sb =
         new StringBuilder()

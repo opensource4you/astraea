@@ -69,6 +69,11 @@ public final class ServerMetrics {
                   public BeanObject beanObject() {
                     return obj;
                   }
+
+                  @Override
+                  public String metricName() {
+                    return beanObject().properties().get("name");
+                  }
                 })
         .collect(Collectors.toList());
   }
@@ -134,6 +139,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
     }
   }
@@ -204,6 +214,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
     }
   }
@@ -280,6 +295,11 @@ public final class ServerMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
+      }
     }
   }
 
@@ -345,6 +365,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
     }
   }
@@ -422,6 +447,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
     }
   }
@@ -548,6 +578,11 @@ public final class ServerMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
+      }
     }
   }
 
@@ -618,6 +653,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
     }
   }
@@ -698,6 +738,11 @@ public final class ServerMetrics {
         return beanObject;
       }
 
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
+      }
+
       public double memoryPoolDepletedTimeTotal() {
         return (double) beanObject().attributes().get(MEMORY_POOL_DEPLETED_TIME_TOTAL);
       }
@@ -728,6 +773,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
 
       public String listener() {
@@ -803,6 +853,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
 
       public String listener() {
@@ -983,6 +1038,11 @@ public final class ServerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
 
       public String listener() {

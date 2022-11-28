@@ -19,6 +19,11 @@ package org.astraea.common.metrics;
 public interface HasBeanObject {
   BeanObject beanObject();
 
+  default String metricName() {
+    return beanObject().properties().getOrDefault("name", "unknown");
+  }
+  ;
+
   default long createdTimestamp() {
     return beanObject().createdTimestamp();
   }

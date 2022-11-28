@@ -149,6 +149,11 @@ public class NetworkMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
+      }
     }
   }
 

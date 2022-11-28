@@ -32,6 +32,11 @@ public class OperatingSystemInfo implements HasOperatingSystemInfo {
   }
 
   @Override
+  public String metricName() {
+    return beanObject().properties().get("name");
+  }
+
+  @Override
   public String toString() {
     return beanObject().toString();
   }

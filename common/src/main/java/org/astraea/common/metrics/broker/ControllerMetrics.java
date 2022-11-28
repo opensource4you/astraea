@@ -97,6 +97,11 @@ public class ControllerMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
+      }
     }
   }
 
@@ -185,6 +190,11 @@ public class ControllerMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
+      }
     }
 
     public static class Meter implements HasMeter {
@@ -197,6 +207,11 @@ public class ControllerMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
+      }
+
+      @Override
+      public String metricName() {
+        return beanObject().properties().get("name");
       }
     }
   }
