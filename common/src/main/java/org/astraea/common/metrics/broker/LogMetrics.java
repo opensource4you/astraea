@@ -95,11 +95,6 @@ public final class LogMetrics {
       public BeanObject beanObject() {
         return beanObject;
       }
-
-      @Override
-      public String metricName() {
-        return beanObject().properties().get("name");
-      }
     }
   }
 
@@ -182,11 +177,6 @@ public final class LogMetrics {
       @Override
       public BeanObject beanObject() {
         return beanObject;
-      }
-
-      @Override
-      public String metricName() {
-        return beanObject().properties().get("name");
       }
     }
   }

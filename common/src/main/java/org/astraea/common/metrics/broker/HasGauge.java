@@ -28,17 +28,7 @@ import org.astraea.common.metrics.HasBeanObject;
 public interface HasGauge<T> extends HasBeanObject {
 
   static HasGauge<Long> ofLong(BeanObject beanObject) {
-    return new HasGauge<Long>() {
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
-
-      @Override
-      public String metricName() {
-        return beanObject().properties().get("name");
-      }
-    };
+    return () -> beanObject;
   }
 
   @SuppressWarnings("unchecked")
