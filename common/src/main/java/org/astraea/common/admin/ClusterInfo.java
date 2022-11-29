@@ -222,22 +222,38 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /**
    * build a cluster info based on replicas. Noted that the node info are collected by the replicas.
    *
-   * <p>Be aware that this class describes <strong>the replica lists of a subset of
-   * topic/partitions</strong>. It doesn't require the topic/partition part to have cluster-wide
-   * complete information. But the replica list has to be complete. Provide a partial replica list
-   * might result in data loss or unintended replica drop during rebalance plan proposing &
-   * execution.
+   * <p>Be aware that the <code>replicas</code> parameter describes <strong>the replica lists of a
+   * subset of topic/partitions</strong>. It doesn't require the topic/partition part to have
+   * cluster-wide complete information. But the replica list has to be complete. Provide a partial
+   * replica list might result in data loss or unintended replica drop during rebalance plan
+   * proposing & execution.
    *
    * @param replicas used to build cluster info
    * @return cluster info
    * @param <T> ReplicaInfo or Replica
    */
   static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+    // TODO: this method is not suitable for production use. Move it to the test scope.
+    //  see https://github.com/skiptests/astraea/issues/1185
     return of(
         replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableSet()),
         replicas);
   }
 
+  /**
+   * build a cluster info based on replicas.
+   *
+   * <p>Be aware that this the <code>replicas</code>parameter describes <strong>the replica lists of
+   * a subset of topic/partitions</strong>. It doesn't require the topic/partition part to have
+   * cluster-wide complete information. But the replica list has to be complete. Provide a partial
+   * replica list might result in data loss or unintended replica drop during rebalance plan
+   * proposing & execution.
+   *
+   * @param nodes the node information of the cluster info
+   * @param replicas used to build cluster info
+   * @return cluster info
+   * @param <T> ReplicaInfo or Replica
+   */
   static <T extends ReplicaInfo> ClusterInfo<T> of(Set<NodeInfo> nodes, List<T> replicas) {
     return new Optimized<>(nodes, replicas);
   }
