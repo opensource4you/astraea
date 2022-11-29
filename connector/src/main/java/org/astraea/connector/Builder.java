@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -26,15 +26,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ThreadLocalRandom;
-import org.astraea.common.connector.WorkerResponseException.WorkerError;
 import org.astraea.common.http.HttpExecutor;
+import org.astraea.common.http.HttpRequestException;
 import org.astraea.common.http.Response;
-import org.astraea.common.http.StringResponseException;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.JsonSerializationException;
 import org.astraea.common.json.TypeRef;
+import org.astraea.connector.WorkerResponseException.WorkerError;
 
 public class Builder {
 
+  private static final String KEY_CONNECTORS = "/connectors";
   private List<URL> urls = List.of();
   private HttpExecutor builderHttpExecutor;
 
@@ -75,14 +77,14 @@ public class Builder {
       @Override
       public CompletionStage<Set<String>> connectorNames() {
         return httpExecutor
-            .get(getURL("/connectors"), TypeRef.set(String.class))
+            .get(getURL(KEY_CONNECTORS), TypeRef.set(String.class))
             .handle(this::getBody);
       }
 
       @Override
       public CompletionStage<ConnectorInfo> connector(String name) {
         return httpExecutor
-            .get(getURL("/connectors/" + name), TypeRef.of(ConnectorInfo.class))
+            .get(getURL(KEY_CONNECTORS + "/" + name), TypeRef.of(ConnectorInfo.class))
             .handle(this::getBody);
       }
 
@@ -91,7 +93,7 @@ public class Builder {
           String name, Map<String, String> config) {
         var connectorReq = new ConnectorReq(name, config);
         return httpExecutor
-            .post(getURL("/connectors"), connectorReq, TypeRef.of(ConnectorInfo.class))
+            .post(getURL(KEY_CONNECTORS), connectorReq, TypeRef.of(ConnectorInfo.class))
             .handle(this::getBody);
       }
 
@@ -99,13 +101,16 @@ public class Builder {
       public CompletionStage<ConnectorInfo> updateConnector(
           String name, Map<String, String> config) {
         return httpExecutor
-            .put(getURL("/connectors/" + name + "/config"), config, TypeRef.of(ConnectorInfo.class))
+            .put(
+                getURL(KEY_CONNECTORS + "/" + name + "/config"),
+                config,
+                TypeRef.of(ConnectorInfo.class))
             .handle(this::getBody);
       }
 
       @Override
       public CompletionStage<Void> deleteConnector(String name) {
-        return httpExecutor.delete(getURL("/connectors/" + name)).handle(this::getBody);
+        return httpExecutor.delete(getURL(KEY_CONNECTORS + "/" + name)).handle(this::getBody);
       }
 
       @Override
@@ -120,33 +125,33 @@ public class Builder {
           var index = ThreadLocalRandom.current().nextInt(0, urls.size());
           return urls.get(index).toURI().resolve(path).toString();
         } catch (URISyntaxException e) {
-          throw new RuntimeException(e);
+          throw new IllegalArgumentException(e);
         }
       }
 
       private <R> R getBody(Response<R> response, Throwable e) {
         if (Objects.nonNull(e)
-            && (e instanceof StringResponseException
-                || e.getCause() instanceof StringResponseException)) {
-          var stringResponseException = (StringResponseException) e.getCause();
+            && (e instanceof HttpRequestException
+                || e.getCause() instanceof HttpRequestException)) {
+          var httpRequestException = (HttpRequestException) e.getCause();
           throw new WorkerResponseException(
-              stringResponseException, getWorkerError(stringResponseException));
+              httpRequestException, getWorkerError(httpRequestException));
         } else {
           return response.body();
         }
       }
 
-      private WorkerError getWorkerError(StringResponseException stringResponseException) {
-        if (Objects.nonNull(stringResponseException.body())) {
+      private WorkerError getWorkerError(HttpRequestException httpRequestException) {
+        if (Objects.nonNull(httpRequestException.getMessage())) {
           try {
             return JsonConverter.defaultConverter()
-                .fromJson(stringResponseException.body(), TypeRef.of(WorkerError.class));
-          } catch (Exception e) {
+                .fromJson(httpRequestException.getMessage(), TypeRef.of(WorkerError.class));
+          } catch (JsonSerializationException e) {
             return new WorkerError(
-                stringResponseException.statusCode(), "Json error message can't be converted.");
+                httpRequestException.code(), "Json error message can't be converted.");
           }
         } else {
-          return new WorkerError(stringResponseException.statusCode(), "Unspecified error");
+          return new WorkerError(httpRequestException.code(), "Unspecified error");
         }
       }
     };

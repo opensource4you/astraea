@@ -14,19 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
-public class TaskInfo {
-  private String connector;
-  private int task;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
-  public TaskInfo() {}
+public class WorkerInfo {
+  private String version;
+  private String commit;
 
-  public String connector() {
-    return connector;
+  @JsonAlias("kafka_cluster_id")
+  private String kafkaClusterId;
+
+  public WorkerInfo() {}
+
+  public String version() {
+    return version;
   }
 
-  public int task() {
-    return task;
+  public String commit() {
+    return commit;
+  }
+
+  public String kafkaClusterId() {
+    return kafkaClusterId;
+  }
+
+  @Override
+  public String toString() {
+    return "WorkerInfo{"
+        + "version='"
+        + version
+        + '\''
+        + ", commit='"
+        + commit
+        + '\''
+        + ", kafkaClusterId='"
+        + kafkaClusterId
+        + '\''
+        + '}';
   }
 }

@@ -14,36 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletionStage;
 
-/**
- * The kafka connect client
- *
- * @see <a
- *     href="https://docs.confluent.io/platform/current/connect/references/restapi.html">Connector
- *     Document</a>
- */
-public interface ConnectorClient {
+public class ConnectorReq {
+  private final String name;
+  private final Map<String, String> config;
 
-  static Builder builder() {
-    return new Builder();
+  public ConnectorReq(String name, Map<String, String> config) {
+    this.name = name;
+    this.config = config;
   }
 
-  CompletionStage<WorkerInfo> info();
+  public String name() {
+    return name;
+  }
 
-  CompletionStage<Set<String>> connectorNames();
-
-  CompletionStage<ConnectorInfo> connector(String name);
-
-  CompletionStage<ConnectorInfo> createConnector(String name, Map<String, String> config);
-
-  CompletionStage<ConnectorInfo> updateConnector(String name, Map<String, String> config);
-
-  CompletionStage<Void> deleteConnector(String name);
-
-  CompletionStage<Set<PluginInfo>> plugins();
+  public Map<String, String> config() {
+    return config;
+  }
 }

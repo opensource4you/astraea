@@ -14,27 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class ConnectorInfo {
-  private String name;
-  private Map<String, String> config;
-  private List<TaskInfo> tasks;
+public class PluginInfo {
 
-  public ConnectorInfo() {}
+  /** connector plugin class name */
+  @JsonProperty("class")
+  private String clz;
 
-  public String name() {
-    return name;
-  }
+  public PluginInfo() {}
 
-  public Map<String, String> config() {
-    return config;
-  }
-
-  public List<TaskInfo> tasks() {
-    return tasks;
+  public String clz() {
+    return clz;
   }
 }

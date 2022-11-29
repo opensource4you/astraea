@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class WorkerResponseException extends RuntimeException {
 
@@ -22,12 +24,12 @@ public class WorkerResponseException extends RuntimeException {
 
   public WorkerResponseException(Throwable cause, WorkerError workerError) {
     super(
-        String.format("Error code %s, %s", workerError.error_code(), workerError.message()), cause);
+        String.format("Error code %s, %s", workerError.errorCode(), workerError.message()), cause);
     this.workerError = workerError;
   }
 
   public int errorCode() {
-    return workerError.error_code();
+    return workerError.errorCode();
   }
 
   public String message() {
@@ -37,18 +39,20 @@ public class WorkerResponseException extends RuntimeException {
   /** worker error response object */
   public static class WorkerError {
 
-    private int error_code;
+    @JsonAlias("error_code")
+    private int errorCode;
+
     private String message;
 
     public WorkerError() {}
 
-    public WorkerError(int error_code, String message) {
-      this.error_code = error_code;
+    public WorkerError(int errorCode, String message) {
+      this.errorCode = errorCode;
       this.message = message;
     }
 
-    public int error_code() {
-      return error_code;
+    public int errorCode() {
+      return errorCode;
     }
 
     public String message() {

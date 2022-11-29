@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,19 +22,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.connector.impl.TestTextSourceConnector;
-import org.astraea.common.http.HttpTestUtil;
+import org.astraea.connector.impl.TestTextSourceConnector;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Test;
 
@@ -103,7 +105,6 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals("3", config.get("tasks.max"));
     assertEquals("myTopic", config.get("topics"));
     assertEquals(TestTextSourceConnector.class.getName(), config.get("connector.class"));
-
     Utils.waitNoException(
         () -> {
           var connectorInfo = connectorClient.connector(connectorName).toCompletableFuture().get();
@@ -206,12 +207,12 @@ class ConnectorClientTest extends RequireWorkerCluster {
   void testUrlsRoundRobin() {
     var servers =
         IntStream.range(0, 3)
-            .mapToObj(x -> mockConnectorsApiServer("S" + x))
+            .mapToObj(x -> new Server(200, "[\"connector" + x + "\"]"))
             .collect(Collectors.toList());
     try {
       var urls =
           servers.stream()
-              .map(x -> "http://" + Utils.hostname() + ":" + x.getAddress().getPort())
+              .map(x -> "http://" + Utils.hostname() + ":" + x.port())
               .map(x -> Utils.packException(() -> new URL(x)))
               .collect(Collectors.toSet());
 
@@ -226,21 +227,40 @@ class ConnectorClientTest extends RequireWorkerCluster {
               .flatMap(Collection::stream)
               .collect(Collectors.toSet());
 
-      assertEquals(Set.of("S0", "S1", "S2"), allFoundConnectorNames);
+      assertEquals(Set.of("connector0", "connector1", "connector2"), allFoundConnectorNames);
     } finally {
-      servers.forEach(x -> x.stop(5));
+      servers.forEach(Server::close);
     }
   }
 
-  private HttpServer mockConnectorsApiServer(String connectorName) {
-    return Utils.packException(
-        () ->
-            HttpTestUtil.createServer(
-                x ->
-                    x.createContext(
-                        "/connectors",
-                        HttpTestUtil.createTextHandler(
-                            List.of("GET"), "[\"" + connectorName + "\"]"))));
+  private static class Server implements AutoCloseable {
+    private final HttpServer server;
+
+    private Server(int respCode, String respBody) {
+      try {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.start();
+        server.createContext(
+            "/",
+            exchange -> {
+              exchange.sendResponseHeaders(respCode, respBody == null ? 0 : respBody.length());
+              try (var output = exchange.getResponseBody()) {
+                if (respBody != null) output.write(respBody.getBytes(StandardCharsets.UTF_8));
+              }
+            });
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+
+    private int port() {
+      return server.getAddress().getPort();
+    }
+
+    @Override
+    public void close() {
+      server.stop(5);
+    }
   }
 
   private WorkerResponseException getWorkerException(ExecutionException executionException) {

@@ -14,35 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector.impl;
+package org.astraea.connector.impl;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import org.apache.kafka.connect.source.SourceRecord;
-import org.apache.kafka.connect.source.SourceTask;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.source.SourceConnector;
 
-public class TestTextSourceTask extends SourceTask {
-
-  private String topics;
+public class TestTextSourceConnector extends SourceConnector {
 
   @Override
-  public void start(Map<String, String> props) {
-    topics = props.get("topics");
+  public void start(Map<String, String> props) {}
+
+  @Override
+  public Class<? extends Task> taskClass() {
+    return TestTextSourceTask.class;
   }
 
   @Override
-  public List<SourceRecord> poll() throws InterruptedException {
-    var jsonValue = "{\"testKey\":\"testValue\"}";
-    var sourceRecord =
-        new SourceRecord(
-            Map.of(), Map.of(), topics, null, jsonValue.getBytes(StandardCharsets.UTF_8));
-    Thread.sleep(5000);
-    return List.of(sourceRecord);
+  public List<Map<String, String>> taskConfigs(int maxTasks) {
+    return IntStream.range(0, maxTasks)
+        .mapToObj(x -> Map.<String, String>of())
+        .collect(Collectors.toList());
   }
 
   @Override
   public void stop() {}
+
+  @Override
+  public ConfigDef config() {
+    return new ConfigDef();
+  }
 
   @Override
   public String version() {
