@@ -20,7 +20,7 @@ public interface HasBeanObject {
   BeanObject beanObject();
 
   default String metricName() {
-    return beanObject().properties().getOrDefault("name", "unknown");
+    return beanObject().properties().get("name");
   }
 
   default long createdTimestamp() {
