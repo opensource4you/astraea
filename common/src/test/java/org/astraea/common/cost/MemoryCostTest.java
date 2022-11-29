@@ -63,12 +63,12 @@ public class MemoryCostTest {
 
       Assertions.assertFalse(collector.listFetchers().isEmpty());
       Assertions.assertFalse(collector.listIdentities().isEmpty());
-      Assertions.assertTrue(
-          collector.metrics(JvmMemory.class, 0, 0).stream().allMatch(Objects::nonNull));
+      Assertions.assertTrue(collector.metrics(JvmMemory.class).allMatch(Objects::nonNull));
 
       // Test if we can get "used memory" and "max memory".
       Assertions.assertTrue(
-          collector.metrics(JvmMemory.class, 0, 0).stream()
+          collector
+              .metrics(JvmMemory.class)
               .allMatch(mem -> mem.heapMemoryUsage().getUsed() <= mem.heapMemoryUsage().getMax()));
     }
   }
