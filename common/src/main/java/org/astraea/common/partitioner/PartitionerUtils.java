@@ -69,7 +69,12 @@ public class PartitionerUtils {
   public static Properties partitionerConfig(Map<String, ?> configs) {
     var properties = new Properties();
     try {
-      properties.load(new FileInputStream((String) configs.get("partitioner.config")));
+      var partitionerConfig = (String) configs.get("partitioner.config");
+      if (partitionerConfig == null) {
+        throw new IllegalArgumentException(
+            "This Partitioner requires \"partitioner.config\" being set.");
+      }
+      properties.load(new FileInputStream(partitionerConfig));
     } catch (IOException e) {
       e.printStackTrace();
     }
