@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
-import org.astraea.common.cost.Configuration;
+import org.astraea.common.Configuration;
 
 /** do poisson for node's load situation */
 public class PartitionerUtils {
@@ -69,7 +69,12 @@ public class PartitionerUtils {
   public static Properties partitionerConfig(Map<String, ?> configs) {
     var properties = new Properties();
     try {
-      properties.load(new FileInputStream((String) configs.get("partitioner.config")));
+      var partitionerConfig = (String) configs.get("partitioner.config");
+      if (partitionerConfig == null) {
+        throw new IllegalArgumentException(
+            "This Partitioner requires \"partitioner.config\" being set.");
+      }
+      properties.load(new FileInputStream(partitionerConfig));
     } catch (IOException e) {
       e.printStackTrace();
     }

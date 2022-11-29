@@ -22,6 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,9 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
 
       try (var producer = Producer.of(bootstrapServers())) {
         IntStream.range(0, 100)
-            .forEach(ignored -> producer.sender().topic(topicName).key(new byte[10]).run());
+            .forEach(
+                ignored ->
+                    producer.send(Record.builder().topic(topicName).key(new byte[10]).build()));
       }
 
       var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
@@ -54,18 +57,19 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
               tp ->
                   tp.equals(TopicPartition.of(topicName, 0))
                       ? Set.of(
-                          Replica.of(
-                              topicName,
-                              0,
-                              NodeInfo.of(newBrokerId, "", -1),
-                              0,
-                              randomSizeValue,
-                              true,
-                              true,
-                              false,
-                              false,
-                              true,
-                              replica.path()))
+                          Replica.builder()
+                              .topic(topicName)
+                              .partition(0)
+                              .nodeInfo(NodeInfo.of(newBrokerId, "", -1))
+                              .lag(0)
+                              .size(randomSizeValue)
+                              .isLeader(true)
+                              .inSync(true)
+                              .isFuture(false)
+                              .isOffline(false)
+                              .isPreferredLeader(true)
+                              .path(replica.path())
+                              .build())
                       : Set.of());
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());

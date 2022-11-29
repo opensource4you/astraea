@@ -39,8 +39,9 @@ curl -X POST http://localhost:8001/topics \
     -H "Content-Type: application/json" \
     -d '{"topics":[{
     "name": "test1",
-    "max.message.bytes": 1000
-    }]}'
+    "configs": {
+      "max.message.bytes": 1000
+    }}]}'
 ```
 
 JSON Response 範例

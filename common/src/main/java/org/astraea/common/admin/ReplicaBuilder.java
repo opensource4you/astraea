@@ -255,6 +255,24 @@ public class ReplicaBuilder {
     }
 
     @Override
+    public String toString() {
+      return "Replica{"
+          + "topic='"
+          + topic()
+          + '\''
+          + ", partition="
+          + partition()
+          + ", broker="
+          + nodeInfo()
+          + ", path='"
+          + path()
+          + '\''
+          + ", "
+          + (isOffline() ? "offline" : isLeader() ? "leader" : "follower")
+          + '}';
+    }
+
+    @Override
     public int hashCode() {
       return Objects.hash(
           topic,

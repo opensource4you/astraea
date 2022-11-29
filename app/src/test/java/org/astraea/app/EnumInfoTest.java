@@ -16,17 +16,11 @@
  */
 package org.astraea.app;
 
-import java.io.File;
-import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.astraea.common.EnumInfo;
-import org.astraea.common.Utils;
+import org.astraea.web.TestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -101,13 +95,13 @@ class EnumInfoTest {
 
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-      return getProductionClass().stream().filter(Class::isEnum).map(Arguments::of);
+      return TestUtils.getProductionClass().stream().filter(Class::isEnum).map(Arguments::of);
     }
   }
 
   @Test
   void testProductionClass() {
-    var productionClasses = getProductionClass();
+    var productionClasses = TestUtils.getProductionClass();
     Assertions.assertTrue(productionClasses.size() > 100);
     Assertions.assertTrue(
         productionClasses.stream().allMatch(x -> x.getPackageName().startsWith("org.astraea")));
@@ -121,37 +115,5 @@ class EnumInfoTest {
     var enumCls = enumClassProvider.provideArguments(null).collect(Collectors.toList());
     Assertions.assertTrue(enumCls.size() > 0);
     Assertions.assertTrue(enumCls.stream().map(x -> (Class<?>) x.get()[0]).allMatch(Class::isEnum));
-  }
-
-  private static List<Class<?>> getProductionClass() {
-    var pkg = "org/astraea";
-    System.out.println(EnumInfoTest.class.getClassLoader());
-    var mainDir =
-        Collections.list(
-                Utils.packException(() -> EnumInfoTest.class.getClassLoader().getResources(pkg)))
-            .stream()
-            .peek(x -> System.out.println(x.toExternalForm()))
-            .filter(x -> x.toExternalForm().contains("main/" + pkg))
-            .findFirst()
-            .map(x -> Utils.packException(() -> Path.of(x.toURI())))
-            .map(x -> x.resolve("../../").normalize())
-            .orElseThrow();
-
-    var dirFiles =
-        FileUtils.listFiles(mainDir.toFile(), new String[] {"class"}, true).stream()
-            .map(File::toPath)
-            .map(mainDir::relativize)
-            .collect(Collectors.toList());
-
-    var classNames =
-        dirFiles.stream()
-            .map(Path::toString)
-            .map(FilenameUtils::removeExtension)
-            .map(x -> x.replace(File.separatorChar, '.'))
-            .collect(Collectors.toList());
-
-    return classNames.stream()
-        .map(x -> Utils.packException(() -> Class.forName(x)))
-        .collect(Collectors.toList());
   }
 }

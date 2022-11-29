@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,10 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var handler = new ProducerHandler(admin);
-      producer.sender().topic(topicName).value(new byte[1]).run().toCompletableFuture().join();
+      producer
+          .send(Record.builder().topic(topicName).value(new byte[1]).build())
+          .toCompletableFuture()
+          .join();
 
       var result =
           Assertions.assertInstanceOf(
@@ -62,19 +66,11 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new ProducerHandler(admin);
       producer
-          .sender()
-          .topic(topicName)
-          .partition(0)
-          .value(new byte[1])
-          .run()
+          .send(Record.builder().topic(topicName).partition(0).value(new byte[1]).build())
           .toCompletableFuture()
           .join();
       producer
-          .sender()
-          .topic(topicName)
-          .partition(1)
-          .value(new byte[1])
-          .run()
+          .send(Record.builder().topic(topicName).partition(1).value(new byte[1]).build())
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));

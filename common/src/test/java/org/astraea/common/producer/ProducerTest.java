@@ -24,11 +24,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.consumer.Header;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Named;
@@ -37,7 +37,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mockito;
 
 public class ProducerTest extends RequireBrokerCluster {
 
@@ -55,12 +54,13 @@ public class ProducerTest extends RequireBrokerCluster {
       Assertions.assertFalse(producer.transactional());
       var metadata =
           producer
-              .sender()
-              .topic(topicName)
-              .key(key)
-              .timestamp(timestamp)
-              .headers(List.of(header))
-              .run()
+              .send(
+                  Record.builder()
+                      .topic(topicName)
+                      .key(key)
+                      .timestamp(timestamp)
+                      .headers(List.of(header))
+                      .build())
               .toCompletableFuture()
               .join();
       Assertions.assertEquals(topicName, metadata.topic());
@@ -99,15 +99,15 @@ public class ProducerTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .buildTransactional()) {
       Assertions.assertTrue(producer.transactional());
-      var senders = new ArrayList<Sender<String, byte[]>>(3);
+      var senders = new ArrayList<Record<String, byte[]>>(3);
       while (senders.size() < 3) {
         senders.add(
-            producer
-                .sender()
+            Record.builder()
                 .topic(topicName)
                 .key(key)
                 .timestamp(timestamp)
-                .headers(List.of(header)));
+                .headers(List.of(header))
+                .build());
       }
       producer.send(senders);
     }
@@ -127,23 +127,15 @@ public class ProducerTest extends RequireBrokerCluster {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  @Test
-  void testInvalidSender() {
-    try (var producer =
-        Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
-      Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> producer.send(List.of((Sender<byte[], byte[]>) Mockito.mock(Sender.class))));
-    }
-  }
-
   @ParameterizedTest
   @MethodSource("offerProducers")
   void testSingleSend(Producer<byte[], byte[]> producer) {
     var topic = Utils.randomString(10);
 
-    producer.sender().topic(topic).value(new byte[10]).run().toCompletableFuture().join();
+    producer
+        .send(Record.builder().topic(topic).value(new byte[10]).build())
+        .toCompletableFuture()
+        .join();
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
@@ -170,7 +162,7 @@ public class ProducerTest extends RequireBrokerCluster {
     producer
         .send(
             IntStream.range(0, count)
-                .mapToObj(i -> producer.sender().topic(topic).value(new byte[10]))
+                .mapToObj(i -> Record.builder().topic(topic).value(new byte[10]).build())
                 .collect(Collectors.toUnmodifiableList()))
         .forEach(f -> f.whenComplete((m, e) -> latch.countDown()));
 
@@ -244,10 +236,7 @@ public class ProducerTest extends RequireBrokerCluster {
             .config(ProducerConfigs.COMPRESSION_TYPE_NONE, compression)
             .build()) {
       producer
-          .sender()
-          .topic(Utils.randomString())
-          .key(new byte[10])
-          .run()
+          .send(Record.builder().topic(Utils.randomString()).key(new byte[10]).build())
           .toCompletableFuture()
           .join();
     }

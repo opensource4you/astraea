@@ -20,11 +20,17 @@ import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
@@ -109,6 +115,57 @@ public abstract class Builder<Key, Value> {
    */
   public abstract Consumer<Key, Value> build();
 
+  /**
+   * build a record stream by invoking a background running thread. The thread will close the
+   * consumer when closeFlag returns true;
+   *
+   * @param limits to control the size of returned iterator
+   * @return stream with records
+   */
+  public Iterator<Record<Key, Value>> iterator(List<IteratorLimit<Key, Value>> limits) {
+    var queue = new LinkedBlockingQueue<Optional<Record<Key, Value>>>();
+    var exception = new AtomicReference<RuntimeException>();
+    CompletableFuture.runAsync(
+        () -> {
+          try (var consumer = build()) {
+            while (true) {
+              var records = consumer.poll(Duration.ofSeconds(2));
+              for (var r : records) queue.add(Optional.of(r));
+              if (limits.stream().anyMatch(l -> l.done(records))) return;
+            }
+          } catch (RuntimeException e) {
+            exception.set(e);
+          } finally {
+            queue.add(Optional.empty());
+          }
+        });
+
+    return new Iterator<>() {
+
+      private Record<Key, Value> current;
+
+      @Override
+      public boolean hasNext() {
+        if (current != null) return true;
+        if (exception.get() != null) throw exception.get();
+        var record = Utils.packException(queue::take);
+        if (record.isEmpty()) return false;
+        current = record.get();
+        return true;
+      }
+
+      @Override
+      public Record<Key, Value> next() {
+        if (current == null) throw new NoSuchElementException("there is no more record");
+        try {
+          return current;
+        } finally {
+          current = null;
+        }
+      }
+    };
+  }
+
   protected abstract static class BaseConsumer<Key, Value> implements Consumer<Key, Value> {
     protected final org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer;
     private final AtomicBoolean subscribed = new AtomicBoolean(true);
@@ -122,7 +179,7 @@ public abstract class Builder<Key, Value> {
     }
 
     @Override
-    public Collection<Record<Key, Value>> poll(int recordCount, Duration timeout) {
+    public List<Record<Key, Value>> poll(int recordCount, Duration timeout) {
       var end = System.currentTimeMillis() + timeout.toMillis();
       var records = new ArrayList<Record<Key, Value>>();
       while (records.size() < recordCount) {

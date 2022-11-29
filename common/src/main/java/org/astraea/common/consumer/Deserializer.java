@@ -16,7 +16,7 @@
  */
 package org.astraea.common.consumer;
 
-import java.util.Collection;
+import java.util.Base64;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -25,6 +25,7 @@ import org.apache.kafka.common.serialization.FloatDeserializer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.astraea.common.Header;
 
 @FunctionalInterface
 public interface Deserializer<T> {
@@ -38,7 +39,7 @@ public interface Deserializer<T> {
    *     returning a value or null rather than throwing an exception.
    * @return deserialized typed data; may be null
    */
-  T deserialize(String topic, Collection<Header> headers, byte[] data);
+  T deserialize(String topic, List<Header> headers, byte[] data);
 
   static <T> org.apache.kafka.common.serialization.Deserializer<T> of(
       Deserializer<T> deserializer) {
@@ -61,6 +62,8 @@ public interface Deserializer<T> {
     return (topic, headers, data) -> deserializer.deserialize(topic, Header.of(headers), data);
   }
 
+  Deserializer<String> BASE64 =
+      (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
   Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
   Deserializer<String> STRING = of(new StringDeserializer());
   Deserializer<Integer> INTEGER = of(new IntegerDeserializer());

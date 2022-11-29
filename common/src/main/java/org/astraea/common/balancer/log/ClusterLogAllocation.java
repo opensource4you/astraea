@@ -41,16 +41,14 @@ public interface ClusterLogAllocation extends ClusterInfo<Replica> {
    * execution.
    */
   static ClusterLogAllocation of(ClusterInfo<Replica> clusterInfo) {
+    // sanity check: no moving replicas
+    if (clusterInfo.replicaStream().anyMatch(r -> r.isFuture() || r.isAdding() || r.isRemoving()))
+      throw new IllegalArgumentException("There are moving replicas. Stop re-balance plan");
     clusterInfo
         .topicPartitions()
         .forEach(
             topicPartition -> {
               var replicas = clusterInfo.replicas(topicPartition);
-              // sanity check: no future
-              if (replicas.stream().anyMatch(Replica::isFuture))
-                throw new IllegalArgumentException(
-                    "Some replicas have future flag. Is there an ongoing rebalance? "
-                        + replicas.stream().filter(Replica::isFuture).collect(Collectors.toList()));
               // sanity check: no duplicate preferred leader
               var preferredLeaderCount =
                   replicas.stream().filter(Replica::isPreferredLeader).count();

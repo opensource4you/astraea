@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 
 public class DurationMapField extends Field<Map<String, Duration>> {
   @Override
@@ -30,7 +31,7 @@ public class DurationMapField extends Field<Map<String, Duration>> {
             item -> {
               var keyValue = item.split(":");
               if (keyValue.length != 2) throw new ParameterException("incorrect format: " + item);
-              var valueToDuration = DurationField.toDuration(keyValue[1]);
+              var valueToDuration = Utils.toDuration(keyValue[1]);
               return Map.entry(keyValue[0], valueToDuration);
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

@@ -22,11 +22,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
-public class BrokerOutputCost implements HasBrokerCost {
+public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
+  private final Dispersion dispersion = Dispersion.correlationCoefficient();
 
   @Override
   public BrokerCost brokerCost(
@@ -38,7 +40,7 @@ public class BrokerOutputCost implements HasBrokerCost {
                     Map.Entry::getKey,
                     entry ->
                         ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.of(entry.getValue()).stream()
-                            .mapToDouble(ServerMetrics.BrokerTopic.Meter::oneMinuteRate)
+                            .mapToDouble(ServerMetrics.BrokerTopic.Meter::fifteenMinuteRate)
                             .sum()));
     return () -> brokerCost;
   }
@@ -47,5 +49,12 @@ public class BrokerOutputCost implements HasBrokerCost {
   public Optional<Fetcher> fetcher() {
     return Optional.of(
         client -> List.of(ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    var brokerCost = brokerCost(clusterInfo, clusterBean).value();
+    var value = dispersion.calculate(brokerCost.values());
+    return () -> value;
   }
 }

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -34,18 +35,19 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.astraea.common.Configuration;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.consumer.Header;
-import org.astraea.common.cost.Configuration;
-import org.astraea.common.partitioner.smooth.SmoothWeightRoundRobinDispatcher;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class DispatcherTest extends RequireSingleBrokerCluster {
@@ -96,7 +98,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 
-  @Test
+  @RepeatedTest(5)
   void multipleThreadTest() {
     var topicName = "address";
     createTopic(topicName);
@@ -117,7 +119,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
             Dispatcher.beginInterdependent(instanceOfProducer(producer));
             var exceptPartition =
                 producerSend(producer, topicName, key, value, timestamp, header).partition();
-            IntStream.range(0, 99)
+            IntStream.range(0, 10)
                 .forEach(
                     i -> {
                       Metadata metadata;
@@ -129,10 +131,15 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
             Dispatcher.endInterdependent(instanceOfProducer(producer));
           };
       Dispatcher.beginInterdependent(instanceOfProducer(producer));
-      new Thread(runnable).start();
+
+      var fs =
+          IntStream.range(0, 10)
+              .mapToObj(i -> CompletableFuture.runAsync(runnable))
+              .collect(Collectors.toList());
+
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
-      IntStream.range(0, 99)
+      IntStream.range(0, 10)
           .forEach(
               i -> {
                 Metadata metadata;
@@ -142,6 +149,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
                 assertEquals(exceptPartition, metadata.partition());
               });
       Dispatcher.endInterdependent(instanceOfProducer(producer));
+      fs.forEach(CompletableFuture::join);
     }
   }
 
@@ -220,13 +228,14 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
       long timestamp,
       Header header) {
     return producer
-        .sender()
-        .topic(topicName)
-        .key(key)
-        .value(value.getBytes())
-        .timestamp(timestamp)
-        .headers(List.of(header))
-        .run()
+        .send(
+            Record.builder()
+                .topic(topicName)
+                .key(key)
+                .value(value.getBytes())
+                .timestamp(timestamp)
+                .headers(List.of(header))
+                .build())
         .toCompletableFuture()
         .join();
   }
@@ -245,8 +254,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(
-        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
+    // TODO: add smooth dispatch to this test
+    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, StrictCostDispatcher.class.getName());
     props.put("producerID", 1);
     var file =
         new File(

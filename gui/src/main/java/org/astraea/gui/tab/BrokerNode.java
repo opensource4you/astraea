@@ -47,7 +47,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -196,13 +196,15 @@ public class BrokerNode {
   }
 
   static Node metricsNode(Context context) {
+    var selectBox =
+        SelectBox.multi(
+            Arrays.stream(MetricType.values()).map(Enum::toString).collect(Collectors.toList()),
+            MetricType.values().length / 2);
     return PaneBuilder.of()
-        .selectBox(
-            SelectBox.multi(
-                Arrays.stream(MetricType.values()).map(Enum::toString).collect(Collectors.toList()),
-                MetricType.values().length / 2))
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            selectBox,
+            "REFRESH",
+            (argument, logger) ->
                 context
                     .admin()
                     .nodeInfos()
@@ -211,7 +213,7 @@ public class BrokerNode {
                             context.clients(nodes).entrySet().stream()
                                 .flatMap(
                                     entry ->
-                                        input.selectedKeys().stream()
+                                        argument.selectedKeys().stream()
                                             .flatMap(
                                                 name ->
                                                     Arrays.stream(MetricType.values())
@@ -290,15 +292,17 @@ public class BrokerNode {
 
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
-            (input, logger) -> context.admin().brokers().thenApply(BrokerNode::basicResult))
+        .firstPart(
+            "REFRESH",
+            (argument, logger) -> context.admin().brokers().thenApply(BrokerNode::basicResult))
         .build();
   }
 
   private static Node configNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            "REFRESH",
+            (argument, logger) ->
                 context
                     .admin()
                     .brokers()
@@ -314,13 +318,13 @@ public class BrokerNode {
                                       return map;
                                     })
                                 .collect(Collectors.toList())))
-        .tableViewAction(
-            Lattice.of(
+        .secondPart(
+            MultiInput.of(
                 List.of(
                     TextInput.of(
                         BrokerConfigs.DYNAMICAL_CONFIGS,
                         EditableText.singleLine().disable().build()))),
-            "ALERT",
+            "ALTER",
             (tables, input, logger) -> {
               var brokerToAlter =
                   tables.stream()
@@ -399,8 +403,9 @@ public class BrokerNode {
                     .orElse(Map.of())
                 : Map.of();
     return PaneBuilder.of()
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            "REFRESH",
+            (argument, logger) ->
                 context
                     .admin()
                     .brokers()

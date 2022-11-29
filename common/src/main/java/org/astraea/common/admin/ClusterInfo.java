@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -63,7 +64,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                             r.nodeInfo().id() == beforeReplica.nodeInfo().id()
                                 && r.partition() == beforeReplica.partition()
                                 && r.topic().equals(beforeReplica.topic())
-                                && r.path().equals(beforeReplica.path())
+                                && Objects.equals(r.path(), beforeReplica.path())
                                 && r.isLeader() == beforeReplica.isLeader()
                                 && r.isPreferredLeader() == beforeReplica.isPreferredLeader()))
         .collect(Collectors.toSet());
@@ -239,6 +240,16 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[for leader]---------------------//
 
+  static Map<TopicPartition, Long> leaderSize(ClusterInfo<Replica> clusterInfo) {
+    return clusterInfo
+        .replicaStream()
+        .filter(ReplicaInfo::isLeader)
+        .collect(
+            Collectors.groupingBy(
+                ReplicaInfo::topicPartition,
+                Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
+  }
+
   /**
    * Get the list of replica leaders
    *
@@ -390,6 +401,27 @@ public interface ClusterInfo<T extends ReplicaInfo> {
         .filter(n -> n.id() == id)
         .findAny()
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
+  }
+
+  /**
+   * @return the data folders of all nodes. If such information is not available to a specific node,
+   *     then an empty set will be associated with that node.
+   */
+  default Map<Integer, Set<String>> brokerFolders() {
+    return nodes().stream()
+        .collect(
+            Collectors.toUnmodifiableMap(
+                NodeInfo::id,
+                node -> {
+                  if (node instanceof Broker) {
+                    return ((Broker) node)
+                        .dataFolders().stream()
+                            .map(Broker.DataFolder::path)
+                            .collect(Collectors.toUnmodifiableSet());
+                  } else {
+                    return Set.of();
+                  }
+                }));
   }
 
   // ---------------------[streams methods]---------------------//

@@ -129,7 +129,7 @@ public interface Query {
                           if (e.getValue() instanceof DataSize) {
                             var size = ((DataSize) e.getValue());
                             return keyPattern.matcher(e.getKey()).matches()
-                                && size.smallerThan(new DataSize.Field().convert(valueString));
+                                && size.smallerThan(DataSize.of(valueString));
                           }
                           if (e.getValue() instanceof LocalDateTime) {
                             var time = ((LocalDateTime) e.getValue());
@@ -166,7 +166,7 @@ public interface Query {
                           if (e.getValue() instanceof DataSize) {
                             var size = ((DataSize) e.getValue());
                             return keyPattern.matcher(e.getKey()).matches()
-                                && size.equals(new DataSize.Field().convert(valueString));
+                                && size.equals(DataSize.of(valueString));
                           }
                           if (e.getValue() instanceof LocalDateTime) {
                             var time = ((LocalDateTime) e.getValue());
@@ -203,7 +203,7 @@ public interface Query {
                           if (e.getValue() instanceof DataSize) {
                             var size = ((DataSize) e.getValue());
                             return keyPattern.matcher(e.getKey()).matches()
-                                && size.greaterThan(new DataSize.Field().convert(valueString));
+                                && size.greaterThan(DataSize.of(valueString));
                           }
                           if (e.getValue() instanceof LocalDateTime) {
                             var time = ((LocalDateTime) e.getValue());
@@ -281,7 +281,7 @@ public interface Query {
         });
   }
 
-  private static Optional<Query> forString(String predicateString) {
+  static Optional<Query> forString(String predicateString) {
     if (predicateString == null || predicateString.isBlank()) return Optional.empty();
     if (predicateString.contains("==")
         || predicateString.contains("<=")
@@ -301,9 +301,12 @@ public interface Query {
           public boolean required(Map<String, Object> item) {
             return item.entrySet().stream()
                 .anyMatch(
-                    entry ->
-                        keyPattern.matcher(entry.getKey()).matches()
-                            && valuePattern.matcher(entry.getValue().toString()).matches());
+                    entry -> {
+                      if (!keyPattern.matcher(entry.getKey()).matches()) return false;
+                      var string = entry.getValue().toString();
+                      if (string.isBlank()) return false;
+                      return valuePattern.matcher(string).matches();
+                    });
           }
         });
   }

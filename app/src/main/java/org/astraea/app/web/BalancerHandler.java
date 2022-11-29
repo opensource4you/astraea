@@ -17,58 +17,66 @@
 package org.astraea.app.web;
 
 import com.google.gson.reflect.TypeToken;
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.FutureUtils;
+import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
-import org.astraea.common.balancer.algorithms.SingleStepBalancer;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricCollector;
 
 class BalancerHandler implements Handler {
-
-  static final String LOOP_KEY = "loop";
 
   static final String TOPICS_KEY = "topics";
 
   static final String TIMEOUT_KEY = "timeout";
-
+  static final String MAX_MIGRATE_SIZE_KEY = "max-migrated-size";
+  static final String MAX_MIGRATE_LEADER_KEY = "max-migrated-leader";
   static final String COST_WEIGHT_KEY = "costWeights";
 
-  static final int LOOP_DEFAULT = 10000;
+  static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
+
+  static final String BALANCER_CONFIGURATION_KEY = "balancer-config";
+
   static final int TIMEOUT_DEFAULT = 3;
+  static final String BALANCER_IMPLEMENTATION_DEFAULT = GreedyBalancer.class.getName();
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
@@ -79,13 +87,28 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
+  private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
+  private final Function<Integer, Optional<Integer>> jmxPortMapper;
+  private final Duration sampleInterval = Duration.ofSeconds(1);
 
   BalancerHandler(Admin admin) {
-    this(admin, new StraightPlanExecutor());
+    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor());
+  }
+
+  BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+    this(admin, jmxPortMapper, new StraightPlanExecutor());
   }
 
   BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
+    this(admin, (ignore) -> Optional.empty(), executor);
+  }
+
+  BalancerHandler(
+      Admin admin,
+      Function<Integer, Optional<Integer>> jmxPortMapper,
+      RebalancePlanExecutor executor) {
     this.admin = admin;
+    this.jmxPortMapper = jmxPortMapper;
     this.executor = executor;
   }
 
@@ -126,81 +149,169 @@ class BalancerHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var newPlanId = UUID.randomUUID().toString();
-    var clusterCostFunction = getClusterCost(channel);
     var planGeneration =
-        FutureUtils.combine(
-            admin.topicNames(false).thenCompose(admin::clusterInfo),
-            admin.brokerFolders(),
-            (currentClusterInfo, brokerFolders) -> {
-              var timeout =
-                  channel
-                      .request()
-                      .get(TIMEOUT_KEY)
-                      .map(DurationField::toDuration)
-                      .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
-              var topics =
-                  channel
-                      .request()
-                      .get(TOPICS_KEY)
-                      .map(s -> (Set<String>) new HashSet<>(Arrays.asList(s.split(","))))
-                      .orElseGet(currentClusterInfo::topics);
-              var cost =
-                  clusterCostFunction.clusterCost(currentClusterInfo, ClusterBean.EMPTY).value();
-              var loop =
-                  Integer.parseInt(
-                      channel.request().get(LOOP_KEY).orElse(String.valueOf(LOOP_DEFAULT)));
-              var bestPlan =
-                  Balancer.create(
-                          SingleStepBalancer.class,
-                          AlgorithmConfig.builder()
-                              .clusterCost(clusterCostFunction)
-                              .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-                              .topicFilter(topics::contains)
-                              .limit(loop)
-                              .limit(timeout)
-                              .build())
-                      .offer(currentClusterInfo, brokerFolders);
-              var changes =
-                  bestPlan
-                      .map(
-                          p ->
-                              ClusterInfo.findNonFulfilledAllocation(
-                                      currentClusterInfo, p.proposal().rebalancePlan())
-                                  .stream()
-                                  .map(
-                                      tp ->
-                                          new Change(
-                                              tp.topic(),
-                                              tp.partition(),
-                                              // only log the size from source replicas
-                                              currentClusterInfo.replicas(tp).stream()
-                                                  .map(r -> new Placement(r, r.size()))
-                                                  .collect(Collectors.toList()),
-                                              p.proposal().rebalancePlan().replicas(tp).stream()
-                                                  .map(r -> new Placement(r, null))
-                                                  .collect(Collectors.toList())))
-                                  .collect(Collectors.toUnmodifiableList()))
-                      .orElse(List.of());
-              var report =
-                  new Report(
-                      newPlanId,
-                      cost,
-                      bestPlan.map(p -> p.clusterCost().value()).orElse(null),
-                      loop,
-                      bestPlan.map(p -> p.proposal().index()).orElse(null),
-                      clusterCostFunction.getClass().getSimpleName(),
-                      changes,
+        admin
+            .topicNames(false)
+            .thenCompose(admin::clusterInfo)
+            .thenApply(
+                currentClusterInfo -> {
+                  var request = parsePostRequest(channel, currentClusterInfo);
+                  var fetchers =
+                      Stream.concat(
+                              request
+                                  .configBuilder
+                                  .get()
+                                  .build()
+                                  .clusterCostFunction()
+                                  .fetcher()
+                                  .stream(),
+                              request.configBuilder.get().build().moveCostFunctions().stream()
+                                  .flatMap(c -> c.fetcher().stream()))
+                          .collect(Collectors.toUnmodifiableList());
+                  var bestPlan =
+                      metricContext(
+                          fetchers,
+                          (metricSource) ->
+                              Balancer.create(
+                                      request.balancerClasspath,
+                                      request
+                                          .configBuilder
+                                          .get()
+                                          .metricSource(metricSource)
+                                          .build())
+                                  .retryOffer(currentClusterInfo, request.executionTime));
+                  var changes =
                       bestPlan
                           .map(
                               p ->
-                                  p.moveCost().stream()
-                                      .map(MigrationCost::new)
-                                      .collect(Collectors.toList()))
-                          .orElseGet(List::of));
-              return new PlanInfo(report, bestPlan);
-            });
+                                  ClusterInfo.findNonFulfilledAllocation(
+                                          currentClusterInfo, p.proposal())
+                                      .stream()
+                                      .map(
+                                          tp ->
+                                              new Change(
+                                                  tp.topic(),
+                                                  tp.partition(),
+                                                  // only log the size from source replicas
+                                                  currentClusterInfo.replicas(tp).stream()
+                                                      .map(r -> new Placement(r, r.size()))
+                                                      .collect(Collectors.toList()),
+                                                  p.proposal().replicas(tp).stream()
+                                                      .map(r -> new Placement(r, null))
+                                                      .collect(Collectors.toList())))
+                                      .collect(Collectors.toUnmodifiableList()))
+                          .orElse(List.of());
+                  var report =
+                      new Report(
+                          bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
+                          bestPlan.map(p -> p.proposalClusterCost().value()).orElse(null),
+                          request.configBuilder.get().build().clusterCostFunction().toString(),
+                          changes,
+                          bestPlan
+                              .map(
+                                  p ->
+                                      p.moveCost().stream()
+                                          .map(MigrationCost::new)
+                                          .collect(Collectors.toList()))
+                              .orElseGet(List::of));
+                  return new PlanInfo(report, bestPlan);
+                })
+            .whenComplete(
+                (result, error) -> {
+                  if (error != null)
+                    new RuntimeException("Failed to generate balance plan: " + newPlanId, error)
+                        .printStackTrace();
+                });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  private Optional<Balancer.Plan> metricContext(
+      Collection<Fetcher> fetchers,
+      Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
+    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
+    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
+    try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
+      freshJmxAddresses().forEach(collector::registerJmx);
+      fetchers.forEach(collector::addFetcher);
+      return execution.apply(collector::clusterBean);
+    }
+  }
+
+  // visible for test
+  Map<Integer, InetSocketAddress> freshJmxAddresses() {
+    var brokers = admin.brokers().toCompletableFuture().join();
+    var jmxAddresses =
+        brokers.stream()
+            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
+            .filter(entry -> entry.getValue().isPresent())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    e -> e.getKey().id(),
+                    e ->
+                        InetSocketAddress.createUnresolved(
+                            e.getKey().host(), e.getValue().orElseThrow())));
+
+    // JMX is disabled
+    if (jmxAddresses.size() == 0) return Map.of();
+
+    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
+    if (brokers.size() != jmxAddresses.size())
+      throw new IllegalArgumentException(
+          "Some brokers has no JMX port specified in the web service argument: "
+              + brokers.stream()
+                  .map(NodeInfo::id)
+                  .filter(id -> !jmxAddresses.containsKey(id))
+                  .collect(Collectors.toUnmodifiableSet()));
+
+    return jmxAddresses;
+  }
+
+  // visible for test
+  static PostRequest parsePostRequest(Channel channel, ClusterInfo<Replica> currentClusterInfo) {
+    var balancerClasspath =
+        channel.request().get(BALANCER_IMPLEMENTATION_KEY).orElse(BALANCER_IMPLEMENTATION_DEFAULT);
+    var balancerConfig =
+        channel
+            .request()
+            .get(BALANCER_CONFIGURATION_KEY, Map.class)
+            .map(Configuration::of)
+            .orElse(Configuration.of(Map.of()));
+    var clusterCostFunction = getClusterCost(channel);
+    var timeout =
+        channel
+            .request()
+            .get(TIMEOUT_KEY)
+            .map(Utils::toDuration)
+            .orElse(Duration.ofSeconds(TIMEOUT_DEFAULT));
+    var topics =
+        channel
+            .request()
+            .get(TOPICS_KEY)
+            .map(
+                s ->
+                    Arrays.stream(s.split(","))
+                        .filter(x -> !x.isEmpty())
+                        .collect(Collectors.toSet()))
+            .orElseGet(currentClusterInfo::topics);
+
+    if (channel.request().raw().containsKey(TOPICS_KEY) && topics.isEmpty())
+      throw new IllegalArgumentException(
+          "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
+    if (timeout.isZero() || timeout.isNegative())
+      throw new IllegalArgumentException(
+          "Illegal timeout, value should be positive integer: " + timeout.getSeconds());
+
+    return new PostRequest(
+        balancerClasspath,
+        timeout,
+        () ->
+            AlgorithmConfig.builder()
+                .clusterCost(clusterCostFunction)
+                .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+                .movementConstraint(movementConstraint(channel.request().raw()))
+                .topicFilter(topics::contains)
+                .config(balancerConfig));
   }
 
   @SuppressWarnings("unchecked")
@@ -228,7 +339,29 @@ class BalancerHandler implements Handler {
                 Map.Entry::getValue));
   }
 
-  HasClusterCost getClusterCost(Channel channel) {
+  // TODO: There needs to be a way for"GU" and Web to share this function.
+  static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
+    var converter = new DataSize.Field();
+    var replicaSizeLimit =
+        Optional.ofNullable(input.get(MAX_MIGRATE_SIZE_KEY)).map(x -> converter.convert(x).bytes());
+    var leaderNumLimit =
+        Optional.ofNullable(input.get(MAX_MIGRATE_LEADER_KEY)).map(Integer::parseInt);
+    return moveCosts ->
+        moveCosts.stream()
+            .allMatch(
+                mc -> {
+                  switch (mc.name()) {
+                    case ReplicaSizeCost.COST_NAME:
+                      return replicaSizeLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
+                    case ReplicaLeaderCost.COST_NAME:
+                      return leaderNumLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
+                    default:
+                      return true;
+                  }
+                });
+  }
+
+  static HasClusterCost getClusterCost(Channel channel) {
     var costWeights =
         channel
             .request()
@@ -237,6 +370,12 @@ class BalancerHandler implements Handler {
                 TypeToken.getParameterized(Collection.class, CostWeight.class).getType())
             .orElse(List.of());
     if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
+    costWeights.stream()
+        .filter(cw -> cw.cost == null || cw.weight == null)
+        .forEach(
+            cw -> {
+              throw new IllegalArgumentException("Malformed CostWeight specified: " + cw);
+            });
     var costWeightMap =
         parseCostFunctionWeight(
             Configuration.of(
@@ -259,96 +398,122 @@ class BalancerHandler implements Handler {
     if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
     final var thePlanInfo = future.join();
 
-    return sanityCheck(thePlanInfo)
-        .handle(
-            (r, e) -> {
-              synchronized (this) {
-                // already scheduled, nothing to do
-                if (executedPlans.containsKey(thePlanId)) return new PutPlanResponse(thePlanId);
-                if (lastExecutionId.get() != null
-                    && !executedPlans.get(lastExecutionId.get()).isDone())
-                  throw new IllegalStateException(
-                      "There are another on-going rebalance: " + lastExecutionId.get());
-                // the plan is eligible for execution
-                if (e != null) throw (RuntimeException) e;
-                // schedule the actual execution
-                thePlanInfo.associatedPlan.ifPresent(
-                    p -> {
-                      executedPlans.put(
-                          thePlanId,
-                          executor
-                              .run(admin, p.proposal().rebalancePlan(), Duration.ofHours(1))
-                              .toCompletableFuture());
-                      lastExecutionId.set(thePlanId);
-                    });
-                return new PutPlanResponse(thePlanId);
-              }
+    return CompletableFuture.runAsync(() -> {})
+        .thenCompose(
+            (ignore0) -> {
+              // already scheduled, nothing to do
+              if (executedPlans.containsKey(thePlanId))
+                return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
+
+              return CompletableFuture.supplyAsync(
+                      () -> {
+                        sanityCheck(thePlanInfo);
+                        // already scheduled, nothing to do
+                        if (executedPlans.containsKey(thePlanId))
+                          return new PutPlanResponse(thePlanId);
+                        if (lastExecutionId.get() != null
+                            && !executedPlans.get(lastExecutionId.get()).isDone())
+                          throw new IllegalStateException(
+                              "There is another on-going rebalance: " + lastExecutionId.get());
+                        // schedule the actual execution
+                        thePlanInfo.associatedPlan.ifPresent(
+                            p -> {
+                              executedPlans.put(
+                                  thePlanId,
+                                  executor
+                                      .run(admin, p.proposal(), Duration.ofHours(1))
+                                      .toCompletableFuture());
+                              lastExecutionId.set(thePlanId);
+                            });
+                        return new PutPlanResponse(thePlanId);
+                      },
+                      schedulingExecutor)
+                  .thenApply(x -> (Response) x)
+                  .whenComplete(
+                      (ignore, err) -> {
+                        if (err != null)
+                          new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
+                              .printStackTrace();
+                      });
             });
   }
 
-  private CompletionStage<Void> sanityCheck(PlanInfo thePlanInfo) {
-    return FutureUtils.combine(
+  private void sanityCheck(PlanInfo thePlanInfo) {
+    final var replicas =
         admin
-            .replicas(
+            .clusterInfo(
                 thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
             .thenApply(
-                replicas ->
-                    replicas.stream().collect(Collectors.groupingBy(ReplicaInfo::topicPartition))),
-        admin.topicNames(false).thenCompose(admin::addingReplicas),
-        (replicas, addingReplicas) -> {
-          // sanity check: replica allocation didn't change
-          var mismatchPartitions =
-              thePlanInfo.report.changes.stream()
-                  .filter(
-                      change -> {
-                        var currentReplicaList =
-                            replicas
-                                .getOrDefault(
-                                    TopicPartition.of(change.topic, change.partition), List.of())
-                                .stream()
-                                .sorted(
-                                    Comparator.comparing(Replica::isPreferredLeader)
-                                        .reversed()
-                                        .thenComparing(x -> x.nodeInfo().id()))
-                                .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
-                                .collect(Collectors.toUnmodifiableList());
-                        var expectedReplicaList =
-                            Stream.concat(
-                                    change.before.stream().limit(1),
-                                    change.before.stream()
-                                        .skip(1)
-                                        .sorted(Comparator.comparing(x -> x.brokerId)))
-                                .map(x -> Map.entry(x.brokerId, x.directory))
-                                .collect(Collectors.toUnmodifiableList());
-                        return !expectedReplicaList.equals(currentReplicaList);
-                      })
-                  .map(change -> TopicPartition.of(change.topic, change.partition))
-                  .collect(Collectors.toUnmodifiableSet());
-          if (!mismatchPartitions.isEmpty())
-            throw new IllegalStateException(
-                "The cluster state has been changed significantly. "
-                    + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
-                    + mismatchPartitions);
+                clusterInfo ->
+                    clusterInfo
+                        .replicaStream()
+                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+            .toCompletableFuture()
+            .join();
 
-          // sanity check: no ongoing migration
-          var ongoingMigration =
-              addingReplicas.stream()
-                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
-                  .collect(Collectors.toUnmodifiableSet());
-          if (!ongoingMigration.isEmpty())
-            throw new IllegalStateException(
-                "Another rebalance task might be working on. "
-                    + "The following topic/partition has ongoing migration: "
-                    + ongoingMigration);
-          return null;
-        });
+    // sanity check: replica allocation didn't change
+    var mismatchPartitions =
+        thePlanInfo.report.changes.stream()
+            .filter(
+                change -> {
+                  var currentReplicaList =
+                      replicas
+                          .getOrDefault(
+                              TopicPartition.of(change.topic, change.partition), List.of())
+                          .stream()
+                          .sorted(
+                              Comparator.comparing(Replica::isPreferredLeader)
+                                  .reversed()
+                                  .thenComparing(x -> x.nodeInfo().id()))
+                          .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
+                          .collect(Collectors.toUnmodifiableList());
+                  var expectedReplicaList =
+                      Stream.concat(
+                              change.before.stream().limit(1),
+                              change.before.stream()
+                                  .skip(1)
+                                  .sorted(Comparator.comparing(x -> x.brokerId)))
+                          .map(x -> Map.entry(x.brokerId, x.directory))
+                          .collect(Collectors.toUnmodifiableList());
+                  return !expectedReplicaList.equals(currentReplicaList);
+                })
+            .map(change -> TopicPartition.of(change.topic, change.partition))
+            .collect(Collectors.toUnmodifiableSet());
+    if (!mismatchPartitions.isEmpty())
+      throw new IllegalStateException(
+          "The cluster state has been changed significantly. "
+              + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+              + mismatchPartitions);
+
+    // sanity check: no ongoing migration
+    var ongoingMigration =
+        replicas.entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(r -> r.isAdding() || r.isRemoving() || r.isFuture()))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toUnmodifiableSet());
+    if (!ongoingMigration.isEmpty())
+      throw new IllegalStateException(
+          "Another rebalance task might be working on. "
+              + "The following topic/partition has ongoing migration: "
+              + ongoingMigration);
   }
 
-  static List<Placement> placements(Collection<Replica> lps, Function<Replica, Long> size) {
-    return lps.stream()
-        .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
-        .map(p -> new Placement(p, size.apply(p)))
-        .collect(Collectors.toUnmodifiableList());
+  static class PostRequest {
+    final String balancerClasspath;
+    final Duration executionTime;
+    final Supplier<AlgorithmConfig.Builder> configBuilder;
+
+    PostRequest(
+        String balancerClasspath,
+        Duration executionTime,
+        Supplier<AlgorithmConfig.Builder> configBuilder) {
+      this.balancerClasspath = balancerClasspath;
+      this.executionTime = executionTime;
+      this.configBuilder = configBuilder;
+    }
   }
 
   static class Placement {
@@ -407,33 +572,24 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    final String id;
-    final double cost;
+    // initial cost might be unavailable due to unable to evaluate cost function
+    final Double cost;
 
     // don't generate new cost if there is no best plan
     final Double newCost;
-    final int limit;
 
-    // don't generate step if there is no best plan
-    final Integer step;
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
 
     Report(
-        String id,
-        double cost,
+        Double cost,
         Double newCost,
-        int limit,
-        Integer step,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
-      this.id = id;
       this.cost = cost;
       this.newCost = newCost;
-      this.limit = limit;
-      this.step = step;
       this.function = function;
       this.changes = changes;
       this.migrationCosts = migrationCosts;
@@ -497,7 +653,7 @@ class BalancerHandler implements Handler {
 
   static class CostWeight {
     final String cost;
-    final double weight;
+    final Double weight;
 
     CostWeight(String cost, double weight) {
       this.cost = cost;
@@ -510,6 +666,11 @@ class BalancerHandler implements Handler {
       if (o == null || getClass() != o.getClass()) return false;
       CostWeight that = (CostWeight) o;
       return Objects.equals(cost, that.cost) && weight == that.weight;
+    }
+
+    @Override
+    public String toString() {
+      return "CostWeight{" + "cost='" + cost + '\'' + ", weight=" + weight + '}';
     }
   }
 }

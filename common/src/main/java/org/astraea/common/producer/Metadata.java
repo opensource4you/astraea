@@ -20,7 +20,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 
 public final class Metadata {
 
-  static Metadata of(RecordMetadata metadata) {
+  public static Metadata of(RecordMetadata metadata) {
     return new Metadata(
         metadata.offset(),
         metadata.timestamp(),
