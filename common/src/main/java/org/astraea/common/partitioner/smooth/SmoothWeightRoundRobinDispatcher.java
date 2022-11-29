@@ -166,13 +166,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
                         metricCollector.addFetcher(fetcher);
 
                         // Wait until the initial value of metrics is exists.
-                        while (metricCollector.listMetricTypes().stream()
-                                .map(x -> metricCollector.metrics(x, p.nodeInfo().id(), 0))
-                                .mapToInt(List::size)
-                                .sum()
-                            == 0) {
-                          Utils.sleep(Duration.ofMillis(5));
-                        }
+                        while (metricCollector.size() == 0) Utils.sleep(Duration.ofMillis(5));
                       });
             });
   }

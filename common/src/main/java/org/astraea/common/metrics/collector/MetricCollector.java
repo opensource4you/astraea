@@ -18,12 +18,9 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
@@ -79,36 +76,26 @@ public interface MetricCollector extends AutoCloseable {
   Set<Class<? extends HasBeanObject>> listMetricTypes();
 
   /**
-   * retrieve metrics since the specific moment of time.
-   *
-   * <p>{@link MetricCollector} keeps metrics for a specific amount of time. Reading outdated
-   * metrics is considered as undefined behavior.
-   *
-   * @param since retrieve metrics since this moment of time. The time is measured by {@link
-   *     System#currentTimeMillis()}.
-   * @return a {@link Iterator} that returns metrics from the given time to the metrics that is
-   *     ready for consume.
+   * @return size of stored beans
    */
-  <T extends HasBeanObject> List<T> metrics(Class<T> metricClass, int identity, long since);
+  int size();
+
+  /**
+   * @return a weak consistency stream for stored beans.
+   */
+  Stream<HasBeanObject> metrics();
+
+  /**
+   * @return a weak consistency stream for stored beans.
+   */
+  default <T extends HasBeanObject> Stream<T> metrics(Class<T> clz) {
+    return metrics().filter(b -> clz.isAssignableFrom(b.getClass())).map(clz::cast);
+  }
 
   /**
    * @return the {@link ClusterBean}.
    */
-  default ClusterBean clusterBean() {
-    var metricClasses = listMetricTypes();
-    Map<Integer, Collection<HasBeanObject>> metrics =
-        listIdentities().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    broker -> broker,
-                    broker ->
-                        metricClasses.stream()
-                            .map(mClass -> metrics(mClass, broker, 0))
-                            .flatMap(Collection::stream)
-                            .collect(Collectors.toUnmodifiableSet())));
-
-    return ClusterBean.of(metrics);
-  }
+  ClusterBean clusterBean();
 
   @Override
   void close();
