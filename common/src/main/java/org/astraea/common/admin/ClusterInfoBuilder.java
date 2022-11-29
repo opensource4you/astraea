@@ -205,13 +205,74 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
+    return apply((nodes, replicas) -> mapReplicas(replicas, mapper));
+  }
+
+  /**
+   * Assign the specific replica to another location in the cluster.
+   *
+   * @param replica the replica to reassign.
+   * @param toBroker the new broker for the replica being reassigned.
+   * @param toDir the new data folder of that broker for the replica being reassigned.
+   * @return this.
+   */
+  public ClusterInfoBuilder reassignReplica(
+      TopicPartitionReplica replica, int toBroker, String toDir) {
+    Objects.requireNonNull(toDir);
     return apply(
         (nodes, replicas) -> {
-          var iterator = replicas.listIterator();
-          while (iterator.hasNext()) {
-            var replica = iterator.next();
-            iterator.set(mapper.apply(replica));
-          }
+          var newNode =
+              nodes.stream()
+                  .filter(n -> n.id() == toBroker)
+                  .findFirst()
+                  .orElse(NodeInfo.of(toBroker, "", -1));
+          var matched = new AtomicInteger(0);
+          mapReplicas(
+              replicas,
+              r -> {
+                if (r.topicPartitionReplica().equals(replica)) {
+                  matched.incrementAndGet();
+                  return Replica.builder(r).nodeInfo(newNode).path(toDir).build();
+                } else {
+                  return r;
+                }
+              });
+          if (matched.get() == 0) throw new IllegalStateException("No such replica: " + replica);
+          if (matched.get() > 1)
+            throw new IllegalStateException(
+                "Multiple alterations occurred, is this ClusterInfo corrupted?");
+        });
+  }
+
+  /**
+   * Let the specific replica become the preferred leader of its partition.
+   *
+   * @param replica the replica to become preferred leader.
+   * @return this.
+   */
+  public ClusterInfoBuilder setPreferredLeader(TopicPartitionReplica replica) {
+    return apply(
+        (nodes, replicas) -> {
+          var matched = new AtomicInteger(0);
+
+          mapReplicas(
+              replicas,
+              (r) -> {
+                if (r.topicPartitionReplica().equals(replica)) {
+                  matched.incrementAndGet();
+                  return Replica.builder(r).isPreferredLeader(true).build();
+                } else if (r.topicPartition().equals(replica.topicPartition())
+                    && r.isPreferredLeader()) {
+                  return Replica.builder(r).isPreferredLeader(false).build();
+                } else {
+                  return r;
+                }
+              });
+
+          if (matched.get() == 0) throw new IllegalStateException("No such replica: " + replica);
+          if (matched.get() > 1)
+            throw new IllegalStateException(
+                "Multiple alterations occurred, is this ClusterInfo corrupted?");
         });
   }
 
@@ -225,6 +286,14 @@ public class ClusterInfoBuilder {
     alterations.forEach(alteration -> alteration.accept(nodes, replicas));
 
     return ClusterInfo.of(nodes, replicas);
+  }
+
+  private void mapReplicas(List<Replica> replicas, Function<Replica, Replica> mapper) {
+    var iterator = replicas.listIterator();
+    while (iterator.hasNext()) {
+      var replica = iterator.next();
+      iterator.set(mapper.apply(replica));
+    }
   }
 
   private static Broker fakeNode(int brokerId) {
