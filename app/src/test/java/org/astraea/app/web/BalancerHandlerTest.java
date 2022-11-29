@@ -20,6 +20,7 @@ import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -684,9 +685,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   // BalancerHandler#put
                   .thenApplyAsync(
                       i -> {
-                        System.out.println("before block");
                         Utils.packException(() -> latch.await());
-                        System.out.println("after block");
                         return i;
                       });
             }
@@ -730,9 +729,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNull(progress1.exception);
 
       // it is done
-      System.out.println("before countDown");
       theExecutor.latch.countDown();
-      System.out.println("after countDown");
       Utils.sleep(Duration.ofSeconds(1));
       var progress2 =
           Assertions.assertInstanceOf(
@@ -1066,7 +1063,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       FetcherAndCost.callback.set(
           (clusterBean) -> {
             var metrics =
-                clusterBean.all().get(0).stream()
+                clusterBean.all().values().stream()
+                    .flatMap(Collection::stream)
                     .filter(x -> x instanceof JvmMemory)
                     .collect(Collectors.toUnmodifiableSet());
             if (metrics.size() < 3)

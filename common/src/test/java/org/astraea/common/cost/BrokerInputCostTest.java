@@ -67,7 +67,8 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
 
       // Test the fetched object's type, and its metric name.
       Assertions.assertTrue(
-          collector.metrics(ServerMetrics.BrokerTopic.Meter.class, 0, 0).stream()
+          collector
+              .metrics(ServerMetrics.BrokerTopic.Meter.class)
               .allMatch(
                   o ->
                       (o != null)
@@ -77,7 +78,8 @@ public class BrokerInputCostTest extends RequireBrokerCluster {
 
       // Test the fetched object's value.
       Assertions.assertTrue(
-          collector.metrics(ServerMetrics.BrokerTopic.Meter.class, 0, 0).stream()
+          collector
+              .metrics(ServerMetrics.BrokerTopic.Meter.class)
               .allMatch(result -> result.count() == 0));
     }
   }
