@@ -86,7 +86,7 @@ public class WindowedRate implements Stat<Double> {
   }
 
   // Remove outdated value.
-  private void removeOutdated() {
+  private synchronized void removeOutdated() {
     long current = System.currentTimeMillis();
     while (!past.isEmpty() && past.peek().timestamp < current - this.interval) {
       past.poll();
