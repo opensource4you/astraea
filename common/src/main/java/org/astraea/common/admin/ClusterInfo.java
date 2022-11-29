@@ -241,7 +241,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   }
 
   /**
-   * build a cluster info based on replicas.
+   * build a cluster info based on replicas and a set of cluster node information.
    *
    * <p>Be aware that this the <code>replicas</code>parameter describes <strong>the replica lists of
    * a subset of topic/partitions</strong>. It doesn't require the topic/partition part to have
