@@ -52,8 +52,8 @@ public class SensorTest {
     Mockito.when(stat1.measure()).thenReturn(1.0);
     Mockito.when(stat2.measure()).thenReturn(2.0);
 
-    Assertions.assertEquals(1.0, (Double) sensor.measure("t1").measure());
-    Assertions.assertEquals(2.0, (Double) sensor.measure("t2").measure());
+    Assertions.assertEquals(1.0, (Double) sensor.measure("t1"));
+    Assertions.assertEquals(2.0, (Double) sensor.measure("t2"));
   }
 
   @Test

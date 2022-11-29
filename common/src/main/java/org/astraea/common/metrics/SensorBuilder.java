@@ -43,8 +43,8 @@ public class SensorBuilder<V> {
       }
 
       @Override
-      public Stat<V> measure(String metricName) {
-        return stats.get(metricName);
+      public V measure(String metricName) {
+        return stats.get(metricName).measure();
       }
 
       @Override

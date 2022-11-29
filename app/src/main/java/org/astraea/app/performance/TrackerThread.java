@@ -152,12 +152,15 @@ public interface TrackerThread extends AbstractThread {
             && partitionIncreasedSensor != null
             && partitionDecreasedSensor != null) {
           System.out.printf(
-              "  consumer[%d] has %d partitions. partitions increased rate %.2f%%, partitions decreased rate %.2f%%, assigned %.2f%% more partitions than before re-balancing%n",
+              "  consumer[%d] has %d partitions. "
+                  + "partitions increased rate %.2f%%, "
+                  + "partitions decreased rate %.2f%%, "
+                  + "assigned %.2f%% more partitions than before re-balancing%n",
               i,
               ConsumerThread.CLIENT_ID_PARTITION.get(clientId).size(),
-              (double) partitionIncreasedSensor.measure("windowed rate").measure() * 100.0,
-              (double) partitionDecreasedSensor.measure("windowed rate").measure() * 100.0,
-              (double) partitionSensor.measure("windowed rate").measure() * 100.0);
+              partitionIncreasedSensor.measure("windowed rate") * 100.0,
+              partitionDecreasedSensor.measure("windowed rate") * 100.0,
+              partitionSensor.measure("windowed rate") * 100.0);
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
