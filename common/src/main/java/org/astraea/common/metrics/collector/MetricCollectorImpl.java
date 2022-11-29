@@ -232,15 +232,13 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   private static class DelayedIdentity implements Delayed {
-
     private final long deadlineNs;
+    private final int id;
 
     private DelayedIdentity(Duration delay, int id) {
       this.deadlineNs = delay.toNanos() + System.nanoTime();
       this.id = id;
     }
-
-    private final int id;
 
     @Override
     public long getDelay(TimeUnit timeUnit) {
