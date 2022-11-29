@@ -237,7 +237,7 @@ public class ClusterInfoBuilder {
                   return r;
                 }
               });
-          if (matched.get() == 0) throw new IllegalStateException("No such replica: " + replica);
+          if (matched.get() == 0) throw new IllegalArgumentException("No such replica: " + replica);
           if (matched.get() > 1)
             throw new IllegalStateException(
                 "Multiple alterations occurred, is this ClusterInfo corrupted?");
@@ -269,7 +269,7 @@ public class ClusterInfoBuilder {
                 }
               });
 
-          if (matched.get() == 0) throw new IllegalStateException("No such replica: " + replica);
+          if (matched.get() == 0) throw new IllegalArgumentException("No such replica: " + replica);
           if (matched.get() > 1)
             throw new IllegalStateException(
                 "Multiple alterations occurred, is this ClusterInfo corrupted?");
