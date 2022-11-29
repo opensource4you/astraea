@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Lazy;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
   static <T extends ReplicaInfo> ClusterInfo<T> empty() {
@@ -85,9 +84,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /**
    * Update the replicas of ClusterInfo according to the given ClusterLogAllocation. The returned
    * {@link ClusterInfo} will have some of its replicas replaced by the replicas inside the given
-   * {@link ClusterLogAllocation}. Since {@link ClusterLogAllocation} might only cover a subset of
-   * topic/partition in the associated cluster. Only the replicas related to the covered
-   * topic/partition get updated.
+   * {@link ClusterInfo}. Since {@link ClusterInfo} might only cover a subset of topic/partition in
+   * the associated cluster. Only the replicas related to the covered topic/partition get updated.
    *
    * <p>This method intended to offer a way to describe a cluster with some of its state modified
    * manually.
@@ -223,6 +221,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   /**
    * build a cluster info based on replicas. Noted that the node info are collected by the replicas.
+   *
+   * <p>Be aware that this class describes <strong>the replica lists of a subset of
+   * topic/partitions</strong>. It doesn't require the topic/partition part to have cluster-wide
+   * complete information. But the replica list has to be complete. Provide a partial replica list
+   * might result in data loss or unintended replica drop during rebalance plan proposing &
+   * execution.
    *
    * @param replicas used to build cluster info
    * @return cluster info

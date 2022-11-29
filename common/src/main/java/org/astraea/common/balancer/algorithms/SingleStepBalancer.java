@@ -26,7 +26,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
@@ -83,7 +82,7 @@ public class SingleStepBalancer implements Balancer {
 
     var start = System.currentTimeMillis();
     return allocationTweaker
-        .generate(ClusterLogAllocation.of(generatorClusterInfo))
+        .generate(generatorClusterInfo)
         .parallel()
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= timeout.toMillis())

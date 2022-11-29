@@ -53,7 +53,6 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -257,22 +256,21 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .build()));
 
       var clusterLogAllocation =
-          ClusterLogAllocation.of(
-              ClusterInfo.of(
-                  List.of(
-                      Replica.builder()
-                          .topic("topic")
-                          .partition(0)
-                          .nodeInfo(NodeInfo.of(11, "host", 22))
-                          .lag(0)
-                          .size(100)
-                          .isLeader(true)
-                          .inSync(true)
-                          .isFuture(false)
-                          .isOffline(false)
-                          .isPreferredLeader(true)
-                          .path("/tmp/aa")
-                          .build())));
+          ClusterInfo.of(
+              List.of(
+                  Replica.builder()
+                      .topic("topic")
+                      .partition(0)
+                      .nodeInfo(NodeInfo.of(11, "host", 22))
+                      .lag(0)
+                      .size(100)
+                      .isLeader(true)
+                      .inSync(true)
+                      .isFuture(false)
+                      .isOffline(false)
+                      .isPreferredLeader(true)
+                      .path("/tmp/aa")
+                      .build()));
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction =
