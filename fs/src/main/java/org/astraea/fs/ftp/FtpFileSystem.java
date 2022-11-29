@@ -31,11 +31,10 @@ import org.astraea.fs.FileSystem;
 import org.astraea.fs.Type;
 
 public class FtpFileSystem implements FileSystem {
-
-  static final String HOSTNAME_KEY = "fs.ftp.hostname";
-  static final String PORT_KEY = "fs.ftp.port";
-  static final String USER_KEY = "fs.ftp.user";
-  static final String PASSWORD_KEY = "fs.ftp.password";
+  public static final String HOSTNAME_KEY = "fs.ftp.hostname";
+  public static final String PORT_KEY = "fs.ftp.port";
+  public static final String USER_KEY = "fs.ftp.user";
+  public static final String PASSWORD_KEY = "fs.ftp.password";
 
   private static FTPClient create(String hostname, int port, String user, String password) {
     try {

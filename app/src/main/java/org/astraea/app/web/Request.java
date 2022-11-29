@@ -14,41 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.http;
+package org.astraea.app.web;
 
-public interface Response<T> {
-
-  int statusCode();
-
-  T body();
-
-  static Response<Void> of(int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public Void body() {
-        return null;
-      }
-    };
-  }
-
-  static <T> Response<T> of(T body, int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public T body() {
-        return body;
-      }
-    };
-  }
-}
+/**
+ * This interface is a kind of PUT/POST request. The {@link Channel} is able to convert json string
+ * to obj which implements this Request interface. For another, the unit test of Request is able to
+ * find out the invalid declaration for Request implementations. Hence, each handle ought to
+ * consider applying this interface to all POST/PUT request.
+ */
+public interface Request {}

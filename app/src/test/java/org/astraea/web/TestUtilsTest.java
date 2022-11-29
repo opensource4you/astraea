@@ -14,41 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.http;
+package org.astraea.web;
 
-public interface Response<T> {
+import org.astraea.app.version.Version;
+import org.astraea.app.web.RecordHandler;
+import org.astraea.app.web.RecordHandlerTest;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-  int statusCode();
+public class TestUtilsTest {
 
-  T body();
+  @Test
+  void testGetProductionClass() {
+    var productionClass = TestUtils.getProductionClass();
+    Assertions.assertTrue(productionClass.size() > 100);
+    Assertions.assertTrue(productionClass.contains(RecordHandler.class));
+    Assertions.assertTrue(productionClass.contains(Version.class));
 
-  static Response<Void> of(int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public Void body() {
-        return null;
-      }
-    };
-  }
-
-  static <T> Response<T> of(T body, int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public T body() {
-        return body;
-      }
-    };
+    Assertions.assertFalse(productionClass.contains(RecordHandlerTest.class));
   }
 }

@@ -14,41 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.http;
+package org.astraea.common.json;
 
-public interface Response<T> {
+public class JsonSerializationException extends IllegalArgumentException {
 
-  int statusCode();
-
-  T body();
-
-  static Response<Void> of(int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public Void body() {
-        return null;
-      }
-    };
+  public JsonSerializationException(String message) {
+    super(message);
   }
 
-  static <T> Response<T> of(T body, int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public T body() {
-        return body;
-      }
-    };
+  public JsonSerializationException(Throwable cause) {
+    super(cause);
   }
 }

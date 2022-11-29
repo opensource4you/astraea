@@ -16,30 +16,19 @@
  */
 package org.astraea.common.http;
 
-import java.lang.reflect.Type;
-import java.net.http.HttpResponse;
+public class HttpRequestException extends IllegalArgumentException {
+  private final int code;
 
-public class StringResponseException extends RuntimeException {
-
-  private final HttpResponse<String> httpResponse;
-
-  public StringResponseException(HttpResponse<String> httpResponse) {
-    super(
-        String.format("Failed response: %s, %s.", httpResponse.statusCode(), httpResponse.body()));
-    this.httpResponse = httpResponse;
+  public HttpRequestException(int code) {
+    this(code, "get error code: " + code);
   }
 
-  public StringResponseException(HttpResponse<String> httpResponse, Type type) {
-    super(
-        String.format("Response json `%s` can't convert to Object %s.", httpResponse.body(), type));
-    this.httpResponse = httpResponse;
+  public HttpRequestException(int code, String message) {
+    super(message);
+    this.code = code;
   }
 
-  public HttpResponse<String> httpResponse() {
-    return httpResponse;
-  }
-
-  public String errorMsg() {
-    return httpResponse.body();
+  public int code() {
+    return code;
   }
 }
