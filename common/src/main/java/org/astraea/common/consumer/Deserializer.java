@@ -26,6 +26,7 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.serialization.JsonDeserializer;
 
 @FunctionalInterface
@@ -62,6 +63,18 @@ public interface Deserializer<T> {
     return (topic, headers, data) -> deserializer.deserialize(topic, Header.of(headers), data);
   }
 
+  /**
+   * create Custom JsonDeserializer
+   *
+   * @param typeRef The typeRef of message being output by the Deserializer
+   * @return Custom JsonDeserializer
+   * @param <T> The type of message being output by the Deserializer
+   */
+  static <T> Deserializer<T> of(TypeRef<T> typeRef) {
+    return (topic, headers, data) ->
+        JsonDeserializer.of(typeRef).deserialize(topic, Header.of(headers), data);
+  }
+
   Deserializer<String> BASE64 =
       (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
   Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
@@ -70,5 +83,4 @@ public interface Deserializer<T> {
   Deserializer<Long> LONG = of(new LongDeserializer());
   Deserializer<Float> FLOAT = of(new FloatDeserializer());
   Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
-  Deserializer<Object> JSON = of(new JsonDeserializer());
 }

@@ -16,41 +16,33 @@
  */
 package org.astraea.common.serialization;
 
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 
-public class JsonDeserializer implements Deserializer<Object> {
+public class JsonDeserializer<T> implements Deserializer<T> {
   private final String TYPE = "deserializer.type";
-  private TypeRef<?> typeRef;
+  private final TypeRef<T> typeRef;
   private final String encoding = StandardCharsets.UTF_8.name();
-  private final JsonConverter jackson;
+  private final JsonConverter jackson = JsonConverter.jackson();
 
-  public JsonDeserializer() {
-    this.jackson = JsonConverter.jackson();
+  public static <T> JsonDeserializer<T> of(TypeRef<T> typeRef) {
+    Type type = typeRef.getType();
+    return new JsonDeserializer<>(typeRef);
+  }
+
+  private JsonDeserializer(TypeRef<T> typeRef) {
+    this.typeRef = typeRef;
   }
 
   @Override
-  public void configure(Map<String, ?> configs, boolean isKey) {
-    Object deType = configs.get(TYPE);
-    if (deType == null)
-      throw new IllegalArgumentException(
-          "For Deserializer json, you must configure deserializer.type");
-    if (deType instanceof String) typeRef = new TypeRef<>() {};
-    else if (deType instanceof TypeRef<?>) {
-      typeRef = (TypeRef<?>) deType;
-    } else {
-      throw new IllegalArgumentException(
-          "The type of 'deserializer.type value' must be String or TypeRef.");
-    }
-  }
-
-  @Override
-  public Object deserialize(String topic, byte[] data) {
+  public T deserialize(String topic, byte[] data) {
     if (data == null) return null;
-    else return jackson.fromJson(Utils.packException(() -> new String(data, encoding)), typeRef);
+    else {
+      return jackson.fromJson(Utils.packException(() -> new String(data, encoding)), typeRef);
+    }
   }
 }

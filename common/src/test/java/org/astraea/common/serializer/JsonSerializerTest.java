@@ -16,12 +16,9 @@
  */
 package org.astraea.common.serializer;
 
-import static java.util.Objects.requireNonNull;
-
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
@@ -31,7 +28,6 @@ import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
-import org.astraea.common.serialization.JsonDeserializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -68,25 +64,18 @@ public class JsonSerializerTest extends RequireBrokerCluster {
         Assertions.assertEquals(
             records.stream().findFirst().get().key(), "{\"age\":\"22\",\"name\":\"ben\"}");
     }
-    Map<String, Object> config =
-        Map.of(
-            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
-            requireNonNull(bootstrapServers()),
-            ConsumerConfigs.GROUP_ID_CONFIG,
-            "1",
-            ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-            ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST,
-            ConsumerConfigs.KEY_DESERIALIZER_CLASS_CONFIG,
-            "org.astraea.common.serialization.JsonDeserializer",
-            ConsumerConfigs.VALUE_DESERIALIZER_CLASS_CONFIG,
-            "org.astraea.common.serialization.JsonDeserializer",
-            "deserializer.type",
-            "map");
-    try (var consumer = new KafkaConsumer<>(config)) {
-      consumer.subscribe(Set.of(topic));
-      var records = consumer.poll(Duration.ofSeconds(5)).records(topic).iterator();
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .keyDeserializer(Deserializer.of(TypeRef.of(Map.class)))
+            .configs(
+                Map.of(
+                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST))
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(5)).iterator();
       if (records.hasNext()) {
-        Map<String, String> key = (Map<String, String>) records.next().key();
+        var key = records.next().key();
         Assertions.assertEquals("22", key.get("age"));
         Assertions.assertEquals("ben", key.get("name"));
       }
@@ -127,48 +116,24 @@ public class JsonSerializerTest extends RequireBrokerCluster {
             "{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}",
             records.stream().findFirst().get().key());
     }
-    Map<String, Object> config =
-        Map.of(
-            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
-            requireNonNull(bootstrapServers()),
-            ConsumerConfigs.GROUP_ID_CONFIG,
-            "1",
-            ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
-            ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST,
-            ConsumerConfigs.KEY_DESERIALIZER_CLASS_CONFIG,
-            "org.astraea.common.serialization.JsonDeserializer",
-            ConsumerConfigs.VALUE_DESERIALIZER_CLASS_CONFIG,
-            "org.astraea.common.serialization.JsonDeserializer",
-            "deserializer.type",
-            TypeRef.of(TestPrimitiveClass.class));
-    try (var consumer = new KafkaConsumer<>(config)) {
-      consumer.subscribe(Set.of(topic));
-      var records = consumer.poll(Duration.ofSeconds(5)).records(topic).iterator();
+
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .keyDeserializer(Deserializer.of(TypeRef.of(TestPrimitiveClass.class)))
+            .configs(
+                Map.of(
+                    ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                    ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST))
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(5)).iterator();
       if (records.hasNext()) {
-        TestPrimitiveClass key = (TestPrimitiveClass) records.next().key();
+        TestPrimitiveClass key = records.next().key();
         Assertions.assertEquals(456d, key.doubleValue);
         Assertions.assertEquals(12, key.intValue);
         Assertions.assertEquals("hello", key.stringValue);
       }
     }
-  }
-
-  @Test
-  void testErrorDeserializationConfig() {
-    Map<String, Object> errorType =
-        Map.of(
-            ConsumerConfigs.VALUE_DESERIALIZER_CLASS_CONFIG,
-            "org.astraea.common.serialization.JsonDeserializer",
-            "deserializer.type",
-            123);
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> new JsonDeserializer().configure(errorType, true));
-    Map<String, Object> nullType =
-        Map.of(
-            ConsumerConfigs.VALUE_DESERIALIZER_CLASS_CONFIG,
-            "org.astraea.common.serialization.JsonDeserializer");
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> new JsonDeserializer().configure(nullType, true));
   }
 
   private static String createTopic() {
