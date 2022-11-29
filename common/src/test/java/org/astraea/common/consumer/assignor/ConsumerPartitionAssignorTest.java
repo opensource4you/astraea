@@ -88,6 +88,13 @@ public class ConsumerPartitionAssignorTest {
     randomAssignor.configure(Configuration.of(Map.of("broker.1000.jmx.port", "12345")));
     Assertions.assertEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(1000));
     Assertions.assertNotEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(0));
+
+    var random2 = new RandomAssignor();
+    random2.configure(Configuration.of(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8888")));
+    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(0));
+    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(1));
+    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(2));
+    Assertions.assertEquals(Optional.of(8888), random2.jmxPortGetter.apply(1002));
   }
 
   private static ByteBuffer convert(String value) {

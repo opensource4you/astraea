@@ -16,20 +16,31 @@
  */
 package org.astraea.common.consumer.assignor;
 
+import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class AbstractConsumerPartitionAssignor implements ConsumerPartitionAssignor {
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
+  private boolean register = false;
+  private final MetricCollector metricCollector =
+      MetricCollector.builder()
+          .interval(Duration.ofSeconds(1))
+          .expiration(Duration.ofSeconds(15))
+          .build();
 
   /**
    * Perform the group assignment given the members' subscription and ClusterInfo.
@@ -41,6 +52,39 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
   public abstract Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,
       ClusterInfo<ReplicaInfo> metadata);
+
+  @Override
+  public GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
+
+    // convert Kafka's data structure to ours
+    var clusterInfo = ClusterInfo.of(metadata);
+    var subscriptionsPerMember =
+        org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
+            .groupSubscription();
+
+    // register JMX for metric collector only once.
+    if (!register) {
+      clusterInfo
+          .nodes()
+          .forEach(
+              node ->
+                  metricCollector.registerJmx(
+                      node.id(),
+                      InetSocketAddress.createUnresolved(
+                          node.host(), jmxPortGetter.apply(node.id()).get())));
+      register = true;
+    }
+    return new GroupAssignment(
+        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        new Assignment(
+                            e.getValue().stream()
+                                .map(TopicPartition::to)
+                                .collect(Collectors.toUnmodifiableList())))));
+  }
 
   /**
    * Parse config to get JMX port and cost function type.

@@ -19,7 +19,6 @@ package org.astraea.common.consumer.assignor;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Configurable;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
@@ -58,26 +57,5 @@ public interface ConsumerPartitionAssignor
   @Override
   default String name() {
     return "astraea";
-  }
-
-  @Override
-  default GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-
-    // convert Kafka's data structure to ours
-    var clusterInfo = ClusterInfo.of(metadata);
-    var subscriptionsPerMember =
-        org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
-            .groupSubscription();
-
-    return new GroupAssignment(
-        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        new Assignment(
-                            e.getValue().stream()
-                                .map(TopicPartition::to)
-                                .collect(Collectors.toUnmodifiableList())))));
   }
 }
