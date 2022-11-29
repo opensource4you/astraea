@@ -159,6 +159,7 @@ class MetricCollectorTest extends RequireBrokerCluster {
 
       // memory and os
       Assertions.assertEquals(2, collector.metrics().count());
+      Assertions.assertEquals(2, collector.size());
     }
   }
 
