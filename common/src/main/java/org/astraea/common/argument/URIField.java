@@ -14,41 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.http;
+package org.astraea.common.argument;
 
-public interface Response<T> {
+import java.net.URI;
 
-  int statusCode();
-
-  T body();
-
-  static Response<Void> of(int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public Void body() {
-        return null;
-      }
-    };
-  }
-
-  static <T> Response<T> of(T body, int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public T body() {
-        return body;
-      }
-    };
+public class URIField extends Field<URI> {
+  @Override
+  public URI convert(String value) {
+    return URI.create(value);
   }
 }

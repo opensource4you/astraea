@@ -62,13 +62,14 @@ public class CpuCostTest {
 
       Utils.sleep(interval);
 
-      Assertions.assertFalse(collector.metrics(OperatingSystemInfo.class, 0, 0).isEmpty());
+      Assertions.assertFalse(collector.metrics(OperatingSystemInfo.class).findAny().isEmpty());
       Assertions.assertTrue(
-          collector.metrics(OperatingSystemInfo.class, 0, 0).stream().allMatch(Objects::nonNull));
+          collector.metrics(OperatingSystemInfo.class).allMatch(Objects::nonNull));
 
       // Test if we can get the value between 0 ~ 1
       Assertions.assertTrue(
-          collector.metrics(OperatingSystemInfo.class, 0, 0).stream()
+          collector
+              .metrics(OperatingSystemInfo.class)
               .allMatch(
                   OSInfo -> (OSInfo.systemCpuLoad() <= 1.0) && (OSInfo.systemCpuLoad() >= 0.0)));
     }
