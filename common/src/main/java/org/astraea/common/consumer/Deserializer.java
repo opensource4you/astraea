@@ -26,6 +26,7 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
+import org.astraea.common.serialization.JsonDeserializer;
 
 @FunctionalInterface
 public interface Deserializer<T> {
@@ -44,7 +45,6 @@ public interface Deserializer<T> {
   static <T> org.apache.kafka.common.serialization.Deserializer<T> of(
       Deserializer<T> deserializer) {
     return new org.apache.kafka.common.serialization.Deserializer<>() {
-
       @Override
       public T deserialize(String topic, byte[] data) {
         return deserializer.deserialize(topic, List.of(), data);
@@ -70,4 +70,5 @@ public interface Deserializer<T> {
   Deserializer<Long> LONG = of(new LongDeserializer());
   Deserializer<Float> FLOAT = of(new FloatDeserializer());
   Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
+  Deserializer<Object> JSON = of(new JsonDeserializer());
 }

@@ -297,7 +297,13 @@ public class RecordHandler implements Handler {
                 .map(Double::parseDouble)
                 .map(doubleVal -> Serializer.DOUBLE.serialize(topic, List.of(), doubleVal))
                 .orElse(null),
-        Deserializer.DOUBLE);
+        Deserializer.DOUBLE),
+    JSON(
+        (topic, value) ->
+            Optional.ofNullable(value)
+                .map(doubleVal -> Serializer.JSON.serialize(topic, List.of(), doubleVal))
+                .orElse(null),
+        Deserializer.JSON);
 
     static SerDe ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(SerDe.class, alias);

@@ -26,6 +26,7 @@ import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.astraea.common.Header;
+import org.astraea.common.serialization.JsonSerializer;
 
 @FunctionalInterface
 public interface Serializer<T> {
@@ -65,4 +66,5 @@ public interface Serializer<T> {
   Serializer<Long> LONG = of(new LongSerializer());
   Serializer<Float> FLOAT = of(new FloatSerializer());
   Serializer<Double> DOUBLE = of(new DoubleSerializer());
+  Serializer<Object> JSON = of(new JsonSerializer<>());
 }
