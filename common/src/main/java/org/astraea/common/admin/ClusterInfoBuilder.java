@@ -260,10 +260,10 @@ public class ClusterInfoBuilder {
               (r) -> {
                 if (r.topicPartitionReplica().equals(replica)) {
                   matched.incrementAndGet();
-                  return Replica.builder(r).isPreferredLeader(true).build();
+                  return Replica.builder(r).isLeader(true).isPreferredLeader(true).build();
                 } else if (r.topicPartition().equals(replica.topicPartition())
-                    && r.isPreferredLeader()) {
-                  return Replica.builder(r).isPreferredLeader(false).build();
+                    && (r.isPreferredLeader() || r.isLeader())) {
+                  return Replica.builder(r).isLeader(false).isPreferredLeader(false).build();
                 } else {
                   return r;
                 }

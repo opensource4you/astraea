@@ -293,6 +293,7 @@ class ClusterInfoBuilderTest {
                 (short) 4,
                 (replica) ->
                     Replica.builder(replica)
+                        .isLeader(replica.nodeInfo().id() == 0)
                         .isPreferredLeader(replica.nodeInfo().id() == 0)
                         .build())
             .build();
@@ -307,12 +308,19 @@ class ClusterInfoBuilderTest {
     Assertions.assertTrue(
         original
             .replicaStream()
-            .filter(Replica::isPreferredLeader)
+            .filter((Replica::isPreferredLeader))
             .allMatch(r -> r.nodeInfo().id() == 0));
+    Assertions.assertTrue(
+        original.replicaStream().filter((Replica::isLeader)).allMatch(r -> r.nodeInfo().id() == 0));
     Assertions.assertTrue(
         altered
             .replicaStream()
             .filter(Replica::isPreferredLeader)
+            .allMatch(r -> r.nodeInfo().id() == r.partition()));
+    Assertions.assertTrue(
+        altered
+            .replicaStream()
+            .filter(Replica::isLeader)
             .allMatch(r -> r.nodeInfo().id() == r.partition()));
     Assertions.assertThrows(
         IllegalArgumentException.class,
