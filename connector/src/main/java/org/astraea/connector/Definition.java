@@ -16,9 +16,24 @@
  */
 package org.astraea.connector;
 
+import java.util.Collection;
 import java.util.Objects;
+import org.apache.kafka.common.config.ConfigDef;
 
 public interface Definition {
+
+  static ConfigDef toConfigDef(Collection<Definition> defs) {
+    var def = new ConfigDef();
+    defs.forEach(
+        d ->
+            def.define(
+                d.name(),
+                ConfigDef.Type.valueOf(d.type().name()),
+                d.defaultValue(),
+                ConfigDef.Importance.MEDIUM,
+                d.documentation()));
+    return def;
+  }
 
   String name();
 
@@ -40,7 +55,7 @@ public interface Definition {
     PASSWORD
   }
 
-  static class Builder {
+  class Builder {
     private String name;
     private Object defaultValue;
 
