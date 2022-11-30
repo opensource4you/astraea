@@ -28,6 +28,7 @@ import javax.management.MBeanFeatureInfo;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
+import javax.management.RuntimeMBeanException;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.common.Utils;
@@ -202,21 +203,27 @@ public interface MBeanClient extends AutoCloseable {
                 attribute -> attributes.put(attribute.getName(), attribute.getValue()));
 
             // according to the javadoc of MBeanServerConnection#getAttributes, the API will
-            // ignore any
-            // error occurring during the fetch process (for example, attribute not exists). Below
-            // code
-            // check for such condition and try to figure out what exactly the error is. put it into
-            // attributes return result.
-            var notResolvedAttributes =
-                Arrays.stream(attributeNameArray)
-                    .filter(str -> !attributes.containsKey(str))
-                    .collect(Collectors.toSet());
-            notResolvedAttributes.forEach(
-                attributeName ->
-                    attributes.put(
-                        attributeName,
-                        Utils.packException(
-                            () -> connection.getAttribute(beanQuery.objectName(), attributeName))));
+            // ignore any error occurring during the fetch process (for example, attribute not
+            // exists). Below code check for such condition and try to figure out what exactly
+            // the error is. put it into attributes return result.
+            Arrays.stream(attributeNameArray)
+                .filter(str -> !attributes.containsKey(str))
+                .distinct()
+                .forEach(
+                    attributeName -> {
+                      try {
+                        var r = connection.getAttribute(beanQuery.objectName(), attributeName);
+                        attributes.put(attributeName, r);
+                      } catch (RuntimeMBeanException e) {
+                        if (!(e.getCause() instanceof UnsupportedOperationException))
+                          throw new IllegalStateException(e);
+                        // the UnsupportedOperationException is thrown when we query unacceptable
+                        // attribute. we just skip it as it is normal case to
+                        // return "acceptable" attribute only
+                      } catch (Exception e) {
+                        throw new RuntimeException(e);
+                      }
+                    });
 
             // collect result, and build a new BeanObject as return result
             return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
