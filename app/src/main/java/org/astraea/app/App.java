@@ -47,7 +47,7 @@ public class App {
           Exporter.class,
           "import",
           Importer.class,
-          "clean-csv",
+          "clean_csv",
           ImportCsv.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
