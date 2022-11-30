@@ -62,7 +62,7 @@ public class SettingNode {
                         e -> !e.getKey().toString().isBlank() && !e.getValue().toString().isBlank())
                     .collect(
                         Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString()));
-              } catch (IOException e) {
+              } catch (IOException ignored) {
                 return Map.<String, String>of();
               }
             })
@@ -77,7 +77,7 @@ public class SettingNode {
                 var props = new Properties();
                 props.putAll(configs);
                 props.store(output, null);
-              } catch (IOException e) {
+              } catch (IOException ignored) {
                 // swallow
               }
             });

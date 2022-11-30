@@ -187,14 +187,13 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testJmxConfig() {
+  void testJmxConfig() throws IOException {
     var props = initProConfig();
     var file =
         new File(
             SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
                 + "PartitionerConfigTest");
-    try {
-      var fileWriter = new FileWriter(file);
+    try (var fileWriter = new FileWriter(file)) {
       fileWriter.write(
           "broker.0.jmx.port="
               + jmxServiceURL().getPort()
@@ -207,8 +206,6 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
               + "\n");
       fileWriter.flush();
       fileWriter.close();
-    } catch (IOException e) {
-      e.printStackTrace();
     }
     var topicName = "addressN";
     admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
