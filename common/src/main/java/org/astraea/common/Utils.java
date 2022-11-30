@@ -151,14 +151,33 @@ public final class Utils {
     }
   }
 
+  @SuppressWarnings("unchecked")
+  public static <T> T construct(String path, Class<T> baseClass, Configuration configuration) {
+    try {
+      var clz = Class.forName(path);
+      if (!baseClass.isAssignableFrom(clz))
+        throw new IllegalArgumentException(
+            path + " class is not sub class of " + baseClass.getName());
+      return construct((Class<T>) clz, configuration);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public static <T> T construct(Class<T> target, Configuration configuration) {
     try {
       // case 0: create the class by the given configuration
       var constructor = target.getConstructor(Configuration.class);
+      constructor.setAccessible(true);
       return packException(() -> constructor.newInstance(configuration));
     } catch (NoSuchMethodException e) {
       // case 1: create the class by empty constructor
-      return packException(() -> target.getConstructor().newInstance());
+      return packException(
+          () -> {
+            var constructor = target.getConstructor();
+            constructor.setAccessible(true);
+            return constructor.newInstance();
+          });
     }
   }
 

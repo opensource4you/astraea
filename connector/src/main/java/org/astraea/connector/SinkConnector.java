@@ -23,13 +23,13 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
 
-public abstract class SourceConnector extends org.apache.kafka.connect.source.SourceConnector {
+public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkConnector {
 
   protected void init(Configuration configuration) {
     // empty
   }
 
-  protected abstract Class<? extends SourceTask> task();
+  protected abstract Class<? extends SinkTask> task();
 
   protected abstract List<Configuration> takeConfiguration(int maxTasks);
 
@@ -46,7 +46,7 @@ public abstract class SourceConnector extends org.apache.kafka.connect.source.So
   }
 
   @Override
-  public final Class<? extends org.apache.kafka.connect.source.SourceTask> taskClass() {
+  public final Class<? extends org.apache.kafka.connect.sink.SinkTask> taskClass() {
     return task();
   }
 
