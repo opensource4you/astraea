@@ -273,19 +273,6 @@ class ClusterInfoBuilderTest {
                 .reassignReplica(TopicPartitionReplica.of("no", 0, 0), 1, "/there")
                 .build(),
         "No such replica");
-    Assertions.assertThrows(
-        IllegalStateException.class,
-        () ->
-            ClusterInfoBuilder.builder()
-                .addNode(Set.of(0))
-                .addFolders(Map.of(0, Set.of("/ssd0")))
-                .addTopic("topic", 2, (short) 1)
-                .addNode(Set.of(1))
-                .addFolders(Map.of(1, Set.of("/ssd1")))
-                .mapLog(r -> Replica.builder(r).partition(0).build())
-                .reassignReplica(TopicPartitionReplica.of("topic", 0, 0), 1, "/ssd1")
-                .build(),
-        "corrupted structure");
   }
 
   @Test
@@ -339,19 +326,6 @@ class ClusterInfoBuilderTest {
                 .setPreferredLeader(TopicPartitionReplica.of("no", 0, 0))
                 .build(),
         "No such replica");
-    Assertions.assertThrows(
-        IllegalStateException.class,
-        () ->
-            ClusterInfoBuilder.builder()
-                .addNode(Set.of(0))
-                .addFolders(Map.of(0, Set.of("/ssd0")))
-                .addTopic("topic", 2, (short) 1)
-                .addNode(Set.of(1))
-                .addFolders(Map.of(1, Set.of("/ssd1")))
-                .mapLog(r -> Replica.builder(r).partition(0).build())
-                .setPreferredLeader(TopicPartitionReplica.of("topic", 0, 0))
-                .build(),
-        "corrupted structure");
   }
 
   @DisplayName("FakeBroker can interact with normal NodeInfo properly")

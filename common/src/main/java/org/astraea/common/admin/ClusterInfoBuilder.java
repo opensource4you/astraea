@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -226,21 +227,18 @@ public class ClusterInfoBuilder {
                   .filter(n -> n.id() == toBroker)
                   .findFirst()
                   .orElseThrow(() -> new IllegalArgumentException("No such replica: " + toBroker));
-          var matched = new AtomicInteger(0);
+          var matched = new AtomicBoolean(false);
           mapReplicas(
               replicas,
               r -> {
                 if (r.topicPartitionReplica().equals(replica)) {
-                  matched.incrementAndGet();
+                  matched.set(true);
                   return Replica.builder(r).nodeInfo(newNode).path(toDir).build();
                 } else {
                   return r;
                 }
               });
-          if (matched.get() == 0) throw new IllegalArgumentException("No such replica: " + replica);
-          if (matched.get() > 1)
-            throw new IllegalStateException(
-                "Multiple alterations occurred, is this ClusterInfo corrupted?");
+          if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
         });
   }
 
@@ -253,13 +251,13 @@ public class ClusterInfoBuilder {
   public ClusterInfoBuilder setPreferredLeader(TopicPartitionReplica replica) {
     return apply(
         (nodes, replicas) -> {
-          var matched = new AtomicInteger(0);
+          var matched = new AtomicBoolean(false);
 
           mapReplicas(
               replicas,
               (r) -> {
                 if (r.topicPartitionReplica().equals(replica)) {
-                  matched.incrementAndGet();
+                  matched.set(true);
                   return Replica.builder(r).isLeader(true).isPreferredLeader(true).build();
                 } else if (r.topicPartition().equals(replica.topicPartition())
                     && (r.isPreferredLeader() || r.isLeader())) {
@@ -269,10 +267,7 @@ public class ClusterInfoBuilder {
                 }
               });
 
-          if (matched.get() == 0) throw new IllegalArgumentException("No such replica: " + replica);
-          if (matched.get() > 1)
-            throw new IllegalStateException(
-                "Multiple alterations occurred, is this ClusterInfo corrupted?");
+          if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
         });
   }
 
