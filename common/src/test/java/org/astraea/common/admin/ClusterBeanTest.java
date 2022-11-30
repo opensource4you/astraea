@@ -16,9 +16,14 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -97,5 +102,114 @@ class ClusterBeanTest {
     Assertions.assertEquals(2, clusterBean.mapByReplica().size());
     Assertions.assertEquals(
         2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
+  }
+
+  Stream<HasBeanObject> random(int broker) {
+    return Stream.generate(
+            () -> {
+              final var domainName = "test";
+              final var properties =
+                  Map.of(
+                      "type", "testing",
+                      "broker", String.valueOf(broker),
+                      "name", "whatever");
+              final var attributes =
+                  Map.<String, Object>of("value", ThreadLocalRandom.current().nextInt());
+              return new BeanObject(domainName, properties, attributes);
+            })
+        .map(
+            bean -> {
+              final var fakeTime = ThreadLocalRandom.current().nextLong(0, 1000);
+              switch (ThreadLocalRandom.current().nextInt(0, 3)) {
+                case 0:
+                  return metric1(fakeTime, bean);
+                case 1:
+                  return metric2(fakeTime, bean);
+                case 2:
+                  return metric3(fakeTime, bean);
+                default:
+                  throw new RuntimeException();
+              }
+            });
+  }
+
+  @Test
+  void testClusterBeanQuery() {
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1, random(1).limit(1000).collect(Collectors.toUnmodifiableList()),
+                2, random(2).limit(1000).collect(Collectors.toUnmodifiableList()),
+                3, random(3).limit(1000).collect(Collectors.toUnmodifiableList())));
+
+    {
+      var metrics =
+          clusterBean
+              .select(MetricType1.class, 1)
+              .metricSince(500)
+              .metricQuantities(50)
+              .descending()
+              .run();
+
+      //noinspection ConstantConditions
+      Assertions.assertTrue(metrics.stream().allMatch(m -> m instanceof MetricType1));
+      Assertions.assertTrue(metrics.stream().allMatch(m -> m.createdTimestamp() >= 500));
+      Assertions.assertTrue(
+          metrics.stream().allMatch(m -> m.beanObject().properties().get("broker").equals("1")));
+      Assertions.assertEquals(50, metrics.size());
+      Assertions.assertEquals(
+          metrics.stream()
+              .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
+              .collect(Collectors.toUnmodifiableList()),
+          metrics);
+    }
+  }
+
+  private interface MetricType1 extends HasBeanObject {}
+
+  private interface MetricType2 extends HasBeanObject {}
+
+  private interface MetricType3 extends HasBeanObject {}
+
+  private static MetricType1 metric1(long createTime, BeanObject bean) {
+    return new MetricType1() {
+      @Override
+      public BeanObject beanObject() {
+        return bean;
+      }
+
+      @Override
+      public long createdTimestamp() {
+        return createTime;
+      }
+    };
+  }
+
+  private static MetricType2 metric2(long createTime, BeanObject bean) {
+    return new MetricType2() {
+      @Override
+      public BeanObject beanObject() {
+        return bean;
+      }
+
+      @Override
+      public long createdTimestamp() {
+        return createTime;
+      }
+    };
+  }
+
+  private static MetricType3 metric3(long createTime, BeanObject bean) {
+    return new MetricType3() {
+      @Override
+      public BeanObject beanObject() {
+        return bean;
+      }
+
+      @Override
+      public long createdTimestamp() {
+        return createTime;
+      }
+    };
   }
 }
