@@ -17,7 +17,6 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -329,7 +328,7 @@ public class ClusterInfoBuilder {
   private static Broker fakeNode(int brokerId) {
     var host = "fake-node-" + brokerId;
     var port = new Random(brokerId).nextInt(65535) + 1;
-    var folders = Collections.synchronizedList(new ArrayList<Broker.DataFolder>());
+    var folders = List.<Broker.DataFolder>of();
 
     return FakeBroker.of(brokerId, host, port, folders);
   }
