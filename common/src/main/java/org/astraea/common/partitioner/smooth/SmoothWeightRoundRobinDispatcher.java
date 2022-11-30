@@ -38,7 +38,6 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.Dispatcher;
-import org.astraea.common.partitioner.PartitionerUtils;
 
 public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
@@ -98,18 +97,8 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
 
   @Override
   public void configure(Configuration configuration) {
-    var properties =
-        PartitionerUtils.partitionerConfig(
-            configuration.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-    var config =
-        Configuration.of(
-            properties.entrySet().stream()
-                .collect(
-                    Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())));
-
     // seeks for custom jmx ports.
-    config.entrySet().stream()
+    configuration.entrySet().stream()
         .filter(e -> e.getKey().startsWith("broker."))
         .filter(e -> e.getKey().endsWith(JMX_PORT))
         .forEach(
