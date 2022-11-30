@@ -23,6 +23,7 @@ import org.astraea.common.admin.TopicPartition;
  * Return the type of the cost function, `HasPartitionCost`. It returns the score of the
  * topic-partitions.
  */
+@FunctionalInterface
 public interface PartitionCost {
 
   /**
