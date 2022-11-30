@@ -14,41 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.http;
+package org.astraea.common.metrics.collector;
 
-public interface Response<T> {
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.Sensor;
 
-  int statusCode();
+public interface MetricSensors<T> {
+  Class<? extends HasBeanObject> metricClass();
 
-  T body();
+  void record(int identity, Collection<? extends HasBeanObject> beans);
 
-  static Response<Void> of(int code) {
-    return new Response<>() {
+  Map<T, Sensor<Double>> sensors();
 
-      @Override
-      public int statusCode() {
-        return code;
-      }
+  Sensor<Double> sensor(T key);
 
-      @Override
-      public Void body() {
-        return null;
-      }
-    };
-  }
-
-  static <T> Response<T> of(T body, int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public T body() {
-        return body;
-      }
-    };
-  }
+  void addSensorKey(List<?> e);
 }

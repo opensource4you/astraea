@@ -59,9 +59,9 @@ import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
-import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.collector.MetricSensors;
 
 class BalancerHandler implements Handler {
 
@@ -172,27 +172,7 @@ class BalancerHandler implements Handler {
                   var bestPlan =
                       metricContext(
                           fetchers,
-                          request
-                              .configBuilder
-                              .get()
-                              .build()
-                              .clusterCostFunction()
-                              .sensors()
-                              .entrySet()
-                              .stream()
-                              .map(
-                                  ms ->
-                                      Map.entry(
-                                          ms.getKey(),
-                                          currentClusterInfo.replicas().stream()
-                                              .map(
-                                                  r ->
-                                                      Map.entry(
-                                                          r.topicPartitionReplica(), ms.getValue()))
-                                              .collect(
-                                                  Collectors.toMap(
-                                                      Map.Entry::getKey, Map.Entry::getValue))))
-                              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
+                          request.configBuilder.get().build().clusterCostFunction().sensors(),
                           (metricSource) ->
                               Balancer.create(
                                       request.balancerClasspath,
@@ -250,14 +230,14 @@ class BalancerHandler implements Handler {
 
   private Optional<Balancer.Plan> metricContext(
       Collection<Fetcher> fetchers,
-      Map<String, Map<?, Sensor<Double>>> sensors,
+      Collection<MetricSensors<?>> sensors,
       Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
       freshJmxAddresses().forEach(collector::registerJmx);
       fetchers.forEach(collector::addFetcher);
-      collector.addSensors(sensors);
+      collector.addMetricSensors(sensors);
       return execution.apply(collector::clusterBean);
     }
   }

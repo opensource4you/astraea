@@ -28,20 +28,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.SensorBuilder;
-import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
-import org.astraea.common.metrics.stats.Avg;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
@@ -64,12 +63,31 @@ class MetricCollectorTest extends RequireBrokerCluster {
   @Test
   void addSensor() {
     try (var collector = MetricCollector.builder().build()) {
-      collector.addSensors(
-          Map.of(
-              LogMetrics.Log.SIZE.metricName(),
-              Map.of(1, new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build())));
-      Assertions.assertEquals(1, collector.sensors().size());
-      Assertions.assertTrue(collector.sensors().containsKey(LogMetrics.Log.SIZE.metricName()));
+      var matricSensor =
+          new MetricSensors<>() {
+            @Override
+            public Class<? extends HasBeanObject> metricClass() {
+              return null;
+            }
+
+            @Override
+            public void record(int identity, Collection<? extends HasBeanObject> beans) {}
+
+            @Override
+            public Map<Object, Sensor<Double>> sensors() {
+              return null;
+            }
+
+            @Override
+            public Sensor<Double> sensor(Object key) {
+              return null;
+            }
+
+            @Override
+            public void addSensorKey(List<?> e) {}
+          };
+      collector.addMetricSensors(List.of(matricSensor));
+      Assertions.assertEquals(1, collector.metricSensors().size());
     }
   }
 
@@ -141,25 +159,23 @@ class MetricCollectorTest extends RequireBrokerCluster {
     }
   }
 
-  @SuppressWarnings("ConstantConditions")
-  @RepeatedTest(10)
+  @Test
   void metrics() {
-    var sample = Duration.ofMillis(1000);
+    var sample = Duration.ofSeconds(2);
     try (var collector = MetricCollector.builder().interval(sample).build()) {
       collector.addFetcher(memoryFetcher, (id, err) -> Assertions.fail(err.getMessage()));
       collector.addFetcher(osFetcher, (id, err) -> Assertions.fail(err.getMessage()));
       collector.registerLocalJmx(0);
 
-      var start = System.currentTimeMillis();
-      Utils.sleep(sample.dividedBy(2));
+      Utils.sleep(Duration.ofMillis(300));
       var untilNow = System.currentTimeMillis();
 
-      Supplier<List<JvmMemory>> memory = () -> collector.metrics(JvmMemory.class, 0, start);
+      Supplier<List<JvmMemory>> memory =
+          () -> collector.metrics(JvmMemory.class).collect(Collectors.toList());
       Supplier<List<OperatingSystemInfo>> os =
-          () -> collector.metrics(OperatingSystemInfo.class, 0, start);
+          () -> collector.metrics(OperatingSystemInfo.class).collect(Collectors.toList());
 
       Assertions.assertEquals(1, memory.get().size());
-      Assertions.assertTrue(memory.get().stream().allMatch(x -> x instanceof JvmMemory));
       Assertions.assertTrue(
           memory.get().get(0).createdTimestamp() < untilNow,
           "Sampled before the next interval: "
@@ -168,13 +184,16 @@ class MetricCollectorTest extends RequireBrokerCluster {
               + untilNow);
 
       Assertions.assertEquals(1, os.get().size());
-      Assertions.assertTrue(os.get().stream().allMatch(x -> x instanceof OperatingSystemInfo));
       Assertions.assertTrue(
           os.get().get(0).createdTimestamp() < untilNow,
           "Sampled before the next interval: "
               + os.get().get(0).createdTimestamp()
               + " < "
               + untilNow);
+
+      // memory and os
+      Assertions.assertEquals(2, collector.metrics().count());
+      Assertions.assertEquals(2, collector.size());
     }
   }
 
@@ -214,7 +233,7 @@ class MetricCollectorTest extends RequireBrokerCluster {
 
   @Test
   void testFetcherErrorHandling() {
-    AtomicBoolean called = new AtomicBoolean();
+    var called = new AtomicBoolean();
     Fetcher noSuchFetcher =
         (client) -> {
           BeanObject beanObject =
@@ -238,26 +257,6 @@ class MetricCollectorTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testSamplingErrorHandling() {
-    AtomicBoolean called = new AtomicBoolean();
-    RuntimeException theError = Mockito.spy(new RuntimeException("Boom!"));
-    Fetcher expFetcher =
-        (client) -> {
-          called.set(true);
-          throw theError;
-        };
-    try (var collector =
-        MetricCollector.builder().threads(1).interval(Duration.ofMillis(100)).build()) {
-      collector.addFetcher(expFetcher);
-      collector.registerLocalJmx(-1);
-
-      Utils.sleep(Duration.ofMillis(500));
-      Assertions.assertTrue(called.get(), "The error occurred");
-      Mockito.verify(theError, Mockito.atLeast(2)).printStackTrace();
-    }
-  }
-
-  @Test
   void testCleaner() {
     try (var collector =
         MetricCollector.builder()
@@ -269,10 +268,10 @@ class MetricCollectorTest extends RequireBrokerCluster {
       collector.registerLocalJmx(0);
 
       Utils.sleep(Duration.ofMillis(1500));
-      var beforeCleaning = collector.metrics(JvmMemory.class, 0, 0);
+      var beforeCleaning = collector.metrics(JvmMemory.class).collect(Collectors.toList());
       Assertions.assertFalse(beforeCleaning.isEmpty(), "There are some metrics");
       Utils.sleep(Duration.ofMillis(1500));
-      var afterCleaning = collector.metrics(JvmMemory.class, 0, 0);
+      var afterCleaning = collector.metrics(JvmMemory.class).collect(Collectors.toList());
 
       Assertions.assertTrue(
           afterCleaning.get(0).createdTimestamp() != beforeCleaning.get(0).createdTimestamp(),

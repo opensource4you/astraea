@@ -23,12 +23,8 @@ import java.io.Writer;
 public class CsvWriterBuilder {
   private final CSVWriterBuilder csvWriterBuilder;
 
-  private CsvWriterBuilder(Writer sink) {
+  CsvWriterBuilder(Writer sink) {
     this.csvWriterBuilder = new CSVWriterBuilder(sink);
-  }
-
-  public static CsvWriterBuilder of(Writer sink) {
-    return new CsvWriterBuilder(sink);
   }
 
   public CsvWriterBuilder withLineEnd(String string) {

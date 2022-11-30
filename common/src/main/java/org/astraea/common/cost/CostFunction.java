@@ -16,11 +16,13 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Map;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.astraea.common.Configuration;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensors;
 
 /**
  * It is meaningless to implement this interface. Instead, we should implement interfaces like
@@ -49,7 +51,7 @@ public interface CostFunction {
    * @return the {@link Sensor} and the type of {@link org.astraea.common.metrics.stats.Stat} name
    *     to use.
    */
-  default Map<String, Sensor<Double>> sensors() {
-    return Map.of();
+  default Collection<MetricSensors<?>> sensors() {
+    return List.of();
   }
 }

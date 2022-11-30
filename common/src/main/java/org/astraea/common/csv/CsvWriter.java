@@ -16,9 +16,19 @@
  */
 package org.astraea.common.csv;
 
+import java.io.Writer;
 import java.util.List;
 
 public interface CsvWriter extends AutoCloseable {
+  /**
+   * create CsvWriter builder
+   *
+   * @param sink target csv writer
+   * @return CsvWriterBuilder
+   */
+  static CsvWriterBuilder builder(Writer sink) {
+    return new CsvWriterBuilder(sink);
+  }
   /**
    * Writes the next line to the file.Empty fields cannot be written and the lengths of the strings
    * written should be equal.
