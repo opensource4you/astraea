@@ -225,7 +225,7 @@ public class ClusterInfoBuilder {
               nodes.stream()
                   .filter(n -> n.id() == toBroker)
                   .findFirst()
-                  .orElse(NodeInfo.of(toBroker, "", -1));
+                  .orElseThrow(() -> new IllegalArgumentException("No such replica: " + toBroker));
           var matched = new AtomicInteger(0);
           mapReplicas(
               replicas,
@@ -288,7 +288,7 @@ public class ClusterInfoBuilder {
     return ClusterInfo.of(nodes, replicas);
   }
 
-  private void mapReplicas(List<Replica> replicas, Function<Replica, Replica> mapper) {
+  private static void mapReplicas(List<Replica> replicas, Function<Replica, Replica> mapper) {
     var iterator = replicas.listIterator();
     while (iterator.hasNext()) {
       var replica = iterator.next();

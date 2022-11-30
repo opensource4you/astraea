@@ -260,6 +260,16 @@ class ClusterInfoBuilderTest {
         IllegalArgumentException.class,
         () ->
             ClusterInfoBuilder.builder()
+                .addNode(Set.of(0))
+                .addFolders(Map.of(0, Set.of("/ssd0")))
+                .addTopic("topic", 1, (short) 1)
+                .reassignReplica(TopicPartitionReplica.of("topic", 0, 43), 1, "/there")
+                .build(),
+        "No such live broker 0");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterInfoBuilder.builder()
                 .reassignReplica(TopicPartitionReplica.of("no", 0, 0), 1, "/there")
                 .build(),
         "No such replica");
