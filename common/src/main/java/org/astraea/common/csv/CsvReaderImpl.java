@@ -76,10 +76,12 @@ public class CsvReaderImpl implements CsvReader {
 
   @Override
   public void skip(int num) {
-    Utils.requirePositive(num);
-    currentLine = currentLine + num;
-    Utils.packException(() -> csvReader.skip(num));
-    nextLine = null;
+    if (num > 0) {
+      Utils.requirePositive(num);
+      currentLine = currentLine + num;
+      Utils.packException(() -> csvReader.skip(num));
+      nextLine = null;
+    }
   }
 
   @Override

@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.astraea.common.argument.NonEmptyStringField;
+import org.astraea.common.argument.NonNegativeIntegerField;
 import org.astraea.common.argument.URIField;
 import org.astraea.common.csv.CsvReader;
 import org.astraea.common.csv.CsvWriter;
@@ -66,7 +67,7 @@ public class ImportCsv {
                         CsvReader.builder(new InputStreamReader(source.read(sourcePath))).build();
                     var writer =
                         CsvWriter.builder(new OutputStreamWriter(sink.write(sinkPath))).build()) {
-
+                  reader.skip(argument.headSkip);
                   var headers =
                       Arrays.stream(
                               new String[] {
@@ -147,6 +148,12 @@ public class ImportCsv {
         description = "Source archive directory.",
         validateWith = URIField.class)
     URI archive = URI.create("local:///");
+
+    @Parameter(
+        names = {"--headSkip"},
+        description = "Head skip number.",
+        validateWith = NonNegativeIntegerField.class)
+    int headSkip = 0;
   }
 
   static void nonEqualPath(URI uri1, URI uri2) {

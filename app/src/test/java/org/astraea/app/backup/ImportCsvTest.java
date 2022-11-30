@@ -59,8 +59,29 @@ public class ImportCsvTest {
       var sink = local_csv + "/sink";
 
       List<String[]> ansLists = new ArrayList<>();
-      testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
+      testCsvGenerator(Path.of(source), ansLists, DATA_MAME, 0);
       String[] arguments = {"--source", "local:" + source, "--sink", "local:" + sink};
+      ImportCsv.main(arguments);
+
+      var target = new File(sink + "/" + DATA_MAME);
+      assertTrue(Files.exists(target.toPath()));
+      checkFile(target, ansLists);
+    }
+  }
+
+  @Test
+  void skipHeadTest() {
+    try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of())); ) {
+      var local_csv = createTempDirectory("local_CSV");
+      var source = local_csv.toString() + "/source";
+      localFileSystem.mkdir(source);
+      var sink = local_csv + "/sink";
+
+      List<String[]> ansLists = new ArrayList<>();
+      testCsvGenerator(Path.of(source), ansLists, DATA_MAME, 2);
+      String[] arguments = {
+        "--source", "local:" + source, "--sink", "local:" + sink, "--headSkip", "2"
+      };
       ImportCsv.main(arguments);
 
       var target = new File(sink + "/" + DATA_MAME);
@@ -79,8 +100,8 @@ public class ImportCsvTest {
       localFileSystem.mkdir(sink);
 
       List<String[]> ansLists = new ArrayList<>();
-      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
-      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME, 0);
+      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists, 0);
 
       assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
 
@@ -104,8 +125,8 @@ public class ImportCsvTest {
       localFileSystem.mkdir(archive);
 
       List<String[]> ansLists = new ArrayList<>();
-      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME);
-      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists);
+      List<String[]> lists = testCsvGenerator(Path.of(source), ansLists, DATA_MAME, 0);
+      writeCSV(new File(source + "/" + DATA_MAME).toPath(), lists, 0);
 
       assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
 
@@ -138,8 +159,8 @@ public class ImportCsvTest {
 
       List<String[]> ansLists1 = new ArrayList<>();
       List<String[]> ansLists2 = new ArrayList<>();
-      testCsvGenerator(source, ansLists1, DATA_MAME);
-      testCsvGenerator(source, ansLists2, name2);
+      testCsvGenerator(source, ansLists1, DATA_MAME, 0);
+      testCsvGenerator(source, ansLists2, name2, 0);
 
       assertTrue(Files.exists(new File(source + "/" + DATA_MAME).toPath()));
       assertTrue(Files.exists(new File(source + "/" + name2).toPath()));
@@ -179,7 +200,8 @@ public class ImportCsvTest {
                 URI.create("ftp://0.0.0.0:7777/home/warren")));
   }
 
-  private List<String[]> testCsvGenerator(Path source, List<String[]> ansLists, String name) {
+  private List<String[]> testCsvGenerator(
+      Path source, List<String[]> ansLists, String name, int skip) {
     List<String[]> lists =
         new ArrayList<>(
             List.of(
@@ -198,7 +220,7 @@ public class ImportCsvTest {
               lists.add(strings);
               ansLists.add(strings);
             });
-    writeCSV(new File(source + "/" + name).toPath(), lists);
+    writeCSV(new File(source + "/" + name).toPath(), lists, skip);
 
     return lists;
   }
@@ -235,9 +257,14 @@ public class ImportCsvTest {
         .toArray(String[]::new);
   }
 
-  private void writeCSV(Path sink, List<String[]> lists) {
+  private void writeCSV(Path sink, List<String[]> lists, int skip) {
     try (var writer =
         Utils.packException(() -> CsvWriter.builder(new FileWriter(sink.toFile())).build())) {
+      IntStream.range(0, skip)
+          .forEach(
+              ignore -> {
+                writer.rawAppend(Arrays.stream(fakeDataGenerator()).collect(Collectors.toList()));
+              });
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }

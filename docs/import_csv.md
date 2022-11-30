@@ -23,6 +23,7 @@
 |       sink       | (必填) 處理完畢的csv資料落庫地點                                                                                                  |  無  |
 |   cleanSource    | 決定以何種方式清理處理完畢的csv文件<br/>有三種模式可供選擇：<br/>1.off: 不對處理完畢的csv進行操作<br/> 2. delete:刪除處理完畢的csv<br/> 3. archive:將處理完畢的csv進行封存 | off |
 | sourceArchiveDir | 當cleanSource被配置爲archive的時候就需要指定archive地點，需要注意的是archive的地址應該避免與source重複                                               |  無  |
+|     headSkip     | 決定開頭跳過的行數，清理會在跳過開頭後在開始                                                                                               |  0  |
 
 #### 使用範例
 
