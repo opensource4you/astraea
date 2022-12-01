@@ -29,7 +29,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
-import org.astraea.common.serialization.JsonSerializer;
 
 @FunctionalInterface
 public interface Serializer<T> {
