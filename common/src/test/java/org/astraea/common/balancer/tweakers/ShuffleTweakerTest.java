@@ -29,7 +29,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.FakeClusterInfo;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -43,7 +42,7 @@ class ShuffleTweakerTest {
   void testRun() {
     final var shuffleTweaker = new ShuffleTweaker(5, 10);
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
-    final var stream = shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster));
+    final var stream = shuffleTweaker.generate(fakeCluster);
     final var iterator = stream.iterator();
 
     Assertions.assertDoesNotThrow(() -> System.out.println(iterator.next()));
@@ -55,19 +54,18 @@ class ShuffleTweakerTest {
   @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
   void testMovement(int shuffle) {
     final var fakeCluster = FakeClusterInfo.of(30, 30, 20, 5);
-    final var allocation = ClusterLogAllocation.of(fakeCluster);
     final var shuffleTweaker = new ShuffleTweaker(() -> shuffle);
 
     shuffleTweaker
-        .generate(ClusterLogAllocation.of(fakeCluster))
+        .generate(fakeCluster)
         .limit(100)
         .forEach(
             that -> {
-              final var thisTps = allocation.topicPartitions();
+              final var thisTps = fakeCluster.topicPartitions();
               final var thatTps = that.topicPartitions();
               final var thisMap =
                   thisTps.stream()
-                      .collect(Collectors.toUnmodifiableMap(x -> x, allocation::replicas));
+                      .collect(Collectors.toUnmodifiableMap(x -> x, fakeCluster::replicas));
               final var thatMap =
                   thatTps.stream().collect(Collectors.toUnmodifiableMap(x -> x, that::replicas));
               Assertions.assertEquals(thisTps, thatTps);
@@ -81,9 +79,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
-        0,
-        (int) shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).count(),
-        "No possible tweak");
+        0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
   }
 
   @Test
@@ -92,9 +88,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
-        0,
-        (int) shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).count(),
-        "No possible tweak");
+        0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
   }
 
   @Test
@@ -103,9 +97,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = new ShuffleTweaker(() -> 3);
 
     Assertions.assertEquals(
-        0,
-        (int) shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).count(),
-        "No possible tweak");
+        0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
   }
 
   @Disabled
@@ -130,8 +122,7 @@ class ShuffleTweakerTest {
     final var size = 1000;
 
     final long s = System.nanoTime();
-    final var count =
-        shuffleTweaker.generate(ClusterLogAllocation.of(fakeCluster)).limit(size).count();
+    final var count = shuffleTweaker.generate(fakeCluster).limit(size).count();
     final long t = System.nanoTime();
     Assertions.assertEquals(size, count);
     System.out.printf("[%s]%n", scenario);
@@ -149,12 +140,7 @@ class ShuffleTweakerTest {
 
     // generator can do parallel without error.
     Assertions.assertDoesNotThrow(
-        () ->
-            shuffleTweaker
-                .generate(ClusterLogAllocation.of(fakeCluster))
-                .parallel()
-                .limit(100)
-                .count());
+        () -> shuffleTweaker.generate(fakeCluster).parallel().limit(100).count());
   }
 
   @Test
@@ -169,7 +155,7 @@ class ShuffleTweakerTest {
     forkJoinPool.submit(
         () ->
             shuffleTweaker
-                .generate(ClusterLogAllocation.of(fakeCluster))
+                .generate(fakeCluster)
                 .parallel()
                 .forEach((ignore) -> counter.increment()));
 
@@ -215,28 +201,27 @@ class ShuffleTweakerTest {
             .path("/a")
             .build();
     var allocation =
-        ClusterLogAllocation.of(
-            ClusterInfo.of(
-                List.of(
-                    Replica.builder(base)
-                        .topic("normal-topic")
-                        .isLeader(true)
-                        .isPreferredLeader(true)
-                        .build(),
-                    Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
-                    Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
-                    Replica.builder(base)
-                        .topic("offline-single")
-                        .isPreferredLeader(true)
-                        .isOffline(true)
-                        .build(),
-                    Replica.builder(base)
-                        .topic("no-leader")
-                        .isPreferredLeader(true)
-                        .nodeInfo(nodeA)
-                        .build(),
-                    Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
-                    Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build())));
+        ClusterInfo.of(
+            List.of(
+                Replica.builder(base)
+                    .topic("normal-topic")
+                    .isLeader(true)
+                    .isPreferredLeader(true)
+                    .build(),
+                Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
+                Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
+                Replica.builder(base)
+                    .topic("offline-single")
+                    .isPreferredLeader(true)
+                    .isOffline(true)
+                    .build(),
+                Replica.builder(base)
+                    .topic("no-leader")
+                    .isPreferredLeader(true)
+                    .nodeInfo(nodeA)
+                    .build(),
+                Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
+                Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build()));
     shuffleTweaker
         .generate(allocation)
         .limit(30)

@@ -19,6 +19,7 @@ package org.astraea.common.admin;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -196,6 +197,135 @@ class ClusterInfoBuilderTest {
         cluster2
             .replicaStream()
             .allMatch(i -> (i.topic().equals("topic")) ? (i.lag() == 5566) : (i.lag() == 0)));
+  }
+
+  @Test
+  void reassignReplica() {
+    var base =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1, 2, 3, 4))
+            .addFolders(Map.of(1, Set.of("/ssd1", "/ssd2", "/ssd3", "/ssd4")))
+            .addFolders(Map.of(2, Set.of("/ssd1", "/ssd2", "/ssd3", "/ssd4")))
+            .addFolders(Map.of(3, Set.of("/ssd1", "/ssd2", "/ssd3", "/ssd4")))
+            .addFolders(Map.of(4, Set.of("/ssd1", "/ssd2", "/ssd3", "/ssd4")))
+            .build();
+    var original =
+        ClusterInfoBuilder.builder(base)
+            .addTopic(
+                "pipeline",
+                5,
+                (short) 2,
+                (replica) ->
+                    Replica.builder(replica)
+                        .nodeInfo(base.node(replica.isPreferredLeader() ? 1 : 2))
+                        .path(replica.isPreferredLeader() ? "/ssd1" : "/ssd2")
+                        .build())
+            .build();
+    var altered =
+        ClusterInfoBuilder.builder(original)
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 0, 1), 3, "/ssd3")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 1, 1), 3, "/ssd3")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 2, 1), 3, "/ssd3")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 3, 1), 3, "/ssd3")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 4, 1), 3, "/ssd3")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 0, 2), 4, "/ssd4")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 1, 2), 4, "/ssd4")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 2, 2), 4, "/ssd4")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 3, 2), 4, "/ssd4")
+            .reassignReplica(TopicPartitionReplica.of("pipeline", 4, 2), 4, "/ssd4")
+            .build();
+
+    Assertions.assertTrue(
+        original
+            .replicaStream()
+            .filter(Replica::isPreferredLeader)
+            .allMatch(r -> r.nodeInfo().id() == 1 && r.path().equals("/ssd1")));
+    Assertions.assertTrue(
+        original
+            .replicaStream()
+            .filter(Predicate.not(Replica::isPreferredLeader))
+            .allMatch(r -> r.nodeInfo().id() == 2 && r.path().equals("/ssd2")));
+    Assertions.assertTrue(
+        altered
+            .replicaStream()
+            .filter(Replica::isPreferredLeader)
+            .allMatch(r -> r.nodeInfo().id() == 3 && r.path().equals("/ssd3")));
+    Assertions.assertTrue(
+        altered
+            .replicaStream()
+            .filter(Predicate.not(Replica::isPreferredLeader))
+            .allMatch(r -> r.nodeInfo().id() == 4 && r.path().equals("/ssd4")));
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterInfoBuilder.builder()
+                .addNode(Set.of(0))
+                .addFolders(Map.of(0, Set.of("/ssd0")))
+                .addTopic("topic", 1, (short) 1)
+                .reassignReplica(TopicPartitionReplica.of("topic", 0, 43), 1, "/there")
+                .build(),
+        "No such live broker 0");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterInfoBuilder.builder()
+                .reassignReplica(TopicPartitionReplica.of("no", 0, 0), 1, "/there")
+                .build(),
+        "No such replica");
+  }
+
+  @Test
+  void setPreferredLeader() {
+    var original =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(0, 1, 2, 3))
+            .addFolders(Map.of(0, Set.of("/ssd")))
+            .addFolders(Map.of(1, Set.of("/ssd")))
+            .addFolders(Map.of(2, Set.of("/ssd")))
+            .addFolders(Map.of(3, Set.of("/ssd")))
+            .addTopic(
+                "pipeline",
+                4,
+                (short) 4,
+                (replica) ->
+                    Replica.builder(replica)
+                        .isLeader(replica.nodeInfo().id() == 0)
+                        .isPreferredLeader(replica.nodeInfo().id() == 0)
+                        .build())
+            .build();
+    var altered =
+        ClusterInfoBuilder.builder(original)
+            .setPreferredLeader(TopicPartitionReplica.of("pipeline", 0, 0))
+            .setPreferredLeader(TopicPartitionReplica.of("pipeline", 1, 1))
+            .setPreferredLeader(TopicPartitionReplica.of("pipeline", 2, 2))
+            .setPreferredLeader(TopicPartitionReplica.of("pipeline", 3, 3))
+            .build();
+
+    Assertions.assertTrue(
+        original
+            .replicaStream()
+            .filter((Replica::isPreferredLeader))
+            .allMatch(r -> r.nodeInfo().id() == 0));
+    Assertions.assertTrue(
+        original.replicaStream().filter((Replica::isLeader)).allMatch(r -> r.nodeInfo().id() == 0));
+    Assertions.assertTrue(
+        altered
+            .replicaStream()
+            .filter(Replica::isPreferredLeader)
+            .allMatch(r -> r.nodeInfo().id() == r.partition()));
+    Assertions.assertTrue(
+        altered
+            .replicaStream()
+            .filter(Replica::isLeader)
+            .allMatch(r -> r.nodeInfo().id() == r.partition()));
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ClusterInfoBuilder.builder()
+                .setPreferredLeader(TopicPartitionReplica.of("no", 0, 0))
+                .build(),
+        "No such replica");
   }
 
   @DisplayName("FakeBroker can interact with normal NodeInfo properly")

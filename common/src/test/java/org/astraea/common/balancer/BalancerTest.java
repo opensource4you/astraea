@@ -36,7 +36,6 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.cost.HasClusterCost;
@@ -284,8 +283,7 @@ class BalancerTest extends RequireBrokerCluster {
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return Optional.of(
-                new Plan(ClusterLogAllocation.of(currentClusterInfo), () -> 0, () -> 0, List.of()));
+            return Optional.of(new Plan(currentClusterInfo, () -> 0, () -> 0, List.of()));
           }
         };
 
