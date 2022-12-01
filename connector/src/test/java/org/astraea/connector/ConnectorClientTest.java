@@ -110,7 +110,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     assertTrue(
         connectorClient
-            .waitConnectorInfo(connectorName, Duration.ofSeconds(10))
+            .waitConnectorInfo(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
             .toCompletableFuture()
             .get());
     var connectorInfo = connectorClient.connector(connectorName).toCompletableFuture().get();
@@ -240,7 +240,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().get();
     assertTrue(
         connectorClient
-            .waitConnectorInfo(connectorName, Duration.ofSeconds(10))
+            .waitConnectorInfo(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
             .toCompletableFuture()
             .get());
 
@@ -250,7 +250,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     assertFalse(
         connectorClient
-            .waitConnectorInfo(errConnectorName, Duration.ofSeconds(10))
+            .waitConnectorInfo(errConnectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
             .toCompletableFuture()
             .get());
   }

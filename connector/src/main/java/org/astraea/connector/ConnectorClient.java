@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Predicate;
 import org.astraea.common.Utils;
 import org.astraea.common.http.HttpRequestException;
 
@@ -50,11 +51,13 @@ public interface ConnectorClient {
 
   CompletionStage<Set<PluginInfo>> plugins();
 
-  default CompletionStage<Boolean> waitConnectorInfo(String connectName, Duration timeout) {
+  default CompletionStage<Boolean> waitConnectorInfo(
+      String connectName, Predicate<ConnectorInfo> predicate, Duration timeout) {
     return Utils.loop(
         () ->
+            // TODO: 2022-12-01 Replace by /status api
             connector(connectName)
-                .thenApply(x -> x.tasks().size() > 0)
+                .thenApply(predicate::test)
                 .exceptionally(
                     e -> {
                       if (e instanceof HttpRequestException
