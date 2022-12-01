@@ -16,6 +16,8 @@
  */
 package org.astraea.common.consumer;
 
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
@@ -26,8 +28,9 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
+import org.astraea.common.Utils;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.serialization.JsonDeserializer;
 
 @FunctionalInterface
 public interface Deserializer<T> {
@@ -63,6 +66,16 @@ public interface Deserializer<T> {
     return (topic, headers, data) -> deserializer.deserialize(topic, Header.of(headers), data);
   }
 
+  Deserializer<String> BASE64 =
+      (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
+
+  Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
+  Deserializer<String> STRING = of(new StringDeserializer());
+  Deserializer<Integer> INTEGER = of(new IntegerDeserializer());
+  Deserializer<Long> LONG = of(new LongDeserializer());
+  Deserializer<Float> FLOAT = of(new FloatDeserializer());
+  Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
+
   /**
    * create Custom JsonDeserializer
    *
@@ -71,16 +84,29 @@ public interface Deserializer<T> {
    * @param <T> The type of message being output by the Deserializer
    */
   static <T> Deserializer<T> of(TypeRef<T> typeRef) {
-    return (topic, headers, data) ->
-        JsonDeserializer.of(typeRef).deserialize(topic, Header.of(headers), data);
+    return (topic, headers, data) -> JsonDeserializer.of(typeRef).deserialize(topic, headers, data);
   }
 
-  Deserializer<String> BASE64 =
-      (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
-  Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
-  Deserializer<String> STRING = of(new StringDeserializer());
-  Deserializer<Integer> INTEGER = of(new IntegerDeserializer());
-  Deserializer<Long> LONG = of(new LongDeserializer());
-  Deserializer<Float> FLOAT = of(new FloatDeserializer());
-  Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
+  class JsonDeserializer<T> implements Deserializer<T> {
+    private final TypeRef<T> typeRef;
+    private final String encoding = StandardCharsets.UTF_8.name();
+    private final JsonConverter jackson = JsonConverter.jackson();
+
+    private static <T> JsonDeserializer<T> of(TypeRef<T> typeRef) {
+      Type type = typeRef.getType();
+      return new JsonDeserializer<>(typeRef);
+    }
+
+    private JsonDeserializer(TypeRef<T> typeRef) {
+      this.typeRef = typeRef;
+    }
+
+    @Override
+    public T deserialize(String topic, List<Header> headers, byte[] data) {
+      if (data == null) return null;
+      else {
+        return jackson.fromJson(Utils.packException(() -> new String(data, encoding)), typeRef);
+      }
+    }
+  }
 }
