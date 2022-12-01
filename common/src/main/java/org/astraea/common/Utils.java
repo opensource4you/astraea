@@ -27,6 +27,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -341,6 +343,44 @@ public final class Utils {
   public static Pattern wildcardToPattern(String string) {
     return Pattern.compile(
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
+  }
+
+  /**
+   * @param supplier check logic
+   * @param remainingMs to break loop
+   * @param debounce to double-check the status. Some brokers may return out-of-date cluster state,
+   *     so you can set a positive value to keep the loop until to debounce is completed
+   */
+  public static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier, long remainingMs, final int debounce) {
+    return loop(supplier, remainingMs, debounce, debounce);
+  }
+
+  private static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier,
+      long remainingMs,
+      final int debounce,
+      int remainingDebounce) {
+    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
+    var start = System.currentTimeMillis();
+    return supplier
+        .get()
+        .thenCompose(
+            match -> {
+              // everything is good!!!
+              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
+
+              // take a break before retry/debounce
+              Utils.sleep(Duration.ofMillis(300));
+
+              var remaining = remainingMs - (System.currentTimeMillis() - start);
+
+              // keep debounce
+              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
+
+              // reset debounce for retry
+              return loop(supplier, remaining, debounce, debounce);
+            });
   }
 
   private Utils() {}
