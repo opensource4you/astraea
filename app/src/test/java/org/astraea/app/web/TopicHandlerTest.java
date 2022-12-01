@@ -22,11 +22,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -58,40 +57,26 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       topic.replicas = replicas;
       request.topics = List.of(topic);
 
-      var serviceThread = Executors.newSingleThreadExecutor();
-      var servicePort = ThreadLocalRandom.current().nextInt(10000, 65536);
-      serviceThread.submit(
-          () ->
-              Utils.packException(
-                  () ->
-                      WebService.main(
-                          new String[] {
-                            "--port",
-                            String.valueOf(servicePort),
-                            "--bootstrap.servers",
-                            bootstrapServers()
-                          })));
-      Response<TopicHandler.Topics> response =
-          HttpExecutor.builder()
-              .build()
-              .post(
-                  "http://localhost:" + servicePort + "/topics",
-                  request,
-                  TypeRef.of(TopicHandler.Topics.class))
-              .toCompletableFuture()
-              .join();
-      Utils.sleep(Duration.ofSeconds(1));
+      try (var service = new WebService(Admin.of(bootstrapServers()), 0, id -> Optional.empty())) {
+        Response<TopicHandler.Topics> response =
+            HttpExecutor.builder()
+                .build()
+                .post(
+                    "http://localhost:" + service.port() + "/topics",
+                    request,
+                    TypeRef.of(TopicHandler.Topics.class))
+                .toCompletableFuture()
+                .join();
+        Utils.sleep(Duration.ofSeconds(1));
 
-      var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
-      Assertions.assertEquals(200, response.statusCode());
-      Assertions.assertEquals(1, response.body().topics.size());
-      Assertions.assertEquals(partitions, response.body().topics.get(0).partitions.size());
-      Assertions.assertEquals(Set.of(topicName), clusterInfo.topics());
-      Assertions.assertEquals(partitions, clusterInfo.topicPartitions().size());
-      Assertions.assertEquals(partitions * replicas, clusterInfo.replicas().size());
-      serviceThread.shutdown();
-      Assertions.assertTrue(
-          Utils.packException(() -> serviceThread.awaitTermination(10, TimeUnit.SECONDS)));
+        var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
+        Assertions.assertEquals(200, response.statusCode());
+        Assertions.assertEquals(1, response.body().topics.size());
+        Assertions.assertEquals(partitions, response.body().topics.get(0).partitions.size());
+        Assertions.assertEquals(Set.of(topicName), clusterInfo.topics());
+        Assertions.assertEquals(partitions, clusterInfo.topicPartitions().size());
+        Assertions.assertEquals(partitions * replicas, clusterInfo.replicas().size());
+      }
     }
   }
 
