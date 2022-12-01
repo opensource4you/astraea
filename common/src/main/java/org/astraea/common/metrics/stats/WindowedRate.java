@@ -31,24 +31,27 @@ import java.util.LinkedList;
  * <table>
  * <thead><tr><th>Time</th><th>Record Value</th><th>Current Value</th><th>measurement</th></tr></thead>
  * <tbody>
- *     <tr><td>0</td><td>+10</td><td>10</td><td>0.0</td></tr>
- *     <tr><td>1</td><td>+5</td><td>15</td><td>(15-10)/10 = 0.5</td></tr>
- *     <tr><td>2</td><td>&nbsp;</td><td>15</td><td>(15-10)/10 = 0.5</td></tr>
- *     <tr><td>3</td><td>-5</td><td>10</td><td>(10-15)/15 = -0.33</td></tr>
- *     <tr><td>4</td><td>&nbsp;</td><td>10</td><td>(10-15)/15 = -0.33</td></tr>
- *     <tr><td>5</td><td>&nbsp;</td><td>10</td><td>0.0</td></tr>
+ *     <tr><td>0</td><td>&nbsp;</td><td>0</td><td>0.0</td></tr>
+ *     <tr><td>1</td><td>+10</td><td>10</td><td>10/0 becomes Inf</td></tr>
+ *     <tr><td>2</td><td>+5</td><td>15</td><td>15/0 becomes Inf</td></tr>
+ *     <tr><td>3</td><td>&nbsp;</td><td>15</td><td>(15-10)/10 = 0.5</td></tr>
+ *     <tr><td>4</td><td>-5</td><td>10</td><td>(10-15)/15 = -0.33</td></tr>
+ *     <tr><td>5</td><td>&nbsp;</td><td>10</td><td>(10-15)/15 = -0.33</td></tr>
+ *     <tr><td>6</td><td>&nbsp;</td><td>10</td><td>0.0</td></tr>
  * </tbody>
  * </table>
  *
  * </figure>
  *
- * <p>At time 0, we record the value +10. At the same time, if we measure this windowed-rate, we
- * will get 0.0. Because there is no past value to compute the ratio. At time 1, we record the value
- * +5. Now we can compute the ratio. As a result, we get 0.5 when we {@link #measure()} this stat.
- * At time 2, the {@link #measure()} is still 0.5. At time 3, we record the value -5. Then we will
- * measure -0.33. A negative ratio means the value decrease. At time 4, it is the same as time 3. At
- * time 5, the out-dated value is cleared. The measurement becomes 0.0. Meaning that the value do
- * not change in the time interval.
+ * <p>At time 0, At time 1, we record the value +10. At the same time, if we measure this
+ * windowed-rate, we will get positive infinite. Because the initial value is 0.0, which is the
+ * result of divided by zero in floating point calculation. At time 2, we record the value +5. We
+ * get positive infinite when measuring because the value at time 0 is 0.0. At time 3, the {@link
+ * #measure()} returns 0.5. Because the value at time 1 is 10, and the value increased +5 between
+ * time 1 and time 3. At time 4, we record the value -5. Then we will measure -0.33. A negative
+ * ratio means the value decrease. At time 5, it is the same as time 4. At time 6, the out-dated
+ * value is cleared. The measurement becomes 0.0. Meaning that the value do not change in the time
+ * interval.
  */
 public class WindowedRate implements Stat<Double> {
   private Double currentValue;
