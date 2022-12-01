@@ -14,43 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.connector;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class WorkerInfo {
-  private String version;
-  private String commit;
+public class PluginInfo {
 
-  @JsonAlias("kafka_cluster_id")
-  private String kafkaClusterId;
+  /** connector plugin class name */
+  @JsonProperty("class")
+  private String clz;
 
-  public WorkerInfo() {}
+  public PluginInfo() {}
 
-  public String version() {
-    return version;
-  }
-
-  public String commit() {
-    return commit;
-  }
-
-  public String kafkaClusterId() {
-    return kafkaClusterId;
-  }
-
-  @Override
-  public String toString() {
-    return "WorkerInfo{"
-        + "version='"
-        + version
-        + '\''
-        + ", commit='"
-        + commit
-        + '\''
-        + ", kafkaClusterId='"
-        + kafkaClusterId
-        + '\''
-        + '}';
+  public String clz() {
+    return clz;
   }
 }

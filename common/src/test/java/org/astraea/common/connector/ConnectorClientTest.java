@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.connector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -37,8 +37,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.connector.impl.TestErrorSourceConnector;
-import org.astraea.connector.impl.TestTextSourceConnector;
+import org.astraea.common.connector.impl.TestErrorSourceConnector;
+import org.astraea.common.connector.impl.TestTextSourceConnector;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Test;
 

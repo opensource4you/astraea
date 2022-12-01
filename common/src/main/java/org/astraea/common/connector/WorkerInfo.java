@@ -14,38 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector.impl;
+package org.astraea.common.connector;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import org.apache.kafka.connect.source.SourceRecord;
-import org.apache.kafka.connect.source.SourceTask;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
-public class TestTextSourceTask extends SourceTask {
+public class WorkerInfo {
+  private String version;
+  private String commit;
 
-  private String topics;
+  @JsonAlias("kafka_cluster_id")
+  private String kafkaClusterId;
 
-  @Override
-  public void start(Map<String, String> props) {
-    topics = props.get("topics");
-  }
+  public WorkerInfo() {}
 
-  @Override
-  public List<SourceRecord> poll() throws InterruptedException {
-    var jsonValue = "{\"testKey\":\"testValue\"}";
-    var sourceRecord =
-        new SourceRecord(
-            Map.of(), Map.of(), topics, null, jsonValue.getBytes(StandardCharsets.UTF_8));
-    Thread.sleep(5000);
-    return List.of(sourceRecord);
-  }
-
-  @Override
-  public void stop() {}
-
-  @Override
   public String version() {
-    return "0.1.0";
+    return version;
+  }
+
+  public String commit() {
+    return commit;
+  }
+
+  public String kafkaClusterId() {
+    return kafkaClusterId;
+  }
+
+  @Override
+  public String toString() {
+    return "WorkerInfo{"
+        + "version='"
+        + version
+        + '\''
+        + ", commit='"
+        + commit
+        + '\''
+        + ", kafkaClusterId='"
+        + kafkaClusterId
+        + '\''
+        + '}';
   }
 }

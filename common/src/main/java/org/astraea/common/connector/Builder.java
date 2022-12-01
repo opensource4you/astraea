@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.connector;
 
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -26,17 +26,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ThreadLocalRandom;
+import org.astraea.common.connector.WorkerResponseException.WorkerError;
 import org.astraea.common.http.HttpExecutor;
 import org.astraea.common.http.HttpRequestException;
 import org.astraea.common.http.Response;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.JsonSerializationException;
 import org.astraea.common.json.TypeRef;
-import org.astraea.connector.WorkerResponseException.WorkerError;
 
 public class Builder {
 
   private static final String KEY_CONNECTORS = "/connectors";
+
+  // TODO: 2022-12-02 astraea-1200 handler error url
   private List<URL> urls = List.of();
   private HttpExecutor builderHttpExecutor;
 

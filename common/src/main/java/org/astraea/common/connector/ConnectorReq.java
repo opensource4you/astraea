@@ -14,19 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.connector;
 
-public class TaskInfo {
-  private String connector;
-  private int task;
+import java.util.Map;
 
-  public TaskInfo() {}
+public class ConnectorReq {
+  private final String name;
+  private final Map<String, String> config;
 
-  public String connector() {
-    return connector;
+  public ConnectorReq(String name, Map<String, String> config) {
+    this.name = name;
+    this.config = config;
   }
 
-  public int task() {
-    return task;
+  public String name() {
+    return name;
+  }
+
+  public Map<String, String> config() {
+    return config;
   }
 }

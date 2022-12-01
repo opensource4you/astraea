@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.connector;
 
 import java.time.Duration;
 import java.util.Map;
@@ -55,7 +55,7 @@ public interface ConnectorClient {
       String connectName, Predicate<ConnectorInfo> predicate, Duration timeout) {
     return Utils.loop(
         () ->
-            // TODO: 2022-12-01 Replace by /status api
+            // TODO: 2022-12-01 astraea-1199 Replace by /status api
             connector(connectName)
                 .thenApply(predicate::test)
                 .exceptionally(

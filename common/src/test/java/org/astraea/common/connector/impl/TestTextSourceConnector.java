@@ -14,27 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.connector.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.source.SourceConnector;
 
-public class ConnectorInfo {
-  private String name;
-  private Map<String, String> config = Map.of();
-  private List<TaskInfo> tasks = List.of();
+public class TestTextSourceConnector extends SourceConnector {
 
-  public ConnectorInfo() {}
+  @Override
+  public void start(Map<String, String> props) {}
 
-  public String name() {
-    return name;
+  @Override
+  public Class<? extends Task> taskClass() {
+    return TestTextSourceTask.class;
   }
 
-  public Map<String, String> config() {
-    return config;
+  @Override
+  public List<Map<String, String>> taskConfigs(int maxTasks) {
+    return IntStream.range(0, maxTasks)
+        .mapToObj(x -> Map.<String, String>of())
+        .collect(Collectors.toList());
   }
 
-  public List<TaskInfo> tasks() {
-    return tasks;
+  @Override
+  public void stop() {}
+
+  @Override
+  public ConfigDef config() {
+    return new ConfigDef();
+  }
+
+  @Override
+  public String version() {
+    return "0.1.0";
   }
 }

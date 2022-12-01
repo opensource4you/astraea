@@ -10,13 +10,10 @@ repositories {
 def versions = [
         kafka: project.properties['kafka.version'] ?: "3.3.1",
         junit: project.properties['junit.version'] ?: "5.9.1",
-        mockito: project.properties['mockito.version'] ?: "4.8.1",
 ]
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
-    testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
-    testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
     testImplementation project(':it')
 
     implementation project(':common')
