@@ -16,17 +16,23 @@
  */
 package org.astraea.common.connector;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class TaskInfo {
-  private String connector;
-  private int task;
+
+  @JsonProperty("connector")
+  private String connectorName;
+
+  @JsonProperty("task")
+  private int taskId;
 
   public TaskInfo() {}
 
-  public String connector() {
-    return connector;
+  public String connectorName() {
+    return connectorName;
   }
 
-  public int task() {
-    return task;
+  public int taskId() {
+    return taskId;
   }
 }
