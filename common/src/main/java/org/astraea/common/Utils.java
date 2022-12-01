@@ -342,10 +342,6 @@ public final class Utils {
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
   }
 
-  public static boolean isBlank(String value) {
-    return value == null || value.isBlank();
-  }
-
   /**
    * @param supplier check logic
    * @param remainingMs to break loop
@@ -354,10 +350,10 @@ public final class Utils {
    */
   public static CompletionStage<Boolean> loop(
       Supplier<CompletionStage<Boolean>> supplier, long remainingMs, final int debounce) {
-    return loopInternal(supplier, remainingMs, debounce, debounce);
+    return loop(supplier, remainingMs, debounce, debounce);
   }
 
-  private static CompletionStage<Boolean> loopInternal(
+  private static CompletionStage<Boolean> loop(
       Supplier<CompletionStage<Boolean>> supplier,
       long remainingMs,
       final int debounce,
@@ -377,10 +373,10 @@ public final class Utils {
               var remaining = remainingMs - (System.currentTimeMillis() - start);
 
               // keep debounce
-              if (match) return loopInternal(supplier, remaining, debounce, remainingDebounce - 1);
+              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
 
               // reset debounce for retry
-              return loopInternal(supplier, remaining, debounce, debounce);
+              return loop(supplier, remaining, debounce, debounce);
             });
   }
 

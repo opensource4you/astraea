@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.source.SourceConnector;
+import org.astraea.common.VersionUtils;
 
 /** The connector can't start */
 public class TestErrorSourceConnector extends SourceConnector {
@@ -54,6 +55,6 @@ public class TestErrorSourceConnector extends SourceConnector {
 
   @Override
   public String version() {
-    return "0.1.0";
+    return VersionUtils.VERSION;
   }
 }

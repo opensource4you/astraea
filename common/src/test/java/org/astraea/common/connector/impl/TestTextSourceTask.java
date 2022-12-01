@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
+import org.astraea.common.VersionUtils;
 
 public class TestTextSourceTask extends SourceTask {
 
@@ -46,6 +47,6 @@ public class TestTextSourceTask extends SourceTask {
 
   @Override
   public String version() {
-    return "0.1.0";
+    return VersionUtils.VERSION;
   }
 }
