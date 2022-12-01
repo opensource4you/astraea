@@ -17,14 +17,11 @@
 package org.astraea.common;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.cost.CostFunction;
@@ -198,30 +195,6 @@ public class UtilsTest {
     Assertions.assertFalse(Utils.isBlank(" hello "));
     Assertions.assertFalse(Utils.isBlank("hey  "));
     Assertions.assertFalse(Utils.isBlank("  hey"));
-  }
-
-  @Test
-  void testNoExceptionThrow() {
-    var exception =
-        Assertions.assertThrows(
-            RuntimeException.class,
-            () ->
-                Utils.waitNoException(
-                    () -> {
-                      throw new IOException();
-                    },
-                    Duration.of(5, ChronoUnit.SECONDS)));
-    Assertions.assertTrue(exception.getMessage().contains("Timeout"));
-
-    var atomicInteger = new AtomicInteger();
-    Utils.waitNoException(
-        () -> {
-          if (atomicInteger.incrementAndGet() == 3) {
-            return;
-          }
-          throw new IOException();
-        },
-        Duration.of(10, ChronoUnit.SECONDS));
   }
 
   private static class TestConfigCostFunction implements CostFunction {

@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -181,33 +183,6 @@ public final class Utils {
    */
   public static void waitFor(Supplier<Boolean> done) {
     waitFor(done, Duration.ofSeconds(10));
-  }
-
-  /**
-   * Wait for `done` to complete without exception. Default is 10 seconds
-   *
-   * @param done the operation should success in timeout.
-   */
-  public static void waitNoException(Runner done) {
-    waitNoException(done, Duration.ofSeconds(10));
-  }
-
-  /**
-   * Wait for `done` to complete without exception.
-   *
-   * @param done the operation should success in timeout.
-   */
-  public static void waitNoException(Runner done, Duration timeout) {
-    waitForNonNull(
-        () -> {
-          try {
-            done.run();
-            return new Object();
-          } catch (Error | Exception e) {
-            return null;
-          }
-        },
-        timeout);
   }
 
   /**
@@ -369,6 +344,44 @@ public final class Utils {
 
   public static boolean isBlank(String value) {
     return value == null || value.isBlank();
+  }
+
+  /**
+   * @param supplier check logic
+   * @param remainingMs to break loop
+   * @param debounce to double-check the status. Some brokers may return out-of-date cluster state,
+   *     so you can set a positive value to keep the loop until to debounce is completed
+   */
+  public static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier, long remainingMs, final int debounce) {
+    return loopInternal(supplier, remainingMs, debounce, debounce);
+  }
+
+  private static CompletionStage<Boolean> loopInternal(
+      Supplier<CompletionStage<Boolean>> supplier,
+      long remainingMs,
+      final int debounce,
+      int remainingDebounce) {
+    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
+    var start = System.currentTimeMillis();
+    return supplier
+        .get()
+        .thenCompose(
+            match -> {
+              // everything is good!!!
+              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
+
+              // take a break before retry/debounce
+              Utils.sleep(Duration.ofMillis(300));
+
+              var remaining = remainingMs - (System.currentTimeMillis() - start);
+
+              // keep debounce
+              if (match) return loopInternal(supplier, remaining, debounce, remainingDebounce - 1);
+
+              // reset debounce for retry
+              return loopInternal(supplier, remaining, debounce, debounce);
+            });
   }
 
   private Utils() {}

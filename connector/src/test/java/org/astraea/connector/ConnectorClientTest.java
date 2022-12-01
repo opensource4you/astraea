@@ -27,6 +27,7 @@ import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.connector.impl.TestErrorSourceConnector;
 import org.astraea.connector.impl.TestTextSourceConnector;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Test;
@@ -105,20 +107,16 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals("3", config.get("tasks.max"));
     assertEquals("myTopic", config.get("topics"));
     assertEquals(TestTextSourceConnector.class.getName(), config.get("connector.class"));
-    Utils.waitNoException(
-        () -> {
-          var connectorInfo = connectorClient.connector(connectorName).toCompletableFuture().get();
-          assertEquals(3, connectorInfo.tasks().size());
-          assertTrue(
-              connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connector())));
-          assertEquals(
-              3,
-              connectorInfo.tasks().stream()
-                  .map(TaskInfo::task)
-                  .filter(x -> x > -1)
-                  .distinct()
-                  .count());
-        });
+
+    assertTrue(
+        connectorClient
+            .waitConnectorInfo(connectorName, Duration.ofSeconds(10))
+            .toCompletableFuture()
+            .get());
+    var connectorInfo = connectorClient.connector(connectorName).toCompletableFuture().get();
+    assertEquals(3, connectorInfo.tasks().size());
+    assertTrue(connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connector())));
+    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::task).distinct().count());
   }
 
   @Test
@@ -231,6 +229,30 @@ class ConnectorClientTest extends RequireWorkerCluster {
     } finally {
       servers.forEach(Server::close);
     }
+  }
+
+  @Test
+  void testWaitConnectorInfo() throws ExecutionException, InterruptedException {
+    var connectorName = Utils.randomString(10);
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var exampleConnector = new HashMap<>(getExampleConnector());
+
+    connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().get();
+    assertTrue(
+        connectorClient
+            .waitConnectorInfo(connectorName, Duration.ofSeconds(10))
+            .toCompletableFuture()
+            .get());
+
+    var errConnectorName = Utils.randomString(10);
+    exampleConnector.put("connector.class", TestErrorSourceConnector.class.getName());
+    connectorClient.createConnector(errConnectorName, exampleConnector).toCompletableFuture().get();
+
+    assertFalse(
+        connectorClient
+            .waitConnectorInfo(errConnectorName, Duration.ofSeconds(10))
+            .toCompletableFuture()
+            .get());
   }
 
   private static class Server implements AutoCloseable {

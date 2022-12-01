@@ -16,9 +16,12 @@
  */
 package org.astraea.connector;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import org.astraea.common.Utils;
+import org.astraea.common.http.HttpRequestException;
 
 /**
  * The kafka connect client
@@ -46,4 +49,21 @@ public interface ConnectorClient {
   CompletionStage<Void> deleteConnector(String name);
 
   CompletionStage<Set<PluginInfo>> plugins();
+
+  default CompletionStage<Boolean> waitConnectorInfo(String connectName, Duration timeout) {
+    return Utils.loop(
+        () ->
+            connector(connectName)
+                .thenApply(x -> x.tasks().size() > 0)
+                .exceptionally(
+                    e -> {
+                      if (e instanceof HttpRequestException
+                          || e.getCause() instanceof HttpRequestException) return false;
+
+                      if (e instanceof RuntimeException) throw (RuntimeException) e;
+                      throw new RuntimeException(e);
+                    }),
+        timeout.toMillis(),
+        2);
+  }
 }
