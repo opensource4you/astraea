@@ -174,8 +174,8 @@ public interface ClusterBean {
               Objects.requireNonNull(metricSource.get().get(id), "No such identity: " + id)
                   .stream();
       stream = typeFilter.apply(stream);
-      stream = order.apply(stream);
       stream = timeWindow.apply(stream);
+      stream = order.apply(stream);
       stream = quantities.apply(stream);
 
       var result = stream.collect(Collectors.toUnmodifiableList());
