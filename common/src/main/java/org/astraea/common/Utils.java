@@ -216,32 +216,12 @@ public final class Utils {
    * @param done a flag indicating the result.
    */
   public static void waitFor(Supplier<Boolean> done, Duration timeout) {
-    waitForNonNull(() -> done.get() ? "good" : null, timeout);
-  }
-
-  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
-    return waitForNonNull(supplier, timeout, Duration.ofSeconds(1));
-  }
-
-  /**
-   * loop the supplier until it returns non-null value. The exception arisen in the waiting get
-   * ignored if the supplier offers the non-null value in the end.
-   *
-   * @param supplier to loop
-   * @param timeout to break the loop
-   * @param retryInterval the time interval between each supplier call
-   * @param <T> returned type
-   * @return value from supplier
-   */
-  public static <T> T waitForNonNull(
-      Supplier<T> supplier, Duration timeout, Duration retryInterval) {
     var endTime = System.currentTimeMillis() + timeout.toMillis();
     Exception lastError = null;
     while (System.currentTimeMillis() <= endTime)
       try {
-        var r = supplier.get();
-        if (r != null) return r;
-        Utils.sleep(retryInterval);
+        if (done.get()) return;
+        Utils.sleep(Duration.ofSeconds(1));
       } catch (Exception e) {
         lastError = e;
       }
@@ -259,10 +239,6 @@ public final class Utils {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
     return value;
-  }
-
-  public static boolean notNegative(int value) {
-    return value >= 0;
   }
 
   /**

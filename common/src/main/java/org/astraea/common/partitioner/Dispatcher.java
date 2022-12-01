@@ -138,7 +138,7 @@ public interface Dispatcher extends Partitioner {
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     var interdependent = THREAD_LOCAL.get();
-    if (interdependent.isInterdependent && Utils.notNegative(interdependent.targetPartitions))
+    if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
       return interdependent.targetPartitions;
     var target =
         partition(
