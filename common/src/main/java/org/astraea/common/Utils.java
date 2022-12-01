@@ -16,13 +16,16 @@
  */
 package org.astraea.common;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -31,6 +34,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.management.InstanceNotFoundException;
 
 public final class Utils {
 
@@ -115,6 +119,10 @@ public final class Utils {
   public static <R> R packException(Getter<R> getter) {
     try {
       return getter.get();
+    } catch (IOException exception) {
+      throw new UncheckedIOException(exception);
+    } catch (InstanceNotFoundException e) {
+      throw new NoSuchElementException(e.getMessage());
     } catch (RuntimeException exception) {
       throw exception;
     } catch (ExecutionException exception) {

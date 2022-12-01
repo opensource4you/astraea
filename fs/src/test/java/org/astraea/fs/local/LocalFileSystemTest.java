@@ -16,11 +16,10 @@
  */
 package org.astraea.fs.local;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.Map;
 import org.astraea.common.Configuration;
+import org.astraea.common.Utils;
 import org.astraea.fs.AbstractFileSystemTest;
 import org.astraea.fs.FileSystem;
 
@@ -28,12 +27,11 @@ public class LocalFileSystemTest extends AbstractFileSystemTest {
 
   @Override
   protected FileSystem fileSystem() {
-    try {
-      var tmp = Files.createTempDirectory("test_local_fs");
-      return FileSystem.of(
-          "local", Configuration.of(Map.of(LocalFileSystem.ROOT_KEY, tmp.toString())));
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return Utils.packException(
+        () -> {
+          var tmp = Files.createTempDirectory("test_local_fs");
+          return FileSystem.of(
+              "local", Configuration.of(Map.of(LocalFileSystem.ROOT_KEY, tmp.toString())));
+        });
   }
 }

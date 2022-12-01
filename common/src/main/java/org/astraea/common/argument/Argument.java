@@ -21,14 +21,13 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.UnixStyleUsageFormatter;
 import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.astraea.common.Utils;
 
 /** This basic argument defines the common property used by all kafka clients. */
 public abstract class Argument {
@@ -75,11 +74,12 @@ public abstract class Argument {
     var all = new HashMap<>(configs);
     if (propFile != null) {
       var props = new Properties();
-      try (var input = new FileInputStream(propFile)) {
-        props.load(input);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+      Utils.packException(
+          () -> {
+            try (var input = new FileInputStream(propFile)) {
+              props.load(input);
+            }
+          });
       props.forEach((k, v) -> all.put(k.toString(), v.toString()));
     }
     all.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);

@@ -16,24 +16,19 @@
  */
 package org.astraea.common.metrics;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.net.MalformedURLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.management.InstanceNotFoundException;
-import javax.management.IntrospectionException;
 import javax.management.MBeanFeatureInfo;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
-import javax.management.ReflectionException;
+import javax.management.RuntimeMBeanException;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import org.astraea.common.Utils;
@@ -69,27 +64,26 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient of(JMXServiceURL jmxServiceURL) {
-    try {
-      var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-      return new AbstractMBeanClient(jmxConnector.getMBeanServerConnection()) {
-        @Override
-        public String host() {
-          return jmxServiceURL.getHost();
-        }
+    return Utils.packException(
+        () -> {
+          var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
+          return new AbstractMBeanClient(jmxConnector.getMBeanServerConnection()) {
+            @Override
+            public String host() {
+              return jmxServiceURL.getHost();
+            }
 
-        @Override
-        public int port() {
-          return jmxServiceURL.getPort();
-        }
+            @Override
+            public int port() {
+              return jmxServiceURL.getPort();
+            }
 
-        @Override
-        public void close() {
-          Utils.packException(jmxConnector::close);
-        }
-      };
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+            @Override
+            public void close() {
+              Utils.packException(jmxConnector::close);
+            }
+          };
+        });
   }
 
   static MBeanClient local() {
@@ -178,109 +172,78 @@ public interface MBeanClient extends AutoCloseable {
 
     @Override
     public BeanObject queryBean(BeanQuery beanQuery) {
-      try {
-        // ask for MBeanInfo
-        var mBeanInfo = connection.getMBeanInfo(beanQuery.objectName());
+      return Utils.packException(
+          () -> {
+            // ask for MBeanInfo
+            var mBeanInfo = connection.getMBeanInfo(beanQuery.objectName());
 
-        // create a list builder all available attributes name
-        var attributeName =
-            Arrays.stream(mBeanInfo.getAttributes())
-                .map(MBeanFeatureInfo::getName)
-                .collect(Collectors.toList());
+            // create a list builder all available attributes name
+            var attributeName =
+                Arrays.stream(mBeanInfo.getAttributes())
+                    .map(MBeanFeatureInfo::getName)
+                    .collect(Collectors.toList());
 
-        // query the result
-        return queryBean(beanQuery, attributeName);
-      } catch (ReflectionException | IntrospectionException e) {
-        throw new RuntimeException(e);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      } catch (InstanceNotFoundException e) {
-        throw new NoSuchElementException(e.getMessage());
-      }
+            // query the result
+            return queryBean(beanQuery, attributeName);
+          });
     }
 
     @Override
     public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
-      try {
+      return Utils.packException(
+          () -> {
+            // fetch attribute value from mbean server
+            var attributeNameArray = attributeNameCollection.toArray(new String[0]);
+            var attributeList =
+                connection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
 
-        // fetch attribute value from mbean server
-        var attributeNameArray = attributeNameCollection.toArray(new String[0]);
-        var attributeList =
-            connection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
+            // collect attribute name & value into a map
+            var attributes = new HashMap<String, Object>();
+            attributeList.forEach(
+                attribute -> attributes.put(attribute.getName(), attribute.getValue()));
 
-        // collect attribute name & value into a map
-        var attributes = new HashMap<String, Object>();
-        attributeList.forEach(
-            attribute -> attributes.put(attribute.getName(), attribute.getValue()));
-
-        // according to the javadoc of MBeanServerConnection#getAttributes, the API will
-        // ignore any
-        // error occurring during the fetch process (for example, attribute not exists). Below code
-        // check for such condition and try to figure out what exactly the error is. put it into
-        // attributes return result.
-        var notResolvedAttributes =
+            // according to the javadoc of MBeanServerConnection#getAttributes, the API will
+            // ignore any error occurring during the fetch process (for example, attribute not
+            // exists). Below code check for such condition and try to figure out what exactly
+            // the error is. put it into attributes return result.
             Arrays.stream(attributeNameArray)
                 .filter(str -> !attributes.containsKey(str))
-                .collect(Collectors.toSet());
-        notResolvedAttributes.forEach(
-            attributeName ->
-                attributes.put(
-                    attributeName, fetchAttributeObjectOrException(beanQuery, attributeName)));
+                .distinct()
+                .forEach(
+                    attributeName -> {
+                      try {
+                        var r = connection.getAttribute(beanQuery.objectName(), attributeName);
+                        attributes.put(attributeName, r);
+                      } catch (RuntimeMBeanException e) {
+                        if (!(e.getCause() instanceof UnsupportedOperationException))
+                          throw new IllegalStateException(e);
+                        // the UnsupportedOperationException is thrown when we query unacceptable
+                        // attribute. we just skip it as it is normal case to
+                        // return "acceptable" attribute only
+                      } catch (Exception e) {
+                        throw new RuntimeException(e);
+                      }
+                    });
 
-        // collect result, and build a new BeanObject as return result
-        return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
-
-      } catch (ReflectionException e) {
-        throw new RuntimeException(e);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      } catch (InstanceNotFoundException e) {
-        throw new NoSuchElementException(e.getMessage());
-      }
-    }
-
-    private Object fetchAttributeObjectOrException(BeanQuery beanQuery, String attributeName) {
-      // It is possible to trigger some unexpected runtime exception during the following call.
-      // For example, on my machine when I try to get attribute "BootClassPath" from
-      // "java.lang:type=Runtime".
-      // I will get a {@link java.lang.UnsupportedOperationException} indicates that "Boot class
-      // path
-      // mechanism is not supported". Those attribute actually exists, but I cannot retrieve those
-      // attribute value. Doing so I get that error.
-      //
-      // Instead of blinding that attribute from the library user, I decided to put the
-      // exception
-      // into their result.
-      try {
-        return connection.getAttribute(beanQuery.objectName(), attributeName);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      } catch (Exception e) {
-        return e;
-      }
+            // collect result, and build a new BeanObject as return result
+            return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
+          });
     }
 
     @Override
     public Collection<BeanObject> queryBeans(BeanQuery beanQuery) {
-      try {
-        return connection.queryMBeans(beanQuery.objectName(), null).stream()
-            .map(ObjectInstance::getObjectName)
-            .map(BeanQuery::fromObjectName)
-            .map(this::queryBean)
-            .collect(Collectors.toSet());
-
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+      return Utils.packException(
+          () ->
+              connection.queryMBeans(beanQuery.objectName(), null).stream()
+                  .map(ObjectInstance::getObjectName)
+                  .map(BeanQuery::fromObjectName)
+                  .map(this::queryBean)
+                  .collect(Collectors.toSet()));
     }
 
     @Override
     public List<String> listDomains() {
-      try {
-        return Arrays.asList(connection.getDomains());
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+      return Utils.packException(() -> Arrays.asList(connection.getDomains()));
     }
   }
 }
