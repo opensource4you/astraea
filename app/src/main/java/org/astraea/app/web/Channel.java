@@ -17,10 +17,6 @@
 package org.astraea.app.web;
 
 import com.sun.net.httpserver.HttpExchange;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -200,16 +196,14 @@ interface Channel {
               .collect(Collectors.toMap(p -> p.split("=")[0], p -> p.split("=")[1]));
         };
 
-    Function<InputStream, PostRequest> parsePostRequest =
-        stream -> {
-          var bs = Utils.packException(stream::readAllBytes);
+    Function<byte[], PostRequest> parsePostRequest =
+        bs -> {
           if (bs == null || bs.length == 0) return PostRequest.EMPTY;
           return PostRequest.of(new String(bs, StandardCharsets.UTF_8));
         };
 
-    Function<InputStream, String> parseRequest =
-        stream -> {
-          var bs = Utils.packException(stream::readAllBytes);
+    Function<byte[], String> parseRequest =
+        bs -> {
           if (bs == null || bs.length == 0) return null;
           return new String(bs, StandardCharsets.UTF_8);
         };
@@ -233,34 +227,29 @@ interface Channel {
     // TODO: there is a temporary needed for reading the network stream twice
     //  remove this hack in future
     byte[] requestBytes = Utils.packException(() -> exchange.getRequestBody().readAllBytes());
-    try (var request1 = new ByteArrayInputStream(requestBytes);
-        var request2 = new ByteArrayInputStream(requestBytes)) {
-      return builder()
-          .type(parseType.apply(exchange.getRequestMethod()))
-          .target(parseTarget.apply(exchange.getRequestURI()))
-          .queries(parseQueries.apply(exchange.getRequestURI()))
-          .request(parsePostRequest.apply(request1))
-          .request(parseRequest.apply(request2))
-          .sender(
-              response -> {
-                var responseData = response.json().getBytes(StandardCharsets.UTF_8);
-                exchange
-                    .getResponseHeaders()
-                    .set(
-                        "Content-Type",
-                        String.format("application/json; charset=%s", StandardCharsets.UTF_8));
-                Utils.packException(
-                    () -> {
-                      exchange.sendResponseHeaders(response.code(), responseData.length);
-                      try (var os = exchange.getResponseBody()) {
-                        os.write(responseData);
-                      }
-                    });
-              })
-          .build();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return builder()
+        .type(parseType.apply(exchange.getRequestMethod()))
+        .target(parseTarget.apply(exchange.getRequestURI()))
+        .queries(parseQueries.apply(exchange.getRequestURI()))
+        .request(parsePostRequest.apply(requestBytes))
+        .request(parseRequest.apply(requestBytes))
+        .sender(
+            response -> {
+              var responseData = response.json().getBytes(StandardCharsets.UTF_8);
+              exchange
+                  .getResponseHeaders()
+                  .set(
+                      "Content-Type",
+                      String.format("application/json; charset=%s", StandardCharsets.UTF_8));
+              Utils.packException(
+                  () -> {
+                    exchange.sendResponseHeaders(response.code(), responseData.length);
+                    try (var os = exchange.getResponseBody()) {
+                      os.write(responseData);
+                    }
+                  });
+            })
+        .build();
   }
 
   /**
