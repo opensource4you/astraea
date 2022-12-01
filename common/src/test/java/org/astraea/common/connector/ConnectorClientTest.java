@@ -39,6 +39,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.connector.impl.TestErrorSourceConnector;
 import org.astraea.common.connector.impl.TestTextSourceConnector;
+import org.astraea.common.http.HttpRequestException;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Test;
 
@@ -48,9 +49,9 @@ class ConnectorClientTest extends RequireWorkerCluster {
   void testInfo() throws ExecutionException, InterruptedException {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var info = connectorClient.info().toCompletableFuture().get();
-    assertFalse(Utils.isBlank(info.commit()));
-    assertFalse(Utils.isBlank(info.version()));
-    assertFalse(Utils.isBlank(info.kafkaClusterId()));
+    assertFalse(isBlank(info.commit()));
+    assertFalse(isBlank(info.version()));
+    assertFalse(isBlank(info.kafkaClusterId()));
   }
 
   @Test
@@ -77,8 +78,8 @@ class ConnectorClientTest extends RequireWorkerCluster {
         assertThrows(
             ExecutionException.class,
             () -> connectorClient.connector(connectorName).toCompletableFuture().get());
-    var exception = getWorkerException(executionException);
-    assertEquals(404, exception.errorCode());
+    var exception = getResponseException(executionException);
+    assertEquals(404, exception.code());
     assertTrue(exception.getMessage().contains(connectorName));
 
     connectorClient
@@ -168,7 +169,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
             ExecutionException.class,
             () -> connectorClient.deleteConnector("unknown").toCompletableFuture().get());
 
-    var exception = getWorkerException(executionException);
+    var exception = getResponseException(executionException);
 
     // In distribution mode, Request forward to another node will throw 500, otherwise 404.
     assertTrue(exception.getMessage().contains("unknown not found"));
@@ -285,10 +286,10 @@ class ConnectorClientTest extends RequireWorkerCluster {
     }
   }
 
-  private WorkerResponseException getWorkerException(ExecutionException executionException) {
+  private HttpRequestException getResponseException(ExecutionException executionException) {
     executionException.printStackTrace();
-    assertEquals(WorkerResponseException.class, executionException.getCause().getClass());
-    return (WorkerResponseException) executionException.getCause();
+    assertEquals(HttpRequestException.class, executionException.getCause().getClass());
+    return (HttpRequestException) executionException.getCause();
   }
 
   private void assertExampleConnector(Map<String, String> config) {
@@ -305,5 +306,9 @@ class ConnectorClientTest extends RequireWorkerCluster {
         "1",
         "topics",
         "myTopic");
+  }
+
+  private static boolean isBlank(String value) {
+    return value == null || value.isBlank();
   }
 }

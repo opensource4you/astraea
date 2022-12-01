@@ -18,45 +18,19 @@ package org.astraea.common.connector;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 
-public class WorkerResponseException extends RuntimeException {
+public class WorkerError {
+  @JsonAlias("error_code")
+  private int errorCode;
 
-  private final WorkerError workerError;
+  private String message;
 
-  public WorkerResponseException(Throwable cause, WorkerError workerError) {
-    super(
-        String.format("Error code %s, %s", workerError.errorCode(), workerError.message()), cause);
-    this.workerError = workerError;
-  }
+  public WorkerError() {}
 
   public int errorCode() {
-    return workerError.errorCode();
+    return errorCode;
   }
 
   public String message() {
-    return workerError.message();
-  }
-
-  /** worker error response object */
-  public static class WorkerError {
-
-    @JsonAlias("error_code")
-    private int errorCode;
-
-    private String message;
-
-    public WorkerError() {}
-
-    public WorkerError(int errorCode, String message) {
-      this.errorCode = errorCode;
-      this.message = message;
-    }
-
-    public int errorCode() {
-      return errorCode;
-    }
-
-    public String message() {
-      return message;
-    }
+    return message;
   }
 }
