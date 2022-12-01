@@ -34,10 +34,11 @@ public class CsvWriterImpl implements CsvWriter {
     if (nextLine == null) throw new RuntimeException("You can't write null list.");
     if (genericLength == -1) genericLength = nextLine.size();
     else if (genericLength != nextLine.size()) {
-      throw new RuntimeException(
-          "The length of the row:\"/"
-              + String.join(",", nextLine)
-              + "\" does not meet the standard. Each row of data should be equal in length.");
+      if (!String.join("", nextLine).isEmpty())
+        throw new RuntimeException(
+            "The length of the row:"
+                + String.join(",", nextLine)
+                + " does not meet the standard. Each row of data should be equal in length.");
     }
     csvWriter.writeNext(nextLine.toArray(new String[0]));
   }

@@ -54,11 +54,19 @@ public class CsvReaderImpl implements CsvReader {
   public List<String> next() {
     List<String> strings = rawNext();
     if (genericLength == -1) genericLength = strings.size();
-    else if (genericLength != strings.size())
-      throw new RuntimeException(
-          "The "
-              + currentLine
-              + " line does not meet the criteria. Each row of data should be equal in length.");
+    else if (genericLength != strings.size()) {
+      try {
+        rawNext();
+      } catch (NoSuchElementException e) {
+        System.out.println(String.join("", strings));
+        if (!String.join("", strings).isEmpty())
+          throw new RuntimeException(
+              "The "
+                  + currentLine
+                  + " line does not meet the criteria. Each row of data should be equal in length.");
+      }
+    }
+
     return strings;
   }
 
@@ -77,7 +85,6 @@ public class CsvReaderImpl implements CsvReader {
   @Override
   public void skip(int num) {
     if (num > 0) {
-      Utils.requirePositive(num);
       currentLine = currentLine + num;
       Utils.packException(() -> csvReader.skip(num));
       nextLine = null;
