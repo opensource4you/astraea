@@ -46,9 +46,7 @@ public class WebService implements AutoCloseable {
     server.createContext("/quotas", to(new QuotaHandler(admin)));
     server.createContext("/transactions", to(new TransactionHandler(admin)));
     server.createContext("/beans", to(new BeanHandler(admin, brokerIdToJmxPort)));
-    server.createContext(
-        "/records",
-        to(new RecordHandler(admin, admin.bootstrapServers().toCompletableFuture().join())));
+    server.createContext("/records", to(new RecordHandler(admin)));
     server.createContext("/reassignments", to(new ReassignmentHandler(admin)));
     server.createContext("/balancer", to(new BalancerHandler(admin, brokerIdToJmxPort)));
     server.createContext("/throttles", to(new ThrottleHandler(admin)));
@@ -62,7 +60,7 @@ public class WebService implements AutoCloseable {
   @Override
   public void close() {
     Utils.swallowException(admin::close);
-    server.stop(5000);
+    server.stop(3);
   }
 
   public static void main(String[] args) throws Exception {

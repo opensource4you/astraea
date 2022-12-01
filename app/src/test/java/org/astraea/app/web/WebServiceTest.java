@@ -16,9 +16,13 @@
  */
 package org.astraea.app.web;
 
+import java.util.Optional;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.argument.Argument;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.mockito.Mockito;
 
 public class WebServiceTest {
 
@@ -30,5 +34,12 @@ public class WebServiceTest {
             new String[] {"--bootstrap.servers", "localhost", "--port", "65535"});
     Assertions.assertEquals("localhost", argument.bootstrapServers());
     Assertions.assertEquals(65535, argument.port);
+  }
+
+  @Timeout(5)
+  @Test
+  void testClose() {
+    var web = new WebService(Mockito.mock(Admin.class), 0, id -> Optional.empty());
+    web.close();
   }
 }
