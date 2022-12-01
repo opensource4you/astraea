@@ -602,18 +602,18 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .join();
 
       // debounce wait
-      for (int i = 0; i < 2; i++) {
-        Utils.waitForNonNull(
-            () ->
-                admin
-                    .clusterInfo(Set.of(theTopic))
-                    .toCompletableFuture()
-                    .join()
-                    .replicaStream()
-                    .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
-            Duration.ofSeconds(10),
-            Duration.ofMillis(10));
-      }
+      Assertions.assertTrue(
+          admin
+              .waitCluster(
+                  Set.of(theTopic),
+                  clusterInfo ->
+                      clusterInfo
+                          .replicaStream()
+                          .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
+                  Duration.ofSeconds(10),
+                  2)
+              .toCompletableFuture()
+              .join());
 
       Assertions.assertInstanceOf(
           IllegalStateException.class,
