@@ -317,14 +317,6 @@ public class ClusterInfoBuilder {
     return ClusterInfo.of(nodes, replicas);
   }
 
-  private static void mapReplicas(List<Replica> replicas, Function<Replica, Replica> mapper) {
-    var iterator = replicas.listIterator();
-    while (iterator.hasNext()) {
-      var replica = iterator.next();
-      iterator.set(mapper.apply(replica));
-    }
-  }
-
   private static Broker fakeNode(int brokerId) {
     var host = "fake-node-" + brokerId;
     var port = new Random(brokerId).nextInt(65535) + 1;
