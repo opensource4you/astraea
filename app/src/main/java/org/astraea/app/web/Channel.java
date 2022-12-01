@@ -17,7 +17,10 @@
 package org.astraea.app.web;
 
 import com.sun.net.httpserver.HttpExchange;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -226,29 +229,38 @@ interface Channel {
               return Type.UNKNOWN;
           }
         };
-    return builder()
-        .type(parseType.apply(exchange.getRequestMethod()))
-        .target(parseTarget.apply(exchange.getRequestURI()))
-        .queries(parseQueries.apply(exchange.getRequestURI()))
-        .request(parsePostRequest.apply(exchange.getRequestBody()))
-        .request(parseRequest.apply(exchange.getRequestBody()))
-        .sender(
-            response -> {
-              var responseData = response.json().getBytes(StandardCharsets.UTF_8);
-              exchange
-                  .getResponseHeaders()
-                  .set(
-                      "Content-Type",
-                      String.format("application/json; charset=%s", StandardCharsets.UTF_8));
-              Utils.packException(
-                  () -> {
-                    exchange.sendResponseHeaders(response.code(), responseData.length);
-                    try (var os = exchange.getResponseBody()) {
-                      os.write(responseData);
-                    }
-                  });
-            })
-        .build();
+
+    // TODO: there is a temporary needed for reading the network stream twice
+    //  remove this hack in future
+    byte[] requestBytes = Utils.packException(() -> exchange.getRequestBody().readAllBytes());
+    try (var request1 = new ByteArrayInputStream(requestBytes);
+        var request2 = new ByteArrayInputStream(requestBytes)) {
+      return builder()
+          .type(parseType.apply(exchange.getRequestMethod()))
+          .target(parseTarget.apply(exchange.getRequestURI()))
+          .queries(parseQueries.apply(exchange.getRequestURI()))
+          .request(parsePostRequest.apply(request1))
+          .request(parseRequest.apply(request2))
+          .sender(
+              response -> {
+                var responseData = response.json().getBytes(StandardCharsets.UTF_8);
+                exchange
+                    .getResponseHeaders()
+                    .set(
+                        "Content-Type",
+                        String.format("application/json; charset=%s", StandardCharsets.UTF_8));
+                Utils.packException(
+                    () -> {
+                      exchange.sendResponseHeaders(response.code(), responseData.length);
+                      try (var os = exchange.getResponseBody()) {
+                        os.write(responseData);
+                      }
+                    });
+              })
+          .build();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   /**
