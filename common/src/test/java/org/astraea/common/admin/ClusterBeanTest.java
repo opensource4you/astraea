@@ -160,7 +160,7 @@ class ClusterBeanTest {
           clusterBean.query(
               ClusterBeanQuery.window(MetricType1.class, 1)
                   .metricSince(Duration.ofSeconds(3))
-                  .metricQuantities(10)
+                  .metricQuantities(0)
                   .descending());
       System.out.println("[Window]");
       System.out.println(windowQuery);
