@@ -22,11 +22,11 @@ public class PluginInfo {
 
   /** connector plugin class name */
   @JsonProperty("class")
-  private String clz;
+  private String className;
 
   public PluginInfo() {}
 
-  public String clz() {
-    return clz;
+  public String className() {
+    return className;
   }
 }
