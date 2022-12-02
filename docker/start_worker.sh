@@ -199,13 +199,6 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-# set group id
-WORKER_GROUP_ID=$(cat $WORKER_PROPERTIES | grep "group.id" | cut -d "=" -f2)
-if [[ "$WORKER_GROUP_ID" == "" ]]; then
-  # add env LC_CTYPE=C for macOS
-  WORKER_GROUP_ID="worker-"$(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 5 | head -n 1)
-fi
-
 # these properties are set internally
 rejectProperty "offset.storage.topic"
 rejectProperty "config.storage.topic"
@@ -213,7 +206,11 @@ rejectProperty "status.storage.topic"
 
 requireProperty "bootstrap.servers"
 setPropertyIfEmpty "plugin.path" "/opt/worker-plugins"
-setPropertyIfEmpty "group.id" "$WORKER_GROUP_ID"
+setPropertyIfEmpty "group.id" "worker-$(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 5 | head -n 1)"
+
+# take group id from prop file
+WORKER_GROUP_ID=$(cat $WORKER_PROPERTIES | grep "group.id" | cut -d "=" -f2)
+
 # Use ByteArrayConverter as default key/value converter instead of JsonConverter since there are plenty of non kafka connect applications
 # that may use kafka topics, e.g. spark-kafka-integration only accept bytearray and string format (more info, see https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#kafka-specific-configurations)
 setPropertyIfEmpty "key.converter" "org.apache.kafka.connect.converters.ByteArrayConverter"
