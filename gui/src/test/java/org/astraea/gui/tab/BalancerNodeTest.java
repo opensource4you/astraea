@@ -30,7 +30,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
@@ -163,7 +162,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
         BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
-                ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)),
+                ClusterInfo.of(afterReplicas),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 List.of(MoveCost.builder().build())));

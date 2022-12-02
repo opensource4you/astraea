@@ -17,10 +17,8 @@
 package org.astraea.it;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.rmi.registry.LocateRegistry;
 import javax.management.remote.JMXConnectorServer;
@@ -30,7 +28,8 @@ import org.junit.jupiter.api.AfterAll;
 
 public abstract class RequireJmxServer {
 
-  private static final JMXConnectorServer JMX_CONNECTOR_SERVER = jmxConnectorServer(freePort());
+  private static final JMXConnectorServer JMX_CONNECTOR_SERVER =
+      jmxConnectorServer(Utils.availablePort());
 
   protected static JMXServiceURL jmxServiceURL() {
     return JMX_CONNECTOR_SERVER.getAddress();
@@ -64,14 +63,6 @@ public abstract class RequireJmxServer {
       return jmxServer;
     } catch (Exception e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  private static int freePort() {
-    try (var server = new ServerSocket(0)) {
-      return server.getLocalPort();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
     }
   }
 

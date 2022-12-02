@@ -14,22 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.common.connector;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Iterator;
-import org.astraea.common.Utils;
-import org.astraea.common.consumer.Record;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
-public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
+public class WorkerError {
+  @JsonAlias("error_code")
+  private int errorCode;
 
-  static RecordReaderBuilder builder(File file) {
-    return Utils.packException(() -> builder(new FileInputStream(file)));
+  private String message;
+
+  public WorkerError() {}
+
+  public int errorCode() {
+    return errorCode;
   }
 
-  static RecordReaderBuilder builder(InputStream inputStream) {
-    return new RecordReaderBuilder(inputStream);
+  public String message() {
+    return message;
   }
 }

@@ -25,6 +25,7 @@ dependencies {
     testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
     testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
     testImplementation "commons-io:commons-io:${versions["commons-io"]}"
+    testImplementation "org.apache.kafka:connect-runtime:${versions["kafka"]}"
     testImplementation project(':it')
 
 

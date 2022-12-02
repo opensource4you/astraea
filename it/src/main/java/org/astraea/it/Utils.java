@@ -18,6 +18,7 @@ package org.astraea.it;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
@@ -33,7 +34,7 @@ public final class Utils {
       // the port smaller than 1024 may be protected by OS.
       return port > 1024 ? port : port + 1024;
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -46,7 +47,7 @@ public final class Utils {
     try {
       return Files.createTempDirectory(prefix).toFile();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -66,7 +67,7 @@ public final class Utils {
       }
       Files.deleteIfExists(file.toPath());
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -74,7 +75,7 @@ public final class Utils {
     try {
       return Files.createDirectories(new File(address).toPath()).toFile();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new UncheckedIOException(e);
     }
   }
 

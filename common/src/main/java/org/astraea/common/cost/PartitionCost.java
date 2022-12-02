@@ -14,22 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.common.cost;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Iterator;
-import org.astraea.common.Utils;
-import org.astraea.common.consumer.Record;
+import java.util.Map;
+import org.astraea.common.admin.TopicPartition;
 
-public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
+/**
+ * Return the type of the cost function, `HasPartitionCost`. It returns the score of the
+ * topic-partitions.
+ */
+@FunctionalInterface
+public interface PartitionCost {
 
-  static RecordReaderBuilder builder(File file) {
-    return Utils.packException(() -> builder(new FileInputStream(file)));
-  }
-
-  static RecordReaderBuilder builder(InputStream inputStream) {
-    return new RecordReaderBuilder(inputStream);
-  }
+  /**
+   * @return Topic-partition and its cost.
+   */
+  Map<TopicPartition, Double> value();
 }

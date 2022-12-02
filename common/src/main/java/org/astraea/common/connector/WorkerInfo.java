@@ -14,22 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.common.connector;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Iterator;
-import org.astraea.common.Utils;
-import org.astraea.common.consumer.Record;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
-public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
+public class WorkerInfo {
+  private String version;
+  private String commit;
 
-  static RecordReaderBuilder builder(File file) {
-    return Utils.packException(() -> builder(new FileInputStream(file)));
+  @JsonAlias("kafka_cluster_id")
+  private String kafkaClusterId;
+
+  public WorkerInfo() {}
+
+  public String version() {
+    return version;
   }
 
-  static RecordReaderBuilder builder(InputStream inputStream) {
-    return new RecordReaderBuilder(inputStream);
+  public String commit() {
+    return commit;
+  }
+
+  public String kafkaClusterId() {
+    return kafkaClusterId;
+  }
+
+  @Override
+  public String toString() {
+    return "WorkerInfo{"
+        + "version='"
+        + version
+        + '\''
+        + ", commit='"
+        + commit
+        + '\''
+        + ", kafkaClusterId='"
+        + kafkaClusterId
+        + '\''
+        + '}';
   }
 }

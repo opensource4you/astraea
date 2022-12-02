@@ -17,7 +17,6 @@
 package org.astraea.gui.tab;
 
 import java.io.FileReader;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -87,31 +86,32 @@ public class ClientNode {
               if (!f.isFile())
                 throw new IllegalArgumentException("the file: " + f + " is not file");
               return CompletableFuture.supplyAsync(
-                  () -> {
-                    int limit =
-                        Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
-                            .map(Integer::parseInt)
-                            .orElse(LINE_LIMIT_DEFAULT);
-                    try (var reader = CsvReader.builder(new FileReader(f)).build()) {
-                      if (!reader.hasNext())
-                        throw new IllegalArgumentException("there is no header");
-                      var header = reader.rawNext();
-                      var result = new ArrayList<Map<String, Object>>(limit);
-                      var count = 0;
-                      while (reader.hasNext()) {
-                        var line = reader.next();
-                        var map = new LinkedHashMap<String, Object>();
-                        for (var index = 0; index < header.size(); ++index) {
-                          if (index < line.size()) map.put(header.get(index), line.get(index));
-                        }
-                        result.add(map);
-                        if (++count >= limit) break;
-                      }
-                      return result;
-                    } catch (IOException e) {
-                      throw new IllegalArgumentException(e);
-                    }
-                  });
+                  () ->
+                      Utils.packException(
+                          () -> {
+                            int limit =
+                                Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
+                                    .map(Integer::parseInt)
+                                    .orElse(LINE_LIMIT_DEFAULT);
+                            try (var reader = CsvReader.builder(new FileReader(f)).build()) {
+                              if (!reader.hasNext())
+                                throw new IllegalArgumentException("there is no header");
+                              var header = reader.rawNext();
+                              var result = new ArrayList<Map<String, Object>>(limit);
+                              var count = 0;
+                              while (reader.hasNext()) {
+                                var line = reader.next();
+                                var map = new LinkedHashMap<String, Object>();
+                                for (var index = 0; index < header.size(); ++index) {
+                                  if (index < line.size())
+                                    map.put(header.get(index), line.get(index));
+                                }
+                                result.add(map);
+                                if (++count >= limit) break;
+                              }
+                              return result;
+                            }
+                          }));
             })
         .secondPart(
             MultiInput.of(

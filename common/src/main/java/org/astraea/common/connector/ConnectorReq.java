@@ -14,22 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.common.connector;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Iterator;
-import org.astraea.common.Utils;
-import org.astraea.common.consumer.Record;
+import java.util.Map;
 
-public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
+public class ConnectorReq {
+  private final String name;
+  private final Map<String, String> config;
 
-  static RecordReaderBuilder builder(File file) {
-    return Utils.packException(() -> builder(new FileInputStream(file)));
+  public ConnectorReq(String name, Map<String, String> config) {
+    this.name = name;
+    this.config = config;
   }
 
-  static RecordReaderBuilder builder(InputStream inputStream) {
-    return new RecordReaderBuilder(inputStream);
+  public String name() {
+    return name;
+  }
+
+  public Map<String, String> config() {
+    return config;
   }
 }

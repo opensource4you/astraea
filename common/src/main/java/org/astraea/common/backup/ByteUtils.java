@@ -16,12 +16,11 @@
  */
 package org.astraea.common.backup;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import org.astraea.common.Utils;
 
 public final class ByteUtils {
 
@@ -83,55 +82,51 @@ public final class ByteUtils {
   }
 
   public static int readInt(ReadableByteChannel channel) {
-    var buf = ByteBuffer.allocate(Integer.BYTES);
-    try {
-      var size = channel.read(buf);
-      if (size != Integer.BYTES)
-        throw new IllegalStateException(
-            "The remaining size is " + size + ", but expected is " + Integer.BYTES);
-      return buf.flip().getInt();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return Utils.packException(
+        () -> {
+          var buf = ByteBuffer.allocate(Integer.BYTES);
+          var size = channel.read(buf);
+          if (size != Integer.BYTES)
+            throw new IllegalStateException(
+                "The remaining size is " + size + ", but expected is " + Integer.BYTES);
+          return buf.flip().getInt();
+        });
   }
 
   public static int readInt(InputStream fs) {
-    var byteArray = new byte[Integer.BYTES];
-    try {
-      var size = fs.read(byteArray);
-      if (size != Integer.BYTES)
-        throw new IllegalStateException(
-            "The remaining size is " + size + ", but expected is " + Integer.BYTES);
-      return ByteBuffer.wrap(byteArray).getInt();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return Utils.packException(
+        () -> {
+          var byteArray = new byte[Integer.BYTES];
+          var size = fs.read(byteArray);
+          if (size != Integer.BYTES)
+            throw new IllegalStateException(
+                "The remaining size is " + size + ", but expected is " + Integer.BYTES);
+          return ByteBuffer.wrap(byteArray).getInt();
+        });
   }
 
   public static short readShort(ReadableByteChannel channel) {
-    var buf = ByteBuffer.allocate(Short.BYTES);
-    try {
-      var size = channel.read(buf);
-      if (size != Short.BYTES)
-        throw new IllegalStateException(
-            "The remaining size is " + size + ", but expected is " + Short.BYTES);
-      return buf.flip().getShort();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return Utils.packException(
+        () -> {
+          var buf = ByteBuffer.allocate(Short.BYTES);
+          var size = channel.read(buf);
+          if (size != Short.BYTES)
+            throw new IllegalStateException(
+                "The remaining size is " + size + ", but expected is " + Short.BYTES);
+          return buf.flip().getShort();
+        });
   }
 
   public static short readShort(InputStream fs) {
-    var byteArray = new byte[Short.BYTES];
-    try {
-      var size = fs.read(byteArray);
-      if (size != Short.BYTES)
-        throw new IllegalStateException(
-            "The remaining size is " + size + ", but expected is " + Short.BYTES);
-      return ByteBuffer.wrap(byteArray).getShort();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    return Utils.packException(
+        () -> {
+          var byteArray = new byte[Short.BYTES];
+          var size = fs.read(byteArray);
+          if (size != Short.BYTES)
+            throw new IllegalStateException(
+                "The remaining size is " + size + ", but expected is " + Short.BYTES);
+          return ByteBuffer.wrap(byteArray).getShort();
+        });
   }
 
   public static String readString(ByteBuffer buffer, int size) {

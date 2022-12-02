@@ -14,10 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.log;
+package org.astraea.common.connector;
 
-public class IllegalMigrationException extends RuntimeException {
-  public IllegalMigrationException(String s) {
-    super(s);
+import java.util.List;
+import java.util.Map;
+
+public class ConnectorInfo {
+  private String name;
+  private Map<String, String> config = Map.of();
+  private List<TaskInfo> tasks = List.of();
+
+  public ConnectorInfo() {}
+
+  public String name() {
+    return name;
+  }
+
+  public Map<String, String> config() {
+    return config;
+  }
+
+  public List<TaskInfo> tasks() {
+    return tasks;
   }
 }
