@@ -51,7 +51,7 @@ public interface CostFunction {
    * @return the {@link Sensor} and the type of {@link org.astraea.common.metrics.stats.Stat} name
    *     to use.
    */
-  default Collection<MetricSensors<?>> sensors() {
+  default Collection<MetricSensors> sensors() {
     return List.of();
   }
 }

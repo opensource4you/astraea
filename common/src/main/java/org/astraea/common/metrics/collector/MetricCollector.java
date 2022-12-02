@@ -23,7 +23,6 @@ import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.Sensor;
 
 public interface MetricCollector extends AutoCloseable {
 
@@ -56,17 +55,22 @@ public interface MetricCollector extends AutoCloseable {
   }
 
   /**
-   * Add multiple {@link Sensor} for real-time statistics
+   * Add multiple {@link MetricSensors} for real-time statistics
    *
-   * @param sensors to statistical data
+   * @param metricSensors to statistical data
    */
-  void addMetricSensors(Collection<MetricSensors<?>> sensors);
+  void addMetricSensors(MetricSensors metricSensors);
 
   /** Register a JMX server. */
   void registerJmx(int identity, InetSocketAddress socketAddress);
 
   /** Register the JMX server on this JVM instance. */
   void registerLocalJmx(int identity);
+
+  /**
+   * @return the current registered metricsSensors.
+   */
+  Collection<MetricSensors> listMetricsSensors();
 
   /**
    * @return the current registered fetchers.
@@ -87,8 +91,6 @@ public interface MetricCollector extends AutoCloseable {
    * @return size of stored beans
    */
   int size();
-
-  Collection<MetricSensors<?>> metricSensors();
 
   /**
    * @return a weak consistency stream for stored beans.

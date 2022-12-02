@@ -59,7 +59,7 @@ public interface HasClusterCost extends CostFunction {
       }
 
       @Override
-      public Collection<MetricSensors<?>> sensors() {
+      public Collection<MetricSensors> sensors() {
         return sensors;
       }
     };

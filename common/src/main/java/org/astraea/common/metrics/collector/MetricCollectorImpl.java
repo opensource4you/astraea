@@ -45,8 +45,8 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public class MetricCollectorImpl implements MetricCollector {
-  private final Collection<MetricSensors<?>> sensors = new ArrayList<>();
   private final Map<Integer, MBeanClient> mBeanClients = new ConcurrentHashMap<>();
+  private final Collection<MetricSensors> metricSensors = new CopyOnWriteArrayList<>();
   private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers =
       new CopyOnWriteArrayList<>();
   private final ScheduledExecutorService executorService;
@@ -100,7 +100,18 @@ public class MetricCollectorImpl implements MetricCollector {
                                       identity.id, ignored -> new ConcurrentLinkedQueue<>())
                                   .addAll(beans);
                               DelayedIdentity finalIdentity = identity;
-                              sensors.forEach(sensor -> sensor.record(finalIdentity.id, beans));
+                              metricSensors.forEach(
+                                  metricSensors -> {
+                                    metricSensors
+                                        .record()
+                                        .apply(finalIdentity.id, beans)
+                                        .forEach(
+                                            (key, value) ->
+                                                this.beans
+                                                    .computeIfAbsent(
+                                                        key, ignore -> new ArrayList<>())
+                                                    .addAll(value));
+                                  });
                             } catch (NoSuchElementException e) {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
@@ -125,8 +136,8 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void addMetricSensors(Collection<MetricSensors<?>> sensors) {
-    this.sensors.addAll(sensors);
+  public void addMetricSensors(MetricSensors metricSensors) {
+    this.metricSensors.add(metricSensors);
   }
 
   @Override
@@ -151,6 +162,11 @@ public class MetricCollectorImpl implements MetricCollector {
             "Attempt to register identity "
                 + identity
                 + " with the local JMX server. But this id is already registered");
+  }
+
+  @Override
+  public Collection<MetricSensors> listMetricsSensors() {
+    return this.metricSensors;
   }
 
   @Override
@@ -186,11 +202,6 @@ public class MetricCollectorImpl implements MetricCollector {
           else return clientSupplier.get();
         });
     this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, identity));
-  }
-
-  @Override
-  public Collection<MetricSensors<?>> metricSensors() {
-    return this.sensors;
   }
 
   public ClusterBean clusterBean() {

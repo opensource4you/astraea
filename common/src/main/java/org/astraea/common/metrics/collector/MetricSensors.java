@@ -17,19 +17,13 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.Sensor;
 
-public interface MetricSensors<T> {
-  Class<? extends HasBeanObject> metricClass();
+@FunctionalInterface
+public interface MetricSensors {
 
-  void record(int identity, Collection<? extends HasBeanObject> beans);
-
-  Map<T, Sensor<Double>> sensors();
-
-  Sensor<Double> sensor(T key);
-
-  void addSensorKey(List<?> e);
+  BiFunction<Integer, Collection<? extends HasBeanObject>, Map<Integer, Collection<HasBeanObject>>>
+      record();
 }

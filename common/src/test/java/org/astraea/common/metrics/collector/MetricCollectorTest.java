@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -35,7 +36,6 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
@@ -64,30 +64,18 @@ class MetricCollectorTest extends RequireBrokerCluster {
   void addSensor() {
     try (var collector = MetricCollector.builder().build()) {
       var matricSensor =
-          new MetricSensors<>() {
+          new MetricSensors() {
             @Override
-            public Class<? extends HasBeanObject> metricClass() {
+            public BiFunction<
+                    Integer,
+                    Collection<? extends HasBeanObject>,
+                    Map<Integer, Collection<HasBeanObject>>>
+                record() {
               return null;
             }
-
-            @Override
-            public void record(int identity, Collection<? extends HasBeanObject> beans) {}
-
-            @Override
-            public Map<Object, Sensor<Double>> sensors() {
-              return null;
-            }
-
-            @Override
-            public Sensor<Double> sensor(Object key) {
-              return null;
-            }
-
-            @Override
-            public void addSensorKey(List<?> e) {}
           };
-      collector.addMetricSensors(List.of(matricSensor));
-      Assertions.assertEquals(1, collector.metricSensors().size());
+      collector.addMetricSensors(matricSensor);
+      Assertions.assertEquals(1, collector.listMetricsSensors().size());
     }
   }
 
