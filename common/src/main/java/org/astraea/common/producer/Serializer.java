@@ -29,6 +29,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 @FunctionalInterface
 public interface Serializer<T> {
@@ -63,22 +64,28 @@ public interface Serializer<T> {
   }
 
   Serializer<byte[]> BYTE_ARRAY = of(new ByteArraySerializer());
+
   Serializer<String> STRING = of(new StringSerializer());
   Serializer<Integer> INTEGER = of(new IntegerSerializer());
   Serializer<Long> LONG = of(new LongSerializer());
   Serializer<Float> FLOAT = of(new FloatSerializer());
   Serializer<Double> DOUBLE = of(new DoubleSerializer());
-  Serializer<Object> JSON = JsonSerializer.of();
+
+  /**
+   * create Custom JsonSerializer
+   *
+   * @return Custom JsonSerializer
+   * @param <T> The type of message being output by the serializer
+   */
+  static <T> Serializer<T> of(TypeRef<T> typeRef) {
+    return (topic, headers, data) -> new JsonSerializer<>(typeRef).serialize(topic, headers, data);
+  }
 
   class JsonSerializer<T> implements Serializer<T> {
     private final String encoding = StandardCharsets.UTF_8.name();
     private final JsonConverter jackson = JsonConverter.jackson();
 
-    private static <T> JsonSerializer<T> of() {
-      return new JsonSerializer<>();
-    }
-
-    private JsonSerializer() {}
+    private JsonSerializer(TypeRef<T> typeRef) {}
 
     @Override
     public byte[] serialize(String topic, Collection<Header> headers, T data) {

@@ -40,7 +40,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
     try (var producer =
             Producer.builder()
                 .bootstrapServers(bootstrapServers())
-                .keySerializer(Serializer.JSON)
+                .keySerializer(Serializer.of(TypeRef.of(Map.class)))
                 .build();
         var consumer =
             Consumer.forTopics(Set.of(topic))
@@ -51,11 +51,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
                     ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                 .build()) {
       producer
-          .send(
-              Record.builder()
-                  .topic(topic)
-                  .key((Object) Map.of("name", "ben", "age", "22"))
-                  .build())
+          .send(Record.builder().topic(topic).key((Map) Map.of("name", "ben", "age", "22")).build())
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(1));
@@ -94,7 +90,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
     try (var producer =
             Producer.builder()
                 .bootstrapServers(bootstrapServers())
-                .keySerializer(Serializer.JSON)
+                .keySerializer(Serializer.of(TypeRef.of(TestPrimitiveClass.class)))
                 .build();
         var consumer =
             Consumer.forTopics(Set.of(topic))
@@ -106,7 +102,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
                 .build()) {
 
       producer
-          .send(Record.builder().topic(topic).key((Object) testFieldClass).build())
+          .send(Record.builder().topic(topic).key(testFieldClass).build())
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(1));

@@ -16,8 +16,6 @@
  */
 package org.astraea.common.consumer;
 
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
@@ -28,7 +26,6 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
-import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 
@@ -84,18 +81,13 @@ public interface Deserializer<T> {
    * @param <T> The type of message being output by the Deserializer
    */
   static <T> Deserializer<T> of(TypeRef<T> typeRef) {
-    return (topic, headers, data) -> JsonDeserializer.of(typeRef).deserialize(topic, headers, data);
+    return (topic, headers, data) ->
+        new JsonDeserializer<>(typeRef).deserialize(topic, headers, data);
   }
 
   class JsonDeserializer<T> implements Deserializer<T> {
     private final TypeRef<T> typeRef;
-    private final String encoding = StandardCharsets.UTF_8.name();
     private final JsonConverter jackson = JsonConverter.jackson();
-
-    private static <T> JsonDeserializer<T> of(TypeRef<T> typeRef) {
-      Type type = typeRef.getType();
-      return new JsonDeserializer<>(typeRef);
-    }
 
     private JsonDeserializer(TypeRef<T> typeRef) {
       this.typeRef = typeRef;
@@ -105,7 +97,7 @@ public interface Deserializer<T> {
     public T deserialize(String topic, List<Header> headers, byte[] data) {
       if (data == null) return null;
       else {
-        return jackson.fromJson(Utils.packException(() -> new String(data, encoding)), typeRef);
+        return jackson.fromJson(Deserializer.STRING.deserialize(topic, headers, data), typeRef);
       }
     }
   }
