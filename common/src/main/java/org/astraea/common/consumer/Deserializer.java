@@ -65,7 +65,6 @@ public interface Deserializer<T> {
 
   Deserializer<String> BASE64 =
       (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
-
   Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
   Deserializer<String> STRING = of(new StringDeserializer());
   Deserializer<Integer> INTEGER = of(new IntegerDeserializer());

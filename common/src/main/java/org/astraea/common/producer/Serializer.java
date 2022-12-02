@@ -64,7 +64,6 @@ public interface Serializer<T> {
   }
 
   Serializer<byte[]> BYTE_ARRAY = of(new ByteArraySerializer());
-
   Serializer<String> STRING = of(new StringSerializer());
   Serializer<Integer> INTEGER = of(new IntegerSerializer());
   Serializer<Long> LONG = of(new LongSerializer());
