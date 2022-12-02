@@ -103,8 +103,7 @@ public class MetricCollectorImpl implements MetricCollector {
                               metricSensors.forEach(
                                   metricSensors ->
                                       metricSensors
-                                          .record()
-                                          .apply(finalIdentity.id, beans)
+                                          .record(finalIdentity.id, beans)
                                           .forEach(
                                               (key, value) ->
                                                   this.beans

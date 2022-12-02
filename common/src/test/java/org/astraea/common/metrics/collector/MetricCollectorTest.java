@@ -21,20 +21,17 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
@@ -63,18 +60,8 @@ class MetricCollectorTest extends RequireBrokerCluster {
   @Test
   void addSensor() {
     try (var collector = MetricCollector.builder().build()) {
-      var matricSensor =
-          new MetricSensors() {
-            @Override
-            public BiFunction<
-                    Integer,
-                    Collection<? extends HasBeanObject>,
-                    Map<Integer, Collection<HasBeanObject>>>
-                record() {
-              return null;
-            }
-          };
-      collector.addMetricSensors(matricSensor);
+      MetricSensors metricSensor = (identity, beans) -> null;
+      collector.addMetricSensors(metricSensor);
       Assertions.assertEquals(1, collector.listMetricsSensors().size());
     }
   }
