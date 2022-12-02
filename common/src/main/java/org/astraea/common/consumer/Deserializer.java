@@ -46,6 +46,7 @@ public interface Deserializer<T> {
   static <T> org.apache.kafka.common.serialization.Deserializer<T> of(
       Deserializer<T> deserializer) {
     return new org.apache.kafka.common.serialization.Deserializer<>() {
+
       @Override
       public T deserialize(String topic, byte[] data) {
         return deserializer.deserialize(topic, List.of(), data);
