@@ -22,10 +22,11 @@ source "$DOCKER_FOLDER"/docker_build_common.sh
 declare -r SPARK_VERSION=${SPARK_VERSION:-3.1.2}
 declare -r ASTRAEA_VERSION=${ASTRAEA_VERSION:-0.0.1}
 # ===============================[global variables]================================
+declare -r REVISION=${REVISION:-$([[ ${BUILD} != "false" ]] && git rev-parse --short HEAD)}
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
-declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)/etl/build/libs/astraea-etl-${ASTRAEA_VERSION}-SNAPSHOT-all.jar
+declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)
 declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
 declare -r PROPERTIES=$1
@@ -110,7 +111,6 @@ function runContainer() {
   if [[ "$BUILD" == "false" ]]; then
     runContainerByGithub "$1"
   else
-    ./gradlew clean shadowJar
     runContainerByLocal "$1"
   fi
 }
@@ -151,13 +151,18 @@ function runContainerByLocal() {
     checkpoint_path=$(checkPath "$(prop $CHECKPOINT_KEY)")
     source_name=$(echo "${source_path}" | tr '/' '-')
 
+    docker run --rm -v "$LOCAL_PATH":/tmp/astraea \
+        ghcr.io/skiptests/astraea/deps \
+        /bin/bash \
+        -c "cd /tmp/astraea && ./gradlew clean shadowJar "
+
     docker run -d --init \
         --name "csv-kafka-${topic}${source_name}" \
         -v "$propertiesPath":"$propertiesPath":ro \
         -v "${sink_path}":"${sink_path}" \
         -v "${source_path}":"${source_path}":ro \
         -v "${checkpoint_path}":"${checkpoint_path}" \
-        -v "${LOCAL_PATH}":"${LOCAL_PATH}":ro \
+        -v "$LOCAL_PATH":"$LOCAL_PATH" \
         -e JAVA_OPTS="$HEAP_OPTS" \
         "$IMAGE_NAME" \
         ./bin/spark-submit \
@@ -165,7 +170,7 @@ function runContainerByLocal() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        "$LOCAL_PATH" \
+        "$LOCAL_PATH"/etl/build/libs/astraea-etl-"${ASTRAEA_VERSION}"-SNAPSHOT-all.jar \
         "$propertiesPath"
 }
 
