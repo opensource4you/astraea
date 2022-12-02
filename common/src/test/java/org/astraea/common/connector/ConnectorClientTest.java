@@ -146,6 +146,9 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals("2", connector.config().get("tasks.max"));
     assertEquals("myTopic2", connector.config().get("topics"));
 
+    // wait for syncing configs
+    Utils.sleep(Duration.ofSeconds(2));
+
     connector = connectorClient.connector(connectorName).toCompletableFuture().get();
     assertEquals("2", connector.config().get("tasks.max"));
     assertEquals("myTopic2", connector.config().get("topics"));
@@ -193,6 +196,10 @@ class ConnectorClientTest extends RequireWorkerCluster {
         .createConnector(connectorName, getExampleConnector())
         .toCompletableFuture()
         .get();
+
+    // wait for syncing configs
+    Utils.sleep(Duration.ofSeconds(2));
+
     IntStream.range(0, 15)
         .forEach(
             x ->
