@@ -108,9 +108,8 @@ public interface ClusterBean {
   class ClusterBeanQuery<T extends HasBeanObject> {
 
     private final Supplier<Map<Integer, Collection<HasBeanObject>>> metricSource;
-    private final Class<T> metricType;
     private final int id;
-    private final Function<Stream<T>, Stream<T>> typeFilter;
+    private final Function<Stream<? extends HasBeanObject>, Stream<T>> typeFilter;
     private Function<Stream<T>, Stream<T>> order = stream -> stream;
     private Function<Stream<T>, Stream<T>> timeWindow = stream -> stream;
     private Function<Stream<T>, Stream<T>> quantities = stream -> stream;
@@ -119,10 +118,12 @@ public interface ClusterBean {
     private ClusterBeanQuery(
         Supplier<Map<Integer, Collection<HasBeanObject>>> source, Class<T> metricType, int id) {
       this.metricSource = source;
-      this.metricType = metricType;
       this.id = id;
       this.typeFilter =
-          stream -> stream.filter(bean -> metricType.isAssignableFrom(bean.getClass()));
+          stream ->
+              stream
+                  .filter(bean -> metricType.isAssignableFrom(bean.getClass()))
+                  .map(metricType::cast);
     }
 
     /** Sort metrics by time in ascending order. */
@@ -168,12 +169,9 @@ public interface ClusterBean {
     }
 
     public List<T> run() {
-      //noinspection unchecked
-      var stream =
-          (Stream<T>)
-              Objects.requireNonNull(metricSource.get().get(id), "No such identity: " + id)
-                  .stream();
-      stream = typeFilter.apply(stream);
+      var rawStream =
+          Objects.requireNonNull(metricSource.get().get(id), "No such identity: " + id).stream();
+      var stream = typeFilter.apply(rawStream);
       stream = timeWindow.apply(stream);
       stream = order.apply(stream);
       stream = quantities.apply(stream);
