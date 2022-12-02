@@ -17,14 +17,9 @@
 package org.astraea.common.admin;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.HasBeanObject;
 
@@ -34,9 +29,6 @@ import org.astraea.common.metrics.HasBeanObject;
  * @param <Result> the query result type.
  */
 public interface ClusterBeanQuery<Result> {
-
-  /** Execute the query. */
-  Result run(Map<Integer, Collection<HasBeanObject>> allMetrics);
 
   /**
    * Select a window of metrics.
@@ -62,11 +54,11 @@ public interface ClusterBeanQuery<Result> {
 
   class WindowQuery<T extends HasBeanObject> implements ClusterBeanQuery<List<T>> {
 
-    private final Class<T> metricType;
-    private final int id;
-    private final Comparator<T> comparator;
-    private final Predicate<T> filter;
-    private final int requiredSize;
+    final Class<T> metricType;
+    final int id;
+    final Comparator<T> comparator;
+    final Predicate<T> filter;
+    final int requiredSize;
 
     private WindowQuery(Class<T> metricType, int id) {
       this.metricType = metricType;
@@ -122,44 +114,16 @@ public interface ClusterBeanQuery<Result> {
     public WindowQuery<T> metricQuantities(int quantity) {
       return new WindowQuery<>(metricType, id, comparator, filter, quantity);
     }
-
-    @Override
-    public List<T> run(Map<Integer, Collection<HasBeanObject>> allMetrics) {
-      var result =
-          Objects.requireNonNull(allMetrics.get(id), "No such identity: " + id).stream()
-              .filter(bean -> metricType == bean.getClass())
-              .map(metricType::cast)
-              .filter(filter)
-              .sorted(comparator)
-              .limit(requiredSize)
-              .collect(Collectors.toUnmodifiableList());
-      if (result.size() != requiredSize)
-        throw new NoSufficientMetricsException(
-            new CostFunction() {},
-            Duration.ofSeconds(1),
-            "Not enough metrics, expected " + requiredSize + " but got " + result.size());
-      return result;
-    }
   }
 
   class LatestMetricQuery<T extends HasBeanObject> implements ClusterBeanQuery<T> {
 
-    private final Class<T> metricClass;
-    private final int id;
+    final Class<T> metricClass;
+    final int id;
 
     private LatestMetricQuery(Class<T> metricClass, int id) {
       this.metricClass = metricClass;
       this.id = id;
-    }
-
-    @Override
-    public T run(Map<Integer, Collection<HasBeanObject>> allMetrics) {
-      return Objects.requireNonNull(allMetrics.get(id), "No such id: " + id).stream()
-          .filter(bean -> bean.getClass() == metricClass)
-          .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
-          .map(metricClass::cast)
-          .orElseThrow(
-              () -> new NoSufficientMetricsException(new CostFunction() {}, Duration.ofSeconds(1)));
     }
   }
 }
