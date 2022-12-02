@@ -101,17 +101,16 @@ public class MetricCollectorImpl implements MetricCollector {
                                   .addAll(beans);
                               DelayedIdentity finalIdentity = identity;
                               metricSensors.forEach(
-                                  metricSensors -> {
-                                    metricSensors
-                                        .record()
-                                        .apply(finalIdentity.id, beans)
-                                        .forEach(
-                                            (key, value) ->
-                                                this.beans
-                                                    .computeIfAbsent(
-                                                        key, ignore -> new ArrayList<>())
-                                                    .addAll(value));
-                                  });
+                                  metricSensors ->
+                                      metricSensors
+                                          .record()
+                                          .apply(finalIdentity.id, beans)
+                                          .forEach(
+                                              (key, value) ->
+                                                  this.beans
+                                                      .computeIfAbsent(
+                                                          key, ignore -> new ArrayList<>())
+                                                      .addAll(value)));
                             } catch (NoSuchElementException e) {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
