@@ -18,18 +18,19 @@ package org.astraea.fs.ftp;
 
 import java.util.Map;
 import org.astraea.common.Configuration;
+import org.astraea.fs.AbstractFileSystemTest;
 import org.astraea.fs.FileSystem;
-import org.astraea.fs.FileSystemTest;
 import org.astraea.it.FtpServer;
 import org.junit.jupiter.api.AfterEach;
 
-public class FtpFileSystemTest extends FileSystemTest {
+public class FtpFileSystemTest extends AbstractFileSystemTest {
 
   private final FtpServer server = FtpServer.local();
 
   @Override
   protected FileSystem fileSystem() {
-    return FileSystem.ftp(
+    return FileSystem.of(
+        "ftp",
         Configuration.of(
             Map.of(
                 FtpFileSystem.HOSTNAME_KEY,

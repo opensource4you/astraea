@@ -55,15 +55,17 @@ public class CsvReaderImpl implements CsvReader {
     List<String> strings = rawNext();
     if (genericLength == -1) genericLength = strings.size();
     else if (genericLength != strings.size()) {
-      try {
-        rawNext();
-      } catch (NoSuchElementException e) {
-        System.out.println(String.join("", strings));
-        if (!String.join("", strings).isEmpty())
-          throw new RuntimeException(
-              "The "
-                  + currentLine
-                  + " line does not meet the criteria. Each row of data should be equal in length.");
+      if (!String.join("", strings).isEmpty()) {
+        try {
+          rawNext();
+        } catch (NoSuchElementException e) {
+          System.out.println(String.join("", strings));
+          return strings;
+        }
+        throw new RuntimeException(
+            "The "
+                + currentLine
+                + " line does not meet the criteria. Each row of data should be equal in length.");
       }
     }
 

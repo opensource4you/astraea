@@ -27,7 +27,7 @@ import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SourceConnectorTest extends RequireSingleWorkerCluster {
+public class ConnectorTest extends RequireSingleWorkerCluster {
 
   @Test
   void testRun() {
@@ -42,14 +42,19 @@ public class SourceConnectorTest extends RequireSingleWorkerCluster {
     Assertions.assertTrue(
         r.body().stream()
             .map(m -> (Map<String, String>) m)
-            .anyMatch(m -> m.get("class").equals(MyConnector.class.getName())));
+            .anyMatch(m -> m.get("class").equals(MySource.class.getName())));
+
+    Assertions.assertTrue(
+        r.body().stream()
+            .map(m -> (Map<String, String>) m)
+            .anyMatch(m -> m.get("class").equals(MySink.class.getName())));
   }
 
-  public static class MyConnector extends SourceConnector {
+  public static class MySource extends SourceConnector {
 
     @Override
     protected Class<? extends SourceTask> task() {
-      return MyTask.class;
+      return MySourceTask.class;
     }
 
     @Override
@@ -63,11 +68,35 @@ public class SourceConnectorTest extends RequireSingleWorkerCluster {
     }
   }
 
-  public static class MyTask extends SourceTask {
+  public static class MySourceTask extends SourceTask {
 
     @Override
     protected Collection<Record<byte[], byte[]>> take() throws InterruptedException {
       return List.of();
     }
+  }
+
+  public static class MySink extends SinkConnector {
+
+    @Override
+    protected Class<? extends SinkTask> task() {
+      return MySinkTask.class;
+    }
+
+    @Override
+    protected List<Configuration> takeConfiguration(int maxTasks) {
+      return List.of(Configuration.of(Map.of()));
+    }
+
+    @Override
+    protected List<Definition> definitions() {
+      return List.of();
+    }
+  }
+
+  public static class MySinkTask extends SinkTask {
+
+    @Override
+    protected void put(List<org.astraea.common.consumer.Record<byte[], byte[]>> records) {}
   }
 }

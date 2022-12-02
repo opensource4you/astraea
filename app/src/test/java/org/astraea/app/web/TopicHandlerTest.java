@@ -19,10 +19,13 @@ package org.astraea.app.web;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -30,6 +33,9 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.http.HttpExecutor;
+import org.astraea.common.http.Response;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
@@ -37,6 +43,42 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TopicHandlerTest extends RequireBrokerCluster {
+
+  @Test
+  void testWithWebService() {
+    try (Admin admin = Admin.of(bootstrapServers())) {
+      var topicName = Utils.randomString();
+      var partitions = ThreadLocalRandom.current().nextInt(1, 11);
+      var replicas = (short) ThreadLocalRandom.current().nextInt(1, 4);
+      var request = new TopicHandler.TopicPostRequest();
+      var topic = new TopicHandler.Topic();
+      topic.name = topicName;
+      topic.partitions = partitions;
+      topic.replicas = replicas;
+      request.topics = List.of(topic);
+
+      try (var service = new WebService(Admin.of(bootstrapServers()), 0, id -> Optional.empty())) {
+        Response<TopicHandler.Topics> response =
+            HttpExecutor.builder()
+                .build()
+                .post(
+                    "http://localhost:" + service.port() + "/topics",
+                    request,
+                    TypeRef.of(TopicHandler.Topics.class))
+                .toCompletableFuture()
+                .join();
+        Utils.sleep(Duration.ofSeconds(1));
+
+        var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
+        Assertions.assertEquals(200, response.statusCode());
+        Assertions.assertEquals(1, response.body().topics.size());
+        Assertions.assertEquals(partitions, response.body().topics.get(0).partitions.size());
+        Assertions.assertEquals(Set.of(topicName), clusterInfo.topics());
+        Assertions.assertEquals(partitions, clusterInfo.topicPartitions().size());
+        Assertions.assertEquals(partitions * replicas, clusterInfo.replicas().size());
+      }
+    }
+  }
 
   @Test
   void testListTopics() {

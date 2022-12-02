@@ -51,7 +51,7 @@ public class ImportCsvTest {
   private final String DATA_MAME = "20220202_AAA888_min.dat";
 
   @Test
-  void runTest() {
+  void runTest() throws IOException {
     try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of())); ) {
       var local_csv = createTempDirectory("local_CSV");
       var source = local_csv.toString() + "/source";
@@ -72,7 +72,7 @@ public class ImportCsvTest {
   @Test
   void skipHeadTest() {
     try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of())); ) {
-      var local_csv = createTempDirectory("local_CSV");
+      var local_csv = Utils.packException(() -> createTempDirectory("local_CSV"));
       var source = local_csv.toString() + "/source";
       localFileSystem.mkdir(source);
       var sink = local_csv + "/sink";
@@ -86,14 +86,14 @@ public class ImportCsvTest {
 
       var target = new File(sink + "/" + DATA_MAME);
       assertTrue(Files.exists(target.toPath()));
-      checkFile(target, ansLists);
+      Utils.packException(() -> checkFile(target, ansLists));
     }
   }
 
   @Test
   void deleteTest() {
     try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
-      Path local_csv = createTempDirectory("local_CSV");
+      Path local_csv = Utils.packException(() -> createTempDirectory("local_CSV"));
       var source = local_csv.toString() + "/source";
       localFileSystem.mkdir(source);
       var sink = local_csv + "/sink";
@@ -114,7 +114,7 @@ public class ImportCsvTest {
   }
 
   @Test
-  void archiveTest() {
+  void archiveTest() throws IOException {
     try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
       Path local_csv = createTempDirectory("local_CSV");
       var source = local_csv + "/source";
@@ -147,7 +147,7 @@ public class ImportCsvTest {
   }
 
   @Test
-  void multipleFileTest() {
+  void multipleFileTest() throws IOException {
     try (var localFileSystem = new LocalFileSystem(Configuration.of(Map.of()))) {
       var name2 = "20220202_AAA999_min.dat";
 
@@ -225,7 +225,7 @@ public class ImportCsvTest {
     return lists;
   }
 
-  private void checkFile(File target, List<String[]> ansLists) {
+  private void checkFile(File target, List<String[]> ansLists) throws IOException {
     var pathSplit = target.toString().split("/");
     var csvName = Arrays.stream(pathSplit).skip(pathSplit.length - 1).findFirst().orElse("/");
     try (var reader = new CSVReader(new FileReader(target))) {
@@ -244,8 +244,6 @@ public class ImportCsvTest {
                       checkEquality(Utils.packException(reader::readNext), iterator.next()),
                       String.valueOf(ignore)));
       Assertions.assertEquals(fileLineNum(target.toPath()), 302);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 
@@ -284,12 +282,8 @@ public class ImportCsvTest {
     return true;
   }
 
-  private Path createTempDirectory(String str) {
-    try {
-      return Files.createTempDirectory(str);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  private Path createTempDirectory(String str) throws IOException {
+    return Files.createTempDirectory(str);
   }
 
   private String mkString(List<String> arr) {

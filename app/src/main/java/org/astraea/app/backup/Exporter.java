@@ -50,7 +50,7 @@ public class Exporter {
   public static Map<TopicPartition, Stat> execute(Argument argument) {
     if (!argument.output.toFile().isDirectory())
       throw new IllegalArgumentException("--output must be a existent folder");
-    try (var fs = FileSystem.local(Configuration.EMPTY)) {
+    try (var fs = FileSystem.of("local", Configuration.EMPTY)) {
       var iter =
           Consumer.forTopics(Set.copyOf(argument.topics))
               .bootstrapServers(argument.bootstrapServers())

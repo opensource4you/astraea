@@ -17,16 +17,15 @@
 package org.astraea.common.admin;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -36,7 +35,9 @@ import java.util.stream.Stream;
 public class ClusterInfoBuilder {
 
   private final ClusterInfo<Replica> sourceCluster;
-  private final List<BiConsumer<Set<NodeInfo>, List<Replica>>> alterations;
+  private final List<
+          BiFunction<Set<NodeInfo>, List<Replica>, Map.Entry<Set<NodeInfo>, List<Replica>>>>
+      alterations;
 
   private ClusterInfoBuilder(ClusterInfo<Replica> source) {
     this.sourceCluster = source;
@@ -52,14 +53,27 @@ public class ClusterInfoBuilder {
   }
 
   /**
-   * Add an alteration to the cluster state.
+   * Alter the node information.
    *
-   * @param alteration the alteration that will be applied to the cluster state, all the given data
-   *     structure are mutable but not thread-safe.
+   * @param alteration a function that return the new node set.
    * @return this.
    */
-  public ClusterInfoBuilder apply(BiConsumer<Set<NodeInfo>, List<Replica>> alteration) {
-    this.alterations.add(alteration);
+  public ClusterInfoBuilder applyNodes(
+      BiFunction<Set<NodeInfo>, List<Replica>, Set<NodeInfo>> alteration) {
+    this.alterations.add(
+        (nodes, replicas) -> Map.entry(alteration.apply(nodes, replicas), replicas));
+    return this;
+  }
+
+  /**
+   * Alter the replica information.
+   *
+   * @param alteration a function that return the new replica list.
+   * @return this.
+   */
+  public ClusterInfoBuilder applyReplicas(
+      BiFunction<Set<NodeInfo>, List<Replica>, List<Replica>> alteration) {
+    this.alterations.add((nodes, replicas) -> Map.entry(nodes, alteration.apply(nodes, replicas)));
     return this;
   }
 
@@ -70,9 +84,10 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder addNode(Set<Integer> brokerIds) {
-    return apply(
+    return applyNodes(
         (nodes, replicas) ->
-            brokerIds.stream().map(ClusterInfoBuilder::fakeNode).forEach(nodes::add));
+            Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
+                .collect(Collectors.toUnmodifiableSet()));
   }
 
   /**
@@ -82,23 +97,27 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder addFolders(Map<Integer, Set<String>> folders) {
-    return apply(
-        (nodes, replicas) ->
-            folders.forEach(
-                (brokerId, newFolders) -> {
-                  var theNode =
-                      nodes.stream()
-                          .filter(node -> node.id() == brokerId)
-                          .findFirst()
-                          .orElseThrow(
-                              () ->
-                                  new IllegalArgumentException(
-                                      "Looking for the node but no match found: " + brokerId));
-
-                  if (theNode instanceof FakeBroker)
-                    newFolders.forEach(folder -> addFolder((FakeBroker) theNode, folder));
-                  else throw new IllegalStateException("No support for mocking a concrete node");
-                }));
+    return applyNodes(
+        (nodes, replicas) -> {
+          if (!folders.keySet().stream()
+              .allMatch(id -> nodes.stream().anyMatch(node -> node.id() == id)))
+            throw new IllegalArgumentException("Some node doesn't exists");
+          return nodes.stream()
+              .map(
+                  node -> {
+                    if (folders.containsKey(node.id()))
+                      return FakeBroker.of(
+                          node.id(),
+                          node.host(),
+                          node.port(),
+                          Stream.concat(
+                                  ((Broker) node).dataFolders().stream(),
+                                  folders.get(node.id()).stream().map(FakeDataFolder::of))
+                              .collect(Collectors.toUnmodifiableList()));
+                    else return node;
+                  })
+              .collect(Collectors.toUnmodifiableSet());
+        });
   }
 
   /**
@@ -124,7 +143,7 @@ public class ClusterInfoBuilder {
    */
   public ClusterInfoBuilder addTopic(
       String topicName, int partitionSize, short replicaFactor, Function<Replica, Replica> mapper) {
-    return apply(
+    return applyReplicas(
         (nodes, replicas) -> {
           if (nodes.stream().anyMatch(node -> !(node instanceof Broker)))
             throw new IllegalStateException("All the nodes must include the folder info");
@@ -159,42 +178,45 @@ public class ClusterInfoBuilder {
                   throw new IllegalArgumentException("This broker has no folder: " + node);
               });
 
-          IntStream.range(0, partitionSize)
-              .mapToObj(partition -> TopicPartition.of(topicName, partition))
-              .flatMap(
-                  tp ->
-                      IntStream.range(0, replicaFactor)
-                          .mapToObj(
-                              index -> {
-                                final Broker broker = nodeSelector.next();
-                                final String path =
-                                    folderLogCounter.get(broker).entrySet().stream()
-                                        .min(Comparator.comparing(x -> x.getValue().get()))
-                                        .map(
-                                            entry -> {
-                                              entry.getValue().incrementAndGet();
-                                              return entry.getKey();
-                                            })
-                                        .orElseThrow();
+          Stream<Replica> newTopic =
+              IntStream.range(0, partitionSize)
+                  .mapToObj(partition -> TopicPartition.of(topicName, partition))
+                  .flatMap(
+                      tp ->
+                          IntStream.range(0, replicaFactor)
+                              .mapToObj(
+                                  index -> {
+                                    final Broker broker = nodeSelector.next();
+                                    final String path =
+                                        folderLogCounter.get(broker).entrySet().stream()
+                                            .min(Comparator.comparing(x -> x.getValue().get()))
+                                            .map(
+                                                entry -> {
+                                                  entry.getValue().incrementAndGet();
+                                                  return entry.getKey();
+                                                })
+                                            .orElseThrow();
 
-                                return Replica.builder()
-                                    .topic(tp.topic())
-                                    .partition(tp.partition())
-                                    .nodeInfo(broker)
-                                    .isAdding(false)
-                                    .isRemoving(false)
-                                    .lag(0)
-                                    .internal(false)
-                                    .isLeader(index == 0)
-                                    .inSync(true)
-                                    .isFuture(false)
-                                    .isOffline(false)
-                                    .isPreferredLeader(index == 0)
-                                    .path(path)
-                                    .build();
-                              }))
-              .map(mapper)
-              .forEach(replicas::add);
+                                    return Replica.builder()
+                                        .topic(tp.topic())
+                                        .partition(tp.partition())
+                                        .nodeInfo(broker)
+                                        .isAdding(false)
+                                        .isRemoving(false)
+                                        .lag(0)
+                                        .internal(false)
+                                        .isLeader(index == 0)
+                                        .inSync(true)
+                                        .isFuture(false)
+                                        .isOffline(false)
+                                        .isPreferredLeader(index == 0)
+                                        .path(path)
+                                        .build();
+                                  }))
+                  .map(mapper);
+
+          return Stream.concat(replicas.stream(), newTopic)
+              .collect(Collectors.toUnmodifiableList());
         });
   }
 
@@ -205,13 +227,78 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
-    return apply(
+    return applyReplicas(
+        (nodes, replicas) ->
+            replicas.stream().map(mapper).collect(Collectors.toUnmodifiableList()));
+  }
+
+  /**
+   * Assign the specific replica to another location in the cluster.
+   *
+   * @param replica the replica to reassign.
+   * @param toBroker the new broker for the replica being reassigned.
+   * @param toDir the new data folder of that broker for the replica being reassigned.
+   * @return this.
+   */
+  public ClusterInfoBuilder reassignReplica(
+      TopicPartitionReplica replica, int toBroker, String toDir) {
+    Objects.requireNonNull(toDir);
+    return applyReplicas(
         (nodes, replicas) -> {
-          var iterator = replicas.listIterator();
-          while (iterator.hasNext()) {
-            var replica = iterator.next();
-            iterator.set(mapper.apply(replica));
-          }
+          var newNode =
+              nodes.stream()
+                  .filter(n -> n.id() == toBroker)
+                  .findFirst()
+                  .orElseThrow(() -> new IllegalArgumentException("No such replica: " + toBroker));
+          var matched = new AtomicBoolean(false);
+          var collect =
+              replicas.stream()
+                  .map(
+                      r -> {
+                        if (r.topicPartitionReplica().equals(replica)) {
+                          matched.set(true);
+                          return Replica.builder(r).nodeInfo(newNode).path(toDir).build();
+                        } else {
+                          return r;
+                        }
+                      })
+                  .collect(Collectors.toUnmodifiableList());
+          if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
+          return collect;
+        });
+  }
+
+  /**
+   * Let the specific replica become the preferred leader of its partition.
+   *
+   * @param replica the replica to become preferred leader.
+   * @return this.
+   */
+  public ClusterInfoBuilder setPreferredLeader(TopicPartitionReplica replica) {
+    return applyReplicas(
+        (nodes, replicas) -> {
+          var matched = new AtomicBoolean(false);
+          var collect =
+              replicas.stream()
+                  .map(
+                      r -> {
+                        if (r.topicPartitionReplica().equals(replica)) {
+                          matched.set(true);
+                          return Replica.builder(r).isLeader(true).isPreferredLeader(true).build();
+                        } else if (r.topicPartition().equals(replica.topicPartition())
+                            && (r.isPreferredLeader() || r.isLeader())) {
+                          return Replica.builder(r)
+                              .isLeader(false)
+                              .isPreferredLeader(false)
+                              .build();
+                        } else {
+                          return r;
+                        }
+                      })
+                  .collect(Collectors.toUnmodifiableList());
+          if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
+
+          return collect;
         });
   }
 
@@ -220,23 +307,22 @@ public class ClusterInfoBuilder {
    * ClusterInfo}.
    */
   public ClusterInfo<Replica> build() {
-    final var nodes = new HashSet<>(sourceCluster.nodes());
-    final var replicas = new ArrayList<>(sourceCluster.replicas());
-    alterations.forEach(alteration -> alteration.accept(nodes, replicas));
-
+    var nodes = sourceCluster.nodes();
+    var replicas = sourceCluster.replicas();
+    for (var alteration : alterations) {
+      var e = alteration.apply(nodes, replicas);
+      nodes = e.getKey();
+      replicas = e.getValue();
+    }
     return ClusterInfo.of(nodes, replicas);
   }
 
   private static Broker fakeNode(int brokerId) {
     var host = "fake-node-" + brokerId;
     var port = new Random(brokerId).nextInt(65535) + 1;
-    var folders = Collections.synchronizedList(new ArrayList<Broker.DataFolder>());
+    var folders = List.<Broker.DataFolder>of();
 
     return FakeBroker.of(brokerId, host, port, folders);
-  }
-
-  private static void addFolder(FakeBroker fakeBroker, String path) {
-    fakeBroker.dataFolders().add((FakeDataFolder) () -> path);
   }
 
   interface FakeBroker extends Broker {
@@ -307,6 +393,11 @@ public class ClusterInfoBuilder {
   }
 
   interface FakeDataFolder extends Broker.DataFolder {
+
+    static FakeDataFolder of(String path) {
+      return () -> path;
+    }
+
     @Override
     default Map<TopicPartition, Long> partitionSizes() {
       throw new UnsupportedOperationException();

@@ -64,17 +64,7 @@ public abstract class SourceConnector extends org.apache.kafka.connect.source.So
 
   @Override
   public final ConfigDef config() {
-    var def = new ConfigDef();
-    definitions()
-        .forEach(
-            d ->
-                def.define(
-                    d.name(),
-                    ConfigDef.Type.valueOf(d.type().name()),
-                    d.defaultValue(),
-                    ConfigDef.Importance.MEDIUM,
-                    d.documentation()));
-    return def;
+    return Definition.toConfigDef(definitions());
   }
 
   @Override
