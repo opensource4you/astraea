@@ -25,10 +25,13 @@ import java.util.stream.Collectors;
 import javafx.stage.Stage;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.metrics.MBeanClient;
 
 public class Context {
   private final AtomicReference<Admin> adminReference = new AtomicReference<>();
+
+  private final AtomicReference<ConnectorClient> connectorClientReference = new AtomicReference<>();
 
   private Stage stage;
   private volatile int jmxPort = -1;
@@ -51,6 +54,10 @@ public class Context {
   public void replace(Admin admin) {
     var previous = adminReference.getAndSet(admin);
     if (previous != null) previous.close();
+  }
+
+  public void replace(ConnectorClient connectorClient) {
+    connectorClientReference.getAndSet(connectorClient);
   }
 
   public void replace(Set<NodeInfo> nodes, int jmxPort) {
@@ -86,6 +93,12 @@ public class Context {
     var admin = adminReference.get();
     if (admin == null) throw new IllegalArgumentException("Please define bootstrap servers");
     return admin;
+  }
+
+  public ConnectorClient connectorClient() {
+    var connectorClient = connectorClientReference.get();
+    if (connectorClient == null) throw new IllegalArgumentException("Please define worker urls");
+    return connectorClient;
   }
 
   public Map<NodeInfo, MBeanClient> clients() {

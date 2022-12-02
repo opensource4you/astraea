@@ -20,13 +20,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import javafx.scene.Node;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.gui.Context;
@@ -141,24 +146,34 @@ public class SettingNode {
               prop.workerUrl = Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_URL));
               save(prop);
               var newAdmin = Admin.of(prop.bootstrapServers);
-              return newAdmin
-                  .nodeInfos()
-                  .thenApply(
-                      nodeInfos -> {
-                        context.replace(newAdmin);
-                        if (prop.jmxPort.isEmpty()) {
-                          logger.log("succeed to connect to " + prop.bootstrapServers);
-                          return List.of();
-                        }
-                        context.replace(nodeInfos, prop.jmxPort.get());
-                        logger.log(
-                            "succeed to connect to "
-                                + prop.bootstrapServers
-                                + ", and jmx: "
-                                + prop.jmxPort.get()
-                                + " works well");
-                        return List.of();
-                      });
+              var client =
+                  prop.workerUrl.map(
+                      url ->
+                          ConnectorClient.builder()
+                              .url(Utils.packException(() -> new URL("http://" + url)))
+                              .build());
+              return FutureUtils.combine(
+                  newAdmin.nodeInfos(),
+                  client
+                      .map(ConnectorClient::plugins)
+                      .orElse(CompletableFuture.completedFuture(Set.of())),
+                  (nodeInfos, plugins) -> {
+                    context.replace(newAdmin);
+                    client.ifPresent(context::replace);
+                    if (prop.jmxPort.isEmpty()) {
+                      logger.log("succeed to connect to " + prop.bootstrapServers);
+                      return List.of();
+                    }
+                    context.replace(nodeInfos, prop.jmxPort.get());
+                    logger.log(
+                        "succeed to connect to "
+                            + prop.bootstrapServers
+                            + prop.workerUrl.map(url -> " and " + url).orElse("")
+                            + ". Also, jmx: "
+                            + prop.jmxPort.get()
+                            + " works well");
+                    return List.of();
+                  });
             })
         .build();
   }
