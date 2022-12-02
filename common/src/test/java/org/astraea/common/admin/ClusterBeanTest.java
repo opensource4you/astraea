@@ -16,7 +16,7 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Comparator;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -122,11 +122,11 @@ class ClusterBeanTest {
               final var fakeTime = ThreadLocalRandom.current().nextLong(0, 1000);
               switch (ThreadLocalRandom.current().nextInt(0, 3)) {
                 case 0:
-                  return metric1(fakeTime, bean);
+                  return new MetricType1(fakeTime, bean);
                 case 1:
-                  return metric2(fakeTime, bean);
+                  return new MetricType2(fakeTime, bean);
                 case 2:
-                  return metric3(fakeTime, bean);
+                  return new MetricType3(fakeTime, bean);
                 default:
                   throw new RuntimeException();
               }
@@ -143,73 +143,77 @@ class ClusterBeanTest {
                 3, random(3).limit(1000).collect(Collectors.toUnmodifiableList())));
 
     {
-      var metrics =
-          clusterBean
-              .select(MetricType1.class, 1)
-              .metricSince(500)
-              .metricQuantities(50)
-              .descending()
-              .run();
+      // select a window of metric from a broker in ClusterBean
+      var windowQuery =
+          clusterBean.query(
+              ClusterBeanQuery.window(MetricType1.class, 1)
+                  .metricSince(500)
+                  .metricQuantities(10)
+                  .ascending());
+      System.out.println("[Window]");
+      System.out.println(windowQuery);
+    }
 
-      //noinspection ConstantConditions
-      Assertions.assertTrue(metrics.stream().allMatch(m -> m instanceof MetricType1));
-      Assertions.assertTrue(metrics.stream().allMatch(m -> m.createdTimestamp() >= 500));
-      Assertions.assertTrue(
-          metrics.stream().allMatch(m -> m.beanObject().properties().get("broker").equals("1")));
-      Assertions.assertEquals(50, metrics.size());
-      Assertions.assertEquals(
-          metrics.stream()
-              .sorted(Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
-              .collect(Collectors.toUnmodifiableList()),
-          metrics);
+    {
+      // select a window of metric from a broker in ClusterBean
+      var windowQuery =
+          clusterBean.query(
+              ClusterBeanQuery.window(MetricType1.class, 1)
+                  .metricSince(Duration.ofSeconds(3))
+                  .metricQuantities(10)
+                  .descending());
+      System.out.println("[Window]");
+      System.out.println(windowQuery);
+    }
+
+    {
+      // select the latest metric from a broker in ClusterBean
+      var latestMetric = clusterBean.query(ClusterBeanQuery.latest(MetricType2.class, 1));
+      System.out.println("[Latest]");
+      System.out.println(latestMetric);
     }
   }
 
-  private interface MetricType1 extends HasBeanObject {}
+  private static class MetricType1 implements HasBeanObject {
+    private final long createTime;
+    private final BeanObject beanObject;
 
-  private interface MetricType2 extends HasBeanObject {}
+    private MetricType1(long createTime, BeanObject beanObject) {
+      this.createTime = createTime;
+      this.beanObject = beanObject;
+    }
 
-  private interface MetricType3 extends HasBeanObject {}
+    @Override
+    public BeanObject beanObject() {
+      return beanObject;
+    }
 
-  private static MetricType1 metric1(long createTime, BeanObject bean) {
-    return new MetricType1() {
-      @Override
-      public BeanObject beanObject() {
-        return bean;
-      }
+    @Override
+    public long createdTimestamp() {
+      return createTime;
+    }
 
-      @Override
-      public long createdTimestamp() {
-        return createTime;
-      }
-    };
+    @Override
+    public String toString() {
+      return this.getClass().getSimpleName()
+          + "{"
+          + "createTime="
+          + createTime
+          + ", beanObject="
+          + beanObject
+          + '}';
+    }
   }
 
-  private static MetricType2 metric2(long createTime, BeanObject bean) {
-    return new MetricType2() {
-      @Override
-      public BeanObject beanObject() {
-        return bean;
-      }
-
-      @Override
-      public long createdTimestamp() {
-        return createTime;
-      }
-    };
+  private static class MetricType2 extends MetricType1 {
+    private MetricType2(long createTime, BeanObject beanObject) {
+      super(createTime, beanObject);
+    }
   }
 
-  private static MetricType3 metric3(long createTime, BeanObject bean) {
-    return new MetricType3() {
-      @Override
-      public BeanObject beanObject() {
-        return bean;
-      }
-
-      @Override
-      public long createdTimestamp() {
-        return createTime;
-      }
-    };
+  private static class MetricType3 extends MetricType2 {
+    private MetricType3(long createTime, BeanObject beanObject) {
+      super(createTime, beanObject);
+    }
   }
 }
