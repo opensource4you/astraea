@@ -240,7 +240,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var currentClusterInfo =
           ClusterInfo.of(
-              Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
               List.of(
                   Replica.builder()
                       .topic("topic")
@@ -256,22 +256,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .path("/tmp/aa")
                       .build()));
 
-      var clusterLogAllocation =
-          ClusterInfo.of(
-              List.of(
-                  Replica.builder()
-                      .topic("topic")
-                      .partition(0)
-                      .nodeInfo(NodeInfo.of(11, "host", 22))
-                      .lag(0)
-                      .size(100)
-                      .isLeader(true)
-                      .inSync(true)
-                      .isFuture(false)
-                      .isOffline(false)
-                      .isPreferredLeader(true)
-                      .path("/tmp/aa")
-                      .build()));
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction =

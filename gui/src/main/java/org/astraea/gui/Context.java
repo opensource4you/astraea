@@ -16,9 +16,9 @@
  */
 package org.astraea.gui;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -35,7 +35,7 @@ public class Context {
 
   private Stage stage;
   private volatile int jmxPort = -1;
-  private final Map<NodeInfo, MBeanClient> clients = new ConcurrentHashMap<>();
+  private final Map<Integer, MBeanClient> clients = new ConcurrentHashMap<>();
 
   public Context() {}
 
@@ -60,16 +60,17 @@ public class Context {
     connectorClientReference.getAndSet(connectorClient);
   }
 
-  public void replace(Set<NodeInfo> nodes, int jmxPort) {
+  public void replace(List<NodeInfo> nodes, int jmxPort) {
     var copy = Map.copyOf(this.clients);
     this.jmxPort = jmxPort;
     this.clients.clear();
     this.clients.putAll(
-        nodes.stream().collect(Collectors.toMap(n -> n, n -> MBeanClient.jndi(n.host(), jmxPort))));
+        nodes.stream()
+            .collect(Collectors.toMap(NodeInfo::id, n -> MBeanClient.jndi(n.host(), jmxPort))));
     copy.values().forEach(MBeanClient::close);
   }
 
-  public Map<NodeInfo, MBeanClient> clients(Set<NodeInfo> nodeInfos) {
+  public Map<Integer, MBeanClient> clients(List<NodeInfo> nodeInfos) {
     if (jmxPort < 0) throw new IllegalArgumentException("Please define jmxPort");
     clients.keySet().stream()
         .filter(n -> !nodeInfos.contains(n))
@@ -83,7 +84,7 @@ public class Context {
         .filter(n -> !clients.containsKey(n))
         .forEach(
             n -> {
-              var previous = clients.put(n, MBeanClient.jndi(n.host(), jmxPort));
+              var previous = clients.put(n.id(), MBeanClient.jndi(n.host(), jmxPort));
               if (previous != null) previous.close();
             });
     return Map.copyOf(clients);
@@ -101,7 +102,7 @@ public class Context {
     return connectorClient;
   }
 
-  public Map<NodeInfo, MBeanClient> clients() {
+  public Map<Integer, MBeanClient> clients() {
     var copy = Map.copyOf(clients);
     if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmx port");
     return copy;

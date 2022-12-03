@@ -36,7 +36,7 @@ public class ClusterInfoBuilder {
 
   private final ClusterInfo<Replica> sourceCluster;
   private final List<
-          BiFunction<Set<NodeInfo>, List<Replica>, Map.Entry<Set<NodeInfo>, List<Replica>>>>
+          BiFunction<List<NodeInfo>, List<Replica>, Map.Entry<List<NodeInfo>, List<Replica>>>>
       alterations;
 
   private ClusterInfoBuilder(ClusterInfo<Replica> source) {
@@ -59,7 +59,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder applyNodes(
-      BiFunction<Set<NodeInfo>, List<Replica>, Set<NodeInfo>> alteration) {
+      BiFunction<List<NodeInfo>, List<Replica>, List<NodeInfo>> alteration) {
     this.alterations.add(
         (nodes, replicas) -> Map.entry(alteration.apply(nodes, replicas), replicas));
     return this;
@@ -72,7 +72,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder applyReplicas(
-      BiFunction<Set<NodeInfo>, List<Replica>, List<Replica>> alteration) {
+      BiFunction<List<NodeInfo>, List<Replica>, List<Replica>> alteration) {
     this.alterations.add((nodes, replicas) -> Map.entry(nodes, alteration.apply(nodes, replicas)));
     return this;
   }
@@ -85,9 +85,19 @@ public class ClusterInfoBuilder {
    */
   public ClusterInfoBuilder addNode(Set<Integer> brokerIds) {
     return applyNodes(
-        (nodes, replicas) ->
-            Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
-                .collect(Collectors.toUnmodifiableSet()));
+        (nodes, replicas) -> {
+          brokerIds.stream()
+              .filter(newId -> nodes.stream().anyMatch(node -> newId == node.id()))
+              .forEach(
+                  conflict -> {
+                    throw new IllegalStateException(
+                        "Attempt to add broker "
+                            + conflict
+                            + " but another broker with this id already existed");
+                  });
+          return Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
+              .collect(Collectors.toUnmodifiableList());
+        });
   }
 
   /**
@@ -116,7 +126,7 @@ public class ClusterInfoBuilder {
                               .collect(Collectors.toUnmodifiableList()));
                     else return node;
                   })
-              .collect(Collectors.toUnmodifiableSet());
+              .collect(Collectors.toUnmodifiableList());
         });
   }
 
