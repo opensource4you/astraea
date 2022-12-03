@@ -67,17 +67,6 @@ public class Performance {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
-  private static DataSupplier dataSupplier(Performance.Argument argument) {
-    return DataSupplier.of(
-        argument.exeTime,
-        argument.keyDistributionType.create(10000),
-        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
-        argument.valueDistributionType.create(10000),
-        argument.valueDistributionType.create(
-            argument.valueSize.measurement(DataUnit.Byte).intValue()),
-        argument.throughput);
-  }
-
   public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
