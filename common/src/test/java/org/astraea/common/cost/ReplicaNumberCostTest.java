@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
@@ -183,8 +184,8 @@ class ReplicaNumberCostTest {
                 .isPreferredLeader(false)
                 .path("")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(before);
-    var afterClusterInfo = ClusterInfo.of(after);
+    var beforeClusterInfo = ClusterInfoTest.of(before);
+    var afterClusterInfo = ClusterInfoTest.of(after);
     var movecost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
     Assertions.assertEquals(2, movecost.totalCost());
     Assertions.assertEquals(3, movecost.changes().size());

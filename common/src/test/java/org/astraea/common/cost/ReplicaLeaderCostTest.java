@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
@@ -192,8 +193,8 @@ public class ReplicaLeaderCostTest {
                 .isPreferredLeader(false)
                 .path("")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(before);
-    var afterClusterInfo = ClusterInfo.of(after);
+    var beforeClusterInfo = ClusterInfoTest.of(before);
+    var afterClusterInfo = ClusterInfoTest.of(after);
     var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
     Assertions.assertEquals(1, moveCost.totalCost());
     Assertions.assertEquals(2, moveCost.changes().size());

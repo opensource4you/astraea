@@ -26,6 +26,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -97,7 +98,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
               .stream()
               .flatMap(Collection::stream)
               .collect(Collectors.toUnmodifiableList());
-      final var expectedAllocation = ClusterInfo.of(allocation);
+      final var expectedAllocation = ClusterInfoTest.of(allocation);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 
       var execute =

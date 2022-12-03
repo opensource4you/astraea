@@ -272,7 +272,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     var node3 = Mockito.mock(NodeInfo.class);
     Mockito.when(node3.id()).thenReturn(3);
     var re3 = ReplicaInfo.of(topic, 2, node3, true, true, false);
-    var testCluster = ClusterInfo.of(List.of(re1, re2, re3));
+    var testCluster = ClusterInfo.of(List.of(node1, node2, node3), List.of(re1, re2, re3));
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));

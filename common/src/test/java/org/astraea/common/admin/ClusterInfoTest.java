@@ -18,7 +18,9 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.junit.jupiter.api.Assertions;
@@ -26,6 +28,33 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class ClusterInfoTest {
+
+  /**
+   * build a cluster info based on replicas. Noted that the node info are collected by the replicas.
+   *
+   * <p>Be aware that the <code>replicas</code> parameter describes <strong>the replica lists of a
+   * subset of topic/partitions</strong>. It doesn't require the topic/partition part to have
+   * cluster-wide complete information. But the replica list has to be complete. Provide a partial
+   * replica list might result in data loss or unintended replica drop during rebalance plan
+   * proposing & execution.
+   *
+   * @param replicas used to build cluster info
+   * @return cluster info
+   * @param <T> ReplicaInfo or Replica
+   */
+  public static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+    // TODO: this method is not suitable for production use. Move it to the test scope.
+    //  see https://github.com/skiptests/astraea/issues/1185
+    return ClusterInfo.of(
+        replicas.stream()
+            .map(ReplicaInfo::nodeInfo)
+            .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
+            .values()
+            .stream()
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableList()),
+        replicas);
+  }
 
   @Test
   void testDiff() {
@@ -247,7 +276,7 @@ public class ClusterInfoTest {
                 .path("/data-folder-01")
                 .build());
 
-    var clusterInfo = ClusterInfo.of(replicas);
+    var clusterInfo = ClusterInfoTest.of(replicas);
     var maskedClusterInfoHasReplicas = ClusterInfo.masked(clusterInfo, t -> t.equals("test-1"));
     var maskedClusterInfoNoReplicas =
         ClusterInfo.masked(clusterInfo, t -> t.equals("No topic name the same."));
