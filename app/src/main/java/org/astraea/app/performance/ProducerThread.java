@@ -23,6 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -36,7 +37,7 @@ public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
       int batchSize,
-      DataSupplier dataSupplier,
+      Function<TopicPartition, DataSupplier> dataSupplierFunction,
       Supplier<TopicPartition> topicPartitionSupplier,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
@@ -68,6 +69,8 @@ public interface ProducerThread extends AbstractThread {
                     try {
                       int interdependentCounter = 0;
                       while (!closed.get()) {
+                        var partition = topicPartitionSupplier.get();
+                        var dataSupplier = dataSupplierFunction.apply(partition);
                         var data =
                             IntStream.range(0, batchSize)
                                 .mapToObj(i -> dataSupplier.get())
@@ -79,7 +82,7 @@ public interface ProducerThread extends AbstractThread {
                         // no data due to throttle
                         // TODO: we should return a precise sleep time
                         if (data.stream().allMatch(DataSupplier.Data::throttled)) {
-                          Utils.sleep(Duration.ofSeconds(1));
+                          Utils.sleep(Duration.ofMillis(10));
                           continue;
                         }
 
@@ -95,7 +98,7 @@ public interface ProducerThread extends AbstractThread {
                                 .map(
                                     d ->
                                         Record.builder()
-                                            .topicPartition(topicPartitionSupplier.get())
+                                            .topicPartition(partition)
                                             .key(d.key())
                                             .value(d.value())
                                             .timestamp(System.currentTimeMillis())

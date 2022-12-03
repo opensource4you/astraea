@@ -500,4 +500,26 @@ public class PerformanceTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () -> Argument.parse(new Performance.Argument(), argument4).partitioner());
   }
+
+  @Test
+  void testDataSuppliers() {
+    var noThrottleArgument =
+        new String[] {"--bootstrap.servers", "localhost:9092", "--topics", "test"};
+    var argument =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "test",
+          "--throttle",
+          "test-0:123MB/s,test-1:456MB/s"
+        };
+
+    var noThrottle = Argument.parse(new Performance.Argument(), noThrottleArgument);
+    var throttle = Argument.parse(new Performance.Argument(), argument);
+
+    Assertions.assertEquals(0, Performance.dataSuppliers(noThrottle).size());
+    Assertions.assertTrue(Performance.dataSuppliers(noThrottle).isEmpty());
+    Assertions.assertEquals(2, Performance.dataSuppliers(throttle).size());
+  }
 }

@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -40,6 +41,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.argument.Argument;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.argument.DurationMapField;
 import org.astraea.common.argument.NonEmptyStringField;
@@ -77,6 +79,30 @@ public class Performance {
         argument.throughput);
   }
 
+  static Map<TopicPartition, DataSupplier> dataSuppliers(Performance.Argument argument) {
+    return argument.throttles.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                e -> TopicPartition.of(e.getKey()),
+                e ->
+                    DataSupplier.of(
+                        argument.exeTime,
+                        argument.keyDistributionType.create(10000),
+                        argument.keyDistributionType.create(
+                            argument.keySize.measurement(DataUnit.Byte).intValue()),
+                        argument.valueDistributionType.create(10000),
+                        argument.valueDistributionType.create(
+                            argument.valueSize.measurement(DataUnit.Byte).intValue()),
+                        e.getValue())));
+  }
+
+  private static DataSupplier supplier(
+      TopicPartition partition,
+      Map<TopicPartition, DataSupplier> suppliers,
+      DataSupplier defaultSupplier) {
+    return suppliers.isEmpty() ? defaultSupplier : suppliers.get(partition);
+  }
+
   public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
@@ -85,11 +111,16 @@ public class Performance {
     System.out.println("seeking offsets");
     var latestOffsets = param.lastOffsets();
 
+    var defaultSupplier = dataSupplier(param);
+    var suppliers = dataSuppliers(param);
+    Function<TopicPartition, DataSupplier> dataSupplierFunction =
+        (tp) -> supplier(tp, suppliers, defaultSupplier);
+
     System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
             param.transactionSize,
-            dataSupplier(param),
+            dataSupplierFunction,
             param.topicPartitionSelector(),
             param.producers,
             param::createProducer,
