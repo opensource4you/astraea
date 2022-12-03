@@ -23,6 +23,12 @@ import org.astraea.common.metrics.HasBeanObject;
 @FunctionalInterface
 public interface MetricSensors {
 
+  /**
+   * @param identity broker id or producer/consumer id
+   * @param beans a collection of {@link HasBeanObject}
+   * @return The collection of "HasBeanObject" generated after the custom statistical method of
+   *     CostFunction.
+   */
   Map<Integer, Collection<? extends HasBeanObject>> record(
       int identity, Collection<? extends HasBeanObject> beans);
 }
