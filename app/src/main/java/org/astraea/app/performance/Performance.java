@@ -79,30 +79,6 @@ public class Performance {
         argument.throughput);
   }
 
-  static Map<TopicPartition, DataSupplier> dataSuppliers(Performance.Argument argument) {
-    return argument.throttles.entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                e -> TopicPartition.of(e.getKey()),
-                e ->
-                    DataSupplier.of(
-                        argument.exeTime,
-                        argument.keyDistributionType.create(10000),
-                        argument.keyDistributionType.create(
-                            argument.keySize.measurement(DataUnit.Byte).intValue()),
-                        argument.valueDistributionType.create(10000),
-                        argument.valueDistributionType.create(
-                            argument.valueSize.measurement(DataUnit.Byte).intValue()),
-                        e.getValue())));
-  }
-
-  private static DataSupplier supplier(
-      TopicPartition partition,
-      Map<TopicPartition, DataSupplier> suppliers,
-      DataSupplier defaultSupplier) {
-    return suppliers.isEmpty() ? defaultSupplier : suppliers.get(partition);
-  }
-
   public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
@@ -111,16 +87,11 @@ public class Performance {
     System.out.println("seeking offsets");
     var latestOffsets = param.lastOffsets();
 
-    var defaultSupplier = dataSupplier(param);
-    var suppliers = dataSuppliers(param);
-    Function<TopicPartition, DataSupplier> dataSupplierFunction =
-        (tp) -> supplier(tp, suppliers, defaultSupplier);
-
     System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
             param.transactionSize,
-            dataSupplierFunction,
+            param.dataSupplierSelector(),
             param.topicPartitionSelector(),
             param.producers,
             param::createProducer,
@@ -421,6 +392,35 @@ public class Performance {
       }
     }
 
+    Function<TopicPartition, DataSupplier> dataSupplierSelector() {
+      final var defaultSupplier =
+          DataSupplier.of(
+              exeTime,
+              keyDistributionType.create(10000),
+              keyDistributionType.create(keySize.measurement(DataUnit.Byte).intValue()),
+              valueDistributionType.create(10000),
+              valueDistributionType.create(valueSize.measurement(DataUnit.Byte).intValue()),
+              throughput);
+      final var throttleSupplier =
+          throttles.entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      e -> TopicPartition.of(e.getKey()),
+                      e ->
+                          DataSupplier.of(
+                              exeTime,
+                              keyDistributionType.create(10000),
+                              keyDistributionType.create(
+                                  keySize.measurement(DataUnit.Byte).intValue()),
+                              valueDistributionType.create(10000),
+                              valueDistributionType.create(
+                                  valueSize.measurement(DataUnit.Byte).intValue()),
+                              e.getValue())));
+      return (tp) ->
+          throttles.isEmpty()
+              ? defaultSupplier
+              : throttleSupplier.getOrDefault(tp, defaultSupplier);
+    }
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
