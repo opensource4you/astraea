@@ -82,7 +82,6 @@ public interface ProducerThread extends AbstractThread {
                         // no data due to throttle
                         // TODO: we should return a precise sleep time
                         if (data.stream().allMatch(DataSupplier.Data::throttled)) {
-                          Utils.sleep(Duration.ofMillis(10));
                           continue;
                         }
 
