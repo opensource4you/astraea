@@ -81,8 +81,7 @@ public interface Deserializer<T> {
    * @param <T> The type of message being output by the Deserializer
    */
   static <T> Deserializer<T> of(TypeRef<T> typeRef) {
-    return (topic, headers, data) ->
-        new JsonDeserializer<>(typeRef).deserialize(topic, headers, data);
+    return new JsonDeserializer<>(typeRef);
   }
 
   class JsonDeserializer<T> implements Deserializer<T> {

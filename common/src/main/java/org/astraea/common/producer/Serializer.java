@@ -77,7 +77,7 @@ public interface Serializer<T> {
    * @param <T> The type of message being output by the serializer
    */
   static <T> Serializer<T> of(TypeRef<T> typeRef) {
-    return (topic, headers, data) -> new JsonSerializer<>(typeRef).serialize(topic, headers, data);
+    return new JsonSerializer<>(typeRef);
   }
 
   class JsonSerializer<T> implements Serializer<T> {
