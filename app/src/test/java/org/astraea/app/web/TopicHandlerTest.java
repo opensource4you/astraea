@@ -72,7 +72,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
         var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
         Assertions.assertEquals(200, response.statusCode());
         Assertions.assertEquals(1, response.body().topics.size());
-        Assertions.assertEquals(partitions, response.body().topics.get(0).partitions.size());
+        Assertions.assertEquals(topicName, response.body().topics.get(0).name);
         Assertions.assertEquals(Set.of(topicName), clusterInfo.topics());
         Assertions.assertEquals(partitions, clusterInfo.topicPartitions().size());
         Assertions.assertEquals(partitions * replicas, clusterInfo.replicas().size());
