@@ -16,9 +16,14 @@
  */
 package org.astraea.common.admin;
 
+import java.util.List;
+import java.util.Map;
 import org.apache.kafka.common.Node;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class NodeInfoTest {
 
@@ -34,5 +39,24 @@ public class NodeInfoTest {
     Assertions.assertEquals(kafkaNode.host(), node.host());
     Assertions.assertEquals(kafkaNode.id(), node.id());
     Assertions.assertEquals(kafkaNode.port(), node.port());
+  }
+
+  @DisplayName("Broker can interact with normal NodeInfo properly")
+  @ParameterizedTest
+  @CsvSource(
+      value = {
+        "  1, host1, 1000",
+        " 20, host2, 2000",
+        "300, host3, 3000",
+      })
+  void testFakeBrokerInteraction(int id, String host, int port) {
+    var node = NodeInfo.of(id, host, port);
+    var broker = Broker.of(false, new Node(id, host, port), Map.of(), Map.of(), List.of());
+    var nodeOther = NodeInfo.of(id + 1, host, port);
+
+    Assertions.assertEquals(node.hashCode(), broker.hashCode());
+    Assertions.assertEquals(node, broker);
+    Assertions.assertNotEquals(nodeOther.hashCode(), broker.hashCode());
+    Assertions.assertNotEquals(nodeOther, broker);
   }
 }
