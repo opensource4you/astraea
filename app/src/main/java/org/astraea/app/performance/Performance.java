@@ -41,7 +41,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.Argument;
 import org.astraea.common.argument.DurationField;
 import org.astraea.common.argument.DurationMapField;
 import org.astraea.common.argument.NonEmptyStringField;
@@ -383,12 +382,19 @@ public class Performance {
             specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       } else {
-        final var selection =
-            topics.stream()
-                .map(topic -> TopicPartition.of(topic, -1))
-                .distinct()
-                .collect(Collectors.toUnmodifiableList());
-        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+        try (var admin = Admin.of(configs())) {
+          final var selection =
+              admin
+                  .clusterInfo(Set.copyOf(topics))
+                  .toCompletableFuture()
+                  .join()
+                  .replicaStream()
+                  .filter(ReplicaInfo::isLeader)
+                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .distinct()
+                  .collect(Collectors.toUnmodifiableList());
+          return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+        }
       }
     }
 
