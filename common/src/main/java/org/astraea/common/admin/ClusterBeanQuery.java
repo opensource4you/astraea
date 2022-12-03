@@ -18,17 +18,11 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
 import java.util.function.Predicate;
 import org.astraea.common.metrics.HasBeanObject;
 
-/**
- * Describe an operation that transforms given metrics into the desired result.
- *
- * @param <Result> the query result type.
- */
-public interface ClusterBeanQuery<Result> {
+/** Describe an operation that transforms given metrics into the desired result. */
+public interface ClusterBeanQuery {
 
   /**
    * Select a window of metrics.
@@ -52,7 +46,7 @@ public interface ClusterBeanQuery<Result> {
     return new LatestMetricQuery<>(metricClass, id);
   }
 
-  class WindowQuery<T extends HasBeanObject> implements ClusterBeanQuery<List<T>> {
+  class WindowQuery<T extends HasBeanObject> implements ClusterBeanQuery {
 
     final Class<T> metricType;
     final int id;
@@ -98,7 +92,7 @@ public interface ClusterBeanQuery<Result> {
     }
   }
 
-  class LatestMetricQuery<T extends HasBeanObject> implements ClusterBeanQuery<Optional<T>> {
+  class LatestMetricQuery<T extends HasBeanObject> implements ClusterBeanQuery {
 
     final Class<T> metricClass;
     final int id;
