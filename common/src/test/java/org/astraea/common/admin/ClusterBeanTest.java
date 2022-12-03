@@ -146,10 +146,7 @@ class ClusterBeanTest {
       // select a window of metric from a broker in ClusterBean
       var windowQuery =
           clusterBean.query(
-              ClusterBeanQuery.window(MetricType1.class, 1)
-                  .metricSince(500)
-                  .metricQuantities(10)
-                  .ascending());
+              ClusterBeanQuery.window(MetricType1.class, 1).metricSince(500).ascending());
       System.out.println("[Window]");
       System.out.println(windowQuery);
     }
@@ -160,7 +157,6 @@ class ClusterBeanTest {
           clusterBean.query(
               ClusterBeanQuery.window(MetricType1.class, 1)
                   .metricSince(Duration.ofSeconds(3))
-                  .metricQuantities(0)
                   .descending());
       System.out.println("[Window]");
       System.out.println(windowQuery);

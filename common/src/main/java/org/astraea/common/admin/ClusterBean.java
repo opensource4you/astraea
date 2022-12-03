@@ -16,17 +16,15 @@
  */
 package org.astraea.common.admin;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
-import org.astraea.common.cost.CostFunction;
-import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
@@ -97,28 +95,18 @@ public interface ClusterBean {
   Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
 
   default <T extends HasBeanObject> List<T> query(ClusterBeanQuery.WindowQuery<T> query) {
-    var result =
-        Objects.requireNonNull(all().get(query.id), "No such identity: " + query.id).stream()
-            .filter(bean -> bean.getClass() == query.metricType)
-            .map(query.metricType::cast)
-            .filter(query.filter)
-            .sorted(query.comparator)
-            .limit(query.requiredSize)
-            .collect(Collectors.toUnmodifiableList());
-    if (result.size() != query.requiredSize)
-      throw new NoSufficientMetricsException(
-          new CostFunction() {},
-          Duration.ofSeconds(1),
-          "Not enough metrics, expected " + query.requiredSize + " but got " + result.size());
-    return result;
+    return Objects.requireNonNull(all().get(query.id), "No such identity: " + query.id).stream()
+        .filter(bean -> bean.getClass() == query.metricType)
+        .map(query.metricType::cast)
+        .filter(query.filter)
+        .sorted(query.comparator)
+        .collect(Collectors.toUnmodifiableList());
   }
 
-  default <T extends HasBeanObject> T query(ClusterBeanQuery.LatestMetricQuery<T> query) {
+  default <T extends HasBeanObject> Optional<T> query(ClusterBeanQuery.LatestMetricQuery<T> query) {
     return Objects.requireNonNull(all().get(query.id), "No such id: " + query.id).stream()
         .filter(bean -> bean.getClass() == query.metricClass)
         .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
-        .map(query.metricClass::cast)
-        .orElseThrow(
-            () -> new NoSufficientMetricsException(new CostFunction() {}, Duration.ofSeconds(1)));
+        .map(query.metricClass::cast);
   }
 }

@@ -19,8 +19,8 @@ package org.astraea.common.admin;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
-import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.HasBeanObject;
 
 /**
@@ -58,65 +58,47 @@ public interface ClusterBeanQuery<Result> {
     final int id;
     final Comparator<T> comparator;
     final Predicate<T> filter;
-    final int requiredSize;
 
     private WindowQuery(Class<T> metricType, int id) {
       this.metricType = metricType;
       this.id = id;
       this.comparator = Comparator.comparingInt(bean -> 0);
       this.filter = metric -> true;
-      this.requiredSize = -1;
     }
 
     private WindowQuery(
-        Class<T> metricType,
-        int id,
-        Comparator<T> comparator,
-        Predicate<T> filter,
-        int requiredSize) {
+        Class<T> metricType, int id, Comparator<T> comparator, Predicate<T> filter) {
       this.metricType = metricType;
       this.id = id;
       this.comparator = comparator;
       this.filter = filter;
-      this.requiredSize = requiredSize;
     }
 
     /** Sort metrics by time in ascending order. */
     public WindowQuery<T> ascending() {
       return new WindowQuery<>(
-          metricType, id, Comparator.comparingLong(T::createdTimestamp), filter, requiredSize);
+          metricType, id, Comparator.comparingLong(T::createdTimestamp), filter);
     }
 
     /** Sort metrics by time in descending order. */
     public WindowQuery<T> descending() {
       return new WindowQuery<>(
-          metricType,
-          id,
-          Comparator.comparingLong(T::createdTimestamp).reversed(),
-          filter,
-          requiredSize);
+          metricType, id, Comparator.comparingLong(T::createdTimestamp).reversed(), filter);
     }
 
-    /** Retrieve metrics only since specific moment of time. */
+    /** Retrieve metrics in the previous {@link Duration} time interval. */
     public WindowQuery<T> metricSince(Duration timeWindow) {
       return metricSince(System.currentTimeMillis() - timeWindow.toMillis());
     }
 
+    /** Retrieve metrics only since specific moment of time. */
     public WindowQuery<T> metricSince(long sinceMs) {
       return new WindowQuery<>(
-          metricType, id, comparator, (bean -> sinceMs <= bean.createdTimestamp()), requiredSize);
-    }
-
-    /**
-     * Request specific amount of metrics, an {@link NoSufficientMetricsException} will be raised if
-     * the requirement doesn't meet.
-     */
-    public WindowQuery<T> metricQuantities(int quantity) {
-      return new WindowQuery<>(metricType, id, comparator, filter, quantity);
+          metricType, id, comparator, (bean -> sinceMs <= bean.createdTimestamp()));
     }
   }
 
-  class LatestMetricQuery<T extends HasBeanObject> implements ClusterBeanQuery<T> {
+  class LatestMetricQuery<T extends HasBeanObject> implements ClusterBeanQuery<Optional<T>> {
 
     final Class<T> metricClass;
     final int id;
