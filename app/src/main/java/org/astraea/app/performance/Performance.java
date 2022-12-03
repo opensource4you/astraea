@@ -50,6 +50,7 @@ import org.astraea.common.argument.PositiveIntegerField;
 import org.astraea.common.argument.PositiveIntegerListField;
 import org.astraea.common.argument.PositiveLongField;
 import org.astraea.common.argument.PositiveShortField;
+import org.astraea.common.argument.StringDataRateMapField;
 import org.astraea.common.argument.StringListField;
 import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
@@ -436,5 +437,11 @@ public class Performance {
             "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
         validateWith = PositiveIntegerField.class)
     int interdependent = 1;
+
+    @Parameter(
+        names = {"--throttle"},
+        description = "Map<String, DataRate>: Set the topic-partitions and its' throttle data rate",
+        converter = StringDataRateMapField.class)
+    Map<String, DataRate> throttles = Map.of();
   }
 }
