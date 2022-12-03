@@ -236,15 +236,14 @@ public class PerformanceTest extends RequireBrokerCluster {
       Assertions.assertEquals(expected2, actual2);
 
       // no specify broker
-      Assertions.assertEquals(
-          -1,
+      var p =
           Argument.parse(
                   new Performance.Argument(),
                   new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
               .topicPartitionSelector()
               .get()
-              .partition());
-
+              .partition();
+      Assertions.assertTrue(0 <= p && p < 6);
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
       admin.creator().topic(topicName3).numberOfPartitions(1).run().toCompletableFuture().join();
@@ -383,6 +382,33 @@ public class PerformanceTest extends RequireBrokerCluster {
                       })
                   .topicPartitionSelector());
     }
+  }
+
+  @Test
+  void testDataSupplierSelector() {
+    var param =
+        new String[] {
+          "--bootstrap.servers",
+          "localhost:9092",
+          "--topics",
+          "t0,t1,t2",
+          "--throttle",
+          "t0-0:100MB/s,t1-0:25MB/s"
+        };
+    var argument = Performance.Argument.parse(new Performance.Argument(), param);
+    var supplierFunction = argument.dataSupplierSelector();
+    Assertions.assertNotEquals(
+        supplierFunction.apply(TopicPartition.of("t2-0")),
+        supplierFunction.apply(TopicPartition.of("t0-0")));
+    Assertions.assertNotEquals(
+        supplierFunction.apply(TopicPartition.of("t2-0")),
+        supplierFunction.apply(TopicPartition.of("t1-0")));
+    Assertions.assertNotEquals(
+        supplierFunction.apply(TopicPartition.of("t1-0")),
+        supplierFunction.apply(TopicPartition.of("t0-0")));
+    Assertions.assertEquals(
+        supplierFunction.apply(TopicPartition.of("t2-0")),
+        supplierFunction.apply(TopicPartition.of("t2-1")));
   }
 
   @Test
