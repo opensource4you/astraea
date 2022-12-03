@@ -116,8 +116,9 @@ class ConnectorClientTest extends RequireWorkerCluster {
             .get());
     var connectorInfo = connectorClient.connector(connectorName).toCompletableFuture().get();
     assertEquals(3, connectorInfo.tasks().size());
-    assertTrue(connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connector())));
-    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::task).distinct().count());
+    assertTrue(
+        connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connectorName())));
+    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::taskId).distinct().count());
   }
 
   @Test
@@ -144,6 +145,9 @@ class ConnectorClientTest extends RequireWorkerCluster {
         connectorClient.updateConnector(connectorName, updateConfig).toCompletableFuture().get();
     assertEquals("2", connector.config().get("tasks.max"));
     assertEquals("myTopic2", connector.config().get("topics"));
+
+    // wait for syncing configs
+    Utils.sleep(Duration.ofSeconds(2));
 
     connector = connectorClient.connector(connectorName).toCompletableFuture().get();
     assertEquals("2", connector.config().get("tasks.max"));
@@ -180,7 +184,8 @@ class ConnectorClientTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var plugins = connectorClient.plugins().toCompletableFuture().get();
     assertTrue(
-        plugins.stream().anyMatch(x -> TestTextSourceConnector.class.getName().equals(x.clz())));
+        plugins.stream()
+            .anyMatch(x -> TestTextSourceConnector.class.getName().equals(x.className())));
   }
 
   @Test
@@ -191,6 +196,10 @@ class ConnectorClientTest extends RequireWorkerCluster {
         .createConnector(connectorName, getExampleConnector())
         .toCompletableFuture()
         .get();
+
+    // wait for syncing configs
+    Utils.sleep(Duration.ofSeconds(2));
+
     IntStream.range(0, 15)
         .forEach(
             x ->

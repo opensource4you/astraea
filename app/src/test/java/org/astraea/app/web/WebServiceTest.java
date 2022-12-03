@@ -36,7 +36,7 @@ public class WebServiceTest {
     Assertions.assertEquals(65535, argument.port);
   }
 
-  @Timeout(5)
+  @Timeout(10)
   @Test
   void testClose() {
     var web = new WebService(Mockito.mock(Admin.class), 0, id -> Optional.empty());

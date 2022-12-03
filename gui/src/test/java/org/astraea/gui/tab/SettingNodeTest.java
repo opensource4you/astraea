@@ -14,19 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.gui.tab;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Optional;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class PluginInfo {
+public class SettingNodeTest {
 
-  /** connector plugin class name */
-  @JsonProperty("class")
-  private String className;
+  @Test
+  void testProp() {
+    var prop = new SettingNode.Prop();
 
-  public PluginInfo() {}
+    prop.bootstrapServers = "abc";
+    SettingNode.save(prop);
+    Assertions.assertEquals(prop, SettingNode.load().get());
 
-  public String className() {
-    return className;
+    prop.jmxPort = Optional.of(123);
+    SettingNode.save(prop);
+    Assertions.assertEquals(prop, SettingNode.load().get());
+
+    prop.workerUrl = Optional.of("acc");
+    SettingNode.save(prop);
+    Assertions.assertEquals(prop, SettingNode.load().get());
   }
 }
