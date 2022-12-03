@@ -17,11 +17,15 @@
 package org.astraea.common.csv;
 
 import com.opencsv.CSVWriterBuilder;
+import com.opencsv.ICSVWriter;
 import java.io.Writer;
+import java.util.List;
+import org.astraea.common.Utils;
 
 /** Construct CSVWriterBuilder so that we can use its build pattern. */
 public class CsvWriterBuilder {
   private final CSVWriterBuilder csvWriterBuilder;
+  private boolean blankLine;
 
   CsvWriterBuilder(Writer sink) {
     this.csvWriterBuilder = new CSVWriterBuilder(sink);
@@ -32,7 +36,55 @@ public class CsvWriterBuilder {
     return this;
   }
 
+  public CsvWriterBuilder blankLine(boolean blankLine) {
+    this.blankLine = blankLine;
+    return this;
+  }
+
   public CsvWriter build() {
-    return new CsvWriterImpl(csvWriterBuilder);
+    return new CsvWriterImpl(csvWriterBuilder, blankLine);
+  }
+
+  static class CsvWriterImpl implements CsvWriter {
+    private final ICSVWriter csvWriter;
+    private final boolean blankLine;
+    private int genericLength = -1;
+
+    private CsvWriterImpl(CSVWriterBuilder csvWriterBuilder, boolean blankLine) {
+      this.blankLine = blankLine;
+      this.csvWriter = csvWriterBuilder.build();
+    }
+
+    @Override
+    public void append(List<String> nextLine) {
+      if (nextLine == null) throw new RuntimeException("You can't write null list.");
+      if (genericLength == -1) genericLength = nextLine.size();
+      else if (genericLength != nextLine.size()) {
+        if (blankLine && String.join("", nextLine).isBlank()) {
+          rawAppend(nextLine);
+          return;
+        }
+        throw new RuntimeException(
+            "The length of the row:"
+                + String.join(",", nextLine)
+                + " does not meet the standard. Each row of data should be equal in length.");
+      }
+      rawAppend(nextLine);
+    }
+
+    @Override
+    public void rawAppend(List<String> nextLine) {
+      csvWriter.writeNext(nextLine.toArray(new String[0]));
+    }
+
+    @Override
+    public void flush() {
+      Utils.packException(csvWriter::flush);
+    }
+
+    @Override
+    public void close() {
+      Utils.packException(csvWriter::close);
+    }
   }
 }

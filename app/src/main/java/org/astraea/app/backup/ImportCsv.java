@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
+import org.astraea.common.argument.BooleanField;
 import org.astraea.common.argument.NonEmptyStringField;
 import org.astraea.common.argument.NonNegativeIntegerField;
 import org.astraea.common.argument.URIField;
@@ -182,9 +183,15 @@ public class ImportCsv {
 
     @Parameter(
         names = {"--headSkip"},
-        description = "Head skip number.",
+        description = "The number of records to skip",
         validateWith = NonNegativeIntegerField.class)
     int headSkip = 0;
+
+    @Parameter(
+        names = {"--allowBlankLine"},
+        description = "Allow read/writer blank lines when processing csv files.",
+        validateWith = BooleanField.class)
+    boolean blankLine = false;
   }
 
   static void nonEqualPath(URI uri1, URI uri2) {
