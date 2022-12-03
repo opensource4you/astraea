@@ -34,7 +34,7 @@ import org.astraea.common.Lazy;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
   static <T extends ReplicaInfo> ClusterInfo<T> empty() {
-    return of(Set.of(), List.of());
+    return of(List.of(), List.of());
   }
 
   // ---------------------[helpers]---------------------//
@@ -72,7 +72,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /** Mask specific topics from a {@link ClusterInfo}. */
   static <T extends ReplicaInfo> ClusterInfo<T> masked(
       ClusterInfo<T> clusterInfo, Predicate<String> topicFilter) {
-    final var nodes = Set.copyOf(clusterInfo.nodes());
+    final var nodes = List.copyOf(clusterInfo.nodes());
     final var replicas =
         clusterInfo
             .replicaStream()
@@ -212,7 +212,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    */
   static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
     return of(
-        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableSet()),
+        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
         cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
             .flatMap(p -> ReplicaInfo.of(p).stream())
@@ -236,7 +236,13 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     // TODO: this method is not suitable for production use. Move it to the test scope.
     //  see https://github.com/skiptests/astraea/issues/1185
     return of(
-        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableSet()),
+        replicas.stream()
+            .map(ReplicaInfo::nodeInfo)
+            .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
+            .values()
+            .stream()
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableList()),
         replicas);
   }
 
@@ -254,7 +260,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return cluster info
    * @param <T> ReplicaInfo or Replica
    */
-  static <T extends ReplicaInfo> ClusterInfo<T> of(Set<NodeInfo> nodes, List<T> replicas) {
+  static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
     return new Optimized<>(nodes, replicas);
   }
 
@@ -471,9 +477,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   // ---------------------[abstract methods]---------------------//
 
   /**
-   * @return The known set of nodes
+   * @return The known nodes
    */
-  Set<NodeInfo> nodes();
+  List<NodeInfo> nodes();
 
   /**
    * @return replica stream to offer effective way to operate a bunch of replicas
@@ -482,7 +488,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   /** It optimizes all queries by pre-allocated Map collection. */
   class Optimized<T extends ReplicaInfo> implements ClusterInfo<T> {
-    private final Set<NodeInfo> nodeInfos;
+    private final List<NodeInfo> nodeInfos;
     private final List<T> all;
 
     private final Lazy<Map<Map.Entry<Integer, String>, List<T>>> byBrokerTopic;
@@ -491,7 +497,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     private final Lazy<Map<TopicPartition, List<T>>> byPartition;
     private final Lazy<Map<TopicPartitionReplica, List<T>>> byReplica;
 
-    protected Optimized(Set<NodeInfo> nodeInfos, List<T> replicas) {
+    protected Optimized(List<NodeInfo> nodeInfos, List<T> replicas) {
       this.nodeInfos = nodeInfos;
       this.all = replicas;
       this.byBrokerTopic =
@@ -577,7 +583,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     }
 
     @Override
-    public Set<NodeInfo> nodes() {
+    public List<NodeInfo> nodes() {
       return nodeInfos;
     }
 

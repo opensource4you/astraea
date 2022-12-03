@@ -156,7 +156,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
+    var beforeClusterInfo = ClusterInfo.of(List.of(), beforeReplicas);
 
     var results =
         BalancerNode.assignmentResult(

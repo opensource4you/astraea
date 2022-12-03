@@ -240,7 +240,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var currentClusterInfo =
           ClusterInfo.of(
-              Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
               List.of(
                   Replica.builder()
                       .topic("topic")

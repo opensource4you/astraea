@@ -169,7 +169,7 @@ public class ClusterInfoTest {
                 .isPreferredLeader(false)
                 .path("/data-folder-01")
                 .build());
-    var nodeInfos = Set.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
+    var nodeInfos = List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
     var changes = ClusterInfo.diff(before, after);
