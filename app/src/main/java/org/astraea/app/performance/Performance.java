@@ -411,10 +411,7 @@ public class Performance {
                               valueDistributionType.create(
                                   valueSize.measurement(DataUnit.Byte).intValue()),
                               e.getValue())));
-      return (tp) ->
-          throttles.isEmpty()
-              ? defaultSupplier
-              : throttleSupplier.getOrDefault(tp, defaultSupplier);
+      return (tp) -> throttleSupplier.getOrDefault(tp, defaultSupplier);
     }
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
