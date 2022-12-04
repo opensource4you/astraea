@@ -36,6 +36,9 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private boolean register = false;
+  // TODO: metric collector may be configured by user in the future.
+  // TODO: need to track the performance when using the assignor in large scale consumers, see
+  // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
   private final MetricCollector metricCollector =
       MetricCollector.builder()
           .interval(Duration.ofSeconds(1))
@@ -72,7 +75,6 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
                       node.id(),
                       InetSocketAddress.createUnresolved(
                           node.host(), jmxPortGetter.apply(node.id()).get())));
-      register = true;
     }
     return new GroupAssignment(
         assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
