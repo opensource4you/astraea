@@ -48,7 +48,7 @@ public class CsvReaderBuilder {
     return new CsvReaderImpl(csvReaderBuilder, blankLine);
   }
 
-  static class CsvReaderImpl implements CsvReader {
+  private static class CsvReaderImpl implements CsvReader {
     private final CSVReader csvReader;
     private final boolean blankLine;
     private long currentLine = 0;

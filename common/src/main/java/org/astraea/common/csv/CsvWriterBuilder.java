@@ -45,7 +45,7 @@ public class CsvWriterBuilder {
     return new CsvWriterImpl(csvWriterBuilder, blankLine);
   }
 
-  static class CsvWriterImpl implements CsvWriter {
+  private static class CsvWriterImpl implements CsvWriter {
     private final ICSVWriter csvWriter;
     private final boolean blankLine;
     private int genericLength = -1;
