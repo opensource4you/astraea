@@ -116,6 +116,8 @@ class BalancerNodeTest extends RequireBrokerCluster {
   void testResult() {
     var topic = Utils.randomString();
     var leaderSize = 100;
+    var allNodes =
+        List.of(NodeInfo.of(0, "aa", 0), NodeInfo.of(1, "aa", 0), NodeInfo.of(3, "aa", 0));
     var beforeReplicas =
         List.of(
             Replica.builder()
@@ -123,7 +125,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(0, "aa", 0))
+                .nodeInfo(allNodes.get(0))
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -132,7 +134,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "aa", 0))
+                .nodeInfo(allNodes.get(1))
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
@@ -143,7 +145,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(3, "aa", 0))
+                .nodeInfo(allNodes.get(2))
                 .size(leaderSize)
                 .path("/tmp/ddd")
                 .build(),
@@ -152,17 +154,17 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "aa", 0))
+                .nodeInfo(allNodes.get(1))
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
+    var beforeClusterInfo = ClusterInfo.of(List.of(), beforeReplicas);
 
     var results =
         BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
-                ClusterInfo.of(afterReplicas),
+                ClusterInfo.of(allNodes, afterReplicas),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 List.of(MoveCost.builder().build())));

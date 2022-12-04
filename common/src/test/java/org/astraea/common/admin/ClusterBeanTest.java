@@ -16,14 +16,18 @@
  */
 package org.astraea.common.admin;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.cost.StatisticalBean;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.SensorBuilder;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.stats.Avg;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -104,47 +108,159 @@ class ClusterBeanTest {
   @Test
   void testStatistic() {
     var topicName = "testStatistic";
-    var clusterBean = clusterBean(topicName);
-    var tprValue = clusterBean.statisticsByReplica(LogMetrics.Log.SIZE.metricName(), Avg.AVG_KEY);
-    var brokerValue =
-        clusterBean.statisticsByNode(
-            ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(), Avg.AVG_KEY);
+    var brokerBean = new fakeStatisticalBean(new BeanObject("", Map.of(), Map.of("Value", "10")));
+    var tprBean1 =
+        new fakeStatisticalBean(
+            new BeanObject(
+                "", Map.of("topic", topicName, "partition", "0"), Map.of("Value", "100")));
+    var tprBean2 =
+        new fakeStatisticalBean(
+            new BeanObject(
+                "", Map.of("topic", topicName, "partition", "1"), Map.of("Value", "120")));
+    var clusterBean = ClusterBean.of(Map.of(0, List.of(brokerBean, tprBean1, tprBean2)));
+    Assertions.assertEquals(1, clusterBean.statisticsByNode().size());
+    Assertions.assertEquals(2, clusterBean.statisticsByReplica().size());
     Assertions.assertEquals(
-        (100.0 + 1000) / 2, tprValue.get(TopicPartitionReplica.of(topicName, 0, 0)));
+        "10", clusterBean.statisticsByNode().get(0).get(0).beanObject().attributes().get("Value"));
     Assertions.assertEquals(
-        (100.0 + 200) / 2, tprValue.get(TopicPartitionReplica.of(topicName, 1, 1)));
+        "100",
+        clusterBean
+            .statisticsByReplica()
+            .get(TopicPartitionReplica.of(topicName, 0, 0))
+            .get(0)
+            .beanObject()
+            .attributes()
+            .get("Value"));
     Assertions.assertEquals(
-        (10.0 + 20) / 2, tprValue.get(TopicPartitionReplica.of(topicName, 2, 2)));
-    Assertions.assertEquals((100.0 + 1000) / 2, brokerValue.get(0));
-    Assertions.assertEquals((100.0 + 200) / 2, brokerValue.get(1));
-    Assertions.assertEquals((10.0 + 20) / 2, brokerValue.get(2));
+        "120",
+        clusterBean
+            .statisticsByReplica()
+            .get(TopicPartitionReplica.of(topicName, 1, 0))
+            .get(0)
+            .beanObject()
+            .attributes()
+            .get("Value"));
   }
 
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  private static ClusterBean clusterBean(String topicName) {
-    var sensors =
-        List.of(
-            new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
-            new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build(),
-            new SensorBuilder().addStat(Avg.AVG_KEY, Avg.of()).build());
-    sensors.get(0).record(100.0);
-    sensors.get(0).record(1000.0);
-    sensors.get(1).record(100.0);
-    sensors.get(1).record(200.0);
-    sensors.get(2).record(10.0);
-    sensors.get(2).record(20.0);
-    return ClusterBean.of(
-        Map.of(),
-        Map.of(
-            LogMetrics.Log.SIZE.metricName(),
+  private class fakeStatisticalBean implements StatisticalBean {
+    BeanObject beanObject;
+
+    fakeStatisticalBean(BeanObject beanObject) {
+      this.beanObject = beanObject;
+    }
+
+    @Override
+    public BeanObject beanObject() {
+      return beanObject;
+    }
+  }
+
+  Stream<HasBeanObject> random(int broker) {
+    return Stream.generate(
+            () -> {
+              final var domainName = "test";
+              final var properties =
+                  Map.of(
+                      "type", "testing",
+                      "broker", String.valueOf(broker),
+                      "name", "whatever");
+              final var attributes =
+                  Map.<String, Object>of("value", ThreadLocalRandom.current().nextInt());
+              return new BeanObject(domainName, properties, attributes);
+            })
+        .map(
+            bean -> {
+              final var fakeTime = ThreadLocalRandom.current().nextLong(0, 1000);
+              switch (ThreadLocalRandom.current().nextInt(0, 3)) {
+                case 0:
+                  return new MetricType1(fakeTime, bean);
+                case 1:
+                  return new MetricType2(fakeTime, bean);
+                case 2:
+                  return new MetricType3(fakeTime, bean);
+                default:
+                  throw new RuntimeException();
+              }
+            });
+  }
+
+  @Test
+  void testClusterBeanQuery() {
+    var clusterBean =
+        ClusterBean.of(
             Map.of(
-                TopicPartitionReplica.of(topicName, 0, 0), sensors.get(0),
-                TopicPartitionReplica.of(topicName, 1, 1), sensors.get(1),
-                TopicPartitionReplica.of(topicName, 2, 2), sensors.get(2)),
-            ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName(),
-            Map.of(
-                0, sensors.get(0),
-                1, sensors.get(1),
-                2, sensors.get(2))));
+                1, random(1).limit(1000).collect(Collectors.toUnmodifiableList()),
+                2, random(2).limit(1000).collect(Collectors.toUnmodifiableList()),
+                3, random(3).limit(1000).collect(Collectors.toUnmodifiableList())));
+
+    {
+      // select a window of metric from a broker in ClusterBean
+      var windowQuery =
+          clusterBean.query(
+              ClusterBeanQuery.window(MetricType1.class, 1).metricSince(500).ascending());
+      System.out.println("[Window]");
+      System.out.println(windowQuery);
+    }
+
+    {
+      // select a window of metric from a broker in ClusterBean
+      var windowQuery =
+          clusterBean.query(
+              ClusterBeanQuery.window(MetricType1.class, 1)
+                  .metricSince(Duration.ofSeconds(3))
+                  .descending());
+      System.out.println("[Window]");
+      System.out.println(windowQuery);
+    }
+
+    {
+      // select the latest metric from a broker in ClusterBean
+      var latestMetric = clusterBean.query(ClusterBeanQuery.latest(MetricType2.class, 1));
+      System.out.println("[Latest]");
+      System.out.println(latestMetric);
+    }
+  }
+
+  private static class MetricType1 implements HasBeanObject {
+    private final long createTime;
+    private final BeanObject beanObject;
+
+    private MetricType1(long createTime, BeanObject beanObject) {
+      this.createTime = createTime;
+      this.beanObject = beanObject;
+    }
+
+    @Override
+    public BeanObject beanObject() {
+      return beanObject;
+    }
+
+    @Override
+    public long createdTimestamp() {
+      return createTime;
+    }
+
+    @Override
+    public String toString() {
+      return this.getClass().getSimpleName()
+          + "{"
+          + "createTime="
+          + createTime
+          + ", beanObject="
+          + beanObject
+          + '}';
+    }
+  }
+
+  private static class MetricType2 extends MetricType1 {
+    private MetricType2(long createTime, BeanObject beanObject) {
+      super(createTime, beanObject);
+    }
+  }
+
+  private static class MetricType3 extends MetricType2 {
+    private MetricType3(long createTime, BeanObject beanObject) {
+      super(createTime, beanObject);
+    }
   }
 }

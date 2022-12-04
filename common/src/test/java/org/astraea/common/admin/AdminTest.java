@@ -306,7 +306,7 @@ public class AdminTest extends RequireBrokerCluster {
       Assertions.assertInstanceOf(
           SortedSet.class, admin.topicPartitionReplicas(brokerIds()).toCompletableFuture().join());
 
-      Assertions.assertInstanceOf(SortedSet.class, admin.nodeInfos().toCompletableFuture().join());
+      Assertions.assertInstanceOf(List.class, admin.nodeInfos().toCompletableFuture().join());
 
       var brokers = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(

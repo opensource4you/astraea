@@ -56,10 +56,16 @@ public class SmoothWeightRoundRobinTest {
   }
 
   ClusterInfo<ReplicaInfo> clusterInfo() {
-    return ClusterInfo.of(
+    var nodes =
         List.of(
-            ReplicaInfo.of("test", 1, NodeInfo.of(1, "host", 1111), true, true, false),
-            ReplicaInfo.of("test", 2, NodeInfo.of(2, "host", 1111), true, true, false),
-            ReplicaInfo.of("test", 3, NodeInfo.of(3, "host", 1111), true, true, false)));
+            NodeInfo.of(1, "host", 1111),
+            NodeInfo.of(2, "host", 1111),
+            NodeInfo.of(3, "host", 1111));
+    return ClusterInfo.of(
+        nodes,
+        List.of(
+            ReplicaInfo.of("test", 1, nodes.get(0), true, true, false),
+            ReplicaInfo.of("test", 2, nodes.get(1), true, true, false),
+            ReplicaInfo.of("test", 3, nodes.get(2), true, true, false)));
   }
 }
