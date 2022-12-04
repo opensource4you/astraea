@@ -26,9 +26,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -36,7 +37,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 
 public class ReassignmentHandler implements Handler {
@@ -49,86 +49,89 @@ public class ReassignmentHandler implements Handler {
   @Override
   public CompletionStage<Response> post(Channel channel) {
     var request = channel.request(TypeRef.of(ReassignmentPostRequest.class));
+
+    Stream<CompletionStage<Response>> process2Folders =
+        request.toFolders.stream()
+            .map(
+                toFolder ->
+                    admin
+                        .moveToFolders(
+                            Map.of(
+                                TopicPartitionReplica.of(
+                                    toFolder.topic, toFolder.partition, toFolder.broker),
+                                toFolder.to))
+                        .thenApply(ignored -> Response.ACCEPT)
+                        .toCompletableFuture());
+
+    Stream<CompletionStage<Response>> process2Nodes =
+        request.toNodes.stream()
+            .map(
+                toNode -> {
+                  if (toNode.to.isEmpty()) {
+                    throw new IllegalArgumentException("`toNodes.to` can't be empty");
+                  }
+                  return admin
+                      .moveToBrokers(
+                          Map.of(TopicPartition.of(toNode.topic, toNode.partition), toNode.to))
+                      .thenApply(ignored -> Response.ACCEPT)
+                      .toCompletableFuture();
+                });
+
+    Stream<CompletionStage<Response>> processExclude =
+        request.excludeNodes.stream()
+            .map(
+                excludeNode ->
+                    admin
+                        .brokers()
+                        .thenCompose(
+                            brokers -> {
+                              var exclude = excludeNode.exclude;
+                              var excludedBroker =
+                                  brokers.stream().filter(b -> b.id() == exclude).findFirst();
+                              if (excludedBroker.isEmpty())
+                                return CompletableFuture.completedFuture(Response.BAD_REQUEST);
+                              var availableBrokers =
+                                  brokers.stream()
+                                      .filter(b -> b.id() != exclude)
+                                      .collect(Collectors.toList());
+                              var partitions =
+                                  excludedBroker.get().topicPartitions().stream()
+                                      .filter(
+                                          tp ->
+                                              excludeNode.topic.isEmpty()
+                                                  || tp.topic().equals(excludeNode.topic.get()))
+                                      .collect(Collectors.toSet());
+                              if (partitions.isEmpty())
+                                return CompletableFuture.completedFuture(Response.BAD_REQUEST);
+                              var req =
+                                  partitions.stream()
+                                      .collect(
+                                          Collectors.toMap(
+                                              tp -> tp,
+                                              tp -> {
+                                                var ids =
+                                                    availableBrokers.stream()
+                                                        .filter(
+                                                            b -> b.topicPartitions().contains(tp))
+                                                        .map(NodeInfo::id)
+                                                        .collect(Collectors.toList());
+                                                if (!ids.isEmpty()) return ids;
+                                                return List.of(
+                                                    availableBrokers
+                                                        .get(
+                                                            (int)
+                                                                (Math.random()
+                                                                    * availableBrokers.size()))
+                                                        .id());
+                                              }));
+                              return admin.moveToBrokers(req).thenApply(ignored -> Response.ACCEPT);
+                            })
+                        .toCompletableFuture());
+
     return FutureUtils.sequence(
-            request.plans.stream()
-                .map(
-                    plan -> {
-                      // case 0: move replica to another folder
-                      if (Utils.isPresent(plan.broker, plan.topic, plan.partition, plan.to))
-                        return admin
-                            .moveToFolders(
-                                Map.of(
-                                    TopicPartitionReplica.of(
-                                        plan.topic.get(), plan.partition.get(), plan.broker.get()),
-                                    JsonConverter.defaultConverter()
-                                        .convert(plan.to.get(), TypeRef.of(String.class))))
-                            .thenApply(ignored -> Response.ACCEPT)
-                            .toCompletableFuture();
-
-                      // case 1: move replica to another broker
-                      if (Utils.isPresent(plan.topic, plan.partition, plan.to))
-                        return admin
-                            .moveToBrokers(
-                                Map.of(
-                                    TopicPartition.of(plan.topic.get(), plan.partition.get()),
-                                    JsonConverter.defaultConverter()
-                                        .convert(plan.to.get(), TypeRef.array(Integer.class))))
-                            .thenApply(ignored -> Response.ACCEPT)
-                            .toCompletableFuture();
-
-                      if (plan.exclude.isPresent())
-                        return admin
-                            .brokers()
-                            .thenCompose(
-                                brokers -> {
-                                  var exclude = plan.exclude.get();
-                                  var excludedBroker =
-                                      brokers.stream().filter(b -> b.id() == exclude).findFirst();
-                                  if (excludedBroker.isEmpty())
-                                    return CompletableFuture.completedFuture(Response.BAD_REQUEST);
-                                  var availableBrokers =
-                                      brokers.stream()
-                                          .filter(b -> b.id() != exclude)
-                                          .collect(Collectors.toList());
-                                  var partitions =
-                                      excludedBroker.get().topicPartitions().stream()
-                                          .filter(
-                                              tp ->
-                                                  plan.topic.isEmpty()
-                                                      || tp.topic().equals(plan.topic.get()))
-                                          .collect(Collectors.toSet());
-                                  if (partitions.isEmpty())
-                                    return CompletableFuture.completedFuture(Response.BAD_REQUEST);
-                                  var req =
-                                      partitions.stream()
-                                          .collect(
-                                              Collectors.toMap(
-                                                  tp -> tp,
-                                                  tp -> {
-                                                    var ids =
-                                                        availableBrokers.stream()
-                                                            .filter(
-                                                                b ->
-                                                                    b.topicPartitions()
-                                                                        .contains(tp))
-                                                            .map(NodeInfo::id)
-                                                            .collect(Collectors.toList());
-                                                    if (!ids.isEmpty()) return ids;
-                                                    return List.of(
-                                                        availableBrokers
-                                                            .get(
-                                                                (int)
-                                                                    (Math.random()
-                                                                        * availableBrokers.size()))
-                                                            .id());
-                                                  }));
-                                  return admin
-                                      .moveToBrokers(req)
-                                      .thenApply(ignored -> Response.ACCEPT);
-                                })
-                            .toCompletableFuture();
-                      return CompletableFuture.completedFuture(Response.BAD_REQUEST);
-                    })
+            Stream.of(process2Folders, process2Nodes, processExclude)
+                .flatMap(Function.identity())
+                .map(CompletionStage::toCompletableFuture)
                 .collect(Collectors.toUnmodifiableList()))
         .thenApply(
             rs -> {
@@ -163,23 +166,37 @@ public class ReassignmentHandler implements Handler {
             });
   }
 
-  static class ReassignmentPostRequest implements Request {
-    private List<Plan> plans = List.of();
+  static class ToNode implements Request {
+    private String topic;
+    private Integer partition;
+    private List<Integer> to = List.of();
 
-    public ReassignmentPostRequest() {}
+    public ToNode() {}
   }
 
-  static class Plan implements Request {
-    private Optional<Integer> broker = Optional.empty();
+  static class ToFolder implements Request {
+    private Integer broker;
+    private String topic;
+    private Integer partition;
+    private String to;
+
+    public ToFolder() {}
+  }
+
+  static class ExcludeNode implements Request {
+    private Integer exclude;
     private Optional<String> topic = Optional.empty();
-    private Optional<Integer> partition = Optional.empty();
 
-    /** `to` has two different meanings */
-    private Optional<Object> to = Optional.empty();
+    public ExcludeNode() {}
+  }
 
-    private Optional<Integer> exclude = Optional.empty();
+  static class ReassignmentPostRequest implements Request {
 
-    public Plan() {}
+    private List<ToNode> toNodes = List.of();
+    private List<ToFolder> toFolders = List.of();
+    private List<ExcludeNode> excludeNodes = List.of();
+
+    public ReassignmentPostRequest() {}
   }
 
   static class AddingReplica implements Response {

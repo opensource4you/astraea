@@ -19,7 +19,6 @@ package org.astraea.common;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -185,15 +184,6 @@ public class UtilsTest {
 
     var pattern3 = Utils.wildcardToPattern("192*");
     Assertions.assertTrue(pattern3.matcher("192.168").matches());
-  }
-
-  @Test
-  void testIsPresent() {
-    Assertions.assertTrue(Utils.isPresent(Optional.of("")));
-    Assertions.assertTrue(Utils.isPresent(Optional.of(""), Optional.of("")));
-
-    Assertions.assertFalse(Utils.isPresent(Optional.empty()));
-    Assertions.assertFalse(Utils.isPresent(Optional.of(""), Optional.empty()));
   }
 
   private static class TestConfigCostFunction implements CostFunction {

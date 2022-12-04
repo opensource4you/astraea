@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 
 public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
-  static final String PLANS_KEY = "plans";
   static final String TOPIC_KEY = "topic";
   static final String PARTITION_KEY = "partition";
   static final String TO_KEY = "to";
@@ -59,8 +58,8 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\",\"%s\": \"%s\",\"%s\": [%s]}]}",
-              PLANS_KEY, TOPIC_KEY, topicName, PARTITION_KEY, "0", TO_KEY, nextBroker);
+              "{\"toNodes\": [{\"%s\": \"%s\",\"%s\": \"%s\",\"%s\": [%s]}]}",
+              TOPIC_KEY, topicName, PARTITION_KEY, "0", TO_KEY, nextBroker);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
@@ -113,8 +112,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}]}",
-              PLANS_KEY,
+              "{\"toFolders\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}]}",
               TOPIC_KEY,
               topicName,
               PARTITION_KEY,
@@ -167,7 +165,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .id();
 
       var body =
-          String.format("{\"%s\": [{\"%s\": \"%s\"}]}", PLANS_KEY, EXCLUDE_KEY, currentBroker);
+          String.format("{\"excludeNodes\": [{\"%s\": \"%s\"}]}", EXCLUDE_KEY, currentBroker);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
@@ -219,8 +217,8 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
-              PLANS_KEY, EXCLUDE_KEY, currentBroker, TOPIC_KEY, targetTopic);
+              "{\"excludeNodes\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              EXCLUDE_KEY, currentBroker, TOPIC_KEY, targetTopic);
 
       Assertions.assertEquals(
           Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
