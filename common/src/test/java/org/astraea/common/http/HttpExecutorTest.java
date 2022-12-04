@@ -17,8 +17,6 @@
 package org.astraea.common.http;
 
 import com.sun.net.httpserver.HttpServer;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -27,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
+import org.astraea.common.Utils;
 import org.astraea.common.json.JsonSerializationException;
 import org.astraea.common.json.TypeRef;
 import org.junit.jupiter.api.Assertions;
@@ -35,7 +34,7 @@ import org.junit.jupiter.api.Test;
 class HttpExecutorTest {
   @Test
   void testGet() {
-    try (var server = new Server()) {
+    try (var server = server()) {
       var client = HttpExecutor.builder().build();
 
       // test get
@@ -100,7 +99,7 @@ class HttpExecutorTest {
 
   @Test
   void testGetNestedObject() {
-    try (var server = new Server()) {
+    try (var server = server()) {
       var client = HttpExecutor.builder().build();
       server.setRes(200, "['v1','v2']");
       Assertions.assertEquals(
@@ -115,7 +114,7 @@ class HttpExecutorTest {
 
   @Test
   void testPostAndPut() {
-    try (var server = new Server()) {
+    try (var server = server()) {
       var client = HttpExecutor.builder().build();
 
       // test post
@@ -158,7 +157,7 @@ class HttpExecutorTest {
 
   @Test
   void testPut() {
-    try (var server = new Server()) {
+    try (var server = server()) {
       var client = HttpExecutor.builder().build();
       // test put
       server.setRes(200, "{'responseValue':'testValue'}");
@@ -200,7 +199,7 @@ class HttpExecutorTest {
 
   @Test
   void testDelete() {
-    try (var server = new Server()) {
+    try (var server = server()) {
       var client = HttpExecutor.builder().build();
 
       // test get
@@ -240,7 +239,7 @@ class HttpExecutorTest {
 
   @Test
   void testErrorMessage() {
-    try (var server = new Server()) {
+    try (var server = server()) {
       var client =
           HttpExecutor.builder()
               .errorMessageHandler(
@@ -305,6 +304,10 @@ class HttpExecutorTest {
     }
   }
 
+  private static Server server() {
+    return Utils.packException(() -> new Server(HttpServer.create(new InetSocketAddress(0), 0)));
+  }
+
   private static class Server implements AutoCloseable {
     private final HttpServer server;
 
@@ -312,35 +315,33 @@ class HttpExecutorTest {
 
     private volatile Req req;
 
-    private Server() {
-      try {
-        server = HttpServer.create(new InetSocketAddress(0), 0);
-        server.start();
-        server.createContext(
-            "/",
-            exchange -> {
-              var body = exchange.getRequestBody().readAllBytes();
-              req =
-                  new Req(
-                      exchange.getRequestMethod(),
-                      exchange.getRequestURI().getPath(),
-                      exchange.getRequestURI().getQuery(),
-                      body == null || body.length == 0
-                          ? null
-                          : new String(body, StandardCharsets.UTF_8));
-              try {
-                var r = res.take();
-                exchange.sendResponseHeaders(r.code, r.body == null ? 0 : r.body.length());
-                try (var output = exchange.getResponseBody()) {
-                  if (r.body != null) output.write(r.body.getBytes(StandardCharsets.UTF_8));
-                }
-              } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-              }
-            });
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
+    private Server(HttpServer server) {
+      this.server = server;
+      Utils.packException(
+          () -> {
+            server.start();
+            server.createContext(
+                "/",
+                exchange -> {
+                  var body = exchange.getRequestBody().readAllBytes();
+                  req =
+                      new Req(
+                          exchange.getRequestMethod(),
+                          exchange.getRequestURI().getPath(),
+                          exchange.getRequestURI().getQuery(),
+                          body == null || body.length == 0
+                              ? null
+                              : new String(body, StandardCharsets.UTF_8));
+                  Utils.packException(
+                      () -> {
+                        var r = res.take();
+                        exchange.sendResponseHeaders(r.code, r.body == null ? 0 : r.body.length());
+                        try (var output = exchange.getResponseBody()) {
+                          if (r.body != null) output.write(r.body.getBytes(StandardCharsets.UTF_8));
+                        }
+                      });
+                });
+          });
     }
 
     private void setRes(int code, String body) {

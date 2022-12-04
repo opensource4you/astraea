@@ -112,6 +112,11 @@ JSON Response 範例
 }
 ```
 
+> ##### `POST /topics` 有時沒有回傳結果被建立的 topic 的詳細訊息?
+> Kafka Topic 的建立需要時間，Web Service 和 Kafka 的溝通中間存在 Race Condition，遇到這種情況時
+> `POST /topics` 回傳結果會不包含 topic 的詳細訊息，如果有穩定取得 topic 詳細內容的需求，
+> 建議在 `POST /topics` 後，等待一段時間再透過 `GET /topics` 來取得詳細的 topic 資訊
+
 ## 查詢所有 topics
 ```shell
 GET /topics

@@ -129,15 +129,19 @@ public class UtilsTest {
   @ParameterizedTest
   @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
   void testConstruct(Class<? extends CostFunction> aClass) {
-    // arrange
     var config = Configuration.of(Map.of());
 
-    // act
     var costFunction = Utils.construct(aClass, config);
-
-    // assert
     Assertions.assertInstanceOf(CostFunction.class, costFunction);
     Assertions.assertInstanceOf(aClass, costFunction);
+
+    var costFunction2 = Utils.construct(aClass.getName(), CostFunction.class, config);
+    Assertions.assertInstanceOf(CostFunction.class, costFunction2);
+    Assertions.assertInstanceOf(aClass, costFunction2);
+
+    // Cost function class can't be cast to String class
+    Assertions.assertThrows(
+        RuntimeException.class, () -> Utils.construct(aClass.getName(), String.class, config));
   }
 
   @Test

@@ -16,110 +16,61 @@
  */
 package org.astraea.fs;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
+import org.astraea.common.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public abstract class FileSystemTest {
-
-  protected abstract FileSystem fileSystem();
+public class FileSystemTest {
 
   @Test
-  protected void testList() throws IOException {
-    try (var fs = fileSystem()) {
-      Assertions.assertEquals(0, fs.listFiles("/").size());
-      Assertions.assertEquals(0, fs.listFolders("/").size());
+  void testOf() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> FileSystem.of("unknown", Configuration.EMPTY));
 
-      Assertions.assertThrows(IllegalArgumentException.class, () -> fs.listFiles("/aa"));
-      Assertions.assertThrows(IllegalArgumentException.class, () -> fs.listFolders("/aa"));
-
-      // create a file
-      try (var output = fs.write("/aa")) {
-        output.write("abc".getBytes(StandardCharsets.UTF_8));
-      }
-      var f = fs.listFiles("/");
-      Assertions.assertEquals(1, f.size());
-      Assertions.assertEquals("/aa", f.get(0));
-
-      // can't list a file
-      Assertions.assertThrows(IllegalArgumentException.class, () -> fs.listFiles("/aa"));
-      Assertions.assertThrows(IllegalArgumentException.class, () -> fs.listFolders("/aa"));
-
-      fs.mkdir("/bb");
-      Assertions.assertEquals(0, fs.listFiles("/bb").size());
-      Assertions.assertEquals(0, fs.listFolders("/bb").size());
-    }
+    var fs = FileSystem.of("local", Configuration.of(Map.of("local.impl", Tmp.class.getName())));
+    Assertions.assertInstanceOf(Tmp.class, fs);
   }
 
-  @Test
-  protected void testMkdir() {
-    try (var fs = fileSystem()) {
-      Assertions.assertEquals(0, fs.listFolders("/").size());
-      fs.mkdir("/tmp/aa");
+  private static class Tmp implements FileSystem {
 
-      Assertions.assertEquals(1, fs.listFolders("/").size());
-      Assertions.assertEquals(1, fs.listFolders("/tmp").size());
-    }
-  }
+    public Tmp(Configuration configuration) {}
 
-  @Test
-  protected void testReadWrite() throws IOException {
-    try (var fs = fileSystem()) {
-      var path = "/aaa";
-      try (var output = fs.write(path)) {
-        output.write("abc".getBytes(StandardCharsets.UTF_8));
-      }
-      try (var input = fs.read(path)) {
-        Assertions.assertEquals("abc", new String(input.readAllBytes(), StandardCharsets.UTF_8));
-      }
-    }
-  }
+    @Override
+    public void mkdir(String path) {}
 
-  @Test
-  protected void testWriteToCreateFolder() throws IOException {
-    try (var fs = fileSystem()) {
-      var path = "/tmp/aaa";
-      try (var output = fs.write(path)) {
-        output.write("abc".getBytes(StandardCharsets.UTF_8));
-      }
-      Assertions.assertEquals(1, fs.listFiles("/tmp").size());
-      Assertions.assertEquals(1, fs.listFolders("/").size());
+    @Override
+    public List<String> listFiles(String path) {
+      return null;
     }
-  }
 
-  @Test
-  protected void testDelete() throws IOException {
-    try (var fs = fileSystem()) {
-      var path = "/tmp/aaa/bbb";
-      try (var output = fs.write(path)) {
-        output.write("abc".getBytes(StandardCharsets.UTF_8));
-      }
-      fs.delete("/tmp");
-      Assertions.assertEquals(0, fs.listFolders("/").size());
+    @Override
+    public List<String> listFolders(String path) {
+      return null;
     }
-  }
 
-  @Test
-  protected void testDeleteEmpty() {
-    try (var fs = fileSystem()) {
-      var path = "/tmp/aaa/bbb";
-      Assertions.assertEquals(Type.NONEXISTENT, fs.type(path));
-      fs.delete(path);
-    }
-  }
+    @Override
+    public void delete(String path) {}
 
-  @Test
-  protected void testDeleteRoot() {
-    try (var fs = fileSystem()) {
-      Assertions.assertThrows(IllegalArgumentException.class, () -> fs.delete("/"));
+    @Override
+    public InputStream read(String path) {
+      return null;
     }
-  }
 
-  @Test
-  protected void testMkdirOnRoot() {
-    try (var fs = fileSystem()) {
-      fs.mkdir("/");
+    @Override
+    public OutputStream write(String path) {
+      return null;
     }
+
+    @Override
+    public Type type(String path) {
+      return null;
+    }
+
+    @Override
+    public void close() {}
   }
 }
