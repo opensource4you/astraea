@@ -378,8 +378,7 @@ public class Performance {
                   .toCompletableFuture()
                   .join()
                   .replicaStream()
-                  .filter(ReplicaInfo::isLeader)
-                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
+                  .map(ReplicaInfo::topicPartition)
                   .distinct()
                   .collect(Collectors.toUnmodifiableList());
           return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
