@@ -52,7 +52,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public void mkdir(String path) {
+  public synchronized void mkdir(String path) {
     var folder = resolvePath(path);
     if (folder.isFile()) throw new IllegalArgumentException(path + " is a file");
     if (folder.isDirectory()) return;
@@ -60,7 +60,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public List<String> listFiles(String path) {
+  public synchronized List<String> listFiles(String path) {
     var folder = resolvePath(path);
     if (!folder.isDirectory()) throw new IllegalArgumentException(path + " is not a folder");
     var fs = folder.listFiles(File::isFile);
@@ -72,7 +72,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public List<String> listFolders(String path) {
+  public synchronized List<String> listFolders(String path) {
     var folder = resolvePath(path);
     if (!folder.isDirectory()) throw new IllegalArgumentException(path + " is not a folder");
     var fs = folder.listFiles(File::isDirectory);
@@ -84,12 +84,12 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public void delete(String path) {
+  public synchronized void delete(String path) {
     if (path.equals("/")) throw new IllegalArgumentException("can't delete whole root folder");
     delete(path, resolvePath(path));
   }
 
-  private void delete(String root, File file) {
+  private synchronized void delete(String root, File file) {
     if (!file.exists()) return;
     if (file.isFile() && !file.delete())
       throw new IllegalArgumentException("failed to delete " + root);
@@ -101,7 +101,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public InputStream read(String path) {
+  public synchronized InputStream read(String path) {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
@@ -110,17 +110,17 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public OutputStream write(String path) {
+  public synchronized OutputStream write(String path) {
     return Utils.packException(
         () -> {
           if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
-          mkdir(FileSystem.parent(path));
+          FileSystem.parent(path).ifPresent(this::mkdir);
           return new FileOutputStream(resolvePath(path));
         });
   }
 
   @Override
-  public Type type(String path) {
+  public synchronized Type type(String path) {
     var f = resolvePath(path);
     if (!f.exists()) return Type.NONEXISTENT;
     if (f.isDirectory()) return Type.FOLDER;
