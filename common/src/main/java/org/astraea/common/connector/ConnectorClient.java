@@ -45,7 +45,9 @@ public interface ConnectorClient {
 
   CompletionStage<Set<String>> connectorNames();
 
-  CompletionStage<ConnectorInfo> connector(String name);
+  CompletionStage<ConnectorInfo> connectorInfo(String name);
+
+  CompletionStage<ConnectorStatus> connectorStatus(String name);
 
   CompletionStage<ConnectorInfo> createConnector(String name, Map<String, String> config);
 
@@ -56,11 +58,10 @@ public interface ConnectorClient {
   CompletionStage<Set<PluginInfo>> plugins();
 
   default CompletionStage<Boolean> waitConnectorInfo(
-      String connectName, Predicate<ConnectorInfo> predicate, Duration timeout) {
+      String connectName, Predicate<ConnectorStatus> predicate, Duration timeout) {
     return Utils.loop(
         () ->
-            // TODO: 2022-12-01 astraea-1199 Replace by /status api
-            connector(connectName)
+            connectorStatus(connectName)
                 .thenApply(predicate::test)
                 .exceptionally(
                     e -> {
