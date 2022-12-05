@@ -89,9 +89,16 @@ public class Builder {
       }
 
       @Override
-      public CompletionStage<ConnectorInfo> connector(String name) {
+      public CompletionStage<ConnectorInfo> connectorInfo(String name) {
         return httpExecutor
             .get(getURL(KEY_CONNECTORS + "/" + name), TypeRef.of(ConnectorInfo.class))
+            .thenApply(Response::body);
+      }
+
+      @Override
+      public CompletionStage<ConnectorStatus> connectorStatus(String name) {
+        return httpExecutor
+            .get(getURL(KEY_CONNECTORS + "/" + name + "/status"), TypeRef.of(ConnectorStatus.class))
             .thenApply(Response::body);
       }
 
