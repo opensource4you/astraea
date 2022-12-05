@@ -18,12 +18,57 @@ package org.astraea.fs;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public abstract class AbstractFileSystemTest {
 
   protected abstract FileSystem fileSystem();
+
+  @Test
+  protected void testMultiOutputInput() {
+    var count = 5;
+    try (var fs = fileSystem()) {
+      var f =
+          IntStream.range(0, count)
+              .mapToObj(
+                  i ->
+                      CompletableFuture.runAsync(
+                          () -> {
+                            try (var output = fs.write("/tmp/" + i)) {
+                              output.write(String.valueOf(i).getBytes(StandardCharsets.UTF_8));
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          }))
+              .collect(Collectors.toList());
+
+      f.forEach(CompletableFuture::join);
+
+      Assertions.assertEquals(count, fs.listFiles("/tmp").size());
+
+      var f1 =
+          IntStream.range(0, count)
+              .mapToObj(
+                  i ->
+                      CompletableFuture.supplyAsync(
+                          () -> {
+                            try (var input = fs.read("/tmp/" + i)) {
+                              return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          }))
+              .collect(Collectors.toList());
+
+      Assertions.assertEquals(
+          IntStream.range(0, count).mapToObj(String::valueOf).collect(Collectors.toSet()),
+          f1.stream().map(CompletableFuture::join).collect(Collectors.toUnmodifiableSet()));
+    }
+  }
 
   @Test
   protected void testList() throws IOException {

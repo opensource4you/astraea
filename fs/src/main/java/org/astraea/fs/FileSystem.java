@@ -24,6 +24,10 @@ import java.util.Optional;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 
+/**
+ * the implementation must be thread-safe in the same JVM. The operations from other JVM is fine to
+ * cause exception.
+ */
 public interface FileSystem extends AutoCloseable {
   Map<String, String> DEFAULT_IMPLS =
       Map.of(
@@ -97,10 +101,12 @@ public interface FileSystem extends AutoCloseable {
     return root + "/" + name;
   }
 
-  static String parent(String path) {
-    if (path.equals("/")) return null;
+  static Optional<String> parent(String path) {
+    if (path.equals("/")) return Optional.empty();
+    if (!path.startsWith("/")) return Optional.empty();
     var index = path.lastIndexOf("/");
     if (index < 0) throw new IllegalArgumentException("illegal path: " + path);
-    return path.substring(0, index);
+    if (index == 0) return Optional.of("/");
+    return Optional.of(path.substring(0, index));
   }
 }
