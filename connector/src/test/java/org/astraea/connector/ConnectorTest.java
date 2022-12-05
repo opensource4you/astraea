@@ -70,7 +70,8 @@ public class ConnectorTest extends RequireWorkerCluster {
 
     // wait for sync
     Utils.sleep(Duration.ofSeconds(3));
-    Assertions.assertEquals(3, client.connector(name).toCompletableFuture().join().tasks().size());
+    Assertions.assertEquals(
+        3, client.connectorInfo(name).toCompletableFuture().join().tasks().size());
     Assertions.assertEquals(1, MySource.INIT_COUNT.get());
     Assertions.assertEquals(3, MySourceTask.INIT_COUNT.get());
     Assertions.assertEquals(0, MySource.CLOSE_COUNT.get());

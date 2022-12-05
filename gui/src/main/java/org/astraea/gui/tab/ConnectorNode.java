@@ -65,7 +65,7 @@ public class ConnectorNode {
                                         name ->
                                             context
                                                 .connectorClient()
-                                                .connector(name)
+                                                .connectorInfo(name)
                                                 .toCompletableFuture())
                                     .collect(Collectors.toList())))
                     .thenApply(
