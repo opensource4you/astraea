@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -64,18 +65,12 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
     var subscriptionsPerMember =
         org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
             .groupSubscription();
+//TODO: register fetcher, integration costfunction
+    // check the nodes if register JMX or not
+    var unregister = checkUnregister(clusterInfo.nodes());
+    // register JMX for unregistered nodes
+    if (!unregister.isEmpty()) registerRemoteJMX(unregister);
 
-    // register JMX for metric collector only once.
-    if (!register) {
-      clusterInfo
-          .nodes()
-          .forEach(
-              node ->
-                  metricCollector.registerJmx(
-                      node.id(),
-                      InetSocketAddress.createUnresolved(
-                          node.host(), jmxPortGetter.apply(node.id()).get())));
-    }
     return new GroupAssignment(
         assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
             .collect(
@@ -100,5 +95,34 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
 
   void configure(Optional<Integer> jmxPortDefault, Map<Integer, Integer> customJmxPort) {
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
+  }
+
+  /**
+   * check the nodes which wasn't register yet.
+   *
+   * @param nodes List of node information
+   * @return Map from each broker id to broker host
+   */
+  protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
+    return nodes.stream()
+        .filter(i -> !metricCollector.listIdentities().contains(i.id()))
+        .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
+  }
+
+  /**
+   * register the JMX for metric collector. only register the JMX that is not registered yet.
+   *
+   * @param unregister Map from each broker id to broker host
+   */
+  protected void registerRemoteJMX(Map<Integer, String> unregister) {
+    unregister.forEach(
+        (id, host) ->
+            metricCollector.registerJmx(
+                id, InetSocketAddress.createUnresolved(host, jmxPortGetter.apply(id).get())));
+  }
+
+  // used for test
+  void registerLocalJMX(Map<Integer, String> unregister) {
+    unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
   }
 }
