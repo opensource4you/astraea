@@ -16,11 +16,15 @@
  */
 package org.astraea.common.admin;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.astraea.common.Lazy;
 import org.astraea.common.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
@@ -28,25 +32,42 @@ public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
-    var beanObjectByReplica = new HashMap<TopicPartitionReplica, Collection<HasBeanObject>>();
-    allBeans.forEach(
-        (brokerId, beans) ->
-            beans.forEach(
-                bean -> {
-                  if (bean.beanObject() != null
-                      && bean.beanObject().properties().containsKey("topic")
-                      && bean.beanObject().properties().containsKey("partition")) {
-                    var properties = bean.beanObject().properties();
-                    var tpr =
-                        TopicPartitionReplica.of(
-                            properties.get("topic"),
-                            Integer.parseInt(properties.get("partition")),
-                            brokerId);
-                    beanObjectByReplica
-                        .computeIfAbsent(tpr, (ignore) -> new ArrayList<>())
-                        .add(bean);
-                  }
-                }));
+    var lazyReplica =
+        Lazy.of(
+            () ->
+                allBeans.entrySet().stream()
+                    .flatMap(
+                        entry ->
+                            entry.getValue().stream()
+                                .filter(
+                                    bean ->
+                                        bean.beanObject().properties().containsKey("topic")
+                                            && bean.beanObject()
+                                                .properties()
+                                                .containsKey("partition"))
+                                .map(
+                                    bean ->
+                                        Map.entry(
+                                            TopicPartitionReplica.of(
+                                                bean.beanObject().properties().get("topic"),
+                                                Integer.parseInt(
+                                                    bean.beanObject()
+                                                        .properties()
+                                                        .get("partition")),
+                                                entry.getKey()),
+                                            bean)))
+                    .collect(
+                        Collectors.groupingBy(
+                            Map.Entry::getKey,
+                            Collectors.mapping(
+                                Map.Entry::getValue, Collectors.toUnmodifiableList())))
+                    .entrySet()
+                    .stream()
+                    .collect(
+                        Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey,
+                            entry -> (Collection<HasBeanObject>) entry.getValue())));
+
     return new ClusterBean() {
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
@@ -55,7 +76,7 @@ public interface ClusterBean {
 
       @Override
       public Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica() {
-        return beanObjectByReplica;
+        return lazyReplica.get();
       }
     };
   }
@@ -72,4 +93,20 @@ public interface ClusterBean {
    *     beanObjects.
    */
   Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
+
+  default <T extends HasBeanObject> List<T> query(ClusterBeanQuery.WindowQuery<T> query) {
+    return Objects.requireNonNull(all().get(query.id), "No such identity: " + query.id).stream()
+        .filter(bean -> bean.getClass() == query.metricType)
+        .map(query.metricType::cast)
+        .filter(query.filter)
+        .sorted(query.comparator)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  default <T extends HasBeanObject> Optional<T> query(ClusterBeanQuery.LatestMetricQuery<T> query) {
+    return Objects.requireNonNull(all().get(query.id), "No such id: " + query.id).stream()
+        .filter(bean -> bean.getClass() == query.metricClass)
+        .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
+        .map(query.metricClass::cast);
+  }
 }

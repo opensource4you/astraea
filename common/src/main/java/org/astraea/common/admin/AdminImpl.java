@@ -440,11 +440,10 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<Set<NodeInfo>> nodeInfos() {
+  public CompletionStage<List<NodeInfo>> nodeInfos() {
     return to(kafkaAdmin.describeCluster().nodes())
         .thenApply(
-            nodes ->
-                nodes.stream().map(NodeInfo::of).collect(Collectors.toCollection(TreeSet::new)));
+            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
@@ -591,7 +590,7 @@ class AdminImpl implements Admin {
                 brokers ->
                     brokers.stream()
                         .map(x -> (NodeInfo) x)
-                        .collect(Collectors.toUnmodifiableSet())),
+                        .collect(Collectors.toUnmodifiableList())),
         replicas(topics),
         ClusterInfo::of);
   }

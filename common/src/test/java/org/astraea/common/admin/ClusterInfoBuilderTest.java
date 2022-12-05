@@ -43,20 +43,20 @@ class ClusterInfoBuilderTest {
             .isPreferredLeader(true)
             .isLeader(true)
             .build();
-    var cluster = ClusterInfo.of(Set.of(host1000, host2000, host3000), List.of(replica));
+    var cluster = ClusterInfo.of(List.of(host1000, host2000, host3000), List.of(replica));
 
     Assertions.assertEquals(
-        Set.of(host1000, host2000, host3000), ClusterInfoBuilder.builder(cluster).build().nodes());
+        List.of(host1000, host2000, host3000), ClusterInfoBuilder.builder(cluster).build().nodes());
     Assertions.assertEquals(
         List.of(replica), ClusterInfoBuilder.builder(cluster).build().replicas());
-    Assertions.assertEquals(Set.of(), ClusterInfoBuilder.builder().build().nodes());
+    Assertions.assertEquals(List.of(), ClusterInfoBuilder.builder().build().nodes());
     Assertions.assertEquals(List.of(), ClusterInfoBuilder.builder().build().replicas());
   }
 
   @Test
   void addNode() {
     Assertions.assertEquals(
-        Set.of(), ClusterInfoBuilder.builder().addNode(Set.of()).build().nodes());
+        List.of(), ClusterInfoBuilder.builder().addNode(Set.of()).build().nodes());
     Assertions.assertEquals(
         Set.of(1, 2, 3, 4, 5, 100),
         ClusterInfoBuilder.builder().addNode(Set.of(1, 2, 3, 4, 5, 100)).build().nodes().stream()

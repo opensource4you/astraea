@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -201,7 +202,7 @@ class ShuffleTweakerTest {
             .path("/a")
             .build();
     var allocation =
-        ClusterInfo.of(
+        ClusterInfoTest.of(
             List.of(
                 Replica.builder(base)
                     .topic("normal-topic")

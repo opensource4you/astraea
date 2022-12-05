@@ -27,6 +27,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
@@ -109,7 +110,7 @@ public class StrictCostDispatcherTest {
       Assertions.assertEquals(
           10,
           dispatcher.partition(
-              "topic", new byte[0], new byte[0], ClusterInfo.of(List.of(replicaInfo))));
+              "topic", new byte[0], new byte[0], ClusterInfoTest.of(List.of(replicaInfo))));
     }
   }
 
@@ -161,7 +162,10 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(
           Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
       dispatcher.partition(
-          "topic", new byte[0], new byte[0], ClusterInfo.of(List.of(replicaInfo0, replicaInfo1)));
+          "topic",
+          new byte[0],
+          new byte[0],
+          ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
       Assertions.assertEquals(0, dispatcher.metricCollector.listFetchers().size());
     }
   }
@@ -214,7 +218,7 @@ public class StrictCostDispatcherTest {
               "topic",
               new byte[0],
               new byte[0],
-              ClusterInfo.of(List.of(replicaInfo0, replicaInfo1))));
+              ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1))));
     }
   }
 
@@ -269,7 +273,7 @@ public class StrictCostDispatcherTest {
         try (var dispatcher = new StrictCostDispatcher()) {
           var nodeInfo = NodeInfo.of(10, "host", 2222);
           var clusterInfo =
-              ClusterInfo.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
+              ClusterInfoTest.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
 
           Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
           dispatcher.costFunction =

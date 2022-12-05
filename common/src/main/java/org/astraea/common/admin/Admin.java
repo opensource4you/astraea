@@ -144,7 +144,7 @@ public interface Admin extends AutoCloseable {
   /**
    * @return online node information
    */
-  CompletionStage<Set<NodeInfo>> nodeInfos();
+  CompletionStage<List<NodeInfo>> nodeInfos();
 
   /**
    * @return online broker information

@@ -96,8 +96,8 @@ public class TopicNode {
                                 var map = new LinkedHashMap<String, Object>();
                                 map.put(TOPIC_NAME_KEY, topic);
                                 nodeMeters.forEach(
-                                    (nodeInfo, meters) -> {
-                                      var key = String.valueOf(nodeInfo.id());
+                                    (nodeId, meters) -> {
+                                      var key = String.valueOf(nodeId);
                                       var value =
                                           meters.stream()
                                               .filter(m -> m.topic().equals(topic))
