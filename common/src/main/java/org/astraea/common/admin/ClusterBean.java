@@ -115,6 +115,19 @@ public interface ClusterBean {
                 Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
   }
 
+  default <Bean extends HasBeanObject> Set<String> topics(Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.topicIndex()).keySet();
+  }
+
+  default <Bean extends HasBeanObject> Set<TopicPartition> partitions(Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.partitionIndex()).keySet();
+  }
+
+  default <Bean extends HasBeanObject> Set<TopicPartitionReplica> replicas(
+      Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.replicaIndex(id)).keySet();
+  }
+
   default <Bean extends HasBeanObject> Set<BrokerTopic> brokerTopics(Class<Bean> metricClass) {
     return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id)).keySet();
   }
