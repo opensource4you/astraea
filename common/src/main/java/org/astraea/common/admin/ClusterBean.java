@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
-import org.astraea.common.cost.StatisticalBean;
 import org.astraea.common.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
@@ -68,36 +67,6 @@ public interface ClusterBean {
                         Collectors.toUnmodifiableMap(
                             Map.Entry::getKey,
                             entry -> (Collection<HasBeanObject>) entry.getValue())));
-    var lazyStatisticsByReplica =
-        Lazy.of(
-            () ->
-                lazyReplica.get().entrySet().stream()
-                    .map(
-                        tprBeans ->
-                            Map.entry(
-                                tprBeans.getKey(),
-                                tprBeans.getValue().stream()
-                                    .filter(bean -> bean instanceof StatisticalBean)
-                                    .collect(Collectors.toList())))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-    var lazyStatisticsByNode =
-        Lazy.of(
-            () ->
-                allBeans.entrySet().stream()
-                    .map(
-                        brokerBeans ->
-                            Map.entry(
-                                brokerBeans.getKey(),
-                                brokerBeans.getValue().stream()
-                                    .filter(bean -> bean instanceof StatisticalBean)
-                                    .filter(
-                                        bean ->
-                                            !(bean.beanObject().properties().containsKey("topic")
-                                                || bean.beanObject()
-                                                    .properties()
-                                                    .containsKey("partition")))
-                                    .collect(Collectors.toList())))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 
     return new ClusterBean() {
       @Override
@@ -108,16 +77,6 @@ public interface ClusterBean {
       @Override
       public Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica() {
         return lazyReplica.get();
-      }
-
-      @Override
-      public Map<TopicPartitionReplica, List<HasBeanObject>> statisticsByReplica() {
-        return lazyStatisticsByReplica.get();
-      }
-
-      @Override
-      public Map<Integer, List<HasBeanObject>> statisticsByNode() {
-        return lazyStatisticsByNode.get();
       }
     };
   }
@@ -134,16 +93,6 @@ public interface ClusterBean {
    *     beanObjects.
    */
   Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
-
-  /**
-   * @return the statistical values corresponding to all replicas
-   */
-  Map<TopicPartitionReplica, List<HasBeanObject>> statisticsByReplica();
-
-  /**
-   * @return the statistical values corresponding to all brokers
-   */
-  Map<Integer, List<HasBeanObject>> statisticsByNode();
 
   default <T extends HasBeanObject> List<T> query(ClusterBeanQuery.WindowQuery<T> query) {
     return Objects.requireNonNull(all().get(query.id), "No such identity: " + query.id).stream()
