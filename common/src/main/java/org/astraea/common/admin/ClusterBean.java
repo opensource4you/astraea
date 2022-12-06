@@ -18,7 +18,10 @@ package org.astraea.common.admin;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
 import org.astraea.common.metrics.HasBeanObject;
@@ -89,4 +92,43 @@ public interface ClusterBean {
    *     beanObjects.
    */
   Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
+
+  private <Bean extends HasBeanObject, Key> Map<Key, List<Bean>> map(
+      Class<Bean> metricClass, BiFunction<Integer, Bean, Optional<Key>> keyMapper) {
+    return all().entrySet().stream()
+        .flatMap(
+            e ->
+                e.getValue().stream()
+                    .filter(bean -> bean.getClass() == metricClass)
+                    .map(metricClass::cast)
+                    .flatMap(
+                        bean ->
+                            keyMapper
+                                .apply(e.getKey(), bean)
+                                .map(key -> Map.entry(key, bean))
+                                .stream()))
+        .collect(
+            Collectors.groupingBy(
+                Map.Entry::getKey,
+                Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+  }
+
+  default <Bean extends HasBeanObject> Map<String, List<Bean>> mapByTopic(Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.topicIndex());
+  }
+
+  default <Bean extends HasBeanObject> Map<TopicPartition, List<Bean>> mapByPartition(
+      Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.partitionIndex());
+  }
+
+  default <Bean extends HasBeanObject> Map<TopicPartitionReplica, List<Bean>> mapByReplica(
+      Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.replicaIndex(id));
+  }
+
+  default <Bean extends HasBeanObject> Map<BrokerTopic, List<Bean>> mapByBrokerTopic(
+      Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id));
+  }
 }
