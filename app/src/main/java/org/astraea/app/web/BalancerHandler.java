@@ -61,6 +61,7 @@ import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.collector.MetricSensors;
 
 class BalancerHandler implements Handler {
 
@@ -171,6 +172,7 @@ class BalancerHandler implements Handler {
                   var bestPlan =
                       metricContext(
                           fetchers,
+                          request.configBuilder.get().build().clusterCostFunction().sensors(),
                           (metricSource) ->
                               Balancer.create(
                                       request.balancerClasspath,
@@ -228,12 +230,14 @@ class BalancerHandler implements Handler {
 
   private Optional<Balancer.Plan> metricContext(
       Collection<Fetcher> fetchers,
+      Collection<MetricSensors> metricSensors,
       Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
       freshJmxAddresses().forEach(collector::registerJmx);
       fetchers.forEach(collector::addFetcher);
+      metricSensors.forEach(collector::addMetricSensors);
       return execution.apply(collector::clusterBean);
     }
   }

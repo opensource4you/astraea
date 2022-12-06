@@ -14,23 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics;
+package org.astraea.common.metrics.collector;
 
+import java.util.Collection;
 import java.util.Map;
-import org.astraea.common.metrics.stats.Stat;
+import org.astraea.common.metrics.HasBeanObject;
 
-public interface Sensor<V> {
-
-  /** Record the new get data */
-  void record(V value);
+@FunctionalInterface
+public interface MetricSensors {
 
   /**
-   * Get the statistic by the given `metricName`.
-   *
-   * @param statName key to get the measurement
-   * @return the value calculated by the corresponding `Stat`
+   * @param identity broker id or producer/consumer id
+   * @param beans a collection of {@link HasBeanObject}
+   * @return The collection of "HasBeanObject" generated after the custom statistical method of
+   *     CostFunction.
    */
-  V measure(String statName);
-
-  Map<String, Stat<V>> metrics();
+  Map<Integer, Collection<? extends HasBeanObject>> record(
+      int identity, Collection<? extends HasBeanObject> beans);
 }
