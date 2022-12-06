@@ -27,7 +27,6 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.index.BrokerTopicIndex;
 
 public final class ServerMetrics {
 
@@ -56,6 +55,7 @@ public final class ServerMetrics {
                   @Override
                   public Optional<Long> startTimeMs() {
                     var t = beanObject().attributes().get("StartTimeMs");
+                    ;
                     if (t == null) return Optional.empty();
                     return Optional.of((long) t);
                   }
@@ -394,7 +394,7 @@ public final class ServerMetrics {
           .collect(Collectors.toList());
     }
 
-    public static class Meter implements HasMeter, BrokerTopicIndex {
+    public static class Meter implements HasMeter {
 
       private final BeanObject beanObject;
 

@@ -18,17 +18,10 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.index.BrokerTopic;
-import org.astraea.common.metrics.index.BrokerTopicIndex;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -104,47 +97,5 @@ class ClusterBeanTest {
     Assertions.assertEquals(2, clusterBean.mapByReplica().size());
     Assertions.assertEquals(
         2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
-  }
-
-  static List<String> fakeTopics =
-      IntStream.range(0, 100)
-          .mapToObj(i -> Utils.randomString())
-          .collect(Collectors.toUnmodifiableList());
-
-  Stream<ServerMetrics.Topic.Meter> random() {
-    return IntStream.iterate(0, n -> n + 1)
-        .mapToObj(
-            index -> {
-              var domainName = "kafka.server";
-              var properties =
-                  Map.of(
-                      "type", "BrokerTopicMetrics",
-                      "topic", fakeTopics.get(index % 100),
-                      "name", "BytesInPerSec");
-              var attributes =
-                  Map.<String, Object>of("count", ThreadLocalRandom.current().nextInt());
-              return new ServerMetrics.Topic.Meter(
-                  new BeanObject(domainName, properties, attributes));
-            });
-  }
-
-  @Test
-  void testMetricIndexing() {
-    ClusterBean clusterBean =
-        ClusterBean.of(
-            Map.of(
-                1, random().limit(300).collect(Collectors.toUnmodifiableList()),
-                2, random().limit(300).collect(Collectors.toUnmodifiableList()),
-                3, random().limit(300).collect(Collectors.toUnmodifiableList())));
-
-    Map<BrokerTopic, List<ServerMetrics.Topic.Meter>> result =
-        clusterBean.query(ServerMetrics.Topic.Meter.class, BrokerTopicIndex.class);
-    result.forEach(
-        (key, metrics) -> {
-          Assertions.assertEquals(3 * 100, result.size());
-          Assertions.assertInstanceOf(BrokerTopic.class, key);
-          metrics.forEach(
-              metric -> Assertions.assertInstanceOf(ServerMetrics.Topic.Meter.class, metric));
-        });
   }
 }
