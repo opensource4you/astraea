@@ -33,6 +33,7 @@ import org.astraea.common.http.HttpRequestException;
  */
 public interface ConnectorClient {
 
+  String NAME_KEY = "name";
   String CONNECTOR_CLASS_KEY = "connector.class";
   String TASK_MAX_KEY = "tasks.max";
   String TOPICS_KEY = "topics";
