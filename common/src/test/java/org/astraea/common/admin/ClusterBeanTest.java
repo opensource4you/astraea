@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -24,6 +25,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -136,7 +138,17 @@ class ClusterBeanTest {
                 3, random().limit(300).collect(Collectors.toUnmodifiableList())));
 
     Map<BrokerTopic, List<ServerMetrics.Topic.Meter>> result =
-        clusterBean.mapByBrokerTopic(ServerMetrics.Topic.Meter.class);
+        clusterBean.brokerTopics(ServerMetrics.Topic.Meter.class).stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    bt -> bt,
+                    bt ->
+                        clusterBean
+                            .brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
+                            .sorted(
+                                Comparator.comparingLong(HasBeanObject::createdTimestamp)
+                                    .reversed())
+                            .collect(Collectors.toUnmodifiableList())));
     result.forEach(
         (key, metrics) -> {
           Assertions.assertEquals(3 * 100, result.size());

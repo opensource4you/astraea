@@ -21,8 +21,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.Lazy;
 import org.astraea.common.metrics.HasBeanObject;
 
@@ -113,22 +115,27 @@ public interface ClusterBean {
                 Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
   }
 
-  default <Bean extends HasBeanObject> Map<String, List<Bean>> mapByTopic(Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.topicIndex());
+  default <Bean extends HasBeanObject> Set<BrokerTopic> brokerTopics(Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id)).keySet();
   }
 
-  default <Bean extends HasBeanObject> Map<TopicPartition, List<Bean>> mapByPartition(
-      Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.partitionIndex());
+  default <Bean extends HasBeanObject> Stream<Bean> topicMetrics(
+      String topic, Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.topicIndex()).get(topic).stream();
   }
 
-  default <Bean extends HasBeanObject> Map<TopicPartitionReplica, List<Bean>> mapByReplica(
-      Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.replicaIndex(id));
+  default <Bean extends HasBeanObject> Stream<Bean> partitionMetrics(
+      TopicPartition topicPartition, Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.partitionIndex()).get(topicPartition).stream();
   }
 
-  default <Bean extends HasBeanObject> Map<BrokerTopic, List<Bean>> mapByBrokerTopic(
-      Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id));
+  default <Bean extends HasBeanObject> Stream<Bean> replicaMetrics(
+      TopicPartitionReplica replica, Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.replicaIndex(id)).get(replica).stream();
+  }
+
+  default <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
+      BrokerTopic brokerTopic, Class<Bean> metricClass) {
+    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id)).get(brokerTopic).stream();
   }
 }
