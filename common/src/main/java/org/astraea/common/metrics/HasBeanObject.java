@@ -35,7 +35,7 @@ public interface HasBeanObject {
   }
 
   /**
-   * @return the topic index of this metric, if the metric can't be indexed by topic, a {@link
+   * @return the topic index of this metric, if the metric can't be indexed by topic, an {@link
    *     Optional#empty()} will be returned.
    */
   default Optional<String> topicIndex() {
@@ -43,7 +43,7 @@ public interface HasBeanObject {
   }
 
   /**
-   * @return the partition index of this metric, if the metric can't be indexed by partition, a
+   * @return the partition index of this metric, if the metric can't be indexed by partition, an
    *     {@link Optional#empty()} will be returned.
    */
   default Optional<TopicPartition> partitionIndex() {
@@ -56,7 +56,7 @@ public interface HasBeanObject {
   }
 
   /**
-   * @return the replica index of this metric, if the metric can't be indexed by replica, a {@link
+   * @return the replica index of this metric, if the metric can't be indexed by replica, an {@link
    *     Optional#empty()} will be returned.
    */
   default Optional<TopicPartitionReplica> replicaIndex(int broker) {
@@ -69,7 +69,7 @@ public interface HasBeanObject {
 
   /**
    * @return the broker-topic index of this metric, if the metric can't be indexed by broker-topic,
-   *     a {@link Optional#empty()} will be returned.
+   *     an {@link Optional#empty()} will be returned.
    */
   default Optional<BrokerTopic> brokerTopicIndex(int broker) {
     return topicIndex().map(topic -> BrokerTopic.of(broker, topic));
