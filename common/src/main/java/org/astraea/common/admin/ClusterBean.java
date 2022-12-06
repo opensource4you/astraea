@@ -115,21 +115,28 @@ public interface ClusterBean {
                 Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
   }
 
-  default <Bean extends HasBeanObject> Set<String> topics(Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.topicIndex()).keySet();
+  default Set<String> topics() {
+    return all().values().stream()
+        .flatMap(bs -> bs.stream().flatMap(b -> b.topicIndex().stream()))
+        .collect(Collectors.toUnmodifiableSet());
   }
 
-  default <Bean extends HasBeanObject> Set<TopicPartition> partitions(Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.partitionIndex()).keySet();
+  default Set<TopicPartition> partitions() {
+    return all().values().stream()
+        .flatMap(bs -> bs.stream().flatMap(b -> b.partitionIndex().stream()))
+        .collect(Collectors.toUnmodifiableSet());
   }
 
-  default <Bean extends HasBeanObject> Set<TopicPartitionReplica> replicas(
-      Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.replicaIndex(id)).keySet();
+  default Set<TopicPartitionReplica> replicas() {
+    return all().entrySet().stream()
+        .flatMap(e -> e.getValue().stream().flatMap(b -> b.replicaIndex(e.getKey()).stream()))
+        .collect(Collectors.toUnmodifiableSet());
   }
 
-  default <Bean extends HasBeanObject> Set<BrokerTopic> brokerTopics(Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id)).keySet();
+  default Set<BrokerTopic> brokerTopics() {
+    return all().entrySet().stream()
+        .flatMap(e -> e.getValue().stream().flatMap(b -> b.brokerTopicIndex(e.getKey()).stream()))
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   default <Bean extends HasBeanObject> Stream<Bean> topicMetrics(

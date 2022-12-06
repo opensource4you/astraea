@@ -138,7 +138,7 @@ class ClusterBeanTest {
                 3, random().limit(300).collect(Collectors.toUnmodifiableList())));
 
     Map<BrokerTopic, List<ServerMetrics.Topic.Meter>> result =
-        clusterBean.brokerTopics(ServerMetrics.Topic.Meter.class).stream()
+        clusterBean.brokerTopics().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     bt -> bt,
