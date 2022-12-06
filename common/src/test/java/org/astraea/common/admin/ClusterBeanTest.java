@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.cost.StatisticalBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
@@ -103,56 +102,6 @@ class ClusterBeanTest {
     Assertions.assertEquals(2, clusterBean.mapByReplica().size());
     Assertions.assertEquals(
         2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
-  }
-
-  @Test
-  void testStatistic() {
-    var topicName = "testStatistic";
-    var brokerBean = new fakeStatisticalBean(new BeanObject("", Map.of(), Map.of("Value", "10")));
-    var tprBean1 =
-        new fakeStatisticalBean(
-            new BeanObject(
-                "", Map.of("topic", topicName, "partition", "0"), Map.of("Value", "100")));
-    var tprBean2 =
-        new fakeStatisticalBean(
-            new BeanObject(
-                "", Map.of("topic", topicName, "partition", "1"), Map.of("Value", "120")));
-    var clusterBean = ClusterBean.of(Map.of(0, List.of(brokerBean, tprBean1, tprBean2)));
-    Assertions.assertEquals(1, clusterBean.statisticsByNode().size());
-    Assertions.assertEquals(2, clusterBean.statisticsByReplica().size());
-    Assertions.assertEquals(
-        "10", clusterBean.statisticsByNode().get(0).get(0).beanObject().attributes().get("Value"));
-    Assertions.assertEquals(
-        "100",
-        clusterBean
-            .statisticsByReplica()
-            .get(TopicPartitionReplica.of(topicName, 0, 0))
-            .get(0)
-            .beanObject()
-            .attributes()
-            .get("Value"));
-    Assertions.assertEquals(
-        "120",
-        clusterBean
-            .statisticsByReplica()
-            .get(TopicPartitionReplica.of(topicName, 1, 0))
-            .get(0)
-            .beanObject()
-            .attributes()
-            .get("Value"));
-  }
-
-  private class fakeStatisticalBean implements StatisticalBean {
-    BeanObject beanObject;
-
-    fakeStatisticalBean(BeanObject beanObject) {
-      this.beanObject = beanObject;
-    }
-
-    @Override
-    public BeanObject beanObject() {
-      return beanObject;
-    }
   }
 
   Stream<HasBeanObject> random(int broker) {
