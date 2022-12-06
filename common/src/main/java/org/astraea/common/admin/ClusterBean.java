@@ -18,11 +18,7 @@ package org.astraea.common.admin;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
 import org.astraea.common.metrics.HasBeanObject;
@@ -93,20 +89,4 @@ public interface ClusterBean {
    *     beanObjects.
    */
   Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
-
-  default <T extends HasBeanObject> List<T> query(ClusterBeanQuery.WindowQuery<T> query) {
-    return Objects.requireNonNull(all().get(query.id), "No such identity: " + query.id).stream()
-        .filter(bean -> bean.getClass() == query.metricType)
-        .map(query.metricType::cast)
-        .filter(query.filter)
-        .sorted(query.comparator)
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  default <T extends HasBeanObject> Optional<T> query(ClusterBeanQuery.LatestMetricQuery<T> query) {
-    return Objects.requireNonNull(all().get(query.id), "No such id: " + query.id).stream()
-        .filter(bean -> bean.getClass() == query.metricClass)
-        .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
-        .map(query.metricClass::cast);
-  }
 }
