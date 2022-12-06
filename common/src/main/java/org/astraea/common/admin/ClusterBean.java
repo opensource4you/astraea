@@ -18,10 +18,12 @@ package org.astraea.common.admin;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.index.IndexableBean;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
@@ -74,6 +76,26 @@ public interface ClusterBean {
       public Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica() {
         return lazyReplica.get();
       }
+
+      @Override
+      public <
+              Index,
+              TheIndex extends IndexableBean<Index>,
+              Bean extends HasBeanObject & IndexableBean<Index>>
+          Map<Index, List<Bean>> query(Class<Bean> metricClass, Class<TheIndex> indexBy) {
+        return all().entrySet().stream()
+            .flatMap(
+                e ->
+                    e.getValue().stream()
+                        .filter(bean -> bean.getClass() == metricClass)
+                        .filter(bean -> indexBy.isAssignableFrom(bean.getClass()))
+                        .map(bean -> (Bean) bean)
+                        .map(bean -> Map.entry(bean.index(e.getKey()), bean)))
+            .collect(
+                Collectors.groupingBy(
+                    Map.Entry::getKey,
+                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+      }
     };
   }
 
@@ -89,4 +111,7 @@ public interface ClusterBean {
    *     beanObjects.
    */
   Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
+
+  <Index, TheIndex extends IndexableBean<Index>, Bean extends HasBeanObject & IndexableBean<Index>>
+      Map<Index, List<Bean>> query(Class<Bean> metricClass, Class<TheIndex> indexBy);
 }
