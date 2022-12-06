@@ -47,7 +47,9 @@ public class TestTextSourceConnector extends SourceConnector {
 
   @Override
   public ConfigDef config() {
-    return new ConfigDef();
+    var config = new ConfigDef();
+    config.define("abc", ConfigDef.Type.BOOLEAN, false, ConfigDef.Importance.HIGH, "hi");
+    return config;
   }
 
   @Override
