@@ -128,6 +128,16 @@ public class Builder {
       }
 
       @Override
+      public CompletionStage<Validation> validate(String name, Map<String, String> configs) {
+        return httpExecutor
+            .put(
+                getURL("/connector-plugins") + "/" + name + "/config/validate",
+                configs,
+                TypeRef.of(Validation.class))
+            .thenApply(Response::body);
+      }
+
+      @Override
       public CompletionStage<Set<PluginInfo>> plugins() {
         return httpExecutor
             .get(getURL("/connector-plugins"), TypeRef.set(PluginInfo.class))

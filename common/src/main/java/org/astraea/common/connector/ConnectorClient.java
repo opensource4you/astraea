@@ -55,6 +55,8 @@ public interface ConnectorClient {
 
   CompletionStage<Void> deleteConnector(String name);
 
+  CompletionStage<Validation> validate(String name, Map<String, String> configs);
+
   CompletionStage<Set<PluginInfo>> plugins();
 
   default CompletionStage<Boolean> waitConnectorInfo(
