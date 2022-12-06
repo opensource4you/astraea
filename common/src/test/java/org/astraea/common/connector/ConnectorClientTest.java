@@ -118,7 +118,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals(3, connectorInfo.tasks().size());
     assertTrue(
         connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connectorName())));
-    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::taskId).distinct().count());
+    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::id).distinct().count());
   }
 
   @Test
