@@ -16,7 +16,6 @@
  */
 package org.astraea.common.connector;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -122,7 +121,7 @@ public class Builder {
                                                     url.getPort(),
                                                     info.version,
                                                     info.commit,
-                                                    info.kafkaClusterId,
+                                                    info.kafka_cluster_id,
                                                     connectorStatuses.stream()
                                                         .filter(
                                                             s ->
@@ -247,8 +246,7 @@ public class Builder {
     private String version;
     private String commit;
 
-    @JsonAlias("kafka_cluster_id")
-    private String kafkaClusterId;
+    private String kafka_cluster_id;
   }
 
   private static class KafkaConnectorStatus {
