@@ -25,11 +25,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import org.astraea.app.argument.DurationField;
+import org.astraea.app.argument.NonNegativeIntegerField;
+import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.argument.DurationField;
-import org.astraea.common.argument.NonNegativeIntegerField;
-import org.astraea.common.argument.StringMapField;
 
 public class WebService implements AutoCloseable {
 
@@ -64,7 +64,7 @@ public class WebService implements AutoCloseable {
   }
 
   public static void main(String[] args) throws Exception {
-    var arg = org.astraea.common.argument.Argument.parse(new Argument(), args);
+    var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
     Function<Integer, Optional<Integer>> brokerIdToPort =
         id -> {
           var r = Optional.ofNullable(arg.jmxPorts.get(String.valueOf(id))).map(Integer::parseInt);
@@ -90,7 +90,7 @@ public class WebService implements AutoCloseable {
     return exchange -> handler.handle(Channel.of(exchange));
   }
 
-  static class Argument extends org.astraea.common.argument.Argument {
+  static class Argument extends org.astraea.app.argument.Argument {
     @Parameter(
         names = {"--port"},
         description = "Integer: the port to bind",

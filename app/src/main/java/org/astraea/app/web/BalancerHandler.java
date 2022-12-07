@@ -38,8 +38,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.argument.DataSizeField;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -345,7 +345,7 @@ class BalancerHandler implements Handler {
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
-    var converter = new DataSize.Field();
+    var converter = new DataSizeField();
     var replicaSizeLimit =
         Optional.ofNullable(input.get(MAX_MIGRATE_SIZE_KEY)).map(x -> converter.convert(x).bytes());
     var leaderNumLimit =
