@@ -40,6 +40,7 @@ import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.QuotaConfigs.QuotaKeys;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
@@ -1164,14 +1165,14 @@ public class AdminTest extends RequireBrokerCluster {
       admin.setConnectionQuotas(Map.of(Utils.hostname(), 100)).toCompletableFuture().join();
 
       var quotas =
-          admin.quotas(Set.of(QuotaConfigs.IP)).toCompletableFuture().join().stream()
+          admin.quotas(Set.of(QuotaKeys.IP.kafkaValue())).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
           quota -> {
             Assertions.assertEquals(Utils.hostname(), quota.targetValue());
-            Assertions.assertEquals(QuotaConfigs.IP_CONNECTION_RATE_CONFIG, quota.limitKey());
+            Assertions.assertEquals(QuotaKeys.IP_CONNECTION_RATE.kafkaValue(), quota.limitKey());
             Assertions.assertEquals(100D, quota.limitValue());
           });
 
@@ -1180,9 +1181,9 @@ public class AdminTest extends RequireBrokerCluster {
           0,
           (int)
               admin.quotas().toCompletableFuture().join().stream()
-                  .filter(q -> q.targetKey().equals(QuotaConfigs.IP))
+                  .filter(q -> q.targetKey().equals(QuotaKeys.IP.kafkaValue()))
                   .filter(q -> q.targetValue().equals(Utils.hostname()))
-                  .filter(q -> q.limitKey().equals(QuotaConfigs.IP_CONNECTION_RATE_CONFIG))
+                  .filter(q -> q.limitKey().equals(QuotaKeys.IP_CONNECTION_RATE.kafkaValue()))
                   .count());
     }
   }
@@ -1196,9 +1197,13 @@ public class AdminTest extends RequireBrokerCluster {
           .join();
 
       var quotas =
-          admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
+          admin
+              .quotas(Set.of(QuotaKeys.CLIENT_ID.kafkaValue()))
+              .toCompletableFuture()
+              .join()
+              .stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
-              .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
+              .filter(q -> q.limitKey().equals(QuotaKeys.PRODUCER_BYTE_RATE.kafkaValue()))
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
@@ -1211,9 +1216,9 @@ public class AdminTest extends RequireBrokerCluster {
           0,
           (int)
               admin.quotas().toCompletableFuture().join().stream()
-                  .filter(q -> q.targetKey().equals(QuotaConfigs.CLIENT_ID))
+                  .filter(q -> q.targetKey().equals(QuotaKeys.CLIENT_ID.kafkaValue()))
                   .filter(q -> q.targetValue().equals(Utils.hostname()))
-                  .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
+                  .filter(q -> q.limitKey().equals(QuotaKeys.PRODUCER_BYTE_RATE.kafkaValue()))
                   .count());
     }
   }
@@ -1227,9 +1232,13 @@ public class AdminTest extends RequireBrokerCluster {
           .join();
 
       var quotas =
-          admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
+          admin
+              .quotas(Set.of(QuotaKeys.CLIENT_ID.kafkaValue()))
+              .toCompletableFuture()
+              .join()
+              .stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
-              .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
+              .filter(q -> q.limitKey().equals(QuotaKeys.CONSUMER_BYTE_RATE.kafkaValue()))
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
@@ -1242,9 +1251,9 @@ public class AdminTest extends RequireBrokerCluster {
           0,
           (int)
               admin.quotas().toCompletableFuture().join().stream()
-                  .filter(q -> q.targetKey().equals(QuotaConfigs.CLIENT_ID))
+                  .filter(q -> q.targetKey().equals(QuotaKeys.CLIENT_ID.kafkaValue()))
                   .filter(q -> q.targetValue().equals(Utils.hostname()))
-                  .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
+                  .filter(q -> q.limitKey().equals(QuotaKeys.CONSUMER_BYTE_RATE.kafkaValue()))
                   .count());
     }
   }

@@ -30,7 +30,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
-import org.astraea.common.admin.QuotaConfigs;
+import org.astraea.common.admin.QuotaConfigs.QuotaKeys;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
@@ -161,8 +161,8 @@ public class QuotaNode {
         quota.targetKey(),
         quota.targetValue(),
         quota.limitKey(),
-        quota.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG)
-                || quota.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG)
+        quota.limitKey().equals(QuotaKeys.PRODUCER_BYTE_RATE.kafkaValue())
+                || quota.limitKey().equals(QuotaKeys.CONSUMER_BYTE_RATE.kafkaValue())
             ? DataSize.Byte.of((long) quota.limitValue())
             : quota.limitValue());
   }
@@ -173,8 +173,8 @@ public class QuotaNode {
             "REFRESH",
             (argument, logger) ->
                 FutureUtils.combine(
-                    context.admin().quotas(Set.of(QuotaConfigs.IP)),
-                    context.admin().quotas(Set.of(QuotaConfigs.CLIENT_ID)),
+                    context.admin().quotas(Set.of(QuotaKeys.IP.kafkaValue())),
+                    context.admin().quotas(Set.of(QuotaKeys.CLIENT_ID.kafkaValue())),
                     (q0, q1) ->
                         Stream.concat(q0.stream(), q1.stream())
                             .map(QuotaNode::basicResult)

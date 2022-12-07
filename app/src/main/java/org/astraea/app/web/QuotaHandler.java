@@ -16,8 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -25,11 +23,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.QuotaConfigs;
+import org.astraea.common.admin.QuotaConfigs.QuotaKeys;
 import org.astraea.common.json.TypeRef;
 
 public class QuotaHandler implements Handler {
@@ -42,14 +39,18 @@ public class QuotaHandler implements Handler {
 
   @Override
   public CompletionStage<Quotas> get(Channel channel) {
-    if (channel.queries().containsKey(QuotaConfigs.IP))
-      return admin
-          .quotas(Map.of(QuotaConfigs.IP, Set.of(channel.queries().get(QuotaConfigs.IP))))
-          .thenApply(Quotas::new);
-    if (channel.queries().containsKey(QuotaConfigs.CLIENT_ID))
+    if (channel.queries().containsKey(QuotaKeys.IP.value()))
       return admin
           .quotas(
-              Map.of(QuotaConfigs.CLIENT_ID, Set.of(channel.queries().get(QuotaConfigs.CLIENT_ID))))
+              Map.of(
+                  QuotaKeys.IP.kafkaValue(), Set.of(channel.queries().get(QuotaKeys.IP.value()))))
+          .thenApply(Quotas::new);
+    if (channel.queries().containsKey(QuotaKeys.CLIENT_ID.value()))
+      return admin
+          .quotas(
+              Map.of(
+                  QuotaKeys.CLIENT_ID.kafkaValue(),
+                  Set.of(channel.queries().get(QuotaKeys.CLIENT_ID.value()))))
           .thenApply(Quotas::new);
     return admin.quotas().thenApply(Quotas::new);
   }
@@ -58,85 +59,75 @@ public class QuotaHandler implements Handler {
   public CompletionStage<Response> post(Channel channel) {
     var postRequest = channel.request(TypeRef.of(QuotaPostRequest.class));
 
-    if (postRequest.ip.isPresent() && postRequest.connectionCreationRate.isPresent())
+    if (postRequest.connection.isPresent()) {
+      var connectionQuota = postRequest.connection.get();
       return admin
-          .setConnectionQuotas(
-              Map.of(postRequest.ip.get(), postRequest.connectionCreationRate.get()))
+          .setConnectionQuotas(Map.of(connectionQuota.ip, connectionQuota.byteRate))
           .thenCompose(
               ignored ->
                   admin
-                      .quotas(Map.of(QuotaConfigs.IP, Set.of(postRequest.ip.get())))
+                      .quotas(Map.of(QuotaKeys.IP.kafkaValue(), Set.of(connectionQuota.ip)))
                       .thenApply(Quotas::new));
+    }
 
     // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
     // see https://github.com/skiptests/astraea/issues/490
-    if (postRequest.clientId.isPresent()) {
-      var clientId = postRequest.clientId.get();
+    if (postRequest.producer.isPresent()) {
+      var producerQuota = postRequest.producer.get();
+      return admin
+          .setProducerQuotas(
+              Map.of(producerQuota.clientId, DataRate.Byte.of(producerQuota.byteRate).perSecond()))
+          .thenCompose(
+              ignored ->
+                  admin
+                      .quotas(
+                          Map.of(QuotaKeys.CLIENT_ID.kafkaValue(), Set.of(producerQuota.clientId)))
+                      .thenApply(Quotas::new));
+    }
 
-      List<Supplier<CompletionStage<Void>>> quotaStages = new ArrayList<>();
-      postRequest.producerByteRate.ifPresent(
-          producerRate ->
-              quotaStages.add(
-                  () ->
-                      admin.setProducerQuotas(
-                          Map.of(
-                              clientId,
-                              DataRate.Byte.of(postRequest.producerByteRate.get()).perSecond()))));
-
-      postRequest.consumerByteRate.ifPresent(
-          producerRate ->
-              quotaStages.add(
-                  () ->
-                      admin.setProducerQuotas(
-                          Map.of(
-                              clientId,
-                              DataRate.Byte.of(postRequest.consumerByteRate.get()).perSecond()))));
-
-      if (!quotaStages.isEmpty()) {
-        return runSequence(quotaStages)
-            .thenCompose(
-                ignored ->
-                    admin
-                        .quotas(Map.of(QuotaConfigs.CLIENT_ID, Set.of(clientId)))
-                        .thenApply(Quotas::new));
-      }
+    if (postRequest.consumer.isPresent()) {
+      var consumerQuota = postRequest.consumer.get();
+      return admin
+          .setConsumerQuotas(
+              Map.of(consumerQuota.clientId, DataRate.Byte.of(consumerQuota.byteRate).perSecond()))
+          .thenCompose(
+              ignored ->
+                  admin
+                      .quotas(
+                          Map.of(QuotaKeys.CLIENT_ID.kafkaValue(), Set.of(consumerQuota.clientId)))
+                      .thenApply(Quotas::new));
     }
 
     return CompletableFuture.completedFuture(Response.NOT_FOUND);
   }
 
-  private CompletionStage<Void> runSequence(
-      List<Supplier<CompletionStage<Void>>> completeSuppliers) {
-    if (completeSuppliers.isEmpty()) {
-      return CompletableFuture.completedStage(null);
-    }
-    if (completeSuppliers.size() == 1) {
-      return completeSuppliers.get(0).get();
-    }
-    var current = completeSuppliers.get(0).get();
-    for (Supplier<CompletionStage<Void>> completeSupplier :
-        completeSuppliers.subList(1, completeSuppliers.size())) {
-      current = current.thenCompose(ignored -> completeSupplier.get());
-    }
-    return current;
-  }
-
   static class QuotaPostRequest implements Request {
-    private Optional<String> ip = Optional.empty();
-
-    @JsonAlias("connection_creation_rate")
-    private Optional<Integer> connectionCreationRate = Optional.empty();
-
-    @JsonAlias("client-id")
-    private Optional<String> clientId = Optional.empty();
-
-    @JsonAlias("producer_byte_rate")
-    private Optional<Long> producerByteRate = Optional.empty();
-
-    @JsonAlias("consumer_byte_rate")
-    private Optional<Long> consumerByteRate = Optional.empty();
+    private Optional<ConnectionQuota> connection = Optional.empty();
+    private Optional<ProducerQuota> producer = Optional.empty();
+    private Optional<ConsumerQuota> consumer = Optional.empty();
 
     public QuotaPostRequest() {}
+  }
+
+  static class ConnectionQuota {
+    private String ip;
+    private Integer byteRate;
+
+    public ConnectionQuota() {}
+  }
+
+  static class ProducerQuota {
+    private String clientId;
+    private Long byteRate;
+
+    public ProducerQuota() {}
+  }
+
+  static class ConsumerQuota {
+    private String clientId;
+    private Long byteRate;
+
+    public ConsumerQuota() {}
   }
 
   static class Target implements Response {
@@ -168,8 +159,12 @@ public class QuotaHandler implements Handler {
     }
 
     public Quota(String target, String targetValue, String limit, double limitValue) {
-      this.target = new Target(target, targetValue);
-      this.limit = new Limit(limit, limitValue);
+      this.target = new Target(convertValuefromKafka(target), targetValue);
+      this.limit = new Limit(convertValuefromKafka(limit), limitValue);
+    }
+
+    private static String convertValuefromKafka(String value) {
+      return Optional.ofNullable(QuotaKeys.fromKafka(value)).map(QuotaKeys::value).orElse(value);
     }
   }
 

@@ -58,6 +58,7 @@ import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.QuotaConfigs.QuotaKeys;
 
 class AdminImpl implements Admin {
 
@@ -727,7 +728,7 @@ class AdminImpl implements Admin {
                                 new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, entry.getKey())),
                                 List.of(
                                     new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
+                                        QuotaKeys.IP_CONNECTION_RATE.kafkaValue(),
                                         (double) entry.getValue()))))
                     .collect(Collectors.toList()))
             .all());
@@ -745,7 +746,7 @@ class AdminImpl implements Admin {
                                 new ClientQuotaEntity(Map.of(ClientQuotaEntity.IP, ip)),
                                 List.of(
                                     new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.IP_CONNECTION_RATE_CONFIG, null))))
+                                        QuotaKeys.IP_CONNECTION_RATE.kafkaValue(), null))))
                     .collect(Collectors.toList()))
             .all());
   }
@@ -763,7 +764,7 @@ class AdminImpl implements Admin {
                                     Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
                                 List.of(
                                     new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG,
+                                        QuotaKeys.CONSUMER_BYTE_RATE.kafkaValue(),
                                         entry.getValue().byteRate()))))
                     .collect(Collectors.toList()))
             .all());
@@ -782,7 +783,7 @@ class AdminImpl implements Admin {
                                     Map.of(ClientQuotaEntity.CLIENT_ID, clientId)),
                                 List.of(
                                     new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, null))))
+                                        QuotaKeys.CONSUMER_BYTE_RATE.kafkaValue(), null))))
                     .collect(Collectors.toList()))
             .all());
   }
@@ -800,7 +801,7 @@ class AdminImpl implements Admin {
                                     Map.of(ClientQuotaEntity.CLIENT_ID, entry.getKey())),
                                 List.of(
                                     new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
+                                        QuotaKeys.PRODUCER_BYTE_RATE.kafkaValue(),
                                         entry.getValue().byteRate()))))
                     .collect(Collectors.toList()))
             .all());
@@ -819,7 +820,7 @@ class AdminImpl implements Admin {
                                     Map.of(ClientQuotaEntity.CLIENT_ID, clientId)),
                                 List.of(
                                     new ClientQuotaAlteration.Op(
-                                        QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, null))))
+                                        QuotaKeys.PRODUCER_BYTE_RATE.kafkaValue(), null))))
                     .collect(Collectors.toList()))
             .all());
   }
