@@ -1,4 +1,5 @@
 plugins {
+    id "com.github.johnrengelman.shadow" version "7.1.2"
     id 'java'
 }
 
@@ -15,11 +16,16 @@ def versions = [
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation project(':it')
+    testImplementation "org.apache.kafka:connect-api:${versions["kafka"]}"
 
-    implementation project(':common')
-    implementation "org.apache.kafka:connect-runtime:${versions["kafka"]}"
-    implementation "org.apache.kafka:connect-json:${versions["kafka"]}"
-    implementation "org.apache.kafka:connect-api:${versions["kafka"]}"
+    implementation (project(':common')) {
+        // those dependencies are included by kafka worker
+        exclude group: "org.apache.kafka"
+        exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "org.slf4j"
+    }
+    // those dependencies are included by kafka worker
+    compileOnly "org.apache.kafka:connect-api:${versions["kafka"]}"
 }
 
 java {
