@@ -62,7 +62,7 @@ public class QuotaHandler implements Handler {
     if (postRequest.connection.isPresent()) {
       var connectionQuota = postRequest.connection.get();
       return admin
-          .setConnectionQuotas(Map.of(connectionQuota.ip, connectionQuota.byteRate))
+          .setConnectionQuotas(Map.of(connectionQuota.ip, connectionQuota.connectionCreationRate))
           .thenCompose(
               ignored ->
                   admin
@@ -76,7 +76,9 @@ public class QuotaHandler implements Handler {
       var producerQuota = postRequest.producer.get();
       return admin
           .setProducerQuotas(
-              Map.of(producerQuota.clientId, DataRate.Byte.of(producerQuota.byteRate).perSecond()))
+              Map.of(
+                  producerQuota.clientId,
+                  DataRate.Byte.of(producerQuota.producerByteRate).perSecond()))
           .thenCompose(
               ignored ->
                   admin
@@ -89,7 +91,9 @@ public class QuotaHandler implements Handler {
       var consumerQuota = postRequest.consumer.get();
       return admin
           .setConsumerQuotas(
-              Map.of(consumerQuota.clientId, DataRate.Byte.of(consumerQuota.byteRate).perSecond()))
+              Map.of(
+                  consumerQuota.clientId,
+                  DataRate.Byte.of(consumerQuota.consumerByteRate).perSecond()))
           .thenCompose(
               ignored ->
                   admin
@@ -111,21 +115,21 @@ public class QuotaHandler implements Handler {
 
   static class ConnectionQuota {
     private String ip;
-    private Integer byteRate;
+    private Integer connectionCreationRate;
 
     public ConnectionQuota() {}
   }
 
   static class ProducerQuota {
     private String clientId;
-    private Long byteRate;
+    private Long producerByteRate;
 
     public ProducerQuota() {}
   }
 
   static class ConsumerQuota {
     private String clientId;
-    private Long byteRate;
+    private Long consumerByteRate;
 
     public ConsumerQuota() {}
   }

@@ -14,13 +14,12 @@ POST /quotas
 
 ### 建立或變更 ip quotas
 
-參數
+connection 參數
 
-| 名稱                       | 說明               | 預設  |
-|--------------------------|------------------|-----|
-| ip                       | (必填) ip 地址       | 無   |
-| connection_creation_rate | (選填) 每秒建立的最大連線數量 | 無上限 |
-- 除了 ip 以外的參數都不填寫的話，quotas 不會建立
+| 名稱                           | 說明               | 預設  |
+|------------------------------|------------------|-----|
+| ip                           | (必填) ip 地址       | 無   |
+| connectionCreationRate       | (必填) 每秒建立的最大連線數量 | 無上限 |
 
 cURL 範例
 
@@ -29,9 +28,10 @@ cURL 範例
 curl -X POST http://localhost:8001/quotas \
     -H "Content-Type: application/json" \
     -d '{
-    "ip": "192.168.1.102", 
-    "connection_creation_rate": 100 
-    }' 
+    "connection":{
+      "ip": "192.168.1.102", 
+      "connectionCreationRate": 100 
+    }}' 
 ```
 
 JSON Response 範例
@@ -44,7 +44,7 @@ JSON Response 範例
         "value": "192.168.1.102"
       },
       "limit": {
-        "name": "connection_creation_rate",
+        "name": "connectionCreationRate",
         "value": 100
       }
     }
@@ -52,27 +52,25 @@ JSON Response 範例
 }
 ```
 
-### 建立或變更 client quotas
-參數
+### 建立或變更 client consumer quotas
+consumer參數
 
-| 名稱                 | 說明                           | 預設  |
-|--------------------|------------------------------|-----|
-| client-id          | (必填) client id               | 無   |
-| producer_byte_rate | (選填) producer 每秒發佈的最大 byte 數 | 無上限 |
-| consumer_byte_rate | (選填) consumer 每秒提取的最大 byte 數 | 無上限 |
-- 除了 client-id 以外的參數都不填寫的話，quotas 不會建立
+| 名稱               | 說明                           | 預設  |
+|------------------|------------------------------|-----|
+| clientId         | (必填) client id               | 無   |
+| consumerByteRate | (必填) consumer 每秒提取的最大 byte 數 | 無上限 |
 
 cURL 範例
 
-將 client-id 為 my-id 的 producer_byte_rate 設為 10，且 consumer_byte_rate 設為 100
+將 clientId 為 my-id 的 consumerByteRate 設為 100
 ```shell
 curl -X POST http://localhost:8001/quotas \
     -H "Content-Type: application/json" \
     -d '{
-    "client-id": "my-id", 
-    "consumer_byte_rate": 100
-    "producer_byte_rate": 10
-    }' 
+    "consumer":{
+      "clientId": "my-id", 
+      "consumerByteRate": 100
+    }}' 
 ```
 
 JSON Response 範例
@@ -81,21 +79,49 @@ JSON Response 範例
   "quotas": [
     {
       "target": {
-        "name": "client-id",
+        "name": "clientId",
         "value": "my-id"
       },
       "limit": {
-        "name": "consumer_byte_rate",
+        "name": "consumerByteRate",
         "value": 100
       }
-    },
+    }
+  ]
+}
+```
+### 建立或變更 client producer quotas
+producer參數
+
+| 名稱                 | 說明                           | 預設  |
+|--------------------|------------------------------|-----|
+| clientId           | (必填) client id               | 無   |
+| producerByteRate   | (必填) producer 每秒發佈的最大 byte 數 | 無上限 |
+
+cURL 範例
+
+將 clientId 為 my-id 的 producerByteRate 設為 10
+```shell
+curl -X POST http://localhost:8001/quotas \
+    -H "Content-Type: application/json" \
+    -d '{
+    "producer":{
+      "clientId": "my-id", 
+      "producerByteRate": 10
+    }}' 
+```
+
+JSON Response 範例
+```json
+{
+  "quotas": [
     {
       "target": {
-        "name": "client-id",
+        "name": "clientId",
         "value": "my-id"
       },
       "limit": {
-        "name": "producer_byte_rate",
+        "name": "producerByteRate",
         "value": 10
       }
     }
@@ -109,10 +135,10 @@ GET /quotas
 ```
 參數
 
-| 名稱        | 說明             |
-|-----------|----------------|
-| ip        | (選填) ip 位址     |
-| client-id | (選填) client id |
+| 名稱       | 說明             |
+|----------|----------------|
+| ip       | (選填) ip 位址     |
+| clientId | (選填) client id |
 
 cURL 範例
 
@@ -128,7 +154,7 @@ curl -X GET http://localhost:8001/quotas?ip=192.168.1.102
 
 查詢 client-id 為 my-id 的 quotas
 ```shell
-curl -X GET http://localhost:8001/quotas?client-id=my-id
+curl -X GET http://localhost:8001/quotas?clientId=my-id
 ```
 
 JSON Response 範例
@@ -137,21 +163,21 @@ JSON Response 範例
   "quotas": [
     {
       "target": {
-        "name": "client-id",
+        "name": "clientId",
         "value": "my-id"
       },
       "limit": {
-        "name": "consumer_byte_rate",
+        "name": "consumerByteRate",
         "value": 200
       }
     },
     {
       "target": {
-        "name": "client-id",
+        "name": "clientId",
         "value": "my-id"
       },
       "limit": {
-        "name": "producer_byte_rate",
+        "name": "producerByteRate",
         "value": 30
       }
     },
@@ -161,7 +187,7 @@ JSON Response 範例
         "value": "192.168.1.102"
       },
       "limit": {
-        "name": "connection_creation_rate",
+        "name": "connectionCreationRate",
         "value": 200
       }
     }

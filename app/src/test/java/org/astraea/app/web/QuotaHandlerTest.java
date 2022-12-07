@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 public class QuotaHandlerTest extends RequireBrokerCluster {
   private static final String CONNECTION = "connection";
   private static final String PRODUCER = "producer";
-  private static final String BYTE_RATE = "byteRate";
+  private static final String CREATION_RATE = "connectionCreationRate";
 
   @Test
   void testCreateIPQuota() {
@@ -44,7 +44,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                               .toJson(
                                   Map.of(
                                       CONNECTION,
-                                      Map.of(QuotaKeys.IP.value(), ip, BYTE_RATE, "10")))))
+                                      Map.of(QuotaKeys.IP.value(), ip, CREATION_RATE, "10")))))
                   .toCompletableFuture()
                   .join());
       Assertions.assertEquals(1, result.quotas.size());
@@ -73,7 +73,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                                       Map.of(
                                           QuotaKeys.CLIENT_ID.value(),
                                           "myClient",
-                                          BYTE_RATE,
+                                          QuotaKeys.PRODUCER_BYTE_RATE.value(),
                                           "10")))))
                   .toCompletableFuture()
                   .join());
@@ -99,7 +99,8 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
               Channel.ofRequest(
                   JsonConverter.defaultConverter()
                       .toJson(
-                          Map.of(CONNECTION, Map.of(QuotaKeys.IP.value(), ip0, BYTE_RATE, "10")))))
+                          Map.of(
+                              CONNECTION, Map.of(QuotaKeys.IP.value(), ip0, CREATION_RATE, "10")))))
           .toCompletableFuture()
           .join();
       handler
@@ -107,7 +108,8 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
               Channel.ofRequest(
                   JsonConverter.defaultConverter()
                       .toJson(
-                          Map.of(CONNECTION, Map.of(QuotaKeys.IP.value(), ip1, BYTE_RATE, "20")))))
+                          Map.of(
+                              CONNECTION, Map.of(QuotaKeys.IP.value(), ip1, CREATION_RATE, "20")))))
           .toCompletableFuture()
           .join();
       Assertions.assertEquals(
