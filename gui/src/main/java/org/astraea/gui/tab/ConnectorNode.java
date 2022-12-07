@@ -19,14 +19,12 @@ package org.astraea.gui.tab;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.connector.ConnectorClient;
-import org.astraea.common.connector.ConnectorInfo;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
@@ -35,6 +33,35 @@ import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
 public class ConnectorNode {
+
+  private static final String NAME_KEY = "name";
+
+  private static Node activeWorkerNode(Context context) {
+    return PaneBuilder.of()
+        .firstPart(
+            "REFRESH",
+            (argument, logger) ->
+                context
+                    .connectorClient()
+                    .activeWorkers()
+                    .thenApply(
+                        workers ->
+                            workers.stream()
+                                .map(
+                                    s -> {
+                                      var map = new LinkedHashMap<String, Object>();
+                                      map.put("hostname", s.hostname());
+                                      map.put("port", s.port());
+                                      map.put("connectors", s.numberOfConnectors());
+                                      map.put("tasks", s.numberOfTasks());
+                                      map.put("version", s.version());
+                                      map.put("commit", s.commit());
+                                      map.put("cluster id", s.kafkaClusterId());
+                                      return map;
+                                    })
+                                .collect(Collectors.toList())))
+        .build();
+  }
 
   private static Node createNode(Context context) {
     return PaneBuilder.of()
@@ -56,7 +83,18 @@ public class ConnectorNode {
               return context
                   .connectorClient()
                   .createConnector(req.remove(ConnectorClient.NAME_KEY), req)
-                  .thenApply(connectorInfo -> result(List.of(connectorInfo)));
+                  .thenApply(
+                      connectorInfo -> {
+                        var map = new LinkedHashMap<String, Object>();
+                        map.put(NAME_KEY, connectorInfo.name());
+                        map.put(
+                            "tasks",
+                            connectorInfo.tasks().stream()
+                                .map(t -> String.valueOf(t.id()))
+                                .collect(Collectors.joining(",")));
+                        map.putAll(connectorInfo.config());
+                        return List.of(map);
+                      });
             })
         .build();
   }
@@ -89,11 +127,11 @@ public class ConnectorNode {
                                             .map(
                                                 task -> {
                                                   var map = new LinkedHashMap<String, Object>();
-                                                  map.put("name", connectorStatus.name());
+                                                  map.put(NAME_KEY, connectorStatus.name());
                                                   map.put("id", task.id());
                                                   map.put("worker id", task.workerId());
                                                   map.put("state", task.state());
-                                                  task.trace().ifPresent(e -> map.put("error", e));
+                                                  task.error().ifPresent(e -> map.put("error", e));
                                                   return map;
                                                 }))
                                 .collect(Collectors.toList())))
@@ -137,28 +175,39 @@ public class ConnectorNode {
                                         name ->
                                             context
                                                 .connectorClient()
-                                                .connectorInfo(name)
+                                                .connectorStatus(name)
                                                 .toCompletableFuture())
                                     .collect(Collectors.toList())))
-                    .thenApply(ConnectorNode::result))
+                    .thenApply(
+                        connectorStatuses ->
+                            connectorStatuses.stream()
+                                .map(
+                                    status -> {
+                                      var map = new LinkedHashMap<String, Object>();
+                                      map.put(NAME_KEY, status.name());
+                                      map.put("state", status.state());
+                                      map.put("worker id", status.workerId());
+                                      map.put("tasks", status.tasks().size());
+                                      map.putAll(status.configs());
+                                      return map;
+                                    })
+                                .collect(Collectors.toList())))
+        .secondPart(
+            "DELETE",
+            (tables, input, logger) ->
+                FutureUtils.sequence(
+                        tables.stream()
+                            .filter(t -> t.containsKey(NAME_KEY))
+                            .map(t -> t.get(NAME_KEY))
+                            .map(
+                                name ->
+                                    context
+                                        .connectorClient()
+                                        .deleteConnector(name.toString())
+                                        .toCompletableFuture())
+                            .collect(Collectors.toList()))
+                    .thenAccept(ignored -> logger.log("complete to delete connectors")))
         .build();
-  }
-
-  private static List<Map<String, Object>> result(List<ConnectorInfo> connectorInfos) {
-    return connectorInfos.stream()
-        .map(
-            connectorInfo -> {
-              var map = new LinkedHashMap<String, Object>();
-              map.put("name", connectorInfo.name());
-              map.put(
-                  "tasks",
-                  connectorInfo.tasks().stream()
-                      .map(t -> String.valueOf(t.id()))
-                      .collect(Collectors.joining(",")));
-              map.putAll(connectorInfo.config());
-              return map;
-            })
-        .collect(Collectors.toList());
   }
 
   public static Node of(Context context) {
@@ -171,6 +220,8 @@ public class ConnectorNode {
                 taskNode(context),
                 "create",
                 createNode(context),
+                "active workers",
+                activeWorkerNode(context),
                 "plugin",
                 pluginNode(context)))
         .node();

@@ -16,6 +16,7 @@
  */
 package org.astraea.common.connector;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -26,6 +27,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.FutureUtils;
+import org.astraea.common.Utils;
 import org.astraea.common.http.HttpExecutor;
 import org.astraea.common.http.Response;
 import org.astraea.common.json.TypeRef;
@@ -51,7 +57,7 @@ public class Builder {
   /**
    * custom httpExecutor, please make sure that the httpExecutor can convert some special {@link
    * TypeRef} of beans whose response contains java keyword or kebab-case For example, {@link
-   * PluginInfo}, {@link WorkerInfo}
+   * PluginInfo}
    */
   public Builder httpExecutor(HttpExecutor httpExecutor) {
     this.builderHttpExecutor = Objects.requireNonNull(httpExecutor);
@@ -74,10 +80,69 @@ public class Builder {
                         .build());
 
     return new ConnectorClient() {
+
       @Override
-      public CompletionStage<WorkerInfo> info() {
+      public CompletionStage<List<WorkerStatus>> activeWorkers() {
+        Function<URL, String> workerId = url -> url.getHost() + ":" + url.getPort();
+        return connectorNames()
+            .thenCompose(
+                names ->
+                    FutureUtils.sequence(
+                        names.stream()
+                            .map(name -> connectorStatus(name).toCompletableFuture())
+                            .collect(Collectors.toList())))
+            .thenCompose(
+                connectorStatuses ->
+                    FutureUtils.sequence(
+                        connectorStatuses.stream()
+                            .flatMap(
+                                s ->
+                                    Stream.concat(
+                                        s.tasks().stream().map(TaskStatus::workerId),
+                                        Stream.of(s.workerId())))
+                            .distinct()
+                            // worker id is [worker host][worker port]
+                            .filter(s -> s.split(":").length == 2)
+                            .map(
+                                s ->
+                                    Utils.packException(
+                                        () ->
+                                            new URL(
+                                                "http://"
+                                                    + s.split(":")[0]
+                                                    + ":"
+                                                    + s.split(":")[1])))
+                            .map(
+                                url ->
+                                    info(url)
+                                        .thenApply(
+                                            info ->
+                                                new WorkerStatus(
+                                                    url.getHost(),
+                                                    url.getPort(),
+                                                    info.version,
+                                                    info.commit,
+                                                    info.kafkaClusterId,
+                                                    connectorStatuses.stream()
+                                                        .filter(
+                                                            s ->
+                                                                s.workerId()
+                                                                    .equals(workerId.apply(url)))
+                                                        .count(),
+                                                    connectorStatuses.stream()
+                                                        .flatMap(s -> s.tasks().stream())
+                                                        .filter(
+                                                            s ->
+                                                                s.workerId()
+                                                                    .equals(workerId.apply(url)))
+                                                        .count()))
+                                        .toCompletableFuture())
+                            .collect(Collectors.toList())));
+      }
+
+      private CompletionStage<KafkaWorkerInfo> info(URL url) {
         return httpExecutor
-            .get(getURL("/"), TypeRef.of(WorkerInfo.class))
+            .get(url.toString() + "/", TypeRef.of(KafkaWorkerInfo.class))
             .thenApply(Response::body);
       }
 
@@ -98,7 +163,30 @@ public class Builder {
       @Override
       public CompletionStage<ConnectorStatus> connectorStatus(String name) {
         return httpExecutor
-            .get(getURL(KEY_CONNECTORS + "/" + name + "/status"), TypeRef.of(ConnectorStatus.class))
+            .get(
+                getURL(KEY_CONNECTORS + "/" + name + "/status"),
+                TypeRef.of(KafkaConnectorStatus.class))
+            .thenApply(Response::body)
+            .thenCompose(
+                status ->
+                    config(name)
+                        .thenApply(
+                            config ->
+                                new ConnectorStatus(
+                                    status.name,
+                                    status.connector.state,
+                                    status.connector.worker_id,
+                                    config,
+                                    status.tasks.stream()
+                                        .map(
+                                            t ->
+                                                new TaskStatus(t.id, t.state, t.worker_id, t.trace))
+                                        .collect(Collectors.toList()))));
+      }
+
+      private CompletionStage<Map<String, String>> config(String name) {
+        return httpExecutor
+            .get(getURL(KEY_CONNECTORS + "/" + name + "/config"), TypeRef.map(String.class))
             .thenApply(Response::body);
       }
 
@@ -153,5 +241,35 @@ public class Builder {
         }
       }
     };
+  }
+
+  private static class KafkaWorkerInfo {
+    private String version;
+    private String commit;
+
+    @JsonAlias("kafka_cluster_id")
+    private String kafkaClusterId;
+  }
+
+  private static class KafkaConnectorStatus {
+    private String name;
+
+    private KafkaConnector connector;
+
+    private List<KafkaTaskStatus> tasks;
+  }
+
+  private static class KafkaConnector {
+    private String state;
+    private String worker_id;
+  }
+
+  private static class KafkaTaskStatus {
+    private int id;
+    private String state;
+
+    private String worker_id;
+
+    private Optional<String> trace = Optional.empty();
   }
 }

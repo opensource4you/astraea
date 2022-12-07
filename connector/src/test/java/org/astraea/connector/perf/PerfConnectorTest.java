@@ -175,7 +175,7 @@ public class PerfConnectorTest extends RequireSingleWorkerCluster {
     Assertions.assertNotEquals(0, status.tasks().size());
     status
         .tasks()
-        .forEach(t -> Assertions.assertEquals("RUNNING", t.state(), t.trace().toString()));
+        .forEach(t -> Assertions.assertEquals("RUNNING", t.state(), t.error().toString()));
 
     // make sure there are some data
     try (var admin = Admin.of(bootstrapServers())) {

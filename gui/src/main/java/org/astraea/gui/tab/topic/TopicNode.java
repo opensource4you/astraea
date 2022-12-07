@@ -217,7 +217,6 @@ public class TopicNode {
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
         .secondPart(
-            null,
             "DELETE",
             (items, inputs, logger) -> {
               var topicsToDelete =

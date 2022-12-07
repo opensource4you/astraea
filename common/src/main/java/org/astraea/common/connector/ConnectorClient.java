@@ -17,6 +17,7 @@
 package org.astraea.common.connector;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -42,7 +43,12 @@ public interface ConnectorClient {
     return new Builder();
   }
 
-  CompletionStage<WorkerInfo> info();
+  /**
+   * list the workers having running connectors
+   *
+   * @return worker hostname and port.
+   */
+  CompletionStage<List<WorkerStatus>> activeWorkers();
 
   CompletionStage<Set<String>> connectorNames();
 
