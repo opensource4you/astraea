@@ -215,11 +215,11 @@ class ReaderTest extends RequireBrokerCluster {
   }
   def rows: List[List[String]] = {
     val columnOne: List[String] =
-      List("A1", "B1", "C1", "D1")
+      List("A1", "B1", "C1", "D1", "")
     val columnTwo: List[String] =
-      List("52", "36", "45", "25")
+      List("52", "36", "45", "25", "")
     val columnThree: List[String] =
-      List("fghgh", "gjgbn", "fgbhjf", "dfjf")
+      List("fghgh", "gjgbn", "fgbhjf", "dfjf", "")
 
     columnOne
       .zip(columnTwo.zip(columnThree))

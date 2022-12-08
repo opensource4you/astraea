@@ -80,7 +80,8 @@ object DataType {
       ByteType,
       IntegerType,
       LongType,
-      ShortType
+      ShortType,
+      TimestampType
     )
   }
 }

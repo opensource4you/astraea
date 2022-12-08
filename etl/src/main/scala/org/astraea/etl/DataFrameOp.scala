@@ -52,7 +52,9 @@ class DataFrameOp(dataFrame: DataFrame) {
   // TODO unitized JSON
   def csvToJSON(pk: Seq[String]): DataFrameOp = {
     new DataFrameOp(
+      // Skip a blank line when it is encountered
       dataFrame
+        .filter(row => !(row.mkString("").isEmpty && row.length > 0))
         .withColumn("value", to_json(struct($conforms("*"))))
         .withColumn("key", concat_ws(",", pk.map(col).seq: _*))
         .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
