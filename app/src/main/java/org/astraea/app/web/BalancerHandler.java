@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
@@ -326,7 +325,7 @@ class BalancerHandler implements Handler {
   // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<List<MoveCost>> movementConstraint(BalancerPostRequest request) {
     var converter = new DataSizeField();
-    var replicaSizeLimit = request.maxMigrateSize.map(x -> converter.convert(x).bytes());
+    var replicaSizeLimit = request.maxMigratedSize.map(x -> converter.convert(x).bytes());
     var leaderNumLimit = request.maxMigratedLeader.map(Integer::parseInt);
     return moveCosts ->
         moveCosts.stream()
@@ -364,25 +363,18 @@ class BalancerHandler implements Handler {
 
     private String balancer = GreedyBalancer.class.getName();
 
-    @JsonAlias("balancer-config")
     private Map<String, String> balancerConfig = Map.of();
 
     private String timeout = "3s";
     private Optional<String> topics = Optional.empty();
 
-    @JsonAlias("max-migrated-size")
-    private Optional<String> maxMigrateSize = Optional.empty();
+    private Optional<String> maxMigratedSize = Optional.empty();
 
-    @JsonAlias("max-migrated-leader")
     private Optional<String> maxMigratedLeader = Optional.empty();
 
     private List<CostWeight> costWeights = List.of();
 
     public BalancerPostRequest() {}
-
-    public void setBalancer(String balancer) {
-      this.balancer = balancer;
-    }
 
     public void setBalancerConfig(Map<String, String> balancerConfig) {
       this.balancerConfig = balancerConfig;
@@ -394,14 +386,6 @@ class BalancerHandler implements Handler {
 
     public void setTopics(Optional<String> topics) {
       this.topics = topics;
-    }
-
-    public void setMaxMigrateSize(Optional<String> maxMigrateSize) {
-      this.maxMigrateSize = maxMigrateSize;
-    }
-
-    public void setMaxMigratedLeader(Optional<String> maxMigratedLeader) {
-      this.maxMigratedLeader = maxMigratedLeader;
     }
 
     public void setCostWeights(List<CostWeight> costWeights) {

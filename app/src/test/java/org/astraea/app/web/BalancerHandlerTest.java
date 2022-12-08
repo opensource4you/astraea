@@ -78,16 +78,12 @@ import org.junit.jupiter.params.provider.CsvSource;
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
   static final String TOPICS_KEY = "topics";
-
   static final String TIMEOUT_KEY = "timeout";
-  static final String MAX_MIGRATE_SIZE_KEY = "max-migrated-size";
-  static final String MAX_MIGRATE_LEADER_KEY = "max-migrated-leader";
+  static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
+  static final String MAX_MIGRATE_LEADER_KEY = "maxMigratedLeader";
   static final String COST_WEIGHT_KEY = "costWeights";
-
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
-
-  static final String BALANCER_CONFIGURATION_KEY = "balancer-config";
-
+  static final String BALANCER_CONFIGURATION_KEY = "balancerConfig";
   static final int TIMEOUT_DEFAULT = 3;
 
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
