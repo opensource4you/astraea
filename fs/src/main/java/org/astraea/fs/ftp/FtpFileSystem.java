@@ -64,11 +64,12 @@ public class FtpFileSystem implements FileSystem {
     return Utils.packException(
         () -> {
           var stats = client.getStatus(path);
-          if (stats == null) return Type.NONEXISTENT;
-          var fs = client.listFiles(path);
+          if (stats.length() == 40) return Type.NONEXISTENT;
+          // var fs = client.listFiles(path);
           // RFC 959: If the pathname specifies a file then the server should send current
           // information on the file
-          if (fs.length == 1 && path.endsWith(fs[0].getName()) && fs[0].isFile()) return Type.FILE;
+          client.changeWorkingDirectory(path);
+          if (client.getReplyCode() == 550) return Type.FILE;
           return Type.FOLDER;
         });
   }

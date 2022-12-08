@@ -26,6 +26,9 @@ dependencies {
     }
     // those dependencies are included by kafka worker
     compileOnly "org.apache.kafka:connect-api:${versions["kafka"]}"
+
+    implementation project(':fs')
+
 }
 
 java {
