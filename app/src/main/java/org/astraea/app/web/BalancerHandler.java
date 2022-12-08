@@ -147,26 +147,18 @@ class BalancerHandler implements Handler {
                   var request = parsePostRequestWrapper(balancerPostRequest, currentClusterInfo);
                   var fetchers =
                       Stream.concat(
-                              request
-                                  .configBuilder
-                                  .get()
-                                  .build()
-                                  .clusterCostFunction()
-                                  .fetcher()
-                                  .stream(),
-                              request.configBuilder.get().build().moveCostFunctions().stream()
+                              request.algorithmConfig.clusterCostFunction().fetcher().stream(),
+                              request.algorithmConfig.moveCostFunctions().stream()
                                   .flatMap(c -> c.fetcher().stream()))
                           .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
                       metricContext(
                           fetchers,
-                          request.configBuilder.get().build().clusterCostFunction().sensors(),
+                          request.algorithmConfig.clusterCostFunction().sensors(),
                           (metricSource) ->
                               Balancer.create(
                                       request.balancerClasspath,
-                                      request
-                                          .configBuilder
-                                          .get()
+                                      AlgorithmConfig.builder(request.algorithmConfig)
                                           .metricSource(metricSource)
                                           .build())
                                   .retryOffer(currentClusterInfo, request.executionTime));
@@ -195,7 +187,7 @@ class BalancerHandler implements Handler {
                       new Report(
                           bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
                           bestPlan.map(p -> p.proposalClusterCost().value()).orElse(null),
-                          request.configBuilder.get().build().clusterCostFunction().toString(),
+                          request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
                           bestPlan
                               .map(
@@ -288,13 +280,13 @@ class BalancerHandler implements Handler {
     return new PostRequestWrapper(
         balancerClasspath,
         timeout,
-        () ->
-            AlgorithmConfig.builder()
-                .clusterCost(clusterCostFunction)
-                .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
-                .movementConstraint(movementConstraint(balancerPostRequest))
-                .topicFilter(topics::contains)
-                .config(balancerConfig));
+        AlgorithmConfig.builder()
+            .clusterCost(clusterCostFunction)
+            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .movementConstraint(movementConstraint(balancerPostRequest))
+            .topicFilter(topics::contains)
+            .config(balancerConfig)
+            .build());
   }
 
   @SuppressWarnings("unchecked")
@@ -363,34 +355,16 @@ class BalancerHandler implements Handler {
 
     private String balancer = GreedyBalancer.class.getName();
 
-    private Map<String, String> balancerConfig = Map.of();
+    Map<String, String> balancerConfig = Map.of();
 
-    private String timeout = "3s";
-    private Optional<String> topics = Optional.empty();
+    String timeout = "3s";
+    Optional<String> topics = Optional.empty();
 
     private Optional<String> maxMigratedSize = Optional.empty();
 
     private Optional<String> maxMigratedLeader = Optional.empty();
 
-    private List<CostWeight> costWeights = List.of();
-
-    public BalancerPostRequest() {}
-
-    public void setBalancerConfig(Map<String, String> balancerConfig) {
-      this.balancerConfig = balancerConfig;
-    }
-
-    public void setTimeout(String timeout) {
-      this.timeout = timeout;
-    }
-
-    public void setTopics(Optional<String> topics) {
-      this.topics = topics;
-    }
-
-    public void setCostWeights(List<CostWeight> costWeights) {
-      this.costWeights = costWeights;
-    }
+    List<CostWeight> costWeights = List.of();
   }
 
   static class BalancerPutRequest implements Request {
@@ -517,15 +491,13 @@ class BalancerHandler implements Handler {
   static class PostRequestWrapper {
     final String balancerClasspath;
     final Duration executionTime;
-    final Supplier<AlgorithmConfig.Builder> configBuilder;
+    final AlgorithmConfig algorithmConfig;
 
     PostRequestWrapper(
-        String balancerClasspath,
-        Duration executionTime,
-        Supplier<AlgorithmConfig.Builder> configBuilder) {
+        String balancerClasspath, Duration executionTime, AlgorithmConfig algorithmConfig) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
-      this.configBuilder = configBuilder;
+      this.algorithmConfig = algorithmConfig;
     }
   }
 
