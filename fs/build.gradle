@@ -16,7 +16,12 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation project(':it')
 
-    implementation project(':common')
+    implementation (project(':common')) {
+        // those dependencies are included by kafka worker
+        exclude group: "org.apache.kafka"
+        exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "org.slf4j"
+    }
     implementation "commons-net:commons-net:${versions["commons-net"]}"
 }
 
