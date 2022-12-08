@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;

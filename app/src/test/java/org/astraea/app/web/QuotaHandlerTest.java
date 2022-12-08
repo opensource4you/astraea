@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Test;
 public class QuotaHandlerTest extends RequireBrokerCluster {
   private static final String CONNECTION = "connection";
   private static final String PRODUCER = "producer";
-  private static final String CREATION_RATE = "connectionCreationRate";
+  private static final String CREATION_RATE = "creationRate";
+  private static final String BYTE_RATE = "byteRate";
 
   @Test
   void testCreateIPQuota() {
@@ -73,7 +74,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
                                       Map.of(
                                           QuotaKeys.CLIENT_ID.value(),
                                           "myClient",
-                                          QuotaKeys.PRODUCER_BYTE_RATE.value(),
+                                          BYTE_RATE,
                                           "10")))))
                   .toCompletableFuture()
                   .join());

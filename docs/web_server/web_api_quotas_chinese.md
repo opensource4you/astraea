@@ -16,10 +16,10 @@ POST /quotas
 
 connection 參數
 
-| 名稱                           | 說明               | 預設  |
-|------------------------------|------------------|-----|
-| ip                           | (必填) ip 地址       | 無   |
-| connectionCreationRate       | (必填) 每秒建立的最大連線數量 | 無上限 |
+| 名稱           | 說明               | 預設  |
+|--------------|------------------|-----|
+| ip           | (必填) ip 地址       | 無   |
+| creationRate | (必填) 每秒建立的最大連線數量 | 無上限 |
 
 cURL 範例
 
@@ -30,7 +30,7 @@ curl -X POST http://localhost:8001/quotas \
     -d '{
     "connection":{
       "ip": "192.168.1.102", 
-      "connectionCreationRate": 100 
+      "creationRate": 100 
     }}' 
 ```
 
@@ -55,10 +55,10 @@ JSON Response 範例
 ### 建立或變更 client consumer quotas
 consumer參數
 
-| 名稱               | 說明                           | 預設  |
-|------------------|------------------------------|-----|
-| clientId         | (必填) client id               | 無   |
-| consumerByteRate | (必填) consumer 每秒提取的最大 byte 數 | 無上限 |
+| 名稱       | 說明                           | 預設  |
+|----------|------------------------------|-----|
+| clientId | (必填) client id               | 無   |
+| byteRate | (必填) consumer 每秒提取的最大 byte 數 | 無上限 |
 
 cURL 範例
 
@@ -69,7 +69,7 @@ curl -X POST http://localhost:8001/quotas \
     -d '{
     "consumer":{
       "clientId": "my-id", 
-      "consumerByteRate": 100
+      "byteRate": 100
     }}' 
 ```
 
@@ -93,10 +93,10 @@ JSON Response 範例
 ### 建立或變更 client producer quotas
 producer參數
 
-| 名稱                 | 說明                           | 預設  |
-|--------------------|------------------------------|-----|
-| clientId           | (必填) client id               | 無   |
-| producerByteRate   | (必填) producer 每秒發佈的最大 byte 數 | 無上限 |
+| 名稱       | 說明                           | 預設  |
+|----------|------------------------------|-----|
+| clientId | (必填) client id               | 無   |
+| byteRate | (必填) producer 每秒發佈的最大 byte 數 | 無上限 |
 
 cURL 範例
 
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8001/quotas \
     -d '{
     "producer":{
       "clientId": "my-id", 
-      "producerByteRate": 10
+      "byteRate": 10
     }}' 
 ```
 
