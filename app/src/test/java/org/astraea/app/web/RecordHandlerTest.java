@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.astraea.app.web.RecordHandler.ASYNC;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_BEGINNING;
 import static org.astraea.app.web.RecordHandler.DISTANCE_FROM_LATEST;
 import static org.astraea.app.web.RecordHandler.GROUP_ID;
@@ -26,15 +25,11 @@ import static org.astraea.app.web.RecordHandler.KEY_DESERIALIZER;
 import static org.astraea.app.web.RecordHandler.LIMIT;
 import static org.astraea.app.web.RecordHandler.OFFSET;
 import static org.astraea.app.web.RecordHandler.PARTITION;
-import static org.astraea.app.web.RecordHandler.RECORDS;
 import static org.astraea.app.web.RecordHandler.SEEK_TO;
 import static org.astraea.app.web.RecordHandler.TIMEOUT;
-import static org.astraea.app.web.RecordHandler.TRANSACTION_ID;
 import static org.astraea.app.web.RecordHandler.VALUE_DESERIALIZER;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Base64;
@@ -46,16 +41,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.app.web.RecordHandler.ByteArrayToBase64TypeAdapter;
 import org.astraea.app.web.RecordHandler.Metadata;
-import org.astraea.common.ExecutionRuntimeException;
+import org.astraea.app.web.RecordHandler.PostRecord;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.consumer.Header;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -67,48 +63,91 @@ import org.mockito.Mockito;
 
 public class RecordHandlerTest extends RequireBrokerCluster {
 
+  static final String RECORDS = "records";
+  static final String TRANSACTION_ID = "transactionId";
+  static final String ASYNC = "async";
+
   @Test
   void testInvalidPost() {
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
             handler
-                .post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[]"))))
+                .post(
+                    Channel.ofRequest(
+                        JsonConverter.defaultConverter().toJson(Map.of(RECORDS, List.of()))))
                 .toCompletableFuture()
                 .join(),
         "records should contain at least one record");
-    var executionRuntimeException =
-        Assertions.assertThrows(
-            ExecutionRuntimeException.class,
-            () -> handler.post(Channel.ofRequest(PostRequest.of(Map.of(RECORDS, "[{}]")))),
-            "topic must be set");
-    Assertions.assertEquals(
-        IllegalArgumentException.class, executionRuntimeException.getRootCause().getClass());
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            handler.post(
+                Channel.ofRequest(
+                    JsonConverter.defaultConverter()
+                        .toJson(Map.of(RECORDS, List.of(new PostRecord()))))),
+        "Value `$.records[].topic` is required.");
   }
 
   @Test
   void testPostTimeout() {
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> getRecordHandler().post(Channel.ofRequest(PostRequest.of(Map.of(TIMEOUT, "foo")))));
+        () ->
+            new RecordHandler(Admin.of(bootstrapServers()))
+                .post(
+                    Channel.ofRequest(
+                        JsonConverter.defaultConverter().toJson(Map.of(TIMEOUT, "foo")))));
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
-        getRecordHandler()
+        new RecordHandler(Admin.of(bootstrapServers()))
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    TIMEOUT,
-                                    "10s",
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            "test", null, null, null, null, null, null)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                TIMEOUT,
+                                "10s",
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        "test", null, null, null, null, null, null))))))
             .toCompletableFuture()
             .join());
+  }
+
+  @Test
+  void testPostRawString() {
+    var topic = "testPostRawString";
+    var response =
+        Assertions.assertInstanceOf(
+            RecordHandler.PostResponse.class,
+            new RecordHandler(Admin.of(bootstrapServers()))
+                .post(
+                    Channel.ofRequest(
+                        "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}"))
+                .toCompletableFuture()
+                .join());
+
+    Assertions.assertEquals(1, response.results.size());
+
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .keyDeserializer(Deserializer.STRING)
+            .valueDeserializer(Deserializer.STRING)
+            .build()) {
+      var records = consumer.poll(1, Duration.ofSeconds(5));
+      Assertions.assertEquals(1, records.size());
+      Assertions.assertEquals(0, records.get(0).partition());
+      Assertions.assertEquals("abc", records.get(0).key());
+      Assertions.assertEquals("abcd", records.get(0).value());
+    }
   }
 
   @ParameterizedTest
@@ -130,8 +169,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
-            getRecordHandler()
-                .post(Channel.ofRequest(PostRequest.of(new Gson().toJson(requestParams))))
+            new RecordHandler(Admin.of(bootstrapServers()))
+                .post(Channel.ofRequest(JsonConverter.defaultConverter().toJson(requestParams)))
                 .toCompletableFuture()
                 .join());
 
@@ -189,7 +228,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testPostWithAsync() {
     var topic = Utils.randomString(10);
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var currentTimestamp = System.currentTimeMillis();
     var result =
         Assertions.assertInstanceOf(
@@ -197,27 +236,26 @@ public class RecordHandlerTest extends RequireBrokerCluster {
             handler
                 .post(
                     Channel.ofRequest(
-                        PostRequest.of(
-                            new Gson()
-                                .toJson(
-                                    Map.of(
-                                        ASYNC,
-                                        "true",
-                                        RECORDS,
-                                        List.of(
-                                            new RecordHandler.PostRecord(
-                                                topic,
-                                                0,
-                                                "string",
-                                                "integer",
-                                                "foo",
-                                                "100",
-                                                currentTimestamp)))))))
+                        JsonConverter.defaultConverter()
+                            .toJson(
+                                Map.of(
+                                    ASYNC,
+                                    "true",
+                                    RECORDS,
+                                    List.of(
+                                        new RecordHandler.PostRecord(
+                                            topic,
+                                            0,
+                                            "string",
+                                            "integer",
+                                            "foo",
+                                            "100",
+                                            currentTimestamp))))))
                 .toCompletableFuture()
                 .join());
     Assertions.assertEquals(Response.ACCEPT, result);
 
-    handler.producer.flush();
+    handler.producer.get().flush();
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
@@ -241,20 +279,19 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @MethodSource("forTestSerializer")
   void testSerializer(String serializer, String actual, byte[] expected) {
     var topic = Utils.randomString(10);
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
         handler
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic, null, serializer, null, actual, null, null)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic, null, serializer, null, actual, null, null))))))
             .toCompletableFuture()
             .join());
 
@@ -288,18 +325,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       IntStream.range(0, size)
           .forEach(
               i ->
-                  producer
-                      .sender()
-                      .topic(topic)
-                      .value(ByteBuffer.allocate(Integer.BYTES).putInt(i).array())
-                      .run());
+                  producer.send(
+                      Record.builder()
+                          .topic(topic)
+                          .value(ByteBuffer.allocate(Integer.BYTES).putInt(i).array())
+                          .build()));
       producer.flush();
     }
   }
 
   @Test
   void testInvalidGet() {
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> handler.get(Channel.EMPTY).toCompletableFuture().join().code());
@@ -332,7 +369,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -356,7 +393,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -380,7 +417,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 5);
 
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -414,18 +451,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
       for (int partitionId = 0; partitionId < partitionNum; partitionId++) {
         for (int recordIdx = 0; recordIdx < 10; recordIdx++) {
-          producer
-              .sender()
-              .topic(topic)
-              .partition(partitionId)
-              .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
-              .run();
+          producer.send(
+              Record.builder()
+                  .topic(topic)
+                  .partition(partitionId)
+                  .value(ByteBuffer.allocate(4).putInt(recordIdx).array())
+                  .build());
         }
       }
       producer.flush();
     }
 
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -446,7 +483,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -479,11 +516,12 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue) {
     var topic = Utils.randomString(10);
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer.sender().topic(topic).value(value).run();
+
+      producer.send(Record.builder().topic(topic).value(value).build());
       producer.flush();
     }
 
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -534,17 +572,18 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer
-          .sender()
-          .topic(topic)
-          .key("astraea".getBytes(UTF_8))
-          .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
-          .headers(List.of(Header.of("a", "b".getBytes(UTF_8))))
-          .timestamp(timestamp)
-          .run();
+
+      producer.send(
+          Record.builder()
+              .topic(topic)
+              .key("astraea".getBytes(UTF_8))
+              .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
+              .headers(List.of(Header.of("a", "b".getBytes(UTF_8))))
+              .timestamp(timestamp)
+              .build());
       producer.flush();
     }
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -587,17 +626,17 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
     try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
-      producer
-          .sender()
-          .topic(topic)
-          .key("astraea".getBytes())
-          .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
-          .headers(List.of(Header.of("a", null)))
-          .timestamp(timestamp)
-          .run();
+      producer.send(
+          Record.builder()
+              .topic(topic)
+              .key("astraea".getBytes())
+              .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
+              .headers(List.of(Header.of("a", null)))
+              .timestamp(timestamp)
+              .build());
       producer.flush();
     }
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -615,73 +654,53 @@ public class RecordHandlerTest extends RequireBrokerCluster {
                 .toCompletableFuture()
                 .join());
 
-    Assertions.assertEquals(
+    var expected =
         "{\"records\":[{"
-            + "\"topic\":\""
-            + topic
-            + "\","
-            + "\"partition\":0,"
-            + "\"offset\":0,"
-            + "\"timestamp\":"
-            + timestamp
-            + ","
-            + "\"serializedKeySize\":7,"
-            + "\"serializedValueSize\":4,"
             + "\"headers\":[{\"key\":\"a\"}],"
             + "\"key\":\""
             + Base64.getEncoder().encodeToString("astraea".getBytes(UTF_8))
             + "\","
-            + "\"value\":100,"
-            + "\"leaderEpoch\":0"
-            + "}]}",
-        response.json());
+            + "\"leaderEpoch\":0,"
+            + "\"offset\":0,"
+            + "\"partition\":0,"
+            + "\"serializedKeySize\":7,"
+            + "\"serializedValueSize\":4,"
+            + "\"timestamp\":"
+            + timestamp
+            + ","
+            + "\"topic\":\""
+            + topic
+            + "\","
+            + "\"value\":100}]}";
+    Assertions.assertEquals(expected, response.json());
 
     // close consumer
     response.onComplete(null);
   }
 
   @Test
-  void testByteArrayToBase64TypeAdapter() {
-    var foo = new Foo("test".getBytes());
-    var gson =
-        new GsonBuilder()
-            .registerTypeHierarchyAdapter(byte[].class, new ByteArrayToBase64TypeAdapter())
-            .create();
-    Assertions.assertArrayEquals(foo.bar, gson.fromJson(gson.toJson(foo), Foo.class).bar);
-  }
-
-  private static class Foo {
-    final byte[] bar;
-
-    public Foo(byte[] bar) {
-      this.bar = bar;
-    }
-  }
-
-  @Test
   void testPostAndGet() {
     var topic = Utils.randomString(10);
-    var handler = getRecordHandler();
+    var handler = new RecordHandler(Admin.of(bootstrapServers()));
     var currentTimestamp = System.currentTimeMillis();
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
         handler
             .post(
                 Channel.ofRequest(
-                    PostRequest.of(
-                        new Gson()
-                            .toJson(
-                                Map.of(
-                                    RECORDS,
-                                    List.of(
-                                        new RecordHandler.PostRecord(
-                                            topic,
-                                            0,
-                                            "string",
-                                            "integer",
-                                            "foo",
-                                            "100",
-                                            currentTimestamp)))))))
+                    JsonConverter.defaultConverter()
+                        .toJson(
+                            Map.of(
+                                RECORDS,
+                                List.of(
+                                    new RecordHandler.PostRecord(
+                                        topic,
+                                        0,
+                                        "string",
+                                        "integer",
+                                        "foo",
+                                        100,
+                                        currentTimestamp))))))
             .toCompletableFuture()
             .join());
 
@@ -723,9 +742,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testTimeout() {
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> getRecordHandler().get(Channel.ofQueries("test", Map.of(TIMEOUT, "foo"))));
+        () ->
+            new RecordHandler(Admin.of(bootstrapServers()))
+                .get(Channel.ofQueries("test", Map.of(TIMEOUT, "foo"))));
     var response =
-        getRecordHandler()
+        new RecordHandler(Admin.of(bootstrapServers()))
             .get(Channel.ofQueries("test", Map.of(TIMEOUT, "10s")))
             .toCompletableFuture()
             .join();
@@ -738,7 +759,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testDeleteParameter() {
     try (var admin = Admin.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = getRecordHandler();
+      var handler = new RecordHandler(Admin.of(bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -776,7 +797,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = getRecordHandler();
+      var handler = new RecordHandler(Admin.of(bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -786,11 +807,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
 
-      var senders =
+      var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
               .collect(Collectors.toList());
-      producer.send(senders);
+      producer.send(records);
       producer.flush();
 
       Assertions.assertEquals(
@@ -860,7 +881,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = getRecordHandler();
+      var handler = new RecordHandler(Admin.of(bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -870,11 +891,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
 
-      var senders =
+      var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
               .collect(Collectors.toList());
-      producer.send(senders);
+      producer.send(records);
       producer.flush();
 
       Assertions.assertEquals(
@@ -917,7 +938,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers());
         var producer = Producer.of(bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = getRecordHandler();
+      var handler = new RecordHandler(Admin.of(bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -927,11 +948,11 @@ public class RecordHandlerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
 
-      var senders =
+      var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
-              .map(x -> producer.sender().topic(topicName).partition(x).value(new byte[100]))
+              .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
               .collect(Collectors.toList());
-      producer.send(senders);
+      producer.send(records);
       producer.flush();
 
       Assertions.assertEquals(
@@ -973,7 +994,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testGetRecordsCommitOffsetWithGroupId() {
     var topic = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    var recordHandler = getRecordHandler();
+    var recordHandler = new RecordHandler(Admin.of(bootstrapServers()));
 
     Function<Boolean, RecordHandler.GetResponse> getRecords =
         needError ->
@@ -1023,7 +1044,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @MethodSource("forTestGetRecordsCloseConsumer")
   void testGetRecordsCloseConsumer(Map<String, String> args) {
     var topic = Utils.randomString(10);
-    var recordHandler = getRecordHandler();
+    var recordHandler = new RecordHandler(Admin.of(bootstrapServers()));
 
     var response =
         Assertions.assertInstanceOf(
@@ -1056,17 +1077,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertEquals(error2.getMessage(), "This consumer has already been closed.");
   }
 
-  private RecordHandler getRecordHandler() {
-    return new RecordHandler(Admin.of(bootstrapServers()), bootstrapServers());
-  }
-
   @Test
   void testRecords() {
     var exception = new IllegalArgumentException("hello");
     @SuppressWarnings({"unchecked", "resource"})
     Consumer<byte[], byte[]> consumer = Mockito.mock(Consumer.class);
     Mockito.when(consumer.poll(Mockito.anyInt(), Mockito.any())).thenThrow(exception);
-    var recordHandler = getRecordHandler();
+    var recordHandler = new RecordHandler(Admin.of(bootstrapServers()));
     Assertions.assertEquals(
         exception,
         Assertions.assertThrows(

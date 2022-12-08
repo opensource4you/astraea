@@ -22,10 +22,10 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.cost.Configuration;
 
 public interface Dispatcher extends Partitioner {
   /**
@@ -138,7 +138,7 @@ public interface Dispatcher extends Partitioner {
   default int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     var interdependent = THREAD_LOCAL.get();
-    if (interdependent.isInterdependent && Utils.notNegative(interdependent.targetPartitions))
+    if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
       return interdependent.targetPartitions;
     var target =
         partition(

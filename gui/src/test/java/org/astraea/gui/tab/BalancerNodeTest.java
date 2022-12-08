@@ -30,13 +30,11 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.RebalancePlanProposal;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.Input;
+import org.astraea.gui.pane.Argument;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,7 +86,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
       var f =
           BalancerNode.refresher(new Context(admin))
               .apply(
-                  Input.of(
+                  Argument.of(
                       List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
                   log::set);
       f.toCompletableFuture().join();
@@ -105,14 +103,12 @@ class BalancerNodeTest extends RequireBrokerCluster {
       var s =
           BalancerNode.refresher(new Context(admin))
               .apply(
-                  Input.of(
+                  Argument.of(
                       List.of("leader"), Map.of(BalancerNode.TOPIC_NAME_KEY, Optional.empty())),
                   log::set);
       s.toCompletableFuture().join();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
-      Assertions.assertTrue(
-          log.get()
-              .matches("find a better assignments. Total number of reassignments is" + "(.*)"));
+      Assertions.assertTrue(log.get().contains("better assignments"));
     }
   }
 
@@ -120,6 +116,8 @@ class BalancerNodeTest extends RequireBrokerCluster {
   void testResult() {
     var topic = Utils.randomString();
     var leaderSize = 100;
+    var allNodes =
+        List.of(NodeInfo.of(0, "aa", 0), NodeInfo.of(1, "aa", 0), NodeInfo.of(3, "aa", 0));
     var beforeReplicas =
         List.of(
             Replica.builder()
@@ -127,7 +125,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(0, "aa", 0))
+                .nodeInfo(allNodes.get(0))
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -136,7 +134,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "aa", 0))
+                .nodeInfo(allNodes.get(1))
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
@@ -147,7 +145,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(3, "aa", 0))
+                .nodeInfo(allNodes.get(2))
                 .size(leaderSize)
                 .path("/tmp/ddd")
                 .build(),
@@ -156,19 +154,18 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "aa", 0))
+                .nodeInfo(allNodes.get(1))
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(Set.of(), beforeReplicas);
+    var beforeClusterInfo = ClusterInfo.of(List.of(), beforeReplicas);
 
     var results =
-        BalancerNode.result(
+        BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
-                RebalancePlanProposal.builder()
-                    .clusterLogAllocation(ClusterLogAllocation.of(ClusterInfo.of(afterReplicas)))
-                    .build(),
+                ClusterInfo.of(allNodes, afterReplicas),
+                new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 List.of(MoveCost.builder().build())));
     Assertions.assertEquals(results.size(), 1);

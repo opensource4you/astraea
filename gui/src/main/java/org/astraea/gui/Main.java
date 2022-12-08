@@ -26,6 +26,7 @@ import org.astraea.gui.tab.AboutNode;
 import org.astraea.gui.tab.BalancerNode;
 import org.astraea.gui.tab.BrokerNode;
 import org.astraea.gui.tab.ClientNode;
+import org.astraea.gui.tab.ConnectorNode;
 import org.astraea.gui.tab.QuotaNode;
 import org.astraea.gui.tab.SettingNode;
 import org.astraea.gui.tab.topic.TopicNode;
@@ -47,6 +48,7 @@ public class Main {
     @Override
     public void start(Stage stage) {
       var context = new Context();
+      context.stage(stage);
       stage.setTitle("Astraea");
       stage.setHeight(900);
       stage.setWidth(1200);
@@ -63,6 +65,8 @@ public class Main {
                           TopicNode.of(context),
                           "client",
                           ClientNode.of(context),
+                          "connector",
+                          ConnectorNode.of(context),
                           "quota",
                           QuotaNode.of(context),
                           "balancer",

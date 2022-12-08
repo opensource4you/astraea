@@ -16,8 +16,8 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.time.Duration;
 import java.util.Comparator;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -26,8 +26,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
 public class SingleStepBalancer implements Balancer {
@@ -72,9 +71,8 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Balancer.Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
-    final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
+  public Optional<Balancer.Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunctions();
@@ -83,27 +81,25 @@ public class SingleStepBalancer implements Balancer {
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
 
     var start = System.currentTimeMillis();
-    var executionTime = config.executionTime().toMillis();
-    return planGenerator
-        .generate(brokerFolders, ClusterLogAllocation.of(generatorClusterInfo))
+    return allocationTweaker
+        .generate(generatorClusterInfo)
         .parallel()
         .limit(iteration)
-        .takeWhile(ignored -> System.currentTimeMillis() - start <= executionTime)
+        .takeWhile(ignored -> System.currentTimeMillis() - start <= timeout.toMillis())
         .map(
-            proposal -> {
-              var newClusterInfo =
-                  ClusterInfo.update(
-                      currentClusterInfo, tp -> proposal.rebalancePlan().replicas(tp));
+            newAllocation -> {
+              var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Balancer.Plan(
-                  proposal,
+                  newAllocation,
+                  currentCost,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
                   moveCostFunction.stream()
                       .map(
                           cf -> cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
                       .collect(Collectors.toList()));
             })
-        .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+        .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .min(Comparator.comparing(plan -> plan.clusterCost().value()));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }
 }

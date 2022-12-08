@@ -23,12 +23,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.clients.producer.RoundRobinPartitioner;
+import org.astraea.app.argument.Argument;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.Argument;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -172,7 +173,11 @@ public class PerformanceTest extends RequireBrokerCluster {
                 "1"
               });
       var expectedLeaders =
-          admin.replicas(Set.of(topicName)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -214,7 +219,11 @@ public class PerformanceTest extends RequireBrokerCluster {
               });
 
       var expected2 =
-          admin.replicas(Set.of(topicName, topicName2)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName, topicName2))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .filter(ReplicaInfo::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
               .map(ReplicaInfo::topicPartition)
@@ -241,7 +250,11 @@ public class PerformanceTest extends RequireBrokerCluster {
       admin.creator().topic(topicName3).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var validBroker =
-          admin.replicas(Set.of(topicName3)).toCompletableFuture().join().stream()
+          admin
+              .clusterInfo(Set.of(topicName3))
+              .toCompletableFuture()
+              .join()
+              .replicaStream()
               .findFirst()
               .get()
               .nodeInfo()
@@ -393,7 +406,12 @@ public class PerformanceTest extends RequireBrokerCluster {
       try (var producer = args.createProducer()) {
         IntStream.range(0, 250)
             .forEach(
-                i -> producer.sender().topic(topicName).key(String.valueOf(i).getBytes()).run());
+                i ->
+                    producer.send(
+                        Record.builder()
+                            .topic(topicName)
+                            .key(String.valueOf(i).getBytes())
+                            .build()));
       }
       Assertions.assertEquals(partitionCount, args.lastOffsets().size());
       System.out.println(args.lastOffsets());

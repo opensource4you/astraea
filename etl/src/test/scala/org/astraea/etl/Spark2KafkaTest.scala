@@ -122,12 +122,14 @@ class Spark2KafkaTest extends RequireBrokerCluster {
           s"""{"${colNames(1)}":"${rows(
               i
             ).head}","${colNames(2)}":"${rows(i)(1)}"}""",
-          s"""{"${colNames.head}":"${i + 1}","${colNames(1)}":"${rows(
-              i
-            ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":"${rows(
+          s"""{"${colNames(3)}":"${rows(
               i
             )(
               2
+            )}","${colNames(1)}":"${rows(
+              i
+            ).head}","${colNames.head}":"${i + 1}","${colNames(2)}":"${rows(i)(
+              1
             )}"}"""
         )
       )
@@ -154,17 +156,23 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       Files.createFile(new File(myDir + "/prop.properties").toPath)
     generateCSVF(sourceDir, rows)
 
-    writeProperties(myPropDir.toFile, sourceDir.getPath, sinkDir.getPath)
+    writeProperties(
+      myPropDir.toFile,
+      sourceDir.getPath,
+      sinkDir.getPath,
+      checkoutDir.getPath
+    )
     Spark2Kafka.executor(
       Array(myPropDir.toString),
-      Duration(20, TimeUnit.SECONDS)
+      20
     )
   }
 
   private def writeProperties(
       file: File,
       sourcePath: String,
-      sinkPath: String
+      sinkPath: String,
+      checkpoint: String
   ): Unit = {
     val SOURCE_PATH = "source.path"
     val SINK_PATH = "sink.path"
@@ -175,7 +183,8 @@ object Spark2KafkaTest extends RequireBrokerCluster {
     val TOPIC_PARTITIONS = "topic.partitions"
     val TOPIC_REPLICAS = "topic.replicas"
     val TOPIC_CONFIG = "topic.config"
-    val DEPLOYMENT_MODEL = "deployment.model"
+    val DEPLOY_MODEL = "deploy.model"
+    val CHECKPOINT = "checkpoint"
 
     Utils.Using(new FileOutputStream(file)) { fileOut =>
       val properties = new Properties()
@@ -191,7 +200,8 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(TOPIC_PARTITIONS, "10")
       properties.setProperty(TOPIC_REPLICAS, "2")
       properties.setProperty(TOPIC_CONFIG, "compression.type=lz4")
-      properties.setProperty(DEPLOYMENT_MODEL, "local[1]")
+      properties.setProperty(DEPLOY_MODEL, "local[1]")
+      properties.setProperty(CHECKPOINT, checkpoint)
 
       properties.store(fileOut, "Favorite Things");
     }

@@ -32,6 +32,20 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.astraea.app.argument.DataRateField;
+import org.astraea.app.argument.DataSizeField;
+import org.astraea.app.argument.DurationField;
+import org.astraea.app.argument.DurationMapField;
+import org.astraea.app.argument.NonEmptyStringField;
+import org.astraea.app.argument.NonNegativeShortField;
+import org.astraea.app.argument.PathField;
+import org.astraea.app.argument.PatternField;
+import org.astraea.app.argument.PositiveIntegerField;
+import org.astraea.app.argument.PositiveIntegerListField;
+import org.astraea.app.argument.PositiveLongField;
+import org.astraea.app.argument.PositiveShortField;
+import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -40,18 +54,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
-import org.astraea.common.argument.DurationMapField;
-import org.astraea.common.argument.NonEmptyStringField;
-import org.astraea.common.argument.NonNegativeShortField;
-import org.astraea.common.argument.PathField;
-import org.astraea.common.argument.PatternField;
-import org.astraea.common.argument.PositiveIntegerField;
-import org.astraea.common.argument.PositiveIntegerListField;
-import org.astraea.common.argument.PositiveLongField;
-import org.astraea.common.argument.PositiveShortField;
-import org.astraea.common.argument.StringListField;
-import org.astraea.common.argument.TopicPartitionField;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.partitioner.Dispatcher;
@@ -165,7 +167,7 @@ public class Performance {
                 .build());
   }
 
-  public static class Argument extends org.astraea.common.argument.Argument {
+  public static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
         names = {"--topics"},
@@ -280,13 +282,13 @@ public class Performance {
     @Parameter(
         names = {"--key.size"},
         description = "DataSize of the key. Default: 4Byte",
-        converter = DataSize.Field.class)
+        converter = DataSizeField.class)
     DataSize keySize = DataSize.Byte.of(4);
 
     @Parameter(
         names = {"--value.size"},
         description = "DataSize of the value. Default: 1KiB",
-        converter = DataSize.Field.class)
+        converter = DataSizeField.class)
     DataSize valueSize = DataSize.KiB.of(1);
 
     @Parameter(
@@ -330,7 +332,11 @@ public class Performance {
       else if (specifiedByBroker) {
         try (var admin = Admin.of(configs())) {
           final var selections =
-              admin.replicas(Set.copyOf(topics)).toCompletableFuture().join().stream()
+              admin
+                  .clusterInfo(Set.copyOf(topics))
+                  .toCompletableFuture()
+                  .join()
+                  .replicaStream()
                   .filter(ReplicaInfo::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
@@ -353,14 +359,14 @@ public class Performance {
           var allTopics = admin.topicNames(false).toCompletableFuture().join();
           var allTopicPartitions =
               admin
-                  .replicas(
+                  .clusterInfo(
                       specifyPartitions.stream()
                           .map(TopicPartition::topic)
                           .filter(allTopics::contains)
                           .collect(Collectors.toUnmodifiableSet()))
                   .toCompletableFuture()
                   .join()
-                  .stream()
+                  .replicaStream()
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .collect(Collectors.toSet());
           var notExist =
@@ -390,7 +396,7 @@ public class Performance {
         names = {"--throughput"},
         description =
             "dataRate: size output/timeUnit. Default: second. e.g. \"500KiB/second\", \"100 MB/PT-10S\"",
-        converter = DataRate.Field.class)
+        converter = DataRateField.class)
     DataRate throughput = DataRate.GiB.of(500).perSecond();
 
     @Parameter(

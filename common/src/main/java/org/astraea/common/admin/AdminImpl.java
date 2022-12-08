@@ -28,7 +28,6 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AlterConfigOp;
@@ -45,7 +44,6 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
-import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
@@ -442,11 +440,10 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<Set<NodeInfo>> nodeInfos() {
+  public CompletionStage<List<NodeInfo>> nodeInfos() {
     return to(kafkaAdmin.describeCluster().nodes())
         .thenApply(
-            nodes ->
-                nodes.stream().map(NodeInfo::of).collect(Collectors.toCollection(TreeSet::new)));
+            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
@@ -564,67 +561,6 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics) {
-    if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
-    return FutureUtils.combine(
-        topicPartitions(topics)
-            .thenApply(ps -> ps.stream().map(TopicPartition::to).collect(Collectors.toSet()))
-            .thenCompose(ps -> to(kafkaAdmin.listPartitionReassignments(ps).reassignments()))
-            .thenApply(
-                pr ->
-                    pr.entrySet().stream()
-                        .flatMap(
-                            entry ->
-                                entry.getValue().addingReplicas().stream()
-                                    .map(
-                                        id ->
-                                            new org.apache.kafka.common.TopicPartitionReplica(
-                                                entry.getKey().topic(),
-                                                entry.getKey().partition(),
-                                                id)))
-                        .collect(Collectors.toList())),
-        logDirs(),
-        (adding, dirs) -> {
-          Function<TopicPartition, Long> findMaxSize =
-              tp ->
-                  dirs.values().stream()
-                      .flatMap(e -> e.entrySet().stream())
-                      .filter(e -> e.getKey().equals(tp))
-                      .flatMap(e -> e.getValue().values().stream().map(ReplicaInfo::size))
-                      .mapToLong(v -> v)
-                      .max()
-                      .orElse(0);
-          return adding.stream()
-              .filter(
-                  r ->
-                      dirs.getOrDefault(r.brokerId(), Map.of())
-                          .containsKey(TopicPartition.of(r.topic(), r.partition())))
-              .flatMap(
-                  r ->
-                      dirs
-                          .get(r.brokerId())
-                          .get(TopicPartition.of(r.topic(), r.partition()))
-                          .entrySet()
-                          .stream()
-                          .map(
-                              entry ->
-                                  AddingReplica.of(
-                                      r.topic(),
-                                      r.partition(),
-                                      r.brokerId(),
-                                      entry.getKey(),
-                                      entry.getValue().size(),
-                                      findMaxSize.apply(
-                                          TopicPartition.of(r.topic(), r.partition())))))
-              .sorted(
-                  Comparator.comparing(AddingReplica::topic)
-                      .thenComparing(AddingReplica::partition)
-                      .thenComparing(AddingReplica::broker))
-              .collect(Collectors.toList());
-        });
-  }
-
-  @Override
   public CompletionStage<Set<String>> transactionIds() {
     return to(kafkaAdmin.listTransactions().all())
         .thenApply(
@@ -647,7 +583,19 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<List<Replica>> replicas(Set<String> topics) {
+  public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+    return FutureUtils.combine(
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream()
+                        .map(x -> (NodeInfo) x)
+                        .collect(Collectors.toUnmodifiableList())),
+        replicas(topics),
+        ClusterInfo::of);
+  }
+
+  private CompletionStage<List<Replica>> replicas(Set<String> topics) {
     if (topics.isEmpty()) return CompletableFuture.completedFuture(List.of());
 
     // pre-group folders by (broker -> topic partition) to speedup seek
@@ -885,34 +833,31 @@ class AdminImpl implements Admin {
 
       @Override
       public TopicCreator topic(String topic) {
-        this.topic = topic;
+        this.topic = Utils.requireNonEmpty(topic);
         return this;
       }
 
       @Override
       public TopicCreator numberOfPartitions(int numberOfPartitions) {
-        this.numberOfPartitions = numberOfPartitions;
+        this.numberOfPartitions = Utils.requirePositive(numberOfPartitions);
         return this;
       }
 
       @Override
       public TopicCreator numberOfReplicas(short numberOfReplicas) {
-        this.numberOfReplicas = numberOfReplicas;
+        this.numberOfReplicas = Utils.requirePositive(numberOfReplicas);
         return this;
       }
 
       @Override
       public TopicCreator configs(Map<String, String> configs) {
-        this.configs = configs;
+        this.configs = Objects.requireNonNull(configs);
         return this;
       }
 
       @Override
       public CompletionStage<Boolean> run() {
         Utils.requireNonEmpty(topic);
-        Utils.requirePositive(numberOfPartitions);
-        Utils.requirePositive(numberOfReplicas);
-        Objects.requireNonNull(configs);
 
         return topicNames(true)
             .thenCompose(

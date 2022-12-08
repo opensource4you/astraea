@@ -16,14 +16,38 @@
  */
 package org.astraea.common;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class LazyTest {
+
+  @Test
+  void testGetWithoutNoDefaultSupplier() {
+    var lazy = Lazy.of();
+    Assertions.assertThrows(NullPointerException.class, lazy::get);
+  }
+
+  @Test
+  void testGetWithNllSupplier() {
+    var lazy = Lazy.of();
+    Assertions.assertThrows(NullPointerException.class, () -> lazy.get(null));
+  }
+
+  @Test
+  void testPeriod() {
+    var lazy = Lazy.of(() -> true);
+    Assertions.assertTrue(lazy.get());
+    Utils.sleep(Duration.ofSeconds(2));
+    Assertions.assertFalse(lazy.get(() -> false, Duration.ofSeconds(1)));
+    Assertions.assertFalse(lazy.get());
+    Assertions.assertFalse(lazy.get(() -> true));
+  }
 
   @Test
   void testCountOfGet() {
@@ -38,6 +62,30 @@ public class LazyTest {
         .mapToObj(
             ignored -> CompletableFuture.runAsync(() -> Assertions.assertEquals("ss", lazy.get())))
         .forEach(CompletableFuture::join);
+    Assertions.assertEquals(1, count.get());
+  }
+
+  @Test
+  void testMultiThreadsWithPeriod() {
+    var count = new AtomicInteger();
+    var lazy = Lazy.of(() -> 10);
+    Utils.sleep(Duration.ofSeconds(3));
+    // only one thread can update value
+    var fs =
+        IntStream.range(0, 10)
+            .mapToObj(
+                index ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          lazy.get(
+                              () -> {
+                                count.incrementAndGet();
+                                return index;
+                              },
+                              Duration.ofSeconds(2));
+                        }))
+            .collect(Collectors.toList());
+    fs.forEach(CompletableFuture::join);
     Assertions.assertEquals(1, count.get());
   }
 }

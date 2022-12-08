@@ -19,4 +19,4 @@ pluginManagement {
     }
 }
 rootProject.name = 'astraea'
-include('app', "etl", "common", "gui", "it")
+include('app', "common", "connector", "database", "etl", "fs", "gui", "it")

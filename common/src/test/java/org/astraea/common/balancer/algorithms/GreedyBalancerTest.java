@@ -16,7 +16,17 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.FakeClusterInfo;
+import org.astraea.common.cost.DecreasingCost;
+import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -38,5 +48,42 @@ class GreedyBalancerTest {
         GreedyBalancer.ALL_CONFIGS.size(),
         Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
         "No duplicate element");
+  }
+
+  @Test
+  void testJmx() {
+    var cost = new DecreasingCost(Configuration.of(Map.of()));
+    var id = "TestJmx-" + UUID.randomUUID();
+    var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
+    var balancer =
+        Balancer.create(
+            GreedyBalancer.class,
+            AlgorithmConfig.builder()
+                .executionId(id)
+                .clusterCost(cost)
+                .config(GreedyBalancer.ITERATION_CONFIG, "100")
+                .build());
+
+    try (MBeanClient client = MBeanClient.local()) {
+      IntStream.range(0, 10)
+          .forEach(
+              run -> {
+                var plan = balancer.offer(clusterInfo, Duration.ofMillis(300));
+                Assertions.assertTrue(plan.isPresent());
+                var bean =
+                    Assertions.assertDoesNotThrow(
+                        () ->
+                            client.queryBean(
+                                BeanQuery.builder()
+                                    .domainName("astraea.balancer")
+                                    .property("id", id)
+                                    .property("algorithm", GreedyBalancer.class.getSimpleName())
+                                    .property("run", Integer.toString(run))
+                                    .build()));
+                Assertions.assertEquals("astraea.balancer", bean.domainName());
+                Assertions.assertTrue(0 < (long) bean.attributes().get("Iteration"));
+                Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
+              });
+    }
   }
 }

@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Node;
@@ -41,12 +40,12 @@ public class ReplicaInfoTest {
     var kafkaPartition = partitionInfo();
     var replicaInfo = ReplicaInfo.of(kafkaPartition);
     var followerReplicaNode =
-        (Supplier<Set<NodeInfo>>)
+        (Supplier<List<NodeInfo>>)
             () ->
                 Arrays.stream(kafkaPartition.replicas())
                     .map(NodeInfo::of)
                     .filter(node -> !node.equals(NodeInfo.of(kafkaPartition.leader())))
-                    .collect(Collectors.toUnmodifiableSet());
+                    .collect(Collectors.toUnmodifiableList());
     final List<ReplicaInfo> leader =
         replicaInfo.stream().filter(ReplicaInfo::isLeader).collect(Collectors.toList());
     var followers =
@@ -70,7 +69,7 @@ public class ReplicaInfoTest {
         "The follower replica node count should match");
     Assertions.assertEquals(
         followerReplicaNode.get(),
-        followers.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableSet()),
+        followers.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toUnmodifiableList()),
         "The follower replica node set should match");
   }
 }

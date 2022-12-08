@@ -29,15 +29,15 @@ import java.util.stream.Stream;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
-import org.astraea.gui.pane.Input;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -52,12 +52,11 @@ public class ReplicaNode {
 
   static final String MOVE_BROKER_KEY = "move to brokers";
 
-  static List<Map<String, Object>> allResult(List<Replica> replicas) {
-    var leaderSizes =
-        replicas.stream()
-            .filter(ReplicaInfo::isLeader)
-            .collect(Collectors.toMap(ReplicaInfo::topicPartition, Replica::size));
-    return replicas.stream()
+  static List<Map<String, Object>> allResult(ClusterInfo<Replica> clusterInfo) {
+    // There are two leader replicas if the leader replica is moving to another folder
+    var leaderSizes = ClusterInfo.leaderSize(clusterInfo);
+    return clusterInfo
+        .replicaStream()
         .map(
             replica -> {
               var leaderSize = leaderSizes.getOrDefault(replica.topicPartition(), 0L);
@@ -91,7 +90,7 @@ public class ReplicaNode {
         .collect(Collectors.toList());
   }
 
-  static Bi3Function<List<Map<String, Object>>, Input, Logger, CompletionStage<Void>>
+  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
       tableViewAction(Context context) {
     return (items, inputs, logger) -> {
       var partitions =
@@ -212,15 +211,16 @@ public class ReplicaNode {
 
   static Node of(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            "REFRESH",
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(true)
-                    .thenCompose(context.admin()::replicas)
+                    .thenCompose(context.admin()::clusterInfo)
                     .thenApply(ReplicaNode::allResult))
-        .tableViewAction(
-            Lattice.of(
+        .secondPart(
+            MultiInput.of(
                 List.of(
                     TextInput.of(
                         MOVE_BROKER_KEY,

@@ -21,16 +21,18 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.IteratorLimit;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.consumer.SeekStrategy;
 
@@ -94,22 +96,10 @@ public interface Admin extends AutoCloseable {
    */
   default CompletionStage<Map<TopicPartition, Long>> timestampOfLatestRecords(
       Set<TopicPartition> topicPartitions, Duration timeout) {
-    return brokers()
+    return latestRecords(topicPartitions, 1, timeout)
         .thenApply(
-            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")))
-        .thenApply(
-            bootstrap -> {
-              try (var consumer =
-                  Consumer.forPartitions(topicPartitions)
-                      .bootstrapServers(bootstrap)
-                      .seek(SeekStrategy.DISTANCE_FROM_LATEST, 1)
-                      .build()) {
-                // TODO: how many records we should take ?
-                return consumer.poll(Integer.MAX_VALUE, timeout).stream()
-                    .collect(
-                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
-                    .entrySet()
-                    .stream()
+            records ->
+                records.entrySet().stream()
                     .collect(
                         Collectors.toMap(
                             Map.Entry::getKey,
@@ -117,9 +107,28 @@ public interface Admin extends AutoCloseable {
                                 e.getValue().stream()
                                     .mapToLong(Record::timestamp)
                                     .max()
-                                    .orElse(-1L)));
-              }
-            });
+                                    // the value CANNOT be empty
+                                    .getAsLong())));
+  }
+
+  default CompletionStage<Map<TopicPartition, List<Record<byte[], byte[]>>>> latestRecords(
+      Set<TopicPartition> topicPartitions, int records, Duration timeout) {
+    return bootstrapServers()
+        .thenApply(
+            bootstrap ->
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(
+                            Consumer.forPartitions(topicPartitions)
+                                .bootstrapServers(bootstrap)
+                                .seek(SeekStrategy.DISTANCE_FROM_LATEST, records)
+                                .iterator(
+                                    List.of(
+                                        IteratorLimit.count(topicPartitions.size() * records),
+                                        IteratorLimit.elapsed(timeout))),
+                            Spliterator.ORDERED),
+                        false)
+                    .collect(
+                        Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition()))));
   }
 
   /**
@@ -135,12 +144,18 @@ public interface Admin extends AutoCloseable {
   /**
    * @return online node information
    */
-  CompletionStage<Set<NodeInfo>> nodeInfos();
+  CompletionStage<List<NodeInfo>> nodeInfos();
 
   /**
    * @return online broker information
    */
   CompletionStage<List<Broker>> brokers();
+
+  default CompletionStage<String> bootstrapServers() {
+    return brokers()
+        .thenApply(
+            bs -> bs.stream().map(b -> b.host() + ":" + b.port()).collect(Collectors.joining(",")));
+  }
 
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
     return brokers()
@@ -162,17 +177,11 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions);
 
-  CompletionStage<List<AddingReplica>> addingReplicas(Set<String> topics);
-
   CompletionStage<Set<String>> transactionIds();
 
   CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
 
-  CompletionStage<List<Replica>> replicas(Set<String> topics);
-
-  default CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
-    return FutureUtils.combine(nodeInfos(), replicas(topics), ClusterInfo::of);
-  }
+  CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics);
 
   default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
     if (checkers.isEmpty()) {
@@ -445,7 +454,7 @@ public interface Admin extends AutoCloseable {
       Predicate<ClusterInfo<Replica>> predicate,
       Duration timeout,
       int debounce) {
-    return loop(
+    return Utils.loop(
         () ->
             clusterInfo(topics)
                 .thenApply(predicate::test)
@@ -462,35 +471,7 @@ public interface Admin extends AutoCloseable {
                       throw new RuntimeException(e);
                     }),
         timeout.toMillis(),
-        debounce,
         debounce);
-  }
-
-  static CompletionStage<Boolean> loop(
-      Supplier<CompletionStage<Boolean>> supplier,
-      long remainingMs,
-      final int debounce,
-      int remainingDebounce) {
-    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
-    var start = System.currentTimeMillis();
-    return supplier
-        .get()
-        .thenCompose(
-            match -> {
-              // everything is good!!!
-              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
-
-              // take a break before retry/debounce
-              Utils.sleep(Duration.ofMillis(300));
-
-              var remaining = remainingMs - (System.currentTimeMillis() - start);
-
-              // keep debounce
-              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
-
-              // reset debounce for retry
-              return loop(supplier, remaining, debounce, debounce);
-            });
   }
 
   @Override

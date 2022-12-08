@@ -41,13 +41,11 @@ import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.TopicConfigs;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.Lattice;
+import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -59,19 +57,21 @@ public class TopicNode {
   private static final String INTERNAL_KEY = "internal";
 
   private static Node metricsNode(Context context) {
+    var selectBox =
+        SelectBox.single(
+            Arrays.stream(ServerMetrics.Topic.values())
+                .map(ServerMetrics.Topic::toString)
+                .collect(Collectors.toList()),
+            ServerMetrics.Topic.values().length);
     return PaneBuilder.of()
-        .selectBox(
-            SelectBox.single(
-                Arrays.stream(ServerMetrics.Topic.values())
-                    .map(ServerMetrics.Topic::toString)
-                    .collect(Collectors.toList()),
-                ServerMetrics.Topic.values().length))
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            selectBox,
+            "REFRESH",
+            (argument, logger) ->
                 CompletableFuture.supplyAsync(
                     () -> {
                       var metric =
-                          input.selectedKeys().stream()
+                          argument.selectedKeys().stream()
                               .flatMap(
                                   name ->
                                       Arrays.stream(ServerMetrics.Topic.values())
@@ -96,8 +96,8 @@ public class TopicNode {
                                 var map = new LinkedHashMap<String, Object>();
                                 map.put(TOPIC_NAME_KEY, topic);
                                 nodeMeters.forEach(
-                                    (nodeInfo, meters) -> {
-                                      var key = String.valueOf(nodeInfo.id());
+                                    (nodeId, meters) -> {
+                                      var key = String.valueOf(nodeId);
                                       var value =
                                           meters.stream()
                                               .filter(m -> m.topic().equals(topic))
@@ -122,8 +122,9 @@ public class TopicNode {
 
   private static Node configNode(Context context) {
     return PaneBuilder.of()
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            "REFRESH",
+            (argument, logger) ->
                 FutureUtils.combine(
                     context
                         .admin()
@@ -157,12 +158,12 @@ public class TopicNode {
                                   return map;
                                 })
                             .collect(Collectors.toList())))
-        .tableViewAction(
-            Lattice.of(
+        .secondPart(
+            MultiInput.of(
                 List.of(
                     TextInput.of(
                         TopicConfigs.ALL_CONFIGS, EditableText.singleLine().disable().build()))),
-            "ALERT",
+            "ALTER",
             (tables, input, logger) -> {
               var topicsToAlter =
                   tables.stream()
@@ -214,15 +215,8 @@ public class TopicNode {
   }
 
   private static Node basicNode(Context context) {
-    var includeTimestampOfRecord = "max time to wait records";
     return PaneBuilder.of()
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.of(
-                        includeTimestampOfRecord, EditableText.singleLine().hint("3s").build()))))
-        .tableViewAction(
-            null,
+        .secondPart(
             "DELETE",
             (items, inputs, logger) -> {
               var topicsToDelete =
@@ -253,8 +247,9 @@ public class TopicNode {
                       })
                   .thenAccept(ignored -> logger.log("succeed to delete topics: " + topicsToDelete));
             })
-        .tableRefresher(
-            (input, logger) ->
+        .firstPart(
+            "REFRESH",
+            (argument, logger) ->
                 context
                     .admin()
                     .topicNames(true)
@@ -267,23 +262,6 @@ public class TopicNode {
                                     .admin()
                                     .consumerGroupIds()
                                     .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                context
-                                    .admin()
-                                    .topicPartitions(topics)
-                                    .thenCompose(
-                                        tps ->
-                                            input
-                                                .get(includeTimestampOfRecord)
-                                                .map(DurationField::toDuration)
-                                                .map(
-                                                    v ->
-                                                        context
-                                                            .admin()
-                                                            .timestampOfLatestRecords(tps, v))
-                                                .orElseGet(
-                                                    () ->
-                                                        CompletableFuture.completedFuture(
-                                                            Map.<TopicPartition, Long>of()))),
                                 TopicNode::basicResult)))
         .build();
   }
@@ -291,32 +269,33 @@ public class TopicNode {
   public static Node createNode(Context context) {
     var numberOfPartitionsKey = "number of partitions";
     var numberOfReplicasKey = "number of replicas";
+
+    var multiInput =
+        MultiInput.of(
+            List.of(
+                TextInput.required(
+                    TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
+                TextInput.of(numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(
+                    TopicConfigs.CLEANUP_POLICY_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().build()),
+                TextInput.of(
+                    TopicConfigs.COMPRESSION_TYPE_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().build()),
+                TextInput.of(
+                    TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().build())));
+
     return PaneBuilder.of()
-        .clickName("CREATE")
-        .lattice(
-            Lattice.of(
-                List.of(
-                    TextInput.required(
-                        TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
-                    TextInput.of(
-                        numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of(
-                        numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of(
-                        TopicConfigs.CLEANUP_POLICY_CONFIG,
-                        TopicConfigs.ALL_CONFIGS,
-                        EditableText.singleLine().build()),
-                    TextInput.of(
-                        TopicConfigs.COMPRESSION_TYPE_CONFIG,
-                        TopicConfigs.ALL_CONFIGS,
-                        EditableText.singleLine().build()),
-                    TextInput.of(
-                        TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
-                        TopicConfigs.ALL_CONFIGS,
-                        EditableText.singleLine().build()))))
-        .clickListener(
-            (input, logger) -> {
-              var allConfigs = new HashMap<>(input.nonEmptyTexts());
+        .firstPart(
+            multiInput,
+            "CREATE",
+            (argument, logger) -> {
+              var allConfigs = new HashMap<>(argument.nonEmptyTexts());
               var name = allConfigs.remove(TOPIC_NAME_KEY);
               return context
                   .admin()
@@ -341,17 +320,18 @@ public class TopicNode {
                                     .orElse((short) 1))
                             .configs(allConfigs)
                             .run()
-                            .thenAccept(i -> logger.log("succeed to create topic:" + name));
+                            .thenApply(
+                                i -> {
+                                  logger.log("succeed to create topic:" + name);
+                                  return List.of();
+                                });
                       });
             })
         .build();
   }
 
   private static List<Map<String, Object>> basicResult(
-      List<Broker> brokers,
-      List<Partition> partitions,
-      List<ConsumerGroup> groups,
-      Map<TopicPartition, Long> timestampOfLatestRecord) {
+      List<Broker> brokers, List<Partition> partitions, List<ConsumerGroup> groups) {
     var topicSize =
         brokers.stream()
             .flatMap(
@@ -380,15 +360,6 @@ public class TopicNode {
                         e.getValue().stream()
                             .map(Map.Entry::getValue)
                             .collect(Collectors.toSet())));
-    var topicTimestampOfLatestRecords =
-        timestampOfLatestRecord.entrySet().stream()
-            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).max().orElse(-1L)));
     return topicPartitions.keySet().stream()
         .sorted()
         .map(
@@ -406,13 +377,6 @@ public class TopicNode {
                       t -> LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.systemDefault()))
                   .findFirst()
                   .ifPresent(t -> result.put("max timestamp", t));
-              Optional.ofNullable(topicTimestampOfLatestRecords.get(topic))
-                  .ifPresent(
-                      t ->
-                          result.put(
-                              "timestamp of latest record",
-                              LocalDateTime.ofInstant(
-                                  Instant.ofEpochMilli(t), ZoneId.systemDefault())));
               result.put(
                   "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
               ps.stream()

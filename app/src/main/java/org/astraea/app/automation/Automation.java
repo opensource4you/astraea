@@ -25,8 +25,8 @@ import java.util.Properties;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
+import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.performance.Performance;
-import org.astraea.common.argument.NonEmptyStringField;
 
 /**
  * By configuring the parameters in config/automation.properties, control the execution times of
@@ -53,36 +53,32 @@ public class Automation {
           "--replicas",
           "--topic");
 
-  public static void main(String[] args) {
-    try {
-      var properties = new Properties();
-      var arg = org.astraea.common.argument.Argument.parse(new Argument(), args);
-      properties.load(new FileInputStream(arg.address));
-      var whetherDeleteTopic = properties.getProperty("--whetherDeleteTopic").equals("true");
-      var bootstrap = properties.getProperty("--bootstrap.servers");
-      var config = new Properties();
-      config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+  public static void main(String[] args) throws IOException {
+    var properties = new Properties();
+    var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
+    properties.load(new FileInputStream(arg.address));
+    var whetherDeleteTopic = properties.getProperty("--whetherDeleteTopic").equals("true");
+    var bootstrap = properties.getProperty("--bootstrap.servers");
+    var config = new Properties();
+    config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 
-      var i = 0;
-      var times = 0;
-      if (properties.getProperty("--time").equals("Default")) times = 5;
-      else times = Integer.parseInt(properties.getProperty("--time"));
+    var i = 0;
+    var times = 0;
+    if (properties.getProperty("--time").equals("Default")) times = 5;
+    else times = Integer.parseInt(properties.getProperty("--time"));
 
-      while (i < times) {
-        var topicName =
-            Performance.execute(
-                org.astraea.common.argument.Argument.parse(
-                    new Performance.Argument(), performanceArgs(properties)));
-        i++;
-        if (whetherDeleteTopic) {
-          try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
-            adminClient.deleteTopics(topicName);
-          }
+    while (i < times) {
+      var topicName =
+          Performance.execute(
+              org.astraea.app.argument.Argument.parse(
+                  new Performance.Argument(), performanceArgs(properties)));
+      i++;
+      if (whetherDeleteTopic) {
+        try (final AdminClient adminClient = KafkaAdminClient.create(config)) {
+          adminClient.deleteTopics(topicName);
         }
-        System.out.println("=============== " + i + " time Performance Complete! ===============");
       }
-    } catch (IOException e) {
-      e.printStackTrace();
+      System.out.println("=============== " + i + " time Performance Complete! ===============");
     }
   }
 

@@ -16,10 +16,9 @@
  */
 package org.astraea.common.balancer;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -29,14 +28,54 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.NoSufficientMetricsException;
 
 public interface Balancer {
 
   /**
+   * Execute {@link Balancer#offer(ClusterInfo, Duration)}. Retry the plan generation if a {@link
+   * NoSufficientMetricsException} exception occurred.
+   */
+  default Optional<Plan> retryOffer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
+    while (System.currentTimeMillis() < timeoutMs) {
+      try {
+        return offer(currentClusterInfo, Duration.ofMillis(timeoutMs - System.currentTimeMillis()));
+      } catch (NoSufficientMetricsException e) {
+        e.printStackTrace();
+        var remainTimeout = timeoutMs - System.currentTimeMillis();
+        var waitMs = e.suggestedWait().toMillis();
+        if (remainTimeout > waitMs) {
+          Utils.sleep(Duration.ofMillis(waitMs));
+        } else {
+          // This suggested wait time will definitely time out after we woke up
+          throw new RuntimeException(
+              "Execution time will exceeded, "
+                  + "remain: "
+                  + remainTimeout
+                  + "ms, suggestedWait: "
+                  + waitMs
+                  + "ms.",
+              e);
+        }
+      }
+    }
+    throw new RuntimeException("Execution time exceeded: " + timeoutMs);
+  }
+
+  /**
    * @return a rebalance plan
    */
-  Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders);
+  Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout);
+
+  @SuppressWarnings("unchecked")
+  static Balancer create(String classpath, AlgorithmConfig config) {
+    var theClass = Utils.packException(() -> Class.forName(classpath));
+    if (Balancer.class.isAssignableFrom(theClass)) {
+      return create(((Class<? extends Balancer>) theClass), config);
+    } else
+      throw new IllegalArgumentException("Given class is not a balancer: " + theClass.getName());
+  }
 
   /**
    * Initialize an instance of specific Balancer implementation
@@ -57,25 +96,40 @@ public interface Balancer {
   }
 
   class Plan {
-    final RebalancePlanProposal proposal;
-    final ClusterCost clusterCost;
+    final ClusterInfo<Replica> proposal;
+    final ClusterCost initialClusterCost;
+    final ClusterCost proposalClusterCost;
     final List<MoveCost> moveCost;
 
-    public RebalancePlanProposal proposal() {
+    public ClusterInfo<Replica> proposal() {
       return proposal;
     }
 
-    public ClusterCost clusterCost() {
-      return clusterCost;
+    /**
+     * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
+     * generating.
+     */
+    public ClusterCost initialClusterCost() {
+      return initialClusterCost;
+    }
+
+    /** The {@link ClusterCost} score of the proposed new allocation. */
+    public ClusterCost proposalClusterCost() {
+      return proposalClusterCost;
     }
 
     public List<MoveCost> moveCost() {
       return moveCost;
     }
 
-    public Plan(RebalancePlanProposal proposal, ClusterCost clusterCost, List<MoveCost> moveCost) {
+    public Plan(
+        ClusterInfo<Replica> proposal,
+        ClusterCost initialClusterCost,
+        ClusterCost proposalClusterCost,
+        List<MoveCost> moveCost) {
       this.proposal = proposal;
-      this.clusterCost = clusterCost;
+      this.initialClusterCost = initialClusterCost;
+      this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;
     }
   }

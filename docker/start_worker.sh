@@ -19,6 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
+declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
 declare -r VERSION=${REVISION:-${VERSION:-3.3.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/worker.dockerfile
 declare -r CONFLUENT_WORKER=${CONFLUENT_WORKER:-false}
@@ -45,7 +46,8 @@ function showHelp() {
   echo "Required Argument: "
   echo "    bootstrap.servers=node:22222,node:1111   set brokers connection"
   echo "ENV: "
-  echo "    ACCOUNT=skiptests                        set the github account"
+  echo "    KAFKA_ACCOUNT=apache                      set the github account for kafka repo"
+  echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set worker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.3.1                            set version of kafka distribution"
@@ -84,16 +86,14 @@ WORKDIR /
 }
 
 function generateDockerfileBySource() {
-  local repo="https://github.com/apache/kafka"
-  if [[ "$ACCOUNT" != "skiptests" ]]; then
-    repo="https://github.com/${ACCOUNT}/kafka"
-  fi
+  local kafka_repo="https://github.com/${KAFKA_ACCOUNT}/kafka"
+  local repo="https://github.com/${ACCOUNT}/astraea"
 
   echo "# this dockerfile is generated dynamically
 FROM ghcr.io/skiptests/astraea/deps AS build
 
 # build kafka from source code
-RUN git clone $repo /tmp/kafka
+RUN git clone ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
 # generate gradlew for previous
@@ -101,6 +101,10 @@ RUN cp /tmp/kafka/gradlew /tmp/gradlew || /tmp/gradle-5.6.4/bin/gradle
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
+RUN git clone ${repo} /tmp/astraea
+WORKDIR /tmp/astraea
+RUN ./gradlew clean shadowJar
+RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
 FROM ubuntu:22.04
 
@@ -124,8 +128,9 @@ WORKDIR /opt/kafka
 }
 
 function generateDockerfileByVersion() {
+  local repo="https://github.com/${ACCOUNT}/astraea"
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:22.04 AS build
+FROM ghcr.io/skiptests/astraea/deps AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget
@@ -135,7 +140,10 @@ WORKDIR /tmp
 RUN wget https://archive.apache.org/dist/kafka/${VERSION}/kafka_2.13-${VERSION}.tgz
 RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
-WORKDIR /opt/kafka
+RUN git clone ${repo} /tmp/astraea
+WORKDIR /tmp/astraea
+RUN ./gradlew clean shadowJar
+RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
 FROM ubuntu:22.04
 
@@ -199,21 +207,22 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-# set group id
-WORKER_GROUP_ID=$(cat $WORKER_PROPERTIES | grep "group.id" | cut -d "=" -f2)
-if [[ "$WORKER_GROUP_ID" == "" ]]; then
-  # add env LC_CTYPE=C for macOS
-  WORKER_GROUP_ID="worker-"$(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 5 | head -n 1)
-fi
-
 # these properties are set internally
 rejectProperty "offset.storage.topic"
 rejectProperty "config.storage.topic"
 rejectProperty "status.storage.topic"
+rejectProperty "listeners"
+rejectProperty "rest.advertised.host.name"
+rejectProperty "rest.advertised.port"
+rejectProperty "rest.advertised.listener"
 
 requireProperty "bootstrap.servers"
 setPropertyIfEmpty "plugin.path" "/opt/worker-plugins"
-setPropertyIfEmpty "group.id" "$WORKER_GROUP_ID"
+setPropertyIfEmpty "group.id" "worker-$(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 5 | head -n 1)"
+
+# take group id from prop file
+WORKER_GROUP_ID=$(cat $WORKER_PROPERTIES | grep "group.id" | cut -d "=" -f2)
+
 # Use ByteArrayConverter as default key/value converter instead of JsonConverter since there are plenty of non kafka connect applications
 # that may use kafka topics, e.g. spark-kafka-integration only accept bytearray and string format (more info, see https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#kafka-specific-configurations)
 setPropertyIfEmpty "key.converter" "org.apache.kafka.connect.converters.ByteArrayConverter"
@@ -229,6 +238,9 @@ setPropertyIfEmpty "config.storage.replication.factor" "1"
 # Topic to use for storing statuses
 setPropertyIfEmpty "status.storage.topic" "status-$WORKER_GROUP_ID"
 setPropertyIfEmpty "status.storage.replication.factor" "1"
+# this is the hostname/port that will be given out to other workers to connect to
+setPropertyIfEmpty "rest.advertised.host.name" "$ADDRESS"
+setPropertyIfEmpty "rest.advertised.port" "$WORKER_PORT"
 
 # WORKER_PLUGIN_PATH is used to mount connector jars to worker container
 mkdir -p "$WORKER_PLUGIN_PATH"

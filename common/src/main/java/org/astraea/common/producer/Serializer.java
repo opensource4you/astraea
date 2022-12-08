@@ -16,6 +16,7 @@
  */
 package org.astraea.common.producer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
@@ -25,7 +26,10 @@ import org.apache.kafka.common.serialization.FloatSerializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.astraea.common.consumer.Header;
+import org.astraea.common.Header;
+import org.astraea.common.Utils;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 @FunctionalInterface
 public interface Serializer<T> {
@@ -65,4 +69,30 @@ public interface Serializer<T> {
   Serializer<Long> LONG = of(new LongSerializer());
   Serializer<Float> FLOAT = of(new FloatSerializer());
   Serializer<Double> DOUBLE = of(new DoubleSerializer());
+
+  /**
+   * create Custom JsonSerializer
+   *
+   * @return Custom JsonSerializer
+   * @param <T> The type of message being output by the serializer
+   */
+  static <T> Serializer<T> of(TypeRef<T> typeRef) {
+    return new JsonSerializer<>(typeRef);
+  }
+
+  class JsonSerializer<T> implements Serializer<T> {
+    private final String encoding = StandardCharsets.UTF_8.name();
+    private final JsonConverter jackson = JsonConverter.jackson();
+
+    private JsonSerializer(TypeRef<T> typeRef) {}
+
+    @Override
+    public byte[] serialize(String topic, Collection<Header> headers, T data) {
+      if (data == null) {
+        return null;
+      }
+
+      return Utils.packException(() -> jackson.toJson(data).getBytes(encoding));
+    }
+  }
 }

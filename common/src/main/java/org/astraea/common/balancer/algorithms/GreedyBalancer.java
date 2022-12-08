@@ -16,11 +16,13 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.util.Map;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.DoubleAccumulator;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -28,9 +30,9 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.generator.ShufflePlanGenerator;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
+import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.metrics.jmx.MBeanRegister;
 
 /**
  * A single-state hill-climbing algorithm. It discovers rebalance solution by tweaking the cluster
@@ -51,6 +53,7 @@ public class GreedyBalancer implements Balancer {
   private final int minStep;
   private final int maxStep;
   private final int iteration;
+  private final AtomicInteger run = new AtomicInteger();
 
   public GreedyBalancer(AlgorithmConfig algorithmConfig) {
     this.config = algorithmConfig;
@@ -78,48 +81,65 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Plan> offer(
-      ClusterInfo<Replica> currentClusterInfo, Map<Integer, Set<String>> brokerFolders) {
-    final var planGenerator = new ShufflePlanGenerator(minStep, maxStep);
+  public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunctions();
+    final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
-    final var executionTime = config.executionTime().toMillis();
+    final var executionTime = timeout.toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
-    BiFunction<ClusterLogAllocation, ClusterCost, Optional<Balancer.Plan>> next =
+    BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Balancer.Plan>> next =
         (currentAllocation, currentCost) ->
-            planGenerator
-                .generate(brokerFolders, currentAllocation)
+            allocationTweaker
+                .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
-                    proposal -> {
+                    newAllocation -> {
                       var newClusterInfo =
-                          ClusterInfo.update(
-                              currentClusterInfo, tp -> proposal.rebalancePlan().replicas(tp));
+                          ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
                       return new Balancer.Plan(
-                          proposal,
+                          newAllocation,
+                          initialCost,
                           clusterCostFunction.clusterCost(newClusterInfo, metrics),
                           moveCostFunction.stream()
                               .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))
                               .collect(Collectors.toList()));
                     })
-                .filter(plan -> config.clusterConstraint().test(currentCost, plan.clusterCost()))
+                .filter(
+                    plan ->
+                        config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
-    var currentCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
-    var currentAllocation =
-        ClusterLogAllocation.of(ClusterInfo.masked(currentClusterInfo, config.topicFilter()));
+    var currentCost = initialCost;
+    var currentAllocation = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
     var currentPlan = Optional.<Balancer.Plan>empty();
+
+    // register JMX
+    var currentIteration = new LongAdder();
+    var currentMinCost =
+        new DoubleAccumulator((l, r) -> Double.isNaN(r) ? l : Math.min(l, r), initialCost.value());
+    MBeanRegister.local()
+        .setDomainName("astraea.balancer")
+        .addProperty("id", config.executionId())
+        .addProperty("algorithm", GreedyBalancer.class.getSimpleName())
+        .addProperty("run", Integer.toString(run.getAndIncrement()))
+        .addAttribute("Iteration", Long.class, currentIteration::sum)
+        .addAttribute("MinCost", Double.class, currentMinCost::get)
+        .register();
+
     while (true) {
+      currentIteration.add(1);
+      currentMinCost.accumulate(currentCost.value());
       var newPlan = next.apply(currentAllocation, currentCost);
       if (newPlan.isEmpty()) break;
       currentPlan = newPlan;
-      currentCost = currentPlan.get().clusterCost();
-      currentAllocation = currentPlan.get().proposal().rebalancePlan();
+      currentCost = currentPlan.get().proposalClusterCost();
+      currentAllocation = currentPlan.get().proposal();
     }
     return currentPlan;
   }

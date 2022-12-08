@@ -18,7 +18,9 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.junit.jupiter.api.Assertions;
@@ -26,6 +28,33 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class ClusterInfoTest {
+
+  /**
+   * build a cluster info based on replicas. Noted that the node info are collected by the replicas.
+   *
+   * <p>Be aware that the <code>replicas</code> parameter describes <strong>the replica lists of a
+   * subset of topic/partitions</strong>. It doesn't require the topic/partition part to have
+   * cluster-wide complete information. But the replica list has to be complete. Provide a partial
+   * replica list might result in data loss or unintended replica drop during rebalance plan
+   * proposing & execution.
+   *
+   * @param replicas used to build cluster info
+   * @return cluster info
+   * @param <T> ReplicaInfo or Replica
+   */
+  public static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+    // TODO: this method is not suitable for production use. Move it to the test scope.
+    //  see https://github.com/skiptests/astraea/issues/1185
+    return ClusterInfo.of(
+        replicas.stream()
+            .map(ReplicaInfo::nodeInfo)
+            .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
+            .values()
+            .stream()
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableList()),
+        replicas);
+  }
 
   @Test
   void testDiff() {
@@ -37,129 +66,139 @@ public class ClusterInfoTest {
      */
     var beforeReplicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(1, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-02"),
-            Replica.of(
-                "test-1",
-                2,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                true,
-                "/data-folder-01"));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-02")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(true)
+                .path("/data-folder-01")
+                .build());
     var afterReplicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-02"),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(2, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-03"),
-            Replica.of(
-                "test-1",
-                2,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                true,
-                "/data-folder-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"));
-    var nodeInfos = Set.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-02")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-03")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(true)
+                .path("/data-folder-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build());
+    var nodeInfos = List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1));
     var before = ClusterInfo.of(nodeInfos, beforeReplicas);
     var after = ClusterInfo.of(nodeInfos, afterReplicas);
     var changes = ClusterInfo.diff(before, after);
@@ -197,44 +236,47 @@ public class ClusterInfoTest {
   void testReplicaLeadersAndMaskedCluster() {
     var replicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(1, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-02"),
-            Replica.of(
-                "test-1",
-                2,
-                NodeInfo.of(0, "", -1),
-                -1,
-                -1,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/data-folder-01"));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-02")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/data-folder-01")
+                .build());
 
-    var clusterInfo = ClusterInfo.of(replicas);
+    var clusterInfo = ClusterInfoTest.of(replicas);
     var maskedClusterInfoHasReplicas = ClusterInfo.masked(clusterInfo, t -> t.equals("test-1"));
     var maskedClusterInfoNoReplicas =
         ClusterInfo.masked(clusterInfo, t -> t.equals("No topic name the same."));

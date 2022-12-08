@@ -50,10 +50,10 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var replicaOnBroker0 =
           admin
-              .replicas(admin.topicNames(false).toCompletableFuture().join())
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
               .join()
-              .stream()
+              .replicaStream()
               .filter(replica -> replica.nodeInfo().id() == 0)
               .collect(
                   Collectors.groupingBy(
@@ -65,10 +65,10 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
       Assertions.assertNotNull(logFolders().get(2));
       var offlineReplicaOnBroker0 =
           admin
-              .replicas(admin.topicNames(false).toCompletableFuture().join())
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
               .join()
-              .stream()
+              .replicaStream()
               .filter(replica -> replica.nodeInfo().id() == 0)
               .collect(
                   Collectors.groupingBy(

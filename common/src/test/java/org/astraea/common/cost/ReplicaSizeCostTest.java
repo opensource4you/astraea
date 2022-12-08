@@ -18,11 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -71,7 +71,7 @@ class ReplicaSizeCostTest {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        Set.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
+        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
         List.of(
             replicas.get(0),
             replicas.get(1),
@@ -84,156 +84,184 @@ class ReplicaSizeCostTest {
   static ClusterInfo<Replica> originClusterInfo() {
     var replicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                6000000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                6000000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(1, "", -1),
-                -1,
-                700000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(2, "", -1),
-                -1,
-                700000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                800000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(2, "", -1),
-                -1,
-                800000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-02"));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-02")
+                .build());
     return getClusterInfo(replicas);
   }
 
   static ClusterInfo<Replica> newClusterInfo() {
     var replicas =
         List.of(
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(0, "", -1),
-                -1,
-                6000000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                0,
-                NodeInfo.of(2, "", -1),
-                -1,
-                6000000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(0, "", -1),
-                -1,
-                700000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-1",
-                1,
-                NodeInfo.of(2, "", -1),
-                -1,
-                700000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                ""),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(1, "", -1),
-                -1,
-                800000,
-                true,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-01"),
-            Replica.of(
-                "test-2",
-                0,
-                NodeInfo.of(2, "", -1),
-                -1,
-                800000,
-                false,
-                true,
-                false,
-                false,
-                false,
-                "/log-path-03"));
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(6000000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(700000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(true)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-01")
+                .build(),
+            Replica.builder()
+                .topic("test-2")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .lag(-1)
+                .size(800000)
+                .isLeader(false)
+                .inSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("/log-path-03")
+                .build());
     return getClusterInfo(replicas);
+  }
+
+  @Test
+  void testPartitionCost() {
+    var meter = new LogMetrics.Log.Gauge(bean);
+    var cost1 = new ReplicaSizeCost();
+    var cost2 = HasPartitionCost.of(Map.of(new ReplicaSizeCost(), (double) 1));
+    var result1 =
+        cost1.partitionCost(ClusterInfo.empty(), ClusterBean.of(Map.of(0, List.of(meter)))).value();
+    var result2 =
+        cost2.partitionCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter)))).value();
+
+    Assertions.assertEquals(1, result1.size());
+    Assertions.assertEquals(1, result2.size());
+    Assertions.assertEquals(777, result1.get(TopicPartition.of("t", 10)));
+    Assertions.assertEquals(777, result2.get(TopicPartition.of("t", 10)));
   }
 }

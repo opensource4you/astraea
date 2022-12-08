@@ -16,28 +16,24 @@
  */
 package org.astraea.common.partitioner;
 
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.argument.DurationField;
 import org.astraea.common.cost.BrokerCost;
-import org.astraea.common.cost.Configuration;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
-import org.astraea.common.metrics.collector.BeanCollector;
-import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.Receiver;
+import org.astraea.common.metrics.collector.MetricCollector;
 
 /**
  * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target
@@ -60,15 +56,14 @@ public class StrictCostDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
 
-  private final BeanCollector beanCollector =
-      BeanCollector.builder().interval(Duration.ofSeconds(4)).build();
+  // visible for testing
+  final MetricCollector metricCollector =
+      MetricCollector.builder().interval(Duration.ofSeconds(4)).build();
 
   Duration roundRobinLease;
 
   HasBrokerCost costFunction = HasBrokerCost.EMPTY;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
-
-  final Map<Integer, Receiver> receivers = new TreeMap<>();
 
   final int[] roundRobin = new int[ROUND_ROBIN_LENGTH];
 
@@ -76,27 +71,26 @@ public class StrictCostDispatcher implements Dispatcher {
 
   volatile long timeToUpdateRoundRobin = -1;
 
-  // visible for testing
-  Receiver receiver(String host, int port, Fetcher fetcher) {
-    return beanCollector.register().host(host).port(port).fetcher(fetcher).build();
-  }
-
   void tryToUpdateFetcher(ClusterInfo<ReplicaInfo> clusterInfo) {
-    // add new receivers for new brokers
+    // register new nodes to metric collector
     costFunction
         .fetcher()
         .ifPresent(
             fetcher ->
-                clusterInfo.nodes().stream()
-                    .filter(node -> !receivers.containsKey(node.id()))
+                clusterInfo
+                    .nodes()
                     .forEach(
-                        node ->
+                        node -> {
+                          if (!metricCollector.listIdentities().contains(node.id())) {
                             jmxPortGetter
                                 .apply(node.id())
                                 .ifPresent(
                                     port ->
-                                        receivers.put(
-                                            node.id(), receiver(node.host(), port, fetcher)))));
+                                        metricCollector.registerJmx(
+                                            node.id(),
+                                            InetSocketAddress.createUnresolved(node.host(), port)));
+                          }
+                        }));
   }
 
   @Override
@@ -127,14 +121,7 @@ public class StrictCostDispatcher implements Dispatcher {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin =
           RoundRobin.smooth(
-              costToScore(
-                  costFunction.brokerCost(
-                      clusterInfo,
-                      ClusterBean.of(
-                          receivers.entrySet().stream()
-                              .collect(
-                                  Collectors.toMap(
-                                      Map.Entry::getKey, e -> e.getValue().current()))))));
+              costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean())));
       var ids =
           clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
       // TODO: make ROUND_ROBIN_LENGTH configurable ???
@@ -169,7 +156,7 @@ public class StrictCostDispatcher implements Dispatcher {
         PartitionerUtils.parseIdJMXPort(config),
         config
             .string(ROUND_ROBIN_LEASE_KEY)
-            .map(DurationField::toDuration)
+            .map(Utils::toDuration)
             // The duration of updating beans is 4 seconds, so
             // the default duration of updating RR is 4 seconds.
             .orElse(Duration.ofSeconds(4)));
@@ -191,10 +178,16 @@ public class StrictCostDispatcher implements Dispatcher {
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
 
     // put local mbean client first
-    this.costFunction
-        .fetcher()
-        .ifPresent(f -> receivers.put(-1, beanCollector.register().local().fetcher(f).build()));
-    this.roundRobinLease = roundRobinLease;
+    if (!metricCollector.listIdentities().contains(-1)) {
+      this.costFunction
+          .fetcher()
+          .ifPresent(
+              fetcher -> {
+                metricCollector.registerLocalJmx(-1);
+                metricCollector.addFetcher(fetcher);
+              });
+      this.roundRobinLease = roundRobinLease;
+    }
   }
 
   /**
@@ -232,7 +225,6 @@ public class StrictCostDispatcher implements Dispatcher {
 
   @Override
   public void doClose() {
-    receivers.values().forEach(r -> Utils.swallowException(r::close));
-    receivers.clear();
+    metricCollector.close();
   }
 }

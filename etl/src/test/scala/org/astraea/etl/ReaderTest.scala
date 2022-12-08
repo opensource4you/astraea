@@ -169,8 +169,23 @@ class ReaderTest extends RequireBrokerCluster {
 
     assertEquals(1, result.size)
     assertEquals(
-      "{\"name\":\"Michael\",\"age\":\"29\"}",
+      "{\"age\":\"29\",\"name\":\"Michael\"}",
       result("{\"name\":\"Michael\"}")
+    )
+
+    val resultExchange = new DataFrameOp(
+      Seq((29, "Michael")).toDF().toDF("age", "name")
+    ).csvToJSON(columns)
+      .dataFrame()
+      .collectAsList()
+      .asScala
+      .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
+      .toMap
+    println(resultExchange)
+    assertEquals(1, resultExchange.size)
+    assertEquals(
+      "{\"age\":\"29\",\"name\":\"Michael\"}",
+      resultExchange("{\"name\":\"Michael\"}")
     )
   }
 
@@ -193,12 +208,11 @@ class ReaderTest extends RequireBrokerCluster {
 
     assertEquals(1, result.size)
     assertEquals(
-      "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":\"29\"}",
+      "{\"age\":\"29\",\"firstName\":\"Michael\",\"secondName\":\"A\"}",
       result("{\"firstName\":\"Michael\",\"secondName\":\"A\"}")
     )
   }
 
-  @Disabled
   @Test def csvToJsonNullTest(): Unit = {
     val spark = createSpark("local[2]")
     import spark.implicits._
@@ -218,7 +232,7 @@ class ReaderTest extends RequireBrokerCluster {
 
     assertEquals(1, result.size)
     assertEquals(
-      "{\"firstName\":\"Michael\",\"secondName\":\"A\",\"age\":}",
+      "{\"firstName\":\"Michael\",\"secondName\":\"A\"}",
       result("{\"firstName\":\"Michael\",\"secondName\":\"A\"}")
     )
   }
