@@ -135,13 +135,14 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
     var topic = Utils.randomString();
     var partition = 0;
     var leaderSize = 100;
+    var nodes = List.of(NodeInfo.of(0, "aa", 0), NodeInfo.of(1, "aa", 0), NodeInfo.of(2, "aa", 0));
     var replicas =
         List.of(
             Replica.builder()
                 .isLeader(true)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(NodeInfo.of(0, "aa", 0))
+                .nodeInfo(nodes.get(0))
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -149,17 +150,17 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
                 .isLeader(false)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(NodeInfo.of(1, "aa", 0))
+                .nodeInfo(nodes.get(1))
                 .size(20)
                 .build(),
             Replica.builder()
                 .isLeader(false)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(NodeInfo.of(2, "aa", 0))
+                .nodeInfo(nodes.get(2))
                 .size(30)
                 .build());
-    var results = ReplicaNode.allResult(ClusterInfo.of(replicas));
+    var results = ReplicaNode.allResult(ClusterInfo.of(nodes, replicas));
     Assertions.assertEquals(3, results.size());
     Assertions.assertEquals(
         1,

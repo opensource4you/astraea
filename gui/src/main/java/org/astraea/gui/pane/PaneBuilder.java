@@ -176,6 +176,12 @@ public class PaneBuilder {
   }
 
   public PaneBuilder secondPart(
+      String buttonName,
+      Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
+    return secondPart(null, buttonName, action);
+  }
+
+  public PaneBuilder secondPart(
       MultiInput multiInput,
       String buttonName,
       Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {

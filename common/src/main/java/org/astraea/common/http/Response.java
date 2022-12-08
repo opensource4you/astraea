@@ -16,24 +16,38 @@
  */
 package org.astraea.common.http;
 
-import java.net.http.HttpResponse;
-
 public interface Response<T> {
 
   int statusCode();
 
   T body();
 
-  static <T> Response<T> of(HttpResponse<T> response) {
+  static Response<Void> of(int code) {
     return new Response<>() {
+
       @Override
       public int statusCode() {
-        return response.statusCode();
+        return code;
+      }
+
+      @Override
+      public Void body() {
+        return null;
+      }
+    };
+  }
+
+  static <T> Response<T> of(T body, int code) {
+    return new Response<>() {
+
+      @Override
+      public int statusCode() {
+        return code;
       }
 
       @Override
       public T body() {
-        return response.body();
+        return body;
       }
     };
   }

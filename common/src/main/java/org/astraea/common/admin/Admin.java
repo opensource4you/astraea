@@ -23,10 +23,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -146,7 +144,7 @@ public interface Admin extends AutoCloseable {
   /**
    * @return online node information
    */
-  CompletionStage<Set<NodeInfo>> nodeInfos();
+  CompletionStage<List<NodeInfo>> nodeInfos();
 
   /**
    * @return online broker information
@@ -456,7 +454,7 @@ public interface Admin extends AutoCloseable {
       Predicate<ClusterInfo<Replica>> predicate,
       Duration timeout,
       int debounce) {
-    return loop(
+    return Utils.loop(
         () ->
             clusterInfo(topics)
                 .thenApply(predicate::test)
@@ -473,35 +471,7 @@ public interface Admin extends AutoCloseable {
                       throw new RuntimeException(e);
                     }),
         timeout.toMillis(),
-        debounce,
         debounce);
-  }
-
-  static CompletionStage<Boolean> loop(
-      Supplier<CompletionStage<Boolean>> supplier,
-      long remainingMs,
-      final int debounce,
-      int remainingDebounce) {
-    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
-    var start = System.currentTimeMillis();
-    return supplier
-        .get()
-        .thenCompose(
-            match -> {
-              // everything is good!!!
-              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
-
-              // take a break before retry/debounce
-              Utils.sleep(Duration.ofMillis(300));
-
-              var remaining = remainingMs - (System.currentTimeMillis() - start);
-
-              // keep debounce
-              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
-
-              // reset debounce for retry
-              return loop(supplier, remaining, debounce, debounce);
-            });
   }
 
   @Override

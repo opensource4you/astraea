@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -34,7 +35,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.astraea.common.Utils;
 
 public interface JsonConverter {
 
@@ -77,24 +77,30 @@ public interface JsonConverter {
     return new JsonConverter() {
       @Override
       public String toJson(Object src) {
-        return Utils.packException(() -> objectMapper.writeValueAsString(src));
+        try {
+          return objectMapper.writeValueAsString(src);
+        } catch (JsonProcessingException e) {
+          throw new JsonSerializationException(e);
+        }
       }
 
       @Override
       public <T> T fromJson(String json, TypeRef<T> typeRef) {
-        var t =
-            Utils.packException(
-                () ->
-                    objectMapper.readValue(
-                        json,
-                        new TypeReference<T>() { // astraea-986 diamond not work (jdk bug)
-                          @Override
-                          public Type getType() {
-                            return typeRef.getType();
-                          }
-                        }));
-        preventNull("$", t);
-        return t;
+        try {
+          var t =
+              objectMapper.readValue(
+                  json,
+                  new TypeReference<T>() { // astraea-986 diamond not work (jdk bug)
+                    @Override
+                    public Type getType() {
+                      return typeRef.getType();
+                    }
+                  });
+          preventNull("$", t);
+          return t;
+        } catch (JsonProcessingException e) {
+          throw new JsonSerializationException(e);
+        }
       }
     };
   }
@@ -105,7 +111,7 @@ public interface JsonConverter {
    * @param name use prefix to locate the error key
    */
   private static void preventNull(String name, Object obj) {
-    if (obj == null) throw new IllegalArgumentException(name + " can not be null");
+    if (obj == null) throw new JsonSerializationException(name + " can not be null");
 
     var objClass = obj.getClass();
 
@@ -142,6 +148,13 @@ public interface JsonConverter {
     }
     Arrays.stream(objClass.getDeclaredFields())
         .peek(x -> x.setAccessible(true))
-        .forEach(x -> preventNull(name + "." + x.getName(), Utils.packException(() -> x.get(obj))));
+        .forEach(
+            x -> {
+              try {
+                preventNull(name + "." + x.getName(), x.get(obj));
+              } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+              }
+            });
   }
 }

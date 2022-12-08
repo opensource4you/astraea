@@ -16,10 +16,62 @@
  */
 package org.astraea.common.metrics;
 
+import java.util.Objects;
+import java.util.Optional;
+import org.astraea.common.admin.BrokerTopic;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
+
 public interface HasBeanObject {
   BeanObject beanObject();
 
+  default String metricName() {
+    return Objects.requireNonNull(
+        beanObject().properties().get("name"), "beanObject must have metric name");
+  }
+
   default long createdTimestamp() {
     return beanObject().createdTimestamp();
+  }
+
+  /**
+   * @return the topic index of this metric, if the metric can't be indexed by topic, an {@link
+   *     Optional#empty()} will be returned.
+   */
+  default Optional<String> topicIndex() {
+    return Optional.ofNullable(beanObject().properties().get("topic"));
+  }
+
+  /**
+   * @return the partition index of this metric, if the metric can't be indexed by partition, an
+   *     {@link Optional#empty()} will be returned.
+   */
+  default Optional<TopicPartition> partitionIndex() {
+    return topicIndex()
+        .flatMap(
+            topic ->
+                Optional.ofNullable(beanObject().properties().get("partition"))
+                    .map(Integer::parseInt)
+                    .map(partition -> TopicPartition.of(topic, partition)));
+  }
+
+  /**
+   * @return the replica index of this metric, if the metric can't be indexed by replica, an {@link
+   *     Optional#empty()} will be returned.
+   */
+  default Optional<TopicPartitionReplica> replicaIndex(int broker) {
+    return partitionIndex()
+        .map(
+            topicPartition ->
+                TopicPartitionReplica.of(
+                    topicPartition.topic(), topicPartition.partition(), broker));
+  }
+
+  /**
+   * @return the broker-topic index of this metric, if the metric can't be indexed by broker-topic,
+   *     an {@link Optional#empty()} will be returned.
+   */
+  default Optional<BrokerTopic> brokerTopicIndex(int broker) {
+    return topicIndex().map(topic -> BrokerTopic.of(broker, topic));
   }
 }

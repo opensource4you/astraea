@@ -16,14 +16,19 @@
  */
 package org.astraea.common;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -31,6 +36,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.management.InstanceNotFoundException;
 
 public final class Utils {
 
@@ -115,6 +121,10 @@ public final class Utils {
   public static <R> R packException(Getter<R> getter) {
     try {
       return getter.get();
+    } catch (IOException exception) {
+      throw new UncheckedIOException(exception);
+    } catch (InstanceNotFoundException e) {
+      throw new NoSuchElementException(e.getMessage());
     } catch (RuntimeException exception) {
       throw exception;
     } catch (ExecutionException exception) {
@@ -151,14 +161,33 @@ public final class Utils {
     }
   }
 
+  @SuppressWarnings("unchecked")
+  public static <T> T construct(String path, Class<T> baseClass, Configuration configuration) {
+    try {
+      var clz = Class.forName(path);
+      if (!baseClass.isAssignableFrom(clz))
+        throw new IllegalArgumentException(
+            path + " class is not sub class of " + baseClass.getName());
+      return construct((Class<T>) clz, configuration);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public static <T> T construct(Class<T> target, Configuration configuration) {
     try {
       // case 0: create the class by the given configuration
       var constructor = target.getConstructor(Configuration.class);
+      constructor.setAccessible(true);
       return packException(() -> constructor.newInstance(configuration));
     } catch (NoSuchMethodException e) {
       // case 1: create the class by empty constructor
-      return packException(() -> target.getConstructor().newInstance());
+      return packException(
+          () -> {
+            var constructor = target.getConstructor();
+            constructor.setAccessible(true);
+            return constructor.newInstance();
+          });
     }
   }
 
@@ -189,32 +218,12 @@ public final class Utils {
    * @param done a flag indicating the result.
    */
   public static void waitFor(Supplier<Boolean> done, Duration timeout) {
-    waitForNonNull(() -> done.get() ? "good" : null, timeout);
-  }
-
-  public static <T> T waitForNonNull(Supplier<T> supplier, Duration timeout) {
-    return waitForNonNull(supplier, timeout, Duration.ofSeconds(1));
-  }
-
-  /**
-   * loop the supplier until it returns non-null value. The exception arisen in the waiting get
-   * ignored if the supplier offers the non-null value in the end.
-   *
-   * @param supplier to loop
-   * @param timeout to break the loop
-   * @param retryInterval the time interval between each supplier call
-   * @param <T> returned type
-   * @return value from supplier
-   */
-  public static <T> T waitForNonNull(
-      Supplier<T> supplier, Duration timeout, Duration retryInterval) {
     var endTime = System.currentTimeMillis() + timeout.toMillis();
     Exception lastError = null;
     while (System.currentTimeMillis() <= endTime)
       try {
-        var r = supplier.get();
-        if (r != null) return r;
-        Utils.sleep(retryInterval);
+        if (done.get()) return;
+        Utils.sleep(Duration.ofSeconds(1));
       } catch (Exception e) {
         lastError = e;
       }
@@ -232,10 +241,6 @@ public final class Utils {
     if (value <= 0)
       throw new IllegalArgumentException("the value: " + value + " must be bigger than zero");
     return value;
-  }
-
-  public static boolean notNegative(int value) {
-    return value >= 0;
   }
 
   /**
@@ -338,6 +343,44 @@ public final class Utils {
   public static Pattern wildcardToPattern(String string) {
     return Pattern.compile(
         string.replaceAll("\\?", ".").replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE);
+  }
+
+  /**
+   * @param supplier check logic
+   * @param remainingMs to break loop
+   * @param debounce to double-check the status. Some brokers may return out-of-date cluster state,
+   *     so you can set a positive value to keep the loop until to debounce is completed
+   */
+  public static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier, long remainingMs, final int debounce) {
+    return loop(supplier, remainingMs, debounce, debounce);
+  }
+
+  private static CompletionStage<Boolean> loop(
+      Supplier<CompletionStage<Boolean>> supplier,
+      long remainingMs,
+      final int debounce,
+      int remainingDebounce) {
+    if (remainingMs <= 0) return CompletableFuture.completedFuture(false);
+    var start = System.currentTimeMillis();
+    return supplier
+        .get()
+        .thenCompose(
+            match -> {
+              // everything is good!!!
+              if (match && remainingDebounce <= 0) return CompletableFuture.completedFuture(true);
+
+              // take a break before retry/debounce
+              Utils.sleep(Duration.ofMillis(300));
+
+              var remaining = remainingMs - (System.currentTimeMillis() - start);
+
+              // keep debounce
+              if (match) return loop(supplier, remaining, debounce, remainingDebounce - 1);
+
+              // reset debounce for retry
+              return loop(supplier, remaining, debounce, debounce);
+            });
   }
 
   private Utils() {}

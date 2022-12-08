@@ -18,16 +18,15 @@ package org.astraea.fs.local;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
+import org.astraea.common.Utils;
 import org.astraea.fs.FileSystem;
 import org.astraea.fs.Type;
 
@@ -53,7 +52,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public void mkdir(String path) {
+  public synchronized void mkdir(String path) {
     var folder = resolvePath(path);
     if (folder.isFile()) throw new IllegalArgumentException(path + " is a file");
     if (folder.isDirectory()) return;
@@ -61,7 +60,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public List<String> listFiles(String path) {
+  public synchronized List<String> listFiles(String path) {
     var folder = resolvePath(path);
     if (!folder.isDirectory()) throw new IllegalArgumentException(path + " is not a folder");
     var fs = folder.listFiles(File::isFile);
@@ -73,7 +72,7 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public List<String> listFolders(String path) {
+  public synchronized List<String> listFolders(String path) {
     var folder = resolvePath(path);
     if (!folder.isDirectory()) throw new IllegalArgumentException(path + " is not a folder");
     var fs = folder.listFiles(File::isDirectory);
@@ -85,12 +84,12 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public void delete(String path) {
+  public synchronized void delete(String path) {
     if (path.equals("/")) throw new IllegalArgumentException("can't delete whole root folder");
     delete(path, resolvePath(path));
   }
 
-  private void delete(String root, File file) {
+  private synchronized void delete(String root, File file) {
     if (!file.exists()) return;
     if (file.isFile() && !file.delete())
       throw new IllegalArgumentException("failed to delete " + root);
@@ -102,28 +101,26 @@ public class LocalFileSystem implements FileSystem {
   }
 
   @Override
-  public InputStream read(String path) {
-    if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
-    try {
-      return new FileInputStream(resolvePath(path));
-    } catch (FileNotFoundException e) {
-      throw new UncheckedIOException(e);
-    }
+  public synchronized InputStream read(String path) {
+    return Utils.packException(
+        () -> {
+          if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
+          return new FileInputStream(resolvePath(path));
+        });
   }
 
   @Override
-  public OutputStream write(String path) {
-    if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
-    mkdir(FileSystem.parent(path));
-    try {
-      return new FileOutputStream(resolvePath(path));
-    } catch (FileNotFoundException e) {
-      throw new UncheckedIOException(e);
-    }
+  public synchronized OutputStream write(String path) {
+    return Utils.packException(
+        () -> {
+          if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
+          FileSystem.parent(path).ifPresent(this::mkdir);
+          return new FileOutputStream(resolvePath(path));
+        });
   }
 
   @Override
-  public Type type(String path) {
+  public synchronized Type type(String path) {
     var f = resolvePath(path);
     if (!f.exists()) return Type.NONEXISTENT;
     if (f.isDirectory()) return Type.FOLDER;

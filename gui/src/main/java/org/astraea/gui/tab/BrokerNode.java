@@ -229,7 +229,7 @@ public class BrokerNode {
                                 .map(
                                     entry -> {
                                       var result = new LinkedHashMap<String, Object>();
-                                      result.put(BROKER_ID_KEY, entry.getKey().id());
+                                      result.put(BROKER_ID_KEY, entry.getKey());
                                       entry.getValue().stream()
                                           .flatMap(e -> e.getValue().entrySet().stream())
                                           .sorted(
@@ -376,7 +376,7 @@ public class BrokerNode {
         (id, path) ->
             context.hasMetrics()
                 ? context.clients().entrySet().stream()
-                    .filter(e -> e.getKey().id() == id)
+                    .filter(e -> e.getKey() == id)
                     .findFirst()
                     .map(Map.Entry::getValue)
                     .map(

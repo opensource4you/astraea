@@ -20,6 +20,7 @@ import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +54,6 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -240,7 +240,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var currentClusterInfo =
           ClusterInfo.of(
-              Set.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
               List.of(
                   Replica.builder()
                       .topic("topic")
@@ -256,23 +256,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .path("/tmp/aa")
                       .build()));
 
-      var clusterLogAllocation =
-          ClusterLogAllocation.of(
-              ClusterInfo.of(
-                  List.of(
-                      Replica.builder()
-                          .topic("topic")
-                          .partition(0)
-                          .nodeInfo(NodeInfo.of(11, "host", 22))
-                          .lag(0)
-                          .size(100)
-                          .isLeader(true)
-                          .inSync(true)
-                          .isFuture(false)
-                          .isOffline(false)
-                          .isPreferredLeader(true)
-                          .path("/tmp/aa")
-                          .build())));
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction =
@@ -603,18 +586,18 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .join();
 
       // debounce wait
-      for (int i = 0; i < 2; i++) {
-        Utils.waitForNonNull(
-            () ->
-                admin
-                    .clusterInfo(Set.of(theTopic))
-                    .toCompletableFuture()
-                    .join()
-                    .replicaStream()
-                    .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
-            Duration.ofSeconds(10),
-            Duration.ofMillis(10));
-      }
+      Assertions.assertTrue(
+          admin
+              .waitCluster(
+                  Set.of(theTopic),
+                  clusterInfo ->
+                      clusterInfo
+                          .replicaStream()
+                          .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
+                  Duration.ofSeconds(10),
+                  2)
+              .toCompletableFuture()
+              .join());
 
       Assertions.assertInstanceOf(
           IllegalStateException.class,
@@ -684,9 +667,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   // BalancerHandler#put
                   .thenApplyAsync(
                       i -> {
-                        System.out.println("before block");
                         Utils.packException(() -> latch.await());
-                        System.out.println("after block");
                         return i;
                       });
             }
@@ -730,9 +711,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNull(progress1.exception);
 
       // it is done
-      System.out.println("before countDown");
       theExecutor.latch.countDown();
-      System.out.println("after countDown");
       Utils.sleep(Duration.ofSeconds(1));
       var progress2 =
           Assertions.assertInstanceOf(
@@ -1066,7 +1045,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       FetcherAndCost.callback.set(
           (clusterBean) -> {
             var metrics =
-                clusterBean.all().get(0).stream()
+                clusterBean.all().values().stream()
+                    .flatMap(Collection::stream)
                     .filter(x -> x instanceof JvmMemory)
                     .collect(Collectors.toUnmodifiableSet());
             if (metrics.size() < 3)
