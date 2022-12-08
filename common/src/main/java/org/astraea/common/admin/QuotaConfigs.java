@@ -18,12 +18,14 @@ package org.astraea.common.admin;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.EnumInfo;
 
 public final class QuotaConfigs {
 
-  public enum QuotaKeys {
+  public enum QuotaKeys implements EnumInfo {
     // ---------------------------------[target key]---------------------------------//
     USER("user"),
     CLIENT_ID("clientId", "client-id"),
@@ -42,7 +44,7 @@ public final class QuotaConfigs {
         Arrays.stream(QuotaKeys.values())
             .collect(Collectors.toMap(x -> x.kafkaValue, Function.identity()));
 
-    public static QuotaKeys of(String value) {
+    public static QuotaKeys ofAlias(String value) {
       return quotaKeysMap.get(value);
     }
 
@@ -69,6 +71,16 @@ public final class QuotaConfigs {
 
     public String kafkaValue() {
       return kafkaValue;
+    }
+
+    @Override
+    public String alias() {
+      return value;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
   }
 
