@@ -26,7 +26,6 @@ import org.astraea.app.backup.Exporter;
 import org.astraea.app.backup.ImportCsv;
 import org.astraea.app.backup.Importer;
 import org.astraea.app.performance.Performance;
-import org.astraea.app.scenario.ScenarioMain;
 import org.astraea.app.version.Version;
 import org.astraea.app.web.WebService;
 
@@ -39,8 +38,6 @@ public class App {
           Automation.class,
           "web",
           WebService.class,
-          "scenario",
-          ScenarioMain.class,
           "version",
           Version.class,
           "export",

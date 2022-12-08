@@ -25,13 +25,16 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -43,7 +46,6 @@ import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.scenario.Scenario;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -78,15 +80,19 @@ class BalancerTest extends RequireBrokerCluster {
                           .mapToLong(x -> x)
                           .min()
                           .orElseThrow();
-      Scenario.build(0.1)
-          .topicName(topicName)
-          .numberOfPartitions(100)
-          .numberOfReplicas((short) 1)
-          .binomialProbability(0.1)
-          .build()
-          .apply(admin)
+
+      admin.creator().topic(topicName).numberOfPartitions(100).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
+      admin
+          .moveToBrokers(
+              IntStream.range(0, 100)
+                  .mapToObj(i -> TopicPartition.of(topicName, i))
+                  .collect(
+                      Collectors.toMap(
+                          Function.identity(), ignored -> List.of(brokerIds().iterator().next()))))
           .toCompletableFuture()
           .join();
+
       var imbalanceFactor0 = currentImbalanceFactor.get();
       Assertions.assertNotEquals(
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
