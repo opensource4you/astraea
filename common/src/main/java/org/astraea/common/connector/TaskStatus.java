@@ -16,18 +16,24 @@
  */
 package org.astraea.common.connector;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Optional;
 
+/** this is not a kind of json response from kafka. */
 public class TaskStatus {
 
-  private int id;
-  private String state;
+  private final int id;
+  private final String state;
 
-  @JsonProperty("worker_id")
-  private String workerId;
+  private final String workerId;
 
-  private Optional<String> trace = Optional.empty();
+  private final Optional<String> error;
+
+  TaskStatus(int id, String state, String workerId, Optional<String> error) {
+    this.id = id;
+    this.state = state;
+    this.workerId = workerId;
+    this.error = error;
+  }
 
   public int id() {
     return id;
@@ -41,7 +47,7 @@ public class TaskStatus {
     return workerId;
   }
 
-  public Optional<String> trace() {
-    return trace;
+  public Optional<String> error() {
+    return error;
   }
 }

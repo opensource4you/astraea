@@ -17,6 +17,7 @@
 package org.astraea.common.connector;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -33,6 +34,7 @@ import org.astraea.common.http.HttpRequestException;
  */
 public interface ConnectorClient {
 
+  String NAME_KEY = "name";
   String CONNECTOR_CLASS_KEY = "connector.class";
   String TASK_MAX_KEY = "tasks.max";
   String TOPICS_KEY = "topics";
@@ -41,7 +43,12 @@ public interface ConnectorClient {
     return new Builder();
   }
 
-  CompletionStage<WorkerInfo> info();
+  /**
+   * list the workers having running connectors
+   *
+   * @return worker hostname and port.
+   */
+  CompletionStage<List<WorkerStatus>> activeWorkers();
 
   CompletionStage<Set<String>> connectorNames();
 
@@ -54,6 +61,8 @@ public interface ConnectorClient {
   CompletionStage<ConnectorInfo> updateConnector(String name, Map<String, String> config);
 
   CompletionStage<Void> deleteConnector(String name);
+
+  CompletionStage<Validation> validate(String name, Map<String, String> configs);
 
   CompletionStage<Set<PluginInfo>> plugins();
 

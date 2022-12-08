@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.astraea.app.argument.Field;
 import org.astraea.common.EnumInfo;
-import org.astraea.common.argument.Field;
 
 /**
  * Random distribution generator. Example: {@code Supplier<long> uniformDistribution =

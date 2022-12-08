@@ -18,6 +18,7 @@ package org.astraea.common.connector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,17 +42,45 @@ import org.astraea.common.connector.impl.TestErrorSourceConnector;
 import org.astraea.common.connector.impl.TestTextSourceConnector;
 import org.astraea.common.http.HttpRequestException;
 import org.astraea.it.RequireWorkerCluster;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ConnectorClientTest extends RequireWorkerCluster {
+  @Test
+  void testValidate() {
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var validation =
+        connectorClient
+            .validate(
+                "TestTextSourceConnector",
+                Map.of(
+                    ConnectorClient.CONNECTOR_CLASS_KEY, TestTextSourceConnector.class.getName()))
+            .toCompletableFuture()
+            .join();
+    assertNotEquals(0, validation.errorCount());
+  }
 
   @Test
-  void testInfo() {
+  void testWorkerStatus() {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
-    var info = connectorClient.info().toCompletableFuture().join();
-    assertFalse(isBlank(info.commit()));
-    assertFalse(isBlank(info.version()));
-    assertFalse(isBlank(info.kafkaClusterId()));
+    // make all workers busy
+    connectorClient
+        .createConnector(Utils.randomString(), getExampleConnector())
+        .toCompletableFuture()
+        .join();
+    Utils.sleep(Duration.ofSeconds(3));
+
+    var workers = connectorClient.activeWorkers().toCompletableFuture().join();
+    Assertions.assertNotEquals(0, workers.size());
+    Assertions.assertEquals(
+        workers.stream()
+            .map(
+                w ->
+                    Utils.packException(
+                        () -> new URL("http://" + w.hostname() + ":" + w.port() + "/")))
+            .collect(Collectors.toSet()),
+        Set.copyOf(workerUrls()));
+    workers.forEach(w -> Assertions.assertNotEquals(0, w.numberOfConnectors() + w.numberOfTasks()));
   }
 
   @Test
@@ -118,7 +147,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals(3, connectorInfo.tasks().size());
     assertTrue(
         connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connectorName())));
-    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::taskId).distinct().count());
+    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::id).distinct().count());
   }
 
   @Test
@@ -159,6 +188,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals(connectorName, status.name());
     assertEquals("RUNNING", status.state());
     assertEquals(2, status.tasks().size());
+    assertNotEquals(0, status.configs().size());
     status.tasks().forEach(t -> assertEquals("RUNNING", t.state()));
   }
 

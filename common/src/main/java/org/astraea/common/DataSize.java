@@ -312,24 +312,4 @@ public class DataSize implements Comparable<DataSize> {
   public interface DataSizeSource {
     DataSize of(long measurement);
   }
-
-  public static class Field extends org.astraea.common.argument.Field<DataSize> {
-    /**
-     * Convert string to DataSize.
-     *
-     * <pre>{@code
-     * DataSize.of("500KB");  // 500 KB  (500 * 1000 bytes)
-     * DataSize.of("500KiB"); // 500 KiB (500 * 1024 bytes)
-     * DataSize.of("500Kb");  // 500 Kb  (500 * 1000 bits)
-     * DataSize.of("500Kib"); // 500 Kib (500 * 1024 bits)
-     * }</pre>
-     *
-     * @param argument number and the unit. e.g. "500MiB", "9876 KB"
-     * @return a data size object of given measurement under specific data unit.
-     */
-    @Override
-    public DataSize convert(String argument) {
-      return DataSize.of(argument);
-    }
-  }
 }
