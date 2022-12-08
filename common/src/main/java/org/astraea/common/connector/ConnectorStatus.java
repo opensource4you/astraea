@@ -18,20 +18,47 @@ package org.astraea.common.connector;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
+/** this is not a kind of json response from kafka. */
 public class ConnectorStatus {
 
-  private String name;
-  private Map<String, String> connector;
-  private List<TaskStatus> tasks;
+  private final String name;
+
+  private final String state;
+
+  private final String workerId;
+
+  private final Map<String, String> configs;
+
+  private final List<TaskStatus> tasks;
+
+  ConnectorStatus(
+      String name,
+      String state,
+      String workerId,
+      Map<String, String> configs,
+      List<TaskStatus> tasks) {
+    this.name = name;
+    this.state = state;
+    this.workerId = workerId;
+    this.configs = configs;
+    this.tasks = tasks;
+  }
 
   public String name() {
     return name;
   }
 
   public String state() {
-    return Objects.requireNonNull(connector.get("state"));
+    return state;
+  }
+
+  public String workerId() {
+    return workerId;
+  }
+
+  public Map<String, String> configs() {
+    return configs;
   }
 
   public List<TaskStatus> tasks() {
