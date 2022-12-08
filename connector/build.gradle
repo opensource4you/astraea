@@ -11,12 +11,14 @@ repositories {
 def versions = [
         kafka: project.properties['kafka.version'] ?: "3.3.1",
         junit: project.properties['junit.version'] ?: "5.9.1",
+        net: project.properties['net.version'] ?: "3.8.0",
 ]
 
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation project(':it')
     testImplementation "org.apache.kafka:connect-api:${versions["kafka"]}"
+    testImplementation "commons-net:commons-net:${versions["net"]}"
 
     implementation (project(':common')) {
         // those dependencies are included by kafka worker

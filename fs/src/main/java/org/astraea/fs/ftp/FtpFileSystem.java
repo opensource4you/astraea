@@ -64,7 +64,7 @@ public class FtpFileSystem implements FileSystem {
     return Utils.packException(
         () -> {
           var stats = client.getStatus(path);
-          if (stats.length() == 40) return Type.NONEXISTENT;
+          if (stats == null || stats.length() == 40) return Type.NONEXISTENT;
           // var fs = client.listFiles(path);
           // RFC 959: If the pathname specifies a file then the server should send current
           // information on the file
