@@ -17,7 +17,7 @@ dependencies {
     testImplementation project(':it')
 
     implementation (project(':common')) {
-        // those dependencies are included by kafka worker
+        // those dependencies are not used by fs module
         exclude group: "org.apache.kafka"
         exclude group: "com.fasterxml.jackson.datatype"
         exclude group: "org.slf4j"
