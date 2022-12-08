@@ -19,6 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
+declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
 declare -r VERSION=${REVISION:-${VERSION:-3.3.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r CONFLUENT_BROKER=${CONFLUENT_BROKER:-false}
@@ -64,7 +65,8 @@ function showHelp() {
   echo "    num.io.threads=10                        set broker I/O threads"
   echo "    num.network.threads=10                   set broker network threads"
   echo "ENV: "
-  echo "    ACCOUNT=skiptests                      set the github account"
+  echo "    KAFKA_ACCOUNT=apache                      set the github account for kafka repo"
+  echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.3.1                            set version of kafka distribution"
@@ -112,11 +114,7 @@ WORKDIR /
 }
 
 function generateDockerfileBySource() {
-  local repo="https://github.com/apache/kafka"
-  if [[ "$ACCOUNT" != "skiptests" ]]; then
-    repo="https://github.com/${ACCOUNT}/kafka"
-  fi
-
+  local kafka_repo="https://github.com/${KAFKA_ACCOUNT}/kafka"
   echo "# this dockerfile is generated dynamically
 FROM ghcr.io/skiptests/astraea/deps AS build
 
@@ -127,7 +125,7 @@ RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/exampl
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
-RUN git clone $repo /tmp/kafka
+RUN git clone ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
 # generate gradlew for previous

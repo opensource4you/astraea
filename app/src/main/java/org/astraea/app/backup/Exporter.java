@@ -26,12 +26,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.LongAdder;
+import org.astraea.app.argument.DataSizeField;
+import org.astraea.app.argument.PathField;
+import org.astraea.app.argument.StringSetField;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.PathField;
-import org.astraea.common.argument.StringSetField;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -50,7 +51,7 @@ public class Exporter {
   public static Map<TopicPartition, Stat> execute(Argument argument) {
     if (!argument.output.toFile().isDirectory())
       throw new IllegalArgumentException("--output must be a existent folder");
-    try (var fs = FileSystem.local(Configuration.EMPTY)) {
+    try (var fs = FileSystem.of("local", Configuration.EMPTY)) {
       var iter =
           Consumer.forTopics(Set.copyOf(argument.topics))
               .bootstrapServers(argument.bootstrapServers())
@@ -93,7 +94,7 @@ public class Exporter {
     }
   }
 
-  static class Argument extends org.astraea.common.argument.Argument {
+  static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
         names = {"--topics"},
@@ -119,7 +120,7 @@ public class Exporter {
     @Parameter(
         names = {"--archive.size"},
         description = "DataSize: the max size of a archive file",
-        converter = DataSize.Field.class)
+        converter = DataSizeField.class)
     DataSize size = DataSize.MB.of(100);
   }
 

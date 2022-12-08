@@ -26,10 +26,10 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -52,12 +52,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
 
       Utils.sleep(Duration.ofSeconds(2));
 
-      var originalAllocation =
-          admin
-              .clusterInfo(Set.of(topicName))
-              .thenApply(ClusterLogAllocation::of)
-              .toCompletableFuture()
-              .join();
+      var originalAllocation = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
 
       Utils.sleep(Duration.ofSeconds(3));
 
@@ -103,7 +98,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
               .stream()
               .flatMap(Collection::stream)
               .collect(Collectors.toUnmodifiableList());
-      final var expectedAllocation = ClusterLogAllocation.of(ClusterInfo.of(allocation));
+      final var expectedAllocation = ClusterInfoTest.of(allocation);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 
       var execute =
@@ -112,11 +107,7 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
       execute.toCompletableFuture().join();
 
       final var CurrentAllocation =
-          admin
-              .clusterInfo(Set.of(topicName))
-              .thenApply(ClusterLogAllocation::of)
-              .toCompletableFuture()
-              .join();
+          admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
 
       final var CurrentTopicPartition = CurrentAllocation.topicPartitions();
 

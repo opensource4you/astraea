@@ -38,8 +38,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.app.argument.DataSizeField;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -62,6 +62,7 @@ import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.collector.MetricSensors;
 
 class BalancerHandler implements Handler {
 
@@ -160,6 +161,7 @@ class BalancerHandler implements Handler {
                   var bestPlan =
                       metricContext(
                           fetchers,
+                          request.configBuilder.get().build().clusterCostFunction().sensors(),
                           (metricSource) ->
                               Balancer.create(
                                       request.balancerClasspath,
@@ -217,12 +219,14 @@ class BalancerHandler implements Handler {
 
   private Optional<Balancer.Plan> metricContext(
       Collection<Fetcher> fetchers,
+      Collection<MetricSensors> metricSensors,
       Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
       freshJmxAddresses().forEach(collector::registerJmx);
       fetchers.forEach(collector::addFetcher);
+      metricSensors.forEach(collector::addMetricSensors);
       return execution.apply(collector::clusterBean);
     }
   }
@@ -321,7 +325,7 @@ class BalancerHandler implements Handler {
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<List<MoveCost>> movementConstraint(BalancerPostRequest request) {
-    var converter = new DataSize.Field();
+    var converter = new DataSizeField();
     var replicaSizeLimit = request.maxMigrateSize.map(x -> converter.convert(x).bytes());
     var leaderNumLimit = request.maxMigratedLeader.map(Integer::parseInt);
     return moveCosts ->

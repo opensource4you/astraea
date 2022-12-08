@@ -16,7 +16,6 @@
  */
 package org.astraea.common.consumer.assignor;
 
-import com.beust.jcommander.ParameterException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -98,7 +97,7 @@ public final class Subscription {
             item -> {
               var keyValue = item.split("=");
               if (keyValue.length != 2)
-                throw new ParameterException("incorrect userData format: " + item);
+                throw new IllegalArgumentException("incorrect userData format: " + item);
               return Map.entry(keyValue[0], keyValue[1]);
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

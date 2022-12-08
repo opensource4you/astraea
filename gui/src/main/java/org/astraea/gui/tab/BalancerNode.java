@@ -291,7 +291,7 @@ public class BalancerNode {
                     EditableText.singleLine().hint("30KB,200MB,1GB").build())));
     return PaneBuilder.of(TableViewer.disableQuery())
         .firstPart(selectBox, multiInput, "PLAN", refresher(context))
-        .secondPart(null, "EXECUTE", tableViewAction(context))
+        .secondPart("EXECUTE", tableViewAction(context))
         .build();
   }
 }

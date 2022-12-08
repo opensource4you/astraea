@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import com.sun.net.httpserver.HttpExchange;
-import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -197,16 +196,14 @@ interface Channel {
               .collect(Collectors.toMap(p -> p.split("=")[0], p -> p.split("=")[1]));
         };
 
-    Function<InputStream, PostRequest> parsePostRequest =
-        stream -> {
-          var bs = Utils.packException(stream::readAllBytes);
+    Function<byte[], PostRequest> parsePostRequest =
+        bs -> {
           if (bs == null || bs.length == 0) return PostRequest.EMPTY;
           return PostRequest.of(new String(bs, StandardCharsets.UTF_8));
         };
 
-    Function<InputStream, String> parseRequest =
-        stream -> {
-          var bs = Utils.packException(stream::readAllBytes);
+    Function<byte[], String> parseRequest =
+        bs -> {
           if (bs == null || bs.length == 0) return null;
           return new String(bs, StandardCharsets.UTF_8);
         };
@@ -226,12 +223,16 @@ interface Channel {
               return Type.UNKNOWN;
           }
         };
+
+    // TODO: there is a temporary needed for reading the network stream twice
+    //  remove this hack in future
+    byte[] requestBytes = Utils.packException(() -> exchange.getRequestBody().readAllBytes());
     return builder()
         .type(parseType.apply(exchange.getRequestMethod()))
         .target(parseTarget.apply(exchange.getRequestURI()))
         .queries(parseQueries.apply(exchange.getRequestURI()))
-        .request(parsePostRequest.apply(exchange.getRequestBody()))
-        .request(parseRequest.apply(exchange.getRequestBody()))
+        .request(parsePostRequest.apply(requestBytes))
+        .request(parseRequest.apply(requestBytes))
         .sender(
             response -> {
               var responseData = response.json().getBytes(StandardCharsets.UTF_8);
