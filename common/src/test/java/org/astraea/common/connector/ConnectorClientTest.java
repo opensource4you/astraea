@@ -176,14 +176,14 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals("myTopic2", connector.config().get("topics"));
 
     // wait for syncing configs
-    Utils.sleep(Duration.ofSeconds(2));
+    Utils.sleep(Duration.ofSeconds(3));
     connector = connectorClient.connectorInfo(connectorName).toCompletableFuture().join();
     assertEquals("2", connector.config().get("tasks.max"));
     assertEquals("myTopic2", connector.config().get("topics"));
     assertEquals(2, connector.tasks().size());
 
     // wait for syncing configs
-    Utils.sleep(Duration.ofSeconds(2));
+    Utils.sleep(Duration.ofSeconds(3));
     var status = connectorClient.connectorStatus(connectorName).toCompletableFuture().join();
     assertEquals(connectorName, status.name());
     assertEquals("RUNNING", status.state());
