@@ -140,10 +140,13 @@ public class StrictCostDispatcher implements Dispatcher {
    */
   static Map<Integer, Double> costToScore(BrokerCost cost) {
     var max = cost.value().values().stream().max(Double::compare);
+    var min = cost.value().values().stream().min(Double::compare);
     return max.map(
             m ->
                 cost.value().entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> m - e.getValue())))
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey, e -> m - e.getValue() + min.orElse(0.0))))
         .orElse(cost.value());
   }
 
