@@ -141,21 +141,29 @@ public interface ClusterBean {
 
   default <Bean extends HasBeanObject> Stream<Bean> topicMetrics(
       String topic, Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.topicIndex()).get(topic).stream();
+    return map(metricClass, (id, bean) -> bean.topicIndex())
+        .getOrDefault(topic, List.of())
+        .stream();
   }
 
   default <Bean extends HasBeanObject> Stream<Bean> partitionMetrics(
       TopicPartition topicPartition, Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.partitionIndex()).get(topicPartition).stream();
+    return map(metricClass, (id, bean) -> bean.partitionIndex())
+        .getOrDefault(topicPartition, List.of())
+        .stream();
   }
 
   default <Bean extends HasBeanObject> Stream<Bean> replicaMetrics(
       TopicPartitionReplica replica, Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.replicaIndex(id)).get(replica).stream();
+    return map(metricClass, (id, bean) -> bean.replicaIndex(id))
+        .getOrDefault(replica, List.of())
+        .stream();
   }
 
   default <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
       BrokerTopic brokerTopic, Class<Bean> metricClass) {
-    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id)).get(brokerTopic).stream();
+    return map(metricClass, (id, bean) -> bean.brokerTopicIndex(id))
+        .getOrDefault(brokerTopic, List.of())
+        .stream();
   }
 }
