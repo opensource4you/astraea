@@ -18,7 +18,6 @@ package org.astraea.connector;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.atomic.LongAdder;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.TopicPartition;
@@ -38,7 +37,6 @@ public class FtpSinkTask extends SinkTask {
 
   @Override
   protected void put(List<Record<byte[], byte[]>> records) {
-    var stats = new HashMap<TopicPartition, Stat>();
     var writers = new HashMap<TopicPartition, RecordWriter>();
     for (var record : records) {
       var writer =
@@ -61,9 +59,6 @@ public class FtpSinkTask extends SinkTask {
       writer.append(record);
 
       if (writer.size().greaterThan(DataSize.of(cons.requireString("size")))) {
-        var stat = stats.computeIfAbsent(record.topicPartition(), Stat::new);
-        stat.count.add(writer.count());
-        stat.size.add(writer.size().bytes());
         writers.remove(record.topicPartition()).close();
       }
     }
@@ -74,34 +69,5 @@ public class FtpSinkTask extends SinkTask {
   @Override
   protected void close() {
     this.ftpClient.close();
-  }
-
-  public static class Stat {
-
-    public TopicPartition partition() {
-      return partition;
-    }
-
-    public long count() {
-      return count.sum();
-    }
-
-    public DataSize size() {
-      return DataSize.Byte.of(size.sum());
-    }
-
-    private final TopicPartition partition;
-
-    private final LongAdder count = new LongAdder();
-    private final LongAdder size = new LongAdder();
-
-    public Stat(TopicPartition partition) {
-      this.partition = partition;
-    }
-
-    @Override
-    public String toString() {
-      return "Stat{" + "partition=" + partition + ", count=" + count + ", size=" + size + '}';
-    }
   }
 }
