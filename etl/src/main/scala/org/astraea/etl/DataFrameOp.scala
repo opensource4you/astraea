@@ -26,18 +26,16 @@ import scala.language.implicitConversions
 
 class DataFrameOp(dataFrame: DataFrame) {
 
-  val jsonConverterUDF: UserDefinedFunction = udf((column: String) =>
-    JsonConverter
-      .jackson()
-      .toJson(
-        column
-          .split(",")
-          .map(splitStr => splitStr.split("="))
-          .map(elem => (elem(0), elem(1)))
-          .toMap
-          .asJava
-      )
-  )
+  def jsonConverterUDF(column: Seq[DataColumn]): UserDefinedFunction =
+    udf((value: String) => {
+      JsonConverter
+        .jackson()
+        .toJson(
+          (column.map(col => col.name).seq zip value
+            .split(",")
+            .seq).toMap.asJava
+        )
+    })
 
   /** Turn the original DataFrame into a key-value table.Integrate all columns
     * into one value->josh. If there are multiple primary keys, key will become
@@ -62,8 +60,8 @@ class DataFrameOp(dataFrame: DataFrame) {
     * // +-----------+---------------------------------------------------+
     * }}}
     *
-    * @param pk
-    *   primary keys
+    * @param cols
+    *   cols metadata
     * @return
     *   json df
     */
@@ -72,24 +70,24 @@ class DataFrameOp(dataFrame: DataFrame) {
       dataFrame
         .withColumn(
           "value",
-          jsonConverterUDF(
+          jsonConverterUDF(cols)(
             concat_ws(
               ",",
               cols
                 .map(_.name)
-                .map(name => concat(lit(name + "="), col(name))): _*
+                .map(name => concat(col(name))): _*
             )
           )
         )
         .withColumn(
           "key",
-          jsonConverterUDF(
+          jsonConverterUDF(cols.filter(dataColumn => dataColumn.isPK))(
             concat_ws(
               ",",
               cols
                 .filter(dataColumn => dataColumn.isPK)
                 .map(_.name)
-                .map(name => concat(lit(name + "="), col(name))): _*
+                .map(name => concat(col(name))): _*
             )
           )
         )
