@@ -18,16 +18,19 @@ package org.astraea.etl
 
 import org.apache.spark.sql.catalyst.expressions.objects.AssertNotNull
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{Column, SparkSession}
+import org.apache.spark.sql.{Column, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
 import org.astraea.etl.DataType.StringType
 import org.astraea.etl.Reader._
+
+import scala.util.control.Breaks
+import scala.util.control.Breaks.break
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
     var userSchema: StructType,
     var sinkPath: String,
     var pk: Seq[String]
-) {
+) extends Serializable {
   protected def this() = this(
     "deploymentModel",
     Reader
@@ -66,17 +69,40 @@ class Reader[PassedStep <: BuildStep] private (
     this.pk = pk
     new Reader[PassedStep with PkStep](this)
   }
+  // check blank line
+  def allNull(row: Row): Boolean = {
+    @transient val len = row.length
+    @transient var i = 0
+    @transient var isNull = true
+    @transient val loop = new Breaks
+    loop.breakable {
+      while (i < len) {
+        if (!row.isNullAt(i)) {
+          isNull = false
+          loop.break
+        }
+        i += 1
+      }
+    }
+    isNull
+  }
 
   def readCSV(
-      source: String
+      source: String,
+      @transient blankLine: Boolean
   )(implicit ev: PassedStep =:= FullReader): DataFrameOp = {
     var df = createSpark(deploymentModel).readStream
       .option("cleanSource", "archive")
       .option("sourceArchiveDir", sinkPath)
       .schema(userSchema)
       .csv(source)
+
     pk.foreach(str =>
-      df = df.withColumn(str, new Column(AssertNotNull(col(str).expr)))
+      df = df
+        .filter(row => {
+          blankLine && (!allNull(row))
+        })
+        .withColumn(str, new Column(AssertNotNull(col(str).expr)))
     )
     new DataFrameOp(df)
   }

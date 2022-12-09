@@ -31,6 +31,7 @@ def versions = [
         spark_kafka: project.properties['spark_kafka.version'] ?: "3.1.2",
         junit      : project.properties['junit.version'] ?: "5.9.1",
         opencsv    : project.properties['opencsv.version'] ?: "5.7.1",
+        scopt      : project.properties['scopt.version'] ?: "4.1.0"
 ]
 
 dependencies {
@@ -39,6 +40,7 @@ dependencies {
     compileOnly "org.apache.spark:spark-sql_2.12:${versions["spark_sql"]}"
     compileOnly "org.apache.spark:spark-sql-kafka-0-10_2.12:${versions["spark_kafka"]}"
     implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
+    implementation "com.github.scopt:scopt_2.12:${versions["scopt"]}"
     implementation project(':common')
 
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"

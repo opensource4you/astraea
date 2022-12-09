@@ -19,14 +19,16 @@ package org.astraea.etl
 import org.astraea.common.admin.Admin
 import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
+import scopt.{OParser, OParserBuilder}
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.sys.exit
 
 object Spark2Kafka {
-  def executor(args: Array[String], duration: Int): Unit = {
-    val metaData = Metadata(Utils.requireFile(args(0)))
+  def executor(args: Config, duration: Int): Unit = {
+    val metaData = Metadata(Utils.requireFile(args.properties))
     Utils.Using(Admin.of(metaData.kafkaBootstrapServers)) { admin =>
       val pk = metaData.column.filter(col => col.isPK).map(col => col.name)
       Await.result(createTopic(admin, metaData), Duration.Inf)
@@ -40,7 +42,7 @@ object Spark2Kafka {
         )
         .sinkPath(metaData.sinkPath.getPath)
         .primaryKeys(pk)
-        .readCSV(metaData.sourcePath.getPath)
+        .readCSV(metaData.sourcePath.getPath, args.allowBlankLine)
         .csvToJSON(pk)
 
       val query = Writer
@@ -58,7 +60,37 @@ object Spark2Kafka {
     }
   }
 
+  case class Config(properties: String = "", allowBlankLine: Boolean = true)
+  val builder: OParserBuilder[Config] = OParser.builder[Config]
+
+  val argParser: OParser[Unit, Config] = {
+    import builder._
+    OParser.sequence(
+      programName("myprog"),
+      head("myprog", "0.1"),
+      opt[String]("properties")
+        .action((s, c) => c.copy(properties = s))
+        .text("The properties file of astraea etl."),
+      opt[Boolean]("allowBlankLine")
+        .action((d, c) => c.copy(allowBlankLine = d))
+        .text("Allow blank lines when processing csv files."),
+      checkConfig(c => {
+        if (!c.properties.isBlank) {
+          success
+        } else {
+          failure("You must configure properties path.")
+        }
+      })
+    )
+
+  }
+
   def main(args: Array[String]): Unit = {
-    executor(args, 0)
+    OParser.parse(argParser, args, Config()) match {
+      case Some(config) =>
+        executor(config, 0)
+      case _ =>
+        exit(1)
+    }
   }
 }
