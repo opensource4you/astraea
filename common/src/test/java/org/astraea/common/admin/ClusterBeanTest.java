@@ -16,12 +16,14 @@
  */
 package org.astraea.common.admin;
 
-import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
@@ -104,112 +106,55 @@ class ClusterBeanTest {
         2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
   }
 
-  Stream<HasBeanObject> random(int broker) {
-    return Stream.generate(
-            () -> {
-              final var domainName = "test";
-              final var properties =
+  static List<String> fakeTopics =
+      IntStream.range(0, 100)
+          .mapToObj(i -> Utils.randomString())
+          .collect(Collectors.toUnmodifiableList());
+
+  Stream<ServerMetrics.Topic.Meter> random() {
+    return IntStream.iterate(0, n -> n + 1)
+        .mapToObj(
+            index -> {
+              var domainName = "kafka.server";
+              var properties =
                   Map.of(
-                      "type", "testing",
-                      "broker", String.valueOf(broker),
-                      "name", "whatever");
-              final var attributes =
-                  Map.<String, Object>of("value", ThreadLocalRandom.current().nextInt());
-              return new BeanObject(domainName, properties, attributes);
-            })
-        .map(
-            bean -> {
-              final var fakeTime = ThreadLocalRandom.current().nextLong(0, 1000);
-              switch (ThreadLocalRandom.current().nextInt(0, 3)) {
-                case 0:
-                  return new MetricType1(fakeTime, bean);
-                case 1:
-                  return new MetricType2(fakeTime, bean);
-                case 2:
-                  return new MetricType3(fakeTime, bean);
-                default:
-                  throw new RuntimeException();
-              }
+                      "type", "BrokerTopicMetrics",
+                      "topic", fakeTopics.get(index % 100),
+                      "name", "BytesInPerSec");
+              var attributes =
+                  Map.<String, Object>of("count", ThreadLocalRandom.current().nextInt());
+              return new ServerMetrics.Topic.Meter(
+                  new BeanObject(domainName, properties, attributes));
             });
   }
 
   @Test
-  void testClusterBeanQuery() {
-    var clusterBean =
+  void testMapping() {
+    ClusterBean clusterBean =
         ClusterBean.of(
             Map.of(
-                1, random(1).limit(1000).collect(Collectors.toUnmodifiableList()),
-                2, random(2).limit(1000).collect(Collectors.toUnmodifiableList()),
-                3, random(3).limit(1000).collect(Collectors.toUnmodifiableList())));
+                1, random().limit(300).collect(Collectors.toUnmodifiableList()),
+                2, random().limit(300).collect(Collectors.toUnmodifiableList()),
+                3, random().limit(300).collect(Collectors.toUnmodifiableList())));
 
-    {
-      // select a window of metric from a broker in ClusterBean
-      var windowQuery =
-          clusterBean.query(
-              ClusterBeanQuery.window(MetricType1.class, 1).metricSince(500).ascending());
-      System.out.println("[Window]");
-      System.out.println(windowQuery);
-    }
-
-    {
-      // select a window of metric from a broker in ClusterBean
-      var windowQuery =
-          clusterBean.query(
-              ClusterBeanQuery.window(MetricType1.class, 1)
-                  .metricSince(Duration.ofSeconds(3))
-                  .descending());
-      System.out.println("[Window]");
-      System.out.println(windowQuery);
-    }
-
-    {
-      // select the latest metric from a broker in ClusterBean
-      var latestMetric = clusterBean.query(ClusterBeanQuery.latest(MetricType2.class, 1));
-      System.out.println("[Latest]");
-      System.out.println(latestMetric);
-    }
-  }
-
-  private static class MetricType1 implements HasBeanObject {
-    private final long createTime;
-    private final BeanObject beanObject;
-
-    private MetricType1(long createTime, BeanObject beanObject) {
-      this.createTime = createTime;
-      this.beanObject = beanObject;
-    }
-
-    @Override
-    public BeanObject beanObject() {
-      return beanObject;
-    }
-
-    @Override
-    public long createdTimestamp() {
-      return createTime;
-    }
-
-    @Override
-    public String toString() {
-      return this.getClass().getSimpleName()
-          + "{"
-          + "createTime="
-          + createTime
-          + ", beanObject="
-          + beanObject
-          + '}';
-    }
-  }
-
-  private static class MetricType2 extends MetricType1 {
-    private MetricType2(long createTime, BeanObject beanObject) {
-      super(createTime, beanObject);
-    }
-  }
-
-  private static class MetricType3 extends MetricType2 {
-    private MetricType3(long createTime, BeanObject beanObject) {
-      super(createTime, beanObject);
-    }
+    Map<BrokerTopic, List<ServerMetrics.Topic.Meter>> result =
+        clusterBean.brokerTopics().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    bt -> bt,
+                    bt ->
+                        clusterBean
+                            .brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
+                            .sorted(
+                                Comparator.comparingLong(HasBeanObject::createdTimestamp)
+                                    .reversed())
+                            .collect(Collectors.toUnmodifiableList())));
+    result.forEach(
+        (key, metrics) -> {
+          Assertions.assertEquals(3 * 100, result.size());
+          Assertions.assertInstanceOf(BrokerTopic.class, key);
+          metrics.forEach(
+              metric -> Assertions.assertInstanceOf(ServerMetrics.Topic.Meter.class, metric));
+        });
   }
 }
