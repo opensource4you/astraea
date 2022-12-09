@@ -26,9 +26,9 @@ public final class QuotaConfigs {
 
   public enum QuotaKeys implements EnumInfo {
     // ---------------------------------[target key]---------------------------------//
-    USER("user"),
+    USER("user", "user"),
     CLIENT_ID("clientId", "client-id"),
-    IP("ip"),
+    IP("ip", "ip"),
 
     // ---------------------------------[limit key]---------------------------------//
     PRODUCER_BYTE_RATE("producerByteRate", "producer_byte_rate"),
@@ -53,11 +53,6 @@ public final class QuotaConfigs {
 
     private final String value;
     private final String kafkaValue;
-
-    QuotaKeys(String value) {
-      this.value = value;
-      this.kafkaValue = value;
-    }
 
     QuotaKeys(String value, String kafkaValue) {
       this.value = value;

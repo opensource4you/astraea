@@ -105,29 +105,21 @@ public class QuotaHandler implements Handler {
     private Optional<ConnectionQuota> connection = Optional.empty();
     private Optional<ProducerQuota> producer = Optional.empty();
     private Optional<ConsumerQuota> consumer = Optional.empty();
-
-    public QuotaPostRequest() {}
   }
 
-  static class ConnectionQuota {
+  static class ConnectionQuota implements Request {
     private String ip;
     private Integer creationRate;
-
-    public ConnectionQuota() {}
   }
 
-  static class ProducerQuota {
+  static class ProducerQuota implements Request {
     private String clientId;
     private Long byteRate;
-
-    public ProducerQuota() {}
   }
 
-  static class ConsumerQuota {
+  static class ConsumerQuota implements Request {
     private String clientId;
     private Long byteRate;
-
-    public ConsumerQuota() {}
   }
 
   static class Target implements Response {
