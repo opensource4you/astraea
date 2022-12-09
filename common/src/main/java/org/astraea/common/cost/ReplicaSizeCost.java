@@ -27,10 +27,12 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
-public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCost {
+public class ReplicaSizeCost
+    implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.correlationCoefficient();
   public static final String COST_NAME = "size";
 
@@ -108,6 +110,20 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
         dispersion.calculate(
             brokerCost.values().stream().map(v -> (double) v).collect(Collectors.toList()));
     return () -> value;
+  }
+
+  @Override
+  public PartitionCost partitionCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    return () ->
+        clusterBean.mapByReplica().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    k -> TopicPartition.of(k.getKey().topic(), k.getKey().partition()),
+                    e ->
+                        LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
+                            .mapToDouble(LogMetrics.Log.Gauge::value)
+                            .sum()));
   }
 
   static class MigrateInfo {

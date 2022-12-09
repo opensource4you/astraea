@@ -26,10 +26,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 
 /**
  * The {@link ShuffleTweaker} proposes a new log placement based on the current log placement, but
@@ -57,7 +58,7 @@ public class ShuffleTweaker implements AllocationTweaker {
   }
 
   @Override
-  public Stream<ClusterLogAllocation> generate(ClusterLogAllocation baseAllocation) {
+  public Stream<ClusterInfo<Replica>> generate(ClusterInfo<Replica> baseAllocation) {
     // There is no broker
     if (baseAllocation.nodes().isEmpty()) return Stream.of();
 
@@ -85,7 +86,7 @@ public class ShuffleTweaker implements AllocationTweaker {
         });
   }
 
-  private static Function<ClusterLogAllocation, ClusterLogAllocation> allocationGenerator(
+  private static Function<ClusterInfo<Replica>, ClusterInfo<Replica>> allocationGenerator(
       Map<Integer, Set<String>> brokerFolders) {
     return currentAllocation -> {
       final var selectedPartition =
@@ -103,8 +104,11 @@ public class ShuffleTweaker implements AllocationTweaker {
               .skip(1)
               .map(
                   follower ->
-                      (Supplier<ClusterLogAllocation>)
-                          () -> currentAllocation.becomeLeader(follower.topicPartitionReplica()));
+                      (Supplier<ClusterInfo<Replica>>)
+                          () ->
+                              ClusterInfoBuilder.builder(currentAllocation)
+                                  .setPreferredLeader(follower.topicPartitionReplica())
+                                  .build());
 
       // [valid operation 2] change replica list
       final var currentIds =
@@ -120,14 +124,16 @@ public class ShuffleTweaker implements AllocationTweaker {
                       currentReplicas.stream()
                           .map(
                               replica ->
-                                  (Supplier<ClusterLogAllocation>)
+                                  (Supplier<ClusterInfo<Replica>>)
                                       () -> {
                                         var toThisDir =
                                             randomElement(brokerFolders.get(toThisBroker));
-                                        return currentAllocation.migrateReplica(
-                                            replica.topicPartitionReplica(),
-                                            toThisBroker,
-                                            toThisDir);
+                                        return ClusterInfoBuilder.builder(currentAllocation)
+                                            .reassignReplica(
+                                                replica.topicPartitionReplica(),
+                                                toThisBroker,
+                                                toThisDir)
+                                            .build();
                                       }));
 
       return randomElement(

@@ -16,11 +16,8 @@
  */
 package org.astraea.common.partitioner;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 
@@ -64,16 +61,6 @@ public class PartitionerUtils {
     var avgLoadCount =
         overLoadCount.values().stream().mapToDouble(Integer::doubleValue).average().orElse(0);
     return (int) Math.round(avgLoadCount);
-  }
-
-  public static Properties partitionerConfig(Map<String, ?> configs) {
-    var properties = new Properties();
-    try {
-      properties.load(new FileInputStream((String) configs.get("partitioner.config")));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    return properties;
   }
 
   /**

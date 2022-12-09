@@ -26,7 +26,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
-import org.astraea.common.balancer.log.ClusterLogAllocation;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
@@ -97,12 +96,12 @@ public interface Balancer {
   }
 
   class Plan {
-    final ClusterLogAllocation proposal;
+    final ClusterInfo<Replica> proposal;
     final ClusterCost initialClusterCost;
     final ClusterCost proposalClusterCost;
     final List<MoveCost> moveCost;
 
-    public ClusterLogAllocation proposal() {
+    public ClusterInfo<Replica> proposal() {
       return proposal;
     }
 
@@ -124,7 +123,7 @@ public interface Balancer {
     }
 
     public Plan(
-        ClusterLogAllocation proposal,
+        ClusterInfo<Replica> proposal,
         ClusterCost initialClusterCost,
         ClusterCost proposalClusterCost,
         List<MoveCost> moveCost) {

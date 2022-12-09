@@ -16,21 +16,54 @@
  */
 package org.astraea.app.backup;
 
+import static org.astraea.fs.ftp.FtpFileSystem.HOSTNAME_KEY;
+import static org.astraea.fs.ftp.FtpFileSystem.PASSWORD_KEY;
+import static org.astraea.fs.ftp.FtpFileSystem.PORT_KEY;
+import static org.astraea.fs.ftp.FtpFileSystem.USER_KEY;
+
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.astraea.common.argument.NonEmptyStringField;
-import org.astraea.common.argument.URIField;
+import org.astraea.app.argument.BooleanField;
+import org.astraea.app.argument.NonEmptyStringField;
+import org.astraea.app.argument.NonNegativeIntegerField;
+import org.astraea.app.argument.URIField;
+import org.astraea.common.Configuration;
 import org.astraea.common.csv.CsvReader;
 import org.astraea.common.csv.CsvWriter;
 import org.astraea.fs.FileSystem;
 
 public class ImportCsv {
+
+  private static FileSystem of(URI uri) {
+    if (uri.getScheme().equals("local")) {
+      return FileSystem.of("local", Configuration.of(Map.of()));
+    }
+    if (uri.getScheme().equals("ftp")) {
+      // userInfo[0] is user, userInfo[1] is password.
+      String[] userInfo = uri.getUserInfo().split(":", 2);
+      return FileSystem.of(
+          "ftp",
+          Configuration.of(
+              Map.of(
+                  HOSTNAME_KEY,
+                  uri.getHost(),
+                  PORT_KEY,
+                  String.valueOf(uri.getPort()),
+                  USER_KEY,
+                  userInfo[0],
+                  PASSWORD_KEY,
+                  userInfo[1])));
+    }
+    throw new IllegalArgumentException("unsupported schema: " + uri.getScheme());
+  }
+
   /**
    * Process all .dat files in the folder
    *
@@ -39,11 +72,11 @@ public class ImportCsv {
   public static void main(String[] args) {
     var count = new AtomicInteger();
     System.out.println("Initialization arguments...");
-    var argument = org.astraea.common.argument.Argument.parse(new Argument(), args);
+    var argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
 
-    try (var source = FileSystem.of(argument.source);
-        var sink = FileSystem.of(argument.sink);
-        var archive = FileSystem.of(argument.source)) {
+    try (var source = of(argument.source);
+        var sink = of(argument.sink);
+        var archive = of(argument.source)) {
 
       System.out.println("Checking source and sink.");
       nonEqualPath(argument.source, argument.sink);
@@ -66,7 +99,7 @@ public class ImportCsv {
                         CsvReader.builder(new InputStreamReader(source.read(sourcePath))).build();
                     var writer =
                         CsvWriter.builder(new OutputStreamWriter(sink.write(sinkPath))).build()) {
-
+                  reader.skip(argument.headSkip);
                   var headers =
                       Arrays.stream(
                               new String[] {
@@ -147,6 +180,18 @@ public class ImportCsv {
         description = "Source archive directory.",
         validateWith = URIField.class)
     URI archive = URI.create("local:///");
+
+    @Parameter(
+        names = {"--headSkip"},
+        description = "The number of records to skip",
+        validateWith = NonNegativeIntegerField.class)
+    int headSkip = 0;
+
+    @Parameter(
+        names = {"--allowBlankLine"},
+        description = "Allow read/writer blank lines when processing csv files.",
+        validateWith = BooleanField.class)
+    boolean blankLine = false;
   }
 
   static void nonEqualPath(URI uri1, URI uri2) {

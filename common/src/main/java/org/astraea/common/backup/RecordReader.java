@@ -18,20 +18,15 @@ package org.astraea.common.backup;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.Iterator;
+import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
 
 public interface RecordReader extends Iterator<Record<byte[], byte[]>> {
 
   static RecordReaderBuilder builder(File file) {
-    try {
-      return builder(new FileInputStream(file));
-    } catch (FileNotFoundException e) {
-      throw new UncheckedIOException(e);
-    }
+    return Utils.packException(() -> builder(new FileInputStream(file)));
   }
 
   static RecordReaderBuilder builder(InputStream inputStream) {

@@ -4,7 +4,7 @@
 
 ![download_jre](download_jre.png)
 
-2. 下載 `Astraea GUI` 可執行檔，進到[Astraea GUI 可執行檔頁面](https://github.com/skiptests/astraea/packages/1652248)後搜尋結尾為`-all.jar`的檔案
+2. 下載 `Astraea GUI` 可執行檔，進到[Astraea GUI 可執行檔頁面](https://github.com/skiptests/astraea/packages/1725262)後搜尋結尾為`-all.jar`的檔案
 
 ![download_gui](download_gui.png)
 

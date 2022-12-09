@@ -96,8 +96,8 @@ public class TopicNode {
                                 var map = new LinkedHashMap<String, Object>();
                                 map.put(TOPIC_NAME_KEY, topic);
                                 nodeMeters.forEach(
-                                    (nodeInfo, meters) -> {
-                                      var key = String.valueOf(nodeInfo.id());
+                                    (nodeId, meters) -> {
+                                      var key = String.valueOf(nodeId);
                                       var value =
                                           meters.stream()
                                               .filter(m -> m.topic().equals(topic))
@@ -217,7 +217,6 @@ public class TopicNode {
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
         .secondPart(
-            null,
             "DELETE",
             (items, inputs, logger) -> {
               var topicsToDelete =

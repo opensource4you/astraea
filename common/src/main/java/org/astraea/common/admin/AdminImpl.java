@@ -441,11 +441,10 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<Set<NodeInfo>> nodeInfos() {
+  public CompletionStage<List<NodeInfo>> nodeInfos() {
     return to(kafkaAdmin.describeCluster().nodes())
         .thenApply(
-            nodes ->
-                nodes.stream().map(NodeInfo::of).collect(Collectors.toCollection(TreeSet::new)));
+            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
@@ -592,7 +591,7 @@ class AdminImpl implements Admin {
                 brokers ->
                     brokers.stream()
                         .map(x -> (NodeInfo) x)
-                        .collect(Collectors.toUnmodifiableSet())),
+                        .collect(Collectors.toUnmodifiableList())),
         replicas(topics),
         ClusterInfo::of);
   }
@@ -835,34 +834,31 @@ class AdminImpl implements Admin {
 
       @Override
       public TopicCreator topic(String topic) {
-        this.topic = topic;
+        this.topic = Utils.requireNonEmpty(topic);
         return this;
       }
 
       @Override
       public TopicCreator numberOfPartitions(int numberOfPartitions) {
-        this.numberOfPartitions = numberOfPartitions;
+        this.numberOfPartitions = Utils.requirePositive(numberOfPartitions);
         return this;
       }
 
       @Override
       public TopicCreator numberOfReplicas(short numberOfReplicas) {
-        this.numberOfReplicas = numberOfReplicas;
+        this.numberOfReplicas = Utils.requirePositive(numberOfReplicas);
         return this;
       }
 
       @Override
       public TopicCreator configs(Map<String, String> configs) {
-        this.configs = configs;
+        this.configs = Objects.requireNonNull(configs);
         return this;
       }
 
       @Override
       public CompletionStage<Boolean> run() {
         Utils.requireNonEmpty(topic);
-        Utils.requirePositive(numberOfPartitions);
-        Utils.requirePositive(numberOfReplicas);
-        Objects.requireNonNull(configs);
 
         return topicNames(true)
             .thenCompose(
