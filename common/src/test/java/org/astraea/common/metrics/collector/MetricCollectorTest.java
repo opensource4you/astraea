@@ -60,7 +60,7 @@ class MetricCollectorTest extends RequireBrokerCluster {
   @Test
   void addSensor() {
     try (var collector = MetricCollector.builder().build()) {
-      MetricSensors metricSensor = (identity, beans) -> null;
+      MetricSensor metricSensor = (identity, beans) -> null;
       collector.addMetricSensors(metricSensor);
       Assertions.assertEquals(1, collector.listMetricsSensors().size());
     }
