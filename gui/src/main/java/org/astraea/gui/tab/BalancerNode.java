@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -208,7 +209,9 @@ public class BalancerNode {
                                           patterns.isEmpty()
                                               || patterns.stream()
                                                   .anyMatch(p -> p.matcher(topic).matches()))
-                                  .config("iteration", "10000")
+                                  .config(
+                                      Configuration.of(
+                                          Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                                   .build())
                           .offer(clusterInfo, Duration.ofSeconds(10)));
                 })

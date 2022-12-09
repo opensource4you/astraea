@@ -300,7 +300,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                           .clusterConstraint((before, after) -> true)
                           .moveCost(List.of(moveCostFunction))
                           .movementConstraint(moveCosts -> true)
-                          .config("iteration", "0")
+                          .config(Configuration.of(Map.of("iteration", "0")))
                           .build())
                   .offer(
                       admin
@@ -897,12 +897,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       SpyBalancer.offerCallbacks.add(() -> offerInvoked.set(true));
       SpyBalancer.newCallbacks.add(
           (algorithmConfig) -> {
-            Assertions.assertEquals(
-                "value0", algorithmConfig.algorithmConfig().requireString("key0"));
-            Assertions.assertEquals(
-                "value1", algorithmConfig.algorithmConfig().requireString("key1"));
-            Assertions.assertEquals(
-                "value2", algorithmConfig.algorithmConfig().requireString("key2"));
+            Assertions.assertEquals("value0", algorithmConfig.config().requireString("key0"));
+            Assertions.assertEquals("value1", algorithmConfig.config().requireString("key1"));
+            Assertions.assertEquals("value2", algorithmConfig.config().requireString("key2"));
             newInvoked.set(true);
           });
 
@@ -934,8 +931,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         // default
         var postRequest =
             BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo);
-        var config = postRequest.configBuilder.get().build();
-        Assertions.assertTrue(config.algorithmConfig().entrySet().isEmpty());
+        var config = postRequest.algorithmConfig;
+        Assertions.assertTrue(config.config().entrySet().isEmpty());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertEquals(
             BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
@@ -948,16 +945,15 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         var randomTopic0 = Utils.randomString();
         var randomTopic1 = Utils.randomString();
         var request = new BalancerPostRequest();
-        request.setTopics(Optional.of(randomTopic0 + "," + randomTopic1));
-        request.setTimeout("32");
-        request.setBalancerConfig(Map.of("KEY", "VALUE"));
-        request.setCostWeights(
-            List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1)));
+        request.topics = Optional.of(randomTopic0 + "," + randomTopic1);
+        request.timeout = "32";
+        request.balancerConfig = Map.of("KEY", "VALUE");
+        request.costWeights =
+            List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1));
 
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
-        var config = postRequest.configBuilder.get().build();
-        Assertions.assertEquals(
-            Set.of(Map.entry("KEY", "VALUE")), config.algorithmConfig().entrySet());
+        var config = postRequest.algorithmConfig;
+        Assertions.assertEquals(Set.of(Map.entry("KEY", "VALUE")), config.config().entrySet());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertEquals(
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
@@ -984,14 +980,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                 COST_WEIGHT_KEY,
                 defaultDecreasing);
         var balancerRequest = new BalancerPostRequest();
-        balancerRequest.setTopics(Optional.of(""));
+        balancerRequest.topics = Optional.of("");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> BalancerHandler.parsePostRequestWrapper(balancerRequest, clusterInfo),
             "Empty topic filter, nothing to rebalance");
 
         var balancerRequest3 = new BalancerPostRequest();
-        balancerRequest3.setTimeout("-5566");
+        balancerRequest3.timeout = "-5566";
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> BalancerHandler.parsePostRequestWrapper(balancerRequest3, clusterInfo),
@@ -1000,7 +996,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         var balancerRequest4 = new BalancerPostRequest();
         var costWeight = new CostWeight();
         costWeight.setCost("yes");
-        balancerRequest4.setCostWeights(List.of(costWeight));
+        balancerRequest4.costWeights = List.of(costWeight);
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> BalancerHandler.parsePostRequestWrapper(balancerRequest4, clusterInfo),

@@ -59,21 +59,21 @@ public class GreedyBalancer implements Balancer {
     this.config = algorithmConfig;
     minStep =
         config
-            .algorithmConfig()
+            .config()
             .string(SHUFFLE_PLAN_GENERATOR_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
     maxStep =
         config
-            .algorithmConfig()
+            .config()
             .string(SHUFFLE_PLAN_GENERATOR_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(30);
     iteration =
         config
-            .algorithmConfig()
+            .config()
             .string(ITERATION_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
