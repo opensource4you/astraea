@@ -29,17 +29,36 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ReplicaSizeCostTest {
-  private final BeanObject bean =
+  private static final BeanObject bean1 =
       new BeanObject(
-          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777));
+          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777L));
+  private static final BeanObject bean2 =
+      new BeanObject(
+          "domain", Map.of("topic", "t", "partition", "11", "name", "SIZE"), Map.of("Value", 700L));
+  private static final BeanObject bean3 =
+      new BeanObject(
+          "domain",
+          Map.of("topic", "t", "partition", "12", "name", "SIZE"),
+          Map.of("Value", 500L),
+          200);
+
+  @Test
+  void testClusterCost() {
+    final Dispersion dispersion = Dispersion.correlationCoefficient();
+    var loadCostFunction = new ReplicaSizeCost();
+    var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
+    var clusterCost = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
+    Assertions.assertEquals(dispersion.calculate(brokerLoad.values()), clusterCost);
+  }
 
   @Test
   void testBrokerCost() {
-    var meter = new LogMetrics.Log.Gauge(bean);
     var cost = new ReplicaSizeCost();
-    var result = cost.brokerCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter))));
-    Assertions.assertEquals(1, result.value().size());
-    Assertions.assertEquals(777, result.value().entrySet().iterator().next().getValue());
+    var result = cost.brokerCost(clusterInfo(), clusterBean());
+    Assertions.assertEquals(3, result.value().size());
+    Assertions.assertEquals(777, result.value().get(0));
+    Assertions.assertEquals(700, result.value().get(1));
+    Assertions.assertEquals(500, result.value().get(2));
   }
 
   @Test
@@ -251,7 +270,7 @@ class ReplicaSizeCostTest {
 
   @Test
   void testPartitionCost() {
-    var meter = new LogMetrics.Log.Gauge(bean);
+    var meter = new LogMetrics.Log.Gauge(bean1);
     var cost1 = new ReplicaSizeCost();
     var cost2 = HasPartitionCost.of(Map.of(new ReplicaSizeCost(), (double) 1));
     var result1 =
@@ -263,5 +282,27 @@ class ReplicaSizeCostTest {
     Assertions.assertEquals(1, result2.size());
     Assertions.assertEquals(777, result1.get(TopicPartition.of("t", 10)));
     Assertions.assertEquals(777, result2.get(TopicPartition.of("t", 10)));
+  }
+
+  private ClusterInfo<Replica> clusterInfo() {
+    var replicas =
+        List.of(
+            Replica.builder().topic("t").partition(10).nodeInfo(NodeInfo.of(0, "", -1)).build(),
+            Replica.builder().topic("t").partition(11).nodeInfo(NodeInfo.of(1, "", -1)).build(),
+            Replica.builder().topic("t").partition(12).nodeInfo(NodeInfo.of(2, "", -1)).build());
+    return ClusterInfo.of(
+        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)), replicas);
+  }
+
+  private static ClusterBean clusterBean() {
+
+    return ClusterBean.of(
+        Map.of(
+            0,
+            List.of(new ReplicaSizeCost.SizeStatisticalBean(bean1)),
+            1,
+            List.of(new ReplicaSizeCost.SizeStatisticalBean(bean2)),
+            2,
+            List.of(new ReplicaSizeCost.SizeStatisticalBean(bean3))));
   }
 }
