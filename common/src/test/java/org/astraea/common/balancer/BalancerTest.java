@@ -34,7 +34,9 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -64,15 +66,22 @@ class BalancerTest extends RequireBrokerCluster {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
-              () ->
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join()
-                      .replicaStream()
-                      .filter(Replica::isLeader)
-                      .map(replica -> replica.nodeInfo().id())
-                      .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+              () -> {
+                var clusterInfo =
+                    admin
+                        .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                        .toCompletableFuture()
+                        .join();
+                return clusterInfo.nodes().stream()
+                    .collect(
+                        Collectors.toMap(
+                            NodeInfo::id,
+                            n ->
+                                clusterInfo
+                                    .replicaStream(n.id())
+                                    .filter(ReplicaInfo::isLeader)
+                                    .count()));
+              };
       var currentImbalanceFactor =
           (Supplier<Long>)
               () ->
@@ -93,6 +102,7 @@ class BalancerTest extends RequireBrokerCluster {
                           Function.identity(), ignored -> List.of(brokerIds().iterator().next()))))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(2));
 
       var imbalanceFactor0 = currentImbalanceFactor.get();
       Assertions.assertNotEquals(
