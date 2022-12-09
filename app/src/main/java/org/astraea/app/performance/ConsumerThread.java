@@ -17,7 +17,6 @@
 package org.astraea.app.performance;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -37,16 +36,12 @@ import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.SensorBuilder;
-import org.astraea.common.metrics.stats.WindowedRate;
+import org.astraea.common.metrics.stats.Difference;
 
 public interface ConsumerThread extends AbstractThread {
-  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_PARTITION = new ConcurrentHashMap<>();
-
-  ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_INCREASED_SENSOR =
-      new ConcurrentHashMap<>();
-
-  ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_DECREASED_SENSOR =
-      new ConcurrentHashMap<>();
+  ConcurrentMap<String, Integer> CLIENT_ID_PARTITION = new ConcurrentHashMap<>();
+  ConcurrentMap<String, Integer> CLIENT_ID_PARTITION_INCREASE = new ConcurrentHashMap<>();
+  ConcurrentMap<String, Integer> CLIENT_ID_PARTITION_DECREASE = new ConcurrentHashMap<>();
   ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_SENSOR = new ConcurrentHashMap<>();
 
   static List<ConsumerThread> create(
@@ -96,8 +91,8 @@ public interface ConsumerThread extends AbstractThread {
                       closeLatch.countDown();
                       closed.set(true);
                       CLIENT_ID_PARTITION.remove(clientId);
-                      CLIENT_ID_PARTITION_INCREASED_SENSOR.remove(clientId);
-                      CLIENT_ID_PARTITION_DECREASED_SENSOR.remove(clientId);
+                      CLIENT_ID_PARTITION_INCREASE.remove(clientId);
+                      CLIENT_ID_PARTITION_DECREASE.remove(clientId);
                       CLIENT_ID_PARTITION_SENSOR.remove(clientId);
                     }
                   });
@@ -147,40 +142,28 @@ public interface ConsumerThread extends AbstractThread {
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
       tryRegisterSensor();
-      CLIENT_ID_PARTITION.computeIfAbsent(clientId, id -> new HashSet<>());
-      CLIENT_ID_PARTITION.get(clientId).addAll(partitions);
-      CLIENT_ID_PARTITION_SENSOR.get(clientId).record((double) partitions.size());
-      CLIENT_ID_PARTITION_INCREASED_SENSOR.get(clientId).record((double) partitions.size());
+      CLIENT_ID_PARTITION_INCREASE.put(clientId, partitions.size());
+      CLIENT_ID_PARTITION.putIfAbsent(clientId, 0);
+      CLIENT_ID_PARTITION.computeIfPresent(clientId, (id, old) -> old + partitions.size());
+      CLIENT_ID_PARTITION_SENSOR
+          .get(clientId)
+          .record((double) CLIENT_ID_PARTITION.getOrDefault(clientId, 0));
     }
 
     @Override
     public void onPartitionsRevoked(Set<TopicPartition> partitions) {
       tryRegisterSensor();
-      CLIENT_ID_PARTITION.computeIfAbsent(clientId, id -> new HashSet<>());
-      CLIENT_ID_PARTITION.get(clientId).removeAll(partitions);
+      CLIENT_ID_PARTITION_DECREASE.put(clientId, partitions.size());
+      // CLIENT_ID_PARTITION.get(clientId) should not be null. There must be some partition to
+      // revoke.
+      CLIENT_ID_PARTITION.computeIfPresent(clientId, (id, old) -> old - partitions.size());
       CLIENT_ID_PARTITION_SENSOR.get(clientId).record((double) -partitions.size());
-      CLIENT_ID_PARTITION_DECREASED_SENSOR.get(clientId).record((double) -partitions.size());
     }
 
     private void tryRegisterSensor() {
       CLIENT_ID_PARTITION_SENSOR.computeIfAbsent(
           clientId,
-          id ->
-              new SensorBuilder<Double>()
-                  .addStat("windowed rate", new WindowedRate(Duration.ofSeconds(2)))
-                  .build());
-      CLIENT_ID_PARTITION_INCREASED_SENSOR.computeIfAbsent(
-          clientId,
-          id ->
-              new SensorBuilder<Double>()
-                  .addStat("windowed rate", new WindowedRate(Duration.ofSeconds(2)))
-                  .build());
-      CLIENT_ID_PARTITION_DECREASED_SENSOR.computeIfAbsent(
-          clientId,
-          id ->
-              new SensorBuilder<Double>()
-                  .addStat("windowed rate", new WindowedRate(Duration.ofSeconds(2)))
-                  .build());
+          id -> new SensorBuilder<Double>().addStat("difference", new Difference(2)).build());
     }
   }
 }
