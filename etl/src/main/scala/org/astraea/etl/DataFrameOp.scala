@@ -74,8 +74,7 @@ class DataFrameOp(dataFrame: DataFrame) {
             concat_ws(
               ",",
               cols
-                .map(_.name)
-                .map(name => concat(col(name))): _*
+                .map(dataColumn => col(dataColumn.name)): _*
             )
           )
         )
@@ -86,8 +85,7 @@ class DataFrameOp(dataFrame: DataFrame) {
               ",",
               cols
                 .filter(dataColumn => dataColumn.isPK)
-                .map(_.name)
-                .map(name => concat(col(name))): _*
+                .map(dataColumn => col(dataColumn.name)): _*
             )
           )
         )

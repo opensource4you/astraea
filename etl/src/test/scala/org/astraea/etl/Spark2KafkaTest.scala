@@ -24,7 +24,7 @@ import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
-import org.junit.jupiter.api.{BeforeAll, Disabled, Test}
+import org.junit.jupiter.api.{BeforeAll, Test}
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
