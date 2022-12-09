@@ -29,6 +29,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -160,7 +161,7 @@ class BalancerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .topicFilter(t -> t.equals(theTopic))
                       .clusterCost(randomScore)
-                      .config("iteration", "500")
+                      .config(Configuration.of(Map.of("iteration", "500")))
                       .build())
               .offer(clusterInfo, Duration.ofSeconds(3))
               .get()
@@ -256,7 +257,7 @@ class BalancerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(theCostFunction)
                       .metricSource(metricSource)
-                      .config("iteration", "500")
+                      .config(Configuration.of(Map.of("iteration", "500")))
                       .build())
               .offer(ClusterInfo.empty(), Duration.ofSeconds(3));
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
