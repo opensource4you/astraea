@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.scenario;
+package org.astraea.app.web;
 
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
@@ -24,8 +24,8 @@ import org.astraea.common.admin.Admin;
 /** The subclass of this class should contain the logic to fulfill a scenario. */
 public interface Scenario {
 
-  static Builder build(double binomialProbability) {
-    return new Builder(binomialProbability);
+  static Builder builder() {
+    return new Builder();
   }
 
   class Builder {
@@ -34,9 +34,7 @@ public interface Scenario {
     private short numberOfReplicas = 1;
     private double binomialProbability = 0.5;
 
-    private Builder(double binomialProbability) {
-      this.binomialProbability = binomialProbability;
-    }
+    private Builder() {}
 
     public Builder topicName(String topicName) {
       this.topicName = topicName;
