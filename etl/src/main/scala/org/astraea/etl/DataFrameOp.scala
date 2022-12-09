@@ -26,7 +26,7 @@ import scala.language.implicitConversions
 
 class DataFrameOp(dataFrame: DataFrame) {
 
-  def jsonConverterUDF(column: Seq[DataColumn]): UserDefinedFunction =
+  def defaultConverter(column: Seq[DataColumn]): UserDefinedFunction =
     udf((value: String) => {
       JsonConverter
         .jackson()
@@ -70,7 +70,7 @@ class DataFrameOp(dataFrame: DataFrame) {
       dataFrame
         .withColumn(
           "value",
-          jsonConverterUDF(cols)(
+          defaultConverter(cols)(
             concat_ws(
               ",",
               cols
@@ -81,7 +81,7 @@ class DataFrameOp(dataFrame: DataFrame) {
         )
         .withColumn(
           "key",
-          jsonConverterUDF(cols.filter(dataColumn => dataColumn.isPK))(
+          defaultConverter(cols.filter(dataColumn => dataColumn.isPK))(
             concat_ws(
               ",",
               cols
