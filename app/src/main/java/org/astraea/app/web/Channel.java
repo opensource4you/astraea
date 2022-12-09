@@ -51,11 +51,6 @@ interface Channel {
     return builder().type(Type.GET).queries(queries).build();
   }
 
-  @Deprecated
-  static Channel ofRequest(PostRequest request) {
-    return builder().type(Type.POST).request(request).build();
-  }
-
   static Channel ofRequest(String json) {
     return builder().type(Type.POST).request(json).build();
   }
@@ -65,7 +60,6 @@ interface Channel {
     private Optional<String> target = Optional.empty();
     private Map<String, String> queries = Map.of();
     private Optional<String> body = Optional.empty();
-    @Deprecated private PostRequest request = PostRequest.EMPTY;
     private Consumer<Response> sender = r -> {};
 
     private Builder() {}
@@ -89,19 +83,8 @@ interface Channel {
       return this;
     }
 
-    @Deprecated
-    public Builder request(Map<String, Object> request) {
-      return request(PostRequest.of(request));
-    }
-
     public Builder request(String json) {
       this.body = Optional.ofNullable(json);
-      return this;
-    }
-
-    @Deprecated
-    public Builder request(PostRequest request) {
-      this.request = request;
       return this;
     }
 
@@ -120,11 +103,6 @@ interface Channel {
         @Override
         public Optional<String> target() {
           return target;
-        }
-
-        @Override
-        public PostRequest request() {
-          return request;
         }
 
         @Override
@@ -196,12 +174,6 @@ interface Channel {
               .collect(Collectors.toMap(p -> p.split("=")[0], p -> p.split("=")[1]));
         };
 
-    Function<byte[], PostRequest> parsePostRequest =
-        bs -> {
-          if (bs == null || bs.length == 0) return PostRequest.EMPTY;
-          return PostRequest.of(new String(bs, StandardCharsets.UTF_8));
-        };
-
     Function<byte[], String> parseRequest =
         bs -> {
           if (bs == null || bs.length == 0) return null;
@@ -231,7 +203,6 @@ interface Channel {
         .type(parseType.apply(exchange.getRequestMethod()))
         .target(parseTarget.apply(exchange.getRequestURI()))
         .queries(parseQueries.apply(exchange.getRequestURI()))
-        .request(parsePostRequest.apply(requestBytes))
         .request(parseRequest.apply(requestBytes))
         .sender(
             response -> {
@@ -261,12 +232,6 @@ interface Channel {
    * @return the target from URL. The form is /{type}/target
    */
   Optional<String> target();
-
-  /**
-   * @return body request
-   */
-  @Deprecated
-  PostRequest request();
 
   /**
    * @return body request
