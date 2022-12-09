@@ -61,7 +61,7 @@ import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
-import org.astraea.common.metrics.collector.MetricSensors;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
@@ -210,7 +210,7 @@ class BalancerHandler implements Handler {
 
   private Optional<Balancer.Plan> metricContext(
       Collection<Fetcher> fetchers,
-      Collection<MetricSensors> metricSensors,
+      Collection<MetricSensor> metricSensors,
       Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162

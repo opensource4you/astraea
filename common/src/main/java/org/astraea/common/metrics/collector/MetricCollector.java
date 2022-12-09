@@ -55,11 +55,11 @@ public interface MetricCollector extends AutoCloseable {
   }
 
   /**
-   * Add multiple {@link MetricSensors} for real-time statistics
+   * Add multiple {@link MetricSensor} for real-time statistics
    *
-   * @param metricSensors to statistical data
+   * @param metricSensor to statistical data
    */
-  void addMetricSensors(MetricSensors metricSensors);
+  void addMetricSensors(MetricSensor metricSensor);
 
   /** Register a JMX server. */
   void registerJmx(int identity, InetSocketAddress socketAddress);
@@ -70,7 +70,7 @@ public interface MetricCollector extends AutoCloseable {
   /**
    * @return the current registered metricsSensors.
    */
-  Collection<MetricSensors> listMetricsSensors();
+  Collection<MetricSensor> listMetricsSensors();
 
   /**
    * @return the current registered fetchers.
