@@ -16,10 +16,13 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Comparator;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -29,6 +32,7 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.platform.JvmMemory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -107,54 +111,209 @@ class ClusterBeanTest {
   }
 
   static List<String> fakeTopics =
-      IntStream.range(0, 100)
+      IntStream.range(0, 10)
           .mapToObj(i -> Utils.randomString())
           .collect(Collectors.toUnmodifiableList());
 
-  Stream<ServerMetrics.Topic.Meter> random() {
-    return IntStream.iterate(0, n -> n + 1)
-        .mapToObj(
-            index -> {
-              var domainName = "kafka.server";
-              var properties =
-                  Map.of(
-                      "type", "BrokerTopicMetrics",
-                      "topic", fakeTopics.get(index % 100),
-                      "name", "BytesInPerSec");
-              var attributes =
-                  Map.<String, Object>of("count", ThreadLocalRandom.current().nextInt());
-              return new ServerMetrics.Topic.Meter(
-                  new BeanObject(domainName, properties, attributes));
-            });
+  Stream<? extends HasBeanObject> random(int seed) {
+    var random = new Random(seed);
+    return Stream.generate(
+        () -> {
+          switch (random.nextInt(5)) {
+            case 0: // topic metrics
+            case 1: // broker topic metrics
+              {
+                var domainName = ServerMetrics.DOMAIN_NAME;
+                var properties =
+                    Map.of(
+                        "type", "BrokerTopicMetrics",
+                        "topic", fakeTopics.get(random.nextInt(10)),
+                        "name", "BytesInPerSec");
+                return new ServerMetrics.Topic.Meter(
+                    new BeanObject(domainName, properties, Map.of()));
+              }
+            case 2: // topic/partition metrics
+            case 3: // topic/partition/replica metrics
+              {
+                var domainName = LogMetrics.DOMAIN_NAME;
+                var properties =
+                    Map.of(
+                        "type",
+                        "Log",
+                        "topic",
+                        fakeTopics.get(random.nextInt(10)),
+                        "partition",
+                        String.valueOf(random.nextInt(3)),
+                        "name",
+                        "Size");
+                return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, Map.of()));
+              }
+            case 4: // noise
+              {
+                var domainName = "RandomMetrics";
+                var properties = new HashMap<String, String>();
+                properties.put("name", "whatever-" + (random.nextInt(100)));
+                properties.put("type", "something");
+                if (random.nextInt(2) == 0)
+                  properties.put("topic", fakeTopics.get(random.nextInt(3)));
+                if (random.nextInt(2) == 0)
+                  properties.put("partition", String.valueOf(random.nextInt(3)));
+                var beanObject = new BeanObject(domainName, properties, Map.of());
+                return () -> beanObject;
+              }
+            default:
+              throw new RuntimeException();
+          }
+        });
   }
 
-  @Test
-  void testMapping() {
-    ClusterBean clusterBean =
-        ClusterBean.of(
-            Map.of(
-                1, random().limit(300).collect(Collectors.toUnmodifiableList()),
-                2, random().limit(300).collect(Collectors.toUnmodifiableList()),
-                3, random().limit(300).collect(Collectors.toUnmodifiableList())));
+  ClusterBean cb =
+      ClusterBean.of(
+          Map.of(
+              1, random(0x0ae10).limit(3000).collect(Collectors.toUnmodifiableList()),
+              2, random(0x0f0c1).limit(3000).collect(Collectors.toUnmodifiableList()),
+              3, random(0x4040f).limit(3000).collect(Collectors.toUnmodifiableList())));
+  Set<? extends HasBeanObject> allMetrics =
+      cb.all().values().stream()
+          .flatMap(Collection::stream)
+          .collect(Collectors.toUnmodifiableSet());
 
-    Map<BrokerTopic, List<ServerMetrics.Topic.Meter>> result =
-        clusterBean.brokerTopics().stream()
+  @Test
+  void testMetricQuery() {
+    // test index lookup
+    var allTopicIndex =
+        allMetrics.stream()
+            .map(HasBeanObject::topicIndex)
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableSet());
+    Assertions.assertEquals(allTopicIndex, cb.topics());
+
+    var allPartitionIndex =
+        allMetrics.stream()
+            .map(HasBeanObject::partitionIndex)
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableSet());
+    Assertions.assertEquals(allPartitionIndex, cb.partitions());
+
+    var allReplicaIndex =
+        cb.all().entrySet().stream()
+            .flatMap(e -> e.getValue().stream().map(ee -> ee.replicaIndex(e.getKey())))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableSet());
+    Assertions.assertEquals(allReplicaIndex, cb.replicas());
+
+    var allBrokerTopicIndex =
+        cb.all().entrySet().stream()
+            .flatMap(e -> e.getValue().stream().map(ee -> ee.brokerTopicIndex(e.getKey())))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableSet());
+    Assertions.assertEquals(allBrokerTopicIndex, cb.brokerTopics());
+
+    // test query
+    var allTopicMetrics =
+        allMetrics.stream()
+            .filter(bean -> bean.topicIndex().isPresent())
+            .filter(bean -> bean instanceof ServerMetrics.Topic.Meter)
+            .collect(
+                Collectors.groupingBy(
+                    bean -> bean.topicIndex().orElseThrow(), Collectors.toUnmodifiableSet()));
+    Assertions.assertEquals(
+        allTopicMetrics,
+        fakeTopics.stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    t -> t,
+                    t ->
+                        cb.topicMetrics(t, ServerMetrics.Topic.Meter.class)
+                            .collect(Collectors.toUnmodifiableSet()))));
+
+    var allPartitionMetrics =
+        allMetrics.stream()
+            .filter(bean -> bean.partitionIndex().isPresent())
+            .filter(bean -> bean instanceof LogMetrics.Log.Gauge)
+            .collect(
+                Collectors.groupingBy(
+                    bean -> bean.partitionIndex().orElseThrow(), Collectors.toUnmodifiableSet()));
+    Assertions.assertEquals(
+        allPartitionMetrics,
+        fakeTopics.stream()
+            .flatMap(t -> IntStream.range(0, 3).mapToObj(p -> TopicPartition.of(t, p)))
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    tp -> tp,
+                    tp ->
+                        cb.partitionMetrics(tp, LogMetrics.Log.Gauge.class)
+                            .collect(Collectors.toUnmodifiableSet()))));
+
+    var allReplicaMetrics =
+        cb.all().entrySet().stream()
+            .flatMap(
+                e ->
+                    e.getValue().stream()
+                        .filter(ee -> ee.replicaIndex(e.getKey()).isPresent())
+                        .filter(ee -> ee instanceof LogMetrics.Log.Gauge)
+                        .map(ee -> Map.entry(ee.replicaIndex(e.getKey()).orElseThrow(), ee)))
+            .collect(
+                Collectors.groupingBy(
+                    Map.Entry::getKey,
+                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableSet())));
+    Assertions.assertEquals(
+        allReplicaMetrics,
+        fakeTopics.stream()
+            .flatMap(
+                t ->
+                    IntStream.range(0, 3)
+                        .mapToObj(p -> TopicPartition.of(t, p))
+                        .flatMap(
+                            p ->
+                                IntStream.rangeClosed(1, 3)
+                                    .mapToObj(
+                                        b ->
+                                            TopicPartitionReplica.of(p.topic(), p.partition(), b))))
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    tpr -> tpr,
+                    tpr ->
+                        cb.replicaMetrics(tpr, LogMetrics.Log.Gauge.class)
+                            .collect(Collectors.toUnmodifiableSet()))));
+
+    var allBrokerTopicMetrics =
+        cb.all().entrySet().stream()
+            .flatMap(
+                e ->
+                    e.getValue().stream()
+                        .filter(ee -> ee.brokerTopicIndex(e.getKey()).isPresent())
+                        .filter(ee -> ee instanceof ServerMetrics.Topic.Meter)
+                        .map(ee -> Map.entry(ee.brokerTopicIndex(e.getKey()).orElseThrow(), ee)))
+            .collect(
+                Collectors.groupingBy(
+                    Map.Entry::getKey,
+                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableSet())));
+    Assertions.assertEquals(
+        allBrokerTopicMetrics,
+        fakeTopics.stream()
+            .flatMap(t -> IntStream.rangeClosed(1, 3).mapToObj(b -> BrokerTopic.of(b, t)))
             .collect(
                 Collectors.toUnmodifiableMap(
                     bt -> bt,
                     bt ->
-                        clusterBean
-                            .brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
-                            .sorted(
-                                Comparator.comparingLong(HasBeanObject::createdTimestamp)
-                                    .reversed())
-                            .collect(Collectors.toUnmodifiableList())));
-    result.forEach(
-        (key, metrics) -> {
-          Assertions.assertEquals(3 * 100, result.size());
-          Assertions.assertInstanceOf(BrokerTopic.class, key);
-          metrics.forEach(
-              metric -> Assertions.assertInstanceOf(ServerMetrics.Topic.Meter.class, metric));
-        });
+                        cb.brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
+                            .collect(Collectors.toUnmodifiableSet()))));
+
+    // test empty query
+    Assertions.assertEquals(
+        Set.of(), cb.topicMetrics(fakeTopics.get(0), JvmMemory.class).collect(Collectors.toSet()));
+    Assertions.assertEquals(
+        Set.of(),
+        cb.partitionMetrics(TopicPartition.of(fakeTopics.get(0), 0), JvmMemory.class)
+            .collect(Collectors.toSet()));
+    Assertions.assertEquals(
+        Set.of(),
+        cb.replicaMetrics(TopicPartitionReplica.of(fakeTopics.get(0), 0, 1), JvmMemory.class)
+            .collect(Collectors.toSet()));
+    Assertions.assertEquals(
+        Set.of(),
+        cb.brokerTopicMetrics(BrokerTopic.of(1, fakeTopics.get(0)), JvmMemory.class)
+            .collect(Collectors.toSet()));
   }
 }
