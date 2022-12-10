@@ -64,7 +64,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
         .toMap
 
     val rowData = s2kType(rows)
-    println(records)
+
     rowData.forEach(record => assertEquals(records(record._1), record._2))
   }
 

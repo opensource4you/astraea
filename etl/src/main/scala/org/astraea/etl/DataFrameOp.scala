@@ -26,14 +26,12 @@ import scala.language.implicitConversions
 
 class DataFrameOp(dataFrame: DataFrame) {
 
-  def defaultConverter(column: Seq[DataColumn]): UserDefinedFunction =
-    udf((value: String) => {
+  val defaultConverter: UserDefinedFunction =
+    udf[String, Map[String, String]]((value: Map[String, String]) => {
       JsonConverter
         .jackson()
         .toJson(
-          (column.map(col => col.name).seq zip value
-            .split(",")
-            .seq).toMap.asJava
+          value.asJava
         )
     })
 
@@ -70,22 +68,17 @@ class DataFrameOp(dataFrame: DataFrame) {
       dataFrame
         .withColumn(
           "value",
-          defaultConverter(cols)(
-            concat_ws(
-              ",",
-              cols
-                .map(dataColumn => col(dataColumn.name)): _*
-            )
+          defaultConverter(
+            map(cols.flatMap(c => List(lit(c.name), col(c.name))): _*)
           )
         )
         .withColumn(
           "key",
-          defaultConverter(cols.filter(dataColumn => dataColumn.isPK))(
-            concat_ws(
-              ",",
+          defaultConverter(
+            map(
               cols
                 .filter(dataColumn => dataColumn.isPK)
-                .map(dataColumn => col(dataColumn.name)): _*
+                .flatMap(c => List(lit(c.name), col(c.name))): _*
             )
           )
         )
