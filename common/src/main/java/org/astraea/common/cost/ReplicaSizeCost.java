@@ -150,14 +150,13 @@ public class ReplicaSizeCost
                 (ignore, size) -> size == null ? -replica.size() : -replica.size() + size));
 
     addedReplicas.forEach(
-        replica -> {
-          changes.compute(
-              replica.nodeInfo().id(),
-              (ignore, size) -> {
-                totalMigrateSize.set(totalMigrateSize.get() + replica.size());
-                return size == null ? replica.size() : replica.size() + size;
-              });
-        });
+        replica ->
+            changes.compute(
+                replica.nodeInfo().id(),
+                (ignore, size) -> {
+                  totalMigrateSize.set(totalMigrateSize.get() + replica.size());
+                  return size == null ? replica.size() : replica.size() + size;
+                }));
     return new MigrateInfo(totalMigrateSize.get(), changes);
   }
 }

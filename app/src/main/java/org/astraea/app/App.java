@@ -58,7 +58,7 @@ public class App {
 
     var className = args.get(0);
 
-    if (className.toLowerCase().equals("help")) {
+    if (className.equalsIgnoreCase("help")) {
       System.out.println(usage);
       return;
     }

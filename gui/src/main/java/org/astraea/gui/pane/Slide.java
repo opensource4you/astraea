@@ -41,7 +41,7 @@ public interface Slide<T extends Node> {
       var entry = nodes.entrySet().iterator().next();
       pane.setCenter(entry.getValue());
       selectAction.accept(entry.getKey(), entry.getValue());
-      return new Slide<T>() {
+      return new Slide<>() {
         @Override
         public Parent node() {
           return pane;
