@@ -41,6 +41,7 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -53,29 +54,49 @@ class NetworkCostTest {
 
   @Test
   void testInitialClusterInfo() {
+    NetworkCost.isTesting.set(false);
     var cost = new NetworkIngressCost();
-    var initial = ClusterInfoBuilder.builder()
-        .addNode(Set.of(1, 2))
-        .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
-        .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
-        .addTopic("Pipeline", 1, (short) 1)
-        .build();
+    var initial =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
+            .addTopic("Pipeline", 1, (short) 1)
+            .addNode(Set.of(2))
+            .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
+            .build();
     var modified = new ShuffleTweaker(10, 30).generate(initial).findFirst().orElseThrow();
+    var withLog =
+        ClusterBean.of(
+            Map.of(
+                1,
+                List.of(
+                    logSize(TopicPartition.of("Pipeline", 0), -1),
+                    bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0))));
+    var noLog =
+        ClusterBean.of(
+            Map.of(1, List.of(bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0))));
 
     Assertions.assertThrows(
         NoSufficientMetricsException.class, () -> cost.clusterCost(initial, ClusterBean.EMPTY));
-    Assertions.assertDoesNotThrow(() -> cost.clusterCost(initial, ClusterBean.of(Map.of(
-            1, List.of(bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0))
-        ))));
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class, () -> cost.clusterCost(modified, ClusterBean.EMPTY));
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class, () -> cost.clusterCost(initial, noLog));
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class, () -> cost.clusterCost(modified, noLog));
+    Assertions.assertDoesNotThrow(() -> cost.clusterCost(initial, withLog));
+    Assertions.assertDoesNotThrow(() -> cost.clusterCost(modified, noLog));
   }
 
   @Test
   void testEstimatedIngressRate() {
+    NetworkCost.isTesting.set(true);
     testEstimatedRate(ServerMetrics.Topic.BYTES_IN_PER_SEC);
   }
 
   @Test
   void testEstimatedEgressRate() {
+    NetworkCost.isTesting.set(true);
     testEstimatedRate(ServerMetrics.Topic.BYTES_OUT_PER_SEC);
   }
 
@@ -112,6 +133,7 @@ class NetworkCostTest {
   @MethodSource("testcases")
   @DisplayName("Run with Balancer")
   void testOptimization(HasClusterCost costFunction, TestCase testcase) {
+    NetworkCost.isTesting.set(true);
     var newPlan =
         Balancer.Official.Greedy.create(
                 AlgorithmConfig.builder()
@@ -129,6 +151,7 @@ class NetworkCostTest {
 
   @Test
   void testCompositeOptimization() {
+    NetworkCost.isTesting.set(true);
     var testCase =
         new LargeTestCase(
             ServerMetrics.Topic.BYTES_IN_PER_SEC,
@@ -380,5 +403,17 @@ class NetworkCostTest {
         Map.of("type", "BrokerTopicMetric", "topic", topic, "name", metric.metricName());
     var attributes = Map.<String, Object>of("FifteenMinuteRate", fifteenRate);
     return new ServerMetrics.Topic.Meter(new BeanObject(domainName, properties, attributes));
+  }
+
+  static LogMetrics.Log.Gauge logSize(TopicPartition topicPartition, long size) {
+    var domainName = LogMetrics.DOMAIN_NAME;
+    var properties =
+        Map.of(
+            "type", "BrokerTopicMetric",
+            "topic", topicPartition.topic(),
+            "partition", String.valueOf(topicPartition.partition()),
+            "name", LogMetrics.Log.SIZE.metricName());
+    var attributes = Map.<String, Object>of("value", size);
+    return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, attributes));
   }
 }

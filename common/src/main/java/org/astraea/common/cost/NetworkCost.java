@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -32,10 +33,13 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
+import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
 public abstract class NetworkCost implements HasClusterCost {
+
+  static final AtomicBoolean isTesting = new AtomicBoolean(false);
 
   private final AtomicReference<ClusterInfo<Replica>> currentCluster = new AtomicReference<>();
 
@@ -52,7 +56,8 @@ public abstract class NetworkCost implements HasClusterCost {
         clusterInfo.topicPartitionReplicas().stream()
             .filter(tpr -> !metricReplicas.contains(tpr))
             .collect(Collectors.toUnmodifiableSet());
-    if (mismatchSet.isEmpty()) currentCluster.set(clusterInfo);
+    if (mismatchSet.isEmpty() || (isTesting.get() && currentCluster.get() == null))
+      currentCluster.set(clusterInfo);
     if (currentCluster.get() == null)
       fail("Initial clusterInfo required, the following replicas are mismatch: " + mismatchSet);
 
@@ -83,7 +88,10 @@ public abstract class NetworkCost implements HasClusterCost {
 
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(useMetric()::fetch);
+    // TODO: We need a reliable way to access the actual current cluster info. To do that we need to
+    //  obtain the replica info, so we intentionally sample log size but never use it.
+    //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
+    return Fetcher.of(List.of(useMetric()::fetch, LogMetrics.Log.SIZE::fetch));
   }
 
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(
