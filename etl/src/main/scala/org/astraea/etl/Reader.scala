@@ -24,7 +24,6 @@ import org.astraea.etl.DataType.StringType
 import org.astraea.etl.Reader._
 
 import scala.util.control.Breaks
-import scala.util.control.Breaks.break
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
     var userSchema: StructType,

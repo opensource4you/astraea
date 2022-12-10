@@ -52,7 +52,6 @@ class DataFrameOp(dataFrame: DataFrame) {
   // TODO unitized JSON
   def csvToJSON(pk: Seq[String]): DataFrameOp = {
     new DataFrameOp(
-      // Skip a blank line when it is encountered
       dataFrame
         .withColumn("value", to_json(struct($conforms("*"))))
         .withColumn("key", concat_ws(",", pk.map(col).seq: _*))
