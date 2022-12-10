@@ -19,7 +19,6 @@ package org.astraea.common.metrics;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
