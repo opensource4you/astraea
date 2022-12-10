@@ -87,7 +87,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   static final int TIMEOUT_DEFAULT = 3;
 
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
-      List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1));
+      List.of(costWeight(DecreasingCost.class.getName(), 1));
 
   @Test
   @Timeout(value = 60)
@@ -948,8 +948,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         request.topics = Optional.of(randomTopic0 + "," + randomTopic1);
         request.timeout = "32";
         request.balancerConfig = Map.of("KEY", "VALUE");
-        request.costWeights =
-            List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1));
+        request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
 
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
@@ -995,7 +994,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
         var balancerRequest4 = new BalancerPostRequest();
         var costWeight = new CostWeight();
-        costWeight.setCost("yes");
+        costWeight.cost = Optional.of("yes");
         balancerRequest4.costWeights = List.of(costWeight);
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -1009,8 +1008,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testTimeout() {
     createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
-      var costFunction =
-          Collections.singleton(new BalancerHandler.CostWeight(TimeoutCost.class.getName(), 1));
+      var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
       var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
       var channel =
           Channel.ofRequest(
@@ -1048,8 +1046,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             metrics.forEach(i -> Assertions.assertInstanceOf(JvmMemory.class, i));
             invoked.set(true);
           });
-      var fetcherAndCost =
-          Collections.singleton(new BalancerHandler.CostWeight(FetcherAndCost.class.getName(), 1));
+      var fetcherAndCost = Collections.singleton(costWeight(FetcherAndCost.class.getName(), 1));
 
       var progress =
           submitPlanGeneration(
@@ -1183,5 +1180,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       offerCallbacks.clear();
       return super.offer(currentClusterInfo, timeout);
     }
+  }
+
+  private static BalancerHandler.CostWeight costWeight(String cost, double weight) {
+    var cw = new BalancerHandler.CostWeight();
+    cw.cost = Optional.of(cost);
+    cw.weight = Optional.of(weight);
+    return cw;
   }
 }
