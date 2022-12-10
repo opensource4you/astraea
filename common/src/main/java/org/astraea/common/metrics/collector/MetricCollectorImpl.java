@@ -18,6 +18,7 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +45,8 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public class MetricCollectorImpl implements MetricCollector {
-
   private final Map<Integer, MBeanClient> mBeanClients = new ConcurrentHashMap<>();
+  private final Collection<MetricSensor> metricSensors = new CopyOnWriteArrayList<>();
   private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers =
       new CopyOnWriteArrayList<>();
   private final ScheduledExecutorService executorService;
@@ -93,10 +94,19 @@ public class MetricCollectorImpl implements MetricCollector {
                           // for each fetcher, perform the fetching and store the metrics
                           for (var fetcher : fetchers) {
                             try {
-                              beans
+                              var beans = fetcher.getKey().fetch(mBeanClients.get(identity.id));
+                              this.beans
                                   .computeIfAbsent(
                                       identity.id, ignored -> new ConcurrentLinkedQueue<>())
-                                  .addAll(fetcher.getKey().fetch(mBeanClients.get(identity.id)));
+                                  .addAll(beans);
+                              for (var metricSensor : metricSensors)
+                                metricSensor
+                                    .record(identity.id, beans)
+                                    .forEach(
+                                        (key, value) ->
+                                            this.beans
+                                                .computeIfAbsent(key, ignore -> new ArrayList<>())
+                                                .addAll(value));
                             } catch (NoSuchElementException e) {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
@@ -121,6 +131,11 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
+  public void addMetricSensors(MetricSensor metricSensor) {
+    this.metricSensors.add(metricSensor);
+  }
+
+  @Override
   public void registerJmx(int identity, InetSocketAddress socketAddress) {
     this.registerJmx(
         identity,
@@ -142,6 +157,11 @@ public class MetricCollectorImpl implements MetricCollector {
             "Attempt to register identity "
                 + identity
                 + " with the local JMX server. But this id is already registered");
+  }
+
+  @Override
+  public Collection<MetricSensor> listMetricsSensors() {
+    return this.metricSensors;
   }
 
   @Override

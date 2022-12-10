@@ -16,7 +16,7 @@
  */
 package org.astraea.etl
 
-sealed abstract class DataType(dataType: String) {
+sealed abstract class DataType(dataType: String) extends Serializable {
   def value: String = {
     dataType
   }

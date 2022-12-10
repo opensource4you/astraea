@@ -24,7 +24,7 @@ public class TaskInfo {
   private String connectorName;
 
   @JsonProperty("task")
-  private int taskId;
+  private int id;
 
   public TaskInfo() {}
 
@@ -32,7 +32,7 @@ public class TaskInfo {
     return connectorName;
   }
 
-  public int taskId() {
-    return taskId;
+  public int id() {
+    return id;
   }
 }

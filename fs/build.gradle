@@ -16,7 +16,12 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
     testImplementation project(':it')
 
-    implementation project(':common')
+    implementation (project(':common')) {
+        // those dependencies are not used by fs module
+        exclude group: "org.apache.kafka"
+        exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "org.slf4j"
+    }
     implementation "commons-net:commons-net:${versions["commons-net"]}"
 }
 
@@ -29,7 +34,7 @@ ext {
     numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
 }
 
-archivesBaseName = "astraea-it"
+archivesBaseName = "astraea-fs"
 
 tasks.named('test') {
     // Use JUnit Platform for unit tests.

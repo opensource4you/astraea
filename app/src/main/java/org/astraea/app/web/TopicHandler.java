@@ -31,7 +31,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
 
@@ -170,10 +169,11 @@ class TopicHandler implements Handler {
                       var numberOfReplicas = topic.replicas;
 
                       if (topic.probability.isPresent()) {
-                        return Scenario.build(topic.probability.get())
+                        return Scenario.builder()
                             .topicName(topicName)
                             .numberOfPartitions(numberOfPartitions)
                             .numberOfReplicas(numberOfReplicas)
+                            .binomialProbability(topic.probability.get())
                             .build()
                             .apply(admin)
                             .thenApply(ignored -> null)

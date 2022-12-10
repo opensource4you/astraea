@@ -44,7 +44,7 @@ JSON Response 範例
 ```shell
 POST /reassignments
 ```
-參數
+toNodes 參數
 
 | 名稱        | 說明                                  | 預設  |
 |-----------|-------------------------------------|-----|
@@ -58,7 +58,7 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '{"plans":[{
+    -d '{"toNodes":[{
     "topic": "chia", 
     "partition": 0,
     "to": [1003]
@@ -70,7 +70,7 @@ curl -X POST http://localhost:8001/reassignments \
 ```shell
 POST /reassignments
 ```
-參數
+toFolders 參數
 
 | 名稱        | 說明                                   | 預設  |
 |-----------|--------------------------------------|-----|
@@ -85,7 +85,7 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '{"plans":[{
+    -d '{"toFolders":[{
     "topic": "chia", 
     "partition": 0,
     "broker": 1003,
@@ -98,7 +98,7 @@ curl -X POST http://localhost:8001/reassignments \
 ```shell
 POST /reassignments
 ```
-參數
+excludeNodes 參數
 
 | 名稱      | 說明                                        | 預設                     |
 |---------|-------------------------------------------|------------------------|
@@ -111,7 +111,7 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/reassignments \
     -H "Content-Type: application/json" \
-    -d '{"plans": [{
+    -d '{"excludeNodes": [{
     "exclude": 1003,
     "topic": "chia"
     }]}' 

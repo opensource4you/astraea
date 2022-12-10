@@ -70,17 +70,19 @@ public class ConnectorTest extends RequireWorkerCluster {
 
     // wait for sync
     Utils.sleep(Duration.ofSeconds(3));
-    Assertions.assertEquals(3, client.connector(name).toCompletableFuture().join().tasks().size());
-    Assertions.assertEquals(1, MySource.INIT_COUNT.get());
-    Assertions.assertEquals(3, MySourceTask.INIT_COUNT.get());
-    Assertions.assertEquals(0, MySource.CLOSE_COUNT.get());
-    Assertions.assertEquals(0, MySourceTask.CLOSE_COUNT.get());
+    Assertions.assertEquals(
+        3, client.connectorInfo(name).toCompletableFuture().join().tasks().size());
 
-    // test close
     client.deleteConnector(name).toCompletableFuture().join();
     Utils.sleep(Duration.ofSeconds(3));
-    Assertions.assertEquals(1, MySource.CLOSE_COUNT.get());
-    Assertions.assertEquals(3, MySourceTask.CLOSE_COUNT.get());
+
+    Assertions.assertNotEquals(0, MySource.INIT_COUNT.get());
+    Assertions.assertNotEquals(0, MySourceTask.INIT_COUNT.get());
+    Assertions.assertNotEquals(0, MySource.CLOSE_COUNT.get());
+    Assertions.assertNotEquals(0, MySourceTask.CLOSE_COUNT.get());
+
+    Assertions.assertEquals(MySource.INIT_COUNT.get(), MySource.CLOSE_COUNT.get());
+    Assertions.assertEquals(MySourceTask.INIT_COUNT.get(), MySourceTask.CLOSE_COUNT.get());
   }
 
   public static class MySource extends SourceConnector {

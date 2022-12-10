@@ -18,9 +18,15 @@ package org.astraea.connector;
 
 import java.util.Collection;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigException;
 
 public interface Definition {
+
+  static Builder builder() {
+    return new Builder();
+  }
 
   static ConfigDef toConfigDef(Collection<Definition> defs) {
     var def = new ConfigDef();
@@ -30,6 +36,15 @@ public interface Definition {
                 d.name(),
                 ConfigDef.Type.valueOf(d.type().name()),
                 d.defaultValue(),
+                d.validator() == null
+                    ? null
+                    : (n, o) -> {
+                      try {
+                        d.validator().accept(n, o);
+                      } catch (Exception e) {
+                        throw new ConfigException(n, o, e.getMessage());
+                      }
+                    },
                 ConfigDef.Importance.MEDIUM,
                 d.documentation()));
     return def;
@@ -42,6 +57,8 @@ public interface Definition {
   String documentation();
 
   Type type();
+
+  BiConsumer<String, Object> validator();
 
   enum Type {
     BOOLEAN,
@@ -61,6 +78,8 @@ public interface Definition {
 
     private String documentation = "";
     private Type type;
+
+    private BiConsumer<String, Object> validator;
 
     private Builder() {}
 
@@ -84,12 +103,19 @@ public interface Definition {
       return this;
     }
 
+    public Builder validator(BiConsumer<String, Object> validator) {
+      this.validator = validator;
+      return this;
+    }
+
     public Definition build() {
       return new Definition() {
         private final String name = Objects.requireNonNull(Builder.this.name);
         private final String documentation = Objects.requireNonNull(Builder.this.documentation);
         private final Object defaultValue = Builder.this.defaultValue;
         private final Type type = Objects.requireNonNull(Builder.this.type);
+
+        private final BiConsumer<String, Object> validator = Builder.this.validator;
 
         @Override
         public String name() {
@@ -109,6 +135,11 @@ public interface Definition {
         @Override
         public Type type() {
           return type;
+        }
+
+        @Override
+        public BiConsumer<String, Object> validator() {
+          return validator;
         }
       };
     }

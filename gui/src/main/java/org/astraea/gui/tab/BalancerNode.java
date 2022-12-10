@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -208,7 +209,9 @@ public class BalancerNode {
                                           patterns.isEmpty()
                                               || patterns.stream()
                                                   .anyMatch(p -> p.matcher(topic).matches()))
-                                  .config("iteration", "10000")
+                                  .config(
+                                      Configuration.of(
+                                          Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                                   .build())
                           .offer(clusterInfo, Duration.ofSeconds(10)));
                 })
@@ -291,7 +294,7 @@ public class BalancerNode {
                     EditableText.singleLine().hint("30KB,200MB,1GB").build())));
     return PaneBuilder.of(TableViewer.disableQuery())
         .firstPart(selectBox, multiInput, "PLAN", refresher(context))
-        .secondPart(null, "EXECUTE", tableViewAction(context))
+        .secondPart("EXECUTE", tableViewAction(context))
         .build();
   }
 }

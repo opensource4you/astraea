@@ -29,12 +29,13 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public final class ServerMetrics {
+  public static final String DOMAIN_NAME = "kafka.server";
 
   public static List<AppInfo> appInfo(MBeanClient client) {
     return client
         .queryBeans(
             BeanQuery.builder()
-                .domainName("kafka.server")
+                .domainName(DOMAIN_NAME)
                 .property("type", "app-info")
                 .property("id", "*")
                 .build())
@@ -104,7 +105,7 @@ public final class ServerMetrics {
       return new Histogram(
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "ZooKeeperClientMetrics")
                   .property("name", metricName)
                   .build()));
@@ -170,7 +171,7 @@ public final class ServerMetrics {
       return new Meter(
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "SessionExpireListener")
                   .property("name", metricName)
                   .build()));
@@ -223,7 +224,7 @@ public final class ServerMetrics {
       return () ->
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "KafkaServer")
                   .property("name", CLUSTER_ID)
                   .build());
@@ -241,7 +242,7 @@ public final class ServerMetrics {
       return new Gauge(
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "KafkaServer")
                   .property("name", metricName)
                   .build()));
@@ -320,7 +321,7 @@ public final class ServerMetrics {
       return new Gauge(
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "DelayedOperationPurgatory")
                   .property("delayedOperation", metricName)
                   .property("name", "PurgatorySize")
@@ -384,7 +385,7 @@ public final class ServerMetrics {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "BrokerTopicMetrics")
                   .property("topic", "*")
                   .property("name", this.metricName())
@@ -517,7 +518,7 @@ public final class ServerMetrics {
       return new Meter(
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "BrokerTopicMetrics")
                   .property("name", this.metricName())
                   .build()));
@@ -578,7 +579,7 @@ public final class ServerMetrics {
       return new Gauge(
           mBeanClient.queryBean(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", "ReplicaManager")
                   .property("name", metricName)
                   .build()));
@@ -632,17 +633,14 @@ public final class ServerMetrics {
     public static SocketMetric socket(MBeanClient mBeanClient) {
       return new SocketMetric(
           mBeanClient.queryBean(
-              BeanQuery.builder()
-                  .domainName("kafka.server")
-                  .property("type", METRIC_TYPE)
-                  .build()));
+              BeanQuery.builder().domainName(DOMAIN_NAME).property("type", METRIC_TYPE).build()));
     }
 
     public static List<SocketListenerMetric> socketListener(MBeanClient mBeanClient) {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", METRIC_TYPE)
                   .property(PROP_LISTENER, "*")
                   .build())
@@ -656,7 +654,7 @@ public final class ServerMetrics {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", METRIC_TYPE)
                   .property(PROP_LISTENER, "*")
                   .property(PROP_NETWORK_PROCESSOR, "*")
@@ -670,7 +668,7 @@ public final class ServerMetrics {
       return mBeanClient
           .queryBeans(
               BeanQuery.builder()
-                  .domainName("kafka.server")
+                  .domainName(DOMAIN_NAME)
                   .property("type", METRIC_TYPE)
                   .property(PROP_LISTENER, "*")
                   .property(PROP_NETWORK_PROCESSOR, "*")
