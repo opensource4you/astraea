@@ -20,7 +20,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.astraea.common.admin.Admin
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.{generateCSVF, mkdir}
-import org.astraea.etl.Spark2Kafka.Config
 import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
@@ -33,10 +32,7 @@ import java.util
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import scala.collection.convert.ImplicitConversions.{
-  `collection AsScalaIterable`,
-  `collection asJava`
-}
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.util.Random
 
@@ -159,7 +155,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       sinkDir.getPath,
       checkoutDir.getPath
     )
-    Spark2Kafka.executor(Config(myPropDir.toString), 20)
+    Spark2Kafka.executor(Array(myPropDir.toString), 20)
   }
 
   private def writeProperties(
