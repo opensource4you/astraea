@@ -46,6 +46,10 @@ import scala.collection.JavaConverters._
   *   Set deployment model, which will be used in
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
+  * @param checkpoint
+  *   Spark checkpoint path.
+  * @param blankLine
+  *   Determine if a blank line is legal, default is true.
   */
 case class Metadata private (
     deployModel: String,
