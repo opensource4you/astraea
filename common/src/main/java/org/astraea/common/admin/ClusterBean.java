@@ -34,42 +34,6 @@ public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
-    var lazyReplica =
-        Lazy.of(
-            () ->
-                allBeans.entrySet().stream()
-                    .flatMap(
-                        entry ->
-                            entry.getValue().stream()
-                                .filter(
-                                    bean ->
-                                        bean.beanObject().properties().containsKey("topic")
-                                            && bean.beanObject()
-                                                .properties()
-                                                .containsKey("partition"))
-                                .map(
-                                    bean ->
-                                        Map.entry(
-                                            TopicPartitionReplica.of(
-                                                bean.beanObject().properties().get("topic"),
-                                                Integer.parseInt(
-                                                    bean.beanObject()
-                                                        .properties()
-                                                        .get("partition")),
-                                                entry.getKey()),
-                                            bean)))
-                    .collect(
-                        Collectors.groupingBy(
-                            Map.Entry::getKey,
-                            Collectors.mapping(
-                                Map.Entry::getValue, Collectors.toUnmodifiableList())))
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toUnmodifiableMap(
-                            Map.Entry::getKey,
-                            entry -> (Collection<HasBeanObject>) entry.getValue())));
-
     return new ClusterBean() {
       final Map<Class<? extends HasBeanObject>, Lazy<Map<?, ?>>> topicCache =
           new ConcurrentHashMap<>();
@@ -136,11 +100,6 @@ public interface ClusterBean {
             .getOrDefault(brokerTopic, List.of()).stream();
       }
 
-      @Override
-      public Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica() {
-        return lazyReplica.get();
-      }
-
       private <Bean extends HasBeanObject, Key> Map<Key, List<Bean>> map(
           Class<Bean> metricClass, BiFunction<Integer, Bean, Optional<Key>> keyMapper) {
         return all().entrySet().stream()
@@ -168,13 +127,6 @@ public interface ClusterBean {
    *     HasBeanObject} as value.
    */
   Map<Integer, Collection<HasBeanObject>> all();
-
-  /**
-   * @return a {@link Map} collection that contains {@link TopicPartitionReplica} as key and a
-   *     {@link HasBeanObject} as value,note that this can only be used to get partition-related
-   *     beanObjects.
-   */
-  Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
 
   /**
    * Query a specific class of metric where they are from the specified topic.

@@ -103,11 +103,6 @@ class ClusterBeanTest {
     Assertions.assertEquals(2, clusterBean.all().size());
     Assertions.assertEquals(1, clusterBean.all().get(1).size());
     Assertions.assertEquals(3, clusterBean.all().get(2).size());
-
-    // test get beanObject by replica
-    Assertions.assertEquals(2, clusterBean.mapByReplica().size());
-    Assertions.assertEquals(
-        2, clusterBean.mapByReplica().get(TopicPartitionReplica.of("testBeans", 0, 2)).size());
   }
 
   static List<String> fakeTopics =
