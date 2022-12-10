@@ -253,7 +253,6 @@ class ReaderTest extends RequireBrokerCluster {
       .add("fInt", "integer")
 
     val columns = Seq(
-      DataColumn("ID", isPK = true, dataType = IntegerType),
       DataColumn("name", isPK = false, dataType = StringType),
       DataColumn("age", isPK = false, dataType = IntegerType),
       DataColumn("xx", isPK = false, dataType = StringType),
