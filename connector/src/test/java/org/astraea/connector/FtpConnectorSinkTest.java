@@ -16,16 +16,13 @@
  */
 package org.astraea.connector;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.sink.SinkRecord;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.consumer.Record;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.RequireWorkerCluster;
@@ -99,28 +96,22 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
 
       task.start(configs);
 
-      Collection<SinkRecord> records =
+      var records =
           List.of(
-              new SinkRecord(
-                  topicName,
-                  0,
-                  Schema.BYTES_SCHEMA,
-                  "test".getBytes(),
-                  Schema.BYTES_SCHEMA,
-                  "test0".getBytes(),
-                  0,
-                  System.currentTimeMillis(),
-                  TimestampType.CREATE_TIME),
-              new SinkRecord(
-                  topicName,
-                  1,
-                  Schema.BYTES_SCHEMA,
-                  "test".getBytes(),
-                  Schema.BYTES_SCHEMA,
-                  "test1".getBytes(),
-                  1,
-                  System.currentTimeMillis(),
-                  TimestampType.CREATE_TIME));
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test0".getBytes())
+                  .partition(0)
+                  .timestamp(System.currentTimeMillis())
+                  .build(),
+              Record.builder()
+                  .topic(topicName)
+                  .value("test".getBytes())
+                  .value("test1".getBytes())
+                  .partition(1)
+                  .timestamp(System.currentTimeMillis())
+                  .build());
 
       task.put(records);
       Assertions.assertEquals(
@@ -135,8 +126,8 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
                             "/",
                             fileSize,
                             topicName,
-                            String.valueOf(sinkRecord.kafkaPartition()),
-                            String.valueOf(sinkRecord.kafkaOffset())));
+                            String.valueOf(sinkRecord.partition()),
+                            String.valueOf(sinkRecord.offset())));
             var reader = RecordReader.builder(input).build();
 
             while (reader.hasNext()) {
@@ -144,7 +135,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
               Assertions.assertArrayEquals(record.key(), (byte[]) sinkRecord.key());
               Assertions.assertArrayEquals(record.value(), (byte[]) sinkRecord.value());
               Assertions.assertEquals(record.topic(), sinkRecord.topic());
-              Assertions.assertEquals(record.partition(), sinkRecord.kafkaPartition());
+              Assertions.assertEquals(record.partition(), sinkRecord.partition());
               Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
             }
           });
