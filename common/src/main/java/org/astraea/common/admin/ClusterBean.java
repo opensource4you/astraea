@@ -80,6 +80,26 @@ public interface ClusterBean {
             .map(metricClass::cast);
       }
 
+      @Override
+      public Set<String> topics() {
+        return topicCache.get().keySet();
+      }
+
+      @Override
+      public Set<TopicPartition> partitions() {
+        return partitionCache.get().keySet();
+      }
+
+      @Override
+      public Set<TopicPartitionReplica> replicas() {
+        return replicaCache.get().keySet();
+      }
+
+      @Override
+      public Set<BrokerTopic> brokerTopics() {
+        return brokerTopicCache.get().keySet();
+      }
+
       private <Key> Map<Key, List<HasBeanObject>> map(
           BiFunction<Integer, HasBeanObject, Optional<Key>> keyMapper) {
         return all().entrySet().stream()
@@ -153,36 +173,20 @@ public interface ClusterBean {
   /**
    * @return the set of topic that has some related metrics within the internal storage.
    */
-  default Set<String> topics() {
-    return all().values().stream()
-        .flatMap(bs -> bs.stream().flatMap(b -> b.topicIndex().stream()))
-        .collect(Collectors.toUnmodifiableSet());
-  }
+  Set<String> topics();
 
   /**
    * @return the set of partition that has some related metrics within the internal storage.
    */
-  default Set<TopicPartition> partitions() {
-    return all().values().stream()
-        .flatMap(bs -> bs.stream().flatMap(b -> b.partitionIndex().stream()))
-        .collect(Collectors.toUnmodifiableSet());
-  }
+  Set<TopicPartition> partitions();
 
   /**
    * @return the set of replicas that has some related metrics within the internal storage.
    */
-  default Set<TopicPartitionReplica> replicas() {
-    return all().entrySet().stream()
-        .flatMap(e -> e.getValue().stream().flatMap(b -> b.replicaIndex(e.getKey()).stream()))
-        .collect(Collectors.toUnmodifiableSet());
-  }
+  Set<TopicPartitionReplica> replicas();
 
   /**
    * @return the set of broker/topic pair that has some related metrics within the internal storage.
    */
-  default Set<BrokerTopic> brokerTopics() {
-    return all().entrySet().stream()
-        .flatMap(e -> e.getValue().stream().flatMap(b -> b.brokerTopicIndex(e.getKey()).stream()))
-        .collect(Collectors.toUnmodifiableSet());
-  }
+  Set<BrokerTopic> brokerTopics();
 }
