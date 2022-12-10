@@ -86,8 +86,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .configs(
                 initProConfig().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
+                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
             .build()) {
       var i = 0;
       while (i < 300) {
@@ -152,8 +151,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
                                         initProConfig().entrySet().stream()
                                             .collect(
                                                 Collectors.toMap(
-                                                    e -> e.getKey(),
-                                                    e -> e.getValue())))
+                                                    e -> e.getKey(), e -> e.getValue())))
                                     .build(),
                                 topicName,
                                 key,
@@ -217,8 +215,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .configs(
                 props.entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
+                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
             .build()) {
       var metadata =
           producer

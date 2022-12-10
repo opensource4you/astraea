@@ -76,12 +76,13 @@ public class LazyTest {
             .mapToObj(
                 index ->
                     CompletableFuture.runAsync(
-                        () -> lazy.get(
-                            () -> {
-                              count.incrementAndGet();
-                              return index;
-                            },
-                            Duration.ofSeconds(2))))
+                        () ->
+                            lazy.get(
+                                () -> {
+                                  count.incrementAndGet();
+                                  return index;
+                                },
+                                Duration.ofSeconds(2))))
             .collect(Collectors.toList());
     fs.forEach(CompletableFuture::join);
     Assertions.assertEquals(1, count.get());
