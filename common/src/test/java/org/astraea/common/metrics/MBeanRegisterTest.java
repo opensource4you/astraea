@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.jmx;
+package org.astraea.common.metrics;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.MBeanClient;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
