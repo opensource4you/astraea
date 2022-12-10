@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
@@ -112,7 +113,8 @@ public class StrictCostDispatcher implements Dispatcher {
             next.getAndUpdate(previous -> previous >= roundRobin.length - 1 ? 0 : previous + 1)];
 
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
-    var candidate = target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(target, topic);
+    var candidate =
+        target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
