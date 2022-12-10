@@ -214,7 +214,7 @@ class JsonConverterTest {
   }
 
   @Test
-  void testFieldNotInJson() throws JsonProcessingException {
+  void testFieldNotInJson() {
     var testPrimitiveClass =
         getConverter()
             .fromJson(

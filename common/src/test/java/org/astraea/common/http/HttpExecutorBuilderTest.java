@@ -37,7 +37,7 @@ class HttpExecutorBuilderTest {
   }
 
   @Test
-  void testGetQueryUrl() throws URISyntaxException {
+  void testGetQueryUrl() {
     var url = "http://localhost:8989/test";
     var newURL = HttpExecutorBuilder.uri(url, Map.of("key1", "value1"));
     Assertions.assertEquals("key1=value1", newURL.getQuery());

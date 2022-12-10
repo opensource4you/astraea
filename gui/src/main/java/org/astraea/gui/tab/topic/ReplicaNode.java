@@ -202,9 +202,7 @@ public class ReplicaNode {
                                     1))
                     .thenCompose(ignored -> context.admin().moveToFolders(requestToMoveFolders))
                     .thenAccept(
-                        ignored -> {
-                          logger.log("succeed to alter partitions: " + partitions);
-                        });
+                        ignored -> logger.log("succeed to alter partitions: " + partitions));
               });
     };
   }

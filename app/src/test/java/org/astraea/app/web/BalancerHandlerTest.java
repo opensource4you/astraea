@@ -969,7 +969,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       {
         // malformed content
         var request0 =
-            Map.<String, Object>of(
+            Map.of(
                 TOPICS_KEY,
                 "",
                 TIMEOUT_KEY,

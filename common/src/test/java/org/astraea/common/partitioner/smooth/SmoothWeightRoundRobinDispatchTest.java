@@ -87,7 +87,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .configs(
                 initProConfig().entrySet().stream()
                     .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                        Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
             .build()) {
       var i = 0;
       while (i < 300) {
@@ -152,8 +152,8 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
                                         initProConfig().entrySet().stream()
                                             .collect(
                                                 Collectors.toMap(
-                                                    e -> e.getKey().toString(),
-                                                    e -> e.getValue().toString())))
+                                                    e -> e.getKey(),
+                                                    e -> e.getValue())))
                                     .build(),
                                 topicName,
                                 key,
@@ -205,7 +205,6 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
               + jmxServiceURL().getPort()
               + "\n");
       fileWriter.flush();
-      fileWriter.close();
     }
     var topicName = "addressN";
     admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
@@ -219,7 +218,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .configs(
                 props.entrySet().stream()
                     .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                        Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
             .build()) {
       var metadata =
           producer
