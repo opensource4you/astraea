@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,79 +34,58 @@ public interface ClusterBean {
 
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
     return new ClusterBean() {
-      final Map<Class<? extends HasBeanObject>, Lazy<Map<?, ?>>> topicCache =
-          new ConcurrentHashMap<>();
-      final Map<Class<? extends HasBeanObject>, Lazy<Map<?, ?>>> topicPartitionCache =
-          new ConcurrentHashMap<>();
-      final Map<Class<? extends HasBeanObject>, Lazy<Map<?, ?>>> topicPartitionReplicaCache =
-          new ConcurrentHashMap<>();
-      final Map<Class<? extends HasBeanObject>, Lazy<Map<?, ?>>> brokerTopicCache =
-          new ConcurrentHashMap<>();
+      final Lazy<Map<String, List<HasBeanObject>>> topicCache =
+          Lazy.of(() -> map((id, bean) -> bean.topicIndex()));
+      final Lazy<Map<TopicPartition, List<HasBeanObject>>> partitionCache =
+          Lazy.of(() -> map((id, bean) -> bean.partitionIndex()));
+      final Lazy<Map<TopicPartitionReplica, List<HasBeanObject>>> replicaCache =
+          Lazy.of(() -> map((id, bean) -> bean.replicaIndex(id)));
+      final Lazy<Map<BrokerTopic, List<HasBeanObject>>> brokerTopicCache =
+          Lazy.of(() -> map((id, bean) -> bean.brokerTopicIndex(id)));
 
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
         return Collections.unmodifiableMap(allBeans);
       }
 
-      @SuppressWarnings("unchecked")
       @Override
       public <Bean extends HasBeanObject> Stream<Bean> topicMetrics(
           String topic, Class<Bean> metricClass) {
-        return ((Map<String, List<Bean>>)
-                topicCache
-                    .computeIfAbsent(
-                        metricClass, (m) -> Lazy.of(() -> map(m, (id, bean) -> bean.topicIndex())))
-                    .get())
-            .getOrDefault(topic, List.of()).stream();
+        return topicCache.get().getOrDefault(topic, List.of()).stream()
+            .filter(bean -> bean.getClass() == metricClass)
+            .map(metricClass::cast);
       }
 
-      @SuppressWarnings("unchecked")
       @Override
       public <Bean extends HasBeanObject> Stream<Bean> partitionMetrics(
           TopicPartition topicPartition, Class<Bean> metricClass) {
-        return ((Map<TopicPartition, List<Bean>>)
-                topicPartitionCache
-                    .computeIfAbsent(
-                        metricClass,
-                        (m) -> Lazy.of(() -> map(m, (id, bean) -> bean.partitionIndex())))
-                    .get())
-            .getOrDefault(topicPartition, List.of()).stream();
+        return partitionCache.get().getOrDefault(topicPartition, List.of()).stream()
+            .filter(bean -> bean.getClass() == metricClass)
+            .map(metricClass::cast);
       }
 
-      @SuppressWarnings("unchecked")
       @Override
       public <Bean extends HasBeanObject> Stream<Bean> replicaMetrics(
           TopicPartitionReplica replica, Class<Bean> metricClass) {
-        return ((Map<TopicPartitionReplica, List<Bean>>)
-                topicPartitionReplicaCache
-                    .computeIfAbsent(
-                        metricClass,
-                        (m) -> Lazy.of(() -> map(m, (id, bean) -> bean.replicaIndex(id))))
-                    .get())
-            .getOrDefault(replica, List.of()).stream();
+        return replicaCache.get().getOrDefault(replica, List.of()).stream()
+            .filter(bean -> bean.getClass() == metricClass)
+            .map(metricClass::cast);
       }
 
-      @SuppressWarnings("unchecked")
       @Override
       public <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
           BrokerTopic brokerTopic, Class<Bean> metricClass) {
-        return ((Map<BrokerTopic, List<Bean>>)
-                brokerTopicCache
-                    .computeIfAbsent(
-                        metricClass,
-                        (m) -> Lazy.of(() -> map(m, (id, bean) -> bean.brokerTopicIndex(id))))
-                    .get())
-            .getOrDefault(brokerTopic, List.of()).stream();
+        return brokerTopicCache.get().getOrDefault(brokerTopic, List.of()).stream()
+            .filter(bean -> bean.getClass() == metricClass)
+            .map(metricClass::cast);
       }
 
-      private <Bean extends HasBeanObject, Key> Map<Key, List<Bean>> map(
-          Class<Bean> metricClass, BiFunction<Integer, Bean, Optional<Key>> keyMapper) {
+      private <Key> Map<Key, List<HasBeanObject>> map(
+          BiFunction<Integer, HasBeanObject, Optional<Key>> keyMapper) {
         return all().entrySet().stream()
             .flatMap(
                 e ->
                     e.getValue().stream()
-                        .filter(bean -> bean.getClass() == metricClass)
-                        .map(metricClass::cast)
                         .flatMap(
                             bean ->
                                 keyMapper

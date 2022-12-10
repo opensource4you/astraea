@@ -34,6 +34,7 @@ import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class ClusterBeanTest {
@@ -173,7 +174,7 @@ class ClusterBeanTest {
           .flatMap(Collection::stream)
           .collect(Collectors.toUnmodifiableSet());
 
-  @Test
+  @RepeatedTest(5)
   void testMetricQuery() {
     // test index lookup
     var allTopicIndex =
