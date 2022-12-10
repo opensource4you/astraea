@@ -211,19 +211,17 @@ public interface Admin extends AutoCloseable {
 
   /**
    * get the quotas associated to given target keys and target values. The available target types
-   * include {@link QuotaConfigs.QuotaKeys#IP}, {@link QuotaConfigs.QuotaKeys#CLIENT_ID}, and {@link
-   * QuotaConfigs.QuotaKeys#USER}
+   * include {@link QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
    *
-   * @param targets target type and associated value. For example: Map.of({@link
-   *     QuotaConfigs.QuotaKeys#IP}, Set.of(10.1.1.2, 10..2.2.2))
+   * @param targets target type and associated value. For example: Map.of({@link QuotaConfigs#IP},
+   *     Set.of(10.1.1.2, 10..2.2.2))
    * @return quotas matched to given target
    */
   CompletionStage<List<Quota>> quotas(Map<String, Set<String>> targets);
 
   /**
    * get the quotas associated to given target keys. The available target types include {@link
-   * QuotaConfigs.QuotaKeys#IP}, {@link QuotaConfigs.QuotaKeys#CLIENT_ID}, and {@link
-   * QuotaConfigs.QuotaKeys#USER}
+   * QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
    *
    * @param targetKeys target keys
    * @return quotas matched to given target

@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -23,10 +24,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.QuotaConfigs.QuotaKeys;
+import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.common.json.TypeRef;
 
 public class QuotaHandler implements Handler {
@@ -165,6 +168,59 @@ public class QuotaHandler implements Handler {
 
     Quotas(Collection<org.astraea.common.admin.Quota> quotas) {
       this.quotas = quotas.stream().map(Quota::new).collect(Collectors.toUnmodifiableList());
+    }
+  }
+
+  public enum QuotaKeys implements EnumInfo {
+    // ---------------------------------[target key]---------------------------------//
+    CLIENT_ID("clientId", QuotaConfigs.CLIENT_ID),
+    IP("ip", QuotaConfigs.IP),
+
+    // ---------------------------------[limit key]---------------------------------//
+    PRODUCER_BYTE_RATE("producerByteRate", QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG),
+    CONSUMER_BYTE_RATE("consumerByteRate", QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG),
+    IP_CONNECTION_RATE("connectionCreationRate", QuotaConfigs.IP_CONNECTION_RATE_CONFIG);
+
+    private static final Map<String, QuotaKeys> quotaKeysMap =
+        Arrays.stream(QuotaKeys.values())
+            .collect(Collectors.toMap(x -> x.value, Function.identity()));
+
+    private static final Map<String, QuotaKeys> quotaKafkaKeysMap =
+        Arrays.stream(QuotaKeys.values())
+            .collect(Collectors.toMap(x -> x.kafkaValue, Function.identity()));
+
+    public static QuotaKeys ofAlias(String value) {
+      return quotaKeysMap.get(value);
+    }
+
+    public static QuotaKeys fromKafka(String value) {
+      return quotaKafkaKeysMap.get(value);
+    }
+
+    private final String value;
+    private final String kafkaValue;
+
+    QuotaKeys(String value, String kafkaValue) {
+      this.value = value;
+      this.kafkaValue = kafkaValue;
+    }
+
+    public String value() {
+      return value;
+    }
+
+    public String kafkaValue() {
+      return kafkaValue;
+    }
+
+    @Override
+    public String alias() {
+      return value;
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
   }
 }

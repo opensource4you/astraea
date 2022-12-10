@@ -17,8 +17,8 @@
 package org.astraea.app.web;
 
 import java.util.Map;
+import org.astraea.app.web.QuotaHandler.QuotaKeys;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.QuotaConfigs.QuotaKeys;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
