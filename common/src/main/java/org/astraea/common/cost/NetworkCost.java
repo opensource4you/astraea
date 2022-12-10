@@ -120,7 +120,7 @@ public abstract class NetworkCost implements HasClusterCost {
                   (double)
                       clusterBean
                           .brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
-                          .filter(bean -> bean.metricsName().equals(metric.metricName()))
+                          .filter(bean -> bean.type().equals(metric))
                           .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
                           .map(HasRate::fifteenMinuteRate)
                           .orElseThrow(
