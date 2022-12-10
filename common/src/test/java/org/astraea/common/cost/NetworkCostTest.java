@@ -39,6 +39,7 @@ import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -49,6 +50,24 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class NetworkCostTest {
+
+  @Test
+  void testInitialClusterInfo() {
+    var cost = new NetworkIngressCost();
+    var initial = ClusterInfoBuilder.builder()
+        .addNode(Set.of(1, 2))
+        .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
+        .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
+        .addTopic("Pipeline", 1, (short) 1)
+        .build();
+    var modified = new ShuffleTweaker(10, 30).generate(initial).findFirst().orElseThrow();
+
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class, () -> cost.clusterCost(initial, ClusterBean.EMPTY));
+    Assertions.assertDoesNotThrow(() -> cost.clusterCost(initial, ClusterBean.of(Map.of(
+            1, List.of(bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0))
+        ))));
+  }
 
   @Test
   void testEstimatedIngressRate() {

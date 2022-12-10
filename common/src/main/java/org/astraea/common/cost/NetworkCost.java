@@ -37,15 +37,27 @@ import org.astraea.common.metrics.collector.Fetcher;
 
 public abstract class NetworkCost implements HasClusterCost {
 
-  private final AtomicReference<ClusterInfo<Replica>> original = new AtomicReference<>();
+  private final AtomicReference<ClusterInfo<Replica>> currentCluster = new AtomicReference<>();
 
   abstract ServerMetrics.Topic useMetric();
 
   @Override
   public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
-    original.compareAndSet(null, clusterInfo);
-    var dataRate = estimateRate(original.get(), clusterBean, useMetric());
-    var brokerDataRate =
+    // TODO: We need a reliable way to access the actual current cluster info. The following method
+    //  try to compare the equality of cluster info and cluster bean in terms of replica set. But it
+    //  didn't consider the data folder info. See the full discussion:
+    //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
+    var metricReplicas = clusterBean.replicas();
+    var mismatchSet =
+        clusterInfo.topicPartitionReplicas().stream()
+            .filter(tpr -> !metricReplicas.contains(tpr))
+            .collect(Collectors.toUnmodifiableSet());
+    if (mismatchSet.isEmpty()) currentCluster.set(clusterInfo);
+    if (currentCluster.get() == null)
+      fail("Initial clusterInfo required, the following replicas are mismatch: " + mismatchSet);
+
+    var dataRate = estimateRate(currentCluster.get(), clusterBean, useMetric());
+    var brokerRate =
         clusterInfo
             .replicaStream()
             .filter(ReplicaInfo::isLeader)
@@ -57,11 +69,13 @@ public abstract class NetworkCost implements HasClusterCost {
                         replica -> notNull(dataRate.get(replica.topicPartition())),
                         Collectors.summingDouble(x -> x))));
 
-    var summary = brokerDataRate.values().stream().mapToDouble(x -> x).summaryStatistics();
+    var summary = brokerRate.values().stream().mapToDouble(x -> x).summaryStatistics();
     if (summary.getMax() < 0)
-      throw new IllegalStateException("Corrupted max dataRate: " + summary.getMax());
+      throw new IllegalStateException(
+          "Corrupted max rate: " + summary.getMax() + ", brokers: " + brokerRate);
     if (summary.getMin() < 0)
-      throw new IllegalStateException("Corrupted min dataRate: " + summary.getMin());
+      throw new IllegalStateException(
+          "Corrupted min rate: " + summary.getMin() + ", brokers: " + brokerRate);
     if (summary.getMax() == 0) return () -> 0; // edge case to avoid divided by zero error
     double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
     return () -> score;
