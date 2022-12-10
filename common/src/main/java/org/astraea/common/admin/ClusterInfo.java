@@ -290,13 +290,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /**
    * Get the list of replica leaders of given topic on the given node
    *
-   * @param broker the broker id
-   * @param topic The Topic name
    * @return A list of {@link ReplicaInfo}.
    */
-  default List<T> replicaLeaders(int broker, String topic) {
-    return replicaStream(broker, topic)
-        .filter(r -> r.nodeInfo().id() == broker)
+  default List<T> replicaLeaders(BrokerTopic brokerTopic) {
+    return replicaStream(brokerTopic)
         .filter(ReplicaInfo::isLeader)
         .filter(ReplicaInfo::isOnline)
         .collect(Collectors.toUnmodifiableList());
@@ -434,8 +431,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     return replicaStream().filter(r -> r.topic().equals(topic));
   }
 
-  default Stream<T> replicaStream(int broker, String topic) {
-    return replicaStream(topic).filter(r -> r.nodeInfo().id() == broker);
+  default Stream<T> replicaStream(BrokerTopic brokerTopic) {
+    return replicaStream(brokerTopic.topic())
+        .filter(r -> r.nodeInfo().id() == brokerTopic.broker());
   }
 
   default Stream<T> replicaStream(TopicPartition partition) {
@@ -464,7 +462,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     private final List<NodeInfo> nodeInfos;
     private final List<T> all;
 
-    private final Lazy<Map<Map.Entry<Integer, String>, List<T>>> byBrokerTopic;
+    private final Lazy<Map<BrokerTopic, List<T>>> byBrokerTopic;
     private final Lazy<Map<Integer, List<T>>> byBroker;
     private final Lazy<Map<String, List<T>>> byTopic;
     private final Lazy<Map<TopicPartition, List<T>>> byPartition;
@@ -479,7 +477,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                   all.stream()
                       .collect(
                           Collectors.groupingBy(
-                              r -> Map.entry(r.nodeInfo().id(), r.topic()),
+                              r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
                               Collectors.toUnmodifiableList())));
       this.byBroker =
           Lazy.of(
@@ -536,8 +534,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     }
 
     @Override
-    public Stream<T> replicaStream(int broker, String topic) {
-      return byBrokerTopic.get().getOrDefault(Map.entry(broker, topic), List.of()).stream();
+    public Stream<T> replicaStream(BrokerTopic brokerTopic) {
+      return byBrokerTopic.get().getOrDefault(brokerTopic, List.of()).stream();
     }
 
     @Override

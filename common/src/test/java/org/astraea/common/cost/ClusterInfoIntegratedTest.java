@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Optional;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.BrokerTopic;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,10 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
           .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(t).size()));
       clusterInfo
           .topics()
-          .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(0, t).size()));
+          .forEach(
+              t ->
+                  Assertions.assertNotEquals(
+                      0, clusterInfo.replicaLeaders(BrokerTopic.of(0, t)).size()));
 
       Assertions.assertNotEquals(0, clusterInfo.replicaLeaders().size());
     }
