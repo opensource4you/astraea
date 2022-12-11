@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 public class FtpConnectorSinkTest extends RequireWorkerCluster {
 
   @Test
-  void testCreteFtpSinkConnector() {
+  void testCreateFtpSinkConnector() {
 
     var topicName = Utils.randomString(10);
 
@@ -107,7 +107,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
                   .build(),
               Record.builder()
                   .topic(topicName)
-                  .value("test".getBytes())
+                  .key("test".getBytes())
                   .value("test1".getBytes())
                   .partition(1)
                   .timestamp(System.currentTimeMillis())

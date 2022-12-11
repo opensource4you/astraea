@@ -63,14 +63,22 @@ public class FtpFileSystem implements FileSystem {
   public synchronized Type type(String path) {
     return Utils.packException(
         () -> {
-          var stats = client.getStatus(path);
-          if (stats == null || stats.length() == 40) return Type.NONEXISTENT;
-          // var fs = client.listFiles(path);
-          // RFC 959: If the pathname specifies a file then the server should send current
-          // information on the file
+          // tyring to fit different type of ftp servers.
+          Type result;
+          var parentPath = path.substring(0, path.lastIndexOf("/"));
+          if (Arrays.stream(client.listFiles(parentPath))
+              .filter(FTPFile::isFile)
+              .map(FTPFile::getName)
+              .anyMatch(path.substring(path.lastIndexOf("/") + 1)::equals)) {
+            return Type.FILE;
+          }
+
+          var currentPath = client.printWorkingDirectory();
           client.changeWorkingDirectory(path);
-          if (client.getReplyCode() == 550) return Type.FILE;
-          return Type.FOLDER;
+          if (client.getReplyCode() == 550) result = Type.NONEXISTENT;
+          else result = Type.FOLDER;
+          client.changeWorkingDirectory(currentPath);
+          return result;
         });
   }
 
