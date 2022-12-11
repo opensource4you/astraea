@@ -127,7 +127,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // "after" should NOT record size
       report.changes.stream()
           .flatMap(c -> c.after.stream())
-          .forEach(p -> Assertions.assertNull(p.size));
+          .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
