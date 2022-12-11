@@ -24,13 +24,14 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.WorkerStatus;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.gui.Context;
@@ -46,12 +47,14 @@ public class SettingNode {
     String bootstrapServers;
     Optional<Integer> brokerJmxPort = Optional.empty();
     Optional<String> workerUrl = Optional.empty();
+    Optional<Integer> workerJmxPort = Optional.empty();
   }
 
   private static final String BOOTSTRAP_SERVERS = "bootstrap servers";
   private static final String BROKER_JMX_PORT = "broker jmx port";
 
   private static final String WORKER_URL = "worker url";
+  private static final String WORKER_JMX_PORT = "worker jmx port";
 
   private static Optional<File> propertyFile() {
     var tempDir = System.getProperty("java.io.tmpdir");
@@ -114,6 +117,13 @@ public class SettingNode {
                 EditableText.singleLine()
                     .defaultValue(properties.flatMap(p -> p.workerUrl).orElse(null))
                     .disallowEmpty()
+                    .build()),
+            TextInput.of(
+                WORKER_JMX_PORT,
+                EditableText.singleLine()
+                    .onlyNumber()
+                    .defaultValue(
+                        properties.flatMap(p -> p.workerJmxPort).map(String::valueOf).orElse(null))
                     .build()));
     return PaneBuilder.of()
         .firstPart(
@@ -126,6 +136,9 @@ public class SettingNode {
                   Optional.ofNullable(argument.nonEmptyTexts().get(BROKER_JMX_PORT))
                       .map(Integer::parseInt);
               prop.workerUrl = Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_URL));
+              prop.workerJmxPort =
+                  Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_JMX_PORT))
+                      .map(Integer::parseInt);
               save(prop);
               var newAdmin = Admin.of(prop.bootstrapServers);
               var client =
@@ -137,23 +150,20 @@ public class SettingNode {
               return FutureUtils.combine(
                   newAdmin.nodeInfos(),
                   client
-                      .map(ConnectorClient::plugins)
-                      .orElse(CompletableFuture.completedFuture(Set.of())),
-                  (nodeInfos, plugins) -> {
+                      .map(ConnectorClient::activeWorkers)
+                      .orElse(CompletableFuture.completedFuture(List.of())),
+                  (nodeInfos, workers) -> {
                     context.replace(newAdmin);
                     client.ifPresent(context::replace);
-                    if (prop.brokerJmxPort.isEmpty()) {
-                      logger.log("succeed to connect to " + prop.bootstrapServers);
-                      return List.of();
-                    }
-                    context.replace(nodeInfos, prop.brokerJmxPort.get());
+                    prop.brokerJmxPort.ifPresent(context::brokerJmxPort);
+                    prop.workerJmxPort.ifPresent(context::workerJmxPort);
+                    context.addBrokerClients(nodeInfos);
+                    context.addWorkerClients(
+                        workers.stream().map(WorkerStatus::hostname).collect(Collectors.toSet()));
                     logger.log(
                         "succeed to connect to "
                             + prop.bootstrapServers
-                            + prop.workerUrl.map(url -> " and " + url).orElse("")
-                            + ". Also, jmx: "
-                            + prop.brokerJmxPort.get()
-                            + " works well");
+                            + prop.workerUrl.map(url -> " and " + url).orElse(""));
                     return List.of();
                   });
             })
