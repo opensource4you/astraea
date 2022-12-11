@@ -107,6 +107,7 @@ public class RecordWriterBuilder {
                   () -> {
                     outputStream.write(ByteUtils.of(-1).array());
                     outputStream.flush();
+                    outputStream.close();
                   });
             }
           };
