@@ -64,7 +64,6 @@ public class FtpFileSystem implements FileSystem {
     return Utils.packException(
         () -> {
           // tyring to fit different type of ftp servers.
-          Type result;
           var parentPath = path.substring(0, path.lastIndexOf("/"));
           if (Arrays.stream(client.listFiles(parentPath))
               .filter(FTPFile::isFile)
@@ -75,10 +74,14 @@ public class FtpFileSystem implements FileSystem {
 
           var currentPath = client.printWorkingDirectory();
           client.changeWorkingDirectory(path);
-          if (client.getReplyCode() == 550) result = Type.NONEXISTENT;
-          else result = Type.FOLDER;
-          client.changeWorkingDirectory(currentPath);
-          return result;
+          try {
+            if (client.getReplyCode() == 550) return Type.NONEXISTENT;
+            return Type.FOLDER;
+          } finally {
+            // keep the working directory in its original location
+            // to prevent any unexpected errors.
+            client.changeWorkingDirectory(currentPath);
+          }
         });
   }
 
