@@ -18,6 +18,10 @@ package org.astraea.common.cost;
 
 import org.astraea.common.metrics.broker.ServerMetrics;
 
+/**
+ * A cost function to evaluate cluster load balance score in terms of message egress data rate. See
+ * {@link NetworkCost} for further detail.
+ */
 public class NetworkEgressCost extends NetworkCost {
   @Override
   ServerMetrics.Topic useMetric() {

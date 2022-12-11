@@ -37,6 +37,19 @@ import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
+/**
+ * This cost function calculate the load balance score in terms of network ingress or network
+ * egress. The implementation is work under these assumptions:
+ *
+ * <ol>
+ *   <li>The loading between each partition can be different. That is, there might be skewed load
+ *       behavior between each partition.
+ *   <li>The network ingress data rate of each partition is constant, it won't fluctuate over time.
+ *   <li>The network egress data rate of each partition is constant, it won't fluctuate over time.
+ *   <li>No consumer or consumer group attempts to subscribe or read a subset of partitions. It must
+ *       subscribe to the whole topic.
+ * </ol>
+ */
 public abstract class NetworkCost implements HasClusterCost {
 
   static final AtomicBoolean isTesting = new AtomicBoolean(false);
