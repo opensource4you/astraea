@@ -21,13 +21,22 @@ import java.util.Collection;
 /** Aggregate a sequence into a number */
 @FunctionalInterface
 public interface Dispersion {
-  /** Apply coefficient of variation to a series of values. */
+  /**
+   * Apply coefficient of variation to a series of values.
+   *
+   * <p>This implementation come with some assumption:
+   *
+   * <ul>
+   *   <li>If no number was given, then the cov is zero.
+   *   <li>If all numbers are zero, then the cov is zero.
+   * </ul>
+   */
   static Dispersion cov() {
     return numbers -> {
-      if (numbers.isEmpty()) throw new ArithmeticException("No number was given");
+      if (numbers.isEmpty()) return 0;
       var numSummary = numbers.stream().mapToDouble(Number::doubleValue).summaryStatistics();
       if (numSummary.getAverage() == 0) {
-        if (numSummary.getMax() == numSummary.getMin()) return 0;
+        if (numSummary.getMax() == 0 && numSummary.getMin() == 0) return 0;
         else
           throw new ArithmeticException(
               "Coefficient of variation has no definition with zero average");
