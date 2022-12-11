@@ -19,12 +19,18 @@ package org.astraea.gui.tab;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.WorkerStatus;
+import org.astraea.common.metrics.connector.SourceMetrics;
+import org.astraea.common.metrics.connector.SourceTaskError;
+import org.astraea.common.metrics.connector.SourceTaskInfo;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
@@ -100,37 +106,89 @@ public class ConnectorNode {
         .firstPart(
             "REFRESH",
             (argument, logger) ->
-                context
-                    .connectorClient()
-                    .connectorNames()
-                    .thenCompose(
-                        names ->
-                            FutureUtils.sequence(
-                                names.stream()
-                                    .map(
-                                        name ->
-                                            context
-                                                .connectorClient()
-                                                .connectorStatus(name)
-                                                .toCompletableFuture())
-                                    .collect(Collectors.toList())))
-                    .thenApply(
-                        connectorStatuses ->
-                            connectorStatuses.stream()
-                                .flatMap(
-                                    connectorStatus ->
-                                        connectorStatus.tasks().stream()
-                                            .map(
-                                                task -> {
-                                                  var map = new LinkedHashMap<String, Object>();
-                                                  map.put(NAME_KEY, connectorStatus.name());
-                                                  map.put("id", task.id());
-                                                  map.put("worker id", task.workerId());
-                                                  map.put("state", task.state());
-                                                  task.error().ifPresent(e -> map.put("error", e));
-                                                  return map;
-                                                }))
-                                .collect(Collectors.toList())))
+                FutureUtils.combine(
+                    context
+                        .connectorClient()
+                        .connectorNames()
+                        .thenCompose(
+                            names ->
+                                FutureUtils.sequence(
+                                    names.stream()
+                                        .map(
+                                            name ->
+                                                context
+                                                    .connectorClient()
+                                                    .connectorStatus(name)
+                                                    .toCompletableFuture())
+                                        .collect(Collectors.toList()))),
+                    // try to update metrics client of workers
+                    context
+                        .connectorClient()
+                        .activeWorkers()
+                        .thenApply(
+                            workers ->
+                                context.addWorkerClients(
+                                    workers.stream()
+                                        .map(WorkerStatus::hostname)
+                                        .collect(Collectors.toSet())))
+                        .thenApply(
+                            ignored ->
+                                Map.entry(
+                                    context.workerClients().values().stream()
+                                        .flatMap(c -> SourceMetrics.sourceTaskInfo(c).stream())
+                                        .collect(
+                                            Collectors.toMap(
+                                                SourceTaskInfo::taskId, Function.identity())),
+                                    context.workerClients().values().stream()
+                                        .flatMap(c -> SourceMetrics.sourceTaskError(c).stream())
+                                        .collect(
+                                            Collectors.toMap(
+                                                SourceTaskError::taskId, Function.identity())))),
+                    (connectorStatuses, taskInfoAndErrors) ->
+                        connectorStatuses.stream()
+                            .flatMap(
+                                connectorStatus ->
+                                    connectorStatus.tasks().stream()
+                                        .map(
+                                            task -> {
+                                              var map = new LinkedHashMap<String, Object>();
+                                              map.put(NAME_KEY, connectorStatus.name());
+                                              map.put("id", task.id());
+                                              map.put("worker id", task.workerId());
+                                              map.put("state", task.state());
+                                              task.error().ifPresent(e -> map.put("error", e));
+                                              var info = taskInfoAndErrors.getKey().get(task.id());
+                                              if (info != null) {
+                                                map.put(
+                                                    "poll rate (records/s)",
+                                                    info.sourceRecordPollRate());
+                                                map.put("records", info.sourceRecordPollTotal());
+                                                map.put(
+                                                    "write rate (records/s)",
+                                                    info.sourceRecordWriteRate());
+                                                map.put(
+                                                    "written records",
+                                                    info.sourceRecordWriteTotal());
+                                                map.put(
+                                                    "poll batch time (avg)",
+                                                    info.pollBatchAvgTimeMs());
+                                                map.put(
+                                                    "poll batch time (max)",
+                                                    info.pollBatchMaxTimeMs());
+                                              }
+                                              var error =
+                                                  taskInfoAndErrors.getValue().get(task.id());
+                                              if (error != null) {
+                                                map.put("retries", error.totalRetries());
+                                                map.put(
+                                                    "failure records", error.totalRecordFailures());
+                                                map.put(
+                                                    "skipped records", error.totalRecordsSkipped());
+                                                map.put("error records", error.totalRecordErrors());
+                                              }
+                                              return map;
+                                            }))
+                            .collect(Collectors.toList())))
         .build();
   }
 
