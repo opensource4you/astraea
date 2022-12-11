@@ -35,7 +35,6 @@ import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -112,27 +111,26 @@ public class SettingNode {
   public static Node of(Context context) {
     var properties = load();
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(
-                    BOOTSTRAP_SERVERS,
-                    EditableText.singleLine()
-                        .defaultValue(properties.map(p -> p.bootstrapServers).orElse(null))
-                        .disallowEmpty()
-                        .build()),
-                TextInput.of(
-                    JMX_PORT,
-                    EditableText.singleLine()
-                        .onlyNumber()
-                        .defaultValue(
-                            properties.flatMap(p -> p.jmxPort).map(String::valueOf).orElse(null))
-                        .build()),
-                TextInput.of(
-                    WORKER_URL,
-                    EditableText.singleLine()
-                        .defaultValue(properties.flatMap(p -> p.workerUrl).orElse(null))
-                        .disallowEmpty()
-                        .build())));
+        List.of(
+            TextInput.required(
+                BOOTSTRAP_SERVERS,
+                EditableText.singleLine()
+                    .defaultValue(properties.map(p -> p.bootstrapServers).orElse(null))
+                    .disallowEmpty()
+                    .build()),
+            TextInput.of(
+                JMX_PORT,
+                EditableText.singleLine()
+                    .onlyNumber()
+                    .defaultValue(
+                        properties.flatMap(p -> p.jmxPort).map(String::valueOf).orElse(null))
+                    .build()),
+            TextInput.of(
+                WORKER_URL,
+                EditableText.singleLine()
+                    .defaultValue(properties.flatMap(p -> p.workerUrl).orElse(null))
+                    .disallowEmpty()
+                    .build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,

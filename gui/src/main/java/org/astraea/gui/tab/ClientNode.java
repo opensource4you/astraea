@@ -53,7 +53,6 @@ import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.pane.TableRefresher;
@@ -71,14 +70,13 @@ public class ClientNode {
     var fileChooser = new FileChooser();
     return PaneBuilder.of()
         .firstPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        LINE_LIMIT_KEY,
-                        EditableText.singleLine()
-                            .onlyNumber()
-                            .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
-                            .build()))),
+            List.of(
+                TextInput.of(
+                    LINE_LIMIT_KEY,
+                    EditableText.singleLine()
+                        .onlyNumber()
+                        .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
+                        .build())),
             "open",
             (argument, logger) -> {
               var f = fileChooser.showOpenDialog(context.stage());
@@ -114,11 +112,10 @@ public class ClientNode {
                           }));
             })
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        "format", EditableText.singleLine().hint("csv or json").build()))),
+            List.of(
+                TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
+                TextInput.required(
+                    "format", EditableText.singleLine().hint("csv or json").build())),
             "PUSH",
             (records, argument, logger) ->
                 context
@@ -294,10 +291,9 @@ public class ClientNode {
     var recordsKey = "records";
     var selectBox = SelectBox.single(List.of(base64Key, stringKey), 2);
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
-                TextInput.of(timeoutKey, EditableText.singleLine().defaultValue("3s").build())));
+        List.of(
+            TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
+            TextInput.of(timeoutKey, EditableText.singleLine().defaultValue("3s").build()));
     return PaneBuilder.of()
         .firstPart(
             selectBox,
@@ -371,12 +367,11 @@ public class ClientNode {
     var keyKey = "key";
     var valueKey = "value";
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(topicKey, EditableText.singleLine().build()),
-                TextInput.of(partitionKey, EditableText.singleLine().build()),
-                TextInput.of(keyKey, EditableText.multiline().build()),
-                TextInput.of(valueKey, EditableText.multiline().build())));
+        List.of(
+            TextInput.required(topicKey, EditableText.singleLine().build()),
+            TextInput.of(partitionKey, EditableText.singleLine().build()),
+            TextInput.of(keyKey, EditableText.multiline().build()),
+            TextInput.of(valueKey, EditableText.multiline().build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,
