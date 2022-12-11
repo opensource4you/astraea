@@ -33,14 +33,15 @@ public interface Dispersion {
    */
   static Dispersion cov() {
     return numbers -> {
+      // special case: no number
       if (numbers.isEmpty()) return 0;
       var numSummary = numbers.stream().mapToDouble(Number::doubleValue).summaryStatistics();
-      if (numSummary.getAverage() == 0) {
-        if (numSummary.getMax() == 0 && numSummary.getMin() == 0) return 0;
-        else
-          throw new ArithmeticException(
-              "Coefficient of variation has no definition with zero average");
-      }
+      // special case: all value zero
+      if (numSummary.getMax() == 0 && numSummary.getMin() == 0) return 0;
+      // special case: zero average, no cov defined here
+      if (numSummary.getAverage() == 0)
+        throw new ArithmeticException(
+            "Coefficient of variation has no definition with zero average");
       var numVariance =
           numbers.stream()
               .mapToDouble(Number::doubleValue)
