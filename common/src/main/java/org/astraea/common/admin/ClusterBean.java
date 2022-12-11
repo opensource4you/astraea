@@ -60,7 +60,7 @@ public interface ClusterBean {
       public <Bean extends HasBeanObject> Stream<Bean> partitionMetrics(
           TopicPartition topicPartition, Class<Bean> metricClass) {
         return partitionCache.get().getOrDefault(topicPartition, List.of()).stream()
-            .filter(bean -> bean.getClass() == metricClass)
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
             .map(metricClass::cast);
       }
 
@@ -68,7 +68,7 @@ public interface ClusterBean {
       public <Bean extends HasBeanObject> Stream<Bean> replicaMetrics(
           TopicPartitionReplica replica, Class<Bean> metricClass) {
         return replicaCache.get().getOrDefault(replica, List.of()).stream()
-            .filter(bean -> bean.getClass() == metricClass)
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
             .map(metricClass::cast);
       }
 
@@ -76,7 +76,7 @@ public interface ClusterBean {
       public <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
           BrokerTopic brokerTopic, Class<Bean> metricClass) {
         return brokerTopicCache.get().getOrDefault(brokerTopic, List.of()).stream()
-            .filter(bean -> bean.getClass() == metricClass)
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
             .map(metricClass::cast);
       }
 
