@@ -26,7 +26,6 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -66,17 +65,14 @@ public class ConnectorNode {
   private static Node createNode(Context context) {
     return PaneBuilder.of()
         .firstPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.required(ConnectorClient.NAME_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        ConnectorClient.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        ConnectorClient.TOPICS_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        ConnectorClient.TASK_MAX_KEY,
-                        EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of("configs", EditableText.multiline().build()))),
+            List.of(
+                TextInput.required(ConnectorClient.NAME_KEY, EditableText.singleLine().build()),
+                TextInput.required(
+                    ConnectorClient.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
+                TextInput.required(ConnectorClient.TOPICS_KEY, EditableText.singleLine().build()),
+                TextInput.required(
+                    ConnectorClient.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of("configs", EditableText.multiline().build())),
             "CREATE",
             (argument, logger) -> {
               var req = new HashMap<>(argument.nonEmptyTexts());

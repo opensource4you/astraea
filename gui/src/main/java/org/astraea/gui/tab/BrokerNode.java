@@ -47,7 +47,6 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -319,11 +318,11 @@ public class BrokerNode {
                                     })
                                 .collect(Collectors.toList())))
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        BrokerConfigs.DYNAMICAL_CONFIGS,
-                        EditableText.singleLine().disable().build()))),
+            List.of(
+                TextInput.of(
+                    BrokerConfigs.BACKGROUND_THREADS_CONFIG,
+                    BrokerConfigs.DYNAMICAL_CONFIGS,
+                    EditableText.singleLine().disable().build())),
             "ALTER",
             (tables, input, logger) -> {
               var brokerToAlter =
