@@ -24,7 +24,7 @@ class DispersionTest {
 
   @Test
   void testCorrelationCoefficient() {
-    var dispersion = Dispersion.correlationCoefficient();
+    var dispersion = Dispersion.cov();
     var scores = List.of(0.2, 0.4, 0.7);
     Assertions.assertEquals(0.47418569253607507, dispersion.calculate(scores));
 

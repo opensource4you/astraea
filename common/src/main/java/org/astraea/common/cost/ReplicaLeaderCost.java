@@ -34,7 +34,7 @@ import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost.Helper {
-  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "leader";
 
   @Override
