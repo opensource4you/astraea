@@ -24,6 +24,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.connector.SourceMetrics;
 import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -187,5 +189,60 @@ public class PerfConnectorTest extends RequireSingleWorkerCluster {
               .mapToLong(Replica::size)
               .sum());
     }
+  }
+
+  @Test
+  void testMetrics() {
+    var name = Utils.randomString();
+    var topicName = Utils.randomString();
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    client
+        .createConnector(
+            name,
+            Map.of(
+                ConnectorClient.CONNECTOR_CLASS_KEY,
+                PerfConnector.class.getName(),
+                ConnectorClient.TASK_MAX_KEY,
+                "1",
+                ConnectorClient.TOPICS_KEY,
+                topicName))
+        .toCompletableFuture()
+        .join();
+    Utils.sleep(Duration.ofSeconds(3));
+
+    var m0 =
+        SourceMetrics.sourceTaskInfo(MBeanClient.local()).stream()
+            .filter(m -> m.connectorName().equals(name))
+            .collect(Collectors.toList());
+    Assertions.assertNotEquals(0, m0.size());
+    m0.forEach(
+        m -> {
+          Assertions.assertNotEquals(0D, m.pollBatchAvgTimeMs());
+          Assertions.assertNotEquals(0D, m.pollBatchMaxTimeMs());
+          Assertions.assertNotEquals(0D, m.sourceRecordActiveCountMax());
+          Assertions.assertNotEquals(0D, m.sourceRecordActiveCountAvg());
+          Assertions.assertDoesNotThrow(m::sourceRecordActiveCount);
+          Assertions.assertNotEquals(0D, m.sourceRecordWriteRate());
+          Assertions.assertNotEquals(0D, m.sourceRecordPollTotal());
+          Assertions.assertNotEquals(0D, m.sourceRecordPollRate());
+          Assertions.assertNotEquals(0D, m.sourceRecordWriteTotal());
+        });
+
+    var m1 =
+        SourceMetrics.sourceTaskError(MBeanClient.local()).stream()
+            .filter(m -> m.connectorName().equals(name))
+            .collect(Collectors.toList());
+    Assertions.assertNotEquals(0, m1.size());
+    m1.forEach(
+        m -> {
+          Assertions.assertEquals(0, m.lastErrorTimestamp());
+          Assertions.assertEquals(0D, m.deadletterqueueProduceFailures());
+          Assertions.assertEquals(0D, m.deadletterqueueProduceRequests());
+          Assertions.assertEquals(0D, m.totalErrorsLogged());
+          Assertions.assertEquals(0D, m.totalRecordErrors());
+          Assertions.assertEquals(0D, m.totalRetries());
+          Assertions.assertEquals(0D, m.totalRecordFailures());
+          Assertions.assertEquals(0D, m.totalRecordsSkipped());
+        });
   }
 }
