@@ -39,10 +39,6 @@ public interface TextInput {
     return of(label, () -> key, text.node(), text::text, true);
   }
 
-  static TextInput of(Set<String> keys, EditableText text) {
-    return of(keys.iterator().next(), keys, text);
-  }
-
   static TextInput of(String selected, Set<String> keys, EditableText text) {
     var box = new ComboBox<>(FXCollections.observableArrayList(keys.toArray(String[]::new)));
     box.getSelectionModel().selectFirst();

@@ -118,10 +118,6 @@ class BeanQueryTest {
     assertTrue(withPattern.objectName().isPropertyListPattern());
 
     // invalid query: query whole domain name without specify "property list pattern"
-    assertThrows(
-        RuntimeException.class,
-        () -> {
-          BeanQuery.builder().domainName("java.lang").build();
-        });
+    assertThrows(RuntimeException.class, () -> BeanQuery.builder().domainName("java.lang").build());
   }
 }

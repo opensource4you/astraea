@@ -22,7 +22,7 @@ import java.util.Optional;
 import org.astraea.common.Configuration;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricSensors;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * It is meaningless to implement this interface. Instead, we should implement interfaces like
@@ -51,7 +51,7 @@ public interface CostFunction {
    * @return the {@link Sensor} and the type of {@link org.astraea.common.metrics.stats.Stat} name
    *     to use.
    */
-  default Collection<MetricSensors> sensors() {
+  default Collection<MetricSensor> sensors() {
     return List.of();
   }
 }

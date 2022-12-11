@@ -334,7 +334,7 @@ public class RecordHandler implements Handler {
   private static org.astraea.common.producer.Record<byte[], byte[]> createRecord(
       Producer<byte[], byte[]> producer, PostRecord postRecord) {
     var topic = postRecord.topic;
-    var builder = org.astraea.common.producer.Record.<byte[], byte[]>builder().topic(topic);
+    var builder = org.astraea.common.producer.Record.builder().topic(topic);
 
     // TODO: Support headers
     // (https://github.com/skiptests/astraea/issues/422)

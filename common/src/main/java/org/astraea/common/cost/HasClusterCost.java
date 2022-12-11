@@ -24,7 +24,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricSensors;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasClusterCost extends CostFunction {
@@ -59,7 +59,7 @@ public interface HasClusterCost extends CostFunction {
       }
 
       @Override
-      public Collection<MetricSensors> sensors() {
+      public Collection<MetricSensor> sensors() {
         return sensors;
       }
     };

@@ -33,9 +33,9 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
     // empty
   }
 
-  protected abstract Collection<Record<byte[], byte[]>> take() throws InterruptedException;
+  protected abstract Collection<Record<byte[], byte[]>> take();
 
-  protected void commit(Metadata metadata) throws InterruptedException {
+  protected void commit(Metadata metadata) {
     // empty
   }
 

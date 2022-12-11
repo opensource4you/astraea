@@ -33,7 +33,6 @@ import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaConfig$;
 import kafka.server.KafkaServer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.network.ListenerName;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.connect.cli.ConnectDistributed;
@@ -70,7 +69,7 @@ public final class Services {
                   config.put(DistributedConfig.STATUS_STORAGE_REPLICATION_FACTOR_CONFIG, "1");
                   // set the brokers info
                   config.put(WorkerConfig.BOOTSTRAP_SERVERS_CONFIG, bk.bootstrapServers());
-                  config.put(ConsumerConfig.GROUP_ID_CONFIG, "connect");
+                  config.put(DistributedConfig.GROUP_ID_CONFIG, "connect");
                   // set the normal converter
                   config.put(
                       ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,

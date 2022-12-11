@@ -46,7 +46,7 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class MetricCollectorImpl implements MetricCollector {
   private final Map<Integer, MBeanClient> mBeanClients = new ConcurrentHashMap<>();
-  private final Collection<MetricSensors> metricSensors = new CopyOnWriteArrayList<>();
+  private final Collection<MetricSensor> metricSensors = new CopyOnWriteArrayList<>();
   private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers =
       new CopyOnWriteArrayList<>();
   private final ScheduledExecutorService executorService;
@@ -131,8 +131,8 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void addMetricSensors(MetricSensors metricSensors) {
-    this.metricSensors.add(metricSensors);
+  public void addMetricSensors(MetricSensor metricSensor) {
+    this.metricSensors.add(metricSensor);
   }
 
   @Override
@@ -160,7 +160,7 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public Collection<MetricSensors> listMetricsSensors() {
+  public Collection<MetricSensor> listMetricsSensors() {
     return this.metricSensors;
   }
 
