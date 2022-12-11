@@ -17,9 +17,23 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, concat_ws, struct, to_json}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions._
+import org.astraea.common.json.JsonConverter
+
+import scala.collection.JavaConverters._
+import scala.language.implicitConversions
 
 class DataFrameOp(dataFrame: DataFrame) {
+
+  val defaultConverter: UserDefinedFunction =
+    udf[String, Map[String, String]]((value: Map[String, String]) => {
+      JsonConverter
+        .jackson()
+        .toJson(
+          value.asJava
+        )
+    })
 
   /** Turn the original DataFrame into a key-value table.Integrate all columns
     * into one value->josh. If there are multiple primary keys, key will become
@@ -44,17 +58,30 @@ class DataFrameOp(dataFrame: DataFrame) {
     * // +-----------+---------------------------------------------------+
     * }}}
     *
-    * @param pk
-    *   primary keys
+    * @param cols
+    *   cols metadata
     * @return
     *   json df
     */
-  // TODO unitized JSON
-  def csvToJSON(pk: Seq[String]): DataFrameOp = {
+  def csvToJSON(cols: Seq[DataColumn]): DataFrameOp = {
     new DataFrameOp(
       dataFrame
-        .withColumn("value", to_json(struct($conforms("*"))))
-        .withColumn("key", concat_ws(",", pk.map(col).seq: _*))
+        .withColumn(
+          "value",
+          defaultConverter(
+            map(cols.flatMap(c => List(lit(c.name), col(c.name))): _*)
+          )
+        )
+        .withColumn(
+          "key",
+          defaultConverter(
+            map(
+              cols
+                .filter(dataColumn => dataColumn.isPK)
+                .flatMap(c => List(lit(c.name), col(c.name))): _*
+            )
+          )
+        )
         .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
     )
   }

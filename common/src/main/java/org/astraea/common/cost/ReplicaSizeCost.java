@@ -28,6 +28,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
@@ -116,13 +117,15 @@ public class ReplicaSizeCost
   public PartitionCost partitionCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     return () ->
-        clusterBean.mapByReplica().entrySet().stream()
+        clusterBean.replicas().stream()
             .collect(
-                Collectors.toMap(
-                    k -> TopicPartition.of(k.getKey().topic(), k.getKey().partition()),
-                    e ->
-                        LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
-                            .mapToDouble(LogMetrics.Log.Gauge::value)
+                Collectors.toUnmodifiableMap(
+                    tpr -> TopicPartition.of(tpr.topic(), tpr.partition()),
+                    tpr ->
+                        clusterBean
+                            .replicaMetrics(tpr, LogMetrics.Log.Gauge.class)
+                            .filter(gauge -> gauge.type().equals(LogMetrics.Log.SIZE))
+                            .mapToDouble(HasGauge::value)
                             .sum()));
   }
 
@@ -147,14 +150,13 @@ public class ReplicaSizeCost
                 (ignore, size) -> size == null ? -replica.size() : -replica.size() + size));
 
     addedReplicas.forEach(
-        replica -> {
-          changes.compute(
-              replica.nodeInfo().id(),
-              (ignore, size) -> {
-                totalMigrateSize.set(totalMigrateSize.get() + replica.size());
-                return size == null ? replica.size() : replica.size() + size;
-              });
-        });
+        replica ->
+            changes.compute(
+                replica.nodeInfo().id(),
+                (ignore, size) -> {
+                  totalMigrateSize.set(totalMigrateSize.get() + replica.size());
+                  return size == null ? replica.size() : replica.size() + size;
+                }));
     return new MigrateInfo(totalMigrateSize.get(), changes);
   }
 }

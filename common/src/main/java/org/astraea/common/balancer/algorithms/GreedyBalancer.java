@@ -32,7 +32,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
-import org.astraea.common.metrics.jmx.MBeanRegister;
+import org.astraea.common.metrics.MBeanRegister;
 
 /**
  * A single-state hill-climbing algorithm. It discovers rebalance solution by tweaking the cluster
