@@ -39,7 +39,7 @@ import org.astraea.common.metrics.SensorBuilder;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricSensors;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Avg;
 
 public class ReplicaSizeCost
@@ -56,9 +56,9 @@ public class ReplicaSizeCost
   }
 
   @Override
-  public Collection<MetricSensors> sensors() {
+  public Collection<MetricSensor> sensors() {
     return List.of(
-        new MetricSensors() {
+        new MetricSensor() {
           final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
           @Override
@@ -229,13 +229,15 @@ public class ReplicaSizeCost
   public PartitionCost partitionCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     return () ->
-        clusterBean.mapByReplica().entrySet().stream()
+        clusterBean.replicas().stream()
             .collect(
-                Collectors.toMap(
-                    k -> TopicPartition.of(k.getKey().topic(), k.getKey().partition()),
-                    e ->
-                        LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
-                            .mapToDouble(LogMetrics.Log.Gauge::value)
+                Collectors.toUnmodifiableMap(
+                    tpr -> TopicPartition.of(tpr.topic(), tpr.partition()),
+                    tpr ->
+                        clusterBean
+                            .replicaMetrics(tpr, LogMetrics.Log.Gauge.class)
+                            .filter(gauge -> gauge.type().equals(LogMetrics.Log.SIZE))
+                            .mapToDouble(HasGauge::value)
                             .sum()));
   }
 

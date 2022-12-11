@@ -21,7 +21,7 @@ import java.util.Map;
 import org.astraea.common.metrics.HasBeanObject;
 
 @FunctionalInterface
-public interface MetricSensors {
+public interface MetricSensor {
 
   /**
    * @param identity broker id or producer/consumer id

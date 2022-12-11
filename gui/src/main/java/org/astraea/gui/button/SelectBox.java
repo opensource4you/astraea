@@ -32,7 +32,6 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 
 public interface SelectBox {
-
   static SelectBox single(List<String> keys, int sizeOfColumns) {
     var group = new ToggleGroup();
     var selectedKeys = Collections.synchronizedCollection(new ArrayList<String>());

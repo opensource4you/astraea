@@ -26,6 +26,13 @@ declare -r CONFLUENT_WORKER=${CONFLUENT_WORKER:-false}
 declare -r CONFLUENT_VERSION=${CONFLUENT_VERSION:-7.0.1}
 declare -r WORKER_PORT=${WORKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="worker-$WORKER_PORT"
+declare -r WORKER_JMX_PORT="${WORKER_JMX_PORT:-"$(getRandomPort)"}"
+declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
+  -Dcom.sun.management.jmxremote.authenticate=false \
+  -Dcom.sun.management.jmxremote.ssl=false \
+  -Dcom.sun.management.jmxremote.port=$WORKER_JMX_PORT \
+  -Dcom.sun.management.jmxremote.rmi.port=$WORKER_JMX_PORT \
+  -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r WORKER_PROPERTIES="/tmp/worker-${WORKER_PORT}.properties"
 declare -r WORKER_PLUGIN_PATH=${WORKER_PLUGIN_PATH:-/tmp/worker-plugins}
@@ -248,12 +255,15 @@ mkdir -p "$WORKER_PLUGIN_PATH"
 docker run -d --init \
   --name "$CONTAINER_NAME" \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
+  -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -v "$WORKER_PROPERTIES":/tmp/worker.properties:ro \
   -v "$WORKER_PLUGIN_PATH":/opt/worker-plugins:ro \
   -p "$WORKER_PORT":8083 \
+  -p $WORKER_JMX_PORT:$WORKER_JMX_PORT \
   "$IMAGE_NAME" "$SCRIPT_LOCATION_IN_CONTAINER" /tmp/worker.properties
 
 echo "================================================="
 echo "worker address: ${ADDRESS}:$WORKER_PORT"
 echo "group.id: $WORKER_GROUP_ID"
+echo "jmx address: ${ADDRESS}:$WORKER_JMX_PORT"
 echo "================================================="

@@ -110,11 +110,10 @@ class DataRateTest {
   @Test
   void testDoubleByteRate() {
     BiConsumer<Double, Double> assertDoubleEqual =
-        (a, b) -> {
-          Assertions.assertTrue(
-              Math.abs(a - b) < 1e-8,
-              "The value " + a + " and " + b + " should have no difference above 1e-8");
-        };
+        (a, b) ->
+            Assertions.assertTrue(
+                Math.abs(a - b) < 1e-8,
+                "The value " + a + " and " + b + " should have no difference above 1e-8");
 
     assertDoubleEqual.accept(1024.0, DataRate.Byte.of(1024).perSecond().byteRate());
     assertDoubleEqual.accept(1024.0 * 1024, DataRate.KiB.of(1024).perSecond().byteRate());

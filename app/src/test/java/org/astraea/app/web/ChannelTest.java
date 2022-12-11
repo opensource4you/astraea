@@ -38,7 +38,6 @@ public class ChannelTest {
     Assertions.assertEquals(Channel.Type.GET, channel.type());
     Assertions.assertEquals(Optional.of("obj"), channel.target());
     Assertions.assertEquals(Map.of("a", "b", "c", "d"), channel.queries());
-    Assertions.assertEquals(PostRequest.EMPTY, channel.request());
   }
 
   @Test
