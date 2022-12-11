@@ -113,7 +113,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report = progress.report;
       Assertions.assertNotNull(progress.id);
       Assertions.assertNotEquals(0, report.changes.size());
-      Assertions.assertTrue(report.cost >= report.newCost);
+      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       // "before" should record size
       report.changes.forEach(
           c ->
@@ -127,8 +127,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // "after" should NOT record size
       report.changes.stream()
           .flatMap(c -> c.after.stream())
-          .forEach(p -> Assertions.assertNull(p.size));
-      Assertions.assertTrue(report.cost >= report.newCost);
+          .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
+      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
@@ -158,7 +158,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
       Assertions.assertEquals(1, actual.size());
       Assertions.assertEquals(topicNames.get(0), actual.iterator().next());
-      Assertions.assertTrue(report.cost >= report.newCost);
+      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
@@ -191,7 +191,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
       Assertions.assertTrue(
-          report.cost >= report.newCost,
+          report.cost.get() >= report.newCost.get(),
           "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
