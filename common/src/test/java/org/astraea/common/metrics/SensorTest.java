@@ -31,7 +31,7 @@ public class SensorTest {
     var counter1 = new AtomicInteger(0);
     var counter2 = new AtomicInteger(0);
     var sensor =
-        new SensorBuilder<Double>()
+        Sensor.builder()
             .addStat("t1", countRecord(counter1))
             .addStat("t2", countRecord(counter2))
             .build();
@@ -47,7 +47,7 @@ public class SensorTest {
   void testMeasure() {
     var stat1 = Mockito.mock(Stat.class);
     var stat2 = Mockito.mock(Stat.class);
-    var sensor = new SensorBuilder<Double>().addStat("t1", stat1).addStat("t2", stat2).build();
+    var sensor = Sensor.builder().addStat("t1", stat1).addStat("t2", stat2).build();
 
     Mockito.when(stat1.measure()).thenReturn(1.0);
     Mockito.when(stat2.measure()).thenReturn(2.0);
@@ -58,7 +58,7 @@ public class SensorTest {
 
   @Test
   void testMetrics() {
-    var sensor = new SensorBuilder<Double>().addStat("average", Avg.of()).build();
+    var sensor = Sensor.builder().addStat("average", Avg.of()).build();
     sensor.record(1.0);
     var metrics = sensor.metrics();
     Assertions.assertEquals(1.0, metrics.get("average").measure());
