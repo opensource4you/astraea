@@ -175,17 +175,20 @@ class BalancerHandler implements Handler {
                                                   tp.partition(),
                                                   // only log the size from source replicas
                                                   currentClusterInfo.replicas(tp).stream()
-                                                      .map(r -> new Placement(r, r.size()))
+                                                      .map(
+                                                          r ->
+                                                              new Placement(
+                                                                  r, Optional.of(r.size())))
                                                       .collect(Collectors.toList()),
                                                   p.proposal().replicas(tp).stream()
-                                                      .map(r -> new Placement(r, null))
+                                                      .map(r -> new Placement(r, Optional.empty()))
                                                       .collect(Collectors.toList())))
                                       .collect(Collectors.toUnmodifiableList()))
                           .orElse(List.of());
                   var report =
                       new Report(
-                          bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
-                          bestPlan.map(p -> p.proposalClusterCost().value()).orElse(null),
+                          bestPlan.map(p -> p.initialClusterCost().value()),
+                          bestPlan.map(p -> p.proposalClusterCost().value()),
                           request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
                           bestPlan
@@ -489,9 +492,9 @@ class BalancerHandler implements Handler {
     final int brokerId;
     final String directory;
 
-    final Long size;
+    final Optional<Long> size;
 
-    Placement(Replica replica, Long size) {
+    Placement(Replica replica, Optional<Long> size) {
       this.brokerId = replica.nodeInfo().id();
       this.directory = replica.path();
       this.size = size;
@@ -541,18 +544,18 @@ class BalancerHandler implements Handler {
 
   static class Report implements Response {
     // initial cost might be unavailable due to unable to evaluate cost function
-    final Double cost;
+    final Optional<Double> cost;
 
     // don't generate new cost if there is no best plan
-    final Double newCost;
+    final Optional<Double> newCost;
 
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
 
     Report(
-        Double cost,
-        Double newCost,
+        Optional<Double> cost,
+        Optional<Double> newCost,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
