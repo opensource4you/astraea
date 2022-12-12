@@ -34,15 +34,29 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
-import org.astraea.common.metrics.Sensor;
-import org.astraea.common.metrics.SensorBuilder;
-import org.astraea.common.metrics.stats.Difference;
 
 public interface ConsumerThread extends AbstractThread {
-  ConcurrentMap<String, Integer> CLIENT_ID_PARTITION = new ConcurrentHashMap<>();
-  ConcurrentMap<String, Integer> CLIENT_ID_PARTITION_INCREASE = new ConcurrentHashMap<>();
-  ConcurrentMap<String, Integer> CLIENT_ID_PARTITION_DECREASE = new ConcurrentHashMap<>();
-  ConcurrentMap<String, Sensor<Double>> CLIENT_ID_PARTITION_SENSOR = new ConcurrentHashMap<>();
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_ASSIGNED_PARTITIONS =
+      new ConcurrentHashMap<>();
+  ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_REVOKED_PARTITIONS =
+      new ConcurrentHashMap<>();
+
+  ConcurrentMap<String, Integer> CLIENT_ID_NUM_PARTITIONS = new ConcurrentHashMap<>();
+
+  static long nonStickyPartitionBetweenRebalance(String clientId) {
+    return CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).stream()
+        .dropWhile(tp -> CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).contains(tp))
+        .count();
+  }
+
+  static long differenceBetweenRebalance(String clientId) {
+    return CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).size()
+        - CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).size();
+  }
+
+  static long numOfPartitions(String clientId) {
+    return CLIENT_ID_NUM_PARTITIONS.getOrDefault(clientId, 0);
+  }
 
   static List<ConsumerThread> create(
       int consumers,
@@ -90,10 +104,8 @@ public interface ConsumerThread extends AbstractThread {
                       Utils.swallowException(consumer::close);
                       closeLatch.countDown();
                       closed.set(true);
-                      CLIENT_ID_PARTITION.remove(clientId);
-                      CLIENT_ID_PARTITION_INCREASE.remove(clientId);
-                      CLIENT_ID_PARTITION_DECREASE.remove(clientId);
-                      CLIENT_ID_PARTITION_SENSOR.remove(clientId);
+                      CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);
+                      CLIENT_ID_REVOKED_PARTITIONS.remove(clientId);
                     }
                   });
               return new ConsumerThread() {
@@ -141,29 +153,16 @@ public interface ConsumerThread extends AbstractThread {
 
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
-      tryRegisterSensor();
-      CLIENT_ID_PARTITION_INCREASE.put(clientId, partitions.size());
-      CLIENT_ID_PARTITION.putIfAbsent(clientId, 0);
-      CLIENT_ID_PARTITION.computeIfPresent(clientId, (id, old) -> old + partitions.size());
-      CLIENT_ID_PARTITION_SENSOR
-          .get(clientId)
-          .record((double) CLIENT_ID_PARTITION.getOrDefault(clientId, 0));
+      CLIENT_ID_ASSIGNED_PARTITIONS.put(clientId, partitions);
+      CLIENT_ID_NUM_PARTITIONS.compute(
+          clientId, (id, old) -> ((old == null) ? 0 : old) + partitions.size());
     }
 
     @Override
     public void onPartitionsRevoked(Set<TopicPartition> partitions) {
-      tryRegisterSensor();
-      CLIENT_ID_PARTITION_DECREASE.put(clientId, partitions.size());
-      // CLIENT_ID_PARTITION.get(clientId) should not be null. There must be some partition to
-      // revoke.
-      CLIENT_ID_PARTITION.computeIfPresent(clientId, (id, old) -> old - partitions.size());
-      CLIENT_ID_PARTITION_SENSOR.get(clientId).record((double) -partitions.size());
-    }
-
-    private void tryRegisterSensor() {
-      CLIENT_ID_PARTITION_SENSOR.computeIfAbsent(
-          clientId,
-          id -> new SensorBuilder<Double>().addStat("difference", new Difference(2)).build());
+      CLIENT_ID_REVOKED_PARTITIONS.put(clientId, partitions);
+      CLIENT_ID_NUM_PARTITIONS.compute(
+          clientId, (id, old) -> ((old == null) ? 0 : old) - partitions.size());
     }
   }
 }

@@ -141,20 +141,16 @@ public interface TrackerThread extends AbstractThread {
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
         var clientId = report.clientId();
-        var partitionSensor =
-            ConsumerThread.CLIENT_ID_PARTITION_SENSOR.getOrDefault(clientId, null);
 
-        if (partitionSensor != null) {
+        if (metrics.stream().anyMatch(m -> m.clientId().equals(clientId))) {
           System.out.printf(
               "  consumer[%d] has %d partitions. "
-                  + "partitions increased %d partitions, "
-                  + "partitions decreased %d partitions, "
-                  + "assigned %.2f%% more partitions than before re-balancing%n",
+                  + "%d non-sticky partitions, "
+                  + "assigned %d more partitions than before re-balancing%n",
               i,
-              ConsumerThread.CLIENT_ID_PARTITION.get(clientId),
-              ConsumerThread.CLIENT_ID_PARTITION_INCREASE.get(clientId),
-              ConsumerThread.CLIENT_ID_PARTITION_DECREASE.get(clientId),
-              partitionSensor.measure("difference"));
+              ConsumerThread.numOfPartitions(clientId),
+              ConsumerThread.nonStickyPartitionBetweenRebalance(clientId),
+              ConsumerThread.differenceBetweenRebalance(clientId));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",
