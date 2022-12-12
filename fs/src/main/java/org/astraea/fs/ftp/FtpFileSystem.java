@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
@@ -36,59 +37,67 @@ public class FtpFileSystem implements FileSystem {
   public static final String USER_KEY = "fs.ftp.user";
   public static final String PASSWORD_KEY = "fs.ftp.password";
 
-  private static FTPClient create(String hostname, int port, String user, String password) {
-    return Utils.packException(
-        () -> {
-          var client = new FTPClient();
-          client.connect(hostname, port);
-          client.enterLocalPassiveMode();
-          // the data connection can be different from control connection
-          client.setRemoteVerificationEnabled(false);
-          if (!client.login(user, password))
-            throw new IllegalArgumentException("failed to login ftp server");
-          return client;
-        });
-  }
-
+  private final Supplier<FTPClient> clientSupplier;
   private final FTPClient client;
 
   public FtpFileSystem(Configuration config) {
-    client =
-        create(
-            config.requireString(HOSTNAME_KEY),
-            config.requireInteger(PORT_KEY),
-            config.requireString(USER_KEY),
-            config.requireString(PASSWORD_KEY));
+    clientSupplier =
+        () ->
+            Utils.packException(
+                () -> {
+                  var client = new FTPClient();
+                  client.connect(
+                      config.requireString(HOSTNAME_KEY), config.requireInteger(PORT_KEY));
+                  client.enterLocalPassiveMode();
+                  // the data connection can be different from control connection
+                  client.setRemoteVerificationEnabled(false);
+                  if (!client.login(
+                      config.requireString(USER_KEY), config.requireString(PASSWORD_KEY)))
+                    throw new IllegalArgumentException("failed to login ftp server");
+                  return client;
+                });
+    client = clientSupplier.get();
   }
 
   @Override
-  public Type type(String path) {
+  public synchronized Type type(String path) {
     return Utils.packException(
         () -> {
-          var stats = client.getStatus(path);
-          if (stats == null) return Type.NONEXISTENT;
-          var fs = client.listFiles(path);
-          // RFC 959: If the pathname specifies a file then the server should send current
-          // information on the file
-          if (fs.length == 1 && path.endsWith(fs[0].getName()) && fs[0].isFile()) return Type.FILE;
-          return Type.FOLDER;
+          // tyring to fit different type of ftp servers.
+          var parentPath = path.substring(0, path.lastIndexOf("/"));
+          if (Arrays.stream(client.listFiles(parentPath))
+              .filter(FTPFile::isFile)
+              .map(FTPFile::getName)
+              .anyMatch(path.substring(path.lastIndexOf("/") + 1)::equals)) {
+            return Type.FILE;
+          }
+
+          var currentPath = client.printWorkingDirectory();
+          client.changeWorkingDirectory(path);
+          try {
+            if (client.getReplyCode() == 550) return Type.NONEXISTENT;
+            return Type.FOLDER;
+          } finally {
+            // keep the working directory in its original location
+            // to prevent any unexpected errors.
+            client.changeWorkingDirectory(currentPath);
+          }
         });
   }
 
   @Override
-  public void mkdir(String path) {
+  public synchronized void mkdir(String path) {
     Utils.packException(
         () -> {
           if (type(path) == Type.FOLDER) return;
-          var parent = FileSystem.parent(path);
-          if (parent != null && type(path) == Type.NONEXISTENT) mkdir(parent);
+          FileSystem.parent(path).filter(p -> type(p) == Type.NONEXISTENT).ifPresent(this::mkdir);
           if (!client.changeWorkingDirectory(path) && !client.makeDirectory(path))
             throw new IllegalArgumentException("Failed to create folder on " + path);
         });
   }
 
   @Override
-  public List<String> listFiles(String path) {
+  public synchronized List<String> listFiles(String path) {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FOLDER)
@@ -100,7 +109,7 @@ public class FtpFileSystem implements FileSystem {
   }
 
   @Override
-  public List<String> listFolders(String path) {
+  public synchronized List<String> listFolders(String path) {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FOLDER)
@@ -112,7 +121,7 @@ public class FtpFileSystem implements FileSystem {
   }
 
   @Override
-  public void delete(String path) {
+  public synchronized void delete(String path) {
     Utils.packException(
         () -> {
           if (path.equals("/"))
@@ -135,14 +144,20 @@ public class FtpFileSystem implements FileSystem {
   }
 
   @Override
-  public InputStream read(String path) {
+  public synchronized InputStream read(String path) {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
+          // FTPClient can handle only one data connection, so we have to create another client to
+          // handle input stream
+          // see https://lists.apache.org/thread/7pjjw8bb1qo9noz3dcxkdcr6v7kx8c1l
+          var client = clientSupplier.get();
           client.setFileType(FTP.BINARY_FILE_TYPE);
           var inputStream = client.retrieveFileStream(path);
-          if (inputStream == null)
+          if (inputStream == null) {
+            FtpFileSystem.close(client);
             throw new IllegalArgumentException("failed to open file on " + path);
+          }
           return new InputStream() {
 
             @Override
@@ -160,20 +175,28 @@ public class FtpFileSystem implements FileSystem {
               inputStream.close();
               if (!client.completePendingCommand())
                 throw new IllegalStateException("Failed to complete pending command");
+              FtpFileSystem.close(client);
             }
           };
         });
   }
 
   @Override
-  public OutputStream write(String path) {
+  public synchronized OutputStream write(String path) {
     return Utils.packException(
         () -> {
           if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
-          mkdir(FileSystem.parent(path));
+          FileSystem.parent(path).ifPresent(this::mkdir);
+          // FTPClient can handle only one data connection, so we have to create another client to
+          // handle output stream
+          // see https://lists.apache.org/thread/7pjjw8bb1qo9noz3dcxkdcr6v7kx8c1l
+          var client = clientSupplier.get();
+          client.setFileType(FTP.BINARY_FILE_TYPE);
           var outputStream = client.storeFileStream(path);
-          if (outputStream == null)
+          if (outputStream == null) {
+            FtpFileSystem.close(client);
             throw new IllegalArgumentException("failed to create file on " + path);
+          }
           return new OutputStream() {
 
             @Override
@@ -196,6 +219,7 @@ public class FtpFileSystem implements FileSystem {
               outputStream.close();
               if (!client.completePendingCommand())
                 throw new IllegalStateException("Failed to complete pending command");
+              FtpFileSystem.close(client);
             }
           };
         });
@@ -203,6 +227,10 @@ public class FtpFileSystem implements FileSystem {
 
   @Override
   public void close() {
+    close(client);
+  }
+
+  private static void close(FTPClient client) {
     Utils.packException(
         () -> {
           client.logout();

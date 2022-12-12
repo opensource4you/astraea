@@ -18,30 +18,46 @@ package org.astraea.common.cost;
 
 import java.util.Collection;
 
-/** used to aggregate a sequence into a number */
+/** Aggregate a sequence into a number */
+@FunctionalInterface
 public interface Dispersion {
   /**
-   * use correlation coefficient to a aggregate a sequence * @return correlation coefficient
-   * Dispersion
+   * Apply coefficient of variation to a series of values.
+   *
+   * <p>This implementation come with some assumption:
+   *
+   * <ul>
+   *   <li>If no number was given, then the cov is zero.
+   *   <li>If all numbers are zero, then the cov is zero.
+   * </ul>
    */
-  static Dispersion correlationCoefficient() {
-    return brokerCost -> {
-      if (brokerCost.size() == 0) return 0;
-      var dataRateMean = brokerCost.stream().mapToDouble(x -> x).sum() / brokerCost.size();
-      if (dataRateMean == 0) return 0;
-      var dataRateSD =
-          Math.sqrt(
-              brokerCost.stream().mapToDouble(score -> Math.pow((score - dataRateMean), 2)).sum()
-                  / brokerCost.size());
-      return dataRateSD / dataRateMean;
+  static Dispersion cov() {
+    return numbers -> {
+      // special case: no number
+      if (numbers.isEmpty()) return 0;
+      var numSummary = numbers.stream().mapToDouble(Number::doubleValue).summaryStatistics();
+      // special case: all value zero
+      if (numSummary.getMax() == 0 && numSummary.getMin() == 0) return 0;
+      // special case: zero average, no cov defined here
+      if (numSummary.getAverage() == 0)
+        throw new ArithmeticException(
+            "Coefficient of variation has no definition with zero average");
+      var numVariance =
+          numbers.stream()
+              .mapToDouble(Number::doubleValue)
+              .map(score -> score - numSummary.getAverage())
+              .map(score -> score * score)
+              .summaryStatistics()
+              .getAverage();
+      return Math.sqrt(numVariance) / numSummary.getAverage();
     };
   }
 
   /**
-   * aggregated the values into a number
+   * Processing a series of values via a specific statistics method.
    *
    * @param scores origin data
    * @return aggregated data
    */
-  double calculate(Collection<Double> scores);
+  double calculate(Collection<? extends Number> scores);
 }

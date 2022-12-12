@@ -61,7 +61,7 @@ class GreedyBalancerTest {
             AlgorithmConfig.builder()
                 .executionId(id)
                 .clusterCost(cost)
-                .config(GreedyBalancer.ITERATION_CONFIG, "100")
+                .config(Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")))
                 .build());
 
     try (MBeanClient client = MBeanClient.local()) {

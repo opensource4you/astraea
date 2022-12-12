@@ -23,19 +23,18 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.WorkerStatus;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -46,29 +45,16 @@ public class SettingNode {
 
   static class Prop {
     String bootstrapServers;
-    Optional<Integer> jmxPort = Optional.empty();
+    Optional<Integer> brokerJmxPort = Optional.empty();
     Optional<String> workerUrl = Optional.empty();
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      Prop prop = (Prop) o;
-      return Objects.equals(bootstrapServers, prop.bootstrapServers)
-          && Objects.equals(jmxPort, prop.jmxPort)
-          && Objects.equals(workerUrl, prop.workerUrl);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(bootstrapServers, jmxPort, workerUrl);
-    }
+    Optional<Integer> workerJmxPort = Optional.empty();
   }
 
   private static final String BOOTSTRAP_SERVERS = "bootstrap servers";
-  private static final String JMX_PORT = "jmx port";
+  private static final String BROKER_JMX_PORT = "broker jmx port";
 
   private static final String WORKER_URL = "worker url";
+  private static final String WORKER_JMX_PORT = "worker jmx port";
 
   private static Optional<File> propertyFile() {
     var tempDir = System.getProperty("java.io.tmpdir");
@@ -112,27 +98,33 @@ public class SettingNode {
   public static Node of(Context context) {
     var properties = load();
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(
-                    BOOTSTRAP_SERVERS,
-                    EditableText.singleLine()
-                        .defaultValue(properties.map(p -> p.bootstrapServers).orElse(null))
-                        .disallowEmpty()
-                        .build()),
-                TextInput.of(
-                    JMX_PORT,
-                    EditableText.singleLine()
-                        .onlyNumber()
-                        .defaultValue(
-                            properties.flatMap(p -> p.jmxPort).map(String::valueOf).orElse(null))
-                        .build()),
-                TextInput.of(
-                    WORKER_URL,
-                    EditableText.singleLine()
-                        .defaultValue(properties.flatMap(p -> p.workerUrl).orElse(null))
-                        .disallowEmpty()
-                        .build())));
+        List.of(
+            TextInput.required(
+                BOOTSTRAP_SERVERS,
+                EditableText.singleLine()
+                    .defaultValue(properties.map(p -> p.bootstrapServers).orElse(null))
+                    .disallowEmpty()
+                    .build()),
+            TextInput.of(
+                BROKER_JMX_PORT,
+                EditableText.singleLine()
+                    .onlyNumber()
+                    .defaultValue(
+                        properties.flatMap(p -> p.brokerJmxPort).map(String::valueOf).orElse(null))
+                    .build()),
+            TextInput.of(
+                WORKER_URL,
+                EditableText.singleLine()
+                    .defaultValue(properties.flatMap(p -> p.workerUrl).orElse(null))
+                    .disallowEmpty()
+                    .build()),
+            TextInput.of(
+                WORKER_JMX_PORT,
+                EditableText.singleLine()
+                    .onlyNumber()
+                    .defaultValue(
+                        properties.flatMap(p -> p.workerJmxPort).map(String::valueOf).orElse(null))
+                    .build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,
@@ -140,10 +132,13 @@ public class SettingNode {
             (argument, logger) -> {
               var prop = new Prop();
               prop.bootstrapServers = argument.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
-              prop.jmxPort =
-                  Optional.ofNullable(argument.nonEmptyTexts().get(JMX_PORT))
+              prop.brokerJmxPort =
+                  Optional.ofNullable(argument.nonEmptyTexts().get(BROKER_JMX_PORT))
                       .map(Integer::parseInt);
               prop.workerUrl = Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_URL));
+              prop.workerJmxPort =
+                  Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_JMX_PORT))
+                      .map(Integer::parseInt);
               save(prop);
               var newAdmin = Admin.of(prop.bootstrapServers);
               var client =
@@ -155,23 +150,20 @@ public class SettingNode {
               return FutureUtils.combine(
                   newAdmin.nodeInfos(),
                   client
-                      .map(ConnectorClient::plugins)
-                      .orElse(CompletableFuture.completedFuture(Set.of())),
-                  (nodeInfos, plugins) -> {
+                      .map(ConnectorClient::activeWorkers)
+                      .orElse(CompletableFuture.completedFuture(List.of())),
+                  (nodeInfos, workers) -> {
                     context.replace(newAdmin);
                     client.ifPresent(context::replace);
-                    if (prop.jmxPort.isEmpty()) {
-                      logger.log("succeed to connect to " + prop.bootstrapServers);
-                      return List.of();
-                    }
-                    context.replace(nodeInfos, prop.jmxPort.get());
+                    prop.brokerJmxPort.ifPresent(context::brokerJmxPort);
+                    prop.workerJmxPort.ifPresent(context::workerJmxPort);
+                    context.addBrokerClients(nodeInfos);
+                    context.addWorkerClients(
+                        workers.stream().map(WorkerStatus::hostname).collect(Collectors.toSet()));
                     logger.log(
                         "succeed to connect to "
                             + prop.bootstrapServers
-                            + prop.workerUrl.map(url -> " and " + url).orElse("")
-                            + ". Also, jmx: "
-                            + prop.jmxPort.get()
-                            + " works well");
+                            + prop.workerUrl.map(url -> " and " + url).orElse(""));
                     return List.of();
                   });
             })

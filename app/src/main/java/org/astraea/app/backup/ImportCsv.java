@@ -30,9 +30,11 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.astraea.app.argument.BooleanField;
+import org.astraea.app.argument.NonEmptyStringField;
+import org.astraea.app.argument.NonNegativeIntegerField;
+import org.astraea.app.argument.URIField;
 import org.astraea.common.Configuration;
-import org.astraea.common.argument.NonEmptyStringField;
-import org.astraea.common.argument.URIField;
 import org.astraea.common.csv.CsvReader;
 import org.astraea.common.csv.CsvWriter;
 import org.astraea.fs.FileSystem;
@@ -70,7 +72,7 @@ public class ImportCsv {
   public static void main(String[] args) {
     var count = new AtomicInteger();
     System.out.println("Initialization arguments...");
-    var argument = org.astraea.common.argument.Argument.parse(new Argument(), args);
+    var argument = org.astraea.app.argument.Argument.parse(new Argument(), args);
 
     try (var source = of(argument.source);
         var sink = of(argument.sink);
@@ -97,7 +99,7 @@ public class ImportCsv {
                         CsvReader.builder(new InputStreamReader(source.read(sourcePath))).build();
                     var writer =
                         CsvWriter.builder(new OutputStreamWriter(sink.write(sinkPath))).build()) {
-
+                  reader.skip(argument.headSkip);
                   var headers =
                       Arrays.stream(
                               new String[] {
@@ -178,6 +180,18 @@ public class ImportCsv {
         description = "Source archive directory.",
         validateWith = URIField.class)
     URI archive = URI.create("local:///");
+
+    @Parameter(
+        names = {"--headSkip"},
+        description = "The number of records to skip",
+        validateWith = NonNegativeIntegerField.class)
+    int headSkip = 0;
+
+    @Parameter(
+        names = {"--allowBlankLine"},
+        description = "Allow read/writer blank lines when processing csv files.",
+        validateWith = BooleanField.class)
+    boolean blankLine = false;
   }
 
   static void nonEqualPath(URI uri1, URI uri2) {

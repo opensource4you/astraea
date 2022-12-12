@@ -39,6 +39,7 @@ import org.astraea.gui.button.Click;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
+import org.astraea.gui.text.TextInput;
 
 /**
  * Layout: <br>
@@ -81,27 +82,31 @@ public class PaneBuilder {
       SelectBox selectBox,
       String clickName,
       BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(selectBox, null, clickName, TableRefresher.of(tableRefresher));
+    return firstPart(selectBox, List.of(), clickName, TableRefresher.of(tableRefresher));
   }
 
   public PaneBuilder firstPart(
-      MultiInput multiInput,
+      List<TextInput> textInputs,
       String clickName,
       BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(null, multiInput, clickName, TableRefresher.of(tableRefresher));
+    return firstPart(null, textInputs, clickName, TableRefresher.of(tableRefresher));
   }
 
   public PaneBuilder firstPart(
       String clickName,
       BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(null, null, clickName, TableRefresher.of(tableRefresher));
+    return firstPart(null, List.of(), clickName, TableRefresher.of(tableRefresher));
   }
 
   public PaneBuilder firstPart(
-      SelectBox selectBox, MultiInput multiInput, String clickName, TableRefresher tableRefresher) {
+      SelectBox selectBox,
+      List<TextInput> textInputs,
+      String clickName,
+      TableRefresher tableRefresher) {
     Objects.requireNonNull(clickName);
     Objects.requireNonNull(tableRefresher);
     var click = Click.of(clickName);
+    var multiInput = textInputs.isEmpty() ? null : MultiInput.of(textInputs);
     root.getChildren()
         .add(
             0,
@@ -176,11 +181,18 @@ public class PaneBuilder {
   }
 
   public PaneBuilder secondPart(
-      MultiInput multiInput,
+      String buttonName,
+      Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
+    return secondPart(List.of(), buttonName, action);
+  }
+
+  public PaneBuilder secondPart(
+      List<TextInput> textInputs,
       String buttonName,
       Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
     Objects.requireNonNull(buttonName);
     Objects.requireNonNull(action);
+    var multiInput = textInputs.isEmpty() ? null : MultiInput.of(textInputs);
     var tableViewClick = Click.disabled(buttonName);
     var checkbox = new CheckBox("enable");
     checkbox

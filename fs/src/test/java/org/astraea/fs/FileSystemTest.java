@@ -20,11 +20,20 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.astraea.common.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class FileSystemTest {
+
+  @Test
+  void testParent() {
+    Assertions.assertEquals(Optional.empty(), FileSystem.parent("/"));
+    Assertions.assertEquals("/", FileSystem.parent("/aaa").get());
+    Assertions.assertEquals("/aaa", FileSystem.parent("/aaa/").get());
+    Assertions.assertEquals(Optional.empty(), FileSystem.parent("aaa"));
+  }
 
   @Test
   void testOf() {
