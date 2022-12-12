@@ -16,19 +16,28 @@
  */
 package org.astraea.common.cost;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
+import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaSizeCostTest {
+class ReplicaSizeCostTest extends RequireBrokerCluster {
   private static final BeanObject bean1 =
       new BeanObject(
           "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777L));
@@ -304,5 +313,51 @@ class ReplicaSizeCostTest {
             List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean2),
             2,
             List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean3)));
+  }
+
+  @Test
+  void testFetcher() throws InterruptedException {
+    var interval = Duration.ofMillis(300);
+    var topicName = Utils.randomString(10);
+    try (var admin = Admin.of(bootstrapServers())) {
+      try (var collector = MetricCollector.builder().interval(interval).build()) {
+        var costFunction = new ReplicaSizeCost();
+        // create come partition to get metrics
+        admin
+            .creator()
+            .topic(topicName)
+            .numberOfPartitions(4)
+            .numberOfReplicas((short) 1)
+            .run()
+            .toCompletableFuture()
+            .get();
+        var producer = Producer.of(bootstrapServers());
+        producer
+            .send(Record.builder().topic(topicName).partition(0).key(new byte[100]).build())
+            .toCompletableFuture()
+            .join();
+        collector.addFetcher(
+            costFunction.fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
+        collector.registerLocalJmx(0);
+        costFunction.sensors().forEach(collector::addMetricSensors);
+        var tpr =
+            List.of(
+                TopicPartitionReplica.of(topicName, 0, 0),
+                TopicPartitionReplica.of(topicName, 1, 0),
+                TopicPartitionReplica.of(topicName, 2, 0),
+                TopicPartitionReplica.of(topicName, 3, 0));
+        Utils.sleep(interval);
+        Assertions.assertEquals(
+            170 * 0.5,
+            collector
+                .clusterBean()
+                .replicaMetrics(tpr.get(0), ReplicaSizeCost.SizeStatisticalBean.class)
+                .findFirst()
+                .orElseThrow()
+                .value());
+      } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 }

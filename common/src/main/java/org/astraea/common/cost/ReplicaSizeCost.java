@@ -66,31 +66,25 @@ public class ReplicaSizeCost
             var statisticalBeans = new HashMap<TopicPartitionReplica, HasBeanObject>();
             beans.forEach(
                 bean -> {
-                  if (bean != null) {
-                    if (bean.beanObject().domainName().equals(LogMetrics.DOMAIN_NAME)
-                        && bean.beanObject().properties().get("type").equals(LogMetrics.LOG_TYPE)) {
-                      var tpr =
-                          TopicPartitionReplica.of(
-                              bean.beanObject().properties().get("topic"),
-                              Integer.parseInt(bean.beanObject().properties().get("partition")),
-                              identity);
-                      sensors
-                          .computeIfAbsent(
-                              tpr,
-                              ignore ->
-                                  new Sensor.Builder<Double>()
-                                      .addStat(
-                                          Avg.EXP_WEIGHT_BY_TIME_KEY,
-                                          Avg.expWeightByTime(Duration.ofSeconds(1)))
-                                      .build())
-                          .record(
-                              Double.valueOf(
-                                  bean.beanObject()
-                                      .attributes()
-                                      .get(HasGauge.VALUE_KEY)
-                                      .toString()));
-                      statisticalBeans.put(tpr, bean);
-                    }
+                  if (bean instanceof LogMetrics.Log.Gauge) {
+                    var tpr =
+                        TopicPartitionReplica.of(
+                            bean.beanObject().properties().get("topic"),
+                            Integer.parseInt(bean.beanObject().properties().get("partition")),
+                            identity);
+                    sensors
+                        .computeIfAbsent(
+                            tpr,
+                            ignore ->
+                                Sensor.builder()
+                                    .addStat(
+                                        Avg.EXP_WEIGHT_BY_TIME_KEY,
+                                        Avg.expWeightByTime(Duration.ofSeconds(1)))
+                                    .build())
+                        .record(
+                            Double.valueOf(
+                                bean.beanObject().attributes().get(HasGauge.VALUE_KEY).toString()));
+                    statisticalBeans.put(tpr, bean);
                   }
                 });
             return Map.of(
@@ -114,7 +108,7 @@ public class ReplicaSizeCost
         });
   }
 
-  public interface SizeStatisticalBean extends HasGauge<Long> {}
+  public interface SizeStatisticalBean extends HasGauge<Double> {}
 
   @Override
   public MoveCost moveCost(
@@ -170,7 +164,7 @@ public class ReplicaSizeCost
                             .replicaMetrics(tpr, SizeStatisticalBean.class)
                             .max(Comparator.comparing(HasBeanObject::createdTimestamp))
                             .map(SizeStatisticalBean::value)
-                            .orElse(0L)))
+                            .orElse(0.0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     // if there is no statistBeans, use ClusterBean to calculate brokerCost
     if (statistBeans.isEmpty()) return sizeCount(clusterBean);
