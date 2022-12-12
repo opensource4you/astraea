@@ -147,6 +147,7 @@ public final class LogMetrics {
                   .property("topic", "*")
                   .property("partition", "*")
                   .property("name", metricName)
+                  .usePropertyListPattern()
                   .build())
           .stream()
           .map(Gauge::new)
