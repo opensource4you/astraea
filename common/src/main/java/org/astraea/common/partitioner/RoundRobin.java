@@ -51,7 +51,7 @@ public interface RoundRobin<E> {
 
     private SmoothRoundRobin(Map<E, Double> scores) {
       // The effective score should not be zero
-      if (scores.values().stream().anyMatch(score -> score == 0.0)) {
+      if (scores.values().stream().anyMatch(score -> score <= 0.0)) {
         throw new IllegalArgumentException(
             "Effective score in smooth round-robin should not be zero");
       }

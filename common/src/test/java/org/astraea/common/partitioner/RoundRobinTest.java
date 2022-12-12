@@ -53,4 +53,10 @@ public class RoundRobinTest {
     var scores = Map.of(0, 0D, 1, 5D);
     Assertions.assertThrows(IllegalArgumentException.class, () -> RoundRobin.smooth(scores));
   }
+
+  @Test
+  void testNegativeScore(){
+    var scores = Map.of(0, -1D, 1, 5D);
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RoundRobin.smooth(scores));
+  }
 }
