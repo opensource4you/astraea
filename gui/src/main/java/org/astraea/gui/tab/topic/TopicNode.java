@@ -79,7 +79,7 @@ public class TopicNode {
                               .orElse(ServerMetrics.Topic.BYTES_IN_PER_SEC);
 
                       var nodeMeters =
-                          context.clients().entrySet().stream()
+                          context.brokerClients().entrySet().stream()
                               .collect(
                                   MapUtils.toSortedMap(
                                       Map.Entry::getKey, entry -> metric.fetch(entry.getValue())));

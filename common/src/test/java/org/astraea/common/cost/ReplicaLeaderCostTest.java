@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class ReplicaLeaderCostTest {
-  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  private final Dispersion dispersion = Dispersion.cov();
 
   @Test
   void testNoMetrics() {

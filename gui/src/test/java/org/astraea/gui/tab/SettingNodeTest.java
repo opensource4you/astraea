@@ -28,14 +28,25 @@ public class SettingNodeTest {
 
     prop.bootstrapServers = "abc";
     SettingNode.save(prop);
-    Assertions.assertEquals(prop, SettingNode.load().get());
+    assertEqual(prop, SettingNode.load().get());
 
-    prop.jmxPort = Optional.of(123);
+    prop.brokerJmxPort = Optional.of(123);
     SettingNode.save(prop);
-    Assertions.assertEquals(prop, SettingNode.load().get());
+    assertEqual(prop, SettingNode.load().get());
 
     prop.workerUrl = Optional.of("acc");
     SettingNode.save(prop);
-    Assertions.assertEquals(prop, SettingNode.load().get());
+    assertEqual(prop, SettingNode.load().get());
+
+    prop.workerJmxPort = Optional.of(1222);
+    SettingNode.save(prop);
+    assertEqual(prop, SettingNode.load().get());
+  }
+
+  private static void assertEqual(SettingNode.Prop lhs, SettingNode.Prop rhs) {
+    Assertions.assertEquals(lhs.bootstrapServers, rhs.bootstrapServers);
+    Assertions.assertEquals(lhs.brokerJmxPort, rhs.brokerJmxPort);
+    Assertions.assertEquals(lhs.workerUrl, rhs.workerUrl);
+    Assertions.assertEquals(lhs.workerJmxPort, rhs.workerJmxPort);
   }
 }
