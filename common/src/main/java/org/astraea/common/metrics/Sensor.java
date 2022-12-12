@@ -16,10 +16,16 @@
  */
 package org.astraea.common.metrics;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.astraea.common.metrics.stats.Stat;
 
 public interface Sensor<V> {
+
+  static Builder<Long> builder() {
+    return new Builder<>();
+  }
 
   /** Record the new get data */
   void record(V value);
@@ -33,4 +39,48 @@ public interface Sensor<V> {
   V measure(String statName);
 
   Map<String, Stat<V>> metrics();
+
+  class Builder<V> {
+    private final Map<String, Stat<?>> stats = new HashMap<>();
+
+    private Builder() {}
+
+    @SuppressWarnings("unchecked")
+    public <NewV> Builder<NewV> addStat(String name, Stat<NewV> stat) {
+      stats.put(name, stat);
+      return (Builder<NewV>) this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <NewV> Builder<NewV> addStats(Map<String, Stat<NewV>> stats) {
+      this.stats.putAll(stats);
+      return (Builder<NewV>) this;
+    }
+
+    public Sensor<V> build() {
+      @SuppressWarnings("unchecked")
+      var stats =
+          this.stats.entrySet().stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> (Stat<V>) e.getValue()));
+      return new Sensor<>() {
+        @Override
+        public synchronized void record(V value) {
+          stats.values().forEach(stat -> stat.record(value));
+        }
+
+        @Override
+        public V measure(String statName) {
+          return stats.get(statName).measure();
+        }
+
+        @Override
+        public synchronized Map<String, Stat<V>> metrics() {
+          return stats.entrySet().stream()
+              .collect(
+                  Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().snapshot()));
+        }
+      };
+    }
+  }
 }

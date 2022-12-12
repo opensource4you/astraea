@@ -34,7 +34,7 @@ import org.astraea.common.metrics.collector.Fetcher;
 
 public class ReplicaSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
-  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+  private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "size";
 
   /**
