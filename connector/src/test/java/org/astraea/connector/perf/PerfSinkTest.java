@@ -26,6 +26,7 @@ import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
+
 import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
