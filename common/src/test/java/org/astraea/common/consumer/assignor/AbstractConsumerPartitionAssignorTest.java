@@ -16,8 +16,10 @@
  */
 package org.astraea.common.consumer.assignor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.NodeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,5 +40,44 @@ public class AbstractConsumerPartitionAssignorTest {
     var unregister2 = assignor.checkUnregister(nodes);
     Assertions.assertEquals(1, unregister2.size());
     Assertions.assertEquals("192.168.103.2", unregister2.get(1001));
+  }
+
+  @Test
+  void testAddNode() {
+    var assignor = new RandomAssignor();
+    assignor.configure(Map.of("broker.1000.jmx.port", "8000"));
+    var nodes = new ArrayList<NodeInfo>();
+    nodes.add(NodeInfo.of(1000, "192.168.103.1", 8000));
+    var unregisterNode = assignor.checkUnregister(nodes);
+    Assertions.assertEquals(1, unregisterNode.size());
+    Assertions.assertEquals("192.168.103.1", unregisterNode.get(1000));
+    assignor.registerLocalJMX(unregisterNode);
+    unregisterNode = assignor.checkUnregister(nodes);
+    Assertions.assertEquals(0, unregisterNode.size());
+
+    // after add a new node, assignor check unregister node
+
+    nodes.add(NodeInfo.of(1001, "192.168.103.2", 8000));
+    unregisterNode = assignor.checkUnregister(nodes);
+    Assertions.assertEquals(1, unregisterNode.size());
+    Assertions.assertEquals("192.168.103.2", unregisterNode.get(1001));
+  }
+
+  @Test
+  void testParseCostFunctionWeight() {
+    var costFunction =
+        AbstractConsumerPartitionAssignor.parseCostFunctionWeight(
+            Configuration.of(Map.of("org.astraea.common.cost.ReplicaSizeCost", "100")));
+    Assertions.assertEquals(1, costFunction.size());
+    for (var e : costFunction.entrySet()) {
+      Assertions.assertEquals(
+          "org.astraea.common.cost.ReplicaSizeCost", e.getKey().getClass().getName());
+      Assertions.assertEquals(100, e.getValue());
+    }
+
+    var negativeConfig = Configuration.of(Map.of("org.astraea.common.cost.ReplicaSizeCost", "-1"));
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> AbstractConsumerPartitionAssignor.parseCostFunctionWeight(negativeConfig));
   }
 }

@@ -21,11 +21,38 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.kafka.common.Cluster;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
 public class RandomAssignor extends AbstractConsumerPartitionAssignor {
+
+  // used for test
+  @Override
+  public GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
+    var clusterInfo = ClusterInfo.of(metadata);
+    var subscriptionsPerMember =
+        org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
+            .groupSubscription();
+
+    var unregister = checkUnregister(clusterInfo.nodes());
+    // register LocalJMX for test
+    if (!unregister.isEmpty()) registerLocalJMX(unregister);
+
+    return new GroupAssignment(
+        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        new Assignment(
+                            e.getValue().stream()
+                                .map(TopicPartition::to)
+                                .collect(Collectors.toUnmodifiableList())))));
+  }
+
   @Override
   public Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,

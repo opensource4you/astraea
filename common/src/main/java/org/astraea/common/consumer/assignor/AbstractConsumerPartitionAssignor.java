@@ -20,15 +20,19 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.HasPartitionCost;
+import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.PartitionerUtils;
 
@@ -36,7 +40,7 @@ import org.astraea.common.partitioner.PartitionerUtils;
 public abstract class AbstractConsumerPartitionAssignor implements ConsumerPartitionAssignor {
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
-  private boolean register = false;
+  HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
@@ -65,7 +69,7 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
     var subscriptionsPerMember =
         org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
             .groupSubscription();
-//TODO: register fetcher, integration costfunction
+
     // check the nodes if register JMX or not
     var unregister = checkUnregister(clusterInfo.nodes());
     // register JMX for unregistered nodes
@@ -90,11 +94,20 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
    */
   @Override
   public void configure(Configuration config) {
-    configure(config.integer(JMX_PORT), PartitionerUtils.parseIdJMXPort(config));
+    var costFunctions = parseCostFunctionWeight(config);
+    configure(
+        costFunctions.isEmpty() ? Map.of(new ReplicaSizeCost(), 1D) : costFunctions,
+        config.integer(JMX_PORT),
+        PartitionerUtils.parseIdJMXPort(config));
   }
 
-  void configure(Optional<Integer> jmxPortDefault, Map<Integer, Integer> customJmxPort) {
-    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
+  void configure(
+      Map<HasPartitionCost, Double> costFunctions,
+      Optional<Integer> defaultJmxPort,
+      Map<Integer, Integer> customJmxPort) {
+    this.costFunction = HasPartitionCost.of(costFunctions);
+    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> defaultJmxPort);
+    this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
   }
 
   /**
@@ -124,5 +137,37 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
   // used for test
   void registerLocalJMX(Map<Integer, String> unregister) {
     unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
+  }
+
+  /**
+   * Parse cost function names and weight. you can specify multiple cost function with assignor. The
+   * format of key and value pair is "<CostFunction name>"="<weight>". For instance,
+   * {"org.astraea.common.cost.ReplicaSizeCost","1"} will be parsed to {(HasPartitionCost object),
+   * 1.0}.
+   *
+   * @param config the configuration of the user setting, contain cost function and its weight.
+   * @return Map from cost function object to its weight
+   */
+  static Map<HasPartitionCost, Double> parseCostFunctionWeight(Configuration config) {
+    return config.entrySet().stream()
+        .map(
+            nameAndWeight -> {
+              Class<?> clz;
+              try {
+                clz = Class.forName(nameAndWeight.getKey());
+              } catch (ClassNotFoundException ignore) {
+                return null;
+              }
+              var weight = Double.parseDouble(nameAndWeight.getValue());
+              if (weight < 0.0)
+                throw new IllegalArgumentException("Cost function weight should not be negative");
+              return Map.entry(clz, weight);
+            })
+        .filter(Objects::nonNull)
+        .filter(e -> HasPartitionCost.class.isAssignableFrom(e.getKey()))
+        .collect(
+            Collectors.toMap(
+                e -> Utils.construct((Class<HasPartitionCost>) e.getKey(), config),
+                Map.Entry::getValue));
   }
 }
