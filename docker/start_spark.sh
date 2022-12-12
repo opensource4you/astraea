@@ -19,6 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-3.3.1}}
+declare -r HADOOP_VERSION=${HADOOP_REVERSION:-${HADOOP_REVERSION:-3}}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/spark}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r SPARK_PORT=${SPARK_PORT:-"$(getRandomPort)"}
@@ -67,9 +68,9 @@ RUN apt-get update && apt-get install -y wget unzip
 
 # download spark
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop3.2.tgz
+RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 RUN mkdir /opt/spark
-RUN tar -zxvf spark-${VERSION}-bin-hadoop3.2.tgz -C /opt/spark --strip-components=1
+RUN tar -zxvf spark-${VERSION}-bin-hadoop${HADOOP_VERSION}.tgz -C /opt/spark --strip-components=1
 
 # the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
 # The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
