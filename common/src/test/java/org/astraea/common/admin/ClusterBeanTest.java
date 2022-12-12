@@ -174,8 +174,37 @@ class ClusterBeanTest {
           .flatMap(Collection::stream)
           .collect(Collectors.toUnmodifiableSet());
 
+  private interface FakeJVMBean extends HasBeanObject {}
+
   @RepeatedTest(5)
   void testMetricQuery() {
+
+    // test check class
+    FakeJVMBean cost =
+        () ->
+            new BeanObject(
+                "",
+                Map.of("type", "Log", "topic", "t", "partition", "0", "name", "Size"),
+                Map.of());
+    var testCheckClass = ClusterBean.of(Map.of(0, List.of(cost)));
+    var tm = testCheckClass.topicMetrics("t", HasBeanObject.class).collect(Collectors.toList());
+    var pm =
+        testCheckClass
+            .partitionMetrics(TopicPartition.of("t", 0), HasBeanObject.class)
+            .collect(Collectors.toList());
+    var rm =
+        testCheckClass
+            .replicaMetrics(TopicPartitionReplica.of("t", 0, 0), HasBeanObject.class)
+            .collect(Collectors.toList());
+    var bm =
+        testCheckClass
+            .brokerTopicMetrics(BrokerTopic.of(0, "t"), HasBeanObject.class)
+            .collect(Collectors.toList());
+    Assertions.assertTrue(tm.size() != 0);
+    Assertions.assertTrue(pm.size() != 0);
+    Assertions.assertTrue(rm.size() != 0);
+    Assertions.assertTrue(bm.size() != 0);
+
     // test index lookup
     var allTopicIndex =
         allMetrics.stream()

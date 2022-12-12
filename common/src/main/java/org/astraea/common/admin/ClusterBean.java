@@ -52,7 +52,7 @@ public interface ClusterBean {
       public <Bean extends HasBeanObject> Stream<Bean> topicMetrics(
           String topic, Class<Bean> metricClass) {
         return topicCache.get().getOrDefault(topic, List.of()).stream()
-            .filter(bean -> bean.getClass() == metricClass)
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
             .map(metricClass::cast);
       }
 
