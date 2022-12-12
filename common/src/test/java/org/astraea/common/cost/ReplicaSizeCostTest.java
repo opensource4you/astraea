@@ -44,7 +44,7 @@ class ReplicaSizeCostTest {
 
   @Test
   void testClusterCost() {
-    final Dispersion dispersion = Dispersion.correlationCoefficient();
+    final Dispersion dispersion = Dispersion.cov();
     var loadCostFunction = new ReplicaSizeCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     var clusterCost = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
@@ -299,10 +299,10 @@ class ReplicaSizeCostTest {
     return ClusterBean.of(
         Map.of(
             0,
-            List.of(new ReplicaSizeCost.SizeStatisticalBean(bean1)),
+            List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean1),
             1,
-            List.of(new ReplicaSizeCost.SizeStatisticalBean(bean2)),
+            List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean2),
             2,
-            List.of(new ReplicaSizeCost.SizeStatisticalBean(bean3))));
+            List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean3)));
   }
 }

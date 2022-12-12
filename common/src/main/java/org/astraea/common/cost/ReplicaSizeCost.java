@@ -35,7 +35,6 @@ import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
-import org.astraea.common.metrics.SensorBuilder;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
@@ -79,14 +78,17 @@ public class ReplicaSizeCost
                           .computeIfAbsent(
                               tpr,
                               ignore ->
-                                  new SensorBuilder<Double>()
+                                  new Sensor.Builder<Double>()
                                       .addStat(
                                           Avg.EXP_WEIGHT_BY_TIME_KEY,
                                           Avg.expWeightByTime(Duration.ofSeconds(1)))
                                       .build())
                           .record(
                               Double.valueOf(
-                                  bean.beanObject().attributes().get("Value").toString()));
+                                  bean.beanObject()
+                                      .attributes()
+                                      .get(HasGauge.VALUE_KEY)
+                                      .toString()));
                       statisticalBeans.put(tpr, bean);
                     }
                   }
@@ -97,32 +99,22 @@ public class ReplicaSizeCost
                     .map(
                         sensor -> {
                           var bean = statisticalBeans.get(sensor.getKey()).beanObject();
-                          return new SizeStatisticalBean(
-                              new BeanObject(
-                                  bean.domainName(),
-                                  bean.properties(),
-                                  Map.of(
-                                      "Value",
-                                      sensor.getValue().measure(Avg.EXP_WEIGHT_BY_TIME_KEY)),
-                                  bean.createdTimestamp()));
+                          return (SizeStatisticalBean)
+                              () ->
+                                  new BeanObject(
+                                      bean.domainName(),
+                                      bean.properties(),
+                                      Map.of(
+                                          HasGauge.VALUE_KEY,
+                                          sensor.getValue().measure(Avg.EXP_WEIGHT_BY_TIME_KEY)),
+                                      bean.createdTimestamp());
                         })
                     .collect(Collectors.toList()));
           }
         });
   }
 
-  public static class SizeStatisticalBean implements HasGauge<Long> {
-    BeanObject beanObject;
-
-    SizeStatisticalBean(BeanObject beanObject) {
-      this.beanObject = beanObject;
-    }
-
-    @Override
-    public BeanObject beanObject() {
-      return beanObject;
-    }
-  }
+  public interface SizeStatisticalBean extends HasGauge<Long> {}
 
   @Override
   public MoveCost moveCost(

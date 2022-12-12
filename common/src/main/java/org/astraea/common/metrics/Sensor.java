@@ -43,7 +43,7 @@ public interface Sensor<V> {
   class Builder<V> {
     private final Map<String, Stat<?>> stats = new HashMap<>();
 
-    private Builder() {}
+    public Builder() {}
 
     @SuppressWarnings("unchecked")
     public <NewV> Builder<NewV> addStat(String name, Stat<NewV> stat) {
