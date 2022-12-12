@@ -27,9 +27,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.commons.math3.distribution.UniformIntegerDistribution;
-import org.apache.commons.math3.distribution.UniformRealDistribution;
-import org.apache.commons.math3.random.Well19937c;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -281,23 +278,21 @@ class NetworkCostTest {
         int brokers,
         int partitions,
         int seed) {
-      Well19937c well19937c = new Well19937c(seed);
-      var randomInt = new UniformIntegerDistribution(well19937c, 1, 8);
-      var random = new UniformRealDistribution(well19937c, 0, 50);
+      var random = new Random(seed);
       this.dataRateSupplier =
           () -> {
-            switch (randomInt.sample()) {
+            switch (1 + random.nextInt(8)) {
               case 1:
               case 2:
               case 3:
               case 4:
               case 5:
-                return DataRate.MB.of((long) (random.sample())).perSecond();
+                return DataRate.MB.of((long) (random.nextInt(50))).perSecond();
               case 6:
               case 7:
-                return DataRate.MB.of(3 * (long) (random.sample())).perSecond();
+                return DataRate.MB.of(3 * (long) (random.nextInt(50))).perSecond();
               case 8:
-                return DataRate.MB.of(5 * (long) (random.sample())).perSecond();
+                return DataRate.MB.of(5 * (long) (random.nextInt(50))).perSecond();
               default:
                 throw new RuntimeException();
             }
@@ -332,7 +327,7 @@ class NetworkCostTest {
               .boxed()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      p -> TopicPartition.of("Pipeline", p), p -> well19937c.nextInt(10)));
+                      p -> TopicPartition.of("Pipeline", p), p -> random.nextInt(10)));
       this.clusterBean =
           ClusterBean.of(
               IntStream.range(0, brokers)
@@ -342,10 +337,10 @@ class NetworkCostTest {
                           id -> id,
                           id ->
                               List.of(
-                                  noise(well19937c.nextInt()),
-                                  noise(well19937c.nextInt()),
-                                  noise(well19937c.nextInt()),
-                                  noise(well19937c.nextInt()),
+                                  noise(random.nextInt()),
+                                  noise(random.nextInt()),
+                                  noise(random.nextInt()),
+                                  noise(random.nextInt()),
                                   bandwidth(
                                       metric0,
                                       "Pipeline",
@@ -356,8 +351,8 @@ class NetworkCostTest {
                                           .filter(ReplicaInfo::isOnline)
                                           .mapToLong(r -> rate.get(r.topicPartition()))
                                           .sum()),
-                                  noise(well19937c.nextInt()),
-                                  noise(well19937c.nextInt()),
+                                  noise(random.nextInt()),
+                                  noise(random.nextInt()),
                                   bandwidth(
                                       metric1,
                                       "Pipeline",
@@ -371,7 +366,7 @@ class NetworkCostTest {
                                                   rate.get(r.topicPartition())
                                                       * consumerFanout.get(r.topicPartition()))
                                           .sum()),
-                                  noise(well19937c.nextInt())))));
+                                  noise(random.nextInt())))));
     }
 
     @Override
