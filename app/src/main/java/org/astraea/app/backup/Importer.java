@@ -26,8 +26,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.astraea.app.argument.PathField;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.argument.PathField;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -93,7 +93,7 @@ public class Importer {
     return new Result(recordCount);
   }
 
-  static class Argument extends org.astraea.common.argument.Argument {
+  static class Argument extends org.astraea.app.argument.Argument {
 
     @Parameter(
         names = {"--input"},

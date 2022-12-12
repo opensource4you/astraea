@@ -24,7 +24,7 @@ import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows, sinkD, source}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
-import org.junit.jupiter.api.{BeforeAll, Disabled, Test}
+import org.junit.jupiter.api.{BeforeAll, Test}
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
@@ -119,14 +119,18 @@ class Spark2KafkaTest extends RequireBrokerCluster {
       .inclusive(0, 3)
       .map(i =>
         (
-          s"${rows(i).head},${rows(i)(1)}",
-          s"""{"${colNames.head}":${i + 1},"${colNames(1)}":"${rows(
+          s"""{"${colNames(1)}":"${rows(
               i
-            ).head}","${colNames(2)}":"${rows(i)(1)}","${colNames(3)}":${rows(
+            ).head}","${colNames(2)}":"${rows(i)(1)}"}""",
+          s"""{"${colNames(3)}":"${rows(
               i
             )(
               2
-            )}}"""
+            )}","${colNames(1)}":"${rows(
+              i
+            ).head}","${colNames.head}":"${i + 1}","${colNames(2)}":"${rows(i)(
+              1
+            )}"}"""
         )
       )
       .toMap

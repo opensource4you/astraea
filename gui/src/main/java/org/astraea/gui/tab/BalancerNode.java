@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -47,7 +48,6 @@ import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Argument;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.TableRefresher;
 import org.astraea.gui.table.TableViewer;
@@ -208,7 +208,9 @@ public class BalancerNode {
                                           patterns.isEmpty()
                                               || patterns.stream()
                                                   .anyMatch(p -> p.matcher(topic).matches()))
-                                  .config("iteration", "10000")
+                                  .config(
+                                      Configuration.of(
+                                          Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                                   .build())
                           .offer(clusterInfo, Duration.ofSeconds(10)));
                 })
@@ -280,18 +282,14 @@ public class BalancerNode {
             Arrays.stream(Cost.values()).map(Cost::toString).collect(Collectors.toList()),
             Cost.values().length);
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.of(
-                    TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()),
-                TextInput.of(
-                    MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
-                TextInput.of(
-                    MAX_MIGRATE_LOG_SIZE,
-                    EditableText.singleLine().hint("30KB,200MB,1GB").build())));
+        List.of(
+            TextInput.of(TOPIC_NAME_KEY, EditableText.singleLine().hint("topic-*,*abc*").build()),
+            TextInput.of(MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
+            TextInput.of(
+                MAX_MIGRATE_LOG_SIZE, EditableText.singleLine().hint("30KB,200MB,1GB").build()));
     return PaneBuilder.of(TableViewer.disableQuery())
         .firstPart(selectBox, multiInput, "PLAN", refresher(context))
-        .secondPart(null, "EXECUTE", tableViewAction(context))
+        .secondPart("EXECUTE", tableViewAction(context))
         .build();
   }
 }

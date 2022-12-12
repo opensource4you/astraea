@@ -260,9 +260,9 @@ public class ImportCsvTest {
         Utils.packException(() -> CsvWriter.builder(new FileWriter(sink.toFile())).build())) {
       IntStream.range(0, skip)
           .forEach(
-              ignore -> {
-                writer.rawAppend(Arrays.stream(fakeDataGenerator()).collect(Collectors.toList()));
-              });
+              ignore ->
+                  writer.rawAppend(
+                      Arrays.stream(fakeDataGenerator()).collect(Collectors.toList())));
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }

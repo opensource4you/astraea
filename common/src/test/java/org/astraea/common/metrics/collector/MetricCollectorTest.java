@@ -58,6 +58,15 @@ class MetricCollectorTest extends RequireBrokerCluster {
   }
 
   @Test
+  void addSensor() {
+    try (var collector = MetricCollector.builder().build()) {
+      MetricSensor metricSensor = (identity, beans) -> null;
+      collector.addMetricSensors(metricSensor);
+      Assertions.assertEquals(1, collector.listMetricsSensors().size());
+    }
+  }
+
+  @Test
   void registerJmx() {
     try (var collector = MetricCollector.builder().build()) {
       var socket =

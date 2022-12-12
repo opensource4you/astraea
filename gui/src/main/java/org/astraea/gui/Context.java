@@ -19,9 +19,9 @@ package org.astraea.gui;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import javafx.stage.Stage;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
@@ -34,8 +34,10 @@ public class Context {
   private final AtomicReference<ConnectorClient> connectorClientReference = new AtomicReference<>();
 
   private Stage stage;
-  private volatile int jmxPort = -1;
-  private final Map<Integer, MBeanClient> clients = new ConcurrentHashMap<>();
+
+  private volatile Clients<Integer> brokerClients;
+
+  private volatile Clients<String> workerClients;
 
   public Context() {}
 
@@ -60,34 +62,26 @@ public class Context {
     connectorClientReference.getAndSet(connectorClient);
   }
 
-  public void replace(List<NodeInfo> nodes, int jmxPort) {
-    var copy = Map.copyOf(this.clients);
-    this.jmxPort = jmxPort;
-    this.clients.clear();
-    this.clients.putAll(
-        nodes.stream()
-            .collect(Collectors.toMap(NodeInfo::id, n -> MBeanClient.jndi(n.host(), jmxPort))));
-    copy.values().forEach(MBeanClient::close);
+  public void brokerJmxPort(int brokerJmxPort) {
+    if (brokerClients != null) brokerClients.clients.values().forEach(MBeanClient::close);
+    brokerClients = new Clients<>(brokerJmxPort);
   }
 
-  public Map<Integer, MBeanClient> clients(List<NodeInfo> nodeInfos) {
-    if (jmxPort < 0) throw new IllegalArgumentException("Please define jmxPort");
-    clients.keySet().stream()
-        .filter(n -> !nodeInfos.contains(n))
-        .collect(Collectors.toList())
-        .forEach(
-            n -> {
-              var previous = clients.remove(n);
-              if (previous != null) previous.close();
-            });
-    nodeInfos.stream()
-        .filter(n -> !clients.containsKey(n))
-        .forEach(
-            n -> {
-              var previous = clients.put(n.id(), MBeanClient.jndi(n.host(), jmxPort));
-              if (previous != null) previous.close();
-            });
-    return Map.copyOf(clients);
+  public void workerJmxPort(int workerJmxPort) {
+    if (workerClients != null) workerClients.clients.values().forEach(MBeanClient::close);
+    workerClients = new Clients<>(workerJmxPort);
+  }
+
+  public Map<Integer, MBeanClient> addBrokerClients(List<NodeInfo> nodeInfos) {
+    if (brokerClients == null) return Map.of();
+    nodeInfos.forEach(n -> brokerClients.add(n.id(), n.host()));
+    return brokerClients.clients();
+  }
+
+  public Map<String, MBeanClient> addWorkerClients(Set<String> hostnames) {
+    if (workerClients == null) return Map.of();
+    hostnames.forEach(n -> workerClients.add(n, n));
+    return workerClients.clients();
   }
 
   public Admin admin() {
@@ -102,13 +96,31 @@ public class Context {
     return connectorClient;
   }
 
-  public Map<Integer, MBeanClient> clients() {
-    var copy = Map.copyOf(clients);
-    if (copy.isEmpty()) throw new IllegalArgumentException("Please define jmx port");
-    return copy;
+  public Map<Integer, MBeanClient> brokerClients() {
+    if (brokerClients == null) return Map.of();
+    return brokerClients.clients();
   }
 
-  public boolean hasMetrics() {
-    return !clients.isEmpty();
+  public Map<String, MBeanClient> workerClients() {
+    if (workerClients == null) return Map.of();
+    return workerClients.clients();
+  }
+
+  private static class Clients<T extends Comparable<T>> {
+    private final int jmxPort;
+    private final Map<T, MBeanClient> clients = new ConcurrentHashMap<>();
+
+    Clients(int jmxPort) {
+      this.jmxPort = jmxPort;
+    }
+
+    void add(T identity, String hostname) {
+      var previous = clients.put(identity, MBeanClient.jndi(hostname, jmxPort));
+      if (previous != null) previous.close();
+    }
+
+    Map<T, MBeanClient> clients() {
+      return Map.copyOf(clients);
+    }
   }
 }

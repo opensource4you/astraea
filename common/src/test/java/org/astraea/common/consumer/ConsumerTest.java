@@ -594,7 +594,7 @@ public class ConsumerTest extends RequireBrokerCluster {
             .config(
                 ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
                 org.astraea.common.consumer.assignor.RandomAssignor.class.getName())
-            .seek(DISTANCE_FROM_BEGINNING, (long) 0)
+            .seek(DISTANCE_FROM_BEGINNING, 0)
             .build()) {
       var records = consumer.poll(30, Duration.ofSeconds(5));
       Assertions.assertEquals(30, records.size());

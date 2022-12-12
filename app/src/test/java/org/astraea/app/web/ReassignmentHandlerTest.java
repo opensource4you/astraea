@@ -29,6 +29,12 @@ import org.junit.jupiter.api.Test;
 
 public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
+  static final String TOPIC_KEY = "topic";
+  static final String PARTITION_KEY = "partition";
+  static final String TO_KEY = "to";
+  static final String BROKER_KEY = "broker";
+  static final String EXCLUDE_KEY = "exclude";
+
   @Test
   void testMigrateToAnotherBroker() {
     var topicName = Utils.randomString(10);
@@ -52,18 +58,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\",\"%s\": \"%s\",\"%s\": [%s]}]}",
-              ReassignmentHandler.PLANS_KEY,
-              ReassignmentHandler.TOPIC_KEY,
-              topicName,
-              ReassignmentHandler.PARTITION_KEY,
-              "0",
-              ReassignmentHandler.TO_KEY,
-              nextBroker);
+              "{\"toNodes\": [{\"%s\": \"%s\",\"%s\": \"%s\",\"%s\": [%s]}]}",
+              TOPIC_KEY, topicName, PARTITION_KEY, "0", TO_KEY, nextBroker);
 
       Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
+          Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().join();
@@ -113,20 +112,18 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}]}",
-              ReassignmentHandler.PLANS_KEY,
-              ReassignmentHandler.TOPIC_KEY,
+              "{\"toFolders\": [{\"%s\": \"%s\", \"%s\": \"%s\" ,\"%s\": \"%s\",\"%s\": \"%s\"}]}",
+              TOPIC_KEY,
               topicName,
-              ReassignmentHandler.PARTITION_KEY,
+              PARTITION_KEY,
               "0",
-              ReassignmentHandler.BROKER_KEY,
+              BROKER_KEY,
               currentBroker,
-              ReassignmentHandler.TO_KEY,
+              TO_KEY,
               nextPath);
 
       Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
+          Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.ofTarget(topicName)).toCompletableFuture().join();
@@ -168,13 +165,10 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .id();
 
       var body =
-          String.format(
-              "{\"%s\": [{\"%s\": \"%s\"}]}",
-              ReassignmentHandler.PLANS_KEY, ReassignmentHandler.EXCLUDE_KEY, currentBroker);
+          String.format("{\"excludeNodes\": [{\"%s\": \"%s\"}]}", EXCLUDE_KEY, currentBroker);
 
       Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
+          Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().join();
@@ -223,16 +217,11 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
 
       var body =
           String.format(
-              "{\"%s\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
-              ReassignmentHandler.PLANS_KEY,
-              ReassignmentHandler.EXCLUDE_KEY,
-              currentBroker,
-              ReassignmentHandler.TOPIC_KEY,
-              targetTopic);
+              "{\"excludeNodes\": [{\"%s\": \"%s\", \"%s\": \"%s\"}]}",
+              EXCLUDE_KEY, currentBroker, TOPIC_KEY, targetTopic);
 
       Assertions.assertEquals(
-          Response.ACCEPT,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
+          Response.ACCEPT, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
 
       Utils.sleep(Duration.ofSeconds(2));
       var reassignments = handler.get(Channel.EMPTY).toCompletableFuture().join();
@@ -277,8 +266,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       var body = "{\"plans\": []}";
 
       Assertions.assertEquals(
-          Response.BAD_REQUEST,
-          handler.post(Channel.ofRequest(PostRequest.of(body))).toCompletableFuture().join());
+          Response.BAD_REQUEST, handler.post(Channel.ofRequest(body)).toCompletableFuture().join());
     }
   }
 
