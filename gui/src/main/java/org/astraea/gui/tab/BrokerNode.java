@@ -209,7 +209,7 @@ public class BrokerNode {
                     .nodeInfos()
                     .thenApply(
                         nodes ->
-                            context.clients(nodes).entrySet().stream()
+                            context.addBrokerClients(nodes).entrySet().stream()
                                 .flatMap(
                                     entry ->
                                         argument.selectedKeys().stream()
@@ -373,34 +373,30 @@ public class BrokerNode {
   private static Node folderNode(Context context) {
     BiFunction<Integer, String, Map<String, Object>> metrics =
         (id, path) ->
-            context.hasMetrics()
-                ? context.clients().entrySet().stream()
-                    .filter(e -> e.getKey() == id)
-                    .findFirst()
-                    .map(Map.Entry::getValue)
-                    .map(
-                        client ->
-                            Arrays.stream(LogMetrics.LogCleanerManager.values())
-                                .flatMap(
-                                    m -> {
-                                      try {
-                                        return m.fetch(client).stream();
-                                      } catch (Exception error) {
-                                        return Stream.of();
-                                      }
-                                    })
-                                .filter(m -> m.path().equals(path))
-                                .collect(
-                                    Collectors.toMap(
-                                        LogMetrics.LogCleanerManager.Gauge::metricsName,
-                                        m ->
-                                            m.type()
-                                                    == LogMetrics.LogCleanerManager
-                                                        .UNCLEANABLE_BYTES
-                                                ? (Object) DataSize.Byte.of(m.value())
-                                                : m.value())))
-                    .orElse(Map.of())
-                : Map.of();
+            context.brokerClients().entrySet().stream()
+                .filter(e -> e.getKey().equals(id))
+                .findFirst()
+                .map(Map.Entry::getValue)
+                .map(
+                    client ->
+                        Arrays.stream(LogMetrics.LogCleanerManager.values())
+                            .flatMap(
+                                m -> {
+                                  try {
+                                    return m.fetch(client).stream();
+                                  } catch (Exception error) {
+                                    return Stream.of();
+                                  }
+                                })
+                            .filter(m -> m.path().equals(path))
+                            .collect(
+                                Collectors.toMap(
+                                    LogMetrics.LogCleanerManager.Gauge::metricsName,
+                                    m ->
+                                        m.type() == LogMetrics.LogCleanerManager.UNCLEANABLE_BYTES
+                                            ? (Object) DataSize.Byte.of(m.value())
+                                            : m.value())))
+                .orElse(Map.of());
     return PaneBuilder.of()
         .firstPart(
             "REFRESH",
