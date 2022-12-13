@@ -24,6 +24,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.it.RequireSingleWorkerCluster;
@@ -40,13 +41,13 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
             .validate(
                 PerfSource.class.getSimpleName(),
                 Map.of(
-                    ConnectorClient.NAME_KEY,
+                    ConnectorConfigs.NAME_KEY,
                     Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "1",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     "abc"))
             .toCompletableFuture()
             .join();
@@ -66,13 +67,13 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
             .validate(
                 PerfSource.class.getSimpleName(),
                 Map.of(
-                    ConnectorClient.NAME_KEY,
+                    ConnectorConfigs.NAME_KEY,
                     Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "1",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     "abc",
                     PerfSource.KEY_LENGTH_DEF.name(),
                     "a"))
@@ -98,13 +99,13 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
             .validate(
                 PerfSource.class.getSimpleName(),
                 Map.of(
-                    ConnectorClient.NAME_KEY,
+                    ConnectorConfigs.NAME_KEY,
                     Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "1",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     "abc",
                     PerfSource.VALUE_LENGTH_DEF.name(),
                     "a"))
@@ -130,13 +131,13 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
             .validate(
                 PerfSource.class.getSimpleName(),
                 Map.of(
-                    ConnectorClient.NAME_KEY,
+                    ConnectorConfigs.NAME_KEY,
                     Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "1",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     "abc",
                     PerfSource.FREQUENCY_DEF.name(),
                     "a"))
@@ -163,11 +164,11 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
         .createConnector(
             name,
             Map.of(
-                ConnectorClient.CONNECTOR_CLASS_KEY,
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
                 PerfSource.class.getName(),
-                ConnectorClient.TASK_MAX_KEY,
+                ConnectorConfigs.TASK_MAX_KEY,
                 "1",
-                ConnectorClient.TOPICS_KEY,
+                ConnectorConfigs.TOPICS_KEY,
                 topicName))
         .toCompletableFuture()
         .join();
@@ -200,11 +201,11 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
         .createConnector(
             name,
             Map.of(
-                ConnectorClient.CONNECTOR_CLASS_KEY,
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
                 PerfSource.class.getName(),
-                ConnectorClient.TASK_MAX_KEY,
+                ConnectorConfigs.TASK_MAX_KEY,
                 "1",
-                ConnectorClient.TOPICS_KEY,
+                ConnectorConfigs.TOPICS_KEY,
                 topicName))
         .toCompletableFuture()
         .join();
