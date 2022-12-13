@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.connector.ftp;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,6 +22,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import org.astraea.common.Configuration;
+import org.astraea.connector.Definition;
+import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceTask;
 import org.astraea.fs.Type;
 import org.astraea.fs.ftp.FtpFileSystem;
 

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.connector.ftp;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +24,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.producer.Record;
+import org.astraea.connector.SourceTask;
 import org.astraea.fs.ftp.FtpFileSystem;
 
 public class FtpSourceTask extends SourceTask {

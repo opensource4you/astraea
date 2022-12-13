@@ -43,7 +43,9 @@ public class RecordReaderBuilder {
             @Override
             public Record<byte[], byte[]> next() {
               var recordBuffer = ByteBuffer.allocate(recordSize);
-              var actualSize = Utils.packException(() -> inputStream.read(recordBuffer.array()));
+              var actualSize =
+                  Utils.packException(
+                      () -> inputStream.readNBytes(recordBuffer.array(), 0, recordSize));
               if (actualSize != recordSize)
                 throw new IllegalStateException(
                     "expected size is " + recordSize + ", but actual size is " + actualSize);

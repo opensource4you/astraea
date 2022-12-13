@@ -176,12 +176,12 @@ public class FtpFileSystem implements FileSystem {
 
             @Override
             public int read(byte b[], int off, int len) throws IOException {
-                var count = inputStream.read(b, off, len);
-                while (count != len) {
-                    var offset = inputStream.read(b, count, len - count);
-                    count += offset;
-                }
-                return count;
+              return inputStream.read(b, off, len);
+            }
+
+            @Override
+            public int readNBytes(byte[] b, int off, int len) throws IOException {
+              return inputStream.readNBytes(b, off, len);
             }
 
             @Override
