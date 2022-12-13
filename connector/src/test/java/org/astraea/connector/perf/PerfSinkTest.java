@@ -16,6 +16,7 @@
  */
 package org.astraea.connector.perf;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,6 +24,8 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -97,5 +100,68 @@ public class PerfSinkTest extends RequireSingleWorkerCluster {
 
     // the frequency is 1s so the elapsed time of executing put should be greater than 500ms
     Assertions.assertTrue(System.currentTimeMillis() - now > 500);
+  }
+
+  @Test
+  void testMetrics() {
+    var name = Utils.randomString();
+    var topicName = Utils.randomString();
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    client
+        .createConnector(
+            name,
+            Map.of(
+                ConnectorClient.CONNECTOR_CLASS_KEY,
+                PerfSink.class.getName(),
+                ConnectorClient.TASK_MAX_KEY,
+                "1",
+                ConnectorClient.TOPICS_KEY,
+                topicName))
+        .toCompletableFuture()
+        .join();
+    Utils.sleep(Duration.ofSeconds(3));
+
+    var m0 =
+        ConnectorMetrics.sinkTaskInfo(MBeanClient.local()).stream()
+            .filter(m -> m.connectorName().equals(name))
+            .collect(Collectors.toList());
+    Assertions.assertNotEquals(0, m0.size());
+    m0.forEach(
+        m -> {
+          Assertions.assertNotNull(m.taskType());
+          // it is hard to check the commit metrics, so we check non-null
+          Assertions.assertDoesNotThrow(m::offsetCommitSeqNo);
+          Assertions.assertDoesNotThrow(m::offsetCommitCompletionRate);
+          Assertions.assertDoesNotThrow(m::offsetCommitCompletionTotal);
+          Assertions.assertDoesNotThrow(m::offsetCommitSkipTotal);
+          Assertions.assertDoesNotThrow(m::offsetCommitSkipRate);
+          Assertions.assertDoesNotThrow(m::partitionCount);
+          Assertions.assertDoesNotThrow(m::putBatchMaxTimeMs);
+          Assertions.assertDoesNotThrow(m::putBatchAvgTimeMs);
+          Assertions.assertDoesNotThrow(m::sinkRecordReadRate);
+          Assertions.assertDoesNotThrow(m::sinkRecordActiveCount);
+          Assertions.assertDoesNotThrow(m::sinkRecordActiveCountAvg);
+          Assertions.assertDoesNotThrow(m::sinkRecordSendRate);
+          Assertions.assertDoesNotThrow(m::sinkRecordReadTotal);
+          Assertions.assertDoesNotThrow(m::sinkRecordActiveCountMax);
+          Assertions.assertDoesNotThrow(m::sinkRecordSendTotal);
+        });
+
+    var m1 =
+        ConnectorMetrics.taskError(MBeanClient.local()).stream()
+            .filter(m -> m.connectorName().equals(name))
+            .collect(Collectors.toList());
+    Assertions.assertNotEquals(0, m1.size());
+    m1.forEach(
+        m -> {
+          Assertions.assertEquals(0, m.lastErrorTimestamp());
+          Assertions.assertEquals(0D, m.deadletterqueueProduceFailures());
+          Assertions.assertEquals(0D, m.deadletterqueueProduceRequests());
+          Assertions.assertEquals(0D, m.totalErrorsLogged());
+          Assertions.assertEquals(0D, m.totalRecordErrors());
+          Assertions.assertEquals(0D, m.totalRetries());
+          Assertions.assertEquals(0D, m.totalRecordFailures());
+          Assertions.assertEquals(0D, m.totalRecordsSkipped());
+        });
   }
 }

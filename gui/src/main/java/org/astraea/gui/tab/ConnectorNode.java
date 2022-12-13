@@ -19,8 +19,6 @@ package org.astraea.gui.tab;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.Node;
@@ -28,9 +26,7 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.WorkerStatus;
-import org.astraea.common.metrics.connector.SourceMetrics;
-import org.astraea.common.metrics.connector.SourceTaskError;
-import org.astraea.common.metrics.connector.SourceTaskInfo;
+import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
@@ -121,7 +117,6 @@ public class ConnectorNode {
                                                     .connectorStatus(name)
                                                     .toCompletableFuture())
                                         .collect(Collectors.toList()))),
-                    // try to update metrics client of workers
                     context
                         .connectorClient()
                         .activeWorkers()
@@ -133,18 +128,38 @@ public class ConnectorNode {
                                         .collect(Collectors.toSet())))
                         .thenApply(
                             ignored ->
-                                Map.entry(
-                                    context.workerClients().values().stream()
-                                        .flatMap(c -> SourceMetrics.sourceTaskInfo(c).stream())
-                                        .collect(
-                                            Collectors.toMap(
-                                                SourceTaskInfo::taskId, Function.identity())),
-                                    context.workerClients().values().stream()
-                                        .flatMap(c -> SourceMetrics.sourceTaskError(c).stream())
-                                        .collect(
-                                            Collectors.toMap(
-                                                SourceTaskError::taskId, Function.identity())))),
-                    (connectorStatuses, taskInfoAndErrors) ->
+                                context.workerClients().values().stream()
+                                    .flatMap(c -> ConnectorMetrics.sourceTaskInfo(c).stream())
+                                    .collect(Collectors.toList())),
+                    context
+                        .connectorClient()
+                        .activeWorkers()
+                        .thenApply(
+                            workers ->
+                                context.addWorkerClients(
+                                    workers.stream()
+                                        .map(WorkerStatus::hostname)
+                                        .collect(Collectors.toSet())))
+                        .thenApply(
+                            ignored ->
+                                context.workerClients().values().stream()
+                                    .flatMap(c -> ConnectorMetrics.sinkTaskInfo(c).stream())
+                                    .collect(Collectors.toList())),
+                    context
+                        .connectorClient()
+                        .activeWorkers()
+                        .thenApply(
+                            workers ->
+                                context.addWorkerClients(
+                                    workers.stream()
+                                        .map(WorkerStatus::hostname)
+                                        .collect(Collectors.toSet())))
+                        .thenApply(
+                            ignored ->
+                                context.workerClients().values().stream()
+                                    .flatMap(c -> ConnectorMetrics.taskError(c).stream())
+                                    .collect(Collectors.toList())),
+                    (connectorStatuses, sourceTaskInfos, sinkTaskInfos, taskErrors) ->
                         connectorStatuses.stream()
                             .flatMap(
                                 connectorStatus ->
@@ -156,36 +171,79 @@ public class ConnectorNode {
                                               map.put("id", task.id());
                                               map.put("worker id", task.workerId());
                                               map.put("state", task.state());
+                                              connectorStatus
+                                                  .type()
+                                                  .ifPresent(t -> map.put("type", t));
                                               task.error().ifPresent(e -> map.put("error", e));
-                                              var info = taskInfoAndErrors.getKey().get(task.id());
-                                              if (info != null) {
-                                                map.put(
-                                                    "poll rate (records/s)",
-                                                    info.sourceRecordPollRate());
-                                                map.put("records", info.sourceRecordPollTotal());
-                                                map.put(
-                                                    "write rate (records/s)",
-                                                    info.sourceRecordWriteRate());
-                                                map.put(
-                                                    "written records",
-                                                    info.sourceRecordWriteTotal());
-                                                map.put(
-                                                    "poll batch time (avg)",
-                                                    info.pollBatchAvgTimeMs());
-                                                map.put(
-                                                    "poll batch time (max)",
-                                                    info.pollBatchMaxTimeMs());
-                                              }
-                                              var error =
-                                                  taskInfoAndErrors.getValue().get(task.id());
-                                              if (error != null) {
-                                                map.put("retries", error.totalRetries());
-                                                map.put(
-                                                    "failure records", error.totalRecordFailures());
-                                                map.put(
-                                                    "skipped records", error.totalRecordsSkipped());
-                                                map.put("error records", error.totalRecordErrors());
-                                              }
+                                              sourceTaskInfos.stream()
+                                                  .filter(t -> t.taskId() == task.id())
+                                                  .filter(
+                                                      t ->
+                                                          t.connectorName()
+                                                              .equals(connectorStatus.name()))
+                                                  .forEach(
+                                                      info -> {
+                                                        map.put(
+                                                            "poll rate (records/s)",
+                                                            info.sourceRecordPollRate());
+                                                        map.put(
+                                                            "records",
+                                                            info.sourceRecordPollTotal());
+                                                        map.put(
+                                                            "write rate (records/s)",
+                                                            info.sourceRecordWriteRate());
+                                                        map.put(
+                                                            "written records",
+                                                            info.sourceRecordWriteTotal());
+                                                        map.put(
+                                                            "poll batch time (avg)",
+                                                            info.pollBatchAvgTimeMs());
+                                                        map.put(
+                                                            "poll batch time (max)",
+                                                            info.pollBatchMaxTimeMs());
+                                                      });
+                                              sinkTaskInfos.stream()
+                                                  .filter(t -> t.taskId() == task.id())
+                                                  .filter(
+                                                      t ->
+                                                          t.connectorName()
+                                                              .equals(connectorStatus.name()))
+                                                  .forEach(
+                                                      info -> {
+                                                        map.put(
+                                                            "partitions", info.partitionCount());
+                                                        map.put(
+                                                            "put batch time (avg)",
+                                                            info.putBatchAvgTimeMs());
+                                                        map.put(
+                                                            "put batch time (max)",
+                                                            info.putBatchMaxTimeMs());
+                                                        map.put(
+                                                            "read rate (records/s)",
+                                                            info.sinkRecordReadRate());
+                                                        map.put(
+                                                            "read records",
+                                                            info.sinkRecordReadTotal());
+                                                      });
+                                              taskErrors.stream()
+                                                  .filter(t -> t.taskId() == task.id())
+                                                  .filter(
+                                                      t ->
+                                                          t.connectorName()
+                                                              .equals(connectorStatus.name()))
+                                                  .forEach(
+                                                      error -> {
+                                                        map.put("retries", error.totalRetries());
+                                                        map.put(
+                                                            "failure records",
+                                                            error.totalRecordFailures());
+                                                        map.put(
+                                                            "skipped records",
+                                                            error.totalRecordsSkipped());
+                                                        map.put(
+                                                            "error records",
+                                                            error.totalRecordErrors());
+                                                      });
                                               return map;
                                             }))
                             .collect(Collectors.toList())))

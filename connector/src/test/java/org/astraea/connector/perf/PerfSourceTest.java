@@ -25,7 +25,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.connector.SourceMetrics;
+import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -211,12 +211,13 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     Utils.sleep(Duration.ofSeconds(3));
 
     var m0 =
-        SourceMetrics.sourceTaskInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.sourceTaskInfo(MBeanClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertNotEquals(0, m0.size());
     m0.forEach(
         m -> {
+          Assertions.assertNotNull(m.taskType());
           Assertions.assertNotEquals(0D, m.pollBatchAvgTimeMs());
           Assertions.assertNotEquals(0D, m.pollBatchMaxTimeMs());
           Assertions.assertNotEquals(0D, m.sourceRecordActiveCountMax());
@@ -229,7 +230,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
         });
 
     var m1 =
-        SourceMetrics.sourceTaskError(MBeanClient.local()).stream()
+        ConnectorMetrics.taskError(MBeanClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertNotEquals(0, m1.size());
