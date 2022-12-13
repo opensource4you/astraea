@@ -171,6 +171,9 @@ public class ConnectorNode {
                                               map.put("id", task.id());
                                               map.put("worker id", task.workerId());
                                               map.put("state", task.state());
+                                              connectorStatus
+                                                  .type()
+                                                  .ifPresent(t -> map.put("type", t));
                                               task.error().ifPresent(e -> map.put("error", e));
                                               sourceTaskInfos.stream()
                                                   .filter(t -> t.taskId() == task.id())
