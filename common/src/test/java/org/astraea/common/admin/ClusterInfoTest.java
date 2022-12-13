@@ -285,7 +285,7 @@ public class ClusterInfoTest {
     Assertions.assertNotEquals(0, maskedClusterInfoHasReplicas.replicas().size());
     Assertions.assertEquals(0, maskedClusterInfoNoReplicas.replicas().size());
 
-    Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(0, "test-1").size());
+    Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(BrokerTopic.of(0, "test-1")).size());
   }
 
   @Test

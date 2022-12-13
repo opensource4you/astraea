@@ -25,7 +25,7 @@ import org.astraea.connector.Definition;
 import org.astraea.connector.SourceConnector;
 import org.astraea.connector.SourceTask;
 
-public class PerfConnector extends SourceConnector {
+public class PerfSource extends SourceConnector {
   static Definition FREQUENCY_DEF =
       Definition.builder()
           .name("frequency.in.seconds")
@@ -47,7 +47,7 @@ public class PerfConnector extends SourceConnector {
 
   @Override
   protected Class<? extends SourceTask> task() {
-    return PerfTask.class;
+    return PerfSourceTask.class;
   }
 
   @Override

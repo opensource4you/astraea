@@ -25,8 +25,9 @@ import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.WorkerStatus;
+import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -66,17 +67,14 @@ public class ConnectorNode {
   private static Node createNode(Context context) {
     return PaneBuilder.of()
         .firstPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.required(ConnectorClient.NAME_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        ConnectorClient.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        ConnectorClient.TOPICS_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        ConnectorClient.TASK_MAX_KEY,
-                        EditableText.singleLine().onlyNumber().build()),
-                    TextInput.of("configs", EditableText.multiline().build()))),
+            List.of(
+                TextInput.required(ConnectorClient.NAME_KEY, EditableText.singleLine().build()),
+                TextInput.required(
+                    ConnectorClient.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
+                TextInput.required(ConnectorClient.TOPICS_KEY, EditableText.singleLine().build()),
+                TextInput.required(
+                    ConnectorClient.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of("configs", EditableText.multiline().build())),
             "CREATE",
             (argument, logger) -> {
               var req = new HashMap<>(argument.nonEmptyTexts());
@@ -104,37 +102,148 @@ public class ConnectorNode {
         .firstPart(
             "REFRESH",
             (argument, logger) ->
-                context
-                    .connectorClient()
-                    .connectorNames()
-                    .thenCompose(
-                        names ->
-                            FutureUtils.sequence(
-                                names.stream()
-                                    .map(
-                                        name ->
-                                            context
-                                                .connectorClient()
-                                                .connectorStatus(name)
-                                                .toCompletableFuture())
-                                    .collect(Collectors.toList())))
-                    .thenApply(
-                        connectorStatuses ->
-                            connectorStatuses.stream()
-                                .flatMap(
-                                    connectorStatus ->
-                                        connectorStatus.tasks().stream()
-                                            .map(
-                                                task -> {
-                                                  var map = new LinkedHashMap<String, Object>();
-                                                  map.put(NAME_KEY, connectorStatus.name());
-                                                  map.put("id", task.id());
-                                                  map.put("worker id", task.workerId());
-                                                  map.put("state", task.state());
-                                                  task.error().ifPresent(e -> map.put("error", e));
-                                                  return map;
-                                                }))
-                                .collect(Collectors.toList())))
+                FutureUtils.combine(
+                    context
+                        .connectorClient()
+                        .connectorNames()
+                        .thenCompose(
+                            names ->
+                                FutureUtils.sequence(
+                                    names.stream()
+                                        .map(
+                                            name ->
+                                                context
+                                                    .connectorClient()
+                                                    .connectorStatus(name)
+                                                    .toCompletableFuture())
+                                        .collect(Collectors.toList()))),
+                    context
+                        .connectorClient()
+                        .activeWorkers()
+                        .thenApply(
+                            workers ->
+                                context.addWorkerClients(
+                                    workers.stream()
+                                        .map(WorkerStatus::hostname)
+                                        .collect(Collectors.toSet())))
+                        .thenApply(
+                            ignored ->
+                                context.workerClients().values().stream()
+                                    .flatMap(c -> ConnectorMetrics.sourceTaskInfo(c).stream())
+                                    .collect(Collectors.toList())),
+                    context
+                        .connectorClient()
+                        .activeWorkers()
+                        .thenApply(
+                            workers ->
+                                context.addWorkerClients(
+                                    workers.stream()
+                                        .map(WorkerStatus::hostname)
+                                        .collect(Collectors.toSet())))
+                        .thenApply(
+                            ignored ->
+                                context.workerClients().values().stream()
+                                    .flatMap(c -> ConnectorMetrics.sinkTaskInfo(c).stream())
+                                    .collect(Collectors.toList())),
+                    context
+                        .connectorClient()
+                        .activeWorkers()
+                        .thenApply(
+                            workers ->
+                                context.addWorkerClients(
+                                    workers.stream()
+                                        .map(WorkerStatus::hostname)
+                                        .collect(Collectors.toSet())))
+                        .thenApply(
+                            ignored ->
+                                context.workerClients().values().stream()
+                                    .flatMap(c -> ConnectorMetrics.taskError(c).stream())
+                                    .collect(Collectors.toList())),
+                    (connectorStatuses, sourceTaskInfos, sinkTaskInfos, taskErrors) ->
+                        connectorStatuses.stream()
+                            .flatMap(
+                                connectorStatus ->
+                                    connectorStatus.tasks().stream()
+                                        .map(
+                                            task -> {
+                                              var map = new LinkedHashMap<String, Object>();
+                                              map.put(NAME_KEY, connectorStatus.name());
+                                              map.put("id", task.id());
+                                              map.put("worker id", task.workerId());
+                                              map.put("state", task.state());
+                                              task.error().ifPresent(e -> map.put("error", e));
+                                              sourceTaskInfos.stream()
+                                                  .filter(t -> t.taskId() == task.id())
+                                                  .filter(
+                                                      t ->
+                                                          t.connectorName()
+                                                              .equals(connectorStatus.name()))
+                                                  .forEach(
+                                                      info -> {
+                                                        map.put(
+                                                            "poll rate (records/s)",
+                                                            info.sourceRecordPollRate());
+                                                        map.put(
+                                                            "records",
+                                                            info.sourceRecordPollTotal());
+                                                        map.put(
+                                                            "write rate (records/s)",
+                                                            info.sourceRecordWriteRate());
+                                                        map.put(
+                                                            "written records",
+                                                            info.sourceRecordWriteTotal());
+                                                        map.put(
+                                                            "poll batch time (avg)",
+                                                            info.pollBatchAvgTimeMs());
+                                                        map.put(
+                                                            "poll batch time (max)",
+                                                            info.pollBatchMaxTimeMs());
+                                                      });
+                                              sinkTaskInfos.stream()
+                                                  .filter(t -> t.taskId() == task.id())
+                                                  .filter(
+                                                      t ->
+                                                          t.connectorName()
+                                                              .equals(connectorStatus.name()))
+                                                  .forEach(
+                                                      info -> {
+                                                        map.put(
+                                                            "partitions", info.partitionCount());
+                                                        map.put(
+                                                            "put batch time (avg)",
+                                                            info.putBatchAvgTimeMs());
+                                                        map.put(
+                                                            "put batch time (max)",
+                                                            info.putBatchMaxTimeMs());
+                                                        map.put(
+                                                            "read rate (records/s)",
+                                                            info.sinkRecordReadRate());
+                                                        map.put(
+                                                            "read records",
+                                                            info.sinkRecordReadTotal());
+                                                      });
+                                              taskErrors.stream()
+                                                  .filter(t -> t.taskId() == task.id())
+                                                  .filter(
+                                                      t ->
+                                                          t.connectorName()
+                                                              .equals(connectorStatus.name()))
+                                                  .forEach(
+                                                      error -> {
+                                                        map.put("retries", error.totalRetries());
+                                                        map.put(
+                                                            "failure records",
+                                                            error.totalRecordFailures());
+                                                        map.put(
+                                                            "skipped records",
+                                                            error.totalRecordsSkipped());
+                                                        map.put(
+                                                            "error records",
+                                                            error.totalRecordErrors());
+                                                      });
+                                              return map;
+                                            }))
+                            .collect(Collectors.toList())))
         .build();
   }
 

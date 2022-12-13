@@ -267,7 +267,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
       fileWriter.write("broker.1.jmx.port=" + jmxServiceURL().getPort() + "\n");
       fileWriter.write("broker.2.jmx.port=" + jmxServiceURL().getPort());
       fileWriter.flush();
-      fileWriter.close();
     }
     props.put(
         "partitioner.config",

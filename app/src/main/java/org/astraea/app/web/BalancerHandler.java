@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -176,17 +175,20 @@ class BalancerHandler implements Handler {
                                                   tp.partition(),
                                                   // only log the size from source replicas
                                                   currentClusterInfo.replicas(tp).stream()
-                                                      .map(r -> new Placement(r, r.size()))
+                                                      .map(
+                                                          r ->
+                                                              new Placement(
+                                                                  r, Optional.of(r.size())))
                                                       .collect(Collectors.toList()),
                                                   p.proposal().replicas(tp).stream()
-                                                      .map(r -> new Placement(r, null))
+                                                      .map(r -> new Placement(r, Optional.empty()))
                                                       .collect(Collectors.toList())))
                                       .collect(Collectors.toUnmodifiableList()))
                           .orElse(List.of());
                   var report =
                       new Report(
-                          bestPlan.map(p -> p.initialClusterCost().value()).orElse(null),
-                          bestPlan.map(p -> p.proposalClusterCost().value()).orElse(null),
+                          bestPlan.map(p -> p.initialClusterCost().value()),
+                          bestPlan.map(p -> p.proposalClusterCost().value()),
                           request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
                           bestPlan
@@ -289,31 +291,6 @@ class BalancerHandler implements Handler {
             .build());
   }
 
-  @SuppressWarnings("unchecked")
-  public static Map<HasClusterCost, Double> parseCostFunctionWeight(Configuration config) {
-    return config.entrySet().stream()
-        .map(
-            nameAndWeight -> {
-              Class<?> clz;
-              try {
-                clz = Class.forName(nameAndWeight.getKey());
-              } catch (ClassNotFoundException ignore) {
-                // this config is not cost function, so we just skip it.
-                return null;
-              }
-              var weight = Double.parseDouble(nameAndWeight.getValue());
-              if (weight < 0.0)
-                throw new IllegalArgumentException("Cost-function weight should not be negative");
-              return Map.entry(clz, weight);
-            })
-        .filter(Objects::nonNull)
-        .filter(e -> HasClusterCost.class.isAssignableFrom(e.getKey()))
-        .collect(
-            Collectors.toMap(
-                e -> Utils.construct((Class<HasClusterCost>) e.getKey(), config),
-                Map.Entry::getValue));
-  }
-
   // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<List<MoveCost>> movementConstraint(BalancerPostRequest request) {
     var converter = new DataSizeField();
@@ -337,17 +314,23 @@ class BalancerHandler implements Handler {
   static HasClusterCost getClusterCost(BalancerPostRequest request) {
     var costWeights = request.costWeights;
     if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
-    costWeights.stream()
-        .filter(cw -> cw.cost == null || cw.weight == null)
-        .forEach(
-            cw -> {
-              throw new IllegalArgumentException("Malformed CostWeight specified: " + cw);
-            });
     var costWeightMap =
-        parseCostFunctionWeight(
-            Configuration.of(
-                costWeights.stream()
-                    .collect(Collectors.toMap(cw -> cw.cost, cw -> String.valueOf(cw.weight)))));
+        costWeights.stream()
+            .flatMap(cw -> cw.cost.map(c -> Map.entry(c, cw.weight.orElse(1D))).stream())
+            .collect(
+                Collectors.toMap(
+                    e -> {
+                      try {
+                        var clz = Class.forName(e.getKey());
+                        if (!HasClusterCost.class.isAssignableFrom(clz))
+                          throw new IllegalArgumentException(
+                              "the class: " + e.getKey() + " is not sub class of HasClusterCost");
+                        return (HasClusterCost) Utils.construct(clz, Configuration.EMPTY);
+                      } catch (ClassNotFoundException error) {
+                        throw new IllegalArgumentException(error.getMessage());
+                      }
+                    },
+                    Map.Entry::getValue));
     return HasClusterCost.of(costWeightMap);
   }
 
@@ -367,10 +350,13 @@ class BalancerHandler implements Handler {
     List<CostWeight> costWeights = List.of();
   }
 
+  static class CostWeight implements Request {
+    Optional<String> cost = Optional.empty();
+    Optional<Double> weight = Optional.empty();
+  }
+
   static class BalancerPutRequest implements Request {
     private String id;
-
-    public BalancerPutRequest() {}
   }
 
   @Override
@@ -506,9 +492,9 @@ class BalancerHandler implements Handler {
     final int brokerId;
     final String directory;
 
-    final Long size;
+    final Optional<Long> size;
 
-    Placement(Replica replica, Long size) {
+    Placement(Replica replica, Optional<Long> size) {
       this.brokerId = replica.nodeInfo().id();
       this.directory = replica.path();
       this.size = size;
@@ -558,18 +544,18 @@ class BalancerHandler implements Handler {
 
   static class Report implements Response {
     // initial cost might be unavailable due to unable to evaluate cost function
-    final Double cost;
+    final Optional<Double> cost;
 
     // don't generate new cost if there is no best plan
-    final Double newCost;
+    final Optional<Double> newCost;
 
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
 
     Report(
-        Double cost,
-        Double newCost,
+        Optional<Double> cost,
+        Optional<Double> newCost,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
@@ -633,39 +619,6 @@ class BalancerHandler implements Handler {
       this.done = done;
       this.exception = exception;
       this.report = report;
-    }
-  }
-
-  static class CostWeight implements Request {
-    String cost;
-    Double weight;
-
-    public CostWeight() {}
-
-    CostWeight(String cost, double weight) {
-      this.cost = cost;
-      this.weight = weight;
-    }
-
-    public void setCost(String cost) {
-      this.cost = cost;
-    }
-
-    public void setWeight(Double weight) {
-      this.weight = weight;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      CostWeight that = (CostWeight) o;
-      return Objects.equals(cost, that.cost) && weight == that.weight;
-    }
-
-    @Override
-    public String toString() {
-      return "CostWeight{" + "cost='" + cost + '\'' + ", weight=" + weight + '}';
     }
   }
 }

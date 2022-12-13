@@ -28,31 +28,25 @@ import org.astraea.common.producer.Record;
 import org.astraea.connector.SourceConnector;
 import org.astraea.connector.SourceTask;
 
-public class PerfTask extends SourceTask {
+public class PerfSourceTask extends SourceTask {
 
   private Set<String> topics = Set.of();
-  private int keyLength = (int) PerfConnector.KEY_LENGTH_DEF.defaultValue();
-  private int valueLength = (int) PerfConnector.KEY_LENGTH_DEF.defaultValue();
-  private Duration frequency =
-      Utils.toDuration(PerfConnector.FREQUENCY_DEF.defaultValue().toString());
+  private int keyLength = (int) PerfSource.KEY_LENGTH_DEF.defaultValue();
+  private int valueLength = (int) PerfSource.KEY_LENGTH_DEF.defaultValue();
+  private Duration frequency = Utils.toDuration(PerfSource.FREQUENCY_DEF.defaultValue().toString());
   private long last = System.currentTimeMillis();
 
   @Override
   protected void init(Configuration configuration) {
     this.topics = Set.copyOf(configuration.list(SourceConnector.TOPICS_KEY, ","));
-    this.keyLength =
-        configuration
-            .integer(PerfConnector.KEY_LENGTH_DEF.name())
-            .orElse((Integer) PerfConnector.KEY_LENGTH_DEF.defaultValue());
+    this.keyLength = configuration.integer(PerfSource.KEY_LENGTH_DEF.name()).orElse(keyLength);
     this.valueLength =
-        configuration
-            .integer(PerfConnector.VALUE_LENGTH_DEF.name())
-            .orElse((Integer) PerfConnector.VALUE_LENGTH_DEF.defaultValue());
+        configuration.integer(PerfSource.VALUE_LENGTH_DEF.name()).orElse(valueLength);
     this.frequency =
-        Utils.toDuration(
-            configuration
-                .string(PerfConnector.FREQUENCY_DEF.name())
-                .orElse((String) PerfConnector.FREQUENCY_DEF.defaultValue()));
+        configuration
+            .string(PerfSource.FREQUENCY_DEF.name())
+            .map(Utils::toDuration)
+            .orElse(frequency);
   }
 
   @Override

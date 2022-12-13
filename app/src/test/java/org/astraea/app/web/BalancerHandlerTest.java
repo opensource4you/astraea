@@ -87,7 +87,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   static final int TIMEOUT_DEFAULT = 3;
 
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
-      List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1));
+      List.of(costWeight(DecreasingCost.class.getName(), 1));
 
   @Test
   @Timeout(value = 60)
@@ -113,7 +113,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report = progress.report;
       Assertions.assertNotNull(progress.id);
       Assertions.assertNotEquals(0, report.changes.size());
-      Assertions.assertTrue(report.cost >= report.newCost);
+      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       // "before" should record size
       report.changes.forEach(
           c ->
@@ -127,8 +127,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // "after" should NOT record size
       report.changes.stream()
           .flatMap(c -> c.after.stream())
-          .forEach(p -> Assertions.assertNull(p.size));
-      Assertions.assertTrue(report.cost >= report.newCost);
+          .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
+      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
@@ -158,7 +158,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
       Assertions.assertEquals(1, actual.size());
       Assertions.assertEquals(topicNames.get(0), actual.iterator().next());
-      Assertions.assertTrue(report.cost >= report.newCost);
+      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
       Assertions.assertTrue(sizeMigration.totalCost >= 0);
@@ -191,7 +191,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
       Assertions.assertTrue(
-          report.cost >= report.newCost,
+          report.cost.get() >= report.newCost.get(),
           "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
@@ -948,8 +948,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
         request.topics = Optional.of(randomTopic0 + "," + randomTopic1);
         request.timeout = "32";
         request.balancerConfig = Map.of("KEY", "VALUE");
-        request.costWeights =
-            List.of(new BalancerHandler.CostWeight(DecreasingCost.class.getName(), 1));
+        request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
 
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
@@ -970,7 +969,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       {
         // malformed content
         var request0 =
-            Map.<String, Object>of(
+            Map.of(
                 TOPICS_KEY,
                 "",
                 TIMEOUT_KEY,
@@ -995,7 +994,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
         var balancerRequest4 = new BalancerPostRequest();
         var costWeight = new CostWeight();
-        costWeight.setCost("yes");
+        costWeight.cost = Optional.of("yes");
         balancerRequest4.costWeights = List.of(costWeight);
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -1009,8 +1008,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testTimeout() {
     createAndProduceTopic(5);
     try (var admin = Admin.of(bootstrapServers())) {
-      var costFunction =
-          Collections.singleton(new BalancerHandler.CostWeight(TimeoutCost.class.getName(), 1));
+      var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
       var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
       var channel =
           Channel.ofRequest(
@@ -1048,8 +1046,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             metrics.forEach(i -> Assertions.assertInstanceOf(JvmMemory.class, i));
             invoked.set(true);
           });
-      var fetcherAndCost =
-          Collections.singleton(new BalancerHandler.CostWeight(FetcherAndCost.class.getName(), 1));
+      var fetcherAndCost = Collections.singleton(costWeight(FetcherAndCost.class.getName(), 1));
 
       var progress =
           submitPlanGeneration(
@@ -1183,5 +1180,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       offerCallbacks.clear();
       return super.offer(currentClusterInfo, timeout);
     }
+  }
+
+  private static BalancerHandler.CostWeight costWeight(String cost, double weight) {
+    var cw = new BalancerHandler.CostWeight();
+    cw.cost = Optional.of(cost);
+    cw.weight = Optional.of(weight);
+    return cw;
   }
 }
