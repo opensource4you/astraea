@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
-public class SourceMetrics {
+public class ConnectorMetrics {
 
   public static List<SourceTaskInfo> sourceTaskInfo(MBeanClient client) {
     return client
@@ -37,7 +37,21 @@ public class SourceMetrics {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static List<SourceTaskError> sourceTaskError(MBeanClient client) {
+  public static List<SinkTaskInfo> sinkTaskInfo(MBeanClient client) {
+    return client
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "sink-task-metrics")
+                .property("connector", "*")
+                .property("task", "*")
+                .build())
+        .stream()
+        .map(b -> (SinkTaskInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public static List<TaskError> taskError(MBeanClient client) {
     return client
         .queryBeans(
             BeanQuery.builder()
@@ -47,7 +61,7 @@ public class SourceMetrics {
                 .property("task", "*")
                 .build())
         .stream()
-        .map(b -> (SourceTaskError) () -> b)
+        .map(b -> (TaskError) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
 }
