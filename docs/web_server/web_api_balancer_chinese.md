@@ -213,12 +213,23 @@ JSON Response 範例
 > 從 JSON 陣列第二位開始預期都是這個 topic/partition 的 follower logs，特別注意目前內部實作
 > 不保證這個 follower logs 的順序是否會一致地反映到 Apache Kafka 內部的儲存資料結構內。
 
+> ##### 優化目標的權重設定注意事項
+> 權重的分配在優化算法遇到必須做取捨的情況時很重要，設定不適合的權重，可能會讓算法往比較不重要的優化目標做取捨。
+> 
+> 假設現在有 3 個優化目標和他們各自的權重
+> 1. 節點輸入流量 weight 1
+> 2. 節點輸出流量 weight 1
+> 3. 節點的 Leader 數量 weight 1
+> 
+> 上述在進行負載優化時，由於 Leader 的平衡和網路吞吐量一樣重要，可能會導致為了多兼容這個優化需求而喪失一些優化的機會。
+> 如發現 Balancer 生成計劃的 `newScore` 分數沒辦法貼近 0，則其生成的計劃可能在三者之間做了某種程度的取捨。如果不希望
+> 這些取捨發生，或願意對某些不重要的優化項目做取捨，可以考慮調低 Leader 數量平衡的權重值。
+
 > ##### 解讀 `score` 的注意事項
 > 1. `score` 和 `newScore` 之值代表一個叢集分佈接近最佳狀況的程度。
 > 2. 不同 Plan Generation 之間的 `score` 分數沒有關聯。
 > 3. 針對同一筆 Plan Generator， `score` 和 `newScore` 之間的數字大小能夠反映誰好誰壞，
 >    即 `scoreA` > `scoreB` 有定義，其代表 B 負載分佈比 A 負載分佈在此特定情境下更好。
->    另外 `scoreA` - `scoreB` 的值沒有定義。
 
 
 目前此 endpoint 僅能查詢負載平衡計劃是否完成，如想知道更細部的搬移進度，可考慮使用 [Web Service Reassignments API](web_api_reassignments_chinese.md) 查詢。
