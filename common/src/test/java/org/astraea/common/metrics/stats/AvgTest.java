@@ -66,4 +66,28 @@ public class AvgTest {
 
     Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
   }
+
+  @Test
+  void testByTime() throws InterruptedException{
+    var byTime = Avg.ByTime(Duration.ofMillis(150));
+
+    byTime.record(10.0);
+    Assertions.assertEquals(10.0, byTime.measure());
+    byTime.record(14.0);
+    Assertions.assertEquals(12.0, byTime.measure());
+
+    Thread.sleep(20);
+
+    byTime.record(18.0);
+    Assertions.assertEquals(14.0, byTime.measure());
+
+    Thread.sleep(140);
+
+    Assertions.assertEquals(18.0, byTime.measure());
+
+    Thread.sleep(20);
+
+    Assertions.assertEquals(Double.NaN, byTime.measure());
+
+  }
 }

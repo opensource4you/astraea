@@ -17,6 +17,7 @@
 package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class Avg {
   public static Stat<Double> of() {
@@ -51,7 +52,6 @@ public class Avg {
       private long count = 0;
 
       private final Debounce<Double> debounce = Debounce.of(period);
-      ;
 
       @Override
       public synchronized void record(Double value) {
@@ -107,5 +107,41 @@ public class Avg {
         return accumulate;
       }
     };
+  }
+
+  public static Stat<Double> ByTime(Duration period) {
+    return new Stat<>() {
+      private final ConcurrentLinkedDeque<ValueAndTime<Double>> past =
+          new ConcurrentLinkedDeque<>();
+
+      @Override
+      public void record(Double value) {
+        past.add(new ValueAndTime<>(value, System.currentTimeMillis()));
+        popOutdated();
+      }
+
+      @Override
+      public Double measure() {
+        popOutdated();
+        return past.stream().mapToDouble(e -> e.value).average().orElse(Double.NaN);
+      }
+
+      private void popOutdated() {
+        var outdated = System.currentTimeMillis() - period.toMillis();
+        while (!past.isEmpty() && past.peekFirst().timestamp < outdated) {
+          past.poll();
+        }
+      }
+    };
+  }
+
+  public static class ValueAndTime<V> {
+    public final V value;
+    public final long timestamp;
+
+    public ValueAndTime(V value, long timestamp) {
+      this.value = value;
+      this.timestamp = timestamp;
+    }
   }
 }
