@@ -141,14 +141,15 @@ public interface TrackerThread extends AbstractThread {
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
         var clientId = report.clientId();
+        var ms = metrics.stream().filter(m -> m.clientId().equals(clientId)).findFirst();
 
-        if (metrics.stream().anyMatch(m -> m.clientId().equals(clientId))) {
+        if (ms.isPresent()) {
           System.out.printf(
               "  consumer[%d] has %d partitions. "
                   + "%d non-sticky partitions, "
                   + "assigned %d more partitions than before re-balancing%n",
               i,
-              ConsumerThread.numOfPartitions(clientId),
+              (int) ms.get().assignedPartitions(),
               ConsumerThread.nonStickyPartitionBetweenRebalance(clientId),
               ConsumerThread.differenceBetweenRebalance(clientId));
         }

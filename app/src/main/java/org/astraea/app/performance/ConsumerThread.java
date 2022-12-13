@@ -41,21 +41,15 @@ public interface ConsumerThread extends AbstractThread {
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_REVOKED_PARTITIONS =
       new ConcurrentHashMap<>();
 
-  ConcurrentMap<String, Integer> CLIENT_ID_NUM_PARTITIONS = new ConcurrentHashMap<>();
-
   static long nonStickyPartitionBetweenRebalance(String clientId) {
     return CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).stream()
-        .dropWhile(tp -> CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).contains(tp))
+        .filter(tp -> !CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).contains(tp))
         .count();
   }
 
   static long differenceBetweenRebalance(String clientId) {
     return CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).size()
         - CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).size();
-  }
-
-  static long numOfPartitions(String clientId) {
-    return CLIENT_ID_NUM_PARTITIONS.getOrDefault(clientId, 0);
   }
 
   static List<ConsumerThread> create(
@@ -154,15 +148,11 @@ public interface ConsumerThread extends AbstractThread {
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
       CLIENT_ID_ASSIGNED_PARTITIONS.put(clientId, partitions);
-      CLIENT_ID_NUM_PARTITIONS.compute(
-          clientId, (id, old) -> ((old == null) ? 0 : old) + partitions.size());
     }
 
     @Override
     public void onPartitionsRevoked(Set<TopicPartition> partitions) {
       CLIENT_ID_REVOKED_PARTITIONS.put(clientId, partitions);
-      CLIENT_ID_NUM_PARTITIONS.compute(
-          clientId, (id, old) -> ((old == null) ? 0 : old) - partitions.size());
     }
   }
 }
