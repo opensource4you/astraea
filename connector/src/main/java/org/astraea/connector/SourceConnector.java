@@ -26,9 +26,7 @@ import org.astraea.common.VersionUtils;
 public abstract class SourceConnector extends org.apache.kafka.connect.source.SourceConnector {
   public static String TOPICS_KEY = "topics";
 
-  protected void init(Configuration configuration) {
-    // empty
-  }
+  protected abstract void init(Configuration configuration);
 
   protected abstract Class<? extends SourceTask> task();
 
