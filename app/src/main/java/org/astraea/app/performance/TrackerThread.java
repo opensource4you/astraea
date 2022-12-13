@@ -28,10 +28,13 @@ import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.metrics.stats.Avg;
+import org.astraea.common.metrics.stats.Latest;
 
 /** Print out the given metrics. */
 public interface TrackerThread extends AbstractThread {
@@ -95,6 +98,31 @@ public interface TrackerThread extends AbstractThread {
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
 
+    private static final String _15_MINUTE_AVG = "15-minute-avg";
+    private static final String _5_MINUTE_AVG = "5-minute-avg";
+    private static final String _1_MINUTE_AVG = "1-minute-avg";
+    private final Sensor<Double> numOfPartitionSensor =
+        Sensor.builder()
+            .addStat(_15_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(15)))
+            .addStat(_5_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(5)))
+            .addStat(_1_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(1)))
+            .addStat("latest", new Latest<Double>())
+            .build();
+    private final Sensor<Double> nonStickyPartitionSensor =
+        Sensor.builder()
+            .addStat(_15_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(15)))
+            .addStat(_5_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(5)))
+            .addStat(_1_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(1)))
+            .addStat("latest", new Latest<Double>())
+            .build();
+    private final Sensor<Double> partitionDifferenceSensor =
+        Sensor.builder()
+            .addStat(_15_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(15)))
+            .addStat(_5_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(5)))
+            .addStat(_1_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(1)))
+            .addStat("latest", new Latest<Double>())
+            .build();
+
     ConsumerPrinter() {
       this(Report::consumers);
     }
@@ -144,14 +172,28 @@ public interface TrackerThread extends AbstractThread {
         var ms = metrics.stream().filter(m -> m.clientId().equals(clientId)).findFirst();
 
         if (ms.isPresent()) {
+          numOfPartitionSensor.record(ms.get().assignedPartitions());
+          nonStickyPartitionSensor.record(
+              (double) ConsumerThread.nonStickyPartitionBetweenRebalance(clientId));
+          partitionDifferenceSensor.record(
+              (double) ConsumerThread.differenceBetweenRebalance(clientId));
+
           System.out.printf(
-              "  consumer[%d] has %d partitions. "
-                  + "%d non-sticky partitions, "
-                  + "assigned %d more partitions than before re-balancing%n",
+              "  consumer[%d] has %.1f partitions. "
+                  + "%.1f non-sticky partitions, "
+                  + "assigned %.1f more partitions than before re-balancing%n",
               i,
-              (int) ms.get().assignedPartitions(),
-              ConsumerThread.nonStickyPartitionBetweenRebalance(clientId),
-              ConsumerThread.differenceBetweenRebalance(clientId));
+              numOfPartitionSensor.measure("latest"),
+              nonStickyPartitionSensor.measure("latest"),
+              partitionDifferenceSensor.measure("latest"));
+
+          System.out.printf(
+              "  %.2f partitions in 15 minute average, "
+                  + "%.2f non-sticky partitions in 15 minute average, "
+                  + "assigned %.2f more partitions than before re-balancing in 15 minute average%n",
+              numOfPartitionSensor.measure(_15_MINUTE_AVG),
+              nonStickyPartitionSensor.measure(_15_MINUTE_AVG),
+              partitionDifferenceSensor.measure(_15_MINUTE_AVG));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",

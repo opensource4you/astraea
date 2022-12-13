@@ -113,7 +113,12 @@ public class Avg {
     };
   }
 
+  /** Compute the average of value recorded in the given time period. */
   public static Stat<Double> ByTime(Duration period) {
+    if (period.toMillis() <= 0) {
+      throw new IllegalArgumentException(
+          "Stat, Average by time, needs period longer than 1 millisecond.");
+    }
     return new Stat<>() {
       private final ConcurrentLinkedDeque<ValueAndTime<Double>> past =
           new ConcurrentLinkedDeque<>();

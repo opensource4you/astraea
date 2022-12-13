@@ -68,7 +68,7 @@ public class AvgTest {
   }
 
   @Test
-  void testByTime() throws InterruptedException{
+  void testByTime() throws InterruptedException {
     var byTime = Avg.ByTime(Duration.ofMillis(150));
 
     byTime.record(10.0);
@@ -88,6 +88,5 @@ public class AvgTest {
     Thread.sleep(20);
 
     Assertions.assertEquals(Double.NaN, byTime.measure());
-
   }
 }
