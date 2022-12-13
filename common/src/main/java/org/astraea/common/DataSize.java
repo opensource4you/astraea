@@ -36,7 +36,7 @@ public class DataSize implements Comparable<DataSize> {
   public static DataSize of(String argument) {
     var matcher = DATA_SIZE_PATTERN.matcher(argument);
     if (matcher.matches())
-      return DataUnit.ofAlias(matcher.group("dataUnit"))
+      return DataUnit.valueOf(matcher.group("dataUnit"))
           .of(Long.parseLong(matcher.group("measurement")));
     throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
   }
