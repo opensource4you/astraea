@@ -78,6 +78,9 @@ public final class Services {
                       ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
                       "org.apache.kafka.connect.converters.ByteArrayConverter");
                   config.put(
+                      ConnectorConfig.HEADER_CONVERTER_CLASS_CONFIG,
+                      "org.apache.kafka.connect.converters.ByteArrayConverter");
+                  config.put(
                       WorkerConfig.LISTENERS_CONFIG,
                       // the worker hostname is a part of information used by restful apis.
                       // the 0.0.0.0 make all connector say that they are executed by 0.0.0.0
