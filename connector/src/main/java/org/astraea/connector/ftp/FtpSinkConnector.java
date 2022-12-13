@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.connector.ftp;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.astraea.common.Configuration;
+import org.astraea.connector.Definition;
+import org.astraea.connector.SinkConnector;
+import org.astraea.connector.SinkTask;
 
 public class FtpSinkConnector extends SinkConnector {
 
