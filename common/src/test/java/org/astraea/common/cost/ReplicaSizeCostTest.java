@@ -40,15 +40,19 @@ import org.junit.jupiter.api.Test;
 class ReplicaSizeCostTest extends RequireBrokerCluster {
   private static final BeanObject bean1 =
       new BeanObject(
-          "domain", Map.of("topic", "t", "partition", "10", "name", "SIZE"), Map.of("Value", 777L));
+          "domain",
+          Map.of("topic", "t", "partition", "10", "name", "SIZE"),
+          Map.of("Value", 777.0));
   private static final BeanObject bean2 =
       new BeanObject(
-          "domain", Map.of("topic", "t", "partition", "11", "name", "SIZE"), Map.of("Value", 700L));
+          "domain",
+          Map.of("topic", "t", "partition", "11", "name", "SIZE"),
+          Map.of("Value", 700.0));
   private static final BeanObject bean3 =
       new BeanObject(
           "domain",
           Map.of("topic", "t", "partition", "12", "name", "SIZE"),
-          Map.of("Value", 500L),
+          Map.of("Value", 500.0),
           200);
 
   @Test

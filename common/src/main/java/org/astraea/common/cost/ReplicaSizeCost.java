@@ -45,6 +45,7 @@ public class ReplicaSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "size";
+  final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
   /**
    * @return the metrics getters. Those getters are used to fetch mbeans.
@@ -57,55 +58,37 @@ public class ReplicaSizeCost
   @Override
   public Collection<MetricSensor> sensors() {
     return List.of(
-        new MetricSensor() {
-          final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
-
-          @Override
-          public Map<Integer, Collection<? extends HasBeanObject>> record(
-              int identity, Collection<? extends HasBeanObject> beans) {
-            var statisticalBeans = new HashMap<TopicPartitionReplica, HasBeanObject>();
-            beans.forEach(
-                bean -> {
-                  if (bean instanceof LogMetrics.Log.Gauge) {
-                    var tpr =
-                        TopicPartitionReplica.of(
-                            bean.beanObject().properties().get("topic"),
-                            Integer.parseInt(bean.beanObject().properties().get("partition")),
-                            identity);
-                    sensors
-                        .computeIfAbsent(
-                            tpr,
-                            ignore ->
-                                Sensor.builder()
-                                    .addStat(
-                                        Avg.EXP_WEIGHT_BY_TIME_KEY,
-                                        Avg.expWeightByTime(Duration.ofSeconds(1)))
-                                    .build())
-                        .record(
-                            Double.valueOf(
-                                bean.beanObject().attributes().get(HasGauge.VALUE_KEY).toString()));
-                    statisticalBeans.put(tpr, bean);
-                  }
-                });
-            return Map.of(
+        (identity, beans) ->
+            Map.of(
                 identity,
-                sensors.entrySet().stream()
+                beans.stream()
+                    .filter(b -> b instanceof LogMetrics.Log.Gauge)
+                    .map(b -> (LogMetrics.Log.Gauge) b)
+                    .filter(g -> g.type() == LogMetrics.Log.SIZE)
                     .map(
-                        sensor -> {
-                          var bean = statisticalBeans.get(sensor.getKey()).beanObject();
+                        g -> {
+                          var tpr = TopicPartitionReplica.of(g.topic(), g.partition(), identity);
+                          var sensor =
+                              sensors.computeIfAbsent(
+                                  tpr,
+                                  ignored ->
+                                      Sensor.builder()
+                                          .addStat(
+                                              Avg.EXP_WEIGHT_BY_TIME_KEY,
+                                              Avg.expWeightByTime(Duration.ofSeconds(1)))
+                                          .build());
+                          sensor.record(g.value().doubleValue());
                           return (SizeStatisticalBean)
                               () ->
                                   new BeanObject(
-                                      bean.domainName(),
-                                      bean.properties(),
+                                      g.beanObject().domainName(),
+                                      g.beanObject().properties(),
                                       Map.of(
                                           HasGauge.VALUE_KEY,
-                                          sensor.getValue().measure(Avg.EXP_WEIGHT_BY_TIME_KEY)),
-                                      bean.createdTimestamp());
+                                          sensor.measure(Avg.EXP_WEIGHT_BY_TIME_KEY)),
+                                      System.currentTimeMillis());
                         })
-                    .collect(Collectors.toList()));
-          }
-        });
+                    .collect(Collectors.toList())));
   }
 
   public interface SizeStatisticalBean extends HasGauge<Double> {}
