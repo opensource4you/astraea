@@ -213,5 +213,15 @@ JSON Response 範例
 > 從 JSON 陣列第二位開始預期都是這個 topic/partition 的 follower logs，特別注意目前內部實作
 > 不保證這個 follower logs 的順序是否會一致地反映到 Apache Kafka 內部的儲存資料結構內。
 
+> ##### 優化目標的權重設定注意事項
+> 權重的分配在優化算法遇到必須做取捨的情況時很重要，設定不適合的權重，可能會讓算法往比較不重要的優化目標做取捨，
+> 屆時可能會給出一些負面或無意義優化計劃。
+
+> ##### 解讀 `score` 的注意事項
+> 1. `score` 和 `newScore` 之值代表一個叢集分佈接近最佳狀況的程度。
+> 2. 不同 Plan Generation 之間的 `score` 分數沒有辦法比較也沒有關聯。
+> 3. 針對同一筆 Plan Generator， `score` 和 `newScore` 之間的數字大小能夠反映誰好誰壞，
+>    但沒辦法反映其程度，即 `scoreA` - `scoreB` 沒有任何意義和定義。
+
 
 目前此 endpoint 僅能查詢負載平衡計劃是否完成，如想知道更細部的搬移進度，可考慮使用 [Web Service Reassignments API](web_api_reassignments_chinese.md) 查詢。
