@@ -18,6 +18,7 @@ package org.astraea.common.connector;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** this is not a kind of json response from kafka. */
 public class ConnectorStatus {
@@ -28,6 +29,10 @@ public class ConnectorStatus {
 
   private final String workerId;
 
+  // The type is always null before kafka 2.0.2
+  // see https://issues.apache.org/jira/browse/KAFKA-7253
+  private final Optional<String> type;
+
   private final Map<String, String> configs;
 
   private final List<TaskStatus> tasks;
@@ -36,11 +41,13 @@ public class ConnectorStatus {
       String name,
       String state,
       String workerId,
+      Optional<String> type,
       Map<String, String> configs,
       List<TaskStatus> tasks) {
     this.name = name;
     this.state = state;
     this.workerId = workerId;
+    this.type = type;
     this.configs = configs;
     this.tasks = tasks;
   }
@@ -55,6 +62,10 @@ public class ConnectorStatus {
 
   public String workerId() {
     return workerId;
+  }
+
+  public Optional<String> type() {
+    return type;
   }
 
   public Map<String, String> configs() {
