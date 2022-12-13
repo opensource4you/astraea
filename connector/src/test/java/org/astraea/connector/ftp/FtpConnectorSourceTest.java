@@ -120,7 +120,6 @@ public class FtpConnectorSourceTest extends RequireWorkerCluster {
       var writer = RecordWriter.builder(os).build();
       records.forEach(writer::append);
       writer.close();
-      os.close();
 
       task.init(Configuration.of(configs));
       var returnRecords = new ArrayList<>(task.take());
