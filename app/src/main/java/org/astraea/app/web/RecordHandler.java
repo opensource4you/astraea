@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Cache;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
+import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
@@ -64,23 +65,26 @@ public class RecordHandler implements Handler {
   private static final int MAX_CACHE_SIZE = 100;
   private static final Duration CACHE_EXPIRE_DURATION = Duration.ofMinutes(10);
 
-  final String bootstrapServers;
   // visible for testing
-  final Producer<byte[], byte[]> producer;
+  final Lazy<Producer<byte[], byte[]>> producer;
   private final Cache<String, Producer<byte[], byte[]>> transactionalProducerCache;
 
   final Admin admin;
 
-  RecordHandler(Admin admin, String bootstrapServers) {
+  RecordHandler(Admin admin) {
     this.admin = admin;
-    this.bootstrapServers = requireNonNull(bootstrapServers);
-    this.producer = Producer.builder().bootstrapServers(bootstrapServers).build();
+    this.producer =
+        Lazy.of(
+            () ->
+                Producer.builder()
+                    .bootstrapServers(admin.bootstrapServers().toCompletableFuture().join())
+                    .build());
     this.transactionalProducerCache =
         Cache.<String, Producer<byte[], byte[]>>builder(
                 transactionId ->
                     Producer.builder()
                         .config(ProducerConfigs.TRANSACTIONAL_ID_CONFIG, transactionId)
-                        .bootstrapServers(bootstrapServers)
+                        .bootstrapServers(admin.bootstrapServers().toCompletableFuture().join())
                         .buildTransactional())
             .maxCapacity(MAX_CACHE_SIZE)
             .expireAfterAccess(CACHE_EXPIRE_DURATION)
@@ -133,7 +137,7 @@ public class RecordHandler implements Handler {
             .orElse(SerDe.STRING)
             .deserializer;
     consumerBuilder
-        .bootstrapServers(bootstrapServers)
+        .bootstrapServers(admin.bootstrapServers().toCompletableFuture().join())
         .keyDeserializer(keyDeserializer)
         .valueDeserializer(valueDeserializer);
 
@@ -176,7 +180,10 @@ public class RecordHandler implements Handler {
       throw new IllegalArgumentException("records should contain at least one record");
 
     var producer =
-        postRequest.transactionId().map(transactionalProducerCache::get).orElse(this.producer);
+        postRequest
+            .transactionId()
+            .map(transactionalProducerCache::get)
+            .orElse(this.producer.get());
 
     var result =
         CompletableFuture.supplyAsync(
@@ -327,7 +334,7 @@ public class RecordHandler implements Handler {
   private static org.astraea.common.producer.Record<byte[], byte[]> createRecord(
       Producer<byte[], byte[]> producer, PostRecord postRecord) {
     var topic = postRecord.topic;
-    var builder = org.astraea.common.producer.Record.<byte[], byte[]>builder().topic(topic);
+    var builder = org.astraea.common.producer.Record.builder().topic(topic);
 
     // TODO: Support headers
     // (https://github.com/skiptests/astraea/issues/422)

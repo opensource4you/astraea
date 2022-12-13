@@ -16,11 +16,16 @@
  */
 package org.astraea.common.admin;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.Lazy;
 import org.astraea.common.metrics.HasBeanObject;
 
 /** Used to get beanObject using a variety of different keys . */
@@ -28,34 +33,89 @@ public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
   static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
-    var beanObjectByReplica = new HashMap<TopicPartitionReplica, Collection<HasBeanObject>>();
-    allBeans.forEach(
-        (brokerId, beans) ->
-            beans.forEach(
-                bean -> {
-                  if (bean.beanObject() != null
-                      && bean.beanObject().properties().containsKey("topic")
-                      && bean.beanObject().properties().containsKey("partition")) {
-                    var properties = bean.beanObject().properties();
-                    var tpr =
-                        TopicPartitionReplica.of(
-                            properties.get("topic"),
-                            Integer.parseInt(properties.get("partition")),
-                            brokerId);
-                    beanObjectByReplica
-                        .computeIfAbsent(tpr, (ignore) -> new ArrayList<>())
-                        .add(bean);
-                  }
-                }));
     return new ClusterBean() {
+      final Lazy<Map<String, List<HasBeanObject>>> topicCache =
+          Lazy.of(() -> map((id, bean) -> bean.topicIndex()));
+      final Lazy<Map<TopicPartition, List<HasBeanObject>>> partitionCache =
+          Lazy.of(() -> map((id, bean) -> bean.partitionIndex()));
+      final Lazy<Map<TopicPartitionReplica, List<HasBeanObject>>> replicaCache =
+          Lazy.of(() -> map((id, bean) -> bean.replicaIndex(id)));
+      final Lazy<Map<BrokerTopic, List<HasBeanObject>>> brokerTopicCache =
+          Lazy.of(() -> map((id, bean) -> bean.brokerTopicIndex(id)));
+
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
         return Collections.unmodifiableMap(allBeans);
       }
 
       @Override
-      public Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica() {
-        return beanObjectByReplica;
+      public <Bean extends HasBeanObject> Stream<Bean> topicMetrics(
+          String topic, Class<Bean> metricClass) {
+        return topicCache.get().getOrDefault(topic, List.of()).stream()
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
+            .map(metricClass::cast);
+      }
+
+      @Override
+      public <Bean extends HasBeanObject> Stream<Bean> partitionMetrics(
+          TopicPartition topicPartition, Class<Bean> metricClass) {
+        return partitionCache.get().getOrDefault(topicPartition, List.of()).stream()
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
+            .map(metricClass::cast);
+      }
+
+      @Override
+      public <Bean extends HasBeanObject> Stream<Bean> replicaMetrics(
+          TopicPartitionReplica replica, Class<Bean> metricClass) {
+        return replicaCache.get().getOrDefault(replica, List.of()).stream()
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
+            .map(metricClass::cast);
+      }
+
+      @Override
+      public <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
+          BrokerTopic brokerTopic, Class<Bean> metricClass) {
+        return brokerTopicCache.get().getOrDefault(brokerTopic, List.of()).stream()
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
+            .map(metricClass::cast);
+      }
+
+      @Override
+      public Set<String> topics() {
+        return topicCache.get().keySet();
+      }
+
+      @Override
+      public Set<TopicPartition> partitions() {
+        return partitionCache.get().keySet();
+      }
+
+      @Override
+      public Set<TopicPartitionReplica> replicas() {
+        return replicaCache.get().keySet();
+      }
+
+      @Override
+      public Set<BrokerTopic> brokerTopics() {
+        return brokerTopicCache.get().keySet();
+      }
+
+      private <Key> Map<Key, List<HasBeanObject>> map(
+          BiFunction<Integer, HasBeanObject, Optional<Key>> keyMapper) {
+        return all().entrySet().stream()
+            .flatMap(
+                e ->
+                    e.getValue().stream()
+                        .flatMap(
+                            bean ->
+                                keyMapper
+                                    .apply(e.getKey(), bean)
+                                    .map(key -> Map.entry(key, bean))
+                                    .stream()))
+            .collect(
+                Collectors.groupingBy(
+                    Map.Entry::getKey,
+                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
       }
     };
   }
@@ -67,9 +127,66 @@ public interface ClusterBean {
   Map<Integer, Collection<HasBeanObject>> all();
 
   /**
-   * @return a {@link Map} collection that contains {@link TopicPartitionReplica} as key and a
-   *     {@link HasBeanObject} as value,note that this can only be used to get partition-related
-   *     beanObjects.
+   * Query a specific class of metric where they are from the specified topic.
+   *
+   * @param topic to query.
+   * @param metricClass to query.
+   * @return a stream of the matched metrics.
+   * @param <Bean> the metric to query.
    */
-  Map<TopicPartitionReplica, Collection<HasBeanObject>> mapByReplica();
+  <Bean extends HasBeanObject> Stream<Bean> topicMetrics(String topic, Class<Bean> metricClass);
+
+  /**
+   * Query a specific class of metric where they are from the specified partition.
+   *
+   * @param topicPartition to query.
+   * @param metricClass to query.
+   * @return a stream of the matched metrics.
+   * @param <Bean> the metric to query.
+   */
+  <Bean extends HasBeanObject> Stream<Bean> partitionMetrics(
+      TopicPartition topicPartition, Class<Bean> metricClass);
+
+  /**
+   * Query a specific class of metric where they are from the specified replica.
+   *
+   * @param replica to query.
+   * @param metricClass to query.
+   * @return a stream of the matched metrics.
+   * @param <Bean> the metric to query.
+   */
+  <Bean extends HasBeanObject> Stream<Bean> replicaMetrics(
+      TopicPartitionReplica replica, Class<Bean> metricClass);
+
+  /**
+   * Query a specific class of metric where they are sampled from the specific broker and are
+   * related to a specific topic.
+   *
+   * @param brokerTopic to query.
+   * @param metricClass to query.
+   * @return a stream of the matched metrics.
+   * @param <Bean> the metric to query.
+   */
+  <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
+      BrokerTopic brokerTopic, Class<Bean> metricClass);
+
+  /**
+   * @return the set of topic that has some related metrics within the internal storage.
+   */
+  Set<String> topics();
+
+  /**
+   * @return the set of partition that has some related metrics within the internal storage.
+   */
+  Set<TopicPartition> partitions();
+
+  /**
+   * @return the set of replicas that has some related metrics within the internal storage.
+   */
+  Set<TopicPartitionReplica> replicas();
+
+  /**
+   * @return the set of broker/topic pair that has some related metrics within the internal storage.
+   */
+  Set<BrokerTopic> brokerTopics();
 }

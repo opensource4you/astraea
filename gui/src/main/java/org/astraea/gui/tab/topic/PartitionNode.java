@@ -35,7 +35,6 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Argument;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -162,12 +161,9 @@ public class PartitionNode {
     var offsetKey = "truncate to offset";
     return PaneBuilder.of()
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
-                    TextInput.of(
-                        TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build()))),
+            List.of(
+                TextInput.of(INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
+                TextInput.of(TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build())),
             "ALTER",
             tableViewAction(context))
         .firstPart(

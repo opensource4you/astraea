@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -53,35 +52,26 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
   private final Admin admin = Admin.of(bootstrapServers());
 
-  private Properties initProConfig() {
-    Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-    props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(
-        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
-    props.put("producerID", 1);
-    var file =
-        new File(
-            SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
-                + "PartitionerConfigTest");
-    try {
-      var fileWriter = new FileWriter(file);
-      fileWriter.write("jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.0.jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.1.jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.2.jmx.port=" + jmxServiceURL().getPort());
-      fileWriter.flush();
-      fileWriter.close();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    props.put(
-        "partitioner.config",
-        SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
-            + "PartitionerConfigTest");
-    return props;
+  private Map<String, String> initProConfig() {
+    return Map.of(
+        ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+        brokerList,
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        ByteArraySerializer.class.getName(),
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        ByteArraySerializer.class.getName(),
+        ProducerConfig.CLIENT_ID_CONFIG,
+        "id1",
+        ProducerConfig.PARTITIONER_CLASS_CONFIG,
+        SmoothWeightRoundRobinDispatcher.class.getName(),
+        "producerID",
+        "1",
+        "broker.0.jmx.port",
+        String.valueOf(jmxServiceURL().getPort()),
+        "broker.1.jmx.port",
+        String.valueOf(jmxServiceURL().getPort()),
+        "broker.2.jmx.port",
+        String.valueOf(jmxServiceURL().getPort()));
   }
 
   @Test
@@ -96,8 +86,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .configs(
                 initProConfig().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
             .build()) {
       var i = 0;
       while (i < 300) {
@@ -162,8 +151,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
                                         initProConfig().entrySet().stream()
                                             .collect(
                                                 Collectors.toMap(
-                                                    e -> e.getKey().toString(),
-                                                    e -> e.getValue().toString())))
+                                                    e -> e.getKey(), e -> e.getValue())))
                                     .build(),
                                 topicName,
                                 key,
@@ -197,14 +185,13 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
   }
 
   @Test
-  void testJmxConfig() {
+  void testJmxConfig() throws IOException {
     var props = initProConfig();
     var file =
         new File(
             SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
                 + "PartitionerConfigTest");
-    try {
-      var fileWriter = new FileWriter(file);
+    try (var fileWriter = new FileWriter(file)) {
       fileWriter.write(
           "broker.0.jmx.port="
               + jmxServiceURL().getPort()
@@ -216,9 +203,6 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
               + jmxServiceURL().getPort()
               + "\n");
       fileWriter.flush();
-      fileWriter.close();
-    } catch (IOException e) {
-      e.printStackTrace();
     }
     var topicName = "addressN";
     admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
@@ -231,8 +215,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
             .keySerializer(Serializer.STRING)
             .configs(
                 props.entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())))
             .build()) {
       var metadata =
           producer
@@ -285,7 +268,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     var node3 = Mockito.mock(NodeInfo.class);
     Mockito.when(node3.id()).thenReturn(3);
     var re3 = ReplicaInfo.of(topic, 2, node3, true, true, false);
-    var testCluster = ClusterInfo.of(List.of(re1, re2, re3));
+    var testCluster = ClusterInfo.of(List.of(node1, node2, node3), List.of(re1, re2, re3));
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
     Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));

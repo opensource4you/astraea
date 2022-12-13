@@ -27,11 +27,14 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
-public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCost {
-  private final Dispersion dispersion = Dispersion.correlationCoefficient();
+public class ReplicaSizeCost
+    implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
+  private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "size";
 
   /**
@@ -110,6 +113,22 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
     return () -> value;
   }
 
+  @Override
+  public PartitionCost partitionCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    return () ->
+        clusterBean.replicas().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    tpr -> TopicPartition.of(tpr.topic(), tpr.partition()),
+                    tpr ->
+                        clusterBean
+                            .replicaMetrics(tpr, LogMetrics.Log.Gauge.class)
+                            .filter(gauge -> gauge.type().equals(LogMetrics.Log.SIZE))
+                            .mapToDouble(HasGauge::value)
+                            .sum()));
+  }
+
   static class MigrateInfo {
     long totalMigrateSize;
     Map<Integer, Long> sizeChange;
@@ -131,14 +150,13 @@ public class ReplicaSizeCost implements HasMoveCost, HasBrokerCost, HasClusterCo
                 (ignore, size) -> size == null ? -replica.size() : -replica.size() + size));
 
     addedReplicas.forEach(
-        replica -> {
-          changes.compute(
-              replica.nodeInfo().id(),
-              (ignore, size) -> {
-                totalMigrateSize.set(totalMigrateSize.get() + replica.size());
-                return size == null ? replica.size() : replica.size() + size;
-              });
-        });
+        replica ->
+            changes.compute(
+                replica.nodeInfo().id(),
+                (ignore, size) -> {
+                  totalMigrateSize.set(totalMigrateSize.get() + replica.size());
+                  return size == null ? replica.size() : replica.size() + size;
+                }));
     return new MigrateInfo(totalMigrateSize.get(), changes);
   }
 }

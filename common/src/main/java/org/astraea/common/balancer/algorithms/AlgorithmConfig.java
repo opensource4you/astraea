@@ -16,9 +16,7 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
@@ -36,7 +34,11 @@ import org.astraea.common.cost.MoveCost;
 public interface AlgorithmConfig {
 
   static Builder builder() {
-    return new Builder();
+    return new Builder(null);
+  }
+
+  static Builder builder(AlgorithmConfig config) {
+    return new Builder(config);
   }
 
   /**
@@ -78,19 +80,32 @@ public interface AlgorithmConfig {
   /**
    * @return the algorithm implementation specific parameters
    */
-  Configuration algorithmConfig();
+  Configuration config();
 
   class Builder {
 
     private String executionId = "noname-" + UUID.randomUUID();
     private HasClusterCost clusterCostFunction;
-    private List<HasMoveCost> moveCostFunction = List.of(HasMoveCost.EMPTY);
+    private List<HasMoveCost> moveCostFunctions = List.of(HasMoveCost.EMPTY);
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
-    private final Map<String, String> config = new HashMap<>();
+    private Configuration config = Configuration.EMPTY;
+
+    private Builder(AlgorithmConfig config) {
+      if (config != null) {
+        this.executionId = config.executionId();
+        this.clusterCostFunction = config.clusterCostFunction();
+        this.moveCostFunctions = config.moveCostFunctions();
+        this.clusterConstraint = config.clusterConstraint();
+        this.movementConstraint = config.movementConstraint();
+        this.metricSource = config.metricSource();
+        this.topicFilter = config.topicFilter();
+        this.config = config.config();
+      }
+    }
 
     /**
      * Set a String that represents the execution of this algorithm. This information is typically
@@ -124,7 +139,7 @@ public interface AlgorithmConfig {
      * @return this
      */
     public Builder moveCost(List<HasMoveCost> costFunction) {
-      this.moveCostFunction = Objects.requireNonNull(costFunction);
+      this.moveCostFunctions = Objects.requireNonNull(costFunction);
       return this;
     }
 
@@ -182,21 +197,11 @@ public interface AlgorithmConfig {
     }
 
     /**
-     * @param configuration for {@link Balancer}
+     * @param config for {@link Balancer}
      * @return this
      */
-    public Builder config(Configuration configuration) {
-      configuration.entrySet().forEach((e) -> this.config(e.getKey(), e.getValue()));
-      return this;
-    }
-
-    /**
-     * @param key for {@link Balancer} implementation specific config
-     * @param value for {@link Balancer} implementation specific config
-     * @return this
-     */
-    public Builder config(String key, String value) {
-      this.config.put(Objects.requireNonNull(key), Objects.requireNonNull(value));
+    public Builder config(Configuration config) {
+      this.config = config;
       return this;
     }
 
@@ -216,7 +221,7 @@ public interface AlgorithmConfig {
 
         @Override
         public List<HasMoveCost> moveCostFunctions() {
-          return moveCostFunction;
+          return moveCostFunctions;
         }
 
         @Override
@@ -239,11 +244,9 @@ public interface AlgorithmConfig {
           return metricSource;
         }
 
-        private final Configuration prepared = Configuration.of(Map.copyOf(config));
-
         @Override
-        public Configuration algorithmConfig() {
-          return prepared;
+        public Configuration config() {
+          return config;
         }
       };
     }

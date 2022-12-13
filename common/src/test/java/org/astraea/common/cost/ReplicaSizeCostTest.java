@@ -18,11 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -71,7 +71,7 @@ class ReplicaSizeCostTest {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        Set.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
+        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
         List.of(
             replicas.get(0),
             replicas.get(1),
@@ -247,5 +247,21 @@ class ReplicaSizeCostTest {
                 .path("/log-path-03")
                 .build());
     return getClusterInfo(replicas);
+  }
+
+  @Test
+  void testPartitionCost() {
+    var meter = new LogMetrics.Log.Gauge(bean);
+    var cost1 = new ReplicaSizeCost();
+    var cost2 = HasPartitionCost.of(Map.of(new ReplicaSizeCost(), (double) 1));
+    var result1 =
+        cost1.partitionCost(ClusterInfo.empty(), ClusterBean.of(Map.of(0, List.of(meter)))).value();
+    var result2 =
+        cost2.partitionCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter)))).value();
+
+    Assertions.assertEquals(1, result1.size());
+    Assertions.assertEquals(1, result2.size());
+    Assertions.assertEquals(777, result1.get(TopicPartition.of("t", 10)));
+    Assertions.assertEquals(777, result2.get(TopicPartition.of("t", 10)));
   }
 }

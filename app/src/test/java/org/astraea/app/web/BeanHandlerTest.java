@@ -18,7 +18,7 @@ package org.astraea.app.web;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Optional;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.RequireBrokerCluster;
@@ -28,28 +28,12 @@ import org.junit.jupiter.api.Test;
 public class BeanHandlerTest extends RequireBrokerCluster {
 
   @Test
-  void testArgument() {
-    var arg = new WebService.Argument();
-    Assertions.assertFalse(arg.needJmx());
-    arg.jmxPort = 1000;
-    Assertions.assertTrue(arg.needJmx());
-    arg.jmxPort = -1;
-    arg.jmxPorts = Map.of("a", "100");
-    Assertions.assertTrue(arg.needJmx());
-    Assertions.assertEquals(100, arg.jmxPorts().apply("a"));
-    Assertions.assertThrows(NoSuchElementException.class, () -> arg.jmxPorts().apply("b"));
-
-    arg.jmxPort = 999;
-    Assertions.assertEquals(999, arg.jmxPorts().apply("b"));
-  }
-
-  @Test
   void testBeans() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var handler = new BeanHandler(admin, name -> jmxServiceURL().getPort());
+      var handler = new BeanHandler(admin, name -> Optional.of(jmxServiceURL().getPort()));
       var response =
           Assertions.assertInstanceOf(
               BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());

@@ -20,14 +20,14 @@ import org.astraea.common.admin.Admin
 import org.astraea.etl.Reader.createSchema
 import org.astraea.etl.Utils.createTopic
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object Spark2Kafka {
-  def executor(args: Array[String], duration: Duration): Unit = {
+  def executor(args: Array[String], duration: Int): Unit = {
     val metaData = Metadata(Utils.requireFile(args(0)))
     Utils.Using(Admin.of(metaData.kafkaBootstrapServers)) { admin =>
-      val pk = metaData.column.filter(col => col.isPK).map(col => col.name)
       Await.result(createTopic(admin, metaData), Duration.Inf)
       val df = Reader
         .of()
@@ -38,29 +38,28 @@ object Spark2Kafka {
           )
         )
         .sinkPath(metaData.sinkPath.getPath)
-        .primaryKeys(pk)
+        .primaryKeys(
+          metaData.column.filter(col => col.isPK).map(col => col.name)
+        )
         .readCSV(metaData.sourcePath.getPath)
-        .csvToJSON(pk)
+        .csvToJSON(metaData.column)
 
       val query = Writer
         .of()
         .dataFrameOp(df)
         .target(metaData.topicName)
-        .checkpoint(metaData.sinkPath + "/checkpoint")
+        .checkpoint(metaData.checkpoint.toString)
         .writeToKafka(metaData.kafkaBootstrapServers)
         .start()
-      if (duration == Duration.Inf) {
-        query
-          .awaitTermination()
+      if (duration > 0) {
+        query.awaitTermination(Duration(duration, TimeUnit.SECONDS).toMillis)
       } else {
-        query
-          .awaitTermination(duration.toMillis)
+        query.awaitTermination()
       }
-
     }
   }
 
   def main(args: Array[String]): Unit = {
-    executor(args, Duration.Inf)
+    executor(args, 0)
   }
 }

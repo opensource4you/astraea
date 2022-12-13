@@ -18,7 +18,6 @@ package org.astraea.common.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.net.URISyntaxException;
 import java.util.Map;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
@@ -37,7 +36,7 @@ class HttpExecutorBuilderTest {
   }
 
   @Test
-  void testGetQueryUrl() throws URISyntaxException {
+  void testGetQueryUrl() {
     var url = "http://localhost:8989/test";
     var newURL = HttpExecutorBuilder.uri(url, Map.of("key1", "value1"));
     Assertions.assertEquals("key1=value1", newURL.getQuery());

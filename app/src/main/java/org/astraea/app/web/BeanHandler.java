@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -27,9 +28,9 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class BeanHandler implements Handler {
   private final Admin admin;
-  private final Function<String, Integer> jmxPorts;
+  private final Function<Integer, Optional<Integer>> jmxPorts;
 
-  BeanHandler(Admin admin, Function<String, Integer> jmxPorts) {
+  BeanHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPorts) {
     this.admin = admin;
     this.jmxPorts = jmxPorts;
   }
@@ -42,7 +43,12 @@ public class BeanHandler implements Handler {
         .thenApply(
             brokers ->
                 brokers.stream()
-                    .map(b -> MBeanClient.jndi(b.host(), jmxPorts.apply(b.host())))
+                    .flatMap(
+                        b ->
+                            jmxPorts
+                                .apply(b.id())
+                                .map(port -> MBeanClient.jndi(b.host(), port))
+                                .stream())
                     .collect(Collectors.toList()))
         .thenApply(
             clients ->

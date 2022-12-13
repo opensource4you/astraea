@@ -26,6 +26,8 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 
 @FunctionalInterface
 public interface Deserializer<T> {
@@ -70,4 +72,32 @@ public interface Deserializer<T> {
   Deserializer<Long> LONG = of(new LongDeserializer());
   Deserializer<Float> FLOAT = of(new FloatDeserializer());
   Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
+
+  /**
+   * create Custom JsonDeserializer
+   *
+   * @param typeRef The typeRef of message being output by the Deserializer
+   * @return Custom JsonDeserializer
+   * @param <T> The type of message being output by the Deserializer
+   */
+  static <T> Deserializer<T> of(TypeRef<T> typeRef) {
+    return new JsonDeserializer<>(typeRef);
+  }
+
+  class JsonDeserializer<T> implements Deserializer<T> {
+    private final TypeRef<T> typeRef;
+    private final JsonConverter jackson = JsonConverter.jackson();
+
+    private JsonDeserializer(TypeRef<T> typeRef) {
+      this.typeRef = typeRef;
+    }
+
+    @Override
+    public T deserialize(String topic, List<Header> headers, byte[] data) {
+      if (data == null) return null;
+      else {
+        return jackson.fromJson(Deserializer.STRING.deserialize(topic, headers, data), typeRef);
+      }
+    }
+  }
 }

@@ -31,7 +31,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.scenario.Scenario;
 
 class TopicHandler implements Handler {
 
@@ -170,10 +169,11 @@ class TopicHandler implements Handler {
                       var numberOfReplicas = topic.replicas;
 
                       if (topic.probability.isPresent()) {
-                        return Scenario.build(topic.probability.get())
+                        return Scenario.builder()
                             .topicName(topicName)
                             .numberOfPartitions(numberOfPartitions)
                             .numberOfReplicas(numberOfReplicas)
+                            .binomialProbability(topic.probability.get())
                             .build()
                             .apply(admin)
                             .thenApply(ignored -> null)
@@ -209,19 +209,23 @@ class TopicHandler implements Handler {
   }
 
   static class TopicPostRequest implements Request {
-    private List<Topic> topics = List.of();
+    List<Topic> topics = List.of();
   }
 
   static class Topic implements Request {
-    private String name;
-    private int partitions = 1;
-    private short replicas = 1;
-    private Optional<Double> probability = Optional.empty();
-    private Map<String, String> configs = Map.of();
+    String name;
+    int partitions = 1;
+    short replicas = 1;
+    Optional<Double> probability = Optional.empty();
+    Map<String, String> configs = Map.of();
   }
 
   static class Topics implements Response {
     final List<TopicInfo> topics;
+
+    private Topics() {
+      this.topics = List.of();
+    }
 
     private Topics(List<TopicInfo> topics) {
       this.topics = topics;
@@ -234,6 +238,13 @@ class TopicHandler implements Handler {
     final Set<String> activeGroupIds;
     final List<Partition> partitions;
     final Map<String, String> configs;
+
+    private TopicInfo() {
+      name = "";
+      activeGroupIds = Set.of();
+      partitions = List.of();
+      configs = Map.of();
+    }
 
     private TopicInfo(
         String name,
@@ -259,6 +270,15 @@ class TopicHandler implements Handler {
     // optional field
     final Long timestampOfLatestRecord;
 
+    private Partition() {
+      id = -1;
+      earliest = 0;
+      latest = 0;
+      replicas = List.of();
+      maxTimestamp = 0L;
+      timestampOfLatestRecord = 0L;
+    }
+
     Partition(
         int id,
         long earliest,
@@ -283,6 +303,16 @@ class TopicHandler implements Handler {
     final boolean inSync;
     final boolean isFuture;
     final String path;
+
+    private Replica() {
+      broker = -1;
+      lag = 0;
+      size = 0;
+      leader = false;
+      inSync = false;
+      isFuture = false;
+      path = "";
+    }
 
     Replica(org.astraea.common.admin.Replica replica) {
       this(

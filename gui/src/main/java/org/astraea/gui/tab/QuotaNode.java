@@ -32,7 +32,6 @@ import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -44,10 +43,9 @@ public class QuotaNode {
     var ipLabelKey = "ip address";
     var rateKey = "connections/second";
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
-                TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build())));
+        List.of(
+            TextInput.required(ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,
@@ -82,11 +80,9 @@ public class QuotaNode {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(
-                    clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
-                TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build())));
+        List.of(
+            TextInput.required(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,
@@ -121,11 +117,9 @@ public class QuotaNode {
     var clientIdLabelKey = "kafka client id";
     var byteRateKey = "MB/second";
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(
-                    clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
-                TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build())));
+        List.of(
+            TextInput.required(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,

@@ -17,39 +17,73 @@
 package org.astraea.app.web;
 
 import java.util.Map;
+import org.astraea.app.web.QuotaHandler.QuotaKeys;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.QuotaConfigs;
+import org.astraea.common.json.JsonConverter;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class QuotaHandlerTest extends RequireBrokerCluster {
+  private static final String CONNECTION = "connection";
+  private static final String PRODUCER = "producer";
+  private static final String CREATION_RATE = "creationRate";
+  private static final String BYTE_RATE = "byteRate";
 
   @Test
-  void testCreateQuota() {
+  void testCreateIPQuota() {
     var ip = "192.168.10.11";
     try (var admin = Admin.of(bootstrapServers())) {
       var handler = new QuotaHandler(admin);
-
       var result =
           Assertions.assertInstanceOf(
               QuotaHandler.Quotas.class,
               handler
                   .post(
                       Channel.ofRequest(
-                          PostRequest.of(
-                              Map.of(
-                                  QuotaConfigs.IP,
-                                  ip,
-                                  QuotaConfigs.IP_CONNECTION_RATE_CONFIG,
-                                  "10"))))
+                          JsonConverter.defaultConverter()
+                              .toJson(
+                                  Map.of(
+                                      CONNECTION,
+                                      Map.of(QuotaKeys.IP.value(), ip, CREATION_RATE, "10")))))
                   .toCompletableFuture()
                   .join());
       Assertions.assertEquals(1, result.quotas.size());
-      Assertions.assertEquals(QuotaConfigs.IP, result.quotas.iterator().next().target.name);
+      Assertions.assertEquals(QuotaKeys.IP.value(), result.quotas.iterator().next().target.name);
       Assertions.assertEquals(ip, result.quotas.iterator().next().target.value);
       Assertions.assertEquals(
-          QuotaConfigs.IP_CONNECTION_RATE_CONFIG, result.quotas.iterator().next().limit.name);
+          QuotaKeys.IP_CONNECTION_RATE.value(), result.quotas.iterator().next().limit.name);
+      Assertions.assertEquals(10, result.quotas.iterator().next().limit.value);
+    }
+  }
+
+  @Test
+  void testCreateProducerQuota() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var handler = new QuotaHandler(admin);
+      var result =
+          Assertions.assertInstanceOf(
+              QuotaHandler.Quotas.class,
+              handler
+                  .post(
+                      Channel.ofRequest(
+                          JsonConverter.defaultConverter()
+                              .toJson(
+                                  Map.of(
+                                      PRODUCER,
+                                      Map.of(
+                                          QuotaKeys.CLIENT_ID.value(),
+                                          "myClient",
+                                          BYTE_RATE,
+                                          "10")))))
+                  .toCompletableFuture()
+                  .join());
+      Assertions.assertEquals(1, result.quotas.size());
+      Assertions.assertEquals(
+          QuotaKeys.CLIENT_ID.value(), result.quotas.iterator().next().target.name);
+      Assertions.assertEquals("myClient", result.quotas.iterator().next().target.value);
+      Assertions.assertEquals(
+          QuotaKeys.PRODUCER_BYTE_RATE.value(), result.quotas.iterator().next().limit.name);
       Assertions.assertEquals(10, result.quotas.iterator().next().limit.value);
     }
   }
@@ -64,21 +98,25 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
       handler
           .post(
               Channel.ofRequest(
-                  PostRequest.of(
-                      Map.of(QuotaConfigs.IP, ip0, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "10"))))
+                  JsonConverter.defaultConverter()
+                      .toJson(
+                          Map.of(
+                              CONNECTION, Map.of(QuotaKeys.IP.value(), ip0, CREATION_RATE, "10")))))
           .toCompletableFuture()
           .join();
       handler
           .post(
               Channel.ofRequest(
-                  PostRequest.of(
-                      Map.of(QuotaConfigs.IP, ip1, QuotaConfigs.IP_CONNECTION_RATE_CONFIG, "20"))))
+                  JsonConverter.defaultConverter()
+                      .toJson(
+                          Map.of(
+                              CONNECTION, Map.of(QuotaKeys.IP.value(), ip1, CREATION_RATE, "20")))))
           .toCompletableFuture()
           .join();
       Assertions.assertEquals(
           1,
           handler
-              .get(Channel.ofQueries(Map.of(QuotaConfigs.IP, ip0)))
+              .get(Channel.ofQueries(Map.of(QuotaKeys.IP.value(), ip0)))
               .toCompletableFuture()
               .join()
               .quotas
@@ -86,7 +124,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(
           1,
           handler
-              .get(Channel.ofQueries(Map.of(QuotaConfigs.IP, ip1)))
+              .get(Channel.ofQueries(Map.of(QuotaKeys.IP.value(), ip1)))
               .toCompletableFuture()
               .join()
               .quotas
@@ -103,7 +141,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           Assertions.assertInstanceOf(
                   QuotaHandler.Quotas.class,
                   handler
-                      .get(Channel.ofQueries(Map.of(QuotaConfigs.IP, "unknown")))
+                      .get(Channel.ofQueries(Map.of(QuotaKeys.IP.value(), "unknown")))
                       .toCompletableFuture()
                       .join())
               .quotas
@@ -114,7 +152,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
           Assertions.assertInstanceOf(
                   QuotaHandler.Quotas.class,
                   handler
-                      .get(Channel.ofQueries(Map.of(QuotaConfigs.CLIENT_ID, "unknown")))
+                      .get(Channel.ofQueries(Map.of(QuotaKeys.CLIENT_ID.value(), "unknown")))
                       .toCompletableFuture()
                       .join())
               .quotas

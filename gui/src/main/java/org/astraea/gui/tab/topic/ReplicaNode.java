@@ -37,7 +37,6 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Argument;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -202,9 +201,7 @@ public class ReplicaNode {
                                     1))
                     .thenCompose(ignored -> context.admin().moveToFolders(requestToMoveFolders))
                     .thenAccept(
-                        ignored -> {
-                          logger.log("succeed to alter partitions: " + partitions);
-                        });
+                        ignored -> logger.log("succeed to alter partitions: " + partitions));
               });
     };
   }
@@ -220,11 +217,10 @@ public class ReplicaNode {
                     .thenCompose(context.admin()::clusterInfo)
                     .thenApply(ReplicaNode::allResult))
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        MOVE_BROKER_KEY,
-                        EditableText.multiline().disable().hint("1001:/path,1002").build()))),
+            List.of(
+                TextInput.of(
+                    MOVE_BROKER_KEY,
+                    EditableText.multiline().disable().hint("1001:/path,1002").build())),
             "ALTER",
             tableViewAction(context))
         .build();

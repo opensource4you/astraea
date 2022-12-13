@@ -45,7 +45,6 @@ import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -80,7 +79,7 @@ public class TopicNode {
                               .orElse(ServerMetrics.Topic.BYTES_IN_PER_SEC);
 
                       var nodeMeters =
-                          context.clients().entrySet().stream()
+                          context.brokerClients().entrySet().stream()
                               .collect(
                                   MapUtils.toSortedMap(
                                       Map.Entry::getKey, entry -> metric.fetch(entry.getValue())));
@@ -96,8 +95,8 @@ public class TopicNode {
                                 var map = new LinkedHashMap<String, Object>();
                                 map.put(TOPIC_NAME_KEY, topic);
                                 nodeMeters.forEach(
-                                    (nodeInfo, meters) -> {
-                                      var key = String.valueOf(nodeInfo.id());
+                                    (nodeId, meters) -> {
+                                      var key = String.valueOf(nodeId);
                                       var value =
                                           meters.stream()
                                               .filter(m -> m.topic().equals(topic))
@@ -159,10 +158,11 @@ public class TopicNode {
                                 })
                             .collect(Collectors.toList())))
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        TopicConfigs.ALL_CONFIGS, EditableText.singleLine().disable().build()))),
+            List.of(
+                TextInput.of(
+                    TopicConfigs.SEGMENT_BYTES_CONFIG,
+                    TopicConfigs.ALL_CONFIGS,
+                    EditableText.singleLine().disable().build())),
             "ALTER",
             (tables, input, logger) -> {
               var topicsToAlter =
@@ -217,7 +217,6 @@ public class TopicNode {
   private static Node basicNode(Context context) {
     return PaneBuilder.of()
         .secondPart(
-            null,
             "DELETE",
             (items, inputs, logger) -> {
               var topicsToDelete =
@@ -272,24 +271,22 @@ public class TopicNode {
     var numberOfReplicasKey = "number of replicas";
 
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(
-                    TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
-                TextInput.of(numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
-                TextInput.of(numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
-                TextInput.of(
-                    TopicConfigs.CLEANUP_POLICY_CONFIG,
-                    TopicConfigs.ALL_CONFIGS,
-                    EditableText.singleLine().build()),
-                TextInput.of(
-                    TopicConfigs.COMPRESSION_TYPE_CONFIG,
-                    TopicConfigs.ALL_CONFIGS,
-                    EditableText.singleLine().build()),
-                TextInput.of(
-                    TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
-                    TopicConfigs.ALL_CONFIGS,
-                    EditableText.singleLine().build())));
+        List.of(
+            TextInput.required(TOPIC_NAME_KEY, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(numberOfPartitionsKey, EditableText.singleLine().onlyNumber().build()),
+            TextInput.of(numberOfReplicasKey, EditableText.singleLine().onlyNumber().build()),
+            TextInput.of(
+                TopicConfigs.CLEANUP_POLICY_CONFIG,
+                TopicConfigs.ALL_CONFIGS,
+                EditableText.singleLine().build()),
+            TextInput.of(
+                TopicConfigs.COMPRESSION_TYPE_CONFIG,
+                TopicConfigs.ALL_CONFIGS,
+                EditableText.singleLine().build()),
+            TextInput.of(
+                TopicConfigs.MESSAGE_TIMESTAMP_TYPE_CONFIG,
+                TopicConfigs.ALL_CONFIGS,
+                EditableText.singleLine().build()));
 
     return PaneBuilder.of()
         .firstPart(

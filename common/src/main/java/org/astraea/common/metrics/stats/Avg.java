@@ -20,6 +20,10 @@ import java.time.Duration;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class Avg {
+  public static final String AVG_KEY = "avg";
+  public static final String RATE_BY_TIME_KEY = "rate_by_time";
+  public static final String EXP_WEIGHT_BY_TIME_KEY = "exp_weight_by_time";
+
   public static Stat<Double> of() {
     return new Stat<>() {
       private int counter = 0;

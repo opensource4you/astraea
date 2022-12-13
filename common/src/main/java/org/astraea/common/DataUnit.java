@@ -119,7 +119,7 @@ public enum DataUnit implements EnumInfo {
    * @param measurement the data size measurement.
    * @return a size object of given measurement under specific data unit.
    */
-  DataSize of(long measurement) {
+  public DataSize of(long measurement) {
     return new DataSize(measurement, this);
   }
 

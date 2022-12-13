@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.google.gson.Gson;
 import java.util.NoSuchElementException;
 import org.astraea.common.json.JsonConverter;
 
@@ -84,7 +83,9 @@ interface Response {
 
     @Override
     public String json() {
-      return message == null || message.isEmpty() ? "" : new Gson().toJson(this);
+      return message == null || message.isEmpty()
+          ? ""
+          : JsonConverter.defaultConverter().toJson(this);
     }
   }
 }

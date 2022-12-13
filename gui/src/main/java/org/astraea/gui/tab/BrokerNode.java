@@ -47,7 +47,6 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -210,7 +209,7 @@ public class BrokerNode {
                     .nodeInfos()
                     .thenApply(
                         nodes ->
-                            context.clients(nodes).entrySet().stream()
+                            context.addBrokerClients(nodes).entrySet().stream()
                                 .flatMap(
                                     entry ->
                                         argument.selectedKeys().stream()
@@ -229,7 +228,7 @@ public class BrokerNode {
                                 .map(
                                     entry -> {
                                       var result = new LinkedHashMap<String, Object>();
-                                      result.put(BROKER_ID_KEY, entry.getKey().id());
+                                      result.put(BROKER_ID_KEY, entry.getKey());
                                       entry.getValue().stream()
                                           .flatMap(e -> e.getValue().entrySet().stream())
                                           .sorted(
@@ -319,11 +318,11 @@ public class BrokerNode {
                                     })
                                 .collect(Collectors.toList())))
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        BrokerConfigs.DYNAMICAL_CONFIGS,
-                        EditableText.singleLine().disable().build()))),
+            List.of(
+                TextInput.of(
+                    BrokerConfigs.BACKGROUND_THREADS_CONFIG,
+                    BrokerConfigs.DYNAMICAL_CONFIGS,
+                    EditableText.singleLine().disable().build())),
             "ALTER",
             (tables, input, logger) -> {
               var brokerToAlter =
@@ -374,34 +373,30 @@ public class BrokerNode {
   private static Node folderNode(Context context) {
     BiFunction<Integer, String, Map<String, Object>> metrics =
         (id, path) ->
-            context.hasMetrics()
-                ? context.clients().entrySet().stream()
-                    .filter(e -> e.getKey().id() == id)
-                    .findFirst()
-                    .map(Map.Entry::getValue)
-                    .map(
-                        client ->
-                            Arrays.stream(LogMetrics.LogCleanerManager.values())
-                                .flatMap(
-                                    m -> {
-                                      try {
-                                        return m.fetch(client).stream();
-                                      } catch (Exception error) {
-                                        return Stream.of();
-                                      }
-                                    })
-                                .filter(m -> m.path().equals(path))
-                                .collect(
-                                    Collectors.toMap(
-                                        LogMetrics.LogCleanerManager.Gauge::metricsName,
-                                        m ->
-                                            m.type()
-                                                    == LogMetrics.LogCleanerManager
-                                                        .UNCLEANABLE_BYTES
-                                                ? (Object) DataSize.Byte.of(m.value())
-                                                : m.value())))
-                    .orElse(Map.of())
-                : Map.of();
+            context.brokerClients().entrySet().stream()
+                .filter(e -> e.getKey().equals(id))
+                .findFirst()
+                .map(Map.Entry::getValue)
+                .map(
+                    client ->
+                        Arrays.stream(LogMetrics.LogCleanerManager.values())
+                            .flatMap(
+                                m -> {
+                                  try {
+                                    return m.fetch(client).stream();
+                                  } catch (Exception error) {
+                                    return Stream.of();
+                                  }
+                                })
+                            .filter(m -> m.path().equals(path))
+                            .collect(
+                                Collectors.toMap(
+                                    LogMetrics.LogCleanerManager.Gauge::metricsName,
+                                    m ->
+                                        m.type() == LogMetrics.LogCleanerManager.UNCLEANABLE_BYTES
+                                            ? (Object) DataSize.Byte.of(m.value())
+                                            : m.value())))
+                .orElse(Map.of());
     return PaneBuilder.of()
         .firstPart(
             "REFRESH",

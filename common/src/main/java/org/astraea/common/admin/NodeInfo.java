@@ -18,7 +18,7 @@ package org.astraea.common.admin;
 
 import java.util.Objects;
 
-public interface NodeInfo extends Comparable<NodeInfo> {
+public interface NodeInfo {
 
   static NodeInfo of(org.apache.kafka.common.Node node) {
     return of(node.id(), node.host(), node.port());
@@ -85,14 +85,5 @@ public interface NodeInfo extends Comparable<NodeInfo> {
    */
   default boolean offline() {
     return host() == null || host().isEmpty() || port() < 0;
-  }
-
-  @Override
-  default int compareTo(NodeInfo other) {
-    var r = Integer.compare(id(), other.id());
-    if (r != 0) return r;
-    r = host().compareTo(other.host());
-    if (r != 0) return r;
-    return Integer.compare(port(), other.port());
   }
 }

@@ -30,7 +30,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import org.astraea.gui.text.TextInput;
 
-public interface MultiInput {
+interface MultiInput {
 
   private static Pane gridTextInput(List<TextInput> items) {
     var grid = new GridPane();

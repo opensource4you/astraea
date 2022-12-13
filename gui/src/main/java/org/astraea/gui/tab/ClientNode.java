@@ -17,7 +17,6 @@
 package org.astraea.gui.tab;
 
 import java.io.FileReader;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -54,7 +53,6 @@ import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
-import org.astraea.gui.pane.MultiInput;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.pane.TableRefresher;
@@ -72,14 +70,13 @@ public class ClientNode {
     var fileChooser = new FileChooser();
     return PaneBuilder.of()
         .firstPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.of(
-                        LINE_LIMIT_KEY,
-                        EditableText.singleLine()
-                            .onlyNumber()
-                            .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
-                            .build()))),
+            List.of(
+                TextInput.of(
+                    LINE_LIMIT_KEY,
+                    EditableText.singleLine()
+                        .onlyNumber()
+                        .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
+                        .build())),
             "open",
             (argument, logger) -> {
               var f = fileChooser.showOpenDialog(context.stage());
@@ -87,38 +84,38 @@ public class ClientNode {
               if (!f.isFile())
                 throw new IllegalArgumentException("the file: " + f + " is not file");
               return CompletableFuture.supplyAsync(
-                  () -> {
-                    int limit =
-                        Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
-                            .map(Integer::parseInt)
-                            .orElse(LINE_LIMIT_DEFAULT);
-                    try (var reader = CsvReader.builder(new FileReader(f)).build()) {
-                      if (!reader.hasNext())
-                        throw new IllegalArgumentException("there is no header");
-                      var header = reader.rawNext();
-                      var result = new ArrayList<Map<String, Object>>(limit);
-                      var count = 0;
-                      while (reader.hasNext()) {
-                        var line = reader.next();
-                        var map = new LinkedHashMap<String, Object>();
-                        for (var index = 0; index < header.size(); ++index) {
-                          if (index < line.size()) map.put(header.get(index), line.get(index));
-                        }
-                        result.add(map);
-                        if (++count >= limit) break;
-                      }
-                      return result;
-                    } catch (IOException e) {
-                      throw new IllegalArgumentException(e);
-                    }
-                  });
+                  () ->
+                      Utils.packException(
+                          () -> {
+                            int limit =
+                                Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
+                                    .map(Integer::parseInt)
+                                    .orElse(LINE_LIMIT_DEFAULT);
+                            try (var reader = CsvReader.builder(new FileReader(f)).build()) {
+                              if (!reader.hasNext())
+                                throw new IllegalArgumentException("there is no header");
+                              var header = reader.rawNext();
+                              var result = new ArrayList<Map<String, Object>>(limit);
+                              var count = 0;
+                              while (reader.hasNext()) {
+                                var line = reader.next();
+                                var map = new LinkedHashMap<String, Object>();
+                                for (var index = 0; index < header.size(); ++index) {
+                                  if (index < line.size())
+                                    map.put(header.get(index), line.get(index));
+                                }
+                                result.add(map);
+                                if (++count >= limit) break;
+                              }
+                              return result;
+                            }
+                          }));
             })
         .secondPart(
-            MultiInput.of(
-                List.of(
-                    TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
-                    TextInput.required(
-                        "format", EditableText.singleLine().hint("csv or json").build()))),
+            List.of(
+                TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
+                TextInput.required(
+                    "format", EditableText.singleLine().hint("csv or json").build())),
             "PUSH",
             (records, argument, logger) ->
                 context
@@ -294,10 +291,9 @@ public class ClientNode {
     var recordsKey = "records";
     var selectBox = SelectBox.single(List.of(base64Key, stringKey), 2);
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
-                TextInput.of(timeoutKey, EditableText.singleLine().defaultValue("3s").build())));
+        List.of(
+            TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
+            TextInput.of(timeoutKey, EditableText.singleLine().defaultValue("3s").build()));
     return PaneBuilder.of()
         .firstPart(
             selectBox,
@@ -371,12 +367,11 @@ public class ClientNode {
     var keyKey = "key";
     var valueKey = "value";
     var multiInput =
-        MultiInput.of(
-            List.of(
-                TextInput.required(topicKey, EditableText.singleLine().build()),
-                TextInput.of(partitionKey, EditableText.singleLine().build()),
-                TextInput.of(keyKey, EditableText.multiline().build()),
-                TextInput.of(valueKey, EditableText.multiline().build())));
+        List.of(
+            TextInput.required(topicKey, EditableText.singleLine().build()),
+            TextInput.of(partitionKey, EditableText.singleLine().build()),
+            TextInput.of(keyKey, EditableText.multiline().build()),
+            TextInput.of(valueKey, EditableText.multiline().build()));
     return PaneBuilder.of()
         .firstPart(
             multiInput,

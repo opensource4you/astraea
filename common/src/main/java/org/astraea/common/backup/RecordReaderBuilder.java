@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.Header;
+import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
 
 public class RecordReaderBuilder {
@@ -42,12 +43,7 @@ public class RecordReaderBuilder {
             @Override
             public Record<byte[], byte[]> next() {
               var recordBuffer = ByteBuffer.allocate(recordSize);
-              int actualSize;
-              try {
-                actualSize = inputStream.read(recordBuffer.array());
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
+              var actualSize = Utils.packException(() -> inputStream.read(recordBuffer.array()));
               if (actualSize != recordSize)
                 throw new IllegalStateException(
                     "expected size is " + recordSize + ", but actual size is " + actualSize);

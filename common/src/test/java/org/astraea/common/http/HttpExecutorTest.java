@@ -16,226 +16,345 @@
  */
 package org.astraea.common.http;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
+import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
-import org.astraea.common.json.JsonConverter;
+import org.astraea.common.Utils;
+import org.astraea.common.json.JsonSerializationException;
 import org.astraea.common.json.TypeRef;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class HttpExecutorTest {
-  private static final JsonConverter jsonConverter = JsonConverter.defaultConverter();
-
   @Test
   void testGet() {
-    var httpExecutor = HttpExecutor.builder().build();
-    HttpTestUtil.testWithServer(
-        httpServer ->
-            httpServer.createContext(
-                "/test",
-                HttpTestUtil.createTextHandler(List.of("GET"), "{'responseValue':'testValue'}")),
-        x -> {
-          var responseHttpResponse =
-              httpExecutor
-                  .get(getUrl(x, "/test"), TypeRef.of(TestResponse.class))
-                  .thenApply(Response::body)
-                  .toCompletableFuture()
-                  .join();
-          assertEquals("testValue", responseHttpResponse.responseValue());
+    try (var server = server()) {
+      var client = HttpExecutor.builder().build();
 
-          var executionException =
-              assertThrows(
-                  CompletionException.class,
-                  () ->
-                      httpExecutor
-                          .get(getUrl(x, "/NotFound"), TypeRef.of(TestResponse.class))
-                          .thenApply(Response::body)
-                          .toCompletableFuture()
-                          .join());
-          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
-        });
-  }
+      // test get
+      server.setRes(200, "{'responseValue':'testValue'}");
+      Assertions.assertEquals(
+          "testValue",
+          client
+              .get("http://localhost:" + server.port() + "/test", TypeRef.of(TestResponse.class))
+              .toCompletableFuture()
+              .join()
+              .body()
+              .responseValue);
 
-  @Test
-  void testGetParameter() {
-    var httpExecutor = HttpExecutor.builder().build();
-    HttpTestUtil.testWithServer(
-        httpServer ->
-            httpServer.createContext(
-                "/test",
-                HttpTestUtil.createTextHandler(
-                    List.of("GET"),
-                    x -> assertEquals("/test?k1=v1", x.uri().toString()),
-                    "{'responseValue':'testValue'}")),
-        x -> {
-          var responseHttpResponse =
-              httpExecutor
-                  .get(getUrl(x, "/test"), Map.of("k1", "v1"), TypeRef.of(TestResponse.class))
-                  .thenApply(Response::body)
-                  .toCompletableFuture()
-                  .join();
-          assertEquals("testValue", responseHttpResponse.responseValue());
+      // check request
+      Assertions.assertNotNull(server.req);
+      Assertions.assertEquals("get", server.req.method.toLowerCase());
+      Assertions.assertEquals("/test", server.req.path);
+      Assertions.assertNull(server.req.body);
+      Assertions.assertNull(server.req.query);
 
-          var executionException =
-              assertThrows(
-                  CompletionException.class,
-                  () ->
-                      httpExecutor
-                          .get(getUrl(x, "/NotFound"), TypeRef.of(TestResponse.class))
-                          .thenApply(Response::body)
-                          .toCompletableFuture()
-                          .join());
-          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
-        });
+      // test get with query
+      server.setRes(200, "{'responseValue':'testValue'}");
+      Assertions.assertEquals(
+          "testValue",
+          client
+              .get(
+                  "http://localhost:" + server.port() + "/test",
+                  Map.of("a", "b"),
+                  TypeRef.of(TestResponse.class))
+              .toCompletableFuture()
+              .join()
+              .body()
+              .responseValue);
+
+      // check request
+      Assertions.assertNotNull(server.req);
+      Assertions.assertEquals("get", server.req.method.toLowerCase());
+      Assertions.assertEquals("/test", server.req.path);
+      Assertions.assertNull(server.req.body);
+      Assertions.assertEquals("a=b", server.req.query);
+
+      // add not found exception
+      server.setRes(404, null);
+      var exception =
+          Assertions.assertInstanceOf(
+              HttpRequestException.class,
+              Assertions.assertThrows(
+                      CompletionException.class,
+                      () ->
+                          client
+                              .get(
+                                  "http://localhost:" + server.port() + "/test",
+                                  TypeRef.of(TestResponse.class))
+                              .toCompletableFuture()
+                              .join())
+                  .getCause());
+
+      Assertions.assertEquals("get error code: 404", exception.getMessage());
+      Assertions.assertEquals(404, exception.code());
+    }
   }
 
   @Test
   void testGetNestedObject() {
-    var httpExecutor = HttpExecutor.builder().build();
-    HttpTestUtil.testWithServer(
-        httpServer ->
-            httpServer.createContext(
-                "/test", HttpTestUtil.createTextHandler(List.of("GET"), "['v1','v2']")),
-        x -> {
-          var responseHttpResponse =
-              httpExecutor
-                  .get(getUrl(x, "/test"), new TypeRef<List<String>>() {})
-                  .thenApply(Response::body)
-                  .toCompletableFuture()
-                  .join();
-          assertEquals(List.of("v1", "v2"), responseHttpResponse);
-        });
+    try (var server = server()) {
+      var client = HttpExecutor.builder().build();
+      server.setRes(200, "['v1','v2']");
+      Assertions.assertEquals(
+          List.of("v1", "v2"),
+          client
+              .get("http://localhost:" + server.port() + "/test", TypeRef.array(String.class))
+              .toCompletableFuture()
+              .join()
+              .body());
+    }
   }
 
   @Test
-  void testPost() {
-    var httpExecutor = HttpExecutor.builder().build();
-    HttpTestUtil.testWithServer(
-        httpServer ->
-            httpServer.createContext(
-                "/test",
-                HttpTestUtil.createTextHandler(
-                    List.of("Post"),
-                    (x) -> {
-                      var request = jsonConverter.fromJson(x.body(), TypeRef.of(TestRequest.class));
-                      assertEquals("testRequestValue", request.requestValue());
-                    },
-                    "{'responseValue':'testValue'}")),
-        x -> {
-          var request = new TestRequest();
-          request.setRequestValue("testRequestValue");
-          var responseHttpResponse =
-              httpExecutor
-                  .post(getUrl(x, "/test"), request, TypeRef.of(TestResponse.class))
-                  .thenApply(Response::body)
-                  .toCompletableFuture()
-                  .join();
-          assertEquals("testValue", responseHttpResponse.responseValue());
+  void testPostAndPut() {
+    try (var server = server()) {
+      var client = HttpExecutor.builder().build();
 
-          // response body can't convert to testResponse
-          var executionException =
-              assertThrows(
+      // test post
+      server.setRes(200, "{'responseValue':'testValue'}");
+      Assertions.assertEquals(
+          "testValue",
+          client
+              .post(
+                  "http://localhost:" + server.port() + "/test",
+                  new TestRequest("testRequestValue"),
+                  TypeRef.of(TestResponse.class))
+              .toCompletableFuture()
+              .join()
+              .body()
+              .responseValue);
+
+      // check post request
+      Assertions.assertNotNull(server.req);
+      Assertions.assertEquals("post", server.req.method.toLowerCase());
+      Assertions.assertEquals("/test", server.req.path);
+      Assertions.assertNotNull(server.req.body);
+
+      // set wrong response for post
+      server.setRes(200, "{'xxx':'testValue'}");
+      Assertions.assertInstanceOf(
+          JsonSerializationException.class,
+          Assertions.assertThrows(
                   CompletionException.class,
                   () ->
-                      httpExecutor
-                          .post(getUrl(x, "/NotFound"), request, TypeRef.of(TestResponse.class))
-                          .thenApply(Response::body)
+                      client
+                          .post(
+                              "http://localhost:" + server.port() + "/test",
+                              new TestRequest("testRequestValue"),
+                              TypeRef.of(TestResponse.class))
                           .toCompletableFuture()
-                          .join());
-          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
-        });
+                          .join())
+              .getCause());
+    }
   }
 
   @Test
   void testPut() {
-    var httpExecutor = HttpExecutor.builder().build();
-    HttpTestUtil.testWithServer(
-        httpServer ->
-            httpServer.createContext(
-                "/test",
-                HttpTestUtil.createTextHandler(
-                    List.of("Put"),
-                    (x) -> {
-                      var request = jsonConverter.fromJson(x.body(), TypeRef.of(TestRequest.class));
-                      assertEquals("testRequestValue", request.requestValue());
-                    },
-                    "{'responseValue':'testValue'}")),
-        x -> {
-          var request = new TestRequest();
-          request.setRequestValue("testRequestValue");
-          var responseHttpResponse =
-              httpExecutor
-                  .put(getUrl(x, "/test"), request, TypeRef.of(TestResponse.class))
-                  .thenApply(Response::body)
-                  .toCompletableFuture()
-                  .join();
-          assertEquals("testValue", responseHttpResponse.responseValue());
+    try (var server = server()) {
+      var client = HttpExecutor.builder().build();
+      // test put
+      server.setRes(200, "{'responseValue':'testValue'}");
+      Assertions.assertEquals(
+          "testValue",
+          client
+              .put(
+                  "http://localhost:" + server.port() + "/test",
+                  new TestRequest("testRequestValue"),
+                  TypeRef.of(TestResponse.class))
+              .toCompletableFuture()
+              .join()
+              .body()
+              .responseValue);
 
-          var executionException =
-              assertThrows(
+      // check put request
+      Assertions.assertNotNull(server.req);
+      Assertions.assertEquals("put", server.req.method.toLowerCase());
+      Assertions.assertEquals("/test", server.req.path);
+      Assertions.assertNotNull(server.req.body);
+
+      // set wrong response for put
+      server.setRes(200, "{'xxx':'testValue'}");
+      Assertions.assertInstanceOf(
+          JsonSerializationException.class,
+          Assertions.assertThrows(
                   CompletionException.class,
                   () ->
-                      httpExecutor
-                          .put(getUrl(x, "/NotFound"), request, TypeRef.of(TestResponse.class))
-                          .thenApply(Response::body)
+                      client
+                          .put(
+                              "http://localhost:" + server.port() + "/test",
+                              new TestRequest("testRequestValue"),
+                              TypeRef.of(TestResponse.class))
                           .toCompletableFuture()
-                          .join());
-          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
-        });
+                          .join())
+              .getCause());
+    }
   }
 
   @Test
   void testDelete() {
-    var httpExecutor = HttpExecutor.builder().build();
-    HttpTestUtil.testWithServer(
-        httpServer ->
-            httpServer.createContext(
-                "/test", HttpTestUtil.createTextHandler(List.of("delete"), "")),
-        x -> {
-          httpExecutor.delete(getUrl(x, "/test"));
+    try (var server = server()) {
+      var client = HttpExecutor.builder().build();
 
-          var executionException =
-              assertThrows(
-                  CompletionException.class,
-                  () ->
-                      httpExecutor
-                          .delete(getUrl(x, "/NotFound"))
-                          .thenApply(Response::body)
-                          .toCompletableFuture()
-                          .join());
-          assertEquals(IllegalStateException.class, executionException.getCause().getClass());
-        });
+      // test get
+      server.setRes(200, "{'responseValue':'testValue'}");
+      Assertions.assertNull(
+          client
+              .delete("http://localhost:" + server.port() + "/test")
+              .toCompletableFuture()
+              .join()
+              .body());
+
+      // check request
+      Assertions.assertNotNull(server.req);
+      Assertions.assertEquals("delete", server.req.method.toLowerCase());
+      Assertions.assertEquals("/test", server.req.path);
+      Assertions.assertNull(server.req.body);
+      Assertions.assertNull(server.req.query);
+
+      //       add not found exception
+      server.setRes(404, null);
+      var exception =
+          Assertions.assertInstanceOf(
+              HttpRequestException.class,
+              Assertions.assertThrows(
+                      CompletionException.class,
+                      () ->
+                          client
+                              .delete("http://localhost:" + server.port() + "/test")
+                              .toCompletableFuture()
+                              .join())
+                  .getCause());
+
+      Assertions.assertEquals("get error code: 404", exception.getMessage());
+      Assertions.assertEquals(404, exception.code());
+    }
   }
 
-  private String getUrl(InetSocketAddress socketAddress, String path) {
-    return "http://localhost:" + socketAddress.getPort() + path;
+  @Test
+  void testErrorMessage() {
+    try (var server = server()) {
+      var client =
+          HttpExecutor.builder()
+              .errorMessageHandler(
+                  (b, c) ->
+                      Objects.requireNonNull(c.fromJson(b, TypeRef.map(String.class)).get("error")))
+              .build();
+
+      // add error response
+      server.setRes(500, "{\"xx\":\"aa\",\"error\":\"hello world\"}");
+
+      var exception =
+          Assertions.assertInstanceOf(
+              HttpRequestException.class,
+              Assertions.assertThrows(
+                      CompletionException.class,
+                      () ->
+                          client
+                              .get(
+                                  "http://localhost:" + server.port() + "/aaa",
+                                  TypeRef.map(String.class))
+                              .toCompletableFuture()
+                              .join())
+                  .getCause());
+      Assertions.assertEquals("hello world", exception.getMessage());
+      Assertions.assertEquals(500, exception.code());
+    }
   }
 
   public static class TestResponse {
     private String responseValue;
-
-    public String responseValue() {
-      return responseValue;
-    }
-
-    public void setResponseValue(String responseValue) {
-      this.responseValue = responseValue;
-    }
   }
 
   public static class TestRequest {
-    private String requestValue;
+    private final String requestValue;
 
-    public String requestValue() {
-      return requestValue;
+    public TestRequest(String requestValue) {
+      this.requestValue = requestValue;
+    }
+  }
+
+  private static class Req {
+    private final String method;
+    private final String path;
+    private final String query;
+    private final String body;
+
+    private Req(String method, String path, String query, String body) {
+      this.method = method;
+      this.path = path;
+      this.query = query;
+      this.body = body;
+    }
+  }
+
+  private static class Res {
+    private final int code;
+    private final String body;
+
+    private Res(int code, String body) {
+      this.code = code;
+      this.body = body;
+    }
+  }
+
+  private static Server server() {
+    return Utils.packException(() -> new Server(HttpServer.create(new InetSocketAddress(0), 0)));
+  }
+
+  private static class Server implements AutoCloseable {
+    private final HttpServer server;
+
+    private final BlockingQueue<Res> res = new ArrayBlockingQueue<>(1);
+
+    private volatile Req req;
+
+    private Server(HttpServer server) {
+      this.server = server;
+      Utils.packException(
+          () -> {
+            server.start();
+            server.createContext(
+                "/",
+                exchange -> {
+                  var body = exchange.getRequestBody().readAllBytes();
+                  req =
+                      new Req(
+                          exchange.getRequestMethod(),
+                          exchange.getRequestURI().getPath(),
+                          exchange.getRequestURI().getQuery(),
+                          body == null || body.length == 0
+                              ? null
+                              : new String(body, StandardCharsets.UTF_8));
+                  Utils.packException(
+                      () -> {
+                        var r = res.take();
+                        exchange.sendResponseHeaders(r.code, r.body == null ? 0 : r.body.length());
+                        try (var output = exchange.getResponseBody()) {
+                          if (r.body != null) output.write(r.body.getBytes(StandardCharsets.UTF_8));
+                        }
+                      });
+                });
+          });
     }
 
-    public void setRequestValue(String requestValue) {
-      this.requestValue = requestValue;
+    private void setRes(int code, String body) {
+      Assertions.assertTrue(res.add(new Res(code, body)));
+    }
+
+    private int port() {
+      return server.getAddress().getPort();
+    }
+
+    @Override
+    public void close() {
+      server.stop(5);
     }
   }
 }
