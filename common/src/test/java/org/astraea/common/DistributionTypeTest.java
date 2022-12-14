@@ -14,15 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.performance;
+package org.astraea.common;
 
+import java.util.Arrays;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class DistributionTest {
+public class DistributionTypeTest {
+
+  @Test
+  void testZero() {
+    Arrays.stream(DistributionType.values())
+        .forEach(
+            d -> {
+              Assertions.assertEquals(0, d.create(0).get());
+              Assertions.assertEquals(0, d.create(-100).get());
+            });
+  }
 
   @Test
   void testFixed() {

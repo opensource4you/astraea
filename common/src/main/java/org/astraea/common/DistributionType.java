@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.performance;
+package org.astraea.common;
 
-import com.beust.jcommander.ParameterException;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.astraea.app.argument.Field;
-import org.astraea.common.EnumInfo;
 
 /**
  * Random distribution generator. Example: {@code Supplier<long> uniformDistribution =
@@ -32,14 +29,14 @@ import org.astraea.common.EnumInfo;
 public enum DistributionType implements EnumInfo {
   FIXED {
     @Override
-    public Supplier<Long> create(int n) {
+    public Supplier<Long> supplier(int n) {
       return () -> (long) n;
     }
   },
 
   UNIFORM {
     @Override
-    public Supplier<Long> create(int n) {
+    public Supplier<Long> supplier(int n) {
       var rand = new Random();
       return () -> (long) rand.nextInt(n);
     }
@@ -48,7 +45,7 @@ public enum DistributionType implements EnumInfo {
   /** A distribution for providing different random value every 2 seconds */
   LATEST {
     @Override
-    public Supplier<Long> create(int n) {
+    public Supplier<Long> supplier(int n) {
       var rand = new Random();
       return () -> {
         var time = System.currentTimeMillis();
@@ -64,7 +61,7 @@ public enum DistributionType implements EnumInfo {
    */
   ZIPFIAN {
     @Override
-    public Supplier<Long> create(int n) {
+    public Supplier<Long> supplier(int n) {
       var cumulativeDensityTable = new ArrayList<Double>();
       var rand = new Random();
       var H_N = IntStream.range(1, n + 1).mapToDouble(k -> 1D / k).sum();
@@ -98,20 +95,10 @@ public enum DistributionType implements EnumInfo {
     return alias();
   }
 
-  abstract Supplier<Long> create(int n);
-
-  /**
-   * convert(String): Accept lower-case name only e.g. "fixed", "uniform", "latest" and "zipfian"
-   * are legal e.g. "Fixed" and "UNIFORM" are illegal
-   */
-  static class DistributionTypeField extends Field<DistributionType> {
-    @Override
-    public DistributionType convert(String name) {
-      try {
-        return ofAlias(name);
-      } catch (IllegalArgumentException e) {
-        throw new ParameterException(e);
-      }
-    }
+  public final Supplier<Long> create(int n) {
+    if (n <= 0) return () -> 0L;
+    return supplier(n);
   }
+
+  protected abstract Supplier<Long> supplier(int n);
 }
