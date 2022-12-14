@@ -21,8 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.json.JsonConverter;
-import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Record;
 
 public class SourceRecord implements Record<byte[], byte[]> {
@@ -30,8 +28,6 @@ public class SourceRecord implements Record<byte[], byte[]> {
   public static Builder builder() {
     return new Builder();
   }
-
-  private static final JsonConverter CONVERTER = JsonConverter.defaultConverter();
 
   private final Record<byte[], byte[]> record;
   private final Map<String, String> metadataIndex;
@@ -132,16 +128,13 @@ public class SourceRecord implements Record<byte[], byte[]> {
       return this;
     }
 
-    public Builder metadataIndex(Object metadataIndex) {
-      if (metadataIndex != null)
-        this.metadataIndex =
-            CONVERTER.fromJson(CONVERTER.toJson(metadataIndex), TypeRef.map(String.class));
+    public Builder metadataIndex(Map<String, String> metadataIndex) {
+      this.metadataIndex = metadataIndex;
       return this;
     }
 
-    public Builder metadata(Object metadata) {
-      if (metadata != null)
-        this.metadata = CONVERTER.fromJson(CONVERTER.toJson(metadata), TypeRef.map(String.class));
+    public Builder metadata(Map<String, String> metadata) {
+      this.metadata = metadata;
       return this;
     }
 

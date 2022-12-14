@@ -24,6 +24,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.connector.Definition;
+import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
 import org.astraea.connector.SourceTask;
 
@@ -73,7 +74,7 @@ public class PerfSource extends SourceConnector {
   private Configuration config;
 
   @Override
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, MetadataStorage storage) {
     this.config = configuration;
   }
 

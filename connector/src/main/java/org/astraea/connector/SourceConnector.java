@@ -26,7 +26,7 @@ import org.astraea.common.VersionUtils;
 public abstract class SourceConnector extends org.apache.kafka.connect.source.SourceConnector {
   public static String TOPICS_KEY = "topics";
 
-  protected abstract void init(Configuration configuration);
+  protected abstract void init(Configuration configuration, MetadataStorage storage);
 
   protected abstract Class<? extends SourceTask> task();
 
@@ -41,7 +41,7 @@ public abstract class SourceConnector extends org.apache.kafka.connect.source.So
   // -------------------------[final]-------------------------//
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    init(Configuration.of(props), MetadataStorage.of(context().offsetStorageReader()));
   }
 
   @Override
