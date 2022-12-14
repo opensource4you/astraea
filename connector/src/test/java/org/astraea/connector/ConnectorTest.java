@@ -91,7 +91,7 @@ public class ConnectorTest extends RequireWorkerCluster {
     private static final AtomicInteger CLOSE_COUNT = new AtomicInteger(0);
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       INIT_COUNT.incrementAndGet();
     }
 
