@@ -54,7 +54,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
             .validate(
                 "TestTextSourceConnector",
                 Map.of(
-                    ConnectorClient.CONNECTOR_CLASS_KEY, TestTextSourceConnector.class.getName()))
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY, TestTextSourceConnector.class.getName()))
             .toCompletableFuture()
             .join();
     assertNotEquals(0, validation.errorCount());

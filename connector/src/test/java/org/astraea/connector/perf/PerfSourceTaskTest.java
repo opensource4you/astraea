@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
-import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ public class PerfSourceTaskTest {
   @Test
   void testInit() {
     var task = new PerfSourceTask();
-    task.init(Configuration.of(Map.of(ConnectorClient.TOPICS_KEY, "a")));
+    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")));
     Assertions.assertNotNull(task.rand);
     Assertions.assertNotNull(task.topics);
     Assertions.assertNotNull(task.frequency);
@@ -48,7 +48,7 @@ public class PerfSourceTaskTest {
     task.init(
         Configuration.of(
             Map.of(
-                ConnectorClient.TOPICS_KEY,
+                ConnectorConfigs.TOPICS_KEY,
                 "a",
                 PerfSource.KEY_DISTRIBUTION_DEF.name(),
                 "uniform",
@@ -75,7 +75,7 @@ public class PerfSourceTaskTest {
     var task = new PerfSourceTask();
     task.init(
         Configuration.of(
-            Map.of(ConnectorClient.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0byte")));
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")));
     Assertions.assertNull(task.key());
     Assertions.assertEquals(0, task.keys.size());
   }
@@ -85,7 +85,7 @@ public class PerfSourceTaskTest {
     var task = new PerfSourceTask();
     task.init(
         Configuration.of(
-            Map.of(ConnectorClient.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0byte")));
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")));
     Assertions.assertNull(task.value());
     Assertions.assertEquals(0, task.values.size());
   }

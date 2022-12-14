@@ -24,7 +24,7 @@ import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
-import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.WorkerStatus;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
@@ -68,19 +68,19 @@ public class ConnectorNode {
     return PaneBuilder.of()
         .firstPart(
             List.of(
-                TextInput.required(ConnectorClient.NAME_KEY, EditableText.singleLine().build()),
+                TextInput.required(ConnectorConfigs.NAME_KEY, EditableText.singleLine().build()),
                 TextInput.required(
-                    ConnectorClient.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
-                TextInput.required(ConnectorClient.TOPICS_KEY, EditableText.singleLine().build()),
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
+                TextInput.required(ConnectorConfigs.TOPICS_KEY, EditableText.singleLine().build()),
                 TextInput.required(
-                    ConnectorClient.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
+                    ConnectorConfigs.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
                 TextInput.of("configs", EditableText.multiline().build())),
             "CREATE",
             (argument, logger) -> {
               var req = new HashMap<>(argument.nonEmptyTexts());
               return context
                   .connectorClient()
-                  .createConnector(req.remove(ConnectorClient.NAME_KEY), req)
+                  .createConnector(req.remove(ConnectorConfigs.NAME_KEY), req)
                   .thenApply(
                       connectorInfo -> {
                         var map = new LinkedHashMap<String, Object>();

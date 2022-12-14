@@ -26,6 +26,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -54,19 +55,19 @@ public class ConnectorTest extends RequireWorkerCluster {
             .createConnector(
                 name,
                 Map.of(
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     MySource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "3",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     topic))
             .toCompletableFuture()
             .join();
     Assertions.assertEquals(name, info.name());
     Assertions.assertEquals(
-        MySource.class.getName(), info.config().get(ConnectorClient.CONNECTOR_CLASS_KEY));
-    Assertions.assertEquals("3", info.config().get(ConnectorClient.TASK_MAX_KEY));
-    Assertions.assertEquals(topic, info.config().get(ConnectorClient.TOPICS_KEY));
+        MySource.class.getName(), info.config().get(ConnectorConfigs.CONNECTOR_CLASS_KEY));
+    Assertions.assertEquals("3", info.config().get(ConnectorConfigs.TASK_MAX_KEY));
+    Assertions.assertEquals(topic, info.config().get(ConnectorConfigs.TOPICS_KEY));
 
     // wait for sync
     Utils.sleep(Duration.ofSeconds(3));
