@@ -28,6 +28,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Record;
@@ -51,11 +52,11 @@ public class SourceTest extends RequireSingleWorkerCluster {
         .createConnector(
             name,
             Map.of(
-                ConnectorClient.CONNECTOR_CLASS_KEY,
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
                 MySource.class.getName(),
-                ConnectorClient.TASK_MAX_KEY,
+                ConnectorConfigs.TASK_MAX_KEY,
                 "1",
-                ConnectorClient.TOPICS_KEY,
+                ConnectorConfigs.TOPICS_KEY,
                 topic))
         .toCompletableFuture()
         .join();
@@ -127,7 +128,7 @@ public class SourceTest extends RequireSingleWorkerCluster {
 
     @Override
     protected void init(Configuration configuration) {
-      topics = Set.copyOf(configuration.list(ConnectorClient.TOPICS_KEY, ","));
+      topics = Set.copyOf(configuration.list(ConnectorConfigs.TOPICS_KEY, ","));
     }
 
     @Override
