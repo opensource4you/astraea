@@ -41,7 +41,7 @@ object Spark2Kafka {
         .primaryKeys(
           metaData.column.filter(col => col.isPK).map(col => col.name)
         )
-        .readCSV(metaData.sourcePath.getPath, metaData.blankLine)
+        .readCSV(metaData.sourcePath.getPath)
         .csvToJSON(metaData.column)
 
       val query = Writer

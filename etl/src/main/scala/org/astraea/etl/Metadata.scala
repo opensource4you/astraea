@@ -48,8 +48,6 @@ import scala.collection.JavaConverters._
   *   supported spark://HOST:PORT and local[*].
   * @param checkpoint
   *   Spark checkpoint path.
-  * @param blankLine
-  *   Determine if a blank line is legal, default is true.
   */
 case class Metadata private (
     deployModel: String,
@@ -61,8 +59,7 @@ case class Metadata private (
     numPartitions: Int,
     numReplicas: Short,
     topicConfig: Map[String, String],
-    checkpoint: File,
-    blankLine: Boolean
+    checkpoint: File
 )
 
 object Metadata {
@@ -77,11 +74,9 @@ object Metadata {
   private[this] val TOPIC_CONFIG = "topic.config"
   private[this] val DEPLOY_MODEL = "deploy.model"
   private[this] val CHECKPOINT = "checkpoint"
-  private[this] val BLANK_LINE = "blankLine"
 
   private[this] val DEFAULT_PARTITIONS = "15"
   private[this] val DEFAULT_REPLICAS = "1"
-  private[this] val DEFAULT_BLANK = "true"
 
   def builder(): MetadataBuilder = {
     MetadataBuilder.of()
@@ -125,9 +120,6 @@ object Metadata {
         case CHECKPOINT =>
           metadataBuilder =
             metadataBuilder.checkpoint(Checkpoint.process(entry._2))
-        case BLANK_LINE =>
-          metadataBuilder =
-            metadataBuilder.blankLine(BlankLine.process(entry._2))
         case _ =>
       }
     )
@@ -271,12 +263,6 @@ object Metadata {
     }
   }
 
-  case object BlankLine extends MetaDataType(BLANK_LINE, false, DEFAULT_BLANK) {
-    def process(str: String): Boolean = {
-      parseEmptyStr(str).toBoolean
-    }
-  }
-
   def of(meta: String): MetaDataType = {
     val value = all.filter(tp => tp.value != meta)
     if (value.isEmpty) {
@@ -300,8 +286,7 @@ object Metadata {
       TopicName,
       NumPartitions,
       NumReplicas,
-      TopicConfig,
-      BlankLine
+      TopicConfig
     )
   }
 
@@ -325,8 +310,7 @@ object Metadata {
       private var numPartitions: Int,
       private var numReplicas: Short,
       private var topicConfig: Map[String, String],
-      private var checkpoint: File,
-      private var blankLine: Boolean
+      private var checkpoint: File
   ) {
     protected def this() = this(
       "deploymentModel",
@@ -338,8 +322,7 @@ object Metadata {
       -1,
       -1,
       Map.empty,
-      new File(""),
-      true
+      new File("")
     )
 
     def deploymentMode(str: String): MetadataBuilder = {
@@ -392,11 +375,6 @@ object Metadata {
       this
     }
 
-    def blankLine(allow: Boolean): MetadataBuilder = {
-      this.blankLine = allow
-      this
-    }
-
     def build(): Metadata = {
       Metadata(
         this.deploymentModel,
@@ -408,8 +386,7 @@ object Metadata {
         this.numPartitions,
         this.numReplicas,
         this.topicConfig,
-        this.checkpoint,
-        this.blankLine
+        this.checkpoint
       )
     }
   }

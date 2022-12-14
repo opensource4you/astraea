@@ -35,7 +35,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class ReaderTest extends RequireBrokerCluster {
-  @Test def pkNonNullTest(): Unit = {
+  @Test def skipBlankLineTest(): Unit = {
     val tempPath: String =
       System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
         .nextInt()
@@ -45,13 +45,15 @@ class ReaderTest extends RequireBrokerCluster {
       System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
         .nextInt()
     mkdir(tempArchivePath)
+    val dataDir = mkdir(tempPath + "/data")
+    val checkoutDir = mkdir(tempPath + "/checkout")
 
     val columnOne: List[String] =
-      List("A1", "B1", "C1", null)
+      List("A1", "B1", null, "D1")
     val columnTwo: List[String] =
-      List("52", "36", "45", "25")
+      List("52", "36", null, "25")
     val columnThree: List[String] =
-      List("fghgh", "gjgbn", "fgbhjf", "dfjf")
+      List("fghgh", "gjgbn", null, "dfjf")
 
     val row = columnOne
       .zip(columnTwo.zip(columnThree))
@@ -77,18 +79,24 @@ class ReaderTest extends RequireBrokerCluster {
         .schema(structType)
         .sinkPath(new File(tempArchivePath).getPath)
         .primaryKeys(Seq("RecordNumber"))
-        .readCSV(new File(tempPath).getPath, blankLine = true)
+        .readCSV(new File(tempPath).getPath)
         .dataFrame()
 
-    assertThrows(
-      classOf[StreamingQueryException],
-      () =>
-        df.writeStream
-          .outputMode(OutputMode.Append())
-          .format("console")
-          .start()
-          .awaitTermination(Duration(5, TimeUnit.SECONDS).toMillis)
-    )
+    df.writeStream
+      .format("csv")
+      .option("path", dataDir.getPath)
+      .option("checkpointLocation", checkoutDir.getPath)
+      .outputMode("append")
+      .start()
+      .awaitTermination(Duration(20, TimeUnit.SECONDS).toMillis)
+
+    val writeFile = getCSVFile(new File(dataDir.getPath)).head
+    val br = new BufferedReader(new FileReader(writeFile))
+
+    assertEquals(br.readLine, "A1,52,fghgh")
+    assertEquals(br.readLine, "B1,36,gjgbn")
+    assertEquals(br.readLine, "D1,25,dfjf")
+
   }
 
   @Test def sparkReadCSVTest(): Unit = {
@@ -116,7 +124,7 @@ class ReaderTest extends RequireBrokerCluster {
       .schema(structType)
       .sinkPath(sinkDir.getPath)
       .primaryKeys(Seq("RecordNumber"))
-      .readCSV(sourceDir.getPath, blankLine = true)
+      .readCSV(sourceDir.getPath)
     assertTrue(
       csvDF.dataFrame().isStreaming,
       "sessions must be a streaming Dataset"
@@ -179,7 +187,7 @@ class ReaderTest extends RequireBrokerCluster {
       .asScala
       .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
       .toMap
-    println(resultExchange)
+
     assertEquals(1, resultExchange.size)
     assertEquals(
       "{\"age\":\"29\",\"name\":\"Michael\"}",
