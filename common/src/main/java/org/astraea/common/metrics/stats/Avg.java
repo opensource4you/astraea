@@ -112,4 +112,54 @@ public class Avg {
       }
     };
   }
+
+  public static Stat<Double> expRateByTime(Duration period) {
+    return expRateByTime(period, 0.5);
+  }
+
+  /**
+   * This category implements {@link Stat }, and its statistical method will use {@link RateByTime}
+   * to calculate the difference between the last two distance measurement data, and finally use
+   * exponential moving average as the sum. When new data comes in, the calculation method is as
+   * follows: Average = RateByTime(new data) * alpha + RateByTime(past data) * (1-alpha) ,and
+   * RateByTime(new data) = (newData - lastData) / (newTime - lastTime)
+   *
+   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
+   *     within the duration, it will be regarded as one.
+   * @param alpha alpha indicates how much you value new data. The larger the value, the lower the
+   *     weight of the past data, the weight of the latest data is alpha, the weight of the past
+   *     data is 1-alpha, the alpha needs to be between 0 and 1, the default value of alpha is 0.5.
+   */
+  public static Stat<Double> expRateByTime(Duration period, double alpha) {
+    return new Stat<>() {
+      private static final long EMPTY_TIME = -1L;
+      private double accumulate = 0.0;
+      private final Stat<Double> expStat = expWeightByTime(period, alpha);
+      private final Stat<Double> rateStat = new RateByTime(period);
+      private final Debounce<Double> debounce = Debounce.of(period);
+      private final long[] oldTime = new long[] {EMPTY_TIME, EMPTY_TIME};
+
+      @Override
+      public void record(Double value) {
+        var current = Duration.ofMillis(System.currentTimeMillis());
+        debounce
+            .record(value, current.toMillis())
+            .ifPresent(
+                debouncedValue -> {
+                  oldTime[0] = oldTime[1];
+                  oldTime[1] = current.toSeconds();
+                  rateStat.record(debouncedValue);
+                  expStat.record(rateStat.measure() / (oldTime[1] - oldTime[0]));
+                  accumulate = expStat.measure();
+                });
+      }
+
+      @Override
+      public Double measure() {
+        // Only one record is not enough to calculate to write traffic.
+        if (oldTime[0] == EMPTY_TIME) throw new RuntimeException("Not enough data to measure");
+        return accumulate;
+      }
+    };
+  }
 }

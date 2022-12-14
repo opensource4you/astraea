@@ -66,4 +66,21 @@ public class AvgTest {
 
     Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
   }
+
+  @Test
+  void testExpRateByTime() throws InterruptedException {
+    var rateByTime = Avg.expRateByTime(Duration.ofSeconds(1));
+    rateByTime.record(10.0);
+    // test not enough data to measure
+    Assertions.assertThrows(RuntimeException.class, rateByTime::measure);
+    rateByTime.record(10.0);
+    Thread.sleep(1000);
+    rateByTime.record(50.0);
+
+    Assertions.assertEquals((50 - 10) * 0.5, Math.round(rateByTime.measure() * 1000) / 1000.0);
+    Thread.sleep(1000);
+    rateByTime.record(100.0);
+    Assertions.assertEquals(
+        (50 - 10) * 0.5 * 0.5 + (100 - 50) * 0.5, Math.round(rateByTime.measure() * 1000) / 1000.0);
+  }
 }
