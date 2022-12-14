@@ -227,9 +227,9 @@ JSON Response 範例
 
 > ##### 解讀 `score` 的注意事項
 > 1. `score` 和 `newScore` 之值代表一個叢集分佈接近最佳狀況的程度。
-> 2. 不同 Plan Generation 之間的 `score` 分數沒有關聯。
-> 3. 針對同一筆 Plan Generator， `score` 和 `newScore` 之間的數字大小能夠反映誰好誰壞，
->    即 `scoreA` > `scoreB` 有定義，其代表 B 負載分佈比 A 負載分佈在此特定情境下更好。
+> 2. 不同負載平衡計劃之間的 `score` 分數沒有關聯(不能彼此比較)。
+> 3. 針對同一筆平衡計劃所產生的 `score` 和 `newScore` 數字能夠反映叢集的好壞，即 `scoreA` > `scoreB` 有定義，
+>    其代表 B 負載分佈比 A 負載分佈在此特定情境下更好。
 
 
 目前此 endpoint 僅能查詢負載平衡計劃是否完成，如想知道更細部的搬移進度，可考慮使用 [Web Service Reassignments API](web_api_reassignments_chinese.md) 查詢。
