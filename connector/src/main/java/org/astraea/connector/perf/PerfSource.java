@@ -71,6 +71,14 @@ public class PerfSource extends SourceConnector {
               "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
 
+  static Definition TEST_DEF =
+      Definition.builder()
+          .name("test.distribution")
+          .type(Definition.Type.STRING)
+          .documentation(
+              "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
+          .build();
+
   private Configuration config;
 
   @Override
@@ -95,6 +103,7 @@ public class PerfSource extends SourceConnector {
         KEY_LENGTH_DEF,
         KEY_DISTRIBUTION_DEF,
         VALUE_LENGTH_DEF,
-        VALUE_DISTRIBUTION_DEF);
+        VALUE_DISTRIBUTION_DEF,
+        TEST_DEF);
   }
 }
