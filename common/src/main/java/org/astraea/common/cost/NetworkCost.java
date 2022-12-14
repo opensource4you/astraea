@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -52,14 +51,14 @@ import org.astraea.common.metrics.collector.Fetcher;
  */
 public abstract class NetworkCost implements HasClusterCost {
 
-  static final AtomicBoolean isTesting = new AtomicBoolean(false);
-
   private final AtomicReference<ClusterInfo<Replica>> currentCluster = new AtomicReference<>();
 
   abstract ServerMetrics.Topic useMetric();
 
-  @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  void updateCurrentCluster(
+      ClusterInfo<Replica> clusterInfo,
+      ClusterBean clusterBean,
+      AtomicReference<ClusterInfo<Replica>> ref) {
     // TODO: We need a reliable way to access the actual current cluster info. The following method
     //  try to compare the equality of cluster info and cluster bean in terms of replica set. But it
     //  didn't consider the data folder info. See the full discussion:
@@ -69,10 +68,14 @@ public abstract class NetworkCost implements HasClusterCost {
         clusterInfo.topicPartitionReplicas().stream()
             .filter(tpr -> !metricReplicas.contains(tpr))
             .collect(Collectors.toUnmodifiableSet());
-    if (mismatchSet.isEmpty() || (isTesting.get() && currentCluster.get() == null))
-      currentCluster.set(clusterInfo);
-    if (currentCluster.get() == null)
+    if (mismatchSet.isEmpty()) ref.set(clusterInfo);
+    if (ref.get() == null)
       fail("Initial clusterInfo required, the following replicas are mismatch: " + mismatchSet);
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    updateCurrentCluster(clusterInfo, clusterBean, currentCluster);
 
     var dataRate = estimateRate(currentCluster.get(), clusterBean, useMetric());
     var brokerRate =

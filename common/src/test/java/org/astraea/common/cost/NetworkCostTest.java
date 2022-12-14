@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -49,9 +50,32 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class NetworkCostTest {
 
+  private static NetworkIngressCost ingressCost() {
+    return new NetworkIngressCost() {
+      @Override
+      void updateCurrentCluster(
+          ClusterInfo<Replica> clusterInfo,
+          ClusterBean clusterBean,
+          AtomicReference<ClusterInfo<Replica>> ref) {
+        ref.compareAndSet(null, clusterInfo);
+      }
+    };
+  }
+
+  private static NetworkEgressCost egressCost() {
+    return new NetworkEgressCost() {
+      @Override
+      void updateCurrentCluster(
+          ClusterInfo<Replica> clusterInfo,
+          ClusterBean clusterBean,
+          AtomicReference<ClusterInfo<Replica>> ref) {
+        ref.compareAndSet(null, clusterInfo);
+      }
+    };
+  }
+
   @Test
   void testInitialClusterInfo() {
-    NetworkCost.isTesting.set(false);
     var cost = new NetworkIngressCost();
     var initial =
         ClusterInfoBuilder.builder()
@@ -87,13 +111,11 @@ class NetworkCostTest {
 
   @Test
   void testEstimatedIngressRate() {
-    NetworkCost.isTesting.set(true);
     testEstimatedRate(ServerMetrics.Topic.BYTES_IN_PER_SEC);
   }
 
   @Test
   void testEstimatedEgressRate() {
-    NetworkCost.isTesting.set(true);
     testEstimatedRate(ServerMetrics.Topic.BYTES_OUT_PER_SEC);
   }
 
@@ -113,24 +135,24 @@ class NetworkCostTest {
   static Stream<Arguments> testcases() {
     var in = ServerMetrics.Topic.BYTES_IN_PER_SEC;
     var out = ServerMetrics.Topic.BYTES_OUT_PER_SEC;
+
     return Stream.of(
-        Arguments.of(new NetworkIngressCost(), new HandWrittenTestCase(in)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(in, 2, 100, 0xfeedbabe)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(in, 3, 100, 0xabcdef01)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(in, 10, 200, 0xcafebabe)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(in, 15, 300, 0xfee1dead)),
-        Arguments.of(new NetworkEgressCost(), new HandWrittenTestCase(out)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(out, 5, 100, 0xfa11fa11)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(out, 6, 100, 0xf001f001)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(out, 8, 200, 0xba1aba1a)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(out, 14, 300, 0xdd0000bb)));
+        Arguments.of(ingressCost(), new HandWrittenTestCase(in)),
+        Arguments.of(ingressCost(), new LargeTestCase(in, 2, 100, 0xfeedbabe)),
+        Arguments.of(ingressCost(), new LargeTestCase(in, 3, 100, 0xabcdef01)),
+        Arguments.of(ingressCost(), new LargeTestCase(in, 10, 200, 0xcafebabe)),
+        Arguments.of(ingressCost(), new LargeTestCase(in, 15, 300, 0xfee1dead)),
+        Arguments.of(egressCost(), new HandWrittenTestCase(out)),
+        Arguments.of(egressCost(), new LargeTestCase(out, 5, 100, 0xfa11fa11)),
+        Arguments.of(egressCost(), new LargeTestCase(out, 6, 100, 0xf001f001)),
+        Arguments.of(egressCost(), new LargeTestCase(out, 8, 200, 0xba1aba1a)),
+        Arguments.of(egressCost(), new LargeTestCase(out, 14, 300, 0xdd0000bb)));
   }
 
   @ParameterizedTest
   @MethodSource("testcases")
   @DisplayName("Run with Balancer")
   void testOptimization(HasClusterCost costFunction, TestCase testcase) {
-    NetworkCost.isTesting.set(true);
     var newPlan =
         Balancer.Official.Greedy.create(
                 AlgorithmConfig.builder()
@@ -148,7 +170,6 @@ class NetworkCostTest {
 
   @Test
   void testCompositeOptimization() {
-    NetworkCost.isTesting.set(true);
     var testCase =
         new LargeTestCase(
             ServerMetrics.Topic.BYTES_IN_PER_SEC,
@@ -159,8 +180,8 @@ class NetworkCostTest {
     var costFunction =
         HasClusterCost.of(
             Map.of(
-                new NetworkIngressCost(), 1.0,
-                new NetworkEgressCost(), 1.0));
+                ingressCost(), 1.0,
+                egressCost(), 1.0));
     testOptimization(costFunction, testCase);
   }
 
