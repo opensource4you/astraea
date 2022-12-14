@@ -45,6 +45,7 @@ public class ReplicaSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "size";
+  public static final String LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY = "log_size_exp_weight_by_time";
   final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
   /**
@@ -74,7 +75,7 @@ public class ReplicaSizeCost
                                   ignored ->
                                       Sensor.builder()
                                           .addStat(
-                                              Avg.EXP_WEIGHT_BY_TIME_KEY,
+                                              LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY,
                                               Avg.expWeightByTime(Duration.ofSeconds(1)))
                                           .build());
                           sensor.record(g.value().doubleValue());
@@ -85,7 +86,7 @@ public class ReplicaSizeCost
                                       g.beanObject().properties(),
                                       Map.of(
                                           HasGauge.VALUE_KEY,
-                                          sensor.measure(Avg.EXP_WEIGHT_BY_TIME_KEY)),
+                                          sensor.measure(LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY)),
                                       System.currentTimeMillis());
                         })
                     .collect(Collectors.toList())));
@@ -131,11 +132,11 @@ public class ReplicaSizeCost
   @Override
   public BrokerCost brokerCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    var result = sizeCount(clusterInfo, clusterBean);
+    var result = statistSizeCount(clusterInfo, clusterBean);
     return () -> result;
   }
 
-  private Map<Integer, Double> sizeCount(
+  private Map<Integer, Double> statistSizeCount(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var statistBeans =
         clusterInfo.topicPartitionReplicas().stream()
@@ -149,8 +150,6 @@ public class ReplicaSizeCost
                             .map(SizeStatisticalBean::value)
                             .orElse(0.0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    // if there is no statistBeans, use ClusterBean to calculate brokerCost
-    if (statistBeans.isEmpty()) return sizeCount(clusterBean);
     return clusterInfo.nodes().stream()
         .collect(
             Collectors.toMap(
@@ -162,34 +161,9 @@ public class ReplicaSizeCost
                         .sum()));
   }
 
-  private Map<Integer, Double> sizeCount(ClusterBean clusterBean) {
-    return clusterBean.all().entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                e ->
-                    LogMetrics.Log.gauges(e.getValue(), LogMetrics.Log.SIZE).stream()
-                        .mapToDouble(LogMetrics.Log.Gauge::value)
-                        .sum()));
-  }
-
-  private Map<Integer, Double> sizeCount(ClusterInfo<? extends Replica> clusterInfo) {
-    return clusterInfo.nodes().stream()
-        .collect(
-            Collectors.toMap(
-                NodeInfo::id,
-                nodeInfo ->
-                    Double.longBitsToDouble(
-                        clusterInfo.replicas().stream()
-                            .filter(r -> r.nodeInfo().id() == nodeInfo.id())
-                            .mapToLong(Replica::size)
-                            .sum())));
-  }
-
   @Override
   public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
-    if (brokerCost.isEmpty()) brokerCost = sizeCount(clusterInfo);
     var value = dispersion.calculate(brokerCost.values());
     return () -> value;
   }
