@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.connector.ftp;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +23,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Record;
+import org.astraea.connector.SinkTask;
 import org.astraea.fs.FileSystem;
 
 public class FtpSinkTask extends SinkTask {

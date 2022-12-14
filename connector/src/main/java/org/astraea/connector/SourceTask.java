@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.source.SourceRecord;
 import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
 import org.astraea.common.producer.Metadata;
@@ -29,13 +28,15 @@ import org.astraea.common.producer.Record;
 
 public abstract class SourceTask extends org.apache.kafka.connect.source.SourceTask {
 
-  protected void init(Configuration configuration) {
-    // empty
-  }
+  protected abstract void init(Configuration configuration);
 
-  protected abstract Collection<Record<byte[], byte[]>> take();
+  /**
+   * use {@link Record#builder()} or {@link SourceRecord#builder()} to construct the returned
+   * records
+   */
+  protected abstract Collection<Record<byte[], byte[]>> take() throws InterruptedException;
 
-  protected void commit(Metadata metadata) {
+  protected void commit(Metadata metadata) throws InterruptedException {
     // empty
   }
 
@@ -55,22 +56,34 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
   }
 
   @Override
-  public final List<SourceRecord> poll() throws InterruptedException {
+  public final List<org.apache.kafka.connect.source.SourceRecord> poll()
+      throws InterruptedException {
     var records = take();
     if (records == null || records.isEmpty()) return null;
     return records.stream()
         .map(
-            r ->
-                new SourceRecord(
-                    Map.of(),
-                    Map.of(),
-                    r.topic(),
-                    r.partition(),
-                    Schema.BYTES_SCHEMA,
-                    r.key(),
-                    Schema.BYTES_SCHEMA,
-                    r.value(),
-                    r.timestamp()))
+            r -> {
+              Map<String, ?> sp = null;
+              Map<String, ?> so = null;
+              if (r instanceof SourceRecord) {
+                var sr = (SourceRecord) r;
+                if (!sr.metadataIndex().isEmpty()) sp = sr.metadataIndex();
+                if (!sr.metadata().isEmpty()) so = sr.metadata();
+              }
+              return new org.apache.kafka.connect.source.SourceRecord(
+                  sp,
+                  so,
+                  r.topic(),
+                  r.partition().orElse(null),
+                  Schema.BYTES_SCHEMA,
+                  r.key(),
+                  Schema.BYTES_SCHEMA,
+                  r.value(),
+                  r.timestamp().orElse(null),
+                  r.headers().stream()
+                      .map(h -> new HeaderImpl(h.key(), null, h.value()))
+                      .collect(Collectors.toList()));
+            })
         .collect(Collectors.toList());
   }
 
@@ -85,5 +98,43 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
       org.apache.kafka.clients.producer.RecordMetadata metadata)
       throws InterruptedException {
     commit(Metadata.of(metadata));
+  }
+
+  private static class HeaderImpl implements org.apache.kafka.connect.header.Header {
+
+    private final String key;
+    private final Schema schema;
+    private final Object value;
+
+    private HeaderImpl(String key, Schema schema, Object value) {
+      this.key = key;
+      this.schema = schema;
+      this.value = value;
+    }
+
+    @Override
+    public String key() {
+      return key;
+    }
+
+    @Override
+    public Schema schema() {
+      return schema;
+    }
+
+    @Override
+    public Object value() {
+      return value;
+    }
+
+    @Override
+    public org.apache.kafka.connect.header.Header with(Schema schema, Object value) {
+      return new HeaderImpl(key, schema, value);
+    }
+
+    @Override
+    public org.apache.kafka.connect.header.Header rename(String key) {
+      return new HeaderImpl(key, schema, value);
+    }
   }
 }

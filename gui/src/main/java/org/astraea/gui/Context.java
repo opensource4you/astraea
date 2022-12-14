@@ -72,16 +72,24 @@ public class Context {
     workerClients = new Clients<>(workerJmxPort);
   }
 
+  @SuppressWarnings("resource")
   public Map<Integer, MBeanClient> addBrokerClients(List<NodeInfo> nodeInfos) {
     if (brokerClients == null) return Map.of();
-    nodeInfos.forEach(n -> brokerClients.add(n.id(), n.host()));
-    return brokerClients.clients();
+    nodeInfos.forEach(
+        n ->
+            brokerClients.clients.computeIfAbsent(
+                n.id(), ignored -> MBeanClient.jndi(n.host(), brokerClients.jmxPort)));
+    return Map.copyOf(brokerClients.clients);
   }
 
+  @SuppressWarnings("resource")
   public Map<String, MBeanClient> addWorkerClients(Set<String> hostnames) {
     if (workerClients == null) return Map.of();
-    hostnames.forEach(n -> workerClients.add(n, n));
-    return workerClients.clients();
+    hostnames.forEach(
+        n ->
+            workerClients.clients.computeIfAbsent(
+                n, ignored -> MBeanClient.jndi(n, workerClients.jmxPort)));
+    return Map.copyOf(workerClients.clients);
   }
 
   public Admin admin() {
@@ -98,12 +106,12 @@ public class Context {
 
   public Map<Integer, MBeanClient> brokerClients() {
     if (brokerClients == null) return Map.of();
-    return brokerClients.clients();
+    return Map.copyOf(brokerClients.clients);
   }
 
   public Map<String, MBeanClient> workerClients() {
     if (workerClients == null) return Map.of();
-    return workerClients.clients();
+    return Map.copyOf(workerClients.clients);
   }
 
   private static class Clients<T extends Comparable<T>> {
@@ -112,15 +120,6 @@ public class Context {
 
     Clients(int jmxPort) {
       this.jmxPort = jmxPort;
-    }
-
-    void add(T identity, String hostname) {
-      var previous = clients.put(identity, MBeanClient.jndi(hostname, jmxPort));
-      if (previous != null) previous.close();
-    }
-
-    Map<T, MBeanClient> clients() {
-      return Map.copyOf(clients);
     }
   }
 }

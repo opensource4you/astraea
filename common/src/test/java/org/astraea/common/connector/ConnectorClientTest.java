@@ -54,7 +54,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
             .validate(
                 "TestTextSourceConnector",
                 Map.of(
-                    ConnectorClient.CONNECTOR_CLASS_KEY, TestTextSourceConnector.class.getName()))
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY, TestTextSourceConnector.class.getName()))
             .toCompletableFuture()
             .join();
     assertNotEquals(0, validation.errorCount());
@@ -185,6 +185,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     var status = connectorClient.connectorStatus(connectorName).toCompletableFuture().join();
     assertEquals(connectorName, status.name());
     assertEquals("RUNNING", status.state());
+    assertEquals("source", status.type().get());
     assertEquals(2, status.tasks().size());
     assertNotEquals(0, status.configs().size());
     status.tasks().forEach(t -> assertEquals("RUNNING", t.state()));

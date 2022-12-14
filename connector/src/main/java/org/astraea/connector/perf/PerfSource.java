@@ -20,12 +20,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
+import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SourceConnector;
 import org.astraea.connector.SourceTask;
 
-public class PerfConnector extends SourceConnector {
+public class PerfSource extends SourceConnector {
   static Definition FREQUENCY_DEF =
       Definition.builder()
           .name("frequency.in.seconds")
@@ -34,9 +36,39 @@ public class PerfConnector extends SourceConnector {
           .validator((name, value) -> Utils.toDuration(value.toString()))
           .build();
   static Definition KEY_LENGTH_DEF =
-      Definition.builder().name("key.length").type(Definition.Type.INT).defaultValue(10).build();
+      Definition.builder()
+          .name("key.length")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue(DataSize.Byte.of(50).toString())
+          .build();
+
+  static Definition KEY_DISTRIBUTION_DEF =
+      Definition.builder()
+          .name("key.distribution")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
+          .defaultValue(DistributionType.UNIFORM.alias())
+          .documentation(
+              "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
+          .build();
   static Definition VALUE_LENGTH_DEF =
-      Definition.builder().name("value.length").type(Definition.Type.INT).defaultValue(10).build();
+      Definition.builder()
+          .name("value.length")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue(DataSize.KB.of(1).toString())
+          .build();
+
+  static Definition VALUE_DISTRIBUTION_DEF =
+      Definition.builder()
+          .name("value.distribution")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
+          .defaultValue(DistributionType.UNIFORM.alias())
+          .documentation(
+              "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
+          .build();
 
   private Configuration config;
 
@@ -47,7 +79,7 @@ public class PerfConnector extends SourceConnector {
 
   @Override
   protected Class<? extends SourceTask> task() {
-    return PerfTask.class;
+    return PerfSourceTask.class;
   }
 
   @Override
@@ -57,6 +89,11 @@ public class PerfConnector extends SourceConnector {
 
   @Override
   protected List<Definition> definitions() {
-    return List.of(FREQUENCY_DEF, KEY_LENGTH_DEF, VALUE_LENGTH_DEF);
+    return List.of(
+        FREQUENCY_DEF,
+        KEY_LENGTH_DEF,
+        KEY_DISTRIBUTION_DEF,
+        VALUE_LENGTH_DEF,
+        VALUE_DISTRIBUTION_DEF);
   }
 }

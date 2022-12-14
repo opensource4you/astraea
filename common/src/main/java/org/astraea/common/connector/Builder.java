@@ -175,6 +175,7 @@ public class Builder {
                                     status.name,
                                     status.connector.state,
                                     status.connector.worker_id,
+                                    status.type,
                                     config,
                                     status.tasks.stream()
                                         .map(
@@ -253,6 +254,10 @@ public class Builder {
     private String name;
 
     private KafkaConnector connector;
+
+    // The type is always null before kafka 2.0.2
+    // see https://issues.apache.org/jira/browse/KAFKA-7253
+    private Optional<String> type = Optional.empty();
 
     private List<KafkaTaskStatus> tasks;
   }

@@ -38,6 +38,12 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class DataSizeTest {
 
+  @Test
+  void testToString() {
+    var size = DataSize.Byte.of(50);
+    Assertions.assertEquals(size, DataSize.of(size.toString()));
+  }
+
   @SuppressWarnings("ResultOfMethodCallIgnored")
   @Test
   void typicalUsageOfDataUnit() {
