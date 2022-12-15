@@ -16,17 +16,24 @@
  */
 package org.astraea.common.connector;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
+/** this is not a kind of json response from kafka. We compose it with definition. */
 public class PluginInfo {
+  private final String className;
 
-  /** connector plugin class name */
-  @JsonProperty("class")
-  private String className;
+  private final List<Definition> definitions;
 
-  public PluginInfo() {}
+  public PluginInfo(String className, List<Definition> definitions) {
+    this.className = className;
+    this.definitions = definitions;
+  }
 
   public String className() {
     return className;
+  }
+
+  public List<Definition> definitions() {
+    return definitions;
   }
 }

@@ -51,10 +51,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var validation =
         connectorClient
-            .validate(
-                "TestTextSourceConnector",
-                Map.of(
-                    ConnectorConfigs.CONNECTOR_CLASS_KEY, TestTextSourceConnector.class.getName()))
+            .validate(TestTextSourceConnector.class.getName(), Map.of())
             .toCompletableFuture()
             .join();
     assertNotEquals(0, validation.errorCount());
@@ -220,9 +217,11 @@ class ConnectorClientTest extends RequireWorkerCluster {
   void testPlugin() {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     var plugins = connectorClient.plugins().toCompletableFuture().join();
+    assertNotEquals(0, plugins.size());
     assertTrue(
         plugins.stream()
             .anyMatch(x -> TestTextSourceConnector.class.getName().equals(x.className())));
+    plugins.forEach(p -> assertNotEquals(0, p.definitions().size()));
   }
 
   @Test

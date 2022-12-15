@@ -16,6 +16,8 @@
  */
 package org.astraea.connector;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -33,6 +35,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ConnectorTest extends RequireWorkerCluster {
+
+  @Test
+  void testPlugin() {
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var plugins = connectorClient.plugins().toCompletableFuture().join();
+    assertNotEquals(0, plugins.size());
+    plugins.forEach(p -> assertNotEquals(0, p.definitions().size()));
+  }
 
   @Test
   void testCustomConnectorPlugins() {
