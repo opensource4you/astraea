@@ -18,8 +18,11 @@ package org.astraea.connector.perf;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
@@ -205,5 +208,68 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
           Assertions.assertEquals(0D, m.totalRecordFailures());
           Assertions.assertEquals(0D, m.totalRecordsSkipped());
         });
+  }
+
+  @Test
+  void testInit() {
+    var task = new PerfSource.Task();
+    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")));
+    Assertions.assertNotNull(task.rand);
+    Assertions.assertNotNull(task.topics);
+    Assertions.assertNotNull(task.frequency);
+    Assertions.assertNotNull(task.keySelector);
+    Assertions.assertNotNull(task.keySizeGenerator);
+    Assertions.assertNotNull(task.keys);
+    Assertions.assertNotNull(task.valueSelector);
+    Assertions.assertNotNull(task.valueSizeGenerator);
+    Assertions.assertNotNull(task.values);
+  }
+
+  @Test
+  void testKeyAndValue() {
+    var task = new PerfSource.Task();
+    task.init(
+        Configuration.of(
+            Map.of(
+                ConnectorConfigs.TOPICS_KEY,
+                "a",
+                PerfSource.KEY_DISTRIBUTION_DEF.name(),
+                "uniform",
+                PerfSource.VALUE_DISTRIBUTION_DEF.name(),
+                "uniform")));
+    var keys =
+        IntStream.range(0, 100)
+            .mapToObj(ignored -> Optional.ofNullable(task.key()))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toSet());
+    Assertions.assertEquals(keys.size(), task.keys.size());
+    Assertions.assertNotEquals(0, keys.size());
+    var values =
+        IntStream.range(0, 100)
+            .mapToObj(ignored -> Optional.ofNullable(task.value()))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toSet());
+    Assertions.assertEquals(values.size(), task.values.size());
+    Assertions.assertNotEquals(0, values.size());
+  }
+
+  @Test
+  void testZeroKeySize() {
+    var task = new PerfSource.Task();
+    task.init(
+        Configuration.of(
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")));
+    Assertions.assertNull(task.key());
+    Assertions.assertEquals(0, task.keys.size());
+  }
+
+  @Test
+  void testZeroValueSize() {
+    var task = new PerfSource.Task();
+    task.init(
+        Configuration.of(
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")));
+    Assertions.assertNull(task.value());
+    Assertions.assertEquals(0, task.values.size());
   }
 }

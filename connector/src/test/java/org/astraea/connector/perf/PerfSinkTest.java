@@ -93,7 +93,7 @@ public class PerfSinkTest extends RequireSingleWorkerCluster {
 
   @Test
   void testTask() {
-    var task = new PerfSinkTask();
+    var task = new PerfSink.Task();
     task.init(Configuration.of(Map.of(PerfSink.FREQUENCY_DEF.name(), "1s")));
 
     var now = System.currentTimeMillis();
