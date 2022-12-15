@@ -20,7 +20,7 @@ source "$DOCKER_FOLDER"/docker_build_common.sh
 
 # ===============================[version control]=================================
 declare -r SPARK_VERSION=${SPARK_VERSION:-3.3.1}
-declare -r ASTRAEA_VERSION=${ASTRAEA_VERSION:-0.0.1}
+declare -r ASTRAEA_VERSION=${ASTRAEA_VERSION:-0.1.0}
 # ===============================[global variables]================================
 declare -r REVISION=${REVISION:-$([[ ${BUILD} != "false" ]] && git rev-parse --short HEAD)}
 declare -r VERSION=${REVISION:-${VERSION:-main}}
