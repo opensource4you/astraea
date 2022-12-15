@@ -25,7 +25,7 @@ import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile, mkdir}
 import org.astraea.etl.Reader.createSpark
 import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
-import org.junit.jupiter.api.{Disabled, Test}
+import org.junit.jupiter.api.Test
 
 import java.io._
 import java.nio.file.Files
@@ -35,7 +35,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class ReaderTest extends RequireBrokerCluster {
-  @Test def pkNonNullTest(): Unit = {
+  @Test def skipBlankLineTest(): Unit = {
     val tempPath: String =
       System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
         .nextInt()
@@ -45,13 +45,15 @@ class ReaderTest extends RequireBrokerCluster {
       System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
         .nextInt()
     mkdir(tempArchivePath)
+    val dataDir = mkdir(tempPath + "/data")
+    val checkoutDir = mkdir(tempPath + "/checkout")
 
     val columnOne: List[String] =
-      List("A1", "B1", "C1", null)
+      List("A1", "B1", null, "D1")
     val columnTwo: List[String] =
-      List("52", "36", "45", "25")
+      List("52", "36", null, "25")
     val columnThree: List[String] =
-      List("fghgh", "gjgbn", "fgbhjf", "dfjf")
+      List("fghgh", "gjgbn", null, "dfjf")
 
     val row = columnOne
       .zip(columnTwo.zip(columnThree))
@@ -64,7 +66,6 @@ class ReaderTest extends RequireBrokerCluster {
 
     val structType = Reader.createSchema(
       Map(
-        "SerialNumber" -> IntegerType,
         "RecordNumber" -> StringType,
         "Size" -> IntegerType,
         "Type" -> StringType
@@ -81,15 +82,21 @@ class ReaderTest extends RequireBrokerCluster {
         .readCSV(new File(tempPath).getPath)
         .dataFrame()
 
-    assertThrows(
-      classOf[StreamingQueryException],
-      () =>
-        df.writeStream
-          .outputMode(OutputMode.Append())
-          .format("console")
-          .start()
-          .awaitTermination(Duration(5, TimeUnit.SECONDS).toMillis)
-    )
+    df.writeStream
+      .format("csv")
+      .option("path", dataDir.getPath)
+      .option("checkpointLocation", checkoutDir.getPath)
+      .outputMode("append")
+      .start()
+      .awaitTermination(Duration(20, TimeUnit.SECONDS).toMillis)
+
+    val writeFile = getCSVFile(new File(dataDir.getPath)).head
+    val br = new BufferedReader(new FileReader(writeFile))
+
+    assertEquals(br.readLine, "A1,52,fghgh")
+    assertEquals(br.readLine, "B1,36,gjgbn")
+    assertEquals(br.readLine, "D1,25,dfjf")
+
   }
 
   @Test def sparkReadCSVTest(): Unit = {
@@ -104,20 +111,19 @@ class ReaderTest extends RequireBrokerCluster {
 
     val structType = Reader.createSchema(
       Map(
-        "SerialNumber" -> IntegerType,
         "RecordNumber" -> StringType,
         "Size" -> IntegerType,
         "Type" -> StringType
       )
     )
 
-    assertEquals(structType.length, 4)
+    assertEquals(structType.length, 3)
     val csvDF = Reader
       .of()
       .spark("local[2]")
       .schema(structType)
       .sinkPath(sinkDir.getPath)
-      .primaryKeys(Seq("SerialNumber"))
+      .primaryKeys(Seq("RecordNumber"))
       .readCSV(sourceDir.getPath)
     assertTrue(
       csvDF.dataFrame().isStreaming,
@@ -137,10 +143,10 @@ class ReaderTest extends RequireBrokerCluster {
     val writeFile = getCSVFile(new File(dataDir.getPath)).head
     val br = new BufferedReader(new FileReader(writeFile))
 
-    assertEquals(br.readLine, "1,A1,52,fghgh")
-    assertEquals(br.readLine, "2,B1,36,gjgbn")
-    assertEquals(br.readLine, "3,C1,45,fgbhjf")
-    assertEquals(br.readLine, "4,D1,25,dfjf")
+    assertEquals(br.readLine, "A1,52,fghgh")
+    assertEquals(br.readLine, "B1,36,gjgbn")
+    assertEquals(br.readLine, "C1,45,fgbhjf")
+    assertEquals(br.readLine, "D1,25,dfjf")
 
     Files.exists(
       new File(
@@ -181,7 +187,7 @@ class ReaderTest extends RequireBrokerCluster {
       .asScala
       .map(row => (row.getAs[String]("key"), row.getAs[String]("value")))
       .toMap
-    println(resultExchange)
+
     assertEquals(1, resultExchange.size)
     assertEquals(
       "{\"age\":\"29\",\"name\":\"Michael\"}",
@@ -240,13 +246,12 @@ class ReaderTest extends RequireBrokerCluster {
   @Test def jsonToByteTest(): Unit = {
     val spark = createSpark("local[2]")
 
-    var data = Seq(Row(1, "A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
+    var data = Seq(Row("A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
     (0 to 10000).iterator.foreach(_ =>
-      data = data ++ Seq(Row(1, "A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
+      data = data ++ Seq(Row("A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
     )
 
     val structType = new StructType()
-      .add("ID", "integer")
       .add("name", "string")
       .add("age", "integer")
       .add("xx", "string")
@@ -256,7 +261,6 @@ class ReaderTest extends RequireBrokerCluster {
       .add("fInt", "integer")
 
     val columns = Seq(
-      DataColumn("ID", isPK = true, dataType = IntegerType),
       DataColumn("name", isPK = false, dataType = StringType),
       DataColumn("age", isPK = false, dataType = IntegerType),
       DataColumn("xx", isPK = false, dataType = StringType),

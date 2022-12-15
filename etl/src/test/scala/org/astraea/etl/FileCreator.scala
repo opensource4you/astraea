@@ -48,17 +48,8 @@ object FileCreator {
   ): Try[Unit] = {
     val str = sourceDir + "/local_kafka" + "-" + int.toString + ".csv"
     val fileCSV2 = Files.createFile(new File(str).toPath)
-    writeCsvFile(fileCSV2.toAbsolutePath.toString, addPrefix(rows))
+    writeCsvFile(fileCSV2.toAbsolutePath.toString, rows)
   }
-
-  def addPrefix(lls: List[List[String]]): List[List[String]] =
-    lls
-      .foldLeft((1, List.empty[List[String]])) {
-        case ((serial: Int, acc: List[List[String]]), value: List[String]) =>
-          (serial + 1, (serial.toString +: value) +: acc)
-      }
-      ._2
-      .reverse
 
   def writeCsvFile(
       path: String,

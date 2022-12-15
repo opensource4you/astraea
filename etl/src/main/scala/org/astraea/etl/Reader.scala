@@ -16,11 +16,9 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.catalyst.expressions.objects.AssertNotNull
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{DoubleType, StringType, StructType}
-import org.apache.spark.sql.{Column, SparkSession}
-import org.astraea.etl.DataType.BooleanType
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{StringType, StructType}
+import org.astraea.etl.DataType.{BooleanType}
 import org.astraea.etl.Reader._
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
@@ -70,14 +68,16 @@ class Reader[PassedStep <: BuildStep] private (
   def readCSV(
       source: String
   )(implicit ev: PassedStep =:= FullReader): DataFrameOp = {
-    var df = createSpark(deploymentModel).readStream
+    val df = createSpark(deploymentModel).readStream
       .option("cleanSource", "archive")
       .option("sourceArchiveDir", sinkPath)
       .schema(userSchema)
       .csv(source)
-    pk.foreach(str =>
-      df = df.withColumn(str, new Column(AssertNotNull(col(str).expr)))
-    )
+      .filter(row => {
+        val bool = (0 until row.length).exists(i => !row.isNullAt(i))
+        bool
+      })
+
     new DataFrameOp(df)
   }
 
