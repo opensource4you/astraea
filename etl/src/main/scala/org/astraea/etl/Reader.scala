@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.astraea.etl.Reader._
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
@@ -100,14 +100,16 @@ object Reader {
       .getOrCreate()
   }
 
-  def createSchema(cols: Map[String, DataType]): StructType = {
-    var userSchema = new StructType()
-    // TODO astraea #1286 Need to wrap non-nullable type with optional.
-    cols.foreach(col =>
-      userSchema = userSchema.add(col._1, unsupportedTypes(col._2))
-    )
-    userSchema
-  }
+  def createSchema(cols: Map[String, DataType]): StructType = StructType(
+    cols.map { case (name, t) =>
+      // TODO astraea #1286 Need to wrap non-nullable type with optional.
+      if (t != DataType.StringType)
+        throw new IllegalArgumentException(
+          "Sorry, only string type is currently supported.Because a problem(astraea #1286) has led to the need to wrap the non-nullable type."
+        )
+      StructField(name, t.sparkType)
+    }.toSeq
+  )
 
   def unsupportedTypes(dataType: DataType): StringType = {
     if (dataType != DataType.StringType)
