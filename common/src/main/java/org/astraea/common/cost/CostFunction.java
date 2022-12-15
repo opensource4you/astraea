@@ -37,6 +37,9 @@ import org.astraea.common.metrics.collector.MetricSensor;
  * {@link NoSufficientMetricsException} from the calculation logic of {@link HasBrokerCost} or
  * {@link HasClusterCost}. This serves as a hint to the caller that it needs newer metrics and
  * please retry later.
+ *
+ * <p>Also, it is recommended to override {@link Object#toString()} to provide the descriptive text
+ * along the cost function instance. This information might be shown on some user interfaces.
  */
 public interface CostFunction {
 

@@ -29,6 +29,10 @@ public interface SourceTaskInfo extends HasBeanObject {
     return Integer.parseInt(beanObject().properties().get("task"));
   }
 
+  default String taskType() {
+    return beanObject().properties().get("type");
+  }
+
   default double pollBatchAvgTimeMs() {
     return (double) beanObject().attributes().get("poll-batch-avg-time-ms");
   }

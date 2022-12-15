@@ -16,24 +16,18 @@
  */
 package org.astraea.common.connector;
 
-import java.util.List;
+public final class ConnectorConfigs {
+  public static final String NAME_KEY = "name";
+  public static final String CONNECTOR_CLASS_KEY = "connector.class";
+  public static final String TASK_MAX_KEY = "tasks.max";
+  public static final String TOPICS_KEY = "topics";
 
-/** this is not a kind of json response from kafka. We compose it with definition. */
-public class PluginInfo {
-  private final String className;
+  public static final String KEY_CONVERTER_KEY = "key.converter";
+  public static final String VALUE_CONVERTER_KEY = "value.converter";
+  public static final String HEADER_CONVERTER_KEY = "header.converter";
 
-  private final List<Definition> definitions;
+  public static final String BYTE_ARRAY_CONVERTER_CLASS =
+      "org.apache.kafka.connect.converters.ByteArrayConverter";
 
-  public PluginInfo(String className, List<Definition> definitions) {
-    this.className = className;
-    this.definitions = definitions;
-  }
-
-  public String className() {
-    return className;
-  }
-
-  public List<Definition> definitions() {
-    return definitions;
-  }
+  private ConnectorConfigs() {}
 }

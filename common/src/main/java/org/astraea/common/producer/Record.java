@@ -18,6 +18,7 @@ package org.astraea.common.producer;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
 
@@ -38,22 +39,33 @@ public interface Record<Key, Value> {
   /**
    * @return timestamp of record
    */
-  Long timestamp();
+  Optional<Long> timestamp();
 
   /**
    * @return expected partition, or null if you don't care for it.
    */
-  Integer partition();
+  Optional<Integer> partition();
 
   class Builder<Key, Value> {
     private Object key;
     private Object value;
     private String topic;
-    private Integer partition;
-    private Long timestamp;
+    private Optional<Integer> partition = Optional.empty();
+    private Optional<Long> timestamp = Optional.empty();
     private List<Header> headers = List.of();
 
     private Builder() {}
+
+    @SuppressWarnings("unchecked")
+    public <NewKey, NewValue> Builder<NewKey, NewValue> record(Record<NewKey, NewValue> record) {
+      key(record.key());
+      value(record.value());
+      topic(record.topic());
+      record.partition().ifPresent(this::partition);
+      record.timestamp().ifPresent(this::timestamp);
+      headers(record.headers());
+      return (Builder<NewKey, NewValue>) this;
+    }
 
     @SuppressWarnings("unchecked")
     public <NewKey> Builder<NewKey, Value> key(NewKey key) {
@@ -78,12 +90,12 @@ public interface Record<Key, Value> {
     }
 
     public Builder<Key, Value> partition(int partition) {
-      if (partition >= 0) this.partition = partition;
+      if (partition >= 0) this.partition = Optional.of(partition);
       return this;
     }
 
     public Builder<Key, Value> timestamp(long timestamp) {
-      this.timestamp = timestamp;
+      this.timestamp = Optional.of(timestamp);
       return this;
     }
 
@@ -98,8 +110,8 @@ public interface Record<Key, Value> {
         private final Key key = (Key) Builder.this.key;
         private final Value value = (Value) Builder.this.value;
         private final String topic = Objects.requireNonNull(Builder.this.topic);
-        private final Integer partition = Builder.this.partition;
-        private final Long timestamp = Builder.this.timestamp;
+        private final Optional<Integer> partition = Builder.this.partition;
+        private final Optional<Long> timestamp = Builder.this.timestamp;
         private final List<Header> headers = Objects.requireNonNull(Builder.this.headers);
 
         @Override
@@ -123,12 +135,12 @@ public interface Record<Key, Value> {
         }
 
         @Override
-        public Long timestamp() {
+        public Optional<Long> timestamp() {
           return timestamp;
         }
 
         @Override
-        public Integer partition() {
+        public Optional<Integer> partition() {
           return partition;
         }
       };

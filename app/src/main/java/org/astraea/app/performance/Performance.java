@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.app.argument.DataRateField;
 import org.astraea.app.argument.DataSizeField;
+import org.astraea.app.argument.DistributionTypeField;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.DurationMapField;
 import org.astraea.app.argument.NonEmptyStringField;
@@ -49,6 +50,7 @@ import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
+import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
@@ -295,14 +297,14 @@ public class Performance {
         names = {"--key.distribution"},
         description =
             "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
-        converter = DistributionType.DistributionTypeField.class)
+        converter = DistributionTypeField.class)
     DistributionType keyDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
         names = {"--value.distribution"},
         description =
             "Distribution name for value and value size. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: uniform",
-        converter = DistributionType.DistributionTypeField.class)
+        converter = DistributionTypeField.class)
     DistributionType valueDistributionType = DistributionType.UNIFORM;
 
     @Parameter(

@@ -14,26 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
-import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.apache.kafka.connect.storage.OffsetStorageReader;
+import org.astraea.common.json.JsonConverter;
 
-/** this is not a kind of json response from kafka. We compose it with definition. */
-public class PluginInfo {
-  private final String className;
+public interface MetadataStorage {
 
-  private final List<Definition> definitions;
+  JsonConverter CONVERTER = JsonConverter.defaultConverter();
 
-  public PluginInfo(String className, List<Definition> definitions) {
-    this.className = className;
-    this.definitions = definitions;
+  static MetadataStorage of(OffsetStorageReader reader) {
+    return index -> {
+      var v = reader.offset(index);
+      if (v == null) return Map.of();
+      return v.entrySet().stream()
+          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().toString()));
+    };
   }
 
-  public String className() {
-    return className;
-  }
-
-  public List<Definition> definitions() {
-    return definitions;
-  }
+  Map<String, String> metadata(Map<String, String> index);
 }

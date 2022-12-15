@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.connector.backup;
 
 import java.util.List;
 import java.util.Map;
@@ -40,7 +40,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
     Map<String, String> connectorConfigs =
         Map.of(
             "connector.class",
-            FtpSinkConnector.class.getName(),
+            Importer.class.getName(),
             "tasks.max",
             "2",
             "topics",
@@ -63,7 +63,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
 
     Assertions.assertEquals("FtpSink", createdConnectorInfo.name());
     Assertions.assertEquals("2", configs.get("tasks.max"));
-    Assertions.assertEquals(FtpSinkConnector.class.getName(), configs.get("connector.class"));
+    Assertions.assertEquals(Importer.class.getName(), configs.get("connector.class"));
   }
 
   @Test
@@ -72,7 +72,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
       var fileSize = "500Byte";
       var topicName = Utils.randomString(10);
 
-      var task = new FtpSinkTask();
+      var task = new Importer.Task();
       var configs =
           Map.of(
               "topics",

@@ -277,8 +277,10 @@ public class DataSize implements Comparable<DataSize> {
 
   /** Return a string represent current size in given data unit. */
   public String toString(DataUnit unit) {
+    // DataSize#of does not support double value, so we don't generate double value.
+    // Otherwise, we can't convert the string back to DataSize
     var divide =
-        new BigDecimal(this.bits).divide(new BigDecimal(unit.bits), 3, RoundingMode.HALF_EVEN);
+        new BigDecimal(this.bits).divide(new BigDecimal(unit.bits), 0, RoundingMode.HALF_EVEN);
     return String.format("%s %s", divide, unit.name());
   }
 

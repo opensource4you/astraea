@@ -82,8 +82,8 @@ public class Builder<Key, Value> {
     producer.send(
         new ProducerRecord<>(
             record.topic(),
-            record.partition(),
-            record.timestamp(),
+            record.partition().orElse(null),
+            record.timestamp().orElse(null),
             record.key(),
             record.value(),
             record.headers().stream()

@@ -18,7 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -67,5 +71,65 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
                         .properties()
                         .get("name")
                         .equals(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName())));
+  }
+
+  @Test
+  void testToString() {
+    var randomName0 = "CostFunction_" + Utils.randomString();
+    var randomName1 = "CostFunction_" + Utils.randomString();
+    var randomName2 = "CostFunction_" + Utils.randomString();
+    var cost0 =
+        new HasClusterCost() {
+          @Override
+          public ClusterCost clusterCost(
+              ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+            return null;
+          }
+
+          @Override
+          public String toString() {
+            return randomName0;
+          }
+        };
+    var cost1 =
+        new HasClusterCost() {
+          @Override
+          public ClusterCost clusterCost(
+              ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+            return null;
+          }
+
+          @Override
+          public String toString() {
+            return randomName1;
+          }
+        };
+    var cost2 =
+        new HasClusterCost() {
+          @Override
+          public ClusterCost clusterCost(
+              ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+            return null;
+          }
+
+          @Override
+          public String toString() {
+            return randomName2;
+          }
+        };
+    var compositeCost =
+        HasClusterCost.of(
+            Map.of(
+                cost0, 1.0,
+                cost1, 2.0,
+                cost2, 3.0));
+
+    System.out.println(compositeCost);
+    Assertions.assertTrue(compositeCost.toString().contains(randomName0));
+    Assertions.assertTrue(compositeCost.toString().contains(randomName1));
+    Assertions.assertTrue(compositeCost.toString().contains(randomName2));
+    Assertions.assertTrue(compositeCost.toString().contains("1.0"));
+    Assertions.assertTrue(compositeCost.toString().contains("2.0"));
+    Assertions.assertTrue(compositeCost.toString().contains("3.0"));
   }
 }
