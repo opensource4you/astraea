@@ -57,7 +57,13 @@ public class SourceTest extends RequireSingleWorkerCluster {
                 ConnectorConfigs.TASK_MAX_KEY,
                 "1",
                 ConnectorConfigs.TOPICS_KEY,
-                topic))
+                topic,
+                ConnectorConfigs.KEY_CONVERTER_KEY,
+                ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS,
+                ConnectorConfigs.VALUE_CONVERTER_KEY,
+                ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS,
+                ConnectorConfigs.HEADER_CONVERTER_KEY,
+                ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS))
         .toCompletableFuture()
         .join();
 
