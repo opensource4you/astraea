@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector.ftp;
+package org.astraea.connector.backup;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,17 +33,13 @@ import org.junit.jupiter.api.Test;
 public class FtpConnectorSourceTest extends RequireWorkerCluster {
   @Test
   void testCreateFtpSourceConnector() {
-    var topicName = Utils.randomString(10);
-
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
             "connector.class",
-            FtpSourceConnector.class.getName(),
-            "task.max",
+            Importer.class.getName(),
+            "tasks.max",
             "2",
-            "topics",
-            topicName,
             "fs.ftp.hostname",
             "127.0.0.1",
             "fs.ftp.port",
@@ -60,28 +55,26 @@ public class FtpConnectorSourceTest extends RequireWorkerCluster {
             "archive.dir",
             "/archive");
     var createdConnectorInfo =
-        connectorClient.createConnector("FTPSource", connectorConfigs).toCompletableFuture().join();
+        connectorClient.createConnector("FtpSource", connectorConfigs).toCompletableFuture().join();
 
     var configs = createdConnectorInfo.config();
 
-    Assertions.assertEquals("FTPSource", createdConnectorInfo.name());
-    Assertions.assertEquals(FtpSourceConnector.class.getName(), configs.get("connector.class"));
-    Assertions.assertEquals("2", configs.get("task.max"));
+    Assertions.assertEquals("FtpSource", createdConnectorInfo.name());
+    Assertions.assertEquals(Importer.class.getName(), configs.get("connector.class"));
+    Assertions.assertEquals("2", configs.get("tasks.max"));
   }
 
   @Test
   void testFtpSourceTask() {
     try (var server = FtpServer.local()) {
       var topicName = Utils.randomString(10);
-      var task = new FtpSourceTask();
+      var task = new Importer.Task();
       var configs =
           Map.of(
-              "task.max",
-              "1",
               "connector.class",
-              "FTPSourceConnector",
-              "topic",
-              topicName,
+              Importer.class.getName(),
+              "tasks.max",
+              "1",
               "input",
               "/source",
               "fs.ftp.hostname",
@@ -95,7 +88,9 @@ public class FtpConnectorSourceTest extends RequireWorkerCluster {
               "clean.source",
               "false",
               "archive.dir",
-              "/archive");
+              "/archive",
+              "task.id",
+              "0");
 
       var fs = FileSystem.of("ftp", Configuration.of(configs));
 
@@ -116,7 +111,7 @@ public class FtpConnectorSourceTest extends RequireWorkerCluster {
                   .timestamp(System.currentTimeMillis())
                   .build());
 
-      var os = fs.write("/source/file");
+      var os = fs.write("/source/topic/0/0");
       var writer = RecordWriter.builder(os).build();
       records.forEach(writer::append);
       writer.close();
@@ -128,11 +123,9 @@ public class FtpConnectorSourceTest extends RequireWorkerCluster {
         Assertions.assertEquals(records.get(i).topic(), returnRecords.get(i).topic());
         Assertions.assertArrayEquals(records.get(i).key(), returnRecords.get(i).key());
         Assertions.assertArrayEquals(records.get(i).value(), returnRecords.get(i).value());
-        Assertions.assertEquals(records.get(i).partition(), returnRecords.get(i).partition());
-        Assertions.assertEquals(records.get(i).timestamp(), returnRecords.get(i).timestamp());
+        Assertions.assertEquals(records.get(i).partition(), returnRecords.get(i).partition().get());
+        Assertions.assertEquals(records.get(i).timestamp(), returnRecords.get(i).timestamp().get());
       }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 }

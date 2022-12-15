@@ -17,96 +17,153 @@
 package org.astraea.connector.backup;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.backup.RecordWriter;
-import org.astraea.common.consumer.Record;
+import org.astraea.common.Utils;
+import org.astraea.common.backup.RecordReader;
+import org.astraea.common.producer.Record;
 import org.astraea.connector.Definition;
-import org.astraea.connector.SinkConnector;
-import org.astraea.connector.SinkTask;
-import org.astraea.fs.FileSystem;
+import org.astraea.connector.MetadataStorage;
+import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceTask;
+import org.astraea.fs.Type;
+import org.astraea.fs.ftp.FtpFileSystem;
 
-public class Importer extends SinkConnector {
-
-  private Configuration cons;
+public class Importer extends SourceConnector {
+  private Configuration config;
+  private FtpFileSystem fs;
+  private String input;
+  private boolean cleanSource;
+  private Optional<String> archiveDir;
 
   @Override
-  protected void init(Configuration configuration) {
-    this.cons = configuration;
+  protected void init(Configuration configuration, MetadataStorage storage) {
+    this.config = configuration;
+    this.fs = new FtpFileSystem(config);
+    this.input = config.requireString("input");
+    this.cleanSource = Boolean.parseBoolean(configuration.requireString("clean.source"));
+    this.archiveDir = Optional.ofNullable(configuration.requireString("archive.dir"));
   }
 
   @Override
-  protected Class<? extends SinkTask> task() {
+  protected Class<? extends SourceTask> task() {
     return Task.class;
   }
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    List<Configuration> configs = new ArrayList<>();
-    for (int i = 0; i < maxTasks; i++) {
-      configs.add(cons);
-    }
-    return configs;
+    return IntStream.range(0, maxTasks)
+        .mapToObj(
+            i -> {
+              var taskMap = new HashMap<>(config.raw());
+              taskMap.put("task.id", String.valueOf(i));
+              return Configuration.of(taskMap);
+            })
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  protected void close() {
+    if (archiveDir.isPresent()) fs.rename(input, archiveDir.get());
+    else if (cleanSource) fs.delete(input);
+    this.fs.close();
   }
 
   @Override
   protected List<Definition> definitions() {
     return List.of(
         Definition.builder()
-            .name("ftp")
+            .name("fs.ftp.hostname")
             .type(Definition.Type.STRING)
             .defaultValue(null)
-            .documentation("test")
+            .documentation("ftp host.")
             .build());
   }
 
-  public static class Task extends SinkTask {
-    private FileSystem ftpClient;
-    private Configuration cons;
+  public static class Task extends SourceTask {
+    private FtpFileSystem fs;
+    private int id;
+    private HashSet<String> addedPath;
+    private String input;
+    private int maxTask;
+    private LinkedList<String> paths;
 
-    @Override
     protected void init(Configuration configuration) {
-      this.ftpClient = FileSystem.of("ftp", configuration);
-      this.cons = configuration;
+      this.fs = new FtpFileSystem(configuration);
+      this.id = configuration.requireInteger("task.id");
+      this.addedPath = new HashSet<>();
+      this.input = configuration.requireString("input");
+      this.maxTask = configuration.requireInteger("tasks.max");
+      this.paths = new LinkedList<>();
     }
 
     @Override
-    protected void put(List<Record<byte[], byte[]>> records) {
-      var writers = new HashMap<TopicPartition, RecordWriter>();
-      for (var record : records) {
-        var writer =
-            writers.computeIfAbsent(
-                record.topicPartition(),
-                ignored -> {
-                  var path = cons.requireString("path");
-                  var topicName = cons.requireString("topics");
-                  var fileName = String.valueOf(record.offset());
-                  return RecordWriter.builder(
-                          ftpClient.write(
-                              String.join(
-                                  "/",
-                                  path,
-                                  topicName,
-                                  String.valueOf(record.partition()),
-                                  fileName)))
-                      .build();
-                });
-        writer.append(record);
-
-        if (writer.size().greaterThan(DataSize.of(cons.requireString("size")))) {
-          writers.remove(record.topicPartition()).close();
+    protected Collection<Record<byte[], byte[]>> take() {
+      if (paths.isEmpty()) {
+        LinkedList<String> path = new LinkedList<>(Collections.singletonList(input));
+        while (true) {
+          var current = path.poll();
+          if (current == null) break;
+          if (fs.type(current) == Type.FOLDER) {
+            var files = fs.listFiles(current);
+            var folders = fs.listFolders(current);
+            if (folders.isEmpty()) {
+              if (!files.isEmpty() && (current.hashCode() & Integer.MAX_VALUE) % maxTask == id) {
+                paths.addAll(
+                    files.stream()
+                        .filter(Predicate.not(file -> addedPath.contains(file)))
+                        .collect(Collectors.toList()));
+                continue;
+              }
+            }
+            path.addAll(folders);
+          }
         }
       }
-
-      writers.forEach((tp, writer) -> writer.close());
+      addedPath.addAll(paths);
+      if (!paths.isEmpty()) {
+        var records = new ArrayList<Record<byte[], byte[]>>();
+        var currentPath = paths.poll();
+        var inputStream = fs.read(currentPath);
+        var reader = RecordReader.builder(inputStream).build();
+        while (reader.hasNext()) {
+          var record = reader.next();
+          if (record.key() == null && record.value() == null) continue;
+          records.add(
+              Record.builder()
+                  .topic(record.topic())
+                  .partition(record.partition())
+                  .key(record.key())
+                  .value(record.value())
+                  .timestamp(record.timestamp())
+                  .headers(record.headers())
+                  .build());
+        }
+        System.out.println(
+            "succeed to add "
+                + records.size()
+                + " records from "
+                + currentPath
+                + " from task "
+                + id);
+        Utils.packException(inputStream::close);
+        return records;
+      }
+      return null;
     }
 
     @Override
     protected void close() {
-      this.ftpClient.close();
+      this.fs.close();
     }
   }
 }
