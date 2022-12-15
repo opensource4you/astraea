@@ -16,18 +16,16 @@
  */
 package org.astraea.etl
 
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Row, SparkSession}
 import org.astraea.etl.DataType.StringType
 import org.astraea.etl.Reader._
-
-import scala.util.control.Breaks
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
     var userSchema: StructType,
     var sinkPath: String,
     var pk: Seq[String]
-) extends Serializable {
+) {
   protected def this() = this(
     "deploymentModel",
     Reader
@@ -66,23 +64,6 @@ class Reader[PassedStep <: BuildStep] private (
     this.pk = pk
     new Reader[PassedStep with PkStep](this)
   }
-  // check blank line
-  def allNull(row: Row): Boolean = {
-    @transient val len = row.length
-    @transient var i = 0
-    @transient var isNull = true
-    @transient val loop = new Breaks
-    loop.breakable {
-      while (i < len) {
-        if (!row.isNullAt(i)) {
-          isNull = false
-          loop.break
-        }
-        i += 1
-      }
-    }
-    isNull
-  }
 
   def readCSV(
       source: String
@@ -93,7 +74,8 @@ class Reader[PassedStep <: BuildStep] private (
       .schema(userSchema)
       .csv(source)
       .filter(row => {
-        !allNull(row)
+        val bool = (0 until row.length).exists(i => !row.isNullAt(i))
+        bool
       })
 
     new DataFrameOp(df)
