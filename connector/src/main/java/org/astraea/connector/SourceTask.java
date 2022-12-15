@@ -75,9 +75,9 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
                   so,
                   r.topic(),
                   r.partition().orElse(null),
-                  Schema.BYTES_SCHEMA,
+                  r.key() == null ? null : Schema.BYTES_SCHEMA,
                   r.key(),
-                  Schema.BYTES_SCHEMA,
+                  r.value() == null ? null : Schema.BYTES_SCHEMA,
                   r.value(),
                   r.timestamp().orElse(null),
                   r.headers().stream()

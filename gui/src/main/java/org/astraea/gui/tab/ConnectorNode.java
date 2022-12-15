@@ -78,6 +78,21 @@ public class ConnectorNode {
                 TextInput.required(ConnectorConfigs.TOPICS_KEY, EditableText.singleLine().build()),
                 TextInput.required(
                     ConnectorConfigs.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(
+                    ConnectorConfigs.KEY_CONVERTER_KEY,
+                    EditableText.singleLine()
+                        .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
+                        .build()),
+                TextInput.of(
+                    ConnectorConfigs.VALUE_CONVERTER_KEY,
+                    EditableText.singleLine()
+                        .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
+                        .build()),
+                TextInput.of(
+                    ConnectorConfigs.HEADER_CONVERTER_KEY,
+                    EditableText.singleLine()
+                        .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
+                        .build()),
                 TextInput.of("configs", EditableText.multiline().hint("{\"a\":\"b\"}").build())),
             "CREATE",
             (argument, logger) -> {

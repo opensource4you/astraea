@@ -22,5 +22,12 @@ public final class ConnectorConfigs {
   public static final String TASK_MAX_KEY = "tasks.max";
   public static final String TOPICS_KEY = "topics";
 
+  public static final String KEY_CONVERTER_KEY = "key.converter";
+  public static final String VALUE_CONVERTER_KEY = "value.converter";
+  public static final String HEADER_CONVERTER_KEY = "header.converter";
+
+  public static final String BYTE_ARRAY_CONVERTER_CLASS =
+      "org.apache.kafka.connect.converters.ByteArrayConverter";
+
   private ConnectorConfigs() {}
 }

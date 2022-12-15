@@ -73,13 +73,10 @@ public final class Services {
                   // set the normal converter
                   config.put(
                       ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,
-                      "org.apache.kafka.connect.converters.ByteArrayConverter");
+                      "org.apache.kafka.connect.json.JsonConverter");
                   config.put(
                       ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
-                      "org.apache.kafka.connect.converters.ByteArrayConverter");
-                  config.put(
-                      ConnectorConfig.HEADER_CONVERTER_CLASS_CONFIG,
-                      "org.apache.kafka.connect.converters.ByteArrayConverter");
+                      "org.apache.kafka.connect.json.JsonConverter");
                   config.put(
                       WorkerConfig.LISTENERS_CONFIG,
                       // the worker hostname is a part of information used by restful apis.
