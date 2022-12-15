@@ -103,6 +103,7 @@ object Reader {
 
   def createSchema(cols: Map[String, DataType]): StructType = {
     var userSchema = new StructType()
+    //TODO astraea #1286 Need to wrap non-nullable type with optional.
     cols.foreach(col => userSchema = userSchema.add(col._1, StringType))
     userSchema
   }
