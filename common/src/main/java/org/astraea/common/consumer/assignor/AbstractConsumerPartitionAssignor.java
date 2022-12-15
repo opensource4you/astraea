@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -61,32 +60,6 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
       Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,
       ClusterInfo<ReplicaInfo> metadata);
 
-  @Override
-  public GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-
-    // convert Kafka's data structure to ours
-    var clusterInfo = ClusterInfo.of(metadata);
-    var subscriptionsPerMember =
-        org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
-            .groupSubscription();
-
-    // check the nodes if register JMX or not
-    var unregister = checkUnregister(clusterInfo.nodes());
-    // register JMX for unregistered nodes
-    if (!unregister.isEmpty()) registerRemoteJMX(unregister);
-
-    return new GroupAssignment(
-        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        new Assignment(
-                            e.getValue().stream()
-                                .map(TopicPartition::to)
-                                .collect(Collectors.toUnmodifiableList())))));
-  }
-
   /**
    * Parse config to get JMX port and cost function type.
    *
@@ -95,18 +68,14 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
   @Override
   public void configure(Configuration config) {
     var costFunctions = parseCostFunctionWeight(config);
-    configure(
-        costFunctions.isEmpty() ? Map.of(new ReplicaSizeCost(), 1D) : costFunctions,
-        config.integer(JMX_PORT),
-        PartitionerUtils.parseIdJMXPort(config));
-  }
+    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
+    var defaultJMXPort = config.integer(JMX_PORT);
 
-  void configure(
-      Map<HasPartitionCost, Double> costFunctions,
-      Optional<Integer> defaultJmxPort,
-      Map<Integer, Integer> customJmxPort) {
-    this.costFunction = HasPartitionCost.of(costFunctions);
-    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> defaultJmxPort);
+    this.costFunction =
+        costFunctions.isEmpty()
+            ? HasPartitionCost.of(Map.of(new ReplicaSizeCost(), 1D))
+            : HasPartitionCost.of(costFunctions);
+    this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
     this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
   }
 
@@ -116,7 +85,8 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
    * @param nodes List of node information
    * @return Map from each broker id to broker host
    */
-  protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
+  @Override
+  public Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
     return nodes.stream()
         .filter(i -> !metricCollector.listIdentities().contains(i.id()))
         .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
@@ -127,7 +97,8 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
    *
    * @param unregister Map from each broker id to broker host
    */
-  protected void registerRemoteJMX(Map<Integer, String> unregister) {
+  @Override
+  public void registerJMX(Map<Integer, String> unregister) {
     unregister.forEach(
         (id, host) ->
             metricCollector.registerJmx(
@@ -135,7 +106,7 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
   }
 
   // used for test
-  void registerLocalJMX(Map<Integer, String> unregister) {
+  protected void registerLocalJMX(Map<Integer, String> unregister) {
     unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
   }
 

@@ -19,9 +19,11 @@ package org.astraea.common.consumer.assignor;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Configurable;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
@@ -39,6 +41,35 @@ public interface ConsumerPartitionAssignor
       Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,
       ClusterInfo<ReplicaInfo> metadata);
 
+  @Override
+  default GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
+
+    // convert Kafka's data structure to ours
+    var clusterInfo = ClusterInfo.of(metadata);
+    var subscriptionsPerMember =
+        org.astraea.common.consumer.assignor.GroupSubscription.from(groupSubscription)
+            .groupSubscription();
+
+    // check the nodes if register JMX or not
+    var unregisteredNodes = checkUnregister(clusterInfo.nodes());
+    // register JMX for unregistered nodes
+    if (!unregisteredNodes.isEmpty()) registerJMX(unregisteredNodes);
+
+    return new GroupAssignment(
+        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        new Assignment(
+                            e.getValue().stream()
+                                .map(TopicPartition::to)
+                                .collect(Collectors.toUnmodifiableList())))));
+  }
+
+  Map<Integer, String> checkUnregister(List<NodeInfo> nodes);
+
+  void registerJMX(Map<Integer, String> unregisterNodes);
   /**
    * Configure the assignor. The method is called only once.
    *
