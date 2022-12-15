@@ -83,12 +83,12 @@ public class ConnectorNode {
                     EditableText.singleLine()
                         .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
                         .build()),
-                TextInput.required(
+                TextInput.of(
                     ConnectorConfigs.VALUE_CONVERTER_KEY,
                     EditableText.singleLine()
                         .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
                         .build()),
-                TextInput.required(
+                TextInput.of(
                     ConnectorConfigs.HEADER_CONVERTER_KEY,
                     EditableText.singleLine()
                         .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
