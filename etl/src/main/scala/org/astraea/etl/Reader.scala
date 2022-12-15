@@ -17,7 +17,6 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.expressions.AssertTrue
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.astraea.etl.DataType.BooleanType
 import org.astraea.etl.Reader._
