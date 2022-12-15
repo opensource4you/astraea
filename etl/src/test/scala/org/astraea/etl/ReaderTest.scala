@@ -67,7 +67,7 @@ class ReaderTest extends RequireBrokerCluster {
     val structType = Reader.createSchema(
       Map(
         "RecordNumber" -> StringType,
-        "Size" -> IntegerType,
+        "Size" -> StringType,
         "Type" -> StringType
       )
     )
@@ -112,7 +112,7 @@ class ReaderTest extends RequireBrokerCluster {
     val structType = Reader.createSchema(
       Map(
         "RecordNumber" -> StringType,
-        "Size" -> IntegerType,
+        "Size" -> StringType,
         "Type" -> StringType
       )
     )
