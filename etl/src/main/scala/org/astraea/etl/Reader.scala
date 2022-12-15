@@ -17,8 +17,9 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.expressions.AssertTrue
 import org.apache.spark.sql.types.{StringType, StructType}
-import org.astraea.etl.DataType.{BooleanType}
+import org.astraea.etl.DataType.BooleanType
 import org.astraea.etl.Reader._
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
@@ -106,5 +107,13 @@ object Reader {
     // TODO astraea #1286 Need to wrap non-nullable type with optional.
     cols.foreach(col => userSchema = userSchema.add(col._1, StringType))
     userSchema
+  }
+
+  def unsupportedTypes(dataType: DataType): StringType = {
+    if (dataType != DataType.StringType)
+      throw new IllegalArgumentException(
+        "Sorry, only string type is currently supported.Because a problem(astraea #1286) has led to the need to wrap the non-nullable type."
+      )
+    StringType
   }
 }
