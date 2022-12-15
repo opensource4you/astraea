@@ -14,26 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.app.argument;
 
-import java.util.List;
+import com.beust.jcommander.ParameterException;
+import org.astraea.common.DistributionType;
 
-/** this is not a kind of json response from kafka. We compose it with definition. */
-public class PluginInfo {
-  private final String className;
-
-  private final List<Definition> definitions;
-
-  public PluginInfo(String className, List<Definition> definitions) {
-    this.className = className;
-    this.definitions = definitions;
-  }
-
-  public String className() {
-    return className;
-  }
-
-  public List<Definition> definitions() {
-    return definitions;
+/**
+ * convert(String): Accept lower-case name only e.g. "fixed", "uniform", "latest" and "zipfian" are
+ * legal e.g. "Fixed" and "UNIFORM" are illegal
+ */
+public class DistributionTypeField extends Field<DistributionType> {
+  @Override
+  public DistributionType convert(String name) {
+    try {
+      return DistributionType.ofAlias(name);
+    } catch (IllegalArgumentException e) {
+      throw new ParameterException(e);
+    }
   }
 }

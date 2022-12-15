@@ -16,6 +16,8 @@
  */
 package org.astraea.connector;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -26,12 +28,21 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ConnectorTest extends RequireWorkerCluster {
+
+  @Test
+  void testPlugin() {
+    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var plugins = connectorClient.plugins().toCompletableFuture().join();
+    assertNotEquals(0, plugins.size());
+    plugins.forEach(p -> assertNotEquals(0, p.definitions().size()));
+  }
 
   @Test
   void testCustomConnectorPlugins() {
@@ -54,19 +65,19 @@ public class ConnectorTest extends RequireWorkerCluster {
             .createConnector(
                 name,
                 Map.of(
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     MySource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "3",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     topic))
             .toCompletableFuture()
             .join();
     Assertions.assertEquals(name, info.name());
     Assertions.assertEquals(
-        MySource.class.getName(), info.config().get(ConnectorClient.CONNECTOR_CLASS_KEY));
-    Assertions.assertEquals("3", info.config().get(ConnectorClient.TASK_MAX_KEY));
-    Assertions.assertEquals(topic, info.config().get(ConnectorClient.TOPICS_KEY));
+        MySource.class.getName(), info.config().get(ConnectorConfigs.CONNECTOR_CLASS_KEY));
+    Assertions.assertEquals("3", info.config().get(ConnectorConfigs.TASK_MAX_KEY));
+    Assertions.assertEquals(topic, info.config().get(ConnectorConfigs.TOPICS_KEY));
 
     // wait for sync
     Utils.sleep(Duration.ofSeconds(3));
@@ -90,7 +101,7 @@ public class ConnectorTest extends RequireWorkerCluster {
     private static final AtomicInteger CLOSE_COUNT = new AtomicInteger(0);
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       INIT_COUNT.incrementAndGet();
     }
 

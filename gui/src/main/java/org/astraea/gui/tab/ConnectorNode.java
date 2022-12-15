@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.tab;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,8 +25,11 @@ import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
-import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
+import org.astraea.common.connector.Definition;
 import org.astraea.common.connector.WorkerStatus;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.PaneBuilder;
@@ -68,19 +72,38 @@ public class ConnectorNode {
     return PaneBuilder.of()
         .firstPart(
             List.of(
-                TextInput.required(ConnectorClient.NAME_KEY, EditableText.singleLine().build()),
+                TextInput.required(ConnectorConfigs.NAME_KEY, EditableText.singleLine().build()),
                 TextInput.required(
-                    ConnectorClient.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
-                TextInput.required(ConnectorClient.TOPICS_KEY, EditableText.singleLine().build()),
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY, EditableText.singleLine().build()),
+                TextInput.required(ConnectorConfigs.TOPICS_KEY, EditableText.singleLine().build()),
                 TextInput.required(
-                    ConnectorClient.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
-                TextInput.of("configs", EditableText.multiline().build())),
+                    ConnectorConfigs.TASK_MAX_KEY, EditableText.singleLine().onlyNumber().build()),
+                TextInput.of(
+                    ConnectorConfigs.KEY_CONVERTER_KEY,
+                    EditableText.singleLine()
+                        .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
+                        .build()),
+                TextInput.of(
+                    ConnectorConfigs.VALUE_CONVERTER_KEY,
+                    EditableText.singleLine()
+                        .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
+                        .build()),
+                TextInput.of(
+                    ConnectorConfigs.HEADER_CONVERTER_KEY,
+                    EditableText.singleLine()
+                        .hint(ConnectorConfigs.BYTE_ARRAY_CONVERTER_CLASS)
+                        .build()),
+                TextInput.of("configs", EditableText.multiline().hint("{\"a\":\"b\"}").build())),
             "CREATE",
             (argument, logger) -> {
               var req = new HashMap<>(argument.nonEmptyTexts());
+              var configs = req.remove("configs");
+              if (configs != null)
+                req.putAll(
+                    JsonConverter.defaultConverter().fromJson(configs, TypeRef.map(String.class)));
               return context
                   .connectorClient()
-                  .createConnector(req.remove(ConnectorClient.NAME_KEY), req)
+                  .createConnector(req.remove(ConnectorConfigs.NAME_KEY), req)
                   .thenApply(
                       connectorInfo -> {
                         var map = new LinkedHashMap<String, Object>();
@@ -264,7 +287,11 @@ public class ConnectorNode {
                                 .map(
                                     pluginInfo -> {
                                       var map = new LinkedHashMap<String, Object>();
-                                      map.put("class name", pluginInfo.className());
+                                      map.put("class", pluginInfo.className());
+                                      pluginInfo.definitions().stream()
+                                          .sorted(Comparator.comparing(Definition::name))
+                                          .forEach(
+                                              d -> map.put(d.name(), d.defaultValue().orElse("")));
                                       return map;
                                     })
                                 .collect(Collectors.toList())))

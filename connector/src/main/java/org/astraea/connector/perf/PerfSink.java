@@ -16,11 +16,13 @@
  */
 package org.astraea.connector.perf;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
@@ -44,7 +46,7 @@ public class PerfSink extends SinkConnector {
 
   @Override
   protected Class<? extends SinkTask> task() {
-    return PerfSinkTask.class;
+    return Task.class;
   }
 
   @Override
@@ -55,5 +57,29 @@ public class PerfSink extends SinkConnector {
   @Override
   protected List<Definition> definitions() {
     return List.of(FREQUENCY_DEF);
+  }
+
+  public static class Task extends SinkTask {
+
+    private Duration frequency = Utils.toDuration(PerfSink.FREQUENCY_DEF.defaultValue().toString());
+
+    private volatile long lastPut = System.currentTimeMillis();
+
+    @Override
+    protected void init(Configuration configuration) {
+      frequency =
+          configuration
+              .string(PerfSource.FREQUENCY_DEF.name())
+              .map(Utils::toDuration)
+              .orElse(frequency);
+    }
+
+    @Override
+    protected void put(List<Record<byte[], byte[]>> records) {
+      var now = System.currentTimeMillis();
+      var diff = frequency.toMillis() - (now - lastPut);
+      if (diff > 0) Utils.sleep(Duration.ofMillis(diff));
+      lastPut = now;
+    }
   }
 }

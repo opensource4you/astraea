@@ -18,12 +18,16 @@ package org.astraea.connector.perf;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.it.RequireSingleWorkerCluster;
@@ -34,119 +38,78 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
 
   @Test
   void testDefaultConfig() {
+    var name = Utils.randomString();
     var client = ConnectorClient.builder().url(workerUrl()).build();
-    var validation =
-        client
-            .validate(
-                PerfSource.class.getSimpleName(),
-                Map.of(
-                    ConnectorClient.NAME_KEY,
-                    Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
-                    PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
-                    "1",
-                    ConnectorClient.TOPICS_KEY,
-                    "abc"))
-            .toCompletableFuture()
-            .join();
-    Assertions.assertEquals(
-        0,
-        validation.errorCount(),
-        validation.configs().stream()
-            .flatMap(c -> c.value().errors().stream())
-            .collect(Collectors.joining(",")));
+    client
+        .createConnector(
+            name,
+            Map.of(
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
+                PerfSource.class.getName(),
+                ConnectorConfigs.TASK_MAX_KEY,
+                "1",
+                ConnectorConfigs.TOPICS_KEY,
+                "abc"))
+        .toCompletableFuture()
+        .join();
+
+    Utils.sleep(Duration.ofSeconds(4));
+
+    var status = client.connectorStatus(name).toCompletableFuture().join();
+    Assertions.assertEquals("RUNNING", status.state());
+    Assertions.assertEquals(1, status.tasks().size());
+    status.tasks().forEach(t -> Assertions.assertEquals("RUNNING", t.state()));
   }
 
   @Test
   void testKeyLength() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
-    var validation =
-        client
-            .validate(
-                PerfSource.class.getSimpleName(),
-                Map.of(
-                    ConnectorClient.NAME_KEY,
-                    Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
-                    PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
-                    "1",
-                    ConnectorClient.TOPICS_KEY,
-                    "abc",
-                    PerfSource.KEY_LENGTH_DEF.name(),
-                    "a"))
-            .toCompletableFuture()
-            .join();
-    Assertions.assertEquals(1, validation.errorCount());
-    Assertions.assertNotEquals(
-        0,
-        validation.configs().stream()
-            .filter(c -> c.definition().name().equals(PerfSource.KEY_LENGTH_DEF.name()))
-            .findFirst()
-            .get()
-            .value()
-            .errors()
-            .size());
+    testConfig(PerfSource.KEY_LENGTH_DEF.name(), "a");
   }
 
   @Test
   void testValueLength() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
-    var validation =
-        client
-            .validate(
-                PerfSource.class.getSimpleName(),
-                Map.of(
-                    ConnectorClient.NAME_KEY,
-                    Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
-                    PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
-                    "1",
-                    ConnectorClient.TOPICS_KEY,
-                    "abc",
-                    PerfSource.VALUE_LENGTH_DEF.name(),
-                    "a"))
-            .toCompletableFuture()
-            .join();
-    Assertions.assertEquals(1, validation.errorCount());
-    Assertions.assertNotEquals(
-        0,
-        validation.configs().stream()
-            .filter(c -> c.definition().name().equals(PerfSource.VALUE_LENGTH_DEF.name()))
-            .findFirst()
-            .get()
-            .value()
-            .errors()
-            .size());
+    testConfig(PerfSource.VALUE_LENGTH_DEF.name(), "a");
   }
 
   @Test
   void testFrequency() {
+    testConfig(PerfSource.FREQUENCY_DEF.name(), "a");
+  }
+
+  @Test
+  void testKeyDistribution() {
+    testConfig(PerfSource.KEY_DISTRIBUTION_DEF.name(), "a");
+  }
+
+  @Test
+  void testValueDistribution() {
+    testConfig(PerfSource.VALUE_DISTRIBUTION_DEF.name(), "a");
+  }
+
+  private void testConfig(String name, String errorValue) {
     var client = ConnectorClient.builder().url(workerUrl()).build();
     var validation =
         client
             .validate(
                 PerfSource.class.getSimpleName(),
                 Map.of(
-                    ConnectorClient.NAME_KEY,
+                    ConnectorConfigs.NAME_KEY,
                     Utils.randomString(),
-                    ConnectorClient.CONNECTOR_CLASS_KEY,
+                    ConnectorConfigs.CONNECTOR_CLASS_KEY,
                     PerfSource.class.getName(),
-                    ConnectorClient.TASK_MAX_KEY,
+                    ConnectorConfigs.TASK_MAX_KEY,
                     "1",
-                    ConnectorClient.TOPICS_KEY,
+                    ConnectorConfigs.TOPICS_KEY,
                     "abc",
-                    PerfSource.FREQUENCY_DEF.name(),
-                    "a"))
+                    name,
+                    errorValue))
             .toCompletableFuture()
             .join();
     Assertions.assertEquals(1, validation.errorCount());
     Assertions.assertNotEquals(
         0,
         validation.configs().stream()
-            .filter(c -> c.definition().name().equals(PerfSource.FREQUENCY_DEF.name()))
+            .filter(c -> c.definition().name().equals(name))
             .findFirst()
             .get()
             .value()
@@ -163,11 +126,11 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
         .createConnector(
             name,
             Map.of(
-                ConnectorClient.CONNECTOR_CLASS_KEY,
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
                 PerfSource.class.getName(),
-                ConnectorClient.TASK_MAX_KEY,
+                ConnectorConfigs.TASK_MAX_KEY,
                 "1",
-                ConnectorClient.TOPICS_KEY,
+                ConnectorConfigs.TOPICS_KEY,
                 topicName))
         .toCompletableFuture()
         .join();
@@ -200,11 +163,11 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
         .createConnector(
             name,
             Map.of(
-                ConnectorClient.CONNECTOR_CLASS_KEY,
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
                 PerfSource.class.getName(),
-                ConnectorClient.TASK_MAX_KEY,
+                ConnectorConfigs.TASK_MAX_KEY,
                 "1",
-                ConnectorClient.TOPICS_KEY,
+                ConnectorConfigs.TOPICS_KEY,
                 topicName))
         .toCompletableFuture()
         .join();
@@ -218,15 +181,15 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     m0.forEach(
         m -> {
           Assertions.assertNotNull(m.taskType());
-          Assertions.assertNotEquals(0D, m.pollBatchAvgTimeMs());
-          Assertions.assertNotEquals(0D, m.pollBatchMaxTimeMs());
-          Assertions.assertNotEquals(0D, m.sourceRecordActiveCountMax());
-          Assertions.assertNotEquals(0D, m.sourceRecordActiveCountAvg());
+          Assertions.assertDoesNotThrow(m::pollBatchAvgTimeMs);
+          Assertions.assertDoesNotThrow(m::pollBatchMaxTimeMs);
+          Assertions.assertDoesNotThrow(m::sourceRecordActiveCountMax);
+          Assertions.assertDoesNotThrow(m::sourceRecordActiveCountAvg);
           Assertions.assertDoesNotThrow(m::sourceRecordActiveCount);
-          Assertions.assertNotEquals(0D, m.sourceRecordWriteRate());
-          Assertions.assertNotEquals(0D, m.sourceRecordPollTotal());
-          Assertions.assertNotEquals(0D, m.sourceRecordPollRate());
-          Assertions.assertNotEquals(0D, m.sourceRecordWriteTotal());
+          Assertions.assertDoesNotThrow(m::sourceRecordWriteRate);
+          Assertions.assertDoesNotThrow(m::sourceRecordPollTotal);
+          Assertions.assertDoesNotThrow(m::sourceRecordPollRate);
+          Assertions.assertDoesNotThrow(m::sourceRecordWriteTotal);
         });
 
     var m1 =
@@ -245,5 +208,68 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
           Assertions.assertEquals(0D, m.totalRecordFailures());
           Assertions.assertEquals(0D, m.totalRecordsSkipped());
         });
+  }
+
+  @Test
+  void testInit() {
+    var task = new PerfSource.Task();
+    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")));
+    Assertions.assertNotNull(task.rand);
+    Assertions.assertNotNull(task.topics);
+    Assertions.assertNotNull(task.frequency);
+    Assertions.assertNotNull(task.keySelector);
+    Assertions.assertNotNull(task.keySizeGenerator);
+    Assertions.assertNotNull(task.keys);
+    Assertions.assertNotNull(task.valueSelector);
+    Assertions.assertNotNull(task.valueSizeGenerator);
+    Assertions.assertNotNull(task.values);
+  }
+
+  @Test
+  void testKeyAndValue() {
+    var task = new PerfSource.Task();
+    task.init(
+        Configuration.of(
+            Map.of(
+                ConnectorConfigs.TOPICS_KEY,
+                "a",
+                PerfSource.KEY_DISTRIBUTION_DEF.name(),
+                "uniform",
+                PerfSource.VALUE_DISTRIBUTION_DEF.name(),
+                "uniform")));
+    var keys =
+        IntStream.range(0, 100)
+            .mapToObj(ignored -> Optional.ofNullable(task.key()))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toSet());
+    Assertions.assertEquals(keys.size(), task.keys.size());
+    Assertions.assertNotEquals(0, keys.size());
+    var values =
+        IntStream.range(0, 100)
+            .mapToObj(ignored -> Optional.ofNullable(task.value()))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toSet());
+    Assertions.assertEquals(values.size(), task.values.size());
+    Assertions.assertNotEquals(0, values.size());
+  }
+
+  @Test
+  void testZeroKeySize() {
+    var task = new PerfSource.Task();
+    task.init(
+        Configuration.of(
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")));
+    Assertions.assertNull(task.key());
+    Assertions.assertEquals(0, task.keys.size());
+  }
+
+  @Test
+  void testZeroValueSize() {
+    var task = new PerfSource.Task();
+    task.init(
+        Configuration.of(
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")));
+    Assertions.assertNull(task.value());
+    Assertions.assertEquals(0, task.values.size());
   }
 }

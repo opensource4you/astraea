@@ -47,4 +47,16 @@ public class RoundRobinTest {
     Assertions.assertEquals(Optional.of(1), rr.next(Set.of(0, 1)));
     Assertions.assertEquals(Optional.of(0), rr.next(Set.of(0, 1)));
   }
+
+  @Test
+  void testZeroScore() {
+    var scores = Map.of(0, 0D, 1, 5D);
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RoundRobin.smooth(scores));
+  }
+
+  @Test
+  void testNegativeScore() {
+    var scores = Map.of(0, -1D, 1, 5D);
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RoundRobin.smooth(scores));
+  }
 }

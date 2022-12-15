@@ -230,12 +230,9 @@ setPropertyIfEmpty "group.id" "worker-$(cat /dev/random | env LC_CTYPE=C tr -dc 
 # take group id from prop file
 WORKER_GROUP_ID=$(cat $WORKER_PROPERTIES | grep "group.id" | cut -d "=" -f2)
 
-# Use ByteArrayConverter as default key/value converter instead of JsonConverter since there are plenty of non kafka connect applications
-# that may use kafka topics, e.g. spark-kafka-integration only accept bytearray and string format (more info, see https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#kafka-specific-configurations)
-setPropertyIfEmpty "key.converter" "org.apache.kafka.connect.converters.ByteArrayConverter"
-setPropertyIfEmpty "value.converter" "org.apache.kafka.connect.converters.ByteArrayConverter"
-setPropertyIfEmpty "key.converter.schemas.enable" "true"
-setPropertyIfEmpty "value.converter.schemas.enable" "true"
+# set the default converter
+setPropertyIfEmpty "key.converter" "org.apache.kafka.connect.json.JsonConverter"
+setPropertyIfEmpty "value.converter" "org.apache.kafka.connect.json.JsonConverter"
 # Topic to use for storing offsets
 setPropertyIfEmpty "offset.storage.topic" "offsets-$WORKER_GROUP_ID"
 setPropertyIfEmpty "offset.storage.replication.factor" "1"

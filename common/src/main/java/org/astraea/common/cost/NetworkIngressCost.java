@@ -14,26 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.cost;
 
-import java.util.List;
+import org.astraea.common.metrics.broker.ServerMetrics;
 
-/** this is not a kind of json response from kafka. We compose it with definition. */
-public class PluginInfo {
-  private final String className;
-
-  private final List<Definition> definitions;
-
-  public PluginInfo(String className, List<Definition> definitions) {
-    this.className = className;
-    this.definitions = definitions;
-  }
-
-  public String className() {
-    return className;
-  }
-
-  public List<Definition> definitions() {
-    return definitions;
+/**
+ * A cost function to evaluate cluster load balance score in terms of message ingress data rate. See
+ * {@link NetworkCost} for further detail.
+ */
+public class NetworkIngressCost extends NetworkCost {
+  @Override
+  ServerMetrics.Topic useMetric() {
+    return ServerMetrics.Topic.BYTES_IN_PER_SEC;
   }
 }

@@ -34,11 +34,6 @@ import org.astraea.common.http.HttpRequestException;
  */
 public interface ConnectorClient {
 
-  String NAME_KEY = "name";
-  String CONNECTOR_CLASS_KEY = "connector.class";
-  String TASK_MAX_KEY = "tasks.max";
-  String TOPICS_KEY = "topics";
-
   static Builder builder() {
     return new Builder();
   }
@@ -62,9 +57,9 @@ public interface ConnectorClient {
 
   CompletionStage<Void> deleteConnector(String name);
 
-  CompletionStage<Validation> validate(String name, Map<String, String> configs);
+  CompletionStage<Validation> validate(String className, Map<String, String> configs);
 
-  CompletionStage<Set<PluginInfo>> plugins();
+  CompletionStage<List<PluginInfo>> plugins();
 
   default CompletionStage<Boolean> waitConnectorInfo(
       String connectName, Predicate<ConnectorStatus> predicate, Duration timeout) {
