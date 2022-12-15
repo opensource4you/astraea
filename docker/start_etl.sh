@@ -138,7 +138,7 @@ function runContainerByGithub() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        /opt/astraea/etl/build/libs/astraea-etl-"${ASTRAEA_VERSION}"-SNAPSHOT-all.jar \
+        "$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*SNAPSHOT-all.jar")" \
         "$propertiesPath"
 }
 
@@ -170,7 +170,7 @@ function runContainerByLocal() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        "$LOCAL_PATH"/etl/build/libs/astraea-etl-"${ASTRAEA_VERSION}"-SNAPSHOT-all.jar \
+        "$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*SNAPSHOT-all.jar")" \
         "$propertiesPath"
 }
 
