@@ -20,7 +20,6 @@ source "$DOCKER_FOLDER"/docker_build_common.sh
 
 # ===============================[version control]=================================
 declare -r SPARK_VERSION=${SPARK_VERSION:-3.3.1}
-declare -r ASTRAEA_VERSION=${ASTRAEA_VERSION:-0.0.1}
 # ===============================[global variables]================================
 declare -r REVISION=${REVISION:-$([[ ${BUILD} != "false" ]] && git rev-parse --short HEAD)}
 declare -r VERSION=${REVISION:-${VERSION:-main}}
@@ -138,7 +137,7 @@ function runContainerByGithub() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        /opt/astraea/etl/build/libs/astraea-etl-"${ASTRAEA_VERSION}"-SNAPSHOT-all.jar \
+        "$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*all.jar")" \
         "$propertiesPath"
 }
 
@@ -170,7 +169,7 @@ function runContainerByLocal() {
         --executor-memory "$RESOURCES_CONFIGS" \
         --class org.astraea.etl.Spark2Kafka \
         --master local \
-        "$LOCAL_PATH"/etl/build/libs/astraea-etl-"${ASTRAEA_VERSION}"-SNAPSHOT-all.jar \
+        "$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*all.jar")" \
         "$propertiesPath"
 }
 
