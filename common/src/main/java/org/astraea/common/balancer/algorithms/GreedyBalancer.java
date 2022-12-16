@@ -41,8 +41,8 @@ import org.astraea.common.metrics.MBeanRegister;
  */
 public class GreedyBalancer implements Balancer {
 
-  public static final String SHUFFLE_TWEAKER_MIN_STEP = "shuffle.tweaker.min.step";
-  public static final String SHUFFLE_TWEAKER_MAX_STEP = "shuffle.tweaker.max.step";
+  public static final String SHUFFLE_TWEAKER_MIN_STEP_CONFIG = "shuffle.tweaker.min.step";
+  public static final String SHUFFLE_TWEAKER_MAX_STEP_CONFIG = "shuffle.tweaker.max.step";
   public static final String ITERATION_CONFIG = "iteration";
   public static final Set<String> ALL_CONFIGS =
       new TreeSet<>(Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")));
@@ -58,14 +58,14 @@ public class GreedyBalancer implements Balancer {
     minStep =
         config
             .config()
-            .string(SHUFFLE_TWEAKER_MIN_STEP)
+            .string(SHUFFLE_TWEAKER_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
     maxStep =
         config
             .config()
-            .string(SHUFFLE_TWEAKER_MAX_STEP)
+            .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(30);
