@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.astraea.etl.Reader._
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
@@ -110,12 +110,4 @@ object Reader {
       StructField(name, t.sparkType)
     }.toSeq
   )
-
-  def unsupportedTypes(dataType: DataType): StringType = {
-    if (dataType != DataType.StringType)
-      throw new IllegalArgumentException(
-        "Sorry, only string type is currently supported.Because a problem(astraea #1286) has led to the need to wrap the non-nullable type."
-      )
-    StringType
-  }
 }
