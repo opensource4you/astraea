@@ -29,8 +29,8 @@ curl -X POST http://localhost:8001/balancer \
     -d '{ "timeout": "10s" ,
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
-        "shuffle.plan.generator.min.step": "1",
-        "shuffle.plan.generator.max.step": "30",
+        "shuffle.tweaker.min.step": "1",
+        "shuffle.tweaker.max.step": "30",
         "iteration": "10000"
       },
       "costWeights": [
