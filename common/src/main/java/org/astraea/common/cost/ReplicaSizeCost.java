@@ -138,7 +138,6 @@ public class ReplicaSizeCost
                     Collectors.mapping(
                         tpr -> statistSizeCount(tpr, clusterBean),
                         Collectors.summingDouble(x -> x))));
-
     return () -> result;
   }
 
