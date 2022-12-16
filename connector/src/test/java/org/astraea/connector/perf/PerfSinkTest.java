@@ -164,5 +164,25 @@ public class PerfSinkTest extends RequireSingleWorkerCluster {
           Assertions.assertEquals(0D, m.totalRecordFailures());
           Assertions.assertEquals(0D, m.totalRecordsSkipped());
         });
+
+    var m2 =
+        ConnectorMetrics.connectorInfo(MBeanClient.local()).stream()
+            .filter(m -> m.connectorName().equals(name))
+            .collect(Collectors.toList());
+    Assertions.assertEquals(1, m2.size());
+    m2.forEach(
+        m -> {
+          Assertions.assertNotNull(m.connectorName());
+          Assertions.assertDoesNotThrow(m::taskId);
+          Assertions.assertNotNull(m.connectorType());
+          Assertions.assertDoesNotThrow(m::batchSizeAvg);
+          Assertions.assertDoesNotThrow(m::batchSizeMax);
+          Assertions.assertDoesNotThrow(m::offsetCommitSuccessPercentage);
+          Assertions.assertDoesNotThrow(m::offsetCommitFailurePercentage);
+          Assertions.assertDoesNotThrow(m::offsetCommitAvgTimeMs);
+          Assertions.assertDoesNotThrow(m::offsetCommitMaxTimeMs);
+          Assertions.assertDoesNotThrow(m::pauseRatio);
+          Assertions.assertDoesNotThrow(m::status);
+        });
   }
 }
