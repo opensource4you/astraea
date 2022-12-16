@@ -27,10 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
@@ -45,7 +43,7 @@ public class ReplicaSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "size";
-  public static final String LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY = "log_size_exp_weight_by_time";
+  private static final String LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY = "log_size_exp_weight_by_time";
   final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
   /**
@@ -132,33 +130,24 @@ public class ReplicaSizeCost
   @Override
   public BrokerCost brokerCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    var result = statistSizeCount(clusterInfo, clusterBean);
+    var result =
+        clusterInfo.topicPartitionReplicas().stream()
+            .collect(
+                Collectors.groupingBy(
+                    TopicPartitionReplica::brokerId,
+                    Collectors.mapping(
+                        tpr -> statistSizeCount(tpr, clusterBean),
+                        Collectors.summingDouble(x -> x))));
+
     return () -> result;
   }
 
-  private Map<Integer, Double> statistSizeCount(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    var statistBeans =
-        clusterInfo.topicPartitionReplicas().stream()
-            .map(
-                tpr ->
-                    Map.entry(
-                        tpr,
-                        clusterBean
-                            .replicaMetrics(tpr, SizeStatisticalBean.class)
-                            .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-                            .map(SizeStatisticalBean::value)
-                            .orElse(0.0)))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return clusterInfo.nodes().stream()
-        .collect(
-            Collectors.toMap(
-                NodeInfo::id,
-                nodeInfo ->
-                    statistBeans.entrySet().stream()
-                        .filter(e -> e.getKey().brokerId() == nodeInfo.id())
-                        .mapToDouble(Map.Entry::getValue)
-                        .sum()));
+  private static double statistSizeCount(TopicPartitionReplica tpr, ClusterBean clusterBean) {
+    return clusterBean
+        .replicaMetrics(tpr, SizeStatisticalBean.class)
+        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+        .map(SizeStatisticalBean::value)
+        .orElse(0.0);
   }
 
   @Override
@@ -171,17 +160,15 @@ public class ReplicaSizeCost
   @Override
   public PartitionCost partitionCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    return () ->
-        clusterBean.replicas().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    tpr -> TopicPartition.of(tpr.topic(), tpr.partition()),
-                    tpr ->
-                        clusterBean
-                            .replicaMetrics(tpr, LogMetrics.Log.Gauge.class)
-                            .filter(gauge -> gauge.type().equals(LogMetrics.Log.SIZE))
-                            .mapToDouble(HasGauge::value)
-                            .sum()));
+    var result =
+        clusterInfo.replicaLeaders().stream()
+            .map(
+                leaderReplica ->
+                    Map.entry(
+                        leaderReplica.topicPartition(),
+                        statistSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return () -> result;
   }
 
   static class MigrateInfo {

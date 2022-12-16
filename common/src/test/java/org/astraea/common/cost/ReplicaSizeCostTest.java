@@ -29,7 +29,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -54,6 +53,12 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
           Map.of("topic", "t", "partition", "12", "name", "SIZE"),
           Map.of("Value", 500.0),
           200);
+  private static final BeanObject bean4 =
+      new BeanObject(
+          "domain",
+          Map.of("topic", "t", "partition", "12", "name", "SIZE"),
+          Map.of("Value", 499.0),
+          200);
 
   @Test
   void testClusterCost() {
@@ -69,7 +74,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     var cost = new ReplicaSizeCost();
     var result = cost.brokerCost(clusterInfo(), clusterBean());
     Assertions.assertEquals(3, result.value().size());
-    Assertions.assertEquals(777, result.value().get(0));
+    Assertions.assertEquals(777 + 499, result.value().get(0));
     Assertions.assertEquals(700, result.value().get(1));
     Assertions.assertEquals(500, result.value().get(2));
   }
@@ -283,26 +288,42 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   @Test
   void testPartitionCost() {
-    var meter = new LogMetrics.Log.Gauge(bean1);
-    var cost1 = new ReplicaSizeCost();
-    var cost2 = HasPartitionCost.of(Map.of(new ReplicaSizeCost(), (double) 1));
-    var result1 =
-        cost1.partitionCost(ClusterInfo.empty(), ClusterBean.of(Map.of(0, List.of(meter)))).value();
-    var result2 =
-        cost2.partitionCost(ClusterInfo.empty(), ClusterBean.of(Map.of(1, List.of(meter)))).value();
+    var cost = new ReplicaSizeCost();
+    var result = cost.partitionCost(clusterInfo(), clusterBean()).value();
 
-    Assertions.assertEquals(1, result1.size());
-    Assertions.assertEquals(1, result2.size());
-    Assertions.assertEquals(777, result1.get(TopicPartition.of("t", 10)));
-    Assertions.assertEquals(777, result2.get(TopicPartition.of("t", 10)));
+    Assertions.assertEquals(3, result.size());
+    Assertions.assertEquals(777.0, result.get(TopicPartition.of("t", 10)));
+    Assertions.assertEquals(700.0, result.get(TopicPartition.of("t", 11)));
+    Assertions.assertEquals(500.0, result.get(TopicPartition.of("t", 12)));
   }
 
   private ClusterInfo<Replica> clusterInfo() {
     var replicas =
         List.of(
-            Replica.builder().topic("t").partition(10).nodeInfo(NodeInfo.of(0, "", -1)).build(),
-            Replica.builder().topic("t").partition(11).nodeInfo(NodeInfo.of(1, "", -1)).build(),
-            Replica.builder().topic("t").partition(12).nodeInfo(NodeInfo.of(2, "", -1)).build());
+            Replica.builder()
+                .topic("t")
+                .partition(10)
+                .isLeader(true)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .build(),
+            Replica.builder()
+                .topic("t")
+                .partition(11)
+                .isLeader(true)
+                .nodeInfo(NodeInfo.of(1, "", -1))
+                .build(),
+            Replica.builder()
+                .topic("t")
+                .partition(12)
+                .isLeader(true)
+                .nodeInfo(NodeInfo.of(2, "", -1))
+                .build(),
+            Replica.builder()
+                .topic("t")
+                .partition(12)
+                .isLeader(false)
+                .nodeInfo(NodeInfo.of(0, "", -1))
+                .build());
     return ClusterInfo.of(
         List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)), replicas);
   }
@@ -312,7 +333,9 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     return ClusterBean.of(
         Map.of(
             0,
-            List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean1),
+            List.of(
+                (ReplicaSizeCost.SizeStatisticalBean) () -> bean1,
+                (ReplicaSizeCost.SizeStatisticalBean) () -> bean4),
             1,
             List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean2),
             2,
