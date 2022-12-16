@@ -50,9 +50,4 @@ public class RandomAssignor extends AbstractConsumerPartitionAssignor {
   public String name() {
     return "random";
   }
-
-  @Override
-  public void registerJMX(Map<Integer, String> unregister) {
-    registerLocalJMX(unregister);
-  }
 }

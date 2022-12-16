@@ -85,8 +85,7 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
    * @param nodes List of node information
    * @return Map from each broker id to broker host
    */
-  @Override
-  public Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
+  protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
     return nodes.stream()
         .filter(i -> !metricCollector.listIdentities().contains(i.id()))
         .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
@@ -97,8 +96,7 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
    *
    * @param unregister Map from each broker id to broker host
    */
-  @Override
-  public void registerJMX(Map<Integer, String> unregister) {
+  protected void registerJMX(Map<Integer, String> unregister) {
     unregister.forEach(
         (id, host) ->
             metricCollector.registerJmx(
