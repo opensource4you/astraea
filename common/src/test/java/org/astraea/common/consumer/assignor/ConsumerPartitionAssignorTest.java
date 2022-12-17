@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.common.TopicPartition;
+import org.astraea.common.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +78,23 @@ public class ConsumerPartitionAssignorTest {
         ourUser2Subscription.ownedPartitions());
     Assertions.assertEquals("2", ourUser2Subscription.userData().get("rack"));
     Assertions.assertEquals(List.of("test1", "test2"), ourUser2Subscription.topics());
+  }
+
+  @Test
+  void testJMXPort() {
+    var randomAssignor = new RandomAssignor();
+    randomAssignor.configure(Configuration.of(Map.of()));
+    Assertions.assertEquals(Optional.empty(), randomAssignor.jmxPortGetter.apply(0));
+    randomAssignor.configure(Configuration.of(Map.of("broker.1000.jmx.port", "12345")));
+    Assertions.assertEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(1000));
+    Assertions.assertNotEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(0));
+
+    var random2 = new RandomAssignor();
+    random2.configure(Configuration.of(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8888")));
+    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(0));
+    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(1));
+    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(2));
+    Assertions.assertEquals(Optional.of(8888), random2.jmxPortGetter.apply(1002));
   }
 
   private static ByteBuffer convert(String value) {

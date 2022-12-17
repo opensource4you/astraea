@@ -184,7 +184,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(SINK_PATH, sinkPath)
       properties.setProperty(
         COLUMN_NAME,
-        "FirstName=string,SecondName=string,Age=integer"
+        "FirstName=string,SecondName=string,Age=string"
       )
       properties.setProperty(PRIMARY_KEYS, "FirstName=string,SecondName=string")
       properties.setProperty(KAFKA_BOOTSTRAP_SERVERS, bootstrapServers())
