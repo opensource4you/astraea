@@ -16,21 +16,19 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replicas migrate -> higher cost */
-public class ReplicaNumberCost implements HasClusterCost, HasMoveCost.Helper {
-  public static final String COST_NAME = "replica number";
-
+public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   @Override
   public Optional<Fetcher> fetcher() {
     return Optional.empty();
@@ -38,20 +36,36 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost.Helper {
 
   @Override
   public MoveCost moveCost(
-      Collection<Replica> removedReplicas,
-      Collection<Replica> addedReplicas,
-      ClusterBean clusterBean) {
-    return MoveCost.builder()
-        .name(COST_NAME)
-        .unit("replica")
-        .totalCost(addedReplicas.size())
-        .change(
-            Stream.concat(
-                    removedReplicas.stream()
-                        .map(replica -> Map.entry(replica.nodeInfo().id(), -1L)),
-                    addedReplicas.stream().map(replica -> Map.entry(replica.nodeInfo().id(), +1L)))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum)))
-        .build();
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+    return MoveCost.changedReplicaCount(
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .distinct()
+            .parallel()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    id -> {
+                      var removedReplicas =
+                          (int)
+                              before
+                                  .replicaStream(id)
+                                  .filter(
+                                      r ->
+                                          after.replicaStream(r.topicPartitionReplica()).count()
+                                              == 0)
+                                  .count();
+                      var newReplicas =
+                          (int)
+                              after
+                                  .replicaStream(id)
+                                  .filter(
+                                      r ->
+                                          before.replicaStream(r.topicPartitionReplica()).count()
+                                              == 0)
+                                  .count();
+                      return newReplicas - removedReplicas;
+                    })));
   }
 
   @Override

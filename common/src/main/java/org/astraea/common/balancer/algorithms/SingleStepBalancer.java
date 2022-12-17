@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -73,7 +72,7 @@ public class SingleStepBalancer implements Balancer {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
-    final var moveCostFunction = config.moveCostFunctions();
+    final var moveCostFunction = config.moveCostFunction();
     final var currentCost =
         config.clusterCostFunction().clusterCost(currentClusterInfo, currentClusterBean);
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
@@ -91,10 +90,8 @@ public class SingleStepBalancer implements Balancer {
                   newAllocation,
                   currentCost,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
-                  moveCostFunction.stream()
-                      .map(
-                          cf -> cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
-                      .collect(Collectors.toList()));
+                  moveCostFunction.moveCost(
+                      currentClusterInfo, newClusterInfo, currentClusterBean));
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))

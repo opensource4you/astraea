@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -83,7 +82,7 @@ public class GreedyBalancer implements Balancer {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
-    final var moveCostFunction = config.moveCostFunctions();
+    final var moveCostFunction = config.moveCostFunction();
     final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
 
     final var loop = new AtomicInteger(iteration);
@@ -104,9 +103,7 @@ public class GreedyBalancer implements Balancer {
                           newAllocation,
                           initialCost,
                           clusterCostFunction.clusterCost(newClusterInfo, metrics),
-                          moveCostFunction.stream()
-                              .map(cf -> cf.moveCost(currentClusterInfo, newClusterInfo, metrics))
-                              .collect(Collectors.toList()));
+                          moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, metrics));
                     })
                 .filter(
                     plan ->

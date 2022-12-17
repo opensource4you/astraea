@@ -17,84 +17,60 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
+import org.astraea.common.DataSize;
 
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
 public interface MoveCost {
 
-  /**
-   * @return the function name of MoveCost
-   */
-  String name();
+  MoveCost EMPTY = new MoveCost() {};
 
-  /**
-   * @return cost of migrate plan
-   */
-  long totalCost();
-
-  /**
-   * @return unit of cost
-   */
-  String unit();
-
-  /**
-   * @return Changes per broker, negative if brokers moved out, positive if brokers moved in
-   */
-  Map<Integer, Long> changes();
-
-  static Build builder() {
-    return new Build();
+  static MoveCost movedReplicaSize(Map<Integer, DataSize> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, DataSize> movedReplicaSize() {
+        return value;
+      }
+    };
   }
 
-  class Build {
-    private String name = "unknown";
-    private long totalCost;
-    private String unit = "unknown";
-    private Map<Integer, Long> changes = Map.of();
+  static MoveCost changedReplicaCount(Map<Integer, Integer> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, Integer> changedReplicaCount() {
+        return value;
+      }
+    };
+  }
 
-    private Build() {}
+  static MoveCost changedReplicaLeaderCount(Map<Integer, Integer> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, Integer> changedReplicaLeaderCount() {
+        return value;
+      }
+    };
+  }
 
-    public Build name(String name) {
-      this.name = name;
-      return this;
-    }
+  /**
+   * @return the data size of moving replicas. Noted that the "removing" replicas are excluded.
+   */
+  default Map<Integer, DataSize> movedReplicaSize() {
+    return Map.of();
+  }
 
-    public Build totalCost(long totalCost) {
-      this.totalCost = totalCost;
-      return this;
-    }
+  /**
+   * @return broker id and changed number of replicas. changed number = (number of adding replicas -
+   *     number of removing replicas)
+   */
+  default Map<Integer, Integer> changedReplicaCount() {
+    return Map.of();
+  }
 
-    public Build unit(String unit) {
-      this.unit = unit;
-      return this;
-    }
-
-    public Build change(Map<Integer, Long> changes) {
-      this.changes = changes;
-      return this;
-    }
-
-    public MoveCost build() {
-      return new MoveCost() {
-        @Override
-        public String name() {
-          return name;
-        }
-
-        @Override
-        public long totalCost() {
-          return totalCost;
-        }
-
-        @Override
-        public String unit() {
-          return unit;
-        }
-
-        @Override
-        public Map<Integer, Long> changes() {
-          return changes;
-        }
-      };
-    }
+  /**
+   * @return broker id and changed number of leaders. changed number = (number of adding leaders -
+   *     number of removing leaders)
+   */
+  default Map<Integer, Integer> changedReplicaLeaderCount() {
+    return Map.of();
   }
 }

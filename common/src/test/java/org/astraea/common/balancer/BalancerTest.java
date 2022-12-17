@@ -45,6 +45,7 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.BeanObject;
@@ -184,9 +185,29 @@ class BalancerTest extends RequireBrokerCluster {
               .join();
       var newCluster = ClusterInfo.update(currentCluster, newAllocation::replicas);
 
-      Assertions.assertTrue(
-          ClusterInfo.diff(currentCluster, newCluster).stream()
-              .allMatch(replica -> replica.topic().equals(theTopic)),
+      Assertions.assertEquals(
+          currentCluster.replicas(topic1).stream()
+              .map(ReplicaInfo::topicPartitionReplica)
+              .collect(Collectors.toSet()),
+          newCluster.replicas(topic1).stream()
+              .map(ReplicaInfo::topicPartitionReplica)
+              .collect(Collectors.toSet()),
+          "With filter, only specific topic has been balanced");
+      Assertions.assertEquals(
+          currentCluster.replicas(topic2).stream()
+              .map(ReplicaInfo::topicPartitionReplica)
+              .collect(Collectors.toSet()),
+          newCluster.replicas(topic2).stream()
+              .map(ReplicaInfo::topicPartitionReplica)
+              .collect(Collectors.toSet()),
+          "With filter, only specific topic has been balanced");
+      Assertions.assertEquals(
+          currentCluster.replicas(topic3).stream()
+              .map(ReplicaInfo::topicPartitionReplica)
+              .collect(Collectors.toSet()),
+          newCluster.replicas(topic3).stream()
+              .map(ReplicaInfo::topicPartitionReplica)
+              .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
     }
   }
@@ -300,7 +321,7 @@ class BalancerTest extends RequireBrokerCluster {
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return Optional.of(new Plan(currentClusterInfo, () -> 0, () -> 0, List.of()));
+            return Optional.of(new Plan(currentClusterInfo, () -> 0, () -> 0, MoveCost.EMPTY));
           }
         };
 

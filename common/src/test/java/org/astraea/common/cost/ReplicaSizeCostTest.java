@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -46,14 +47,12 @@ class ReplicaSizeCostTest {
   void testMoveCost() {
     var cost = new ReplicaSizeCost();
     var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
-    var totalSize = moveCost.totalCost();
-    var changes = moveCost.changes();
 
-    // totalSize will also be calculated for the folder migrate in the same broker.
-    Assertions.assertEquals(6000000 + 700000 + 800000, totalSize);
-    Assertions.assertEquals(700000, changes.get(0));
-    Assertions.assertEquals(-6700000, changes.get(1));
-    Assertions.assertEquals(6000000, changes.get(2));
+    Assertions.assertEquals(
+        3, moveCost.movedReplicaSize().size(), moveCost.movedReplicaSize().toString());
+    Assertions.assertEquals(700000, moveCost.movedReplicaSize().get(0).bytes());
+    Assertions.assertEquals(-6700000, moveCost.movedReplicaSize().get(1).bytes());
+    Assertions.assertEquals(6000000, moveCost.movedReplicaSize().get(2).bytes());
   }
 
   /*
@@ -71,14 +70,7 @@ class ReplicaSizeCostTest {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        List.of(NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1), NodeInfo.of(3, "", -1)),
-        List.of(
-            replicas.get(0),
-            replicas.get(1),
-            replicas.get(2),
-            replicas.get(3),
-            replicas.get(4),
-            replicas.get(5)));
+        replicas.stream().map(r -> r.nodeInfo()).collect(Collectors.toList()), replicas);
   }
 
   static ClusterInfo<Replica> originClusterInfo() {
