@@ -33,7 +33,7 @@ declare -r WORKER_NAME="spark-worker"
 function showHelp() {
   echo "Usage: [ENV] start_spark.sh"
   echo "Optional Arguments: "
-  echo "    master=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
+  echo "    master=spark://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
   echo "    folder=/tmp/aa:/tmp/bb               mount the host folder /tmp/aa to spark container /tmp/bb"
   echo "ENV: "
   echo "    VERSION=3.3.1                    set version of spark distribution"
