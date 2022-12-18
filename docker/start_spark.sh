@@ -85,6 +85,8 @@ RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
 # copy spark
 COPY --from=build /opt/spark /opt/spark
 
+RUN mv /opt/spark/conf/spark-env.sh.template /opt/spark/conf/spark-env.sh && echo 'export SPARK_WORKER_DIR=$work_dir' > /opt/spark/conf/spark-env.sh
+
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
@@ -131,6 +133,8 @@ RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
 # copy spark
 COPY --from=build /opt/spark /opt/spark
 
+RUN mv /opt/spark/conf/spark-env.sh.template /opt/spark/conf/spark-env.sh && echo 'export SPARK_WORKER_DIR=$work_dir' > /opt/spark/conf/spark-env.sh
+
 # add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
@@ -160,6 +164,7 @@ if [[ "$1" == "help" ]]; then
 fi
 
 declare -r master_url=$1
+declare -r work_dir=$2
 
 checkDocker
 generateDockerfile
@@ -173,7 +178,7 @@ fi
 checkNetwork
 checkOs
 
-if [[ -n "$master_url" ]]; then
+if [[ -n "$master_url" && (-n "$work_dir")]]; then
   checkConflictContainer $WORKER_NAME "worker"
   docker run -d --init \
     -e SPARK_WORKER_WEBUI_PORT=$SPARK_UI_PORT \
@@ -187,6 +192,21 @@ if [[ -n "$master_url" ]]; then
   echo "Starting Spark worker $ADDRESS:$SPARK_PORT"
   echo "Bound WorkerWebUI started at http://${ADDRESS}:${SPARK_UI_PORT}"
   echo "================================================="
+elif [[ -n "$master_url" ]]; then
+    checkConflictContainer $WORKER_NAME "worker"
+    docker run -d --init \
+      -e SPARK_WORKER_WEBUI_PORT=$SPARK_UI_PORT \
+      -e SPARK_WORKER_PORT=$SPARK_PORT \
+      -e SPARK_NO_DAEMONIZE=true \
+      -v "$work_dir":"$work_dir" \
+      --name "$WORKER_NAME" \
+      --network host \
+      "$IMAGE_NAME" ./sbin/start-worker.sh "$master_url"
+
+      echo "================================================="
+      echo "Starting Spark worker $ADDRESS:$SPARK_PORT"
+      echo "Bound WorkerWebUI started at http://${ADDRESS}:${SPARK_UI_PORT}"
+      echo "================================================="
 else
   checkConflictContainer $MASTER_NAME "master"
   docker run -d --init \
