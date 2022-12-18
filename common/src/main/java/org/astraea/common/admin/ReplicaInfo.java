@@ -17,12 +17,12 @@
 package org.astraea.common.admin;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public interface ReplicaInfo {
 
-  static Set<ReplicaInfo> of(org.apache.kafka.common.PartitionInfo pf) {
+  static List<ReplicaInfo> of(org.apache.kafka.common.PartitionInfo pf) {
     final var replicas = List.of(pf.replicas());
     final var leaderReplica = List.of(pf.leader());
     final var inSyncReplicas = List.of(pf.inSyncReplicas());
@@ -38,7 +38,7 @@ public interface ReplicaInfo {
                     leaderReplica.contains(node),
                     inSyncReplicas.contains(node),
                     offlineReplicas.contains(node)))
-        .collect(Collectors.toUnmodifiableSet());
+        .collect(Collectors.toUnmodifiableList());
   }
 
   static ReplicaInfo of(
@@ -99,7 +99,6 @@ public interface ReplicaInfo {
             + " replicaAtBroker="
             + nodeInfo.id()
             + (isLeader() ? " leader" : "")
-            + (isFollower() ? " follower" : "")
             + (inSync() ? ":synced" : "")
             + (isOffline() ? ":offline" : "")
             + "}";
@@ -114,11 +113,15 @@ public interface ReplicaInfo {
               && this.partition() == that.partition()
               && this.nodeInfo().equals(that.nodeInfo())
               && this.isLeader() == that.isLeader()
-              && this.isFollower() == that.isFollower()
               && this.inSync() == that.inSync()
               && this.isOffline() == that.isOffline();
         }
         return false;
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(topic, partition, nodeInfo, isLeader, isSynced, isOffline);
       }
     };
   }

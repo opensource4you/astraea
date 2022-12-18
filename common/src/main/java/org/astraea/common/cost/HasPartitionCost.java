@@ -29,6 +29,9 @@ import org.astraea.common.metrics.collector.Fetcher;
 
 @FunctionalInterface
 public interface HasPartitionCost extends CostFunction {
+
+  HasPartitionCost EMPTY = (clusterInfo, clusterBean) -> Map::of;
+
   static HasPartitionCost of(Map<HasPartitionCost, Double> costAndWeight) {
     var fetcher =
         Fetcher.of(

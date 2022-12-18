@@ -17,7 +17,6 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
@@ -99,7 +98,7 @@ public interface Balancer {
     final ClusterInfo<Replica> proposal;
     final ClusterCost initialClusterCost;
     final ClusterCost proposalClusterCost;
-    final List<MoveCost> moveCost;
+    final MoveCost moveCost;
 
     public ClusterInfo<Replica> proposal() {
       return proposal;
@@ -118,7 +117,7 @@ public interface Balancer {
       return proposalClusterCost;
     }
 
-    public List<MoveCost> moveCost() {
+    public MoveCost moveCost() {
       return moveCost;
     }
 
@@ -126,7 +125,7 @@ public interface Balancer {
         ClusterInfo<Replica> proposal,
         ClusterCost initialClusterCost,
         ClusterCost proposalClusterCost,
-        List<MoveCost> moveCost) {
+        MoveCost moveCost) {
       this.proposal = proposal;
       this.initialClusterCost = initialClusterCost;
       this.proposalClusterCost = proposalClusterCost;

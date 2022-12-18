@@ -59,8 +59,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           @Override
           public int partition(
               String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
-            Assertions.assertEquals(0, Objects.requireNonNull(key).length);
-            Assertions.assertEquals(0, Objects.requireNonNull(value).length);
+            Assertions.assertNull(key);
+            Assertions.assertNull(value);
             count.incrementAndGet();
             return 0;
           }

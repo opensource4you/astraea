@@ -25,7 +25,8 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 
-public class RandomAssignor implements ConsumerPartitionAssignor {
+public class RandomAssignor extends AbstractConsumerPartitionAssignor {
+
   @Override
   public Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.consumer.assignor.Subscription> subscriptions,
