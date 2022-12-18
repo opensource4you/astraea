@@ -23,10 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -95,32 +98,18 @@ public class ReplicaSizeCost
   @Override
   public MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    var removedReplicas = ClusterInfo.diff(before, after);
-    var addedReplicas = ClusterInfo.diff(after, before);
-    var migrateInfo = migrateInfo(removedReplicas, addedReplicas);
-    var sizeChanges = migrateInfo.sizeChange;
-    var totalMigrateSize = migrateInfo.totalMigrateSize;
-    return new MoveCost() {
-      @Override
-      public String name() {
-        return COST_NAME;
-      }
-
-      @Override
-      public long totalCost() {
-        return totalMigrateSize;
-      }
-
-      @Override
-      public String unit() {
-        return "byte";
-      }
-
-      @Override
-      public Map<Integer, Long> changes() {
-        return sizeChanges;
-      }
-    };
+    return MoveCost.movedReplicaSize(
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .distinct()
+            .parallel()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    id ->
+                        DataSize.Byte.of(
+                            after.replicaStream(id).mapToLong(r -> r.size()).sum()
+                                - before.replicaStream(id).mapToLong(r -> r.size()).sum()))));
   }
 
   /**
@@ -168,36 +157,5 @@ public class ReplicaSizeCost
                         statistSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> result;
-  }
-
-  static class MigrateInfo {
-    long totalMigrateSize;
-    Map<Integer, Long> sizeChange;
-
-    MigrateInfo(long totalMigrateSize, Map<Integer, Long> sizeChange) {
-      this.totalMigrateSize = totalMigrateSize;
-      this.sizeChange = sizeChange;
-    }
-  }
-
-  static MigrateInfo migrateInfo(
-      Collection<Replica> removedReplicas, Collection<Replica> addedReplicas) {
-    var changes = new HashMap<Integer, Long>();
-    AtomicLong totalMigrateSize = new AtomicLong(0L);
-    removedReplicas.forEach(
-        replica ->
-            changes.compute(
-                replica.nodeInfo().id(),
-                (ignore, size) -> size == null ? -replica.size() : -replica.size() + size));
-
-    addedReplicas.forEach(
-        replica ->
-            changes.compute(
-                replica.nodeInfo().id(),
-                (ignore, size) -> {
-                  totalMigrateSize.set(totalMigrateSize.get() + replica.size());
-                  return size == null ? replica.size() : replica.size() + size;
-                }));
-    return new MigrateInfo(totalMigrateSize.get(), changes);
   }
 }
