@@ -39,19 +39,41 @@ import org.astraea.fs.Type;
 import org.astraea.fs.ftp.FtpFileSystem;
 
 public class Importer extends SourceConnector {
+  static Definition HOSTNAME_KEY =
+      Definition.builder().name("fs.ftp.hostname").type(Definition.Type.STRING).build();
+  static Definition PORT_KEY =
+      Definition.builder().name("fs.ftp.port").type(Definition.Type.STRING).build();
+  static Definition USER_KEY =
+      Definition.builder().name("fs.ftp.user").type(Definition.Type.STRING).build();
+  static Definition PASSWORD_KEY =
+      Definition.builder().name("fs.ftp.password").type(Definition.Type.STRING).build();
+  static Definition PATH_KEY =
+      Definition.builder().name("path").type(Definition.Type.STRING).build();
+  static Definition CLEAN_SOURCE_KEY =
+      Definition.builder()
+          .name("clean.source")
+          .type(Definition.Type.STRING)
+          .defaultValue("off")
+          .documentation(
+              "Clean source policy. Available policies: \"off\", \"delete\", \"archive\". Default: off")
+          .build();
+  static Definition ARCHIVE_DIR_KEY =
+      Definition.builder().name("archive.dir").type(Definition.Type.STRING).build();
+  public static final String FILE_SET_KEY = "file.set";
   private Configuration config;
   private FtpFileSystem fs;
   private String input;
-  private boolean cleanSource;
+  private String cleanSource;
   private Optional<String> archiveDir;
 
   @Override
   protected void init(Configuration configuration, MetadataStorage storage) {
     this.config = configuration;
     this.fs = new FtpFileSystem(config);
-    this.input = config.requireString("input");
-    this.cleanSource = Boolean.parseBoolean(configuration.requireString("clean.source"));
-    this.archiveDir = Optional.ofNullable(configuration.requireString("archive.dir"));
+    this.input = config.requireString(PATH_KEY.name());
+    this.cleanSource =
+        config.string(CLEAN_SOURCE_KEY.name()).orElse(CLEAN_SOURCE_KEY.defaultValue().toString());
+    this.archiveDir = config.string("archive.dir");
   }
 
   @Override
@@ -65,7 +87,7 @@ public class Importer extends SourceConnector {
         .mapToObj(
             i -> {
               var taskMap = new HashMap<>(config.raw());
-              taskMap.put("task.id", String.valueOf(i));
+              taskMap.put(FILE_SET_KEY, String.valueOf(i));
               return Configuration.of(taskMap);
             })
         .collect(Collectors.toList());
@@ -73,25 +95,34 @@ public class Importer extends SourceConnector {
 
   @Override
   protected void close() {
-    if (archiveDir.isPresent()) fs.rename(input, archiveDir.get());
-    else if (cleanSource) fs.delete(input);
+    switch (cleanSource) {
+      case "off":
+        break;
+      case "delete":
+        fs.delete(input);
+        break;
+      case "archive":
+        fs.rename(input, archiveDir.get());
+        break;
+    }
     this.fs.close();
   }
 
   @Override
   protected List<Definition> definitions() {
     return List.of(
-        Definition.builder()
-            .name("fs.ftp.hostname")
-            .type(Definition.Type.STRING)
-            .defaultValue(null)
-            .documentation("ftp host.")
-            .build());
+        HOSTNAME_KEY,
+        PORT_KEY,
+        USER_KEY,
+        PASSWORD_KEY,
+        PATH_KEY,
+        CLEAN_SOURCE_KEY,
+        ARCHIVE_DIR_KEY);
   }
 
   public static class Task extends SourceTask {
     private FtpFileSystem fs;
-    private int id;
+    private int fileSet;
     private HashSet<String> addedPath;
     private String input;
     private int maxTask;
@@ -99,40 +130,19 @@ public class Importer extends SourceConnector {
 
     protected void init(Configuration configuration) {
       this.fs = new FtpFileSystem(configuration);
-      this.id = configuration.requireInteger("task.id");
+      this.fileSet = configuration.requireInteger(FILE_SET_KEY);
       this.addedPath = new HashSet<>();
-      this.input = configuration.requireString("input");
+      this.input = configuration.requireString(PATH_KEY.name());
       this.maxTask = configuration.requireInteger("tasks.max");
       this.paths = new LinkedList<>();
     }
 
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
-      if (paths.isEmpty()) {
-        LinkedList<String> path = new LinkedList<>(Collections.singletonList(input));
-        while (true) {
-          var current = path.poll();
-          if (current == null) break;
-          if (fs.type(current) == Type.FOLDER) {
-            var files = fs.listFiles(current);
-            var folders = fs.listFolders(current);
-            if (folders.isEmpty()) {
-              if (!files.isEmpty() && (current.hashCode() & Integer.MAX_VALUE) % maxTask == id) {
-                paths.addAll(
-                    files.stream()
-                        .filter(Predicate.not(file -> addedPath.contains(file)))
-                        .collect(Collectors.toList()));
-                continue;
-              }
-            }
-            path.addAll(folders);
-          }
-        }
-      }
-      addedPath.addAll(paths);
-      if (!paths.isEmpty()) {
+      getFileSet();
+      var currentPath = paths.poll();
+      if (currentPath != null) {
         var records = new ArrayList<Record<byte[], byte[]>>();
-        var currentPath = paths.poll();
         var inputStream = fs.read(currentPath);
         var reader = RecordReader.builder(inputStream).build();
         while (reader.hasNext()) {
@@ -148,17 +158,33 @@ public class Importer extends SourceConnector {
                   .headers(record.headers())
                   .build());
         }
-        System.out.println(
-            "succeed to add "
-                + records.size()
-                + " records from "
-                + currentPath
-                + " from task "
-                + id);
         Utils.packException(inputStream::close);
         return records;
       }
       return null;
+    }
+
+    protected void getFileSet() {
+      if (paths.isEmpty()) {
+        LinkedList<String> path = new LinkedList<>(Collections.singletonList(input));
+        while (true) {
+          var current = path.poll();
+          if (current == null) break;
+          if (fs.type(current) == Type.FOLDER) {
+            var files = fs.listFiles(current);
+            var folders = fs.listFolders(current);
+            if (!files.isEmpty()) {
+              files.stream()
+                  .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % maxTask == fileSet)
+                  .filter(Predicate.not(file -> addedPath.contains(file)))
+                  .forEach(file -> paths.add(file));
+              continue;
+            }
+            path.addAll(folders);
+          }
+        }
+      }
+      addedPath.addAll(paths);
     }
 
     @Override
