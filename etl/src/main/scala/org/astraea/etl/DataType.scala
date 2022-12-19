@@ -16,9 +16,16 @@
  */
 package org.astraea.etl
 
-sealed abstract class DataType(dataType: String) extends Serializable {
-  def value: String = {
-    dataType
+sealed abstract class DataType(
+    typeName: String,
+    sparkDataType: org.apache.spark.sql.types.DataType
+) extends Serializable {
+  def name: String = {
+    typeName
+  }
+
+  def sparkType: org.apache.spark.sql.types.DataType = {
+    sparkDataType
   }
 }
 
@@ -34,15 +41,24 @@ object DataType {
   private val SHORT_TYPE = "short"
   private val TIMESTAMP_TYPE = "timestamp"
 
-  case object StringType extends DataType(STRING_TYPE)
-  case object BooleanType extends DataType(BOOLEAN_TYPE)
-  case object DateType extends DataType(DATE_TYPE)
-  case object DoubleType extends DataType(DOUBLE_TYPE)
-  case object ByteType extends DataType(BYTE_TYPE)
-  case object IntegerType extends DataType(INTEGER_TYPE)
-  case object LongType extends DataType(LONG_TYPE)
-  case object ShortType extends DataType(SHORT_TYPE)
-  case object TimestampType extends DataType(TIMESTAMP_TYPE)
+  case object StringType
+      extends DataType(STRING_TYPE, org.apache.spark.sql.types.StringType)
+  case object BooleanType
+      extends DataType(BOOLEAN_TYPE, org.apache.spark.sql.types.BooleanType)
+  case object DateType
+      extends DataType(DATE_TYPE, org.apache.spark.sql.types.DateType)
+  case object DoubleType
+      extends DataType(DOUBLE_TYPE, org.apache.spark.sql.types.DoubleType)
+  case object ByteType
+      extends DataType(BYTE_TYPE, org.apache.spark.sql.types.ByteType)
+  case object IntegerType
+      extends DataType(INTEGER_TYPE, org.apache.spark.sql.types.IntegerType)
+  case object LongType
+      extends DataType(LONG_TYPE, org.apache.spark.sql.types.LongType)
+  case object ShortType
+      extends DataType(SHORT_TYPE, org.apache.spark.sql.types.ShortType)
+  case object TimestampType
+      extends DataType(TIMESTAMP_TYPE, org.apache.spark.sql.types.TimestampType)
 
   /** @param str
     *   String that needs to be parsed as a DataType.
@@ -50,7 +66,7 @@ object DataType {
     *   DataType
     */
   def of(str: String): DataType = {
-    val value = all.filter(_.value == str)
+    val value = all.filter(_.name == str)
     if (value.isEmpty) {
       throw new IllegalArgumentException(
         s"$str is not supported data type.The data types supported ${all.mkString(",")}."
@@ -80,7 +96,8 @@ object DataType {
       ByteType,
       IntegerType,
       LongType,
-      ShortType
+      ShortType,
+      TimestampType
     )
   }
 }

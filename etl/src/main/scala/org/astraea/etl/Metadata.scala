@@ -46,18 +46,20 @@ import scala.collection.JavaConverters._
   *   Set deployment model, which will be used in
   *   SparkSession.builder().master(deployment.model).Two settings are currently
   *   supported spark://HOST:PORT and local[*].
+  * @param checkpoint
+  *   Spark checkpoint path.
   */
 case class Metadata private (
-    var deployModel: String,
-    var sourcePath: File,
-    var sinkPath: File,
-    var column: Seq[DataColumn],
-    var kafkaBootstrapServers: String,
-    var topicName: String,
-    var numPartitions: Int,
-    var numReplicas: Short,
-    var topicConfig: Map[String, String],
-    var checkpoint: File
+    deployModel: String,
+    sourcePath: File,
+    sinkPath: File,
+    column: Seq[DataColumn],
+    kafkaBootstrapServers: String,
+    topicName: String,
+    numPartitions: Int,
+    numReplicas: Short,
+    topicConfig: Map[String, String],
+    checkpoint: File
 )
 
 object Metadata {

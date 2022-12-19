@@ -18,6 +18,7 @@ package org.astraea.gui.tab;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
@@ -39,6 +41,7 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaNumberCost;
@@ -86,28 +89,26 @@ public class BalancerNode {
   }
 
   static List<Map<String, Object>> costResult(Balancer.Plan plan) {
-    return plan.moveCost().stream()
-        .map(
-            cost -> {
-              var result = new LinkedHashMap<String, Object>();
-              result.put("name", cost.name());
-              result.put(
-                  "total cost",
-                  cost.name().equals(ReplicaSizeCost.COST_NAME)
-                      ? DataSize.Byte.of(cost.totalCost())
-                      : cost.totalCost());
-              cost.changes().entrySet().stream()
-                  .sorted(Map.Entry.comparingByKey())
-                  .forEach(
-                      entry ->
-                          result.put(
-                              "broker " + entry.getKey(),
-                              cost.name().equals(ReplicaSizeCost.COST_NAME)
-                                  ? DataSize.Byte.of(entry.getValue())
-                                  : entry.getValue()));
-              return result;
-            })
-        .collect(Collectors.toList());
+    var map = new HashMap<Integer, LinkedHashMap<String, Object>>();
+
+    BiConsumer<String, Map<Integer, ?>> process =
+        (name, m) ->
+            m.forEach(
+                (id, count) ->
+                    map.computeIfAbsent(
+                            id,
+                            ignored -> {
+                              var r = new LinkedHashMap<String, Object>();
+                              r.put("id", id);
+                              return r;
+                            })
+                        .put(name, count));
+
+    process.accept("changed replicas", plan.moveCost().changedReplicaCount());
+    process.accept("changed leaders", plan.moveCost().changedReplicaLeaderCount());
+    process.accept("changed size", plan.moveCost().movedReplicaSize());
+
+    return List.copyOf(map.values());
   }
 
   static List<Map<String, Object>> assignmentResult(
@@ -155,24 +156,28 @@ public class BalancerNode {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  static Predicate<List<MoveCost>> movementConstraint(Map<String, String> input) {
+  static Predicate<MoveCost> movementConstraint(Map<String, String> input) {
     var replicaSizeLimit =
         Optional.ofNullable(input.get(MAX_MIGRATE_LOG_SIZE)).map(x -> DataSize.of(x).bytes());
     var leaderNumLimit =
         Optional.ofNullable(input.get(MAX_MIGRATE_LEADER_NUM)).map(Integer::parseInt);
-    return moveCosts ->
-        moveCosts.stream()
-            .allMatch(
-                mc -> {
-                  switch (mc.name()) {
-                    case ReplicaSizeCost.COST_NAME:
-                      return replicaSizeLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
-                    case ReplicaLeaderCost.COST_NAME:
-                      return leaderNumLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
-                    default:
-                      return true;
-                  }
-                });
+    return cost ->
+        replicaSizeLimit
+                .filter(
+                    limit ->
+                        limit
+                            <= cost.movedReplicaSize().values().stream()
+                                .mapToLong(s -> Math.abs(s.bytes()))
+                                .sum())
+                .isEmpty()
+            && leaderNumLimit
+                .filter(
+                    limit ->
+                        limit
+                            <= cost.changedReplicaLeaderCount().values().stream()
+                                .mapToLong(s -> s)
+                                .sum())
+                .isEmpty();
   }
 
   static TableRefresher refresher(Context context) {
@@ -201,7 +206,9 @@ public class BalancerNode {
                               AlgorithmConfig.builder()
                                   .clusterCost(
                                       HasClusterCost.of(clusterCosts(argument.selectedKeys())))
-                                  .moveCost(List.of(new ReplicaSizeCost(), new ReplicaLeaderCost()))
+                                  .moveCost(
+                                      HasMoveCost.of(
+                                          List.of(new ReplicaSizeCost(), new ReplicaLeaderCost())))
                                   .movementConstraint(movementConstraint(argument.nonEmptyTexts()))
                                   .topicFilter(
                                       topic ->

@@ -16,11 +16,8 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.catalyst.expressions.objects.AssertNotNull
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{Column, SparkSession}
-import org.apache.spark.sql.types.StructType
-import org.astraea.etl.DataType.StringType
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.astraea.etl.Reader._
 class Reader[PassedStep <: BuildStep] private (
     var deploymentModel: String,
@@ -31,7 +28,7 @@ class Reader[PassedStep <: BuildStep] private (
   protected def this() = this(
     "deploymentModel",
     Reader
-      .createSchema(Map("Type" -> StringType)),
+      .createSchema(Map("Type" -> org.astraea.etl.DataType.StringType)),
     "sinkPath",
     Seq.empty
   )
@@ -70,14 +67,16 @@ class Reader[PassedStep <: BuildStep] private (
   def readCSV(
       source: String
   )(implicit ev: PassedStep =:= FullReader): DataFrameOp = {
-    var df = createSpark(deploymentModel).readStream
+    val df = createSpark(deploymentModel).readStream
       .option("cleanSource", "archive")
       .option("sourceArchiveDir", sinkPath)
       .schema(userSchema)
       .csv(source)
-    pk.foreach(str =>
-      df = df.withColumn(str, new Column(AssertNotNull(col(str).expr)))
-    )
+      .filter(row => {
+        val bool = (0 until row.length).exists(i => !row.isNullAt(i))
+        bool
+      })
+
     new DataFrameOp(df)
   }
 
@@ -101,9 +100,14 @@ object Reader {
       .getOrCreate()
   }
 
-  def createSchema(cols: Map[String, DataType]): StructType = {
-    var userSchema = new StructType()
-    cols.foreach(col => userSchema = userSchema.add(col._1, col._2.value))
-    userSchema
-  }
+  def createSchema(cols: Map[String, DataType]): StructType = StructType(
+    cols.map { case (name, t) =>
+      // TODO astraea #1286 Need to wrap non-nullable type with optional.
+      if (t != DataType.StringType)
+        throw new IllegalArgumentException(
+          "Sorry, only string type is currently supported.Because a problem(astraea #1286) has led to the need to wrap the non-nullable type."
+        )
+      StructField(name, t.sparkType)
+    }.toSeq
+  )
 }

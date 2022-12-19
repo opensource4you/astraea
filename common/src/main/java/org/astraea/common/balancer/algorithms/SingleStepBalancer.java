@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -31,10 +30,8 @@ import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
 public class SingleStepBalancer implements Balancer {
 
-  public static final String SHUFFLE_PLAN_GENERATOR_MIN_STEP_CONFIG =
-      "shuffle.plan.generator.min.step";
-  public static final String SHUFFLE_PLAN_GENERATOR_MAX_STEP_CONFIG =
-      "shuffle.plan.generator.max.step";
+  public static final String SHUFFLE_TWEAKER_MIN_STEP_CONFIG = "shuffle.tweaker.min.step";
+  public static final String SHUFFLE_TWEAKER_MAX_STEP_CONFIG = "shuffle.tweaker.max.step";
   public static final String ITERATION_CONFIG = "iteration";
   public static final Set<String> ALL_CONFIGS =
       new TreeSet<>(Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG")));
@@ -50,14 +47,14 @@ public class SingleStepBalancer implements Balancer {
     minStep =
         config
             .config()
-            .string(SHUFFLE_PLAN_GENERATOR_MIN_STEP_CONFIG)
+            .string(SHUFFLE_TWEAKER_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
     maxStep =
         config
             .config()
-            .string(SHUFFLE_PLAN_GENERATOR_MAX_STEP_CONFIG)
+            .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(30);
@@ -75,7 +72,7 @@ public class SingleStepBalancer implements Balancer {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
-    final var moveCostFunction = config.moveCostFunctions();
+    final var moveCostFunction = config.moveCostFunction();
     final var currentCost =
         config.clusterCostFunction().clusterCost(currentClusterInfo, currentClusterBean);
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
@@ -93,10 +90,8 @@ public class SingleStepBalancer implements Balancer {
                   newAllocation,
                   currentCost,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
-                  moveCostFunction.stream()
-                      .map(
-                          cf -> cf.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean))
-                      .collect(Collectors.toList()));
+                  moveCostFunction.moveCost(
+                      currentClusterInfo, newClusterInfo, currentClusterBean));
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))

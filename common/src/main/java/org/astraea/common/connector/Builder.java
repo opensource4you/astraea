@@ -16,9 +16,11 @@
  */
 package org.astraea.common.connector;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -175,6 +177,7 @@ public class Builder {
                                     status.name,
                                     status.connector.state,
                                     status.connector.worker_id,
+                                    status.type,
                                     config,
                                     status.tasks.stream()
                                         .map(
@@ -215,20 +218,44 @@ public class Builder {
       }
 
       @Override
-      public CompletionStage<Validation> validate(String name, Map<String, String> configs) {
+      public CompletionStage<Validation> validate(String className, Map<String, String> configs) {
+        var finalConfigs = configs;
+        if (!finalConfigs.containsKey(ConnectorConfigs.CONNECTOR_CLASS_KEY)) {
+          finalConfigs = new HashMap<>(configs);
+          finalConfigs.put(ConnectorConfigs.CONNECTOR_CLASS_KEY, className);
+        }
         return httpExecutor
             .put(
-                getURL("/connector-plugins") + "/" + name + "/config/validate",
-                configs,
+                getURL("/connector-plugins") + "/" + className + "/config/validate",
+                finalConfigs,
                 TypeRef.of(Validation.class))
             .thenApply(Response::body);
       }
 
       @Override
-      public CompletionStage<Set<PluginInfo>> plugins() {
+      public CompletionStage<List<PluginInfo>> plugins() {
         return httpExecutor
-            .get(getURL("/connector-plugins"), TypeRef.set(PluginInfo.class))
-            .thenApply(Response::body);
+            .get(getURL("/connector-plugins"), TypeRef.set(KafkaPluginInfo.class))
+            .thenApply(Response::body)
+            .thenCompose(
+                plugins ->
+                    FutureUtils.sequence(
+                        plugins.stream()
+                            .map(
+                                p ->
+                                    // "Must configure one of topics or topics.regex" by kafka
+                                    validate(
+                                            p.className,
+                                            Map.of(ConnectorConfigs.TOPICS_KEY, "random"))
+                                        .thenApply(
+                                            ds ->
+                                                new PluginInfo(
+                                                    p.className,
+                                                    ds.configs().stream()
+                                                        .map(Config::definition)
+                                                        .collect(Collectors.toList())))
+                                        .toCompletableFuture())
+                            .collect(Collectors.toList())));
       }
 
       private String getURL(String path) {
@@ -254,6 +281,10 @@ public class Builder {
 
     private KafkaConnector connector;
 
+    // The type is always null before kafka 2.0.2
+    // see https://issues.apache.org/jira/browse/KAFKA-7253
+    private Optional<String> type = Optional.empty();
+
     private List<KafkaTaskStatus> tasks;
   }
 
@@ -269,5 +300,10 @@ public class Builder {
     private String worker_id;
 
     private Optional<String> trace = Optional.empty();
+  }
+
+  private static class KafkaPluginInfo {
+    @JsonProperty("class")
+    private String className;
   }
 }
