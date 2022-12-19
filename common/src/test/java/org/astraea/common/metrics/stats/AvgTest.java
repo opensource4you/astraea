@@ -69,7 +69,7 @@ public class AvgTest {
 
   @Test
   void testByTime() throws InterruptedException {
-    var byTime = Avg.ByTime(Duration.ofMillis(150));
+    var byTime = Avg.byTime(Duration.ofMillis(150));
 
     byTime.record(10.0);
     Assertions.assertEquals(10.0, byTime.measure());

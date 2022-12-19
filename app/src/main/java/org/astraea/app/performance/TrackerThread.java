@@ -103,23 +103,23 @@ public interface TrackerThread extends AbstractThread {
     private static final String _1_MINUTE_AVG = "1-minute-avg";
     private final Sensor<Double> numOfPartitionSensor =
         Sensor.builder()
-            .addStat(_15_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(15)))
-            .addStat(_5_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(5)))
-            .addStat(_1_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(1)))
+            .addStat(_15_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(15)))
+            .addStat(_5_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(5)))
+            .addStat(_1_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(1)))
             .addStat("latest", new Latest<Double>())
             .build();
     private final Sensor<Double> nonStickyPartitionSensor =
         Sensor.builder()
-            .addStat(_15_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(15)))
-            .addStat(_5_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(5)))
-            .addStat(_1_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(1)))
+            .addStat(_15_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(15)))
+            .addStat(_5_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(5)))
+            .addStat(_1_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(1)))
             .addStat("latest", new Latest<Double>())
             .build();
     private final Sensor<Double> partitionDifferenceSensor =
         Sensor.builder()
-            .addStat(_15_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(15)))
-            .addStat(_5_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(5)))
-            .addStat(_1_MINUTE_AVG, Avg.ByTime(Duration.ofMinutes(1)))
+            .addStat(_15_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(15)))
+            .addStat(_5_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(5)))
+            .addStat(_1_MINUTE_AVG, Avg.byTime(Duration.ofMinutes(1)))
             .addStat("latest", new Latest<Double>())
             .build();
 

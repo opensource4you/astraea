@@ -114,7 +114,7 @@ public class Avg {
   }
 
   /** Compute the average of value recorded in the given time period. */
-  public static Stat<Double> ByTime(Duration period) {
+  public static Stat<Double> byTime(Duration period) {
     if (period.toMillis() <= 0) {
       throw new IllegalArgumentException(
           "Stat, Average by time, needs period longer than 1 millisecond.");
@@ -144,7 +144,7 @@ public class Avg {
     };
   }
 
-  public static class ValueAndTime<V> {
+  private static class ValueAndTime<V> {
     public final V value;
     public final long timestamp;
 
