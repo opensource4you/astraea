@@ -169,8 +169,8 @@ public class Importer extends SourceConnector {
 
     protected LinkedList<String> getFileSet(
         HashSet<String> addedPaths, String root, int maxTasks, int fileSet) {
-      LinkedList<String> filePaths = new LinkedList<>();
-      LinkedList<String> path = new LinkedList<>(Collections.singletonList(root));
+      var filePaths = new LinkedList<String>();
+      var path = new LinkedList<>(Collections.singletonList(root));
       while (true) {
         var current = path.poll();
         if (current == null) break;
