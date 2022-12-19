@@ -83,6 +83,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   static final String BALANCER_CONFIGURATION_KEY = "balancerConfig";
   static final int TIMEOUT_DEFAULT = 3;
 
+  private static final List<BalancerHandler.CostWeight> defaultIncreasing =
+      List.of(costWeight(IncreasingCost.class.getName(), 1));
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
       List.of(costWeight(DecreasingCost.class.getName(), 1));
 
@@ -368,8 +370,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   .post(
                       Channel.ofRequest(
                           JsonConverter.defaultConverter()
-                              .toJson(
-                                  Map.of(BALANCER_CONFIGURATION_KEY, Map.of("iteration", "0")))))
+                              .toJson(Map.of(COST_WEIGHT_KEY, defaultIncreasing))))
                   .toCompletableFuture()
                   .join());
       Utils.sleep(Duration.ofSeconds(5));
@@ -379,8 +380,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertNotNull(post.id);
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertFalse(progress.generated);
-      Assertions.assertNotNull(progress.exception);
+      Assertions.assertTrue(progress.generated, "Plan is calculated");
+      Assertions.assertTrue(progress.report.newCost.isEmpty(), "No proposal");
+      Assertions.assertNotNull(progress.report.function);
+      Assertions.assertEquals(0, progress.report.changes.size(), "No proposal");
+      Assertions.assertEquals(0, progress.report.migrationCosts.size(), "No proposal");
+      Assertions.assertNotNull(
+          progress.report.description, "It should stated why no proposal available");
+      Assertions.assertNull(progress.exception, "No exception occurred during this process");
     }
   }
 
@@ -1105,6 +1112,25 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
       value0 = value0 * 0.998;
+      return () -> theCost;
+    }
+  }
+
+  public static class IncreasingCost implements HasClusterCost {
+
+    private ClusterInfo<Replica> original;
+
+    public IncreasingCost(Configuration configuration) {}
+
+    private double value0 = 1.0;
+
+    @Override
+    public synchronized ClusterCost clusterCost(
+        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      if (original == null) original = clusterInfo;
+      if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
+      double theCost = value0;
+      value0 = value0 * 1.002;
       return () -> theCost;
     }
   }

@@ -574,7 +574,6 @@ class BalancerHandler implements Handler {
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
-    // TODO: test this field
     final String description;
 
     Report(
