@@ -388,6 +388,20 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNotNull(
           progress.report.description, "It should stated why no proposal available");
       Assertions.assertNull(progress.exception, "No exception occurred during this process");
+      Assertions.assertInstanceOf(
+          IllegalStateException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      handler
+                          .put(
+                              Channel.ofRequest(
+                                  JsonConverter.defaultConverter()
+                                      .toJson(Map.of("id", progress.id))))
+                          .toCompletableFuture()
+                          .join())
+              .getCause(),
+          "Cannot execute a plan with no proposal available");
     }
   }
 

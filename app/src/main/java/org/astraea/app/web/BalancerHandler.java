@@ -417,7 +417,6 @@ class BalancerHandler implements Handler {
                             && !executedPlans.get(lastExecutionId.get()).isDone())
                           throw new IllegalStateException(
                               "There is another on-going rebalance: " + lastExecutionId.get());
-                        // TODO: test this behavior
                         // the plan exists but no plan generated
                         if (thePlanInfo.associatedPlan.asProposalPlan().isEmpty())
                           throw new IllegalStateException(
