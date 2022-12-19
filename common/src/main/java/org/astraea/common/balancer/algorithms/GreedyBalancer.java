@@ -78,7 +78,7 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+  public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -90,7 +90,7 @@ public class GreedyBalancer implements Balancer {
     final var executionTime = timeout.toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
-    BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Balancer.Plan>> next =
+    BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Balancer.ProposalPlan>> next =
         (currentAllocation, currentCost) ->
             allocationTweaker
                 .generate(currentAllocation)
@@ -99,11 +99,12 @@ public class GreedyBalancer implements Balancer {
                     newAllocation -> {
                       var newClusterInfo =
                           ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
-                      return new Balancer.Plan(
+                      return new Balancer.ProposalPlan(
                           newAllocation,
                           initialCost,
                           clusterCostFunction.clusterCost(newClusterInfo, metrics),
-                          moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, metrics));
+                          moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, metrics),
+                          "");
                     })
                 .filter(
                     plan ->
@@ -112,7 +113,7 @@ public class GreedyBalancer implements Balancer {
                 .findFirst();
     var currentCost = initialCost;
     var currentAllocation = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
-    var currentPlan = Optional.<Balancer.Plan>empty();
+    var currentPlan = Optional.<Balancer.ProposalPlan>empty();
 
     // register JMX
     var currentIteration = new LongAdder();
@@ -136,6 +137,8 @@ public class GreedyBalancer implements Balancer {
       currentCost = currentPlan.get().proposalClusterCost();
       currentAllocation = currentPlan.get().proposal();
     }
-    return currentPlan;
+    return currentPlan
+        .map(proposalPlan -> (Plan) proposalPlan)
+        .orElse(new Plan(initialCost, "Unable to find a better log allocation"));
   }
 }

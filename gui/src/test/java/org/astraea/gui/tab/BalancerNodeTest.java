@@ -156,7 +156,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var results =
         BalancerNode.assignmentResult(
             beforeClusterInfo,
-            new Balancer.Plan(
+            new Balancer.ProposalPlan(
                 ClusterInfo.of(allNodes, afterReplicas),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),

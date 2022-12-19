@@ -18,7 +18,6 @@ package org.astraea.common.balancer.algorithms;
 
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import org.astraea.common.Utils;
@@ -68,7 +67,7 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Optional<Balancer.Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+  public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -86,7 +85,7 @@ public class SingleStepBalancer implements Balancer {
         .map(
             newAllocation -> {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
-              return new Balancer.Plan(
+              return new Balancer.ProposalPlan(
                   newAllocation,
                   currentCost,
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
@@ -95,6 +94,8 @@ public class SingleStepBalancer implements Balancer {
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
+        .map(proposalPlan -> (Plan) proposalPlan)
+        .orElse(new Plan(currentCost, "Unable to find a better log allocation"));
   }
 }

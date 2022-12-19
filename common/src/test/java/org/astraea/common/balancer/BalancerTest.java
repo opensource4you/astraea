@@ -19,7 +19,6 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -122,6 +121,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .toCompletableFuture()
                       .join(),
                   Duration.ofSeconds(10))
+              .asProposalPlan()
               .orElseThrow();
       new StraightPlanExecutor()
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
@@ -175,6 +175,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .config(Configuration.of(Map.of("iteration", "500")))
                       .build())
               .offer(clusterInfo, Duration.ofSeconds(3))
+              .asProposalPlan()
               .get()
               .proposal();
 
@@ -239,6 +240,7 @@ class BalancerTest extends RequireBrokerCluster {
                               .toCompletableFuture()
                               .join(),
                           Duration.ofSeconds(3))
+                      .asProposalPlan()
                       .get()
                       .proposal());
       Utils.sleep(Duration.ofMillis(1000));
@@ -316,12 +318,12 @@ class BalancerTest extends RequireBrokerCluster {
     var balancer =
         new Balancer() {
           @Override
-          public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+          public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return Optional.of(new Plan(currentClusterInfo, () -> 0, () -> 0, MoveCost.EMPTY));
+            return new ProposalPlan(currentClusterInfo, () -> 0, () -> 0, MoveCost.EMPTY);
           }
         };
 
@@ -342,7 +344,7 @@ class BalancerTest extends RequireBrokerCluster {
     var balancer =
         new Balancer() {
           @Override
-          public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+          public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
           }

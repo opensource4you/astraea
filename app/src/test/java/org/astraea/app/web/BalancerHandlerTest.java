@@ -110,7 +110,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report = progress.report;
       Assertions.assertNotNull(progress.id);
       Assertions.assertNotEquals(0, report.changes.size());
-      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
+      Assertions.assertTrue(report.cost >= report.newCost.get());
       // "before" should record size
       report.changes.forEach(
           c ->
@@ -125,7 +125,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       report.changes.stream()
           .flatMap(c -> c.after.stream())
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
-      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
+      Assertions.assertTrue(report.cost >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream()
               .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
@@ -160,7 +160,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
       Assertions.assertTrue(
-          report.cost.get() >= report.newCost.get(),
+          report.cost >= report.newCost.get(),
           "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream()
@@ -294,7 +294,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(3)));
+                  Duration.ofSeconds(3))
+              .asProposalPlan());
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -312,7 +313,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(3)));
+                  Duration.ofSeconds(3))
+              .asProposalPlan());
     }
   }
 
@@ -1148,7 +1150,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
       return super.offer(currentClusterInfo, timeout);

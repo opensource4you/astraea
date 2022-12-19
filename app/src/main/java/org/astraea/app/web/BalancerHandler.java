@@ -163,6 +163,7 @@ class BalancerHandler implements Handler {
                                   .retryOffer(currentClusterInfo, request.executionTime));
                   var changes =
                       bestPlan
+                          .asProposalPlan()
                           .map(
                               p ->
                                   ClusterInfo.findNonFulfilledAllocation(
@@ -187,11 +188,15 @@ class BalancerHandler implements Handler {
                           .orElse(List.of());
                   var report =
                       new Report(
-                          bestPlan.map(p -> p.initialClusterCost().value()),
-                          bestPlan.map(p -> p.proposalClusterCost().value()),
+                          bestPlan.initialClusterCost().value(),
+                          bestPlan.asProposalPlan().map(p -> p.proposalClusterCost().value()),
                           request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
-                          bestPlan.map(p -> migrationCosts(p.moveCost())).orElseGet(List::of));
+                          bestPlan
+                              .asProposalPlan()
+                              .map(p -> migrationCosts(p.moveCost()))
+                              .orElseGet(List::of),
+                          bestPlan.description().orElse(null));
                   return new PlanInfo(report, bestPlan);
                 })
             .whenComplete(
@@ -229,10 +234,10 @@ class BalancerHandler implements Handler {
         .collect(Collectors.toList());
   }
 
-  private Optional<Balancer.Plan> metricContext(
+  private Balancer.Plan metricContext(
       Collection<Fetcher> fetchers,
       Collection<MetricSensor> metricSensors,
-      Function<Supplier<ClusterBean>, Optional<Balancer.Plan>> execution) {
+      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
@@ -407,20 +412,25 @@ class BalancerHandler implements Handler {
                         // already scheduled, nothing to do
                         if (executedPlans.containsKey(thePlanId))
                           return new PutPlanResponse(thePlanId);
+                        // one plan at a time
                         if (lastExecutionId.get() != null
                             && !executedPlans.get(lastExecutionId.get()).isDone())
                           throw new IllegalStateException(
                               "There is another on-going rebalance: " + lastExecutionId.get());
+                        // TODO: test this behavior
+                        // the plan exists but no plan generated
+                        if (thePlanInfo.associatedPlan.asProposalPlan().isEmpty())
+                          throw new IllegalStateException(
+                              "The specified balancer plan didn't generate a useful plan: "
+                                  + thePlanId);
                         // schedule the actual execution
-                        thePlanInfo.associatedPlan.ifPresent(
-                            p -> {
-                              executedPlans.put(
-                                  thePlanId,
-                                  executor
-                                      .run(admin, p.proposal(), Duration.ofHours(1))
-                                      .toCompletableFuture());
-                              lastExecutionId.set(thePlanId);
-                            });
+                        var proposedPlan = thePlanInfo.associatedPlan.asProposalPlan().get();
+                        executedPlans.put(
+                            thePlanId,
+                            executor
+                                .run(admin, proposedPlan.proposal(), Duration.ofHours(1))
+                                .toCompletableFuture());
+                        lastExecutionId.set(thePlanId);
                         return new PutPlanResponse(thePlanId);
                       },
                       schedulingExecutor)
@@ -556,7 +566,7 @@ class BalancerHandler implements Handler {
 
   static class Report implements Response {
     // initial cost might be unavailable due to unable to evaluate cost function
-    final Optional<Double> cost;
+    final double cost;
 
     // don't generate new cost if there is no best plan
     final Optional<Double> newCost;
@@ -564,26 +574,30 @@ class BalancerHandler implements Handler {
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
+    // TODO: test this field
+    final String description;
 
     Report(
-        Optional<Double> cost,
+        double initialCost,
         Optional<Double> newCost,
         String function,
         List<Change> changes,
-        List<MigrationCost> migrationCosts) {
-      this.cost = cost;
+        List<MigrationCost> migrationCosts,
+        String description) {
+      this.cost = initialCost;
       this.newCost = newCost;
       this.function = function;
       this.changes = changes;
       this.migrationCosts = migrationCosts;
+      this.description = description;
     }
   }
 
   static class PlanInfo {
     private final Report report;
-    private final Optional<Balancer.Plan> associatedPlan;
+    private final Balancer.Plan associatedPlan;
 
-    PlanInfo(Report report, Optional<Balancer.Plan> associatedPlan) {
+    PlanInfo(Report report, Balancer.Plan associatedPlan) {
       this.report = report;
       this.associatedPlan = associatedPlan;
     }
