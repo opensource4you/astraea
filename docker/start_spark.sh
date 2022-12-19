@@ -69,9 +69,9 @@ RUN apt-get update && apt-get install -y wget unzip
 
 # download spark
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop${HADOOP_VERSION}-scala2.13.tgz
 RUN mkdir /opt/spark
-RUN tar -zxvf spark-${VERSION}-bin-hadoop${HADOOP_VERSION}.tgz -C /opt/spark --strip-components=1
+RUN tar -zxvf spark-${VERSION}-bin-hadoop${HADOOP_VERSION}-scala2.13.tgz -C /opt/spark --strip-components=1
 
 # the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
 # The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
