@@ -73,7 +73,7 @@ public class Importer extends SourceConnector {
     this.input = config.requireString(PATH_KEY.name());
     this.cleanSource =
         config.string(CLEAN_SOURCE_KEY.name()).orElse(CLEAN_SOURCE_KEY.defaultValue().toString());
-    this.archiveDir = config.string("archive.dir");
+    this.archiveDir = config.string(ARCHIVE_DIR_KEY.name());
   }
 
   @Override
@@ -123,23 +123,26 @@ public class Importer extends SourceConnector {
   public static class Task extends SourceTask {
     private FtpFileSystem fs;
     private int fileSet;
-    private HashSet<String> addedPath;
-    private String input;
-    private int maxTask;
+    private HashSet<String> addedPaths;
+    private String rootDir;
+    private int maxTasks;
     private LinkedList<String> paths;
 
     protected void init(Configuration configuration) {
       this.fs = new FtpFileSystem(configuration);
       this.fileSet = configuration.requireInteger(FILE_SET_KEY);
-      this.addedPath = new HashSet<>();
-      this.input = configuration.requireString(PATH_KEY.name());
-      this.maxTask = configuration.requireInteger("tasks.max");
+      this.addedPaths = new HashSet<>();
+      this.rootDir = configuration.requireString(PATH_KEY.name());
+      this.maxTasks = configuration.requireInteger("tasks.max");
       this.paths = new LinkedList<>();
     }
 
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
-      getFileSet();
+      if (paths.isEmpty()) {
+        paths = getFileSet(addedPaths, rootDir, maxTasks, fileSet);
+      }
+      addedPaths.addAll(paths);
       var currentPath = paths.poll();
       if (currentPath != null) {
         var records = new ArrayList<Record<byte[], byte[]>>();
@@ -164,27 +167,27 @@ public class Importer extends SourceConnector {
       return null;
     }
 
-    protected void getFileSet() {
-      if (paths.isEmpty()) {
-        LinkedList<String> path = new LinkedList<>(Collections.singletonList(input));
-        while (true) {
-          var current = path.poll();
-          if (current == null) break;
-          if (fs.type(current) == Type.FOLDER) {
-            var files = fs.listFiles(current);
-            var folders = fs.listFolders(current);
-            if (!files.isEmpty()) {
-              files.stream()
-                  .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % maxTask == fileSet)
-                  .filter(Predicate.not(file -> addedPath.contains(file)))
-                  .forEach(file -> paths.add(file));
-              continue;
-            }
-            path.addAll(folders);
+    protected LinkedList<String> getFileSet(
+        HashSet<String> addedPaths, String root, int maxTasks, int fileSet) {
+      LinkedList<String> filePaths = new LinkedList<>();
+      LinkedList<String> path = new LinkedList<>(Collections.singletonList(root));
+      while (true) {
+        var current = path.poll();
+        if (current == null) break;
+        if (fs.type(current) == Type.FOLDER) {
+          var files = fs.listFiles(current);
+          var folders = fs.listFolders(current);
+          if (!files.isEmpty()) {
+            files.stream()
+                .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % maxTasks == fileSet)
+                .filter(Predicate.not(addedPaths::contains))
+                .forEach(filePaths::add);
+            continue;
           }
+          path.addAll(folders);
         }
       }
-      addedPath.addAll(paths);
+      return filePaths;
     }
 
     @Override
