@@ -96,7 +96,7 @@ public interface Balancer {
 
   class Plan {
     final ClusterCost initialClusterCost;
-    final String description;
+    final Solution solution;
 
     /**
      * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
@@ -106,27 +106,21 @@ public interface Balancer {
       return initialClusterCost;
     }
 
-    public Optional<ProposalPlan> asProposalPlan() {
-      return Optional.of(this)
-          .filter(me -> me instanceof ProposalPlan)
-          .map(me -> (ProposalPlan) me);
+    public Optional<Solution> solution() {
+      return Optional.ofNullable(solution);
     }
 
-    /**
-     * @return a String metadata information stated by the Balancer implementation, it might provide
-     *     some insight about this plan.
-     */
-    public Optional<String> description() {
-      return Optional.ofNullable(description);
+    public Plan(ClusterCost initialClusterCost) {
+      this(initialClusterCost, null);
     }
 
-    public Plan(ClusterCost initialClusterCost, String description) {
+    public Plan(ClusterCost initialClusterCost, Solution solution) {
       this.initialClusterCost = initialClusterCost;
-      this.description = description;
+      this.solution = solution;
     }
   }
 
-  class ProposalPlan extends Plan {
+  class Solution {
 
     final ClusterInfo<Replica> proposal;
     final ClusterCost proposalClusterCost;
@@ -145,21 +139,8 @@ public interface Balancer {
       return moveCost;
     }
 
-    public ProposalPlan(
-        ClusterInfo<Replica> proposal,
-        ClusterCost initialClusterCost,
-        ClusterCost proposalClusterCost,
-        MoveCost moveCost) {
-      this(proposal, initialClusterCost, proposalClusterCost, moveCost, null);
-    }
-
-    public ProposalPlan(
-        ClusterInfo<Replica> proposal,
-        ClusterCost initialClusterCost,
-        ClusterCost proposalClusterCost,
-        MoveCost moveCost,
-        String description) {
-      super(initialClusterCost, description);
+    public Solution(
+        ClusterCost proposalClusterCost, MoveCost moveCost, ClusterInfo<Replica> proposal) {
       this.proposal = proposal;
       this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;

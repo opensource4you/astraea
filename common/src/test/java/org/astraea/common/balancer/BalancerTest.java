@@ -121,7 +121,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .toCompletableFuture()
                       .join(),
                   Duration.ofSeconds(10))
-              .asProposalPlan()
+              .solution()
               .orElseThrow();
       new StraightPlanExecutor()
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
@@ -175,7 +175,7 @@ class BalancerTest extends RequireBrokerCluster {
                       .config(Configuration.of(Map.of("iteration", "500")))
                       .build())
               .offer(clusterInfo, Duration.ofSeconds(3))
-              .asProposalPlan()
+              .solution()
               .get()
               .proposal();
 
@@ -240,7 +240,7 @@ class BalancerTest extends RequireBrokerCluster {
                               .toCompletableFuture()
                               .join(),
                           Duration.ofSeconds(3))
-                      .asProposalPlan()
+                      .solution()
                       .get()
                       .proposal());
       Utils.sleep(Duration.ofMillis(1000));
@@ -323,7 +323,7 @@ class BalancerTest extends RequireBrokerCluster {
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return new ProposalPlan(currentClusterInfo, () -> 0, () -> 0, MoveCost.EMPTY);
+            return new Plan(() -> 0, new Solution(() -> 0, MoveCost.EMPTY, currentClusterInfo));
           }
         };
 

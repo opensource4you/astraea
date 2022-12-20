@@ -85,17 +85,15 @@ public class SingleStepBalancer implements Balancer {
         .map(
             newAllocation -> {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
-              return new Balancer.ProposalPlan(
-                  newAllocation,
-                  currentCost,
+              return new Solution(
                   clusterCostFunction.clusterCost(newClusterInfo, currentClusterBean),
-                  moveCostFunction.moveCost(
-                      currentClusterInfo, newClusterInfo, currentClusterBean));
+                  moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, currentClusterBean),
+                  newAllocation);
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
-        .map(proposalPlan -> (Plan) proposalPlan)
-        .orElse(new Plan(currentCost, "Unable to find a better log allocation"));
+        .map(solution -> new Plan(currentCost, solution))
+        .orElse(new Plan(currentCost));
   }
 }

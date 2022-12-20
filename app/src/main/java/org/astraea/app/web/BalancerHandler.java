@@ -163,7 +163,7 @@ class BalancerHandler implements Handler {
                                   .retryOffer(currentClusterInfo, request.executionTime));
                   var changes =
                       bestPlan
-                          .asProposalPlan()
+                          .solution()
                           .map(
                               p ->
                                   ClusterInfo.findNonFulfilledAllocation(
@@ -189,14 +189,13 @@ class BalancerHandler implements Handler {
                   var report =
                       new Report(
                           bestPlan.initialClusterCost().value(),
-                          bestPlan.asProposalPlan().map(p -> p.proposalClusterCost().value()),
+                          bestPlan.solution().map(p -> p.proposalClusterCost().value()),
                           request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
                           bestPlan
-                              .asProposalPlan()
+                              .solution()
                               .map(p -> migrationCosts(p.moveCost()))
-                              .orElseGet(List::of),
-                          bestPlan.description().orElse(null));
+                              .orElseGet(List::of));
                   return new PlanInfo(report, bestPlan);
                 })
             .whenComplete(
@@ -418,12 +417,12 @@ class BalancerHandler implements Handler {
                           throw new IllegalStateException(
                               "There is another on-going rebalance: " + lastExecutionId.get());
                         // the plan exists but no plan generated
-                        if (thePlanInfo.associatedPlan.asProposalPlan().isEmpty())
+                        if (thePlanInfo.associatedPlan.solution().isEmpty())
                           throw new IllegalStateException(
                               "The specified balancer plan didn't generate a useful plan: "
                                   + thePlanId);
                         // schedule the actual execution
-                        var proposedPlan = thePlanInfo.associatedPlan.asProposalPlan().get();
+                        var proposedPlan = thePlanInfo.associatedPlan.solution().get();
                         executedPlans.put(
                             thePlanId,
                             executor
@@ -573,21 +572,18 @@ class BalancerHandler implements Handler {
     final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
-    final String description;
 
     Report(
         double initialCost,
         Optional<Double> newCost,
         String function,
         List<Change> changes,
-        List<MigrationCost> migrationCosts,
-        String description) {
+        List<MigrationCost> migrationCosts) {
       this.cost = initialCost;
       this.newCost = newCost;
       this.function = function;
       this.changes = changes;
       this.migrationCosts = migrationCosts;
-      this.description = description;
     }
   }
 

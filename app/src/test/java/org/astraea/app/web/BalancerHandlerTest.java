@@ -297,7 +297,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .toCompletableFuture()
                       .join(),
                   Duration.ofSeconds(3))
-              .asProposalPlan());
+              .solution());
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -316,7 +316,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .toCompletableFuture()
                       .join(),
                   Duration.ofSeconds(3))
-              .asProposalPlan());
+              .solution());
     }
   }
 
@@ -385,8 +385,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertNotNull(progress.report.function);
       Assertions.assertEquals(0, progress.report.changes.size(), "No proposal");
       Assertions.assertEquals(0, progress.report.migrationCosts.size(), "No proposal");
-      Assertions.assertNotNull(
-          progress.report.description, "It should stated why no proposal available");
       Assertions.assertNull(progress.exception, "No exception occurred during this process");
       Assertions.assertInstanceOf(
           IllegalStateException.class,

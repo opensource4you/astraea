@@ -161,12 +161,12 @@ class NetworkCostTest {
                     .build())
             .offer(testcase.clusterInfo(), Duration.ofSeconds(1));
 
-    Assertions.assertTrue(newPlan.asProposalPlan().isPresent());
+    Assertions.assertTrue(newPlan.solution().isPresent());
     System.out.println("Initial cost: " + newPlan.initialClusterCost().value());
-    System.out.println("New cost: " + newPlan.asProposalPlan().get().proposalClusterCost().value());
+    System.out.println("New cost: " + newPlan.solution().get().proposalClusterCost().value());
     Assertions.assertTrue(
         newPlan.initialClusterCost().value()
-            > newPlan.asProposalPlan().get().proposalClusterCost().value());
+            > newPlan.solution().get().proposalClusterCost().value());
   }
 
   @Test
