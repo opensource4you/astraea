@@ -32,6 +32,7 @@ import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -274,8 +275,11 @@ public class ConnectorNode {
   }
 
   private static Node pluginNode(Context context) {
+    var documentation = "documentation";
+    var defaultValue = "default value";
     return PaneBuilder.of()
         .firstPart(
+            SelectBox.single(List.of(defaultValue, documentation), 2),
             "REFRESH",
             (argument, logger) ->
                 context
@@ -291,7 +295,14 @@ public class ConnectorNode {
                                       pluginInfo.definitions().stream()
                                           .sorted(Comparator.comparing(Definition::name))
                                           .forEach(
-                                              d -> map.put(d.name(), d.defaultValue().orElse("")));
+                                              d ->
+                                                  map.put(
+                                                      d.name(),
+                                                      argument
+                                                              .selectedKeys()
+                                                              .contains(documentation)
+                                                          ? d.documentation()
+                                                          : d.defaultValue().orElse("")));
                                       return map;
                                     })
                                 .collect(Collectors.toList())))
