@@ -204,6 +204,8 @@ docker/start_app.sh performance \
 
 ## 測試結果
 
+![](../../pictures/partitioner_experiment4_1.png)
+
 從每個 broker 的吞吐量來看，`StrictCostDispatcher` 訊息平衡的分佈在各個 broker 上，每個 broker 取得的訊息量不會差距太大，`StrictCostDispatcher` 之所以能夠將訊息分送的平均，原因其一是
 
 1. `StrictCostDispatcher` 內部邏輯是用 "對每個 broker 的延遲" 來選擇 broker，選擇完才接著選擇(該 broker 內的) partition 發送訊息，第二個原因是
@@ -229,13 +231,11 @@ docker/start_app.sh performance \
 
 `DefaultPartitioner` 隨機選擇 partition 發送，所以吞吐量也會和 partition 分佈直接相關。
 
-![](../../pictures/partitioner_experiment4_1.png)
+![](../../pictures/partitioner_experiment4_2.png)
 
 從 client 端的發送延遲來看，兩者的發送延遲都穩定，而 `StrictCostDispatcher` 維持比較低的 request latency average，在這次實驗中 `StrictCostDispatcher` 也是參考這項指標來選擇 partition 的。`BuiltInPartitioner` 的平均發送延遲較高，甚至比 Default Partitioner 還高，雖然 `DefaultPartitioner` 發送的資料量不如 `BuiltInPartitioner` 多。
 
 `DefaultPartitioner` 有較低的延遲，其中又以 C3 的延遲較另外兩者低，推測是因為 C3 發送的 topic 是 `testing-3`， partition 分佈較為平均，有較多的 record 可以發往較不忙碌的 broker (B3)。
-
-![](../../pictures/partitioner_experiment4_2.png)
 
 ## 結論
 
