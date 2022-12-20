@@ -16,6 +16,7 @@
  */
 package org.astraea.app.performance;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -33,6 +34,7 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 
 public interface ProducerThread extends AbstractThread {
+  DataSupplier NO_AVAILABLE_DATA_SUPPLIER = null;
 
   static List<ProducerThread> create(
       int batchSize,
@@ -70,6 +72,9 @@ public interface ProducerThread extends AbstractThread {
                       while (!closed.get()) {
                         var partition = topicPartitionSupplier.get();
                         var dataSupplier = dataSupplierFunction.apply(partition);
+                        if (dataSupplier == NO_AVAILABLE_DATA_SUPPLIER || !dataSupplier.active())
+                          continue;
+
                         var data =
                             IntStream.range(0, batchSize)
                                 .mapToObj(i -> dataSupplier.get())
@@ -81,6 +86,8 @@ public interface ProducerThread extends AbstractThread {
                         // no data due to throttle
                         // TODO: we should return a precise sleep time
                         if (data.stream().allMatch(DataSupplier.Data::throttled)) {
+                          Utils.sleep(Duration.ofSeconds(1));
+                          dataSupplier.setActive(true);
                           continue;
                         }
 

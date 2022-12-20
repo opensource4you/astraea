@@ -19,12 +19,18 @@ package org.astraea.app.performance;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.astraea.common.DataRate;
 
 @FunctionalInterface
 interface DataSupplier extends Supplier<DataSupplier.Data> {
+  default boolean active() {
+    return true;
+  }
+
+  default void setActive(boolean value) {}
 
   static Data data(byte[] key, byte[] value) {
     return new Data() {
@@ -167,6 +173,8 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       private final AtomicLong dataCount = new AtomicLong(0);
       private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
       private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
+      // true if the data supplier can be selected
+      private final AtomicBoolean active = new AtomicBoolean(true);
 
       byte[] value() {
         return getOrNew(
@@ -179,14 +187,26 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       @Override
+      public boolean active() {
+        return active.get();
+      }
+
+      @Override
+      public void setActive(boolean value) {
+        active.set(value);
+      }
+
+      @Override
       public Data get() {
         if (exeTime.percentage(dataCount.getAndIncrement(), System.currentTimeMillis() - start)
             >= 100D) return NO_MORE_DATA;
         var key = key();
         var value = value();
         if (throttler.throttled(
-            (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+            (value != null ? value.length : 0) + (key != null ? key.length : 0))) {
+          active.set(false);
           return THROTTLED_DATA;
+        }
         return data(key, value);
       }
     };

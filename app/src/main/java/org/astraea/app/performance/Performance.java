@@ -159,6 +159,7 @@ public class Performance {
   }
 
   public static class Argument extends org.astraea.app.argument.Argument {
+    private static DataSupplier NO_AVAILABLE_DATA_SUPPLIER = null;
 
     @Parameter(
         names = {"--topics"},
@@ -412,7 +413,14 @@ public class Performance {
                               valueDistributionType.create(
                                   valueSize.measurement(DataUnit.Byte).intValue()),
                               e.getValue())));
-      return (tp) -> throttleSupplier.getOrDefault(tp, defaultSupplier);
+      return (tp) -> {
+        var supplier = throttleSupplier.getOrDefault(tp, defaultSupplier);
+        if (supplier != defaultSupplier && !supplier.active()) {
+          // no available data supplier can use
+          return NO_AVAILABLE_DATA_SUPPLIER;
+        }
+        return supplier;
+      };
     }
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
