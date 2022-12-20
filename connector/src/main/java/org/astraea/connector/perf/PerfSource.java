@@ -121,7 +121,7 @@ public class PerfSource extends SourceConnector {
     long last = System.currentTimeMillis();
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       this.topics = Set.copyOf(configuration.list(SourceConnector.TOPICS_KEY, ","));
       this.frequency =
           Utils.toDuration(
