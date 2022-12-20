@@ -155,6 +155,7 @@ function generateDockerfile() {
 
 # ===================================[main]===================================
 
+raw_folder_mapping=""
 master_url=""
 mount_command=""
 
@@ -169,6 +170,7 @@ while [[ $# -gt 0 ]]; do
   fi
 
   if [[ "$1" == "folder"* ]]; then
+    raw_folder_mapping=$1
     folder_mapping=$(echo "$1" | cut -d "=" -f 2)
     host_folder=$(echo "$folder_mapping" | cut -d ":" -f 1)
     container_folder=$(echo "$folder_mapping" | cut -d ":" -f 2)
@@ -218,6 +220,6 @@ else
   echo "================================================="
   echo "Starting Spark master at spark://$ADDRESS:$SPARK_PORT"
   echo "Bound MasterWebUI started at http://${ADDRESS}:${SPARK_UI_PORT}"
-  echo "execute $DOCKER_FOLDER/start_spark.sh master=spark://$ADDRESS:$SPARK_PORT to add worker"
+  echo "execute $DOCKER_FOLDER/start_spark.sh master=spark://$ADDRESS:$SPARK_PORT $raw_folder_mapping to add worker"
   echo "================================================="
 fi
