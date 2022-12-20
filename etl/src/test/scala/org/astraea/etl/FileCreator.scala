@@ -20,11 +20,11 @@ import com.opencsv.CSVWriter
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Files
-import java.util.concurrent.{Executor, Executors, TimeUnit}
-import scala.collection.JavaConverters._
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Try}
 object FileCreator {
   def generateCSVF(
@@ -46,7 +46,7 @@ object FileCreator {
       rows: List[List[String]],
       int: Int
   ): Try[Unit] = {
-    val str = sourceDir + "/local_kafka" + "-" + int.toString + ".csv"
+    val str = sourceDir.toString + "/local_kafka" + "-" + int + ".csv"
     val fileCSV2 = Files.createFile(new File(str).toPath)
     writeCsvFile(fileCSV2.toAbsolutePath.toString, rows)
   }
@@ -58,11 +58,7 @@ object FileCreator {
     Try(new CSVWriter(new BufferedWriter(new FileWriter(path)))).flatMap(
       (csvWriter: CSVWriter) =>
         Try {
-          csvWriter.writeAll(
-            // avoid ambiguous reference
-            rows.toIterable.map(_.toArray).asJava,
-            true
-          )
+          csvWriter.writeAll(rows.map(_.toArray).asJava)
           csvWriter.close()
         } match {
           case f @ Failure(_) =>
@@ -79,11 +75,5 @@ object FileCreator {
       .listFiles()
       .filter(!_.isDirectory)
       .filter(t => t.toString.endsWith(".csv"))
-  }
-
-  def mkdir(string: String): File = {
-    val mkdirFile = new File(string)
-    mkdirFile.mkdir()
-    mkdirFile
   }
 }
