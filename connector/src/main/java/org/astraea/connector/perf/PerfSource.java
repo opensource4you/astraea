@@ -47,13 +47,6 @@ public class PerfSource extends SourceConnector {
           .defaultValue("1s")
           .validator((name, value) -> Utils.toDuration(value.toString()))
           .build();
-  static Definition KEY_LENGTH_DEF =
-      Definition.builder()
-          .name("key.length")
-          .type(Definition.Type.STRING)
-          .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue(DataSize.Byte.of(50).toString())
-          .build();
 
   static Definition KEY_DISTRIBUTION_DEF =
       Definition.builder()
@@ -64,12 +57,15 @@ public class PerfSource extends SourceConnector {
           .documentation(
               "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
-  static Definition VALUE_LENGTH_DEF =
+  static Definition KEY_LENGTH_DEF =
       Definition.builder()
-          .name("value.length")
+          .name("key.length")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue(DataSize.KB.of(1).toString())
+          .defaultValue(DataSize.Byte.of(50).toString())
+          .documentation(
+              "the max length of key. The distribution of length is defined by "
+                  + KEY_DISTRIBUTION_DEF.name())
           .build();
 
   static Definition VALUE_DISTRIBUTION_DEF =
@@ -80,6 +76,16 @@ public class PerfSource extends SourceConnector {
           .defaultValue(DistributionType.UNIFORM.alias())
           .documentation(
               "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
+          .build();
+  static Definition VALUE_LENGTH_DEF =
+      Definition.builder()
+          .name("value.length")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue(DataSize.KB.of(1).toString())
+          .documentation(
+              "the max length of value. The distribution of length is defined by "
+                  + VALUE_DISTRIBUTION_DEF.name())
           .build();
 
   static Definition SPECIFY_PARTITIONS_DEF =
