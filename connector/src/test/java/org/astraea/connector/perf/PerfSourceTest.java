@@ -30,6 +30,7 @@ import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
+import org.astraea.connector.MetadataStorage;
 import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -235,7 +236,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   @Test
   void testInit() {
     var task = new PerfSource.Task();
-    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")));
+    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
     Assertions.assertNotNull(task.rand);
     Assertions.assertNotNull(task.topics);
     Assertions.assertNotNull(task.frequency);
@@ -258,7 +259,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
                 PerfSource.KEY_DISTRIBUTION_DEF.name(),
                 "uniform",
                 PerfSource.VALUE_DISTRIBUTION_DEF.name(),
-                "uniform")));
+                "uniform")),
+        MetadataStorage.EMPTY);
     var keys =
         IntStream.range(0, 100)
             .mapToObj(ignored -> Optional.ofNullable(task.key()))
@@ -280,7 +282,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")));
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")),
+        MetadataStorage.EMPTY);
     Assertions.assertNull(task.key());
     Assertions.assertEquals(0, task.keys.size());
   }
@@ -290,7 +293,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")));
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")),
+        MetadataStorage.EMPTY);
     Assertions.assertNull(task.value());
     Assertions.assertEquals(0, task.values.size());
   }

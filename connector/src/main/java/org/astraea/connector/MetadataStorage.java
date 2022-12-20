@@ -19,11 +19,10 @@ package org.astraea.connector;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.storage.OffsetStorageReader;
-import org.astraea.common.json.JsonConverter;
 
 public interface MetadataStorage {
 
-  JsonConverter CONVERTER = JsonConverter.defaultConverter();
+  MetadataStorage EMPTY = ignored -> Map.of();
 
   static MetadataStorage of(OffsetStorageReader reader) {
     return index -> {

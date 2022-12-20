@@ -36,7 +36,7 @@ import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SourceTest extends RequireSingleWorkerCluster {
+public class SourceDataTest extends RequireSingleWorkerCluster {
 
   private static final byte[] KEY = "key".getBytes(StandardCharsets.UTF_8);
   private static final byte[] VALUE = "value".getBytes(StandardCharsets.UTF_8);
@@ -133,7 +133,7 @@ public class SourceTest extends RequireSingleWorkerCluster {
     private boolean isDone = false;
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       topics = Set.copyOf(configuration.list(ConnectorConfigs.TOPICS_KEY, ","));
     }
 

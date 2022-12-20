@@ -83,6 +83,9 @@ public class MetadataStorageTest extends RequireSingleWorkerCluster {
     Utils.sleep(Duration.ofSeconds(3));
     Assertions.assertNotEquals(0, MySource.FETCHED_METADATA.size());
     Assertions.assertEquals("d", MySource.FETCHED_METADATA.get("c"));
+
+    Assertions.assertNotEquals(0, MyTask.FETCHED_METADATA.size());
+    Assertions.assertEquals("d", MyTask.FETCHED_METADATA.get("c"));
   }
 
   public static class MySource extends SourceConnector {
@@ -115,12 +118,15 @@ public class MetadataStorageTest extends RequireSingleWorkerCluster {
 
   public static class MyTask extends SourceTask {
 
+    private static volatile Map<String, String> FETCHED_METADATA = Map.of();
+
     private boolean isDone = false;
     private Set<String> topics = Set.of();
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       topics = Set.copyOf(configuration.list(ConnectorConfigs.TOPICS_KEY, ","));
+      FETCHED_METADATA = storage.metadata(KEY);
     }
 
     @Override
