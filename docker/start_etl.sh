@@ -92,7 +92,7 @@ function runContainer() {
       ghcr.io/skiptests/astraea/spark:$SPARK_VERSION \
       ./bin/spark-submit \
       --conf "spark.ui.port=$ui_port" \
-      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:"$SPARK_VERSION" \
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:"$SPARK_VERSION" \
       --executor-memory "$RESOURCES_CONFIGS" \
       --class org.astraea.etl.Spark2Kafka \
       --jars file:///tmp/astraea-etl.jar \
