@@ -16,6 +16,7 @@
  */
 package org.astraea.gui.table;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -47,6 +48,8 @@ import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
 
 public interface TableViewer {
+
+  int CELL_LENGTH_MAX = 70;
 
   Node node();
 
@@ -203,9 +206,18 @@ public interface TableViewer {
                                       key -> {
                                         var col = new TableColumn<Map<String, Object>, Object>(key);
                                         col.setCellValueFactory(
-                                            param ->
-                                                new ReadOnlyObjectWrapper<>(
-                                                    param.getValue().getOrDefault(key, "")));
+                                            param -> {
+                                              var obj = param.getValue().get(key);
+                                              if (obj instanceof String)
+                                                return new ReadOnlyObjectWrapper<>(
+                                                    String.join(
+                                                        "\n",
+                                                        TableViewer.chunk(
+                                                            (String) obj, CELL_LENGTH_MAX)));
+
+                                              return new ReadOnlyObjectWrapper<>(
+                                                  obj == null ? "" : obj);
+                                            });
                                         return col;
                                       })
                                   .collect(Collectors.toUnmodifiableList());
@@ -261,5 +273,20 @@ public interface TableViewer {
         if (enableQuery) queryField.keyAction(keyAction);
       }
     };
+  }
+
+  private static List<String> chunk(String s, int size) {
+    if (s.length() <= size) return List.of(s);
+    var result = new ArrayList<String>();
+    var current = "";
+    for (var i : s.split(" ")) {
+      current = current + " " + i;
+      if (current.length() >= size) {
+        result.add(current);
+        current = "";
+      }
+    }
+    if (!current.isBlank()) result.add(current);
+    return result;
   }
 }
