@@ -188,6 +188,7 @@ class BalancerHandler implements Handler {
                           .orElse(List.of());
                   var report =
                       new Report(
+                          bestPlan.solution().isPresent(),
                           bestPlan.initialClusterCost().value(),
                           bestPlan.solution().map(p -> p.proposalClusterCost().value()),
                           request.algorithmConfig.clusterCostFunction().toString(),
@@ -563,7 +564,7 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    // initial cost might be unavailable due to unable to evaluate cost function
+    final boolean isPlanGenerated;
     final double cost;
 
     // don't generate new cost if there is no best plan
@@ -574,11 +575,13 @@ class BalancerHandler implements Handler {
     final List<MigrationCost> migrationCosts;
 
     Report(
+        boolean isPlanGenerated,
         double initialCost,
         Optional<Double> newCost,
         String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
+      this.isPlanGenerated = isPlanGenerated;
       this.cost = initialCost;
       this.newCost = newCost;
       this.function = function;
