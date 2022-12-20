@@ -154,7 +154,7 @@ JSON Response 範例
     "isPlanGenerated": true,
     "cost": 0.04948716593053935,
     "newCost": 0.04948716593053935,
-    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.NetworkIngressCost@36835e87\" weight 1.0}, {\"org.astraea.common.cost.NetworkEgressCost@2d87f4d3\" weight 1.0}]",
+    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.ReplicaSizeCost@36835e87\" weight 1.0}, {\"org.astraea.common.cost.ReplicaLeaderCost@2d87f4d3\" weight 1.0}]",
     "changes": [
       {
         "topic": "__consumer_offsets",
