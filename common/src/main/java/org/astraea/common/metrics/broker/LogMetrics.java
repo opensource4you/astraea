@@ -147,6 +147,12 @@ public final class LogMetrics {
                   .property("topic", "*")
                   .property("partition", "*")
                   .property("name", metricName)
+                  // Due to a Kafka bug. This log metrics might come with an `is-future` property
+                  // with it.
+                  // And the property is never removed even if the folder migration is done.
+                  // We use the BeanQuery property list pattern to work around this issue.
+                  // See https://github.com/apache/kafka/pull/12979
+                  .usePropertyListPattern()
                   .build())
           .stream()
           .map(Gauge::new)

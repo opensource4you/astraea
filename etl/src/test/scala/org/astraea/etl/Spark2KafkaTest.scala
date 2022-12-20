@@ -32,10 +32,7 @@ import java.util
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import scala.collection.convert.ImplicitConversions.{
-  `collection AsScalaIterable`,
-  `collection asJava`
-}
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.concurrent.duration.Duration
 import scala.util.Random
 
@@ -65,7 +62,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
 
     val rowData = s2kType(rows)
 
-    rowData.forEach(record => assertEquals(records(record._1), record._2))
+    records.foreach(records => assertEquals(records._2, rowData(records._1)))
   }
 
   @Test
@@ -119,18 +116,16 @@ class Spark2KafkaTest extends RequireBrokerCluster {
       .inclusive(0, 3)
       .map(i =>
         (
-          s"""{"${colNames(1)}":"${rows(
+          s"""{"${colNames.head}":"${rows(
               i
-            ).head}","${colNames(2)}":"${rows(i)(1)}"}""",
-          s"""{"${colNames(3)}":"${rows(
+            ).head}","${colNames(1)}":"${rows(i)(1)}"}""",
+          s"""{"${colNames(2)}":"${rows(
               i
             )(
               2
-            )}","${colNames(1)}":"${rows(
+            )}","${colNames.head}":"${rows(
               i
-            ).head}","${colNames.head}":"${i + 1}","${colNames(2)}":"${rows(i)(
-              1
-            )}"}"""
+            ).head}","${colNames(1)}":"${rows(i)(1)}"}"""
         )
       )
       .toMap
@@ -143,7 +138,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
   private val source: String = tempPath + "/source"
   private val sinkD: String = tempPath + "/sink"
   private val COL_NAMES =
-    "ID=integer,FirstName=string,SecondName=string,Age=integer"
+    "FirstName=string,SecondName=string,Age=integer"
 
   @BeforeAll
   def setup(): Unit = {
@@ -162,10 +157,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       sinkDir.getPath,
       checkoutDir.getPath
     )
-    Spark2Kafka.executor(
-      Array(myPropDir.toString),
-      20
-    )
+    Spark2Kafka.executor(Array(myPropDir.toString), 20)
   }
 
   private def writeProperties(
@@ -192,7 +184,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       properties.setProperty(SINK_PATH, sinkPath)
       properties.setProperty(
         COLUMN_NAME,
-        "ID=integer,FirstName=string,SecondName=string,Age=integer"
+        "FirstName=string,SecondName=string,Age=string"
       )
       properties.setProperty(PRIMARY_KEYS, "FirstName=string,SecondName=string")
       properties.setProperty(KAFKA_BOOTSTRAP_SERVERS, bootstrapServers())
@@ -209,11 +201,11 @@ object Spark2KafkaTest extends RequireBrokerCluster {
 
   private def rows: List[List[String]] = {
     val columnOne: List[String] =
-      List("Michael", "Andy", "Justin", "LuLu")
+      List("Michael", "Andy", "Justin", "")
     val columnTwo: List[String] =
-      List("A.K", "B.C", "C.L", "C.C")
+      List("A.K", "B.C", "C.L", "")
     val columnThree: List[String] =
-      List("29", "30", "19", "18")
+      List("29", "30", "19", "")
 
     columnOne
       .zip(columnTwo.zip(columnThree))

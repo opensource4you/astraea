@@ -19,7 +19,7 @@ package org.astraea.common.metrics.connector;
 import org.astraea.common.metrics.HasBeanObject;
 
 @FunctionalInterface
-public interface SourceTaskError extends HasBeanObject {
+public interface TaskError extends HasBeanObject {
 
   default String connectorName() {
     return beanObject().properties().get("connector");

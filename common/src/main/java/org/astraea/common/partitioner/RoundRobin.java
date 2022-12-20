@@ -50,6 +50,11 @@ public interface RoundRobin<E> {
     private volatile Map<E, Double> currentScores;
 
     private SmoothRoundRobin(Map<E, Double> scores) {
+      // The effective score should not be zero
+      if (scores.values().stream().anyMatch(score -> score <= 0.0)) {
+        throw new IllegalArgumentException(
+            "Effective score in smooth round-robin should not be zero");
+      }
       this.effectiveScores = Collections.unmodifiableMap(scores);
       this.currentScores =
           scores.keySet().stream()

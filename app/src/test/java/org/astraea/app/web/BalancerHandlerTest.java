@@ -58,10 +58,7 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
-import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
-import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HostMetrics;
@@ -130,40 +127,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       Assertions.assertTrue(report.cost.get() >= report.newCost.get());
       var sizeMigration =
-          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
-      Assertions.assertTrue(sizeMigration.totalCost >= 0);
-      Assertions.assertTrue(sizeMigration.cost.size() > 0);
-      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
-    }
-  }
-
-  @Test
-  @Timeout(value = 60)
-  void testTopic() {
-    var topicNames = createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
-      var report =
-          submitPlanGeneration(
-                  handler,
-                  Map.of(
-                      BALANCER_CONFIGURATION_KEY,
-                      Map.of("iteration", "30"),
-                      TOPICS_KEY,
-                      topicNames.get(0),
-                      COST_WEIGHT_KEY,
-                      defaultDecreasing))
-              .report;
-      var actual =
-          report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
-      Assertions.assertEquals(1, actual.size());
-      Assertions.assertEquals(topicNames.get(0), actual.iterator().next());
-      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
-      var sizeMigration =
-          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
-      Assertions.assertTrue(sizeMigration.totalCost >= 0);
-      Assertions.assertTrue(sizeMigration.cost.size() > 0);
-      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
+          report.migrationCosts.stream()
+              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .findFirst()
+              .get();
+      Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
+      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0D, v));
     }
   }
 
@@ -194,10 +163,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           report.cost.get() >= report.newCost.get(),
           "The proposed plan should has better score then the current one");
       var sizeMigration =
-          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
-      Assertions.assertTrue(sizeMigration.totalCost >= 0);
-      Assertions.assertTrue(sizeMigration.cost.size() > 0);
-      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
+          report.migrationCosts.stream()
+              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .findFirst()
+              .get();
+      Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
+      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0D, v));
     }
   }
 
@@ -266,9 +237,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
-      HasMoveCost moveCostFunction =
-          (originClusterInfo, newClusterInfo, clusterBean) ->
-              MoveCost.builder().totalCost(100).build();
+      HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
 
       var balancerHandler = new BalancerHandler(admin);
       var Best =
@@ -277,7 +246,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
-                      .moveCost(List.of(moveCostFunction))
+                      .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> true)
                       .build())
               .offer(
@@ -298,7 +267,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       AlgorithmConfig.builder()
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
-                          .moveCost(List.of(moveCostFunction))
+                          .moveCost(moveCostFunction)
                           .movementConstraint(moveCosts -> true)
                           .config(Configuration.of(Map.of("iteration", "0")))
                           .build())
@@ -317,7 +286,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
-                      .moveCost(List.of(moveCostFunction))
+                      .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> true)
                       .build())
               .offer(
@@ -335,7 +304,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
-                      .moveCost(List.of(moveCostFunction))
+                      .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> false)
                       .build())
               .offer(
@@ -366,12 +335,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .report;
       report.migrationCosts.forEach(
           migrationCost -> {
-            switch (migrationCost.function) {
-              case ReplicaSizeCost.COST_NAME:
-                Assertions.assertTrue(migrationCost.totalCost <= DataSize.of(sizeLimit).bytes());
+            switch (migrationCost.name) {
+              case BalancerHandler.MOVED_SIZE:
+                Assertions.assertTrue(
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
+                        <= DataSize.of(sizeLimit).bytes());
                 break;
-              case ReplicaLeaderCost.COST_NAME:
-                Assertions.assertTrue(migrationCost.totalCost <= Integer.parseInt(leaderLimit));
+              case BalancerHandler.CHANGED_LEADERS:
+                Assertions.assertTrue(
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::byteValue).sum()
+                        <= Integer.parseInt(leaderLimit));
                 break;
             }
           });

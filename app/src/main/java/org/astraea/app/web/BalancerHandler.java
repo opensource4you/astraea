@@ -66,8 +66,9 @@ class BalancerHandler implements Handler {
 
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
       HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
-  static final List<HasMoveCost> DEFAULT_MOVE_COST_FUNCTIONS =
-      List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost());
+  static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
+      HasMoveCost.of(
+          List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
@@ -147,8 +148,7 @@ class BalancerHandler implements Handler {
                   var fetchers =
                       Stream.concat(
                               request.algorithmConfig.clusterCostFunction().fetcher().stream(),
-                              request.algorithmConfig.moveCostFunctions().stream()
-                                  .flatMap(c -> c.fetcher().stream()))
+                              request.algorithmConfig.moveCostFunction().fetcher().stream())
                           .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
                       metricContext(
@@ -191,13 +191,7 @@ class BalancerHandler implements Handler {
                           bestPlan.map(p -> p.proposalClusterCost().value()),
                           request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
-                          bestPlan
-                              .map(
-                                  p ->
-                                      p.moveCost().stream()
-                                          .map(MigrationCost::new)
-                                          .collect(Collectors.toList()))
-                              .orElseGet(List::of));
+                          bestPlan.map(p -> migrationCosts(p.moveCost())).orElseGet(List::of));
                   return new PlanInfo(report, bestPlan);
                 })
             .whenComplete(
@@ -208,6 +202,31 @@ class BalancerHandler implements Handler {
                 });
     generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+  }
+
+  private static List<MigrationCost> migrationCosts(MoveCost cost) {
+    return List.of(
+            new MigrationCost(
+                CHANGED_REPLICAS,
+                cost.changedReplicaCount().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
+            new MigrationCost(
+                CHANGED_LEADERS,
+                cost.changedReplicaLeaderCount().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
+            new MigrationCost(
+                MOVED_SIZE,
+                cost.movedReplicaSize().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
+        .stream()
+        .filter(m -> !m.brokerCosts.isEmpty())
+        .collect(Collectors.toList());
   }
 
   private Optional<Balancer.Plan> metricContext(
@@ -292,23 +311,27 @@ class BalancerHandler implements Handler {
   }
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
-  static Predicate<List<MoveCost>> movementConstraint(BalancerPostRequest request) {
+  static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
     var converter = new DataSizeField();
     var replicaSizeLimit = request.maxMigratedSize.map(x -> converter.convert(x).bytes());
     var leaderNumLimit = request.maxMigratedLeader.map(Integer::parseInt);
-    return moveCosts ->
-        moveCosts.stream()
-            .allMatch(
-                mc -> {
-                  switch (mc.name()) {
-                    case ReplicaSizeCost.COST_NAME:
-                      return replicaSizeLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
-                    case ReplicaLeaderCost.COST_NAME:
-                      return leaderNumLimit.filter(limit -> limit <= mc.totalCost()).isEmpty();
-                    default:
-                      return true;
-                  }
-                });
+    return cost ->
+        replicaSizeLimit
+                .filter(
+                    limit ->
+                        limit
+                            <= cost.movedReplicaSize().values().stream()
+                                .mapToLong(s -> Math.abs(s.bytes()))
+                                .sum())
+                .isEmpty()
+            && leaderNumLimit
+                .filter(
+                    limit ->
+                        limit
+                            <= cost.changedReplicaLeaderCount().values().stream()
+                                .mapToLong(s -> s)
+                                .sum())
+                .isEmpty();
   }
 
   static HasClusterCost getClusterCost(BalancerPostRequest request) {
@@ -515,30 +538,19 @@ class BalancerHandler implements Handler {
     }
   }
 
-  static class BrokerCost {
-    int brokerId;
-    long cost;
-
-    BrokerCost(int brokerId, long cost) {
-      this.brokerId = brokerId;
-      this.cost = cost;
-    }
-  }
+  // visible for testing
+  static final String CHANGED_REPLICAS = "changed replicas";
+  static final String CHANGED_LEADERS = "changed leaders";
+  static final String MOVED_SIZE = "moved size (bytes)";
 
   static class MigrationCost {
-    final String function;
-    final long totalCost;
-    final List<BrokerCost> cost;
-    final String unit;
+    final String name;
 
-    MigrationCost(MoveCost moveCost) {
-      this.function = moveCost.name();
-      this.totalCost = moveCost.totalCost();
-      this.cost =
-          moveCost.changes().entrySet().stream()
-              .map(x -> new BrokerCost(x.getKey(), x.getValue()))
-              .collect(Collectors.toList());
-      this.unit = moveCost.unit();
+    final Map<String, Double> brokerCosts;
+
+    MigrationCost(String name, Map<String, Double> brokerCosts) {
+      this.name = name;
+      this.brokerCosts = brokerCosts;
     }
   }
 

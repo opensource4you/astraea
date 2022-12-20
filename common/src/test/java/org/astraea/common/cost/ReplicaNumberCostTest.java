@@ -186,14 +186,14 @@ class ReplicaNumberCostTest {
                 .build());
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
-    var movecost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
-    Assertions.assertEquals(2, movecost.totalCost());
-    Assertions.assertEquals(3, movecost.changes().size());
-    Assertions.assertTrue(movecost.changes().containsKey(0));
-    Assertions.assertTrue(movecost.changes().containsKey(1));
-    Assertions.assertTrue(movecost.changes().containsKey(2));
-    Assertions.assertEquals(-1, movecost.changes().get(0));
-    Assertions.assertEquals(-1, movecost.changes().get(1));
-    Assertions.assertEquals(2, movecost.changes().get(2));
+    var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
+    Assertions.assertEquals(
+        3, moveCost.changedReplicaCount().size(), moveCost.changedReplicaCount().toString());
+    Assertions.assertTrue(moveCost.changedReplicaCount().containsKey(0));
+    Assertions.assertTrue(moveCost.changedReplicaCount().containsKey(1));
+    Assertions.assertTrue(moveCost.changedReplicaCount().containsKey(2));
+    Assertions.assertEquals(-1, moveCost.changedReplicaCount().get(0));
+    Assertions.assertEquals(-1, moveCost.changedReplicaCount().get(1));
+    Assertions.assertEquals(2, moveCost.changedReplicaCount().get(2));
   }
 }
