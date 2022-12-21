@@ -82,7 +82,7 @@ public class ConnectorTest extends RequireWorkerCluster {
     // wait for sync
     Utils.sleep(Duration.ofSeconds(3));
     Assertions.assertEquals(
-        3, client.connectorInfo(name).toCompletableFuture().join().tasks().size());
+        3, client.connectorStatus(name).toCompletableFuture().join().tasks().size());
 
     client.deleteConnector(name).toCompletableFuture().join();
     Utils.sleep(Duration.ofSeconds(3));
