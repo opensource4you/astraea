@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -171,19 +172,9 @@ class BalancerHandler implements Handler {
                                       .stream()
                                       .map(
                                           tp ->
-                                              new Change(
-                                                  tp.topic(),
-                                                  tp.partition(),
-                                                  // only log the size from source replicas
-                                                  currentClusterInfo.replicas(tp).stream()
-                                                      .map(
-                                                          r ->
-                                                              new Placement(
-                                                                  r, Optional.of(r.size())))
-                                                      .collect(Collectors.toList()),
-                                                  p.proposal().replicas(tp).stream()
-                                                      .map(r -> new Placement(r, Optional.empty()))
-                                                      .collect(Collectors.toList())))
+                                              Change.from(
+                                                  currentClusterInfo.replicas(tp),
+                                                  p.proposal().replicas(tp)))
                                       .collect(Collectors.toUnmodifiableList()))
                           .orElse(List.of());
                   var report =
@@ -197,7 +188,7 @@ class BalancerHandler implements Handler {
                               .solution()
                               .map(p -> migrationCosts(p.moveCost()))
                               .orElseGet(List::of));
-                  return new PlanInfo(report, bestPlan);
+                  return new PlanInfo(report, currentClusterInfo, bestPlan);
                 })
             .whenComplete(
                 (result, error) -> {
@@ -473,12 +464,16 @@ class BalancerHandler implements Handler {
                           .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
                           .collect(Collectors.toUnmodifiableList());
                   var expectedReplicaList =
-                      Stream.concat(
-                              change.before.stream().limit(1),
-                              change.before.stream()
-                                  .skip(1)
-                                  .sorted(Comparator.comparing(x -> x.brokerId)))
-                          .map(x -> Map.entry(x.brokerId, x.directory))
+                      thePlanInfo
+                          .associatedClusterInfo
+                          .replicas(TopicPartition.of(change.topic, change.partition))
+                          .stream()
+                          // have to compare by isLeader instead of isPreferredLeader.
+                          // since the leadership is what affects the direction of traffic load.
+                          // Any bandwidth related cost function should calculate load by leadership
+                          // instead of preferred leadership
+                          .sorted(Comparator.comparing(Replica::isLeader).reversed())
+                          .map(replica -> Map.entry(replica.nodeInfo().id(), replica.path()))
                           .collect(Collectors.toUnmodifiableList());
                   return !expectedReplicaList.equals(currentReplicaList);
                 })
@@ -539,6 +534,28 @@ class BalancerHandler implements Handler {
     final List<Placement> before;
     final List<Placement> after;
 
+    static Change from(Collection<Replica> before, Collection<Replica> after) {
+      if (before.size() == 0) throw new NoSuchElementException("Empty replica list was given");
+      if (after.size() == 0) throw new NoSuchElementException("Empty replica list was given");
+      var tp = before.stream().findAny().orElseThrow().topicPartition();
+      if (!before.stream().allMatch(r -> r.topicPartition().equals(tp)))
+        throw new IllegalArgumentException("Some replica come from different topic/partition");
+      if (!after.stream().allMatch(r -> r.topicPartition().equals(tp)))
+        throw new IllegalArgumentException("Some replica come from different topic/partition");
+      return new Change(
+          tp.topic(),
+          tp.partition(),
+          // only log the size from source replicas
+          before.stream()
+              .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
+              .map(r -> new Placement(r, Optional.of(r.size())))
+              .collect(Collectors.toList()),
+          after.stream()
+              .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
+              .map(r -> new Placement(r, Optional.empty()))
+              .collect(Collectors.toList()));
+    }
+
     Change(String topic, int partition, List<Placement> before, List<Placement> after) {
       this.topic = topic;
       this.partition = partition;
@@ -592,10 +609,13 @@ class BalancerHandler implements Handler {
 
   static class PlanInfo {
     private final Report report;
+    private final ClusterInfo<Replica> associatedClusterInfo;
     private final Balancer.Plan associatedPlan;
 
-    PlanInfo(Report report, Balancer.Plan associatedPlan) {
+    PlanInfo(
+        Report report, ClusterInfo<Replica> associatedClusterInfo, Balancer.Plan associatedPlan) {
       this.report = report;
+      this.associatedClusterInfo = associatedClusterInfo;
       this.associatedPlan = associatedPlan;
     }
   }

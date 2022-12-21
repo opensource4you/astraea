@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +32,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.app.web.BalancerHandler.BalancerPostRequest;
 import org.astraea.app.web.BalancerHandler.CostWeight;
 import org.astraea.common.Configuration;
@@ -47,6 +50,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -175,6 +179,11 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   }
 
   private static List<String> createAndProduceTopic(int topicCount) {
+    return createAndProduceTopic(topicCount, 3, (short) 1, true);
+  }
+
+  private static List<String> createAndProduceTopic(
+      int topicCount, int partitions, short replicas, boolean skewed) {
     try (var admin = Admin.of(bootstrapServers())) {
       var topics =
           IntStream.range(0, topicCount)
@@ -185,18 +194,22 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             admin
                 .creator()
                 .topic(topic)
-                .numberOfPartitions(3)
-                .numberOfReplicas((short) 1)
+                .numberOfPartitions(partitions)
+                .numberOfReplicas(replicas)
                 .run()
                 .toCompletableFuture()
                 .join();
-            Utils.sleep(Duration.ofSeconds(1));
-            admin
-                .moveToBrokers(
-                    admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
-                        .collect(Collectors.toMap(tp -> tp, ignored -> List.of(1))))
-                .toCompletableFuture()
-                .join();
+            if (skewed) {
+              Utils.sleep(Duration.ofSeconds(1));
+              var placement =
+                  brokerIds().stream().limit(replicas).collect(Collectors.toUnmodifiableList());
+              admin
+                  .moveToBrokers(
+                      admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
+                          .collect(Collectors.toMap(tp -> tp, ignored -> placement)))
+                  .toCompletableFuture()
+                  .join();
+            }
           });
       Utils.sleep(Duration.ofSeconds(3));
       try (var producer = Producer.of(bootstrapServers())) {
@@ -407,7 +420,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testPut() {
     // arrange
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, 10, (short) 2, false);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
@@ -1070,6 +1083,132 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
       Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
     }
+  }
+
+  @Test
+  void testChangeOrder() {
+    // arrange
+    var sourcePlacement =
+        IntStream.range(0, 10)
+            .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
+            .sorted(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toUnmodifiableList());
+    var destPlacement =
+        IntStream.range(0, 10)
+            .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
+            .sorted(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toUnmodifiableList());
+    var base =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
+            .addFolders(Map.of(0, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(2, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(3, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(4, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(5, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(6, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(7, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(8, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(9, Set.of("/folder0", "/folder1", "/folder2")))
+            .build();
+    var srcIter = sourcePlacement.iterator();
+    var srcPrefIter = Stream.iterate(true, (ignore) -> false).iterator();
+    var srcDirIter = Stream.generate(() -> "/folder0").iterator();
+    var sourceCluster =
+        ClusterInfoBuilder.builder(base)
+            .addTopic(
+                "Pipeline",
+                1,
+                (short) 10,
+                r ->
+                    Replica.builder(r)
+                        .nodeInfo(base.node(srcIter.next()))
+                        .isPreferredLeader(srcPrefIter.next())
+                        .path(srcDirIter.next())
+                        .build())
+            .build();
+    var dstIter = destPlacement.iterator();
+    var dstPrefIter = Stream.iterate(true, (ignore) -> false).iterator();
+    var dstDirIter = Stream.generate(() -> "/folder1").iterator();
+    var destCluster =
+        ClusterInfoBuilder.builder(base)
+            .addTopic(
+                "Pipeline",
+                1,
+                (short) 10,
+                r ->
+                    Replica.builder(r)
+                        .nodeInfo(base.node(dstIter.next()))
+                        .isPreferredLeader(dstPrefIter.next())
+                        .path(dstDirIter.next())
+                        .build())
+            .build();
+
+    // act
+    var change =
+        BalancerHandler.Change.from(
+            sourceCluster.replicas("Pipeline"), destCluster.replicas("Pipeline"));
+
+    // assert
+    Assertions.assertEquals("Pipeline", change.topic);
+    Assertions.assertEquals(0, change.partition);
+    Assertions.assertEquals(
+        sourcePlacement.get(0), change.before.get(0).brokerId, "First replica is preferred leader");
+    Assertions.assertEquals(
+        destPlacement.get(0), change.after.get(0).brokerId, "First replica is preferred leader");
+    Assertions.assertEquals(
+        Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+        change.before.stream().map(x -> x.brokerId).collect(Collectors.toUnmodifiableSet()),
+        "No node ignored");
+    Assertions.assertEquals(
+        Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+        change.after.stream().map(x -> x.brokerId).collect(Collectors.toUnmodifiableSet()),
+        "No node ignored");
+    Assertions.assertTrue(
+        change.before.stream().map(x -> x.directory).allMatch(x -> x.equals("/folder0")),
+        "Correct folder");
+    Assertions.assertTrue(
+        change.after.stream().map(x -> x.directory).allMatch(x -> x.equals("/folder1")),
+        "Correct folder");
+    Assertions.assertTrue(change.before.stream().allMatch(x -> x.size.isPresent()), "Has size");
+    Assertions.assertTrue(change.after.stream().noneMatch(x -> x.size.isPresent()), "No size");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            BalancerHandler.Change.from(
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 1, (short) 3)
+                    .build()
+                    .replicas(),
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 5, (short) 3)
+                    .build()
+                    .replicas()),
+        "Should be a replica list");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            BalancerHandler.Change.from(
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 5, (short) 3)
+                    .build()
+                    .replicas(),
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 1, (short) 3)
+                    .build()
+                    .replicas()),
+        "Should be a replica list");
+    Assertions.assertThrows(
+        NoSuchElementException.class,
+        () -> BalancerHandler.Change.from(sourceCluster.replicas(), Set.of()));
+    Assertions.assertThrows(
+        NoSuchElementException.class,
+        () -> BalancerHandler.Change.from(Set.of(), sourceCluster.replicas()));
+    Assertions.assertThrows(
+        NoSuchElementException.class, () -> BalancerHandler.Change.from(Set.of(), Set.of()));
   }
 
   /** Submit the plan and wait until it generated. */
