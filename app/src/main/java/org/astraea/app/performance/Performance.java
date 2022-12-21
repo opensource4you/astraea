@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -46,8 +45,8 @@ import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
-import org.astraea.app.argument.StringDataRateMapField;
 import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.TopicPartitionDataRateMapField;
 import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
@@ -71,6 +70,19 @@ public class Performance {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
+  private static DataSupplier dataSupplier(Argument argument) {
+    return DataSupplier.of(
+        argument.transactionSize,
+        argument.exeTime,
+        argument.keyDistributionType.create(10000),
+        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
+        argument.valueDistributionType.create(10000),
+        argument.valueDistributionType.create(
+            argument.valueSize.measurement(DataUnit.Byte).intValue()),
+        argument.throttles,
+        argument.throughput);
+  }
+
   public static List<String> execute(final Argument param) throws IOException {
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
@@ -82,8 +94,7 @@ public class Performance {
     System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
-            param.transactionSize,
-            param.dataSupplierSelector(),
+            dataSupplier(param),
             param.topicPartitionSelector(),
             param.producers,
             param::createProducer,
@@ -161,7 +172,6 @@ public class Performance {
   }
 
   public static class Argument extends org.astraea.app.argument.Argument {
-    private static DataSupplier NO_AVAILABLE_DATA_SUPPLIER = null;
 
     @Parameter(
         names = {"--topics"},
@@ -391,39 +401,6 @@ public class Performance {
       }
     }
 
-    Function<TopicPartition, DataSupplier> dataSupplierSelector() {
-      final var defaultSupplier =
-          DataSupplier.of(
-              exeTime,
-              keyDistributionType.create(10000),
-              keyDistributionType.create(keySize.measurement(DataUnit.Byte).intValue()),
-              valueDistributionType.create(10000),
-              valueDistributionType.create(valueSize.measurement(DataUnit.Byte).intValue()),
-              throughput);
-      final var throttleSupplier =
-          throttles.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      e -> TopicPartition.of(e.getKey()),
-                      e ->
-                          DataSupplier.of(
-                              exeTime,
-                              keyDistributionType.create(10000),
-                              keyDistributionType.create(
-                                  keySize.measurement(DataUnit.Byte).intValue()),
-                              valueDistributionType.create(10000),
-                              valueDistributionType.create(
-                                  valueSize.measurement(DataUnit.Byte).intValue()),
-                              e.getValue())));
-      return (tp) -> {
-        var supplier = throttleSupplier.getOrDefault(tp, defaultSupplier);
-        if (supplier != defaultSupplier && !supplier.active()) {
-          // no available data supplier can use
-          return NO_AVAILABLE_DATA_SUPPLIER;
-        }
-        return supplier;
-      };
-    }
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
@@ -475,7 +452,7 @@ public class Performance {
     @Parameter(
         names = {"--throttle"},
         description = "Map<String, DataRate>: Set the topic-partitions and its' throttle data rate",
-        converter = StringDataRateMapField.class)
-    Map<String, DataRate> throttles = Map.of();
+        converter = TopicPartitionDataRateMapField.class)
+    Map<TopicPartition, DataRate> throttles = Map.of();
   }
 }

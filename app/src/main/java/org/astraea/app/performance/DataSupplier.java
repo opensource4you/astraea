@@ -16,21 +16,23 @@
  */
 package org.astraea.app.performance;
 
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-interface DataSupplier extends Supplier<DataSupplier.Data> {
-  default boolean active() {
-    return true;
-  }
-
-  default void setActive(boolean value) {}
+interface DataSupplier extends Function<TopicPartition, List<DataSupplier.Data>> {
 
   static Data data(byte[] key, byte[] value) {
     return new Data() {
@@ -41,6 +43,11 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
 
       @Override
       public boolean throttled() {
+        return false;
+      }
+
+      @Override
+      public boolean invalid() {
         return false;
       }
 
@@ -69,6 +76,11 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
         }
 
         @Override
+        public boolean invalid() {
+          return false;
+        }
+
+        @Override
         public byte[] key() {
           throw new IllegalStateException("there is no data");
         }
@@ -92,6 +104,11 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
         }
 
         @Override
+        public boolean invalid() {
+          return false;
+        }
+
+        @Override
         public byte[] key() {
           throw new IllegalStateException("it is throttled");
         }
@@ -99,6 +116,33 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
         @Override
         public byte[] value() {
           throw new IllegalStateException("it is throttled");
+        }
+      };
+  Data INVALID_DATA =
+      new Data() {
+        @Override
+        public boolean done() {
+          return false;
+        }
+
+        @Override
+        public boolean throttled() {
+          return true;
+        }
+
+        @Override
+        public boolean invalid() {
+          return true;
+        }
+
+        @Override
+        public byte[] key() {
+          throw new IllegalStateException("it is sleep");
+        }
+
+        @Override
+        public byte[] value() {
+          throw new IllegalStateException("it is sleep");
         }
       };
 
@@ -114,6 +158,10 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
      */
     boolean throttled();
 
+    /**
+     * @return true if there are throttled data and the throttler is occupied now.
+     */
+    boolean invalid();
     /**
      * @return true if there is accessible data
      */
@@ -160,21 +208,28 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
    *     key(/value) distribution to a byte array.
    */
   static DataSupplier of(
+      int batchSize,
       ExeTime exeTime,
       Supplier<Long> keyDistribution,
       Supplier<Long> keySizeDistribution,
       Supplier<Long> valueDistribution,
       Supplier<Long> valueSizeDistribution,
-      DataRate throughput) {
+      Map<TopicPartition, DataRate> throughput,
+      DataRate defaultThroughput) {
     return new DataSupplier() {
-      private final Throttler throttler = new Throttler(throughput);
+      private final Map<TopicPartition, Throttler> throttlers =
+          throughput.isEmpty()
+              ? Map.of()
+              : throughput.entrySet().stream()
+                  .collect(
+                      Collectors.toConcurrentMap(
+                          Map.Entry::getKey, e -> new Throttler(e.getValue())));
+      private final Throttler defaultThrottler = new Throttler(defaultThroughput);
       private final long start = System.currentTimeMillis();
       private final Random rand = new Random();
       private final AtomicLong dataCount = new AtomicLong(0);
       private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
       private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
-      // true if the data supplier can be selected
-      private final AtomicBoolean active = new AtomicBoolean(true);
 
       byte[] value() {
         return getOrNew(
@@ -187,27 +242,35 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       @Override
-      public boolean active() {
-        return active.get();
-      }
-
-      @Override
-      public void setActive(boolean value) {
-        active.set(value);
-      }
-
-      @Override
-      public Data get() {
+      public List<Data> apply(TopicPartition tp) {
         if (exeTime.percentage(dataCount.getAndIncrement(), System.currentTimeMillis() - start)
-            >= 100D) return NO_MORE_DATA;
-        var key = key();
-        var value = value();
-        if (throttler.throttled(
-            (value != null ? value.length : 0) + (key != null ? key.length : 0))) {
-          active.set(false);
-          return THROTTLED_DATA;
+            >= 100D) return List.of(NO_MORE_DATA);
+        var throttler = throttlers.getOrDefault(tp, defaultThrottler);
+
+        // the selected throttler isn't default throttler and the throttler is occupied now
+        if (throttler != defaultThrottler && !throttler.active()) return List.of(INVALID_DATA);
+
+        var data =
+            IntStream.range(0, batchSize)
+                .mapToObj(
+                    i -> {
+                      var key = key();
+                      var value = value();
+
+                      if (throttler.throttled(
+                          (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+                        return THROTTLED_DATA;
+                      return data(key, value);
+                    })
+                .collect(Collectors.toUnmodifiableList());
+
+        // if the data are throttled need sleep to reduce CPU usage
+        if (data.stream().allMatch(DataSupplier.Data::throttled)) {
+          // TODO: we should return a precise sleep time
+          Utils.sleep(Duration.ofSeconds(1));
+          throttler.setActive(true);
         }
-        return data(key, value);
+        return data;
       }
     };
   }
@@ -231,6 +294,7 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
     private final long start = System.currentTimeMillis();
     private final long throughput;
     private final AtomicLong totalBytes = new AtomicLong();
+    private final AtomicBoolean active = new AtomicBoolean(true);
 
     Throttler(DataRate max) {
       throughput = Double.valueOf(max.byteRate()).longValue();
@@ -247,11 +311,19 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       // too much -> slow down
       if ((current / duration) > throughput) {
         totalBytes.addAndGet(-payloadLength);
+        active.set(false);
         return true;
       }
       return false;
     }
 
+    void setActive(boolean value) {
+      active.set(value);
+    }
+
+    boolean active() {
+      return active.get();
+    }
     // visible for testing
     long durationInSeconds() {
       return (System.currentTimeMillis() - start) / 1000;

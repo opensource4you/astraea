@@ -21,18 +21,19 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
+import org.astraea.common.admin.TopicPartition;
 
-public class StringDataRateMapField extends Field<Map<String, DataRate>> {
+public class TopicPartitionDataRateMapField extends Field<Map<TopicPartition, DataRate>> {
   private static final DataRateField rateConverter = new DataRateField();
 
   @Override
-  public Map<String, DataRate> convert(String value) {
+  public Map<TopicPartition, DataRate> convert(String value) {
     return Arrays.stream(value.split(","))
         .map(
             item -> {
               var k = item.split(":");
               if (k.length != 2) throw new ParameterException("incorrect format : " + item);
-              return Map.entry(k[0], rateConverter.convert(k[1]));
+              return Map.entry(TopicPartition.of(k[0]), rateConverter.convert(k[1]));
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

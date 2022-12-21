@@ -20,15 +20,16 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.util.Map;
 import org.astraea.common.DataRate;
+import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class StringDataRateMapFieldTest {
+public class TopicPartitionDataRateMapFieldTest {
   private static class FakeParameter {
     @Parameter(
         names = {"--field"},
-        converter = StringDataRateMapField.class)
-    Map<String, DataRate> value;
+        converter = TopicPartitionDataRateMapField.class)
+    Map<TopicPartition, DataRate> value;
   }
 
   @Test
@@ -37,8 +38,10 @@ public class StringDataRateMapFieldTest {
         Argument.parse(
             new FakeParameter(), new String[] {"--field", "test-0:60MB/s,test-1:87GB/h"});
     Assertions.assertEquals(2, param.value.size());
-    Assertions.assertEquals(DataRate.MB.of(60).perSecond(), param.value.get("test-0"));
-    Assertions.assertEquals(DataRate.GB.of(87).perHour(), param.value.get("test-1"));
+    Assertions.assertEquals(
+        DataRate.MB.of(60).perSecond(), param.value.get(TopicPartition.of("test-0")));
+    Assertions.assertEquals(
+        DataRate.GB.of(87).perHour(), param.value.get(TopicPartition.of("test-1")));
 
     Assertions.assertThrows(
         ParameterException.class,
