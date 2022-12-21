@@ -32,6 +32,7 @@ import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
+import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -182,7 +183,7 @@ public class ConnectorNode {
                                 context.workerClients().values().stream()
                                     .flatMap(c -> ConnectorMetrics.taskError(c).stream())
                                     .collect(Collectors.toList())),
-                    (connectorStatuses, sourceTaskInfos, sinkTaskInfos, taskErrors) ->
+                    (connectorStatuses, sourceTaskMetrics, sinkTaskMetrics, taskErrors) ->
                         connectorStatuses.stream()
                             .flatMap(
                                 connectorStatus ->
@@ -190,7 +191,7 @@ public class ConnectorNode {
                                         .map(
                                             task -> {
                                               var map = new LinkedHashMap<String, Object>();
-                                              map.put(NAME_KEY, connectorStatus.name());
+                                              map.put(NAME_KEY, task.connectorName());
                                               map.put("id", task.id());
                                               map.put("worker id", task.workerId());
                                               map.put("state", task.state());
@@ -198,7 +199,8 @@ public class ConnectorNode {
                                                   .type()
                                                   .ifPresent(t -> map.put("type", t));
                                               task.error().ifPresent(e -> map.put("error", e));
-                                              sourceTaskInfos.stream()
+                                              map.putAll(task.configs());
+                                              sourceTaskMetrics.stream()
                                                   .filter(t -> t.taskId() == task.id())
                                                   .filter(
                                                       t ->
@@ -225,7 +227,7 @@ public class ConnectorNode {
                                                             "poll batch time (max)",
                                                             info.pollBatchMaxTimeMs());
                                                       });
-                                              sinkTaskInfos.stream()
+                                              sinkTaskMetrics.stream()
                                                   .filter(t -> t.taskId() == task.id())
                                                   .filter(
                                                       t ->
@@ -274,8 +276,11 @@ public class ConnectorNode {
   }
 
   private static Node pluginNode(Context context) {
+    var documentation = "documentation";
+    var defaultValue = "default value";
     return PaneBuilder.of()
         .firstPart(
+            SelectBox.single(List.of(defaultValue, documentation), 2),
             "REFRESH",
             (argument, logger) ->
                 context
@@ -291,7 +296,14 @@ public class ConnectorNode {
                                       pluginInfo.definitions().stream()
                                           .sorted(Comparator.comparing(Definition::name))
                                           .forEach(
-                                              d -> map.put(d.name(), d.defaultValue().orElse("")));
+                                              d ->
+                                                  map.put(
+                                                      d.name(),
+                                                      argument
+                                                              .selectedKeys()
+                                                              .contains(documentation)
+                                                          ? d.documentation()
+                                                          : d.defaultValue().orElse("")));
                                       return map;
                                     })
                                 .collect(Collectors.toList())))

@@ -155,13 +155,6 @@ public class Builder {
       }
 
       @Override
-      public CompletionStage<ConnectorInfo> connectorInfo(String name) {
-        return httpExecutor
-            .get(getURL(KEY_CONNECTORS + "/" + name), TypeRef.of(ConnectorInfo.class))
-            .thenApply(Response::body);
-      }
-
-      @Override
       public CompletionStage<ConnectorStatus> connectorStatus(String name) {
         return httpExecutor
             .get(
@@ -170,26 +163,45 @@ public class Builder {
             .thenApply(Response::body)
             .thenCompose(
                 status ->
-                    config(name)
-                        .thenApply(
-                            config ->
-                                new ConnectorStatus(
-                                    status.name,
-                                    status.connector.state,
-                                    status.connector.worker_id,
-                                    status.type,
-                                    config,
-                                    status.tasks.stream()
-                                        .map(
-                                            t ->
-                                                new TaskStatus(t.id, t.state, t.worker_id, t.trace))
-                                        .collect(Collectors.toList()))));
+                    FutureUtils.combine(
+                        configs(name),
+                        taskConfigs(name),
+                        (configs, taskConfigs) ->
+                            new ConnectorStatus(
+                                status.name,
+                                status.connector.state,
+                                status.connector.worker_id,
+                                status.type,
+                                configs,
+                                status.tasks.stream()
+                                    .map(
+                                        t ->
+                                            new TaskStatus(
+                                                status.name,
+                                                t.id,
+                                                t.state,
+                                                t.worker_id,
+                                                taskConfigs.getOrDefault(t.id, Map.of()),
+                                                t.trace))
+                                    .collect(Collectors.toList()))));
       }
 
-      private CompletionStage<Map<String, String>> config(String name) {
+      private CompletionStage<Map<String, String>> configs(String name) {
         return httpExecutor
             .get(getURL(KEY_CONNECTORS + "/" + name + "/config"), TypeRef.map(String.class))
             .thenApply(Response::body);
+      }
+
+      private CompletionStage<Map<Integer, Map<String, String>>> taskConfigs(String name) {
+        return httpExecutor
+            .get(
+                getURL(KEY_CONNECTORS + "/" + name + "/tasks"),
+                TypeRef.array(KafkaTaskConfig.class))
+            .thenApply(Response::body)
+            .thenApply(
+                tasks ->
+                    tasks.stream()
+                        .collect(Collectors.toUnmodifiableMap(t -> t.id.task, t -> t.config)));
       }
 
       @Override
@@ -305,5 +317,15 @@ public class Builder {
   private static class KafkaPluginInfo {
     @JsonProperty("class")
     private String className;
+  }
+
+  private static class KafkaId {
+    private String connector;
+    private int task;
+  }
+
+  private static class KafkaTaskConfig {
+    private KafkaId id;
+    private Map<String, String> config;
   }
 }

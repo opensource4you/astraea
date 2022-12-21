@@ -31,9 +31,10 @@ declare -r WORKER_NAME="spark-worker"
 # ===================================[functions]===================================
 
 function showHelp() {
-  echo "Usage: [ENV] start_spark.sh master-url"
+  echo "Usage: [ENV] start_spark.sh"
   echo "Optional Arguments: "
-  echo "    master-url=spar://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
+  echo "    master=spark://node00:1111    start a spark worker. Or start a spark master if master-url is not defined"
+  echo "    folder=/tmp/aa:/tmp/bb               mount the host folder /tmp/aa to spark container /tmp/bb"
   echo "ENV: "
   echo "    VERSION=3.3.1                    set version of spark distribution"
   echo "    BUILD=false                      set true if you want to build image locally"
@@ -68,9 +69,9 @@ RUN apt-get update && apt-get install -y wget unzip
 
 # download spark
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+RUN wget https://archive.apache.org/dist/spark/spark-${VERSION}/spark-${VERSION}-bin-hadoop${HADOOP_VERSION}-scala2.13.tgz
 RUN mkdir /opt/spark
-RUN tar -zxvf spark-${VERSION}-bin-hadoop${HADOOP_VERSION}.tgz -C /opt/spark --strip-components=1
+RUN tar -zxvf spark-${VERSION}-bin-hadoop${HADOOP_VERSION}-scala2.13.tgz -C /opt/spark --strip-components=1
 
 # the python3 in ubuntu 22.04 is 3.10 by default, and it has a known issue (https://github.com/vmprof/vmprof-python/issues/240)
 # The issue obstructs us from installing 3-third python libraries, so we downgrade the ubuntu to 20.04
@@ -154,12 +155,29 @@ function generateDockerfile() {
 
 # ===================================[main]===================================
 
-if [[ "$1" == "help" ]]; then
-  showHelp
-  exit 0
-fi
+raw_folder_mapping=""
+master_url=""
+mount_command=""
 
-declare -r master_url=$1
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "help" ]]; then
+    showHelp
+    exit 0
+  fi
+
+  if [[ "$1" == "master"* ]]; then
+    master_url=$(echo "$1" | cut -d "=" -f 2)
+  fi
+
+  if [[ "$1" == "folder"* ]]; then
+    raw_folder_mapping=$1
+    folder_mapping=$(echo "$1" | cut -d "=" -f 2)
+    host_folder=$(echo "$folder_mapping" | cut -d ":" -f 1)
+    container_folder=$(echo "$folder_mapping" | cut -d ":" -f 2)
+    mount_command="-v $host_folder:$container_folder"
+  fi
+  shift
+done
 
 checkDocker
 generateDockerfile
@@ -173,12 +191,13 @@ fi
 checkNetwork
 checkOs
 
-if [[ -n "$master_url" ]]; then
+if [[ "$master_url" != "" ]]; then
   checkConflictContainer $WORKER_NAME "worker"
   docker run -d --init \
     -e SPARK_WORKER_WEBUI_PORT=$SPARK_UI_PORT \
     -e SPARK_WORKER_PORT=$SPARK_PORT \
     -e SPARK_NO_DAEMONIZE=true \
+    $mount_command \
     --name "$WORKER_NAME" \
     --network host \
     "$IMAGE_NAME" ./sbin/start-worker.sh "$master_url"
@@ -193,6 +212,7 @@ else
     -e SPARK_MASTER_WEBUI_PORT=$SPARK_UI_PORT \
     -e SPARK_MASTER_PORT=$SPARK_PORT \
     -e SPARK_NO_DAEMONIZE=true \
+    $mount_command \
     --name "$MASTER_NAME" \
     --network host \
     "$IMAGE_NAME" ./sbin/start-master.sh
@@ -200,6 +220,6 @@ else
   echo "================================================="
   echo "Starting Spark master at spark://$ADDRESS:$SPARK_PORT"
   echo "Bound MasterWebUI started at http://${ADDRESS}:${SPARK_UI_PORT}"
-  echo "execute $DOCKER_FOLDER/start_spark.sh spark://$ADDRESS:$SPARK_PORT to add worker"
+  echo "execute $DOCKER_FOLDER/start_spark.sh master=spark://$ADDRESS:$SPARK_PORT $raw_folder_mapping to add worker"
   echo "================================================="
 fi

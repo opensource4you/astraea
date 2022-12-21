@@ -16,37 +16,27 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.streaming.{OutputMode, StreamingQueryException}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{Row, SparkSession}
 import org.astraea.etl.DataType.{IntegerType, StringType}
-import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile, mkdir}
-import org.astraea.etl.Reader.createSpark
+import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile}
 import org.astraea.it.RequireBrokerCluster
-import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
+import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
 import org.junit.jupiter.api.Test
 
 import java.io._
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import scala.util.Random
+import scala.jdk.CollectionConverters._
 
-class ReaderTest extends RequireBrokerCluster {
-  @Test def skipBlankLineTest(): Unit = {
-    val tempPath: String =
-      System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
-        .nextInt()
-    mkdir(tempPath)
-
-    val tempArchivePath: String =
-      System.getProperty("java.io.tmpdir") + "/createSchemaNullTest" + Random
-        .nextInt()
-    mkdir(tempArchivePath)
-    val dataDir = mkdir(tempPath + "/data")
-    val checkoutDir = mkdir(tempPath + "/checkout")
+class ReaderStreamsTest extends RequireBrokerCluster {
+  @Test
+  def skipBlankLineTest(): Unit = {
+    val sourceDir = Files.createTempDirectory("source").toFile
+    val dataDir = Files.createTempDirectory("data").toFile
+    val checkoutDir = Files.createTempDirectory("checkpoint").toFile
 
     val columnOne: List[String] =
       List("A1", "B1", null, "D1")
@@ -62,25 +52,23 @@ class ReaderTest extends RequireBrokerCluster {
       }
       .reverse
 
-    createCSV(new File(tempPath), row, 0)
+    createCSV(sourceDir, row, 0)
 
-    val structType = Reader.createSchema(
-      Map(
-        "RecordNumber" -> StringType,
-        "Size" -> StringType,
-        "Type" -> StringType
+    val df = ReadStreams
+      .create(
+        session = SparkSession
+          .builder()
+          .master("local[2]")
+          .appName("Astraea ETL")
+          .getOrCreate(),
+        source = sourceDir.getPath,
+        columns = Seq(
+          DataColumn("RecordNumber", true, StringType),
+          DataColumn("Size", true, StringType),
+          DataColumn("Type", true, StringType)
+        )
       )
-    )
-
-    val df =
-      Reader
-        .of()
-        .spark("local[2]")
-        .schema(structType)
-        .sinkPath(new File(tempArchivePath).getPath)
-        .primaryKeys(Seq("RecordNumber"))
-        .readCSV(new File(tempPath).getPath)
-        .dataFrame()
+      .dataFrame()
 
     df.writeStream
       .format("csv")
@@ -99,32 +87,28 @@ class ReaderTest extends RequireBrokerCluster {
 
   }
 
-  @Test def sparkReadCSVTest(): Unit = {
-    val tempPath =
-      System.getProperty("java.io.tmpdir") + "/sparkFile-" + Random.nextInt()
-    val myDir = mkdir(tempPath)
-    val sourceDir = mkdir(myDir.getPath + "/source")
+  @Test
+  def sparkReadCSVTest(): Unit = {
+    val sourceDir = Files.createTempDirectory("source").toFile
     generateCSVF(sourceDir, rows)
-    val sinkDir = mkdir(tempPath + "/sink")
-    val checkoutDir = mkdir(tempPath + "/checkout")
-    val dataDir = mkdir(tempPath + "/data")
 
-    val structType = Reader.createSchema(
-      Map(
-        "RecordNumber" -> StringType,
-        "Size" -> StringType,
-        "Type" -> StringType
+    val checkoutDir = Files.createTempDirectory("checkpoint").toFile
+    val dataDir = Files.createTempDirectory("data").toFile
+
+    val csvDF = ReadStreams
+      .create(
+        session = SparkSession
+          .builder()
+          .master("local[2]")
+          .appName("Astraea ETL")
+          .getOrCreate(),
+        source = sourceDir.getPath,
+        columns = Seq(
+          DataColumn("RecordNumber", true, StringType),
+          DataColumn("Size", true, StringType),
+          DataColumn("Type", true, StringType)
+        )
       )
-    )
-
-    assertEquals(structType.length, 3)
-    val csvDF = Reader
-      .of()
-      .spark("local[2]")
-      .schema(structType)
-      .sinkPath(sinkDir.getPath)
-      .primaryKeys(Seq("RecordNumber"))
-      .readCSV(sourceDir.getPath)
     assertTrue(
       csvDF.dataFrame().isStreaming,
       "sessions must be a streaming Dataset"
@@ -147,21 +131,20 @@ class ReaderTest extends RequireBrokerCluster {
     assertEquals(br.readLine, "B1,36,gjgbn")
     assertEquals(br.readLine, "C1,45,fgbhjf")
     assertEquals(br.readLine, "D1,25,dfjf")
-
-    Files.exists(
-      new File(
-        sinkDir + sourceDir.getPath + "/local_kafka-0" + ".csv"
-      ).toPath
-    )
   }
 
-  @Test def csvToJSONTest(): Unit = {
-    val spark = createSpark("local[2]")
+  @Test
+  def csvToJSONTest(): Unit = {
+    val spark = SparkSession
+      .builder()
+      .master("local[2]")
+      .appName("Astraea ETL")
+      .getOrCreate()
     import spark.implicits._
 
     val columns = Seq(
-      DataColumn("name", isPK = true, dataType = StringType),
-      DataColumn("age", isPK = false, dataType = IntegerType)
+      DataColumn("name", isPk = true, dataType = StringType),
+      DataColumn("age", isPk = false, dataType = IntegerType)
     )
 
     val result = new DataFrameOp(
@@ -195,13 +178,18 @@ class ReaderTest extends RequireBrokerCluster {
     )
   }
 
-  @Test def csvToJsonMulKeysTest(): Unit = {
-    val spark = createSpark("local[2]")
+  @Test
+  def csvToJsonMulKeysTest(): Unit = {
+    val spark = SparkSession
+      .builder()
+      .master("local[2]")
+      .appName("Astraea ETL")
+      .getOrCreate()
     import spark.implicits._
     val columns = Seq(
-      DataColumn("firstName", isPK = true, DataType.StringType),
-      DataColumn("secondName", isPK = true, DataType.StringType),
-      DataColumn("age", isPK = false, dataType = IntegerType)
+      DataColumn("firstName", isPk = true, DataType.StringType),
+      DataColumn("secondName", isPk = true, DataType.StringType),
+      DataColumn("age", isPk = false, dataType = IntegerType)
     )
     val result = new DataFrameOp(
       Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
@@ -220,12 +208,16 @@ class ReaderTest extends RequireBrokerCluster {
   }
 
   @Test def csvToJsonNullTest(): Unit = {
-    val spark = createSpark("local[2]")
+    val spark = SparkSession
+      .builder()
+      .master("local[2]")
+      .appName("Astraea ETL")
+      .getOrCreate()
     import spark.implicits._
     val columns = Seq(
-      DataColumn("firstName", isPK = true, DataType.StringType),
-      DataColumn("secondName", isPK = true, DataType.StringType),
-      DataColumn("age", isPK = false, dataType = IntegerType)
+      DataColumn("firstName", isPk = true, DataType.StringType),
+      DataColumn("secondName", isPk = true, DataType.StringType),
+      DataColumn("age", isPk = false, dataType = IntegerType)
     )
     val result = new DataFrameOp(
       Seq(("Michael", "A", null)).toDF().toDF("firstName", "secondName", "age")
@@ -243,8 +235,13 @@ class ReaderTest extends RequireBrokerCluster {
     )
   }
 
-  @Test def jsonToByteTest(): Unit = {
-    val spark = createSpark("local[2]")
+  @Test
+  def jsonToByteTest(): Unit = {
+    val spark = SparkSession
+      .builder()
+      .master("local[2]")
+      .appName("Astraea ETL")
+      .getOrCreate()
 
     var data = Seq(Row("A1", 52, "fghgh", "sfjojs", "zzz", "final", 5))
     (0 to 10000).iterator.foreach(_ =>
@@ -261,13 +258,13 @@ class ReaderTest extends RequireBrokerCluster {
       .add("fInt", "integer")
 
     val columns = Seq(
-      DataColumn("name", isPK = false, dataType = StringType),
-      DataColumn("age", isPK = false, dataType = IntegerType),
-      DataColumn("xx", isPK = false, dataType = StringType),
-      DataColumn("yy", isPK = false, dataType = StringType),
-      DataColumn("zz", isPK = false, dataType = StringType),
-      DataColumn("f", isPK = false, dataType = StringType),
-      DataColumn("fInt", isPK = false, dataType = IntegerType)
+      DataColumn("name", isPk = false, dataType = StringType),
+      DataColumn("age", isPk = false, dataType = IntegerType),
+      DataColumn("xx", isPk = false, dataType = StringType),
+      DataColumn("yy", isPk = false, dataType = StringType),
+      DataColumn("zz", isPk = false, dataType = StringType),
+      DataColumn("f", isPk = false, dataType = StringType),
+      DataColumn("fInt", isPk = false, dataType = IntegerType)
     )
 
     val json = new DataFrameOp(
@@ -279,7 +276,8 @@ class ReaderTest extends RequireBrokerCluster {
     val head = json.head()
     assertTrue(json.filter(_ != head).isEmpty)
   }
-  def rows: List[List[String]] = {
+
+  private[this] def rows: List[List[String]] = {
     val columnOne: List[String] =
       List("A1", "B1", "C1", "D1")
     val columnTwo: List[String] =

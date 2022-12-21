@@ -17,6 +17,7 @@
 package org.astraea.connector.perf;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.common.config.ConfigException;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -40,17 +42,10 @@ import org.astraea.connector.SourceTask;
 public class PerfSource extends SourceConnector {
   static Definition FREQUENCY_DEF =
       Definition.builder()
-          .name("frequency.in.seconds")
+          .name("frequency")
           .type(Definition.Type.STRING)
           .defaultValue("1s")
           .validator((name, value) -> Utils.toDuration(value.toString()))
-          .build();
-  static Definition KEY_LENGTH_DEF =
-      Definition.builder()
-          .name("key.length")
-          .type(Definition.Type.STRING)
-          .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue(DataSize.Byte.of(50).toString())
           .build();
 
   static Definition KEY_DISTRIBUTION_DEF =
@@ -62,12 +57,15 @@ public class PerfSource extends SourceConnector {
           .documentation(
               "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
-  static Definition VALUE_LENGTH_DEF =
+  static Definition KEY_LENGTH_DEF =
       Definition.builder()
-          .name("value.length")
+          .name("key.length")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue(DataSize.KB.of(1).toString())
+          .defaultValue(DataSize.Byte.of(50).toString())
+          .documentation(
+              "the max length of key. The distribution of length is defined by "
+                  + KEY_DISTRIBUTION_DEF.name())
           .build();
 
   static Definition VALUE_DISTRIBUTION_DEF =
@@ -78,6 +76,33 @@ public class PerfSource extends SourceConnector {
           .defaultValue(DistributionType.UNIFORM.alias())
           .documentation(
               "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
+          .build();
+  static Definition VALUE_LENGTH_DEF =
+      Definition.builder()
+          .name("value.length")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue(DataSize.KB.of(1).toString())
+          .documentation(
+              "the max length of value. The distribution of length is defined by "
+                  + VALUE_DISTRIBUTION_DEF.name())
+          .build();
+
+  static Definition SPECIFY_PARTITIONS_DEF =
+      Definition.builder()
+          .name("specify.partitions")
+          .type(Definition.Type.STRING)
+          .validator(
+              (name, obj) -> {
+                if (obj == null) return;
+                if (obj instanceof String) {
+                  Arrays.stream(((String) obj).split(",")).forEach(Integer::parseInt);
+                  return;
+                }
+                throw new ConfigException(name, obj, "there are non-number strings");
+              })
+          .documentation(
+              "If this config is defined, all records will be sent to those given partitions")
           .build();
 
   private Configuration config;
@@ -104,7 +129,8 @@ public class PerfSource extends SourceConnector {
         KEY_LENGTH_DEF,
         KEY_DISTRIBUTION_DEF,
         VALUE_LENGTH_DEF,
-        VALUE_DISTRIBUTION_DEF);
+        VALUE_DISTRIBUTION_DEF,
+        SPECIFY_PARTITIONS_DEF);
   }
 
   public static class Task extends SourceTask {
@@ -118,41 +144,53 @@ public class PerfSource extends SourceConnector {
     Supplier<Long> valueSelector;
     Supplier<Long> valueSizeGenerator;
     final Map<Long, byte[]> values = new HashMap<>();
+
+    List<Integer> specifyPartitions = List.of();
+
     long last = System.currentTimeMillis();
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       this.topics = Set.copyOf(configuration.list(SourceConnector.TOPICS_KEY, ","));
       this.frequency =
           Utils.toDuration(
               configuration
-                  .string(PerfSource.FREQUENCY_DEF.name())
-                  .orElse(PerfSource.FREQUENCY_DEF.defaultValue().toString()));
+                  .string(FREQUENCY_DEF.name())
+                  .orElse(FREQUENCY_DEF.defaultValue().toString()));
       var keyLength =
           DataSize.of(
               configuration
-                  .string(PerfSource.KEY_LENGTH_DEF.name())
-                  .orElse(PerfSource.KEY_LENGTH_DEF.defaultValue().toString()));
+                  .string(KEY_LENGTH_DEF.name())
+                  .orElse(KEY_LENGTH_DEF.defaultValue().toString()));
       var valueLength =
           DataSize.of(
               configuration
-                  .string(PerfSource.VALUE_LENGTH_DEF.name())
-                  .orElse(PerfSource.VALUE_LENGTH_DEF.defaultValue().toString()));
+                  .string(VALUE_LENGTH_DEF.name())
+                  .orElse(VALUE_LENGTH_DEF.defaultValue().toString()));
       var keyDistribution =
           DistributionType.ofAlias(
               configuration
-                  .string(PerfSource.KEY_DISTRIBUTION_DEF.name())
-                  .orElse(PerfSource.KEY_DISTRIBUTION_DEF.defaultValue().toString()));
+                  .string(KEY_DISTRIBUTION_DEF.name())
+                  .orElse(KEY_DISTRIBUTION_DEF.defaultValue().toString()));
       var valueDistribution =
           DistributionType.ofAlias(
               configuration
-                  .string(PerfSource.VALUE_DISTRIBUTION_DEF.name())
-                  .orElse(PerfSource.VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
+                  .string(VALUE_DISTRIBUTION_DEF.name())
+                  .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
       keySelector = keyDistribution.create(10000);
       keySizeGenerator = keyDistribution.create(keyLength.measurement(DataUnit.Byte).intValue());
       valueSelector = valueDistribution.create(10000);
       valueSizeGenerator =
           valueDistribution.create(valueLength.measurement(DataUnit.Byte).intValue());
+      specifyPartitions =
+          configuration
+              .string(SPECIFY_PARTITIONS_DEF.name())
+              .map(
+                  s ->
+                      Arrays.stream(s.split(","))
+                          .map(Integer::parseInt)
+                          .collect(Collectors.toList()))
+              .orElse(List.of());
     }
 
     byte[] key() {
@@ -185,8 +223,22 @@ public class PerfSource extends SourceConnector {
     protected Collection<Record<byte[], byte[]>> take() {
       if (System.currentTimeMillis() - last < frequency.toMillis()) return List.of();
       try {
+        if (specifyPartitions.isEmpty())
+          return topics.stream()
+              .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
+              .collect(Collectors.toList());
         return topics.stream()
-            .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
+            .flatMap(
+                t ->
+                    specifyPartitions.stream()
+                        .map(
+                            p ->
+                                Record.builder()
+                                    .topic(t)
+                                    .partition(p)
+                                    .key(key())
+                                    .value(value())
+                                    .build()))
             .collect(Collectors.toList());
       } finally {
         last = System.currentTimeMillis();
