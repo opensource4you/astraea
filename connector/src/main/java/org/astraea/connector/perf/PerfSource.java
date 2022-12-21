@@ -42,7 +42,7 @@ import org.astraea.connector.SourceTask;
 public class PerfSource extends SourceConnector {
   static Definition FREQUENCY_DEF =
       Definition.builder()
-          .name("frequency.in.seconds")
+          .name("frequency")
           .type(Definition.Type.STRING)
           .defaultValue("1s")
           .validator((name, value) -> Utils.toDuration(value.toString()))
