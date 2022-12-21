@@ -47,13 +47,19 @@ import org.astraea.common.metrics.collector.Fetcher;
  *   <li>The network egress data rate of each partition is constant, it won't fluctuate over time.
  *   <li>No consumer or consumer group attempts to subscribe or read a subset of partitions. It must
  *       subscribe to the whole topic.
+ *   <li>Consumer won't fetch data from the closest replica. That is, every consumer fetches data
+ *       from the leader. For more detail about consumer rack awareness, see <a
+ *       href="https://cwiki.apache.org/confluence/x/go_zBQ">KIP-392<a>.
  * </ol>
  */
 public abstract class NetworkCost implements HasClusterCost {
 
   private final AtomicReference<ClusterInfo<Replica>> currentCluster = new AtomicReference<>();
+  private final BandwidthType bandwidthType;
 
-  abstract ServerMetrics.Topic useMetric();
+  NetworkCost(BandwidthType bandwidthType) {
+    this.bandwidthType = bandwidthType;
+  }
 
   void updateCurrentCluster(
       ClusterInfo<Replica> clusterInfo,
@@ -77,17 +83,37 @@ public abstract class NetworkCost implements HasClusterCost {
   public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     updateCurrentCluster(clusterInfo, clusterBean, currentCluster);
 
-    var dataRate = estimateRate(currentCluster.get(), clusterBean, useMetric());
+    var ingressRate =
+        estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
+    var egressRate =
+        estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
     var brokerRate =
         clusterInfo
             .replicaStream()
-            .filter(ReplicaInfo::isLeader)
             .filter(ReplicaInfo::isOnline)
             .collect(
                 Collectors.groupingBy(
                     replica -> clusterInfo.node(replica.nodeInfo().id()),
                     Collectors.mapping(
-                        replica -> notNull(dataRate.get(replica.topicPartition())),
+                        replica -> {
+                          var tp = replica.topicPartition();
+                          switch (bandwidthType) {
+                            case Ingress:
+                              // ingress might come from producer-send or follower-fetch.
+                              return notNull(ingressRate.get(tp));
+                            case Egress:
+                              // egress will come from consumer-fetch or follower-fetch.
+                              // this implementation assumes no consumer rack awareness fetcher
+                              // enabled so all consumers fetch data from the leader only.
+                              return replica.isLeader()
+                                  ? notNull(egressRate.get(tp))
+                                      + notNull(ingressRate.get(tp))
+                                          * (clusterInfo.replicas(tp).size() - 1)
+                                  : 0;
+                            default:
+                              throw new RuntimeException();
+                          }
+                        },
                         Collectors.summingDouble(x -> x))));
 
     var summary = brokerRate.values().stream().mapToDouble(x -> x).summaryStatistics();
@@ -107,7 +133,11 @@ public abstract class NetworkCost implements HasClusterCost {
     // TODO: We need a reliable way to access the actual current cluster info. To do that we need to
     //  obtain the replica info, so we intentionally sample log size but never use it.
     //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
-    return Fetcher.of(List.of(useMetric()::fetch, LogMetrics.Log.SIZE::fetch));
+    return Fetcher.of(
+        List.of(
+            ServerMetrics.Topic.BYTES_IN_PER_SEC::fetch,
+            ServerMetrics.Topic.BYTES_OUT_PER_SEC::fetch,
+            LogMetrics.Log.SIZE::fetch));
   }
 
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(
@@ -171,5 +201,10 @@ public abstract class NetworkCost implements HasClusterCost {
 
   private <T> T fail(String reason) {
     throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), reason);
+  }
+
+  enum BandwidthType {
+    Ingress,
+    Egress
   }
 }
