@@ -143,15 +143,6 @@ public class FtpFileSystem implements FileSystem {
         });
   }
 
-  public synchronized void rename(String from, String to) {
-    Utils.packException(
-        () -> {
-          var client = clientSupplier.get();
-          client.rename(from, to);
-          FtpFileSystem.close(client);
-        });
-  }
-
   @Override
   public synchronized InputStream read(String path) {
     return Utils.packException(

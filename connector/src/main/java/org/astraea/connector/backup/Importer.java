@@ -30,15 +30,18 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
+import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.producer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
 import org.astraea.connector.SourceTask;
+import org.astraea.fs.FileSystem;
 import org.astraea.fs.Type;
-import org.astraea.fs.ftp.FtpFileSystem;
 
 public class Importer extends SourceConnector {
+  static Definition SCHEMA_KEY =
+      Definition.builder().name("fs.schema").type(Definition.Type.STRING).build();
   static Definition HOSTNAME_KEY =
       Definition.builder().name("fs.ftp.hostname").type(Definition.Type.STRING).build();
   static Definition PORT_KEY =
@@ -61,19 +64,10 @@ public class Importer extends SourceConnector {
       Definition.builder().name("archive.dir").type(Definition.Type.STRING).build();
   public static final String FILE_SET_KEY = "file.set";
   private Configuration config;
-  private FtpFileSystem fs;
-  private String input;
-  private String cleanSource;
-  private Optional<String> archiveDir;
 
   @Override
   protected void init(Configuration configuration, MetadataStorage storage) {
     this.config = configuration;
-    this.fs = new FtpFileSystem(config);
-    this.input = config.requireString(PATH_KEY.name());
-    this.cleanSource =
-        config.string(CLEAN_SOURCE_KEY.name()).orElse(CLEAN_SOURCE_KEY.defaultValue().toString());
-    this.archiveDir = config.string(ARCHIVE_DIR_KEY.name());
   }
 
   @Override
@@ -94,23 +88,9 @@ public class Importer extends SourceConnector {
   }
 
   @Override
-  protected void close() {
-    switch (cleanSource) {
-      case "off":
-        break;
-      case "delete":
-        fs.delete(input);
-        break;
-      case "archive":
-        fs.rename(input, archiveDir.get());
-        break;
-    }
-    this.fs.close();
-  }
-
-  @Override
   protected List<Definition> definitions() {
     return List.of(
+        SCHEMA_KEY,
         HOSTNAME_KEY,
         PORT_KEY,
         USER_KEY,
@@ -121,20 +101,27 @@ public class Importer extends SourceConnector {
   }
 
   public static class Task extends SourceTask {
-    private FtpFileSystem fs;
+    private FileSystem Client;
     private int fileSet;
     private HashSet<String> addedPaths;
     private String rootDir;
     private int maxTasks;
     private LinkedList<String> paths;
+    private String cleanSource;
+    private Optional<String> archiveDir;
 
-    protected void init(Configuration configuration) {
-      this.fs = new FtpFileSystem(configuration);
+    protected void init(Configuration configuration, MetadataStorage storage) {
+      this.Client = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.fileSet = configuration.requireInteger(FILE_SET_KEY);
       this.addedPaths = new HashSet<>();
       this.rootDir = configuration.requireString(PATH_KEY.name());
       this.maxTasks = configuration.requireInteger("tasks.max");
       this.paths = new LinkedList<>();
+      this.cleanSource =
+          configuration
+              .string(CLEAN_SOURCE_KEY.name())
+              .orElse(CLEAN_SOURCE_KEY.defaultValue().toString());
+      this.archiveDir = configuration.string(ARCHIVE_DIR_KEY.name());
     }
 
     @Override
@@ -146,7 +133,7 @@ public class Importer extends SourceConnector {
       var currentPath = paths.poll();
       if (currentPath != null) {
         var records = new ArrayList<Record<byte[], byte[]>>();
-        var inputStream = fs.read(currentPath);
+        var inputStream = Client.read(currentPath);
         var reader = RecordReader.builder(inputStream).build();
         while (reader.hasNext()) {
           var record = reader.next();
@@ -162,6 +149,26 @@ public class Importer extends SourceConnector {
                   .build());
         }
         Utils.packException(inputStream::close);
+        switch (cleanSource) {
+          case "archive":
+            var archiveInput = Client.read(currentPath);
+            var archiveReader = RecordReader.builder(archiveInput).build();
+            var archiveWriter =
+                RecordWriter.builder(
+                        Client.write(currentPath.replaceFirst(rootDir, archiveDir.get())))
+                    .build();
+            while (archiveReader.hasNext()) {
+              var record = archiveReader.next();
+              if (record.key() == null && record.value() == null) continue;
+              archiveWriter.append(record);
+            }
+            archiveWriter.close();
+            Utils.packException(archiveInput::close);
+          case "delete":
+            Client.delete(currentPath);
+          case "off":
+            break;
+        }
         return records;
       }
       return null;
@@ -174,9 +181,9 @@ public class Importer extends SourceConnector {
       while (true) {
         var current = path.poll();
         if (current == null) break;
-        if (fs.type(current) == Type.FOLDER) {
-          var files = fs.listFiles(current);
-          var folders = fs.listFolders(current);
+        if (Client.type(current) == Type.FOLDER) {
+          var files = Client.listFiles(current);
+          var folders = Client.listFolders(current);
           if (!files.isEmpty()) {
             files.stream()
                 .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % maxTasks == fileSet)
@@ -192,7 +199,7 @@ public class Importer extends SourceConnector {
 
     @Override
     protected void close() {
-      this.fs.close();
+      this.Client.close();
     }
   }
 }

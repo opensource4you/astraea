@@ -24,6 +24,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.consumer.Record;
+import org.astraea.connector.MetadataStorage;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.RequireWorkerCluster;
@@ -36,6 +37,8 @@ public class ImporterTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
+            "fs.schema",
+            "ftp",
             "connector.class",
             Importer.class.getName(),
             "tasks.max",
@@ -71,6 +74,8 @@ public class ImporterTest extends RequireWorkerCluster {
       var task = new Importer.Task();
       var configs =
           Map.of(
+              "fs.schema",
+              "ftp",
               "connector.class",
               Importer.class.getName(),
               "tasks.max",
@@ -86,9 +91,7 @@ public class ImporterTest extends RequireWorkerCluster {
               "fs.ftp.password",
               String.valueOf(server.password()),
               "clean.source",
-              "archive",
-              "archive.dir",
-              "/archive",
+              "off",
               "file.set",
               "0");
 
@@ -116,7 +119,7 @@ public class ImporterTest extends RequireWorkerCluster {
       records.forEach(writer::append);
       writer.close();
 
-      task.init(Configuration.of(configs));
+      task.init(Configuration.of(configs), MetadataStorage.EMPTY);
       var returnRecords = new ArrayList<>(task.take());
 
       for (int i = 0; i < records.size(); i++) {

@@ -30,6 +30,25 @@ import org.astraea.connector.SinkTask;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
+  static Definition SCHEMA_KEY =
+      Definition.builder().name("fs.schema").type(Definition.Type.STRING).build();
+  static Definition HOSTNAME_KEY =
+      Definition.builder().name("fs.ftp.hostname").type(Definition.Type.STRING).build();
+  static Definition PORT_KEY =
+      Definition.builder().name("fs.ftp.port").type(Definition.Type.STRING).build();
+  static Definition USER_KEY =
+      Definition.builder().name("fs.ftp.user").type(Definition.Type.STRING).build();
+  static Definition PASSWORD_KEY =
+      Definition.builder().name("fs.ftp.password").type(Definition.Type.STRING).build();
+  static Definition PATH_KEY =
+      Definition.builder().name("path").type(Definition.Type.STRING).build();
+  static Definition SIZE_KEY =
+      Definition.builder()
+          .name("size")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue(DataSize.MB.of(500).toString())
+          .build();
 
   private Configuration cons;
 
@@ -54,13 +73,7 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Definition> definitions() {
-    return List.of(
-        Definition.builder()
-            .name("ftp")
-            .type(Definition.Type.STRING)
-            .defaultValue(null)
-            .documentation("test")
-            .build());
+    return List.of(SCHEMA_KEY, HOSTNAME_KEY, PORT_KEY, USER_KEY, PASSWORD_KEY, PATH_KEY, SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -69,7 +82,7 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      this.ftpClient = FileSystem.of("ftp", configuration);
+      this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.cons = configuration;
     }
 
@@ -81,7 +94,7 @@ public class Exporter extends SinkConnector {
             writers.computeIfAbsent(
                 record.topicPartition(),
                 ignored -> {
-                  var path = cons.requireString("path");
+                  var path = cons.requireString(PATH_KEY.name());
                   var topicName = cons.requireString("topics");
                   var fileName = String.valueOf(record.offset());
                   return RecordWriter.builder(
@@ -96,7 +109,11 @@ public class Exporter extends SinkConnector {
                 });
         writer.append(record);
 
-        if (writer.size().greaterThan(DataSize.of(cons.requireString("size")))) {
+        if (writer
+            .size()
+            .greaterThan(
+                DataSize.of(
+                    cons.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString())))) {
           writers.remove(record.topicPartition()).close();
         }
       }
