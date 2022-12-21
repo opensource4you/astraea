@@ -470,7 +470,8 @@ class BalancerHandler implements Handler {
                           .stream()
                           // have to compare by isLeader instead of isPreferredLeader.
                           // since the leadership is what affects the direction of traffic load.
-                          // Any bandwidth related cost function should calculate load by leadership instead of preferred leadership
+                          // Any bandwidth related cost function should calculate load by leadership
+                          // instead of preferred leadership
                           .sorted(Comparator.comparing(Replica::isLeader).reversed())
                           .map(replica -> Map.entry(replica.nodeInfo().id(), replica.path()))
                           .collect(Collectors.toUnmodifiableList());
