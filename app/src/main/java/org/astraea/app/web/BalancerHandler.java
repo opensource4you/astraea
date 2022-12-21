@@ -188,7 +188,7 @@ class BalancerHandler implements Handler {
                               .solution()
                               .map(p -> migrationCosts(p.moveCost()))
                               .orElseGet(List::of));
-                  return new PlanInfo(report, bestPlan);
+                  return new PlanInfo(report, currentClusterInfo, bestPlan);
                 })
             .whenComplete(
                 (result, error) -> {
@@ -464,12 +464,15 @@ class BalancerHandler implements Handler {
                           .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
                           .collect(Collectors.toUnmodifiableList());
                   var expectedReplicaList =
-                      Stream.concat(
-                              change.before.stream().limit(1),
-                              change.before.stream()
-                                  .skip(1)
-                                  .sorted(Comparator.comparing(x -> x.brokerId)))
-                          .map(x -> Map.entry(x.brokerId, x.directory))
+                      thePlanInfo
+                          .associatedClusterInfo
+                          .replicas(TopicPartition.of(change.topic, change.partition))
+                          .stream()
+                          // have to compare by isLeader instead of isPreferredLeader.
+                          // since the leadership is what affects the direction of traffic load.
+                          // Any bandwidth related cost function should calculate load by leadership instead of preferred leadership
+                          .sorted(Comparator.comparing(Replica::isLeader).reversed())
+                          .map(replica -> Map.entry(replica.nodeInfo().id(), replica.path()))
                           .collect(Collectors.toUnmodifiableList());
                   return !expectedReplicaList.equals(currentReplicaList);
                 })
@@ -605,10 +608,13 @@ class BalancerHandler implements Handler {
 
   static class PlanInfo {
     private final Report report;
+    private final ClusterInfo<Replica> associatedClusterInfo;
     private final Balancer.Plan associatedPlan;
 
-    PlanInfo(Report report, Balancer.Plan associatedPlan) {
+    PlanInfo(
+        Report report, ClusterInfo<Replica> associatedClusterInfo, Balancer.Plan associatedPlan) {
       this.report = report;
+      this.associatedClusterInfo = associatedClusterInfo;
       this.associatedPlan = associatedPlan;
     }
   }
