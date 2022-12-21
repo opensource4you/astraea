@@ -109,6 +109,7 @@ Dispatcher.endInterdependent(producer);
 
 experiments 資料夾中收錄不同版本的實驗紀錄，主要使用 [performance tool](../performance_benchmark.md) 測試並紀錄數據。
 
-* [2022 Aug28](experiments/StrictCostDispatcher_1.md), 測試 [Strict Cost Partitioner](./strict_cost_dispatcher.md) (Astraea revision: [75bcc3faa39864d5ec5f5ed530346184e79fc0c9](https://github.com/skiptests/astraea/tree/75bcc3faa39864d5ec5f5ed530346184e79fc0c9))
-* [2022 Oct1](experiments/StrictCostDispatcher_2.md), 測試資源充足下 [interdependent message](#astraea-dispatcher-interdependent-message-功能) 對 [Strict Cost Partitioner](./strict_cost_dispatcher.md) 的影響
-* [2022 Oct1](experiments/StrictCostDispatcher_3.md), 測試高壓下 [interdependent message](#astraea-dispatcher-interdependent-message-功能) 對 [Strict Cost Partitioner](./strict_cost_dispatcher.md) 的影響
+* [2022 Aug28](experiments/StrictCostDispatcher_1.md), 測試 [Strict Cost Dispatcher](./strict_cost_dispatcher.md) (Astraea revision: [75bcc3faa39864d5ec5f5ed530346184e79fc0c9](https://github.com/skiptests/astraea/tree/75bcc3faa39864d5ec5f5ed530346184e79fc0c9))
+* [2022 Oct1](experiments/StrictCostDispatcher_2.md), 測試資源充足下 [interdependent message](#astraea-dispatcher-interdependent-message-功能) 對 [Strict Cost Dispatcher](./strict_cost_dispatcher.md) 的影響 (Astraea revision: [08b4e32f31091a3de69775db5442eb631deca550](https://github.com/skiptests/astraea/tree/08b4e32f31091a3de69775db5442eb631deca550))
+* [2022 Oct1](experiments/StrictCostDispatcher_3.md), 測試高壓下 [interdependent message](#astraea-dispatcher-interdependent-message-功能) 對 [Strict Cost Dispatcher](./strict_cost_dispatcher.md) 的影響 (Astraea revision: [08b4e32f31091a3de69775db5442eb631deca550](https://github.com/skiptests/astraea/tree/08b4e32f31091a3de69775db5442eb631deca550))
+* [2022 Dec17](experiments/StrictCostDispatcher_4.md), 測試多台 producer 同時發送訊息時，[Strict Cost Dispatcher](./strict_cost_dispatcher.md) 的表現，並比較 [Strict Cost Dispatcher](./strict_cost_dispatcher.md) 、 Kafka Built-In Partitioner 和 Default Partitioner 的吞吐量、發送延遲。(Astraea revision: [5003f424e9cef4d27bbc56621d6e42f19a687a61](https://github.com/skiptests/astraea/tree/5003f424e9cef4d27bbc56621d6e42f19a687a61)) 
