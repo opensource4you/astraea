@@ -183,7 +183,7 @@ public class ConnectorNode {
                                 context.workerClients().values().stream()
                                     .flatMap(c -> ConnectorMetrics.taskError(c).stream())
                                     .collect(Collectors.toList())),
-                    (connectorStatuses, sourceTaskInfos, sinkTaskInfos, taskErrors) ->
+                    (connectorStatuses, sourceTaskMetrics, sinkTaskMetrics, taskErrors) ->
                         connectorStatuses.stream()
                             .flatMap(
                                 connectorStatus ->
@@ -191,7 +191,7 @@ public class ConnectorNode {
                                         .map(
                                             task -> {
                                               var map = new LinkedHashMap<String, Object>();
-                                              map.put(NAME_KEY, connectorStatus.name());
+                                              map.put(NAME_KEY, task.connectorName());
                                               map.put("id", task.id());
                                               map.put("worker id", task.workerId());
                                               map.put("state", task.state());
@@ -199,7 +199,8 @@ public class ConnectorNode {
                                                   .type()
                                                   .ifPresent(t -> map.put("type", t));
                                               task.error().ifPresent(e -> map.put("error", e));
-                                              sourceTaskInfos.stream()
+                                              map.putAll(task.configs());
+                                              sourceTaskMetrics.stream()
                                                   .filter(t -> t.taskId() == task.id())
                                                   .filter(
                                                       t ->
@@ -226,7 +227,7 @@ public class ConnectorNode {
                                                             "poll batch time (max)",
                                                             info.pollBatchMaxTimeMs());
                                                       });
-                                              sinkTaskInfos.stream()
+                                              sinkTaskMetrics.stream()
                                                   .filter(t -> t.taskId() == task.id())
                                                   .filter(
                                                       t ->
