@@ -21,170 +21,112 @@ source "$DOCKER_FOLDER"/docker_build_common.sh
 # ===============================[version control]=================================
 declare -r SPARK_VERSION=${SPARK_VERSION:-3.3.1}
 # ===============================[global variables]================================
-declare -r REVISION=${REVISION:-$([[ ${BUILD} != "false" ]] && git rev-parse --short HEAD)}
-declare -r VERSION=${REVISION:-${VERSION:-main}}
-declare -r ACCOUNT=${ACCOUNT:-skiptests}
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/etl:$VERSION"
 declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)
-declare -r DOCKERFILE=$DOCKER_FOLDER/etl.dockerfile
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx4G -Xms4G"}"
-declare -r PROPERTIES=$1
 # ===============================[properties keys]=================================
-declare -r SINK_KEY="sink.path"
 declare -r SOURCE_KEY="source.path"
-declare -r TOPIC_KEY="topic.name"
-declare -r CHECKPOINT_KEY="checkpoint"
 # ===============================[spark driver/executor resource]==================
 declare -r RESOURCES_CONFIGS="${RESOURCES_CONFIGS:-"2G"}"
 # ===================================[functions]===================================
 
 function showHelp() {
   echo "Usage: [ENV] start_etl.sh properties_path"
-  echo "Optional Arguments: "
-  echo "    properties_path                         The path of Spark2Kafka.properties."
+  echo "required Arguments: "
+  echo "    master                         where to submit spark job"
+  echo "    property.file                         The path of Spark2Kafka.properties."
   echo "ENV: "
   echo "    ACCOUNT=skiptests                       set the account to clone from"
   echo "    VERSION=main                            set branch of astraea"
-  echo "    BUILD=false                             set true if you want to build image locally"
-  echo "    RUN=false                               set false if you want to build/pull image only"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"             set broker JVM memory"
   echo "    RESOURCES_CONFIGS=\"-Xmx2G -Xms2G\"     set spark memory"
 }
 
-function generateDockerfile() {
-  if [[ "$BUILD" == "false" ]]; then
-    generateDockerfileByGithub
-  else
-    generateDockerfileByLocal
-  fi
-}
-
-function generateDockerfileByLocal() {
-    echo "# this dockerfile is generated dynamically
-      FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION
-
-      # export ENV
-      ENV SPARK_HOME /opt/spark
-      WORKDIR /opt/spark
-      " >"$DOCKERFILE"
-}
-
-function generateDockerfileByGithub() {
-  echo "# this dockerfile is generated dynamically
-    FROM ghcr.io/skiptests/astraea/deps AS build
-
-    # clone repo
-    WORKDIR /tmp
-    RUN git clone https://github.com/$ACCOUNT/astraea
-
-    # pre-build project to collect all dependencies
-    WORKDIR /tmp/astraea
-    RUN git checkout $VERSION
-    RUN ./gradlew clean shadowJar
-
-    FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION
-
-    # copy astraea
-    COPY --from=build /tmp/astraea /opt/astraea
-
-    # export ENV
-    ENV SPARK_HOME /opt/spark
-    WORKDIR /opt/spark
-    " >"$DOCKERFILE"
-}
-
-function prop() {
-	[ -f "$PROPERTIES" ] && grep -P "^\s*[^#]?${1}=.*$" "$PROPERTIES" | cut -d'=' -f2
-}
-
-function checkPath() {
-  mkdir -p "$1"
-  if [ $? -ne 0 ]; then
-      echo "mkdir $1 failed"
-      exit 2
-  fi
-  echo "$1"
-}
-
 function runContainer() {
-  if [[ "$BUILD" == "false" ]]; then
-    runContainerByGithub "$1"
-  else
-    runContainerByLocal "$1"
+  local master=$1
+  local propertiesPath=$2
+
+  if [[ ! -f "$propertiesPath" ]]; then
+    echo "$propertiesPath is not a property file"
+    exit 1
   fi
-}
 
-#run spark submit local mode
-function runContainerByGithub() {
-    local propertiesPath=$1
+  source_path=$(cat $propertiesPath | grep $SOURCE_KEY | cut -d "=" -f2)
+  source_name=$(echo "${source_path}" | tr '/' '-')
 
-    sink_path=$(checkPath "$(prop $SINK_KEY)")
-    source_path=$(checkPath "$(prop $SOURCE_KEY)")
-    topic=$(prop $TOPIC_KEY)
-    checkpoint_path=$(checkPath "$(prop $CHECKPOINT_KEY)")
-    source_name=$(echo "${source_path}" | tr '/' '-')
+  docker run --rm -v "$LOCAL_PATH":/tmp/astraea \
+    ghcr.io/skiptests/astraea/deps \
+    /bin/bash \
+    -c "cd /tmp/astraea && ./gradlew clean shadowJar --no-daemon"
 
+  jar_path=$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*all.jar")
+
+  if [[ ! -f "$jar_path" ]]; then
+    echo "$jar_path is not a uber jar"
+    exit 1
+  fi
+
+  # the driver is running on client mode, so the source path must be readable from following container.
+  # hence, we will mount source path to container directly
+  mkdir -p "$source_path"
+  if [ $? -ne 0 ]; then
+    echo "failed to create folder on $source_path"
+    exit 1
+  fi
+
+  ui_port=$(($(($RANDOM % 10000)) + 10000))
+  if [[ "$master" == "local"* ]]; then
+    network_config="-p ${ui_port}:${ui_port}"
+  else
+    # expose the driver network
+    network_config="--network host"
+  fi
+
+  if [[ "$master" == "spark:"* ]] || [[ "$master" == "local"* ]]; then
     docker run -d --init \
-        --name "csv-kafka-${topic}${source_name}" \
-        -v "$propertiesPath":"$propertiesPath":ro \
-        -v "${sink_path}":"${sink_path}" \
-        -v "${source_path}":"${source_path}":ro \
-        -v "${checkpoint_path}":"${checkpoint_path}" \
-        -e JAVA_OPTS="$HEAP_OPTS" \
-        "$IMAGE_NAME" \
-        ./bin/spark-submit \
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:"$SPARK_VERSION" \
-        --executor-memory "$RESOURCES_CONFIGS" \
-        --class org.astraea.etl.Spark2Kafka \
-        --master local \
-        "$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*all.jar")" \
-        "$propertiesPath"
-}
+      --name "csv-kafka-${source_name}" \
+      $network_config \
+      -v "$propertiesPath":"$propertiesPath":ro \
+      -v "$jar_path":/tmp/astraea-etl.jar:ro \
+      -v "${source_path}":"${source_path}" \
+      -e JAVA_OPTS="$HEAP_OPTS" \
+      ghcr.io/skiptests/astraea/spark:$SPARK_VERSION \
+      ./bin/spark-submit \
+      --conf "spark.ui.port=$ui_port" \
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:"$SPARK_VERSION" \
+      --executor-memory "$RESOURCES_CONFIGS" \
+      --class org.astraea.etl.Spark2Kafka \
+      --jars file:///tmp/astraea-etl.jar \
+      --master $master \
+      /tmp/astraea-etl.jar \
+      "$propertiesPath"
+  else
+    echo "$master is unsupported"
+    exit 1
+  fi
 
-function runContainerByLocal() {
-    local propertiesPath=$1
-
-    sink_path=$(checkPath "$(prop $SINK_KEY)")
-    source_path=$(checkPath "$(prop $SOURCE_KEY)")
-    topic=$(prop $TOPIC_KEY)
-    checkpoint_path=$(checkPath "$(prop $CHECKPOINT_KEY)")
-    source_name=$(echo "${source_path}" | tr '/' '-')
-
-    docker run --rm -v "$LOCAL_PATH":/tmp/astraea \
-        ghcr.io/skiptests/astraea/deps \
-        /bin/bash \
-        -c "cd /tmp/astraea && ./gradlew clean shadowJar "
-
-    docker run -d --init \
-        --name "csv-kafka-${topic}${source_name}" \
-        -v "$propertiesPath":"$propertiesPath":ro \
-        -v "${sink_path}":"${sink_path}" \
-        -v "${source_path}":"${source_path}":ro \
-        -v "${checkpoint_path}":"${checkpoint_path}" \
-        -v "$LOCAL_PATH":"$LOCAL_PATH" \
-        -e JAVA_OPTS="$HEAP_OPTS" \
-        "$IMAGE_NAME" \
-        ./bin/spark-submit \
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:"$SPARK_VERSION" \
-        --executor-memory "$RESOURCES_CONFIGS" \
-        --class org.astraea.etl.Spark2Kafka \
-        --master local \
-        "$(find "$LOCAL_PATH"/etl/build/libs -type f -name "*all.jar")" \
-        "$propertiesPath"
 }
 
 # ===================================[main]===================================
 checkDocker
-generateDockerfile
-buildImageIfNeed "$IMAGE_NAME"
 
-if [[ "$RUN" != "true" ]]; then
-  echo "docker image: $IMAGE_NAME is created"
-  exit 0
-fi
+master="local[*]"
+property_file_path=""
 
-if [[ -n "$1" ]]; then
-  runContainer "$*"
-else
-  showHelp
-fi
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "help" ]]; then
+    showHelp
+    exit 0
+  fi
+
+  if [[ "$1" == "master"* ]]; then
+    master=$(echo "$1" | cut -d "=" -f 2)
+  fi
+
+  if [[ "$1" == "property.file"* ]]; then
+    property_file_path=$(echo "$1" | cut -d "=" -f 2)
+  fi
+
+  shift
+done
+
+runContainer "$master" "$property_file_path"

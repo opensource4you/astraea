@@ -30,12 +30,11 @@ curl -X POST http://localhost:8001/balancer \
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
         "shuffle.tweaker.min.step": "1",
-        "shuffle.tweaker.max.step": "30",
-        "iteration": "10000"
+        "shuffle.tweaker.max.step": "5"
       },
       "costWeights": [
-        { "cost":  "org.astraea.common.cost.ReplicaSizeCost", "weight":  3},
-        { "cost":  "org.astraea.common.cost.ReplicaLeaderCost", "weight":  2}
+        { "cost": "org.astraea.common.cost.ReplicaSizeCost", "weight": 1 },
+        { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],
       "maxMigratedSize": "300MB",
       "maxMigratedLeader": "3"
@@ -125,8 +124,9 @@ JSON Response 範例
   1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `generated` 會是 `false`)
   2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
 * `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
-  * `cost`: 目前叢集的成本 (越高越不好)
-  * `newCost`: 評估後比較好的成本 (<= `cost`)
+  * `isPlanGenerated`: 表示計劃是否成功生成，如果此欄位為 `false` 代表 Balancer 實作無法找到更好的計劃
+  * `cost`: 目前叢集的分數 (越高越不好)
+  * `newCost`: 提出的新計劃之分數，當計劃沒有成功生成時，此欄位會是 `null`
   * `function`: 用來評估品質的方法
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
@@ -151,9 +151,10 @@ JSON Response 範例
   "scheduled": true,
   "done": true,
   "info": {
+    "isPlanGenerated": true,
     "cost": 0.04948716593053935,
     "newCost": 0.04948716593053935,
-    "function": "ReplicaLeaderCost",
+    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.ReplicaSizeCost@36835e87\" weight 1.0}, {\"org.astraea.common.cost.ReplicaLeaderCost@2d87f4d3\" weight 1.0}]",
     "changes": [
       {
         "topic": "__consumer_offsets",

@@ -35,7 +35,7 @@ public interface Balancer {
    * Execute {@link Balancer#offer(ClusterInfo, Duration)}. Retry the plan generation if a {@link
    * NoSufficientMetricsException} exception occurred.
    */
-  default Optional<Plan> retryOffer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+  default Plan retryOffer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
     final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
     while (System.currentTimeMillis() < timeoutMs) {
       try {
@@ -65,7 +65,7 @@ public interface Balancer {
   /**
    * @return a rebalance plan
    */
-  Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout);
+  Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout);
 
   @SuppressWarnings("unchecked")
   static Balancer create(String classpath, AlgorithmConfig config) {
@@ -95,14 +95,8 @@ public interface Balancer {
   }
 
   class Plan {
-    final ClusterInfo<Replica> proposal;
     final ClusterCost initialClusterCost;
-    final ClusterCost proposalClusterCost;
-    final MoveCost moveCost;
-
-    public ClusterInfo<Replica> proposal() {
-      return proposal;
-    }
+    final Solution solution;
 
     /**
      * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
@@ -110,6 +104,30 @@ public interface Balancer {
      */
     public ClusterCost initialClusterCost() {
       return initialClusterCost;
+    }
+
+    public Optional<Solution> solution() {
+      return Optional.ofNullable(solution);
+    }
+
+    public Plan(ClusterCost initialClusterCost) {
+      this(initialClusterCost, null);
+    }
+
+    public Plan(ClusterCost initialClusterCost, Solution solution) {
+      this.initialClusterCost = initialClusterCost;
+      this.solution = solution;
+    }
+  }
+
+  class Solution {
+
+    final ClusterInfo<Replica> proposal;
+    final ClusterCost proposalClusterCost;
+    final MoveCost moveCost;
+
+    public ClusterInfo<Replica> proposal() {
+      return proposal;
     }
 
     /** The {@link ClusterCost} score of the proposed new allocation. */
@@ -121,13 +139,9 @@ public interface Balancer {
       return moveCost;
     }
 
-    public Plan(
-        ClusterInfo<Replica> proposal,
-        ClusterCost initialClusterCost,
-        ClusterCost proposalClusterCost,
-        MoveCost moveCost) {
+    public Solution(
+        ClusterCost proposalClusterCost, MoveCost moveCost, ClusterInfo<Replica> proposal) {
       this.proposal = proposal;
-      this.initialClusterCost = initialClusterCost;
       this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;
     }
