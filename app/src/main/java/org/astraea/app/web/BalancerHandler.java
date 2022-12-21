@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -171,19 +172,9 @@ class BalancerHandler implements Handler {
                                       .stream()
                                       .map(
                                           tp ->
-                                              new Change(
-                                                  tp.topic(),
-                                                  tp.partition(),
-                                                  // only log the size from source replicas
-                                                  currentClusterInfo.replicas(tp).stream()
-                                                      .map(
-                                                          r ->
-                                                              new Placement(
-                                                                  r, Optional.of(r.size())))
-                                                      .collect(Collectors.toList()),
-                                                  p.proposal().replicas(tp).stream()
-                                                      .map(r -> new Placement(r, Optional.empty()))
-                                                      .collect(Collectors.toList())))
+                                              Change.from(
+                                                  currentClusterInfo.replicas(tp),
+                                                  p.proposal().replicas(tp)))
                                       .collect(Collectors.toUnmodifiableList()))
                           .orElse(List.of());
                   var report =
@@ -538,6 +529,28 @@ class BalancerHandler implements Handler {
     final int partition;
     final List<Placement> before;
     final List<Placement> after;
+
+    static Change from(Collection<Replica> before, Collection<Replica> after) {
+      if (before.size() == 0) throw new NoSuchElementException("Empty replica list was given");
+      if (after.size() == 0) throw new NoSuchElementException("Empty replica list was given");
+      var tp = before.stream().findAny().orElseThrow().topicPartition();
+      if (!before.stream().allMatch(r -> r.topicPartition().equals(tp)))
+        throw new IllegalArgumentException("Some replica come from different topic/partition");
+      if (!after.stream().allMatch(r -> r.topicPartition().equals(tp)))
+        throw new IllegalArgumentException("Some replica come from different topic/partition");
+      return new Change(
+          tp.topic(),
+          tp.partition(),
+          // only log the size from source replicas
+          before.stream()
+              .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
+              .map(r -> new Placement(r, Optional.of(r.size())))
+              .collect(Collectors.toList()),
+          after.stream()
+              .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
+              .map(r -> new Placement(r, Optional.empty()))
+              .collect(Collectors.toList()));
+    }
 
     Change(String topic, int partition, List<Placement> before, List<Placement> after) {
       this.topic = topic;
