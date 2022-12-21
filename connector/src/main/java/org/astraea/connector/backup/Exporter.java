@@ -29,7 +29,7 @@ import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
 import org.astraea.fs.FileSystem;
 
-public class Importer extends SinkConnector {
+public class Exporter extends SinkConnector {
 
   private Configuration cons;
 

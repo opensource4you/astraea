@@ -29,7 +29,7 @@ import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class FtpConnectorSinkTest extends RequireWorkerCluster {
+public class ExporterTest extends RequireWorkerCluster {
 
   @Test
   void testCreateFtpSinkConnector() {
@@ -40,7 +40,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
     Map<String, String> connectorConfigs =
         Map.of(
             "connector.class",
-            Importer.class.getName(),
+            Exporter.class.getName(),
             "tasks.max",
             "2",
             "topics",
@@ -63,7 +63,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
 
     Assertions.assertEquals("FtpSink", createdConnectorInfo.name());
     Assertions.assertEquals("2", configs.get("tasks.max"));
-    Assertions.assertEquals(Importer.class.getName(), configs.get("connector.class"));
+    Assertions.assertEquals(Exporter.class.getName(), configs.get("connector.class"));
   }
 
   @Test
@@ -72,7 +72,7 @@ public class FtpConnectorSinkTest extends RequireWorkerCluster {
       var fileSize = "500Byte";
       var topicName = Utils.randomString(10);
 
-      var task = new Importer.Task();
+      var task = new Exporter.Task();
       var configs =
           Map.of(
               "topics",
