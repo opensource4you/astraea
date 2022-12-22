@@ -18,29 +18,17 @@ package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
 import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-/** By contrast to {@link Avg}, {@link Rate} measure the value by time instead of "count". */
-public interface Rate<T> extends Stat<T> {
-  /**
-   * @return sum of recorded size / (time of last record - start time). Noted that the unit is
-   *     second
-   */
-  static Rate<DataSize> sizeRate() {
-    return new Rate<>() {
-      private final long start = System.currentTimeMillis();
-      private DataSize size = DataSize.Byte.of(0);
+public class RateTest {
 
-      @Override
-      public synchronized void record(DataSize value) {
-        size = size.add(value);
-      }
-
-      @Override
-      public synchronized DataSize measure() {
-        var diff = System.currentTimeMillis() - start;
-        if (diff <= 0) return DataSize.Byte.of(0);
-        return size.dataRate(Duration.ofMillis(diff)).dataSize();
-      }
-    };
+  @Test
+  void testMeasure() {
+    var rate = Rate.sizeRate();
+    rate.record(DataSize.Byte.of(100L));
+    Utils.sleep(Duration.ofSeconds(1));
+    Assertions.assertTrue(rate.measure().bytes() < 100);
   }
 }
