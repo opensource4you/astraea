@@ -39,8 +39,6 @@ public class ExporterTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
-            "fs.schema",
-            "ftp",
             "connector.class",
             Exporter.class.getName(),
             "tasks.max",
@@ -56,9 +54,7 @@ public class ExporterTest extends RequireWorkerCluster {
             "fs.ftp.password",
             "password",
             "path",
-            "/",
-            "size",
-            "500Byte");
+            "/");
 
     var createdConnectorInfo =
         connectorClient.createConnector("FtpSink", connectorConfigs).toCompletableFuture().join();
@@ -79,8 +75,6 @@ public class ExporterTest extends RequireWorkerCluster {
       var task = new Exporter.Task();
       var configs =
           Map.of(
-              "fs.schema",
-              "ftp",
               "topics",
               topicName,
               "fs.ftp.hostname",
