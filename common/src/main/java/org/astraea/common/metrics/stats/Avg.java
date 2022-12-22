@@ -51,7 +51,6 @@ public class Avg {
       private long count = 0;
 
       private final Debounce<Double> debounce = Debounce.of(period);
-      ;
 
       @Override
       public synchronized void record(Double value) {
