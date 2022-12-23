@@ -210,9 +210,18 @@ public abstract class NetworkCost implements HasClusterCost {
     Ingress,
     Egress;
 
+    static BandwidthType ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(BandwidthType.class, alias);
+    }
+
     @Override
     public String alias() {
       return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
     }
   }
 }
