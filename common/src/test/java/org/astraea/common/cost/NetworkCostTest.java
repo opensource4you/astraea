@@ -258,6 +258,50 @@ class NetworkCostTest {
         "Egress score should be " + expectedEgressScore + " but it is " + egressScore);
   }
 
+  @Test
+  void testZeroBandwidth() {
+    // if a partition has no produce/fetch occur, it won't have a BytesInPerSec or BytesOutPerSec
+    // metric entry on the remote Kafka MBeanServer. To work around this we should treat them as
+    // zero partition ingress/egress instead of complaining no metric available.
+    var cluster =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1, 2, 3))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
+            .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
+            .addFolders(Map.of(3, Set.of("/folder0", "/folder1")))
+            .addTopic("Pipeline", 10, (short) 2)
+            .build();
+    var beans =
+        ClusterBean.of(
+            Map.of(
+                1, List.of(noise(5566)),
+                2, List.of(noise(5566)),
+                3, List.of(noise(5566))));
+    Assertions.assertDoesNotThrow(
+        () -> ingressCost().clusterCost(cluster, beans),
+        "Metric sampled but no load value, treat as zero load");
+    Assertions.assertDoesNotThrow(
+        () -> egressCost().clusterCost(cluster, beans),
+        "Metric sampled but no load value, treat as zero load");
+    Assertions.assertEquals(0, ingressCost().clusterCost(cluster, beans).value());
+    Assertions.assertEquals(0, egressCost().clusterCost(cluster, beans).value());
+
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class,
+        () ->
+            ingressCost()
+                .clusterCost(
+                    cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
+        "Should raise a exception since we don't know if first sample is performed or not");
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class,
+        () ->
+            egressCost()
+                .clusterCost(
+                    cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
+        "Should raise a exception since we don't know if first sample is performed or not");
+  }
+
   interface TestCase {
 
     ClusterInfo<Replica> clusterInfo();

@@ -1,0 +1,66 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ext {
+    versions = [:]
+    libs = [:]
+}
+def versions = [
+        "commons-io"          : project.properties['commons-io.version'] ?: "2.11.0",
+        "commons-math3"       : project.properties['commons-math3.version'] ?: "3.6.1",
+        "commons-net"         : project.properties['commons-net.version'] ?: "3.9.0",
+        "ftp-server"          : project.properties['ftp-server.version'] ?: "1.2.0",
+        jackson               : project.properties['jackson.version'] ?: "2.14.1",
+        jcommander            : project.properties['jcommander.version'] ?: "1.82",
+        junit                 : project.properties['junit.version'] ?: "5.9.1",
+        kafka                 : project.properties['kafka.version'] ?: "3.3.1",
+        mockito               : project.properties['mockito.version'] ?: "4.10.0",
+        "mysql-connector-java": project.properties['mysql-connector-java.version'] ?: "8.0.31",
+        "opencsv"             : project.properties['opencsv.version'] ?: "5.7.1",
+        scala                 : project.properties['scala.version'] ?: "2.13.10",
+        slf4j                 : project.properties['slf4j.version'] ?: "2.0.6",
+        spark                 : project.properties['spark.version'] ?: "3.3.1",
+        "wix-embedded-mysql"  : project.properties['wix-embedded-mysql.version'] ?: "4.6.2",
+        zookeeper             : project.properties['zookeeper.version'] ?: "3.8.0",
+]
+
+libs += [
+        "commons-io"           : "commons-io:commons-io:${versions["commons-io"]}",
+        "commons-math3"        : "org.apache.commons:commons-math3:${versions["commons-math3"]}",
+        "commons-net"          : "commons-net:commons-net:${versions["commons-net"]}",
+        "ftp-server"           : "org.apache.ftpserver:ftpserver-core:${versions["ftp-server"]}",
+        "jackson-databind"     : "com.fasterxml.jackson.core:jackson-databind:${versions["jackson"]}",
+        "jackson-datatype-jdk8": "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${versions["jackson"]}",
+        jcommander             : "com.beust:jcommander:${versions["jcommander"]}",
+        junit                  : "org.junit.jupiter:junit-jupiter:${versions["junit"]}",
+        "kafka-client"         : "org.apache.kafka:kafka-clients:${versions["kafka"]}",
+        "kafka-connect-api"    : "org.apache.kafka:connect-api:${versions["kafka"]}",
+        "kafka-connect-json"   : "org.apache.kafka:connect-json:${versions["kafka"]}",
+        "kafka-connect-runtime": "org.apache.kafka:connect-runtime:${versions["kafka"]}",
+        "kafka-core"           : "org.apache.kafka:kafka_2.13:${versions["kafka"]}",
+        "mockito-core"         : "org.mockito:mockito-core:${versions["mockito"]}",
+        "mockito-inline"       : "org.mockito:mockito-inline:${versions["mockito"]}",
+        "mysql-connector-java" : "mysql:mysql-connector-java:${versions["mysql-connector-java"]}",
+        opencsv                : "com.opencsv:opencsv:${versions["opencsv"]}",
+        scala                  : "org.scala-lang:scala-library:${versions["scala"]}",
+        "slf4j-nop"            : "org.slf4j:slf4j-nop:${versions["slf4j"]}",
+        "spark-kafka"          : "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark"]}",
+        "spark-sql"            : "org.apache.spark:spark-sql_2.13:${versions["spark"]}",
+        "wix-embedded-mysql"   : "com.wix:wix-embedded-mysql:${versions["wix-embedded-mysql"]}",
+        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
+
+]

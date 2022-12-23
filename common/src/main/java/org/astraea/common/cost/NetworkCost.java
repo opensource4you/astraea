@@ -62,6 +62,19 @@ public abstract class NetworkCost implements HasClusterCost {
     this.bandwidthType = bandwidthType;
   }
 
+  void noMetricCheck(ClusterBean clusterBean) {
+    var noMetricBrokers =
+        clusterBean.all().entrySet().stream()
+            .filter(e -> e.getValue().size() == 0)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toUnmodifiableList());
+    if (!noMetricBrokers.isEmpty())
+      throw new NoSufficientMetricsException(
+          this,
+          Duration.ofSeconds(1),
+          "The following brokers have no metric available: " + noMetricBrokers);
+  }
+
   void updateCurrentCluster(
       ClusterInfo<Replica> clusterInfo,
       ClusterBean clusterBean,
@@ -82,6 +95,7 @@ public abstract class NetworkCost implements HasClusterCost {
 
   @Override
   public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    noMetricCheck(clusterBean);
     updateCurrentCluster(clusterInfo, clusterBean, currentCluster);
 
     var ingressRate =
@@ -154,6 +168,10 @@ public abstract class NetworkCost implements HasClusterCost {
                 Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
   }
 
+  /**
+   * Estimate the produce load for each partition. If a partition have no load metric in
+   * ClusterBean, it will be considered as zero produce load.
+   */
   Map<TopicPartition, Long> estimateRate(
       ClusterInfo<? extends Replica> clusterInfo,
       ClusterBean clusterBean,
@@ -170,12 +188,8 @@ public abstract class NetworkCost implements HasClusterCost {
                           .filter(bean -> bean.type().equals(metric))
                           .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
                           .map(HasRate::fifteenMinuteRate)
-                          .orElseThrow(
-                              () ->
-                                  new NoSufficientMetricsException(
-                                      this,
-                                      Duration.ofSeconds(1),
-                                      "No " + metric.metricName() + " for " + bt));
+                          // no load metric for this partition, treat as zero load
+                          .orElse(0.0);
               if (Double.isNaN(totalShare) || totalShare < 0)
                 throw new NoSufficientMetricsException(
                     this,
