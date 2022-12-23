@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -92,10 +93,15 @@ class NetworkCostTest {
                 1,
                 List.of(
                     logSize(TopicPartition.of("Pipeline", 0), -1),
-                    bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0))));
+                    bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0),
+                    bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Pipeline", 0))));
     var noLog =
         ClusterBean.of(
-            Map.of(1, List.of(bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0))));
+            Map.of(
+                1,
+                List.of(
+                    bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0),
+                    bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Pipeline", 0))));
 
     Assertions.assertThrows(
         NoSufficientMetricsException.class, () -> cost.clusterCost(initial, ClusterBean.EMPTY));
@@ -120,7 +126,7 @@ class NetworkCostTest {
   }
 
   void testEstimatedRate(ServerMetrics.Topic metric) {
-    var t = new HandWrittenTestCase(metric);
+    var t = new HandWrittenTestCase();
     new NetworkIngressCost()
         .estimateRate(t.clusterInfo(), t.clusterBean(), metric)
         .forEach(
@@ -133,20 +139,17 @@ class NetworkCostTest {
   }
 
   static Stream<Arguments> testcases() {
-    var in = ServerMetrics.Topic.BYTES_IN_PER_SEC;
-    var out = ServerMetrics.Topic.BYTES_OUT_PER_SEC;
-
     return Stream.of(
-        Arguments.of(ingressCost(), new HandWrittenTestCase(in)),
-        Arguments.of(ingressCost(), new LargeTestCase(in, 2, 100, 0xfeedbabe)),
-        Arguments.of(ingressCost(), new LargeTestCase(in, 3, 100, 0xabcdef01)),
-        Arguments.of(ingressCost(), new LargeTestCase(in, 10, 200, 0xcafebabe)),
-        Arguments.of(ingressCost(), new LargeTestCase(in, 15, 300, 0xfee1dead)),
-        Arguments.of(egressCost(), new HandWrittenTestCase(out)),
-        Arguments.of(egressCost(), new LargeTestCase(out, 5, 100, 0xfa11fa11)),
-        Arguments.of(egressCost(), new LargeTestCase(out, 6, 100, 0xf001f001)),
-        Arguments.of(egressCost(), new LargeTestCase(out, 8, 200, 0xba1aba1a)),
-        Arguments.of(egressCost(), new LargeTestCase(out, 14, 300, 0xdd0000bb)));
+        Arguments.of(ingressCost(), new HandWrittenTestCase()),
+        Arguments.of(ingressCost(), new LargeTestCase(2, 100, 0xfeedbabe)),
+        Arguments.of(ingressCost(), new LargeTestCase(3, 100, 0xabcdef01)),
+        Arguments.of(ingressCost(), new LargeTestCase(10, 200, 0xcafebabe)),
+        Arguments.of(ingressCost(), new LargeTestCase(15, 300, 0xfee1dead)),
+        Arguments.of(egressCost(), new HandWrittenTestCase()),
+        Arguments.of(egressCost(), new LargeTestCase(5, 100, 0xfa11fa11)),
+        Arguments.of(egressCost(), new LargeTestCase(6, 100, 0xf001f001)),
+        Arguments.of(egressCost(), new LargeTestCase(8, 200, 0xba1aba1a)),
+        Arguments.of(egressCost(), new LargeTestCase(14, 300, 0xdd0000bb)));
   }
 
   @ParameterizedTest
@@ -171,19 +174,88 @@ class NetworkCostTest {
 
   @Test
   void testCompositeOptimization() {
-    var testCase =
-        new LargeTestCase(
-            ServerMetrics.Topic.BYTES_IN_PER_SEC,
-            ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-            10,
-            300,
-            0xfeed);
+    var testCase = new LargeTestCase(10, 300, 0xfeed);
     var costFunction =
         HasClusterCost.of(
             Map.of(
                 ingressCost(), 1.0,
                 egressCost(), 1.0));
     testOptimization(costFunction, testCase);
+  }
+
+  @Test
+  void testIngressWithFollowerReplica() {
+    var base =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1, 2, 3))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
+            .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
+            .addFolders(Map.of(3, Set.of("/folder0", "/folder1")))
+            .build();
+    var iter1 = List.of(1, 2).iterator();
+    var iter2 = List.of(true, false).iterator();
+    var iter3 = List.of(true, false).iterator();
+    var iter4 = List.of(3, 1).iterator();
+    var iter5 = List.of(true, false).iterator();
+    var iter6 = List.of(true, false).iterator();
+    var cluster =
+        ClusterInfoBuilder.builder(base)
+            .addTopic(
+                "Rain",
+                1,
+                (short) 2,
+                (r) ->
+                    Replica.builder(r)
+                        .nodeInfo(base.node(iter1.next()))
+                        .isPreferredLeader(iter2.next())
+                        .isLeader(iter3.next())
+                        .size(1)
+                        .build())
+            .addTopic(
+                "Drop",
+                1,
+                (short) 2,
+                (r) ->
+                    Replica.builder(r)
+                        .nodeInfo(base.node(iter4.next()))
+                        .isPreferredLeader(iter5.next())
+                        .isLeader(iter6.next())
+                        .size(1)
+                        .build())
+            .build();
+    var beans =
+        ClusterBean.of(
+            Map.of(
+                1,
+                    List.of(
+                        bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Rain", 100),
+                        bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Rain", 300)),
+                2, List.of(),
+                3,
+                    List.of(
+                        bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Drop", 80),
+                        bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Drop", 800))));
+
+    double error = 1e-9;
+    Function<Double, Predicate<Double>> around =
+        (expected) -> (value) -> (expected + error) >= value && value >= (expected - error);
+
+    double expectedIngress1 = 100 + 80;
+    double expectedIngress2 = 100;
+    double expectedIngress3 = 80;
+    double expectedEgress1 = 300 + 100;
+    double expectedEgress2 = 0;
+    double expectedEgress3 = 800 + 80 * 2;
+    double expectedIngressScore = (expectedIngress1 - expectedIngress3) / expectedIngress1;
+    double expectedEgressScore = (expectedEgress3 - expectedEgress2) / expectedEgress3;
+    double ingressScore = ingressCost().clusterCost(cluster, beans).value();
+    double egressScore = egressCost().clusterCost(cluster, beans).value();
+    Assertions.assertTrue(
+        around.apply(expectedIngressScore).test(ingressScore),
+        "Ingress score should be " + expectedIngressScore + " but it is " + ingressScore);
+    Assertions.assertTrue(
+        around.apply(expectedEgressScore).test(egressScore),
+        "Egress score should be " + expectedEgressScore + " but it is " + egressScore);
   }
 
   interface TestCase {
@@ -202,21 +274,51 @@ class NetworkCostTest {
    * </ul>
    */
   private static class HandWrittenTestCase implements TestCase {
-    private HandWrittenTestCase(ServerMetrics.Topic metric) {
+    private HandWrittenTestCase() {
       this.clusterBean =
           ClusterBean.of(
               Map.of(
                   1,
                   expectedBrokerTopicBandwidth.get(1).entrySet().stream()
-                      .map(e -> bandwidth(metric, e.getKey(), e.getValue()))
+                      .flatMap(
+                          e ->
+                              Stream.of(
+                                  bandwidth(
+                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                      e.getKey(),
+                                      e.getValue()),
+                                  bandwidth(
+                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
+                                      e.getKey(),
+                                      e.getValue())))
                       .collect(Collectors.toUnmodifiableList()),
                   2,
                   expectedBrokerTopicBandwidth.get(2).entrySet().stream()
-                      .map(e -> bandwidth(metric, e.getKey(), e.getValue()))
+                      .flatMap(
+                          e ->
+                              Stream.of(
+                                  bandwidth(
+                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                      e.getKey(),
+                                      e.getValue()),
+                                  bandwidth(
+                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
+                                      e.getKey(),
+                                      e.getValue())))
                       .collect(Collectors.toUnmodifiableList()),
                   3,
                   expectedBrokerTopicBandwidth.get(3).entrySet().stream()
-                      .map(e -> bandwidth(metric, e.getKey(), e.getValue()))
+                      .flatMap(
+                          e ->
+                              Stream.of(
+                                  bandwidth(
+                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                      e.getKey(),
+                                      e.getValue()),
+                                  bandwidth(
+                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
+                                      e.getKey(),
+                                      e.getValue())))
                       .collect(Collectors.toUnmodifiableList())));
     }
 
@@ -290,16 +392,7 @@ class NetworkCostTest {
     private final Map<TopicPartition, Long> rate;
     private final Supplier<DataRate> dataRateSupplier;
 
-    public LargeTestCase(ServerMetrics.Topic metric, int brokers, int partitions, int seed) {
-      this(metric, null, brokers, partitions, seed);
-    }
-
-    public LargeTestCase(
-        ServerMetrics.Topic metric0,
-        ServerMetrics.Topic metric1,
-        int brokers,
-        int partitions,
-        int seed) {
+    public LargeTestCase(int brokers, int partitions, int seed) {
       var random = new Random(seed);
       this.dataRateSupplier =
           () -> {
@@ -364,7 +457,7 @@ class NetworkCostTest {
                                   noise(random.nextInt()),
                                   noise(random.nextInt()),
                                   bandwidth(
-                                      metric0,
+                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
                                       "Pipeline",
                                       clusterInfo
                                           .replicaStream()
@@ -376,7 +469,7 @@ class NetworkCostTest {
                                   noise(random.nextInt()),
                                   noise(random.nextInt()),
                                   bandwidth(
-                                      metric1,
+                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
                                       "Pipeline",
                                       clusterInfo
                                           .replicaStream()

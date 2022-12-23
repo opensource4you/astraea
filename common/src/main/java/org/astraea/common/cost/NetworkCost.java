@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -172,7 +173,9 @@ public abstract class NetworkCost implements HasClusterCost {
                           .orElseThrow(
                               () ->
                                   new NoSufficientMetricsException(
-                                      this, Duration.ofSeconds(1), "No metric for " + bt));
+                                      this,
+                                      Duration.ofSeconds(1),
+                                      "No " + metric.metricName() + " for " + bt));
               if (Double.isNaN(totalShare) || totalShare < 0)
                 throw new NoSufficientMetricsException(
                     this,
@@ -203,8 +206,13 @@ public abstract class NetworkCost implements HasClusterCost {
     throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), reason);
   }
 
-  enum BandwidthType {
+  enum BandwidthType implements EnumInfo {
     Ingress,
-    Egress
+    Egress;
+
+    @Override
+    public String alias() {
+      return name();
+    }
   }
 }
