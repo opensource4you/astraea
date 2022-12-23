@@ -184,7 +184,7 @@ class NetworkCostTest {
   }
 
   @Test
-  void testIngressWithFollowerReplica() {
+  void testReplicationAware() {
     var base =
         ClusterInfoBuilder.builder()
             .addNode(Set.of(1, 2, 3))
