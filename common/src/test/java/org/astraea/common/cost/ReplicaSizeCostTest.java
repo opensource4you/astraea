@@ -27,6 +27,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
@@ -58,7 +59,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
       new BeanObject(
           "domain",
           Map.of("topic", "t", "partition", "12", "name", "SIZE"),
-          Map.of("Value", 499.0),
+          Map.of("Value", 500.0),
           200);
 
   @Test
@@ -75,7 +76,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     var cost = new ReplicaSizeCost();
     var result = cost.brokerCost(clusterInfo(), clusterBean());
     Assertions.assertEquals(3, result.value().size());
-    Assertions.assertEquals(777 + 499, result.value().get(0));
+    Assertions.assertEquals(777 + 500, result.value().get(0));
     Assertions.assertEquals(700, result.value().get(1));
     Assertions.assertEquals(500, result.value().get(2));
   }
@@ -107,7 +108,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        replicas.stream().map(r -> r.nodeInfo()).collect(Collectors.toList()), replicas);
+        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toList()), replicas);
   }
 
   static ClusterInfo<Replica> originClusterInfo() {
@@ -341,7 +342,14 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
         var costFunction = new ReplicaSizeCost();
-        // create come partition to get metrics
+        // when cluster has partitions,each partition will correspond to a statistical bean
+        Assertions.assertThrows(
+            NoSufficientMetricsException.class,
+            () -> costFunction.clusterCost(clusterInfo(), ClusterBean.EMPTY));
+        Assertions.assertDoesNotThrow(
+            () -> costFunction.clusterCost(ClusterInfo.empty(), ClusterBean.EMPTY));
+
+        // create come partition to get metric
         admin
             .creator()
             .topic(topicName)

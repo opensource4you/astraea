@@ -32,6 +32,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
@@ -45,7 +46,6 @@ import org.astraea.common.metrics.stats.Avg;
 public class ReplicaSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
-  public static final String COST_NAME = "size";
   private static final String LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY = "log_size_exp_weight_by_time";
   final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
@@ -125,17 +125,31 @@ public class ReplicaSizeCost
                 Collectors.groupingBy(
                     TopicPartitionReplica::brokerId,
                     Collectors.mapping(
-                        tpr -> statistSizeCount(tpr, clusterBean),
+                        tpr -> statistPartitionSizeCount(tpr.topicPartition(), clusterBean),
                         Collectors.summingDouble(x -> x))));
     return () -> result;
   }
 
-  private static double statistSizeCount(TopicPartitionReplica tpr, ClusterBean clusterBean) {
+  private double statistPartitionSizeCount(TopicPartition tp, ClusterBean clusterBean) {
+    return clusterBean
+        .partitionMetrics(tp, SizeStatisticalBean.class)
+        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+        .map(SizeStatisticalBean::value)
+        .orElseThrow(
+            () ->
+                new NoSufficientMetricsException(
+                    this, Duration.ofSeconds(1), "No metric for " + tp));
+  }
+
+  private double statistReplicaSizeCount(TopicPartitionReplica tpr, ClusterBean clusterBean) {
     return clusterBean
         .replicaMetrics(tpr, SizeStatisticalBean.class)
         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
         .map(SizeStatisticalBean::value)
-        .orElse(0.0);
+        .orElseThrow(
+            () ->
+                new NoSufficientMetricsException(
+                    this, Duration.ofSeconds(1), "No metric for " + tpr));
   }
 
   @Override
@@ -154,7 +168,8 @@ public class ReplicaSizeCost
                 leaderReplica ->
                     Map.entry(
                         leaderReplica.topicPartition(),
-                        statistSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)))
+                        statistReplicaSizeCount(
+                            leaderReplica.topicPartitionReplica(), clusterBean)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> result;
   }
