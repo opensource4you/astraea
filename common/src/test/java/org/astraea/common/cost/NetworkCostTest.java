@@ -230,7 +230,7 @@ class NetworkCostTest {
                     List.of(
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Rain", 100),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Rain", 300)),
-                2, List.of(),
+                2, List.of(noise(5566)),
                 3,
                     List.of(
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Drop", 80),
