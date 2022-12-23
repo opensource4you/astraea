@@ -65,7 +65,7 @@ public abstract class NetworkCost implements HasClusterCost {
       throw new NoSufficientMetricsException(
           this,
           Duration.ofSeconds(1),
-          "The following broker has no metric available: " + noMetricBrokers);
+          "The following brokers have no metric available: " + noMetricBrokers);
   }
 
   void updateCurrentCluster(
