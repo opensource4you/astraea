@@ -116,18 +116,22 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 
 JSON Response 範例
 
-* `id`: 此 Response 所描述的負載平衡計劃編號
-* `generated`: 此負載平衡計劃是否已經生成
+* `id`: 此 Response 所描述的負載平衡計劃之編號
+* `calculated`: 此負載平衡計劃是否已經完成計算
+* `generated`: 此負載平衡計劃是否成功生成，負載平衡計劃可能會因為某些緣故無法計算出來，如當前的優化沒辦法在既有的限制下找到一個更好的解
 * `scheduled`: 此負載平衡計劃是否有排程執行過
 * `done`: 此負載平衡計劃是否結束執行
 * `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
-  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `generated` 會是 `false`)
+  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `calculated` 會是 `false`)
   2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
+* `config` 此優化計劃的搜尋參數設定
+  * `balancer`: 此計劃生成所使用的搜尋算法實作
+  * `balancerConfig`: 搜尋算法實作的參數
+  * `function`: 用來評估叢集狀態之品質的方法
+  * `timeoutMs`: 此優化計劃的搜尋上限時間
 * `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
-  * `isPlanGenerated`: 表示計劃是否成功生成，如果此欄位為 `false` 代表 Balancer 實作無法找到更好的計劃
   * `cost`: 目前叢集的分數 (越高越不好)
   * `newCost`: 提出的新計劃之分數，當計劃沒有成功生成時，此欄位會是 `null`
-  * `function`: 用來評估品質的方法
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
     * `partition`: partition id
@@ -147,14 +151,22 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+  "calculated": true,
   "generated": true,
   "scheduled": true,
   "done": true,
-  "info": {
-    "isPlanGenerated": true,
+  "config": {
+    "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+    "balancerConfig": {
+      "shuffle.plan.generator.max.step": "5",
+      "shuffle.plan.generator.min.step": "1"
+    },
+    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.NetworkEgressCost@69be333e\" weight 1.0}, {\"org.astraea.common.cost.NetworkIngressCost@6c5ec944\" weight 1.0}]",
+    "timeoutMs": 10000
+  },
+  "plan": {
     "cost": 0.04948716593053935,
     "newCost": 0.04948716593053935,
-    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.ReplicaSizeCost@36835e87\" weight 1.0}, {\"org.astraea.common.cost.ReplicaLeaderCost@2d87f4d3\" weight 1.0}]",
     "changes": [
       {
         "topic": "__consumer_offsets",
@@ -198,10 +210,12 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "generated": true,
-  "scheduled": true,
-  "done": true,
+  "calculated": false,
+  "generated": false,
+  "scheduled": false,
+  "done": false,
   "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
+  "config": { /* ... */ },
   "info":{ /* ... */ }
 }
 ```

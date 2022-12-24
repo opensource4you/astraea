@@ -113,15 +113,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   BALANCER_IMPLEMENTATION_KEY,
                   GreedyBalancer.class.getName(),
                   BALANCER_CONFIGURATION_KEY,
-                  Map.of("iteration", "3000"),
+                  Map.of("a", "b"),
                   TIMEOUT_KEY,
                   "1234ms",
                   COST_WEIGHT_KEY,
                   defaultDecreasing));
-      var report = progress.report;
+      var report = progress.plan;
       Assertions.assertNotNull(progress.id);
-      Assertions.assertEquals(1234, progress.timeoutMs);
-      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.balancer);
+      Assertions.assertEquals(1234, progress.config.timeoutMs);
+      Assertions.assertEquals(Map.of("a", "b"), progress.config.balancerConfig);
+      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost.get());
       // "before" should record size
@@ -168,7 +169,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       String.join(",", allowedTopics),
                       COST_WEIGHT_KEY,
                       defaultDecreasing))
-              .report;
+              .plan;
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
@@ -356,7 +357,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       sizeLimit,
                       COST_WEIGHT_KEY,
                       defaultDecreasing))
-              .report;
+              .plan;
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
@@ -407,14 +408,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertNotNull(post.id);
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertEquals(996, progress.timeoutMs);
-      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.balancer);
+      Assertions.assertEquals(996, progress.config.timeoutMs);
+      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertTrue(progress.calculated, "Plan is calculated");
       Assertions.assertFalse(progress.generated, "Plan not available");
-      Assertions.assertTrue(progress.report.newCost.isEmpty(), "No proposal");
-      Assertions.assertNotNull(progress.function);
-      Assertions.assertEquals(0, progress.report.changes.size(), "No proposal");
-      Assertions.assertEquals(0, progress.report.migrationCosts.size(), "No proposal");
+      Assertions.assertTrue(progress.plan.newCost.isEmpty(), "No proposal");
+      Assertions.assertNotNull(progress.config.function);
+      Assertions.assertEquals(0, progress.plan.changes.size(), "No proposal");
+      Assertions.assertEquals(0, progress.plan.migrationCosts.size(), "No proposal");
       Assertions.assertNull(progress.exception, "No exception occurred during this process");
       Assertions.assertInstanceOf(
           IllegalStateException.class,
@@ -671,7 +672,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY, topic));
 
       // pick a partition and alter its placement
-      var theChange = theProgress.report.changes.stream().findAny().orElseThrow();
+      var theChange = theProgress.plan.changes.stream().findAny().orElseThrow();
       admin
           .moveToBrokers(
               Map.of(TopicPartition.of(theChange.topic, theChange.partition), List.of(0, 1, 2)))

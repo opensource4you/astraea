@@ -130,6 +130,7 @@ class BalancerHandler implements Handler {
             .getNow(null);
     var timeout = requestHistory.get(planId).executionTime.toMillis();
     var balancer = requestHistory.get(planId).balancerClasspath;
+    var balancerConfig = requestHistory.get(planId).algorithmConfig.config().raw();
     var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
     var report = isCalculated ? planCalculation.get(planId).join().report : null;
 
@@ -142,6 +143,7 @@ class BalancerHandler implements Handler {
             isDone,
             timeout,
             balancer,
+            balancerConfig,
             functions,
             isCalculated ? executionException : generationException,
             report));
@@ -197,7 +199,7 @@ class BalancerHandler implements Handler {
                                       .collect(Collectors.toUnmodifiableList()))
                           .orElse(List.of());
                   var report =
-                      new Report(
+                      new PlanReport(
                           bestPlan.initialClusterCost().value(),
                           bestPlan.solution().map(p -> p.proposalClusterCost().value()),
                           changes,
@@ -603,7 +605,7 @@ class BalancerHandler implements Handler {
     }
   }
 
-  static class Report implements Response {
+  static class PlanReport implements Response {
     final double cost;
 
     // don't generate new cost if there is no best plan
@@ -612,7 +614,7 @@ class BalancerHandler implements Handler {
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
 
-    Report(
+    PlanReport(
         double initialCost,
         Optional<Double> newCost,
         List<Change> changes,
@@ -625,12 +627,14 @@ class BalancerHandler implements Handler {
   }
 
   static class PlanInfo {
-    private final Report report;
+    private final PlanReport report;
     private final ClusterInfo<Replica> associatedClusterInfo;
     private final Balancer.Plan associatedPlan;
 
     PlanInfo(
-        Report report, ClusterInfo<Replica> associatedClusterInfo, Balancer.Plan associatedPlan) {
+        PlanReport report,
+        ClusterInfo<Replica> associatedClusterInfo,
+        Balancer.Plan associatedPlan) {
       this.report = report;
       this.associatedClusterInfo = associatedClusterInfo;
       this.associatedPlan = associatedPlan;
@@ -664,11 +668,9 @@ class BalancerHandler implements Handler {
     final boolean generated;
     final boolean scheduled;
     final boolean done;
-    final long timeoutMs;
-    final String balancer;
-    final String function;
     final String exception;
-    final Report report;
+    final PlanReport plan;
+    final PlanConfiguration config;
 
     PlanExecutionProgress(
         String id,
@@ -678,19 +680,36 @@ class BalancerHandler implements Handler {
         boolean done,
         long timeoutMs,
         String balancer,
+        Map<String, String> balancerConfig,
         String function,
         String exception,
-        Report report) {
+        PlanReport plan) {
       this.id = id;
       this.calculated = calculated;
       this.generated = generated;
       this.scheduled = scheduled;
       this.done = done;
-      this.timeoutMs = timeoutMs;
-      this.balancer = balancer;
-      this.function = function;
       this.exception = exception;
-      this.report = report;
+      this.plan = plan;
+      this.config = new PlanConfiguration(balancer, balancerConfig, function, timeoutMs);
+    }
+  }
+
+  static class PlanConfiguration implements Response {
+    final String balancer;
+
+    final Map<String, String> balancerConfig;
+
+    final String function;
+
+    final long timeoutMs;
+
+    PlanConfiguration(
+        String balancer, Map<String, String> balancerConfig, String function, long timeoutMs) {
+      this.balancer = balancer;
+      this.balancerConfig = balancerConfig;
+      this.function = function;
+      this.timeoutMs = timeoutMs;
     }
   }
 }
