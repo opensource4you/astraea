@@ -216,7 +216,7 @@ JSON Response 範例
   "done": false,
   "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
   "config": { /* ... */ },
-  "info":{ /* ... */ }
+  "plan":{ /* ... */ }
 }
 ```
 
