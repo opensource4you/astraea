@@ -113,16 +113,17 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
                 ConnectorConfigs.TOPICS_KEY,
                 topicName,
                 PerfSource.THROUGHPUT_DEF.name(),
-                "0Byte"))
+                "1Byte"))
         .toCompletableFuture()
         .join();
 
     Utils.sleep(Duration.ofSeconds(3));
 
     try (var admin = Admin.of(bootstrapServers())) {
-      // no records due to throughput is defined by 0Byte
-      Assertions.assertFalse(
-          admin.topicNames(false).toCompletableFuture().join().contains(topicName));
+      var offsets =
+          admin.latestOffsets(Set.of(TopicPartition.of(topicName, 0))).toCompletableFuture().join();
+      Assertions.assertEquals(1, offsets.size());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)));
     }
   }
 

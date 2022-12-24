@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -34,7 +33,6 @@ import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.stats.Rate;
-import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
@@ -169,9 +167,7 @@ public class PerfSource extends SourceConnector {
 
     Set<Integer> specifyPartitions = Set.of();
 
-    final Rate rate = Rate.of(TimeUnit.SECONDS);
-
-    long last = System.currentTimeMillis();
+    final Rate<DataSize> sizeRate = Rate.sizeRate();
 
     @Override
     protected void init(Configuration configuration, MetadataStorage storage) {
@@ -235,35 +231,41 @@ public class PerfSource extends SourceConnector {
           });
     }
 
-    @Override
-    protected Collection<Record<byte[], byte[]>> take() {
-      if (rate.measure() >= throughput.bytes()) return List.of();
-      try {
-        if (specifyPartitions.isEmpty())
-          return topics.stream()
-              .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
-              .collect(Collectors.toList());
+    private Collection<Record<byte[], byte[]>> records() {
+      if (specifyPartitions.isEmpty())
         return topics.stream()
-            .flatMap(
-                t ->
-                    specifyPartitions.stream()
-                        .map(
-                            p ->
-                                Record.builder()
-                                    .topic(t)
-                                    .partition(p)
-                                    .key(key())
-                                    .value(value())
-                                    .build()))
+            .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
             .collect(Collectors.toList());
-      } finally {
-        last = System.currentTimeMillis();
-      }
+      return topics.stream()
+          .flatMap(
+              t ->
+                  specifyPartitions.stream()
+                      .map(
+                          p ->
+                              Record.builder()
+                                  .topic(t)
+                                  .partition(p)
+                                  .key(key())
+                                  .value(value())
+                                  .build()))
+          .collect(Collectors.toList());
     }
 
     @Override
-    protected void commit(Metadata metadata) {
-      rate.record((long) (metadata.serializedValueSize() + metadata.serializedKeySize()));
+    protected Collection<Record<byte[], byte[]>> take() {
+      var size = sizeRate.measure();
+      if (size.greaterThan(throughput)) return List.of();
+      var records = records();
+      records.forEach(r -> sizeRate.record(DataSize.Byte.of(estimatedSize(r))));
+      return records;
+    }
+
+    private static int estimatedSize(Record<byte[], byte[]> record) {
+      return (record.key() == null ? 0 : record.key().length)
+          + (record.value() == null ? 0 : record.value().length)
+          + record.headers().stream()
+              .mapToInt(h -> h.key().length() + (h.value() == null ? 0 : record.value().length))
+              .sum();
     }
   }
 }
