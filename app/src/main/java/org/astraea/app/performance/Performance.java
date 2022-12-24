@@ -27,9 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.app.argument.DataRateField;
@@ -46,15 +45,14 @@ import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.TopicPartitionDataRateMapField;
 import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
-import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -69,18 +67,8 @@ public class Performance {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
-  private static DataSupplier dataSupplier(Performance.Argument argument) {
-    return DataSupplier.of(
-        argument.exeTime,
-        argument.keyDistributionType.create(10000),
-        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
-        argument.valueDistributionType.create(10000),
-        argument.valueDistributionType.create(
-            argument.valueSize.measurement(DataUnit.Byte).intValue()),
-        argument.throughput);
-  }
-
   public static List<String> execute(final Argument param) throws IOException {
+    var blockingQueue = new ArrayBlockingQueue<List<DataGenerator.DataSupplier.Data>>(10000);
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -91,16 +79,15 @@ public class Performance {
     System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
-            param.transactionSize,
-            dataSupplier(param),
-            param.topicPartitionSelector(),
-            param.producers,
-            param::createProducer,
-            param.interdependent);
+            blockingQueue, param.producers, param::createProducer, param.interdependent);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
             : consumers(param, latestOffsets);
+
+    System.out.println("creating data generator");
+    var dataGenerator = DataGenerator.of(blockingQueue, param);
+
     System.out.println("creating tracker");
     var tracker =
         TrackerThread.create(
@@ -143,6 +130,7 @@ public class Performance {
         });
     monkeys.forEach(AbstractThread::waitForDone);
     consumerThreads.forEach(AbstractThread::waitForDone);
+    dataGenerator.waitForDone();
     tracker.waitForDone();
     fileWriterFuture.join();
     return param.topics;
@@ -322,77 +310,6 @@ public class Performance {
         converter = TopicPartitionField.class)
     List<TopicPartition> specifyPartitions = List.of();
 
-    /**
-     * @return a supplier that randomly return a sending target
-     */
-    Supplier<TopicPartition> topicPartitionSelector() {
-      var specifiedByBroker = !specifyBrokers.isEmpty();
-      var specifiedByPartition = !specifyPartitions.isEmpty();
-      if (specifiedByBroker && specifiedByPartition)
-        throw new IllegalArgumentException(
-            "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
-      else if (specifiedByBroker) {
-        try (var admin = Admin.of(configs())) {
-          final var selections =
-              admin
-                  .clusterInfo(Set.copyOf(topics))
-                  .toCompletableFuture()
-                  .join()
-                  .replicaStream()
-                  .filter(ReplicaInfo::isLeader)
-                  .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
-                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
-                  .distinct()
-                  .collect(Collectors.toUnmodifiableList());
-
-          if (selections.isEmpty())
-            throw new IllegalArgumentException(
-                "No partition match the specify.brokers requirement");
-
-          return () -> selections.get(ThreadLocalRandom.current().nextInt(selections.size()));
-        }
-      } else if (specifiedByPartition) {
-        // specify.partitions can't be use in conjunction with partitioner or topics
-        if (partitioner != null)
-          throw new IllegalArgumentException(
-              "--specify.partitions can't be used in conjunction with partitioner");
-        // sanity check, ensure all specified partitions are existed
-        try (var admin = Admin.of(configs())) {
-          var allTopics = admin.topicNames(false).toCompletableFuture().join();
-          var allTopicPartitions =
-              admin
-                  .clusterInfo(
-                      specifyPartitions.stream()
-                          .map(TopicPartition::topic)
-                          .filter(allTopics::contains)
-                          .collect(Collectors.toUnmodifiableSet()))
-                  .toCompletableFuture()
-                  .join()
-                  .replicaStream()
-                  .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
-                  .collect(Collectors.toSet());
-          var notExist =
-              specifyPartitions.stream()
-                  .filter(tp -> !allTopicPartitions.contains(tp))
-                  .collect(Collectors.toUnmodifiableSet());
-          if (!notExist.isEmpty())
-            throw new IllegalArgumentException(
-                "The following topic/partitions are nonexistent in the cluster: " + notExist);
-        }
-
-        final var selection =
-            specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
-        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
-      } else {
-        final var selection =
-            topics.stream()
-                .map(topic -> TopicPartition.of(topic, -1))
-                .distinct()
-                .collect(Collectors.toUnmodifiableList());
-        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
-      }
-    }
-
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
@@ -440,5 +357,11 @@ public class Performance {
             "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
         validateWith = PositiveIntegerField.class)
     int interdependent = 1;
+
+    @Parameter(
+        names = {"--throttle"},
+        description = "Map<String, DataRate>: Set the topic-partitions and its' throttle data rate",
+        converter = TopicPartitionDataRateMapField.class)
+    Map<TopicPartition, DataRate> throttles = Map.of();
   }
 }

@@ -16,8 +16,8 @@
  */
 package org.astraea.app.performance;
 
-import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -27,7 +27,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -35,9 +34,7 @@ import org.astraea.common.producer.Record;
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      int batchSize,
-      DataSupplier dataSupplier,
-      Supplier<TopicPartition> topicPartitionSupplier,
+      BlockingQueue<List<DataGenerator.DataSupplier.Data>> queue,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
@@ -68,34 +65,33 @@ public interface ProducerThread extends AbstractThread {
                     try {
                       int interdependentCounter = 0;
                       while (!closed.get()) {
-                        var data =
-                            IntStream.range(0, batchSize)
-                                .mapToObj(i -> dataSupplier.get())
-                                .collect(Collectors.toUnmodifiableList());
+                        List<DataGenerator.DataSupplier.Data> data;
+                        try {
+                          data = queue.take();
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(e);
+                        }
 
                         // no more data
-                        if (data.stream().allMatch(DataSupplier.Data::done)) return;
+                        if (data.stream().allMatch(DataGenerator.DataSupplier.Data::done)) return;
 
-                        // no data due to throttle
-                        // TODO: we should return a precise sleep time
-                        if (data.stream().allMatch(DataSupplier.Data::throttled)) {
-                          Utils.sleep(Duration.ofSeconds(1));
-                          continue;
-                        }
+                        var tp = data.get(0).topicPartition();
 
                         // Using interdependent
                         if (interdependent > 1) {
                           Dispatcher.beginInterdependent(producer);
                           interdependentCounter +=
-                              data.stream().filter(DataSupplier.Data::hasData).count();
+                              data.stream()
+                                  .filter(DataGenerator.DataSupplier.Data::hasData)
+                                  .count();
                         }
                         producer.send(
                             data.stream()
-                                .filter(DataSupplier.Data::hasData)
+                                .filter(DataGenerator.DataSupplier.Data::hasData)
                                 .map(
                                     d ->
                                         Record.builder()
-                                            .topicPartition(topicPartitionSupplier.get())
+                                            .topicPartition(tp)
                                             .key(d.key())
                                             .value(d.value())
                                             .timestamp(System.currentTimeMillis())
