@@ -56,6 +56,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
@@ -109,12 +110,18 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           submitPlanGeneration(
               handler,
               Map.of(
+                  BALANCER_IMPLEMENTATION_KEY,
+                  GreedyBalancer.class.getName(),
                   BALANCER_CONFIGURATION_KEY,
                   Map.of("iteration", "3000"),
+                  TIMEOUT_KEY,
+                  "1234ms",
                   COST_WEIGHT_KEY,
                   defaultDecreasing));
       var report = progress.report;
       Assertions.assertNotNull(progress.id);
+      Assertions.assertEquals(1234, progress.timeoutMs);
+      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost.get());
       // "before" should record size
@@ -383,7 +390,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   .post(
                       Channel.ofRequest(
                           JsonConverter.defaultConverter()
-                              .toJson(Map.of(COST_WEIGHT_KEY, defaultIncreasing))))
+                              .toJson(
+                                  Map.of(
+                                      COST_WEIGHT_KEY,
+                                      defaultIncreasing,
+                                      TIMEOUT_KEY,
+                                      "996ms",
+                                      BALANCER_IMPLEMENTATION_KEY,
+                                      GreedyBalancer.class.getName()))))
                   .toCompletableFuture()
                   .join());
       Utils.sleep(Duration.ofSeconds(5));
@@ -393,9 +407,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertNotNull(post.id);
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertTrue(progress.generated, "Plan is calculated");
+      Assertions.assertEquals(996, progress.timeoutMs);
+      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.balancer);
+      Assertions.assertTrue(progress.calculated, "Plan is calculated");
+      Assertions.assertFalse(progress.generated, "Plan not available");
       Assertions.assertTrue(progress.report.newCost.isEmpty(), "No proposal");
-      Assertions.assertNotNull(progress.report.function);
+      Assertions.assertNotNull(progress.function);
       Assertions.assertEquals(0, progress.report.changes.size(), "No proposal");
       Assertions.assertEquals(0, progress.report.migrationCosts.size(), "No proposal");
       Assertions.assertNull(progress.exception, "No exception occurred during this process");
@@ -704,6 +721,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           };
       var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
+      Assertions.assertTrue(progress.calculated, "The plan should be generated");
       Assertions.assertTrue(progress.generated, "The plan should be generated");
 
       // not scheduled yet
@@ -713,6 +731,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress0.id);
+      Assertions.assertTrue(progress0.calculated);
       Assertions.assertTrue(progress0.generated);
       Assertions.assertFalse(progress0.scheduled);
       Assertions.assertFalse(progress0.done);
@@ -737,6 +756,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress1.id);
+      Assertions.assertTrue(progress1.calculated);
       Assertions.assertTrue(progress1.generated);
       Assertions.assertTrue(progress1.scheduled);
       Assertions.assertFalse(progress1.done);
@@ -750,6 +770,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress2.id);
+      Assertions.assertTrue(progress2.calculated);
       Assertions.assertTrue(progress2.generated);
       Assertions.assertTrue(progress2.scheduled);
       Assertions.assertTrue(progress2.done);
@@ -782,7 +803,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           () ->
               ((BalancerHandler.PlanExecutionProgress)
                       handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
-                  .generated);
+                  .calculated);
       var generated =
           ((BalancerHandler.PlanExecutionProgress)
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
@@ -808,6 +829,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
+      Assertions.assertTrue(progress.calculated);
       Assertions.assertTrue(progress.generated);
       Assertions.assertTrue(progress.scheduled);
       Assertions.assertTrue(progress.done);
@@ -923,6 +945,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY,
                   String.join(",", topics)));
 
+      Assertions.assertTrue(progress.calculated, "The plan has been calculated");
       Assertions.assertTrue(progress.generated, "The plan has been generated");
       Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
       Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
@@ -1028,6 +1051,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress =
           (BalancerHandler.PlanExecutionProgress)
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
+      Assertions.assertFalse(progress.calculated, "The plan calculation finished");
       Assertions.assertFalse(progress.generated, "The plan won't generate");
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
@@ -1066,6 +1090,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY,
                   String.join(",", topics)));
 
+      Assertions.assertTrue(progress.calculated);
       Assertions.assertTrue(progress.generated);
       Assertions.assertTrue(invoked.get());
     }
@@ -1226,7 +1251,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               (BalancerHandler.PlanExecutionProgress)
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
-          return progress.generated;
+          return progress.calculated;
         });
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();

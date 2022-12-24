@@ -73,7 +73,9 @@ class BalancerHandler implements Handler {
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
-  private final Map<String, CompletableFuture<PlanInfo>> generatedPlans = new ConcurrentHashMap<>();
+  private final Map<String, PostRequestWrapper> requestHistory = new ConcurrentHashMap<>();
+  private final Map<String, CompletableFuture<PlanInfo>> planCalculation =
+      new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
   private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
   private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
@@ -105,16 +107,19 @@ class BalancerHandler implements Handler {
   public CompletionStage<Response> get(Channel channel) {
     if (channel.target().isEmpty()) return CompletableFuture.completedFuture(Response.NOT_FOUND);
     var planId = channel.target().get();
-    if (!generatedPlans.containsKey(planId))
+    if (!planCalculation.containsKey(planId))
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
+    boolean isCalculated =
+        planCalculation.get(planId).isDone()
+            && !planCalculation.get(planId).isCompletedExceptionally()
+            && !planCalculation.get(planId).isCancelled();
     boolean isGenerated =
-        generatedPlans.get(planId).isDone()
-            && !generatedPlans.get(planId).isCompletedExceptionally()
-            && !generatedPlans.get(planId).isCancelled();
+        isCalculated
+            && planCalculation.get(planId).getNow(null).associatedPlan.solution().isPresent();
     boolean isScheduled = executedPlans.containsKey(planId);
     boolean isDone = isScheduled && executedPlans.get(planId).isDone();
     var generationException =
-        generatedPlans
+        planCalculation
             .getOrDefault(planId, CompletableFuture.completedFuture(null))
             .handle((result, error) -> error != null ? error.toString() : null)
             .getNow(null);
@@ -123,15 +128,22 @@ class BalancerHandler implements Handler {
             .getOrDefault(planId, CompletableFuture.completedFuture(null))
             .handle((result, error) -> error != null ? error.toString() : null)
             .getNow(null);
-    var report = isGenerated ? generatedPlans.get(planId).join().report : null;
+    var timeout = requestHistory.get(planId).executionTime.toMillis();
+    var balancer = requestHistory.get(planId).balancerClasspath;
+    var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
+    var report = isCalculated ? planCalculation.get(planId).join().report : null;
 
     return CompletableFuture.completedFuture(
         new PlanExecutionProgress(
             planId,
+            isCalculated,
             isGenerated,
             isScheduled,
             isDone,
-            isGenerated ? executionException : generationException,
+            timeout,
+            balancer,
+            functions,
+            isCalculated ? executionException : generationException,
             report));
   }
 
@@ -139,13 +151,20 @@ class BalancerHandler implements Handler {
   public CompletionStage<Response> post(Channel channel) {
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var newPlanId = UUID.randomUUID().toString();
-    var planGeneration =
+    var request =
         admin
             .topicNames(false)
             .thenCompose(admin::clusterInfo)
             .thenApply(
-                currentClusterInfo -> {
-                  var request = parsePostRequestWrapper(balancerPostRequest, currentClusterInfo);
+                currentClusterInfo ->
+                    parsePostRequestWrapper(balancerPostRequest, currentClusterInfo))
+            .toCompletableFuture()
+            .join();
+    requestHistory.put(newPlanId, request);
+    var planGeneration =
+        CompletableFuture.supplyAsync(
+                () -> {
+                  var currentClusterInfo = request.clusterInfo;
                   var fetchers =
                       Stream.concat(
                               request.algorithmConfig.clusterCostFunction().fetcher().stream(),
@@ -179,10 +198,8 @@ class BalancerHandler implements Handler {
                           .orElse(List.of());
                   var report =
                       new Report(
-                          bestPlan.solution().isPresent(),
                           bestPlan.initialClusterCost().value(),
                           bestPlan.solution().map(p -> p.proposalClusterCost().value()),
-                          request.algorithmConfig.clusterCostFunction().toString(),
                           changes,
                           bestPlan
                               .solution()
@@ -196,7 +213,7 @@ class BalancerHandler implements Handler {
                     new RuntimeException("Failed to generate balance plan: " + newPlanId, error)
                         .printStackTrace();
                 });
-    generatedPlans.put(newPlanId, planGeneration.toCompletableFuture());
+    planCalculation.put(newPlanId, planGeneration.toCompletableFuture());
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
@@ -303,7 +320,8 @@ class BalancerHandler implements Handler {
             .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
             .config(balancerConfig)
-            .build());
+            .build(),
+        currentClusterInfo);
   }
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
@@ -384,7 +402,7 @@ class BalancerHandler implements Handler {
 
     final var thePlanId = request.id;
     final var future =
-        Optional.ofNullable(generatedPlans.get(thePlanId))
+        Optional.ofNullable(planCalculation.get(thePlanId))
             .orElseThrow(
                 () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
     if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
@@ -505,12 +523,17 @@ class BalancerHandler implements Handler {
     final String balancerClasspath;
     final Duration executionTime;
     final AlgorithmConfig algorithmConfig;
+    final ClusterInfo<Replica> clusterInfo;
 
     PostRequestWrapper(
-        String balancerClasspath, Duration executionTime, AlgorithmConfig algorithmConfig) {
+        String balancerClasspath,
+        Duration executionTime,
+        AlgorithmConfig algorithmConfig,
+        ClusterInfo<Replica> clusterInfo) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
       this.algorithmConfig = algorithmConfig;
+      this.clusterInfo = clusterInfo;
     }
   }
 
@@ -581,27 +604,21 @@ class BalancerHandler implements Handler {
   }
 
   static class Report implements Response {
-    final boolean isPlanGenerated;
     final double cost;
 
     // don't generate new cost if there is no best plan
     final Optional<Double> newCost;
 
-    final String function;
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
 
     Report(
-        boolean isPlanGenerated,
         double initialCost,
         Optional<Double> newCost,
-        String function,
         List<Change> changes,
         List<MigrationCost> migrationCosts) {
-      this.isPlanGenerated = isPlanGenerated;
       this.cost = initialCost;
       this.newCost = newCost;
-      this.function = function;
       this.changes = changes;
       this.migrationCosts = migrationCosts;
     }
@@ -643,23 +660,35 @@ class BalancerHandler implements Handler {
 
   static class PlanExecutionProgress implements Response {
     final String id;
+    final boolean calculated;
     final boolean generated;
     final boolean scheduled;
     final boolean done;
+    final long timeoutMs;
+    final String balancer;
+    final String function;
     final String exception;
     final Report report;
 
     PlanExecutionProgress(
         String id,
+        boolean calculated,
         boolean generated,
         boolean scheduled,
         boolean done,
+        long timeoutMs,
+        String balancer,
+        String function,
         String exception,
         Report report) {
       this.id = id;
+      this.calculated = calculated;
       this.generated = generated;
       this.scheduled = scheduled;
       this.done = done;
+      this.timeoutMs = timeoutMs;
+      this.balancer = balancer;
+      this.function = function;
       this.exception = exception;
       this.report = report;
     }
