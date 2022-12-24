@@ -33,7 +33,6 @@ import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.stats.Rate;
-import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
@@ -232,9 +231,7 @@ public class PerfSource extends SourceConnector {
           });
     }
 
-    @Override
-    protected Collection<Record<byte[], byte[]>> take() {
-      if (sizeRate.measure().greaterThan(throughput)) return List.of();
+    private Collection<Record<byte[], byte[]>> records() {
       if (specifyPartitions.isEmpty())
         return topics.stream()
             .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
@@ -255,9 +252,20 @@ public class PerfSource extends SourceConnector {
     }
 
     @Override
-    protected void commit(Metadata metadata) {
-      sizeRate.record(
-          DataSize.Byte.of(metadata.serializedValueSize() + metadata.serializedKeySize()));
+    protected Collection<Record<byte[], byte[]>> take() {
+      var size = sizeRate.measure();
+      if (size.greaterThan(throughput)) return List.of();
+      var records = records();
+      records.forEach(r -> sizeRate.record(DataSize.Byte.of(estimatedSize(r))));
+      return records;
+    }
+
+    private static int estimatedSize(Record<byte[], byte[]> record) {
+      return (record.key() == null ? 0 : record.key().length)
+          + (record.value() == null ? 0 : record.value().length)
+          + record.headers().stream()
+              .mapToInt(h -> h.key().length() + (h.value() == null ? 0 : record.value().length))
+              .sum();
     }
   }
 }
