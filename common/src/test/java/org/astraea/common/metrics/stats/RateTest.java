@@ -17,22 +17,18 @@
 package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
+import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class RateByTimeTest {
+public class RateTest {
+
   @Test
-  void testMeasure() throws InterruptedException {
-    var rateByTime = new RateByTime(Duration.ofSeconds(1));
-    rateByTime.record(10.0);
-    rateByTime.record(10.0);
-    Thread.sleep(1000);
-    rateByTime.record(50.0);
-
-    Assertions.assertEquals(40.0, rateByTime.measure());
-
-    rateByTime.record(50.0);
-
-    Assertions.assertEquals(40.0, rateByTime.measure());
+  void testMeasure() {
+    var rate = Rate.sizeRate();
+    rate.record(DataSize.Byte.of(100L));
+    Utils.sleep(Duration.ofSeconds(1));
+    Assertions.assertTrue(rate.measure().bytes() < 100);
   }
 }
