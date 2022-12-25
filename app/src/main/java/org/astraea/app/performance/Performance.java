@@ -85,7 +85,7 @@ public class Performance {
   }
 
   public static List<String> execute(final Argument param) throws IOException {
-    var blockingQueue = new ArrayBlockingQueue<List<DataSupplier.Data>>(10000);
+    var blockingQueue = new ArrayBlockingQueue<List<DataSupplier.Data>>(1000);
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();

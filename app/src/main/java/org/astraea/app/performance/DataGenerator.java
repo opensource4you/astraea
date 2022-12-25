@@ -55,11 +55,12 @@ public interface DataGenerator extends AbstractThread {
                     while (!closed.get()) {
                       var tp = partitionSelector.get();
                       var data = dataSupplier.apply(tp);
+
                       // throttled data wouldn't put into the queue
                       if (data.stream().allMatch(DataSupplier.Data::throttled)) continue;
 
                       try {
-                        if (queue.offer(data, 5, TimeUnit.SECONDS)
+                        if (!queue.offer(data, 5, TimeUnit.SECONDS)
                             && data.stream().allMatch(DataSupplier.Data::done)) return;
                       } catch (InterruptedException e) {
                         throw new RuntimeException(e);

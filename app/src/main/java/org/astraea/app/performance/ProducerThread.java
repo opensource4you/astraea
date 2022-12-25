@@ -73,7 +73,8 @@ public interface ProducerThread extends AbstractThread {
                         }
 
                         // no more data
-                        if (data.stream().allMatch(DataSupplier.Data::done)) return;
+                        if (data.stream().allMatch(DataSupplier.Data::done))
+                            return;
 
                         var tp = data.get(0).topicPartition();
 
