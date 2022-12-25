@@ -71,6 +71,7 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -175,7 +176,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0D, v));
+      Assertions.assertNotEquals(
+          0,
+          sizeMigration.brokerCosts.values().stream().filter(v -> v > 0).count(),
+          "report.cost: " + report.cost + " report.newCost.get(): " + report.newCost.get());
     }
   }
 
