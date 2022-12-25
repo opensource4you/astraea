@@ -93,6 +93,9 @@ public class Exporter extends SinkConnector {
   @Override
   protected void init(Configuration configuration) {
     this.cons = configuration;
+    configuration.requireString("topics");
+    configuration.requireString("path");
+    configuration.requireString("size");
   }
 
   @Override
