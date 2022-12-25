@@ -38,40 +38,6 @@ public class Avg {
     };
   }
 
-  /**
-   * Calculate the difference of the latest two ranged data.
-   *
-   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
-   *     within the duration, it will be regarded as one
-   */
-  public static Stat<Double> rateByTime(Duration period) {
-    return new Stat<>() {
-      private double accumulate = 0.0;
-
-      private long count = 0;
-
-      private final Debounce<Double> debounce = Debounce.of(period);
-      ;
-
-      @Override
-      public synchronized void record(Double value) {
-        long current = System.currentTimeMillis();
-        debounce
-            .record(value, current)
-            .ifPresent(
-                debouncedValue -> {
-                  accumulate += debouncedValue;
-                  ++count;
-                });
-      }
-
-      @Override
-      public synchronized Double measure() {
-        return accumulate / count;
-      }
-    };
-  }
-
   public static Stat<Double> expWeightByTime(Duration period) {
     return expWeightByTime(period, 0.5);
   }
