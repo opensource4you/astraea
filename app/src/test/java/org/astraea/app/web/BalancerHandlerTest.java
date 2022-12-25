@@ -859,7 +859,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
-      Assertions.assertEquals(BalancerHandler.PlanPhase.ReadyForExecution, progress0.phase, "The plan is ready");
+      Assertions.assertEquals(
+          BalancerHandler.PlanPhase.ReadyForExecution, progress0.phase, "The plan is ready");
 
       // schedule
       var response =

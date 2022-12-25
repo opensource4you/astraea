@@ -119,9 +119,11 @@ class BalancerHandler implements Handler {
         isCalculated
             && planCalculation.get(planId).getNow(null).associatedPlan.solution().isPresent();
     boolean isScheduled = executedPlans.containsKey(planId);
-    boolean isDone = isScheduled && executedPlans.get(planId).isDone() &&
-        !executedPlans.get(planId).isCompletedExceptionally() &&
-        !executedPlans.get(planId).isCancelled();
+    boolean isDone =
+        isScheduled
+            && executedPlans.get(planId).isDone()
+            && !executedPlans.get(planId).isCompletedExceptionally()
+            && !executedPlans.get(planId).isCancelled();
     var generationException =
         planCalculation
             .getOrDefault(planId, CompletableFuture.completedFuture(null))
@@ -140,9 +142,11 @@ class BalancerHandler implements Handler {
     var phase = PlanPhase.Searching;
     if (isCalculated && !isGenerated) phase = PlanPhase.NoSolutionFound;
     if (phase == PlanPhase.Searching && isCalculated) phase = PlanPhase.ReadyForExecution;
-    if (phase == PlanPhase.Searching && generationException != null) phase = PlanPhase.SearchException;
+    if (phase == PlanPhase.Searching && generationException != null)
+      phase = PlanPhase.SearchException;
     if (phase == PlanPhase.ReadyForExecution && isScheduled) phase = PlanPhase.Executing;
-    if (phase == PlanPhase.Executing && executionException != null) phase = PlanPhase.ExecutionException;
+    if (phase == PlanPhase.Executing && executionException != null)
+      phase = PlanPhase.ExecutionException;
     if (phase == PlanPhase.Executing && isDone) phase = PlanPhase.Executed;
 
     return CompletableFuture.completedFuture(
