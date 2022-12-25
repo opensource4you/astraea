@@ -16,32 +16,30 @@
  */
 package org.astraea.common.metrics.stats;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.time.Duration;
+import org.astraea.common.DataSize;
 
 /** By contrast to {@link Avg}, {@link Rate} measure the value by time instead of "count". */
-public interface Rate extends Stat<Long> {
+public interface Rate<T> extends Stat<T> {
   /**
-   * @param unit of rate
-   * @return sum of recorded values / (time of last record - start time)
+   * @return sum of recorded size / (time of last record - start time). Noted that the unit is
+   *     second
    */
-  static Rate of(TimeUnit unit) {
-    return new Rate() {
+  static Rate<DataSize> sizeRate() {
+    return new Rate<>() {
       private final long start = System.currentTimeMillis();
-      private volatile long last = System.currentTimeMillis();
-      private final AtomicLong sum = new AtomicLong();
+      private DataSize size = DataSize.Byte.of(0);
 
       @Override
-      public void record(Long value) {
-        sum.addAndGet(value);
-        last = System.currentTimeMillis();
+      public synchronized void record(DataSize value) {
+        size = size.add(value);
       }
 
       @Override
-      public Long measure() {
-        var diff = last - start;
-        if (diff <= 0) return 0L;
-        return (long) (sum.doubleValue() / unit.convert(diff, TimeUnit.MILLISECONDS));
+      public synchronized DataSize measure() {
+        var diff = System.currentTimeMillis() - start;
+        if (diff <= 0) return DataSize.Byte.of(0);
+        return size.dataRate(Duration.ofMillis(diff)).dataSize();
       }
     };
   }
