@@ -117,13 +117,17 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 JSON Response 範例
 
 * `id`: 此 Response 所描述的負載平衡計劃之編號
-* `calculated`: 此負載平衡計劃是否已經完成計算
-* `generated`: 此負載平衡計劃是否成功生成，負載平衡計劃可能會因為某些緣故無法計算出來，如當前的優化沒辦法在既有的限制下找到一個更好的解
-* `scheduled`: 此負載平衡計劃是否有排程執行過
-* `done`: 此負載平衡計劃是否結束執行
+* `phase`: 代表此負載平衡計劃狀態的字串，可能是下列任一值
+  * `Searching`: 正在搜尋能使叢集變更好的負載平衡計劃
+  * `NoSolutionFound`: 計劃搜尋結束且沒辦法找到能使叢集變更好的分佈方式
+  * `SearchException`: 計劃搜尋過程發生例外，`exception` 或 stderr 應該有相關的錯誤訊息
+  * `ReadyForExecution`: 計劃搜尋完成，有找到一個讓叢集變更好的分佈方式，等待使用者調度執行
+  * `Executing`: 正在將負載平衡計劃套用至叢集
+  * `ExecutionException`: 負載平衡計劃套用過程發生例外，`exception` 或 stderr 應該有相關的錯誤訊息
+  * `Executed`: 此負載平衡計劃已經成功套用至叢集
 * `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
-  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `calculated` 會是 `false`)
-  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
+  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `SearchException`)
+  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `ExecutionException`)
 * `config` 此優化計劃的搜尋參數設定
   * `balancer`: 此計劃生成所使用的搜尋算法實作
   * `function`: 用來評估叢集狀態之品質的方法

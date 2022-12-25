@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.argument.DataSizeField;
 import org.astraea.common.Configuration;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -118,7 +119,9 @@ class BalancerHandler implements Handler {
         isCalculated
             && planCalculation.get(planId).getNow(null).associatedPlan.solution().isPresent();
     boolean isScheduled = executedPlans.containsKey(planId);
-    boolean isDone = isScheduled && executedPlans.get(planId).isDone();
+    boolean isDone = isScheduled && executedPlans.get(planId).isDone() &&
+        !executedPlans.get(planId).isCompletedExceptionally() &&
+        !executedPlans.get(planId).isCancelled();
     var generationException =
         planCalculation
             .getOrDefault(planId, CompletableFuture.completedFuture(null))
@@ -134,13 +137,18 @@ class BalancerHandler implements Handler {
     var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
     var report = isCalculated ? planCalculation.get(planId).join().report : null;
 
+    var phase = PlanPhase.Searching;
+    if (isCalculated && !isGenerated) phase = PlanPhase.NoSolutionFound;
+    if (phase == PlanPhase.Searching && isCalculated) phase = PlanPhase.ReadyForExecution;
+    if (phase == PlanPhase.Searching && generationException != null) phase = PlanPhase.SearchException;
+    if (phase == PlanPhase.ReadyForExecution && isScheduled) phase = PlanPhase.Executing;
+    if (phase == PlanPhase.Executing && executionException != null) phase = PlanPhase.ExecutionException;
+    if (phase == PlanPhase.Executing && isDone) phase = PlanPhase.Executed;
+
     return CompletableFuture.completedFuture(
         new PlanExecutionProgress(
             planId,
-            isCalculated,
-            isGenerated,
-            isScheduled,
-            isDone,
+            phase,
             timeout,
             balancer,
             functions,
@@ -663,33 +671,52 @@ class BalancerHandler implements Handler {
 
   static class PlanExecutionProgress implements Response {
     final String id;
-    final boolean calculated;
-    final boolean generated;
-    final boolean scheduled;
-    final boolean done;
+    final PlanPhase phase;
     final String exception;
     final PlanReport plan;
     final PlanConfiguration config;
 
     PlanExecutionProgress(
         String id,
-        boolean calculated,
-        boolean generated,
-        boolean scheduled,
-        boolean done,
+        PlanPhase phase,
         long timeoutMs,
         String balancer,
         String function,
         String exception,
         PlanReport plan) {
       this.id = id;
-      this.calculated = calculated;
-      this.generated = generated;
-      this.scheduled = scheduled;
-      this.done = done;
+      this.phase = phase;
       this.exception = exception;
       this.plan = plan;
       this.config = new PlanConfiguration(balancer, function, timeoutMs);
+    }
+  }
+
+  enum PlanPhase implements EnumInfo {
+    Searching,
+    NoSolutionFound,
+    SearchException,
+    ReadyForExecution,
+    Executing,
+    ExecutionException,
+    Executed;
+
+    static PlanPhase ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(PlanPhase.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    public Boolean calculated() {
+      return this == NoSolutionFound || this == ReadyForExecution;
     }
   }
 
