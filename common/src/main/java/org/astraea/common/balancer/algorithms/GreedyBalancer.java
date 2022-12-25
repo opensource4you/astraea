@@ -67,7 +67,7 @@ public class GreedyBalancer implements Balancer {
             .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
-            .orElse(30);
+            .orElse(5);
     iteration =
         config
             .config()
