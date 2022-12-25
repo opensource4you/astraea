@@ -544,20 +544,41 @@ class AdminImpl implements Admin {
   public CompletionStage<List<ProducerState>> producerStates(Set<TopicPartition> partitions) {
     if (partitions.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return to(kafkaAdmin
-            .describeProducers(
-                partitions.stream()
-                    .map(TopicPartition::to)
-                    .collect(Collectors.toUnmodifiableList()))
+            .describeTopics(
+                partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet()))
             .all())
         .thenApply(
-            ps ->
-                ps.entrySet().stream()
-                    .flatMap(
-                        e ->
-                            e.getValue().activeProducers().stream()
-                                .map(s -> ProducerState.of(e.getKey(), s)))
-                    .sorted(Comparator.comparing(ProducerState::topic))
-                    .collect(Collectors.toList()));
+            ts ->
+                partitions.stream()
+                    .filter(
+                        p ->
+                            ts.containsKey(p.topic())
+                                && ts.get(p.topic()).partitions().stream()
+                                    .anyMatch(
+                                        partitionInfo ->
+                                            partitionInfo.partition() == p.partition()
+                                                // It will get stuck if admin tries to connect to
+                                                // offline nodes,
+                                                && partitionInfo.leader() != null
+                                                && !partitionInfo.leader().isEmpty()))
+                    .collect(Collectors.toSet()))
+        .thenCompose(
+            availablePartitions ->
+                to(kafkaAdmin
+                        .describeProducers(
+                            availablePartitions.stream()
+                                .map(TopicPartition::to)
+                                .collect(Collectors.toUnmodifiableList()))
+                        .all())
+                    .thenApply(
+                        ps ->
+                            ps.entrySet().stream()
+                                .flatMap(
+                                    e ->
+                                        e.getValue().activeProducers().stream()
+                                            .map(s -> ProducerState.of(e.getKey(), s)))
+                                .sorted(Comparator.comparing(ProducerState::topic))
+                                .collect(Collectors.toList())));
   }
 
   @Override
