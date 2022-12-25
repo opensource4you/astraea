@@ -31,6 +31,63 @@ import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
 
+  static Definition SCHEMA_KEY =
+      Definition.builder()
+          .name("fs.schema")
+          .type(Definition.Type.STRING)
+          .documentation("determine which file system needs to use.")
+          .build();
+  static Definition HOSTNAME_KEY =
+      Definition.builder()
+          .name("fs.ftp.hostname")
+          .type(Definition.Type.STRING)
+          .documentation("the host name of the ftp server.")
+          .build();
+  static Definition PORT_KEY =
+      Definition.builder()
+          .name("fs.ftp.port")
+          .type(Definition.Type.STRING)
+          .documentation("the port of the ftp server.")
+          .build();
+  static Definition USER_KEY =
+      Definition.builder()
+          .name("fs.ftp.user")
+          .type(Definition.Type.STRING)
+          .documentation("the user to login the ftp server.")
+          .build();
+  static Definition PASSWORD_KEY =
+      Definition.builder()
+          .name("fs.ftp.password")
+          .type(Definition.Type.STRING)
+          .documentation("the password to login the ftp server.")
+          .build();
+  static Definition PATH_KEY =
+      Definition.builder()
+          .name("path")
+          .type(Definition.Type.STRING)
+          .documentation("the path where the sink files to store.")
+          .build();
+  static Definition TOPIC_KEY =
+      Definition.builder()
+          .name("topic")
+          .type(Definition.Type.STRING)
+          .documentation("the topic names which want to sink to file.")
+          .build();
+  static Definition SIZE_KEY =
+      Definition.builder()
+          .name("size")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue("100MB")
+          .documentation("the number of each file limit size.")
+          .build();
+  static Definition TIME_KEY =
+      Definition.builder()
+          .name("time")
+          .type(Definition.Type.STRING)
+          .defaultValue("3s")
+          .documentation("the number of each file limit time to save the file.")
+          .build();
   private Configuration cons;
 
   @Override
@@ -55,22 +112,29 @@ public class Exporter extends SinkConnector {
   @Override
   protected List<Definition> definitions() {
     return List.of(
-        Definition.builder()
-            .name("ftp")
-            .type(Definition.Type.STRING)
-            .defaultValue(null)
-            .documentation("test")
-            .build());
+        SCHEMA_KEY,
+        HOSTNAME_KEY,
+        PORT_KEY,
+        USER_KEY,
+        PASSWORD_KEY,
+        PATH_KEY,
+        TOPIC_KEY,
+        SIZE_KEY,
+        TIME_KEY);
   }
 
   public static class Task extends SinkTask {
     private FileSystem ftpClient;
-    private Configuration cons;
+    private String topicName;
+    private String path;
+    private String size;
 
     @Override
     protected void init(Configuration configuration) {
       this.ftpClient = FileSystem.of("ftp", configuration);
-      this.cons = configuration;
+      this.topicName = configuration.requireString("topics");
+      this.path = configuration.requireString("path");
+      this.size = configuration.requireString("size");
     }
 
     @Override
@@ -81,22 +145,20 @@ public class Exporter extends SinkConnector {
             writers.computeIfAbsent(
                 record.topicPartition(),
                 ignored -> {
-                  var path = cons.requireString("path");
-                  var topicName = cons.requireString("topics");
                   var fileName = String.valueOf(record.offset());
                   return RecordWriter.builder(
                           ftpClient.write(
                               String.join(
                                   "/",
-                                  path,
-                                  topicName,
+                                  this.path,
+                                  this.topicName,
                                   String.valueOf(record.partition()),
                                   fileName)))
                       .build();
                 });
         writer.append(record);
 
-        if (writer.size().greaterThan(DataSize.of(cons.requireString("size")))) {
+        if (writer.size().greaterThan(DataSize.of(this.size))) {
           writers.remove(record.topicPartition()).close();
         }
       }
