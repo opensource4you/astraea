@@ -121,7 +121,6 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var report = progress.plan;
       Assertions.assertNotNull(progress.id);
       Assertions.assertEquals(1234, progress.config.timeoutMs);
-      Assertions.assertEquals(Map.of("a", "b"), progress.config.balancerConfig);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost.get());

@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
@@ -130,7 +131,6 @@ class BalancerHandler implements Handler {
             .getNow(null);
     var timeout = requestHistory.get(planId).executionTime.toMillis();
     var balancer = requestHistory.get(planId).balancerClasspath;
-    var balancerConfig = requestHistory.get(planId).algorithmConfig.config().raw();
     var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
     var report = isCalculated ? planCalculation.get(planId).join().report : null;
 
@@ -143,7 +143,6 @@ class BalancerHandler implements Handler {
             isDone,
             timeout,
             balancer,
-            balancerConfig,
             functions,
             isCalculated ? executionException : generationException,
             report));
@@ -606,10 +605,10 @@ class BalancerHandler implements Handler {
   }
 
   static class PlanReport implements Response {
-    final double cost;
+    @JsonIgnore final double cost;
 
     // don't generate new cost if there is no best plan
-    final Optional<Double> newCost;
+    @JsonIgnore final Optional<Double> newCost;
 
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
@@ -680,7 +679,6 @@ class BalancerHandler implements Handler {
         boolean done,
         long timeoutMs,
         String balancer,
-        Map<String, String> balancerConfig,
         String function,
         String exception,
         PlanReport plan) {
@@ -691,23 +689,19 @@ class BalancerHandler implements Handler {
       this.done = done;
       this.exception = exception;
       this.plan = plan;
-      this.config = new PlanConfiguration(balancer, balancerConfig, function, timeoutMs);
+      this.config = new PlanConfiguration(balancer, function, timeoutMs);
     }
   }
 
   static class PlanConfiguration implements Response {
     final String balancer;
 
-    final Map<String, String> balancerConfig;
-
     final String function;
 
     final long timeoutMs;
 
-    PlanConfiguration(
-        String balancer, Map<String, String> balancerConfig, String function, long timeoutMs) {
+    PlanConfiguration(String balancer, String function, long timeoutMs) {
       this.balancer = balancer;
-      this.balancerConfig = balancerConfig;
       this.function = function;
       this.timeoutMs = timeoutMs;
     }

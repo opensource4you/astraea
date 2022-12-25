@@ -126,12 +126,9 @@ JSON Response 範例
   2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
 * `config` 此優化計劃的搜尋參數設定
   * `balancer`: 此計劃生成所使用的搜尋算法實作
-  * `balancerConfig`: 搜尋算法實作的參數
   * `function`: 用來評估叢集狀態之品質的方法
   * `timeoutMs`: 此優化計劃的搜尋上限時間
-* `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
-  * `cost`: 目前叢集的分數 (越高越不好)
-  * `newCost`: 提出的新計劃之分數，當計劃沒有成功生成時，此欄位會是 `null`
+* `plan`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
     * `partition`: partition id
@@ -157,16 +154,10 @@ JSON Response 範例
   "done": true,
   "config": {
     "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-    "balancerConfig": {
-      "shuffle.plan.generator.max.step": "5",
-      "shuffle.plan.generator.min.step": "1"
-    },
     "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.NetworkEgressCost@69be333e\" weight 1.0}, {\"org.astraea.common.cost.NetworkIngressCost@6c5ec944\" weight 1.0}]",
     "timeoutMs": 10000
   },
   "plan": {
-    "cost": 0.04948716593053935,
-    "newCost": 0.04948716593053935,
     "changes": [
       {
         "topic": "__consumer_offsets",
