@@ -48,9 +48,10 @@ import org.astraea.common.metrics.collector.Fetcher;
  *   <li>The network egress data rate of each partition is constant, it won't fluctuate over time.
  *   <li>No consumer or consumer group attempts to subscribe or read a subset of partitions. It must
  *       subscribe to the whole topic.
- *   <li>Consumer won't fetch data from the closest replica. That is, every consumer fetches data
- *       from the leader. For more detail about consumer rack awareness, see <a
- *       href="https://cwiki.apache.org/confluence/x/go_zBQ">KIP-392<a>.
+ *   <li>This implementation assumes consumer won't fetch data from the closest replica. That is,
+ *       every consumer fetches data from the leader(which is the default behavior of Kafka). For
+ *       more detail about consumer rack awareness or how consumer can fetch data from the closest
+ *       replica, see <a href="https://cwiki.apache.org/confluence/x/go_zBQ">KIP-392<a>.
  * </ol>
  */
 public abstract class NetworkCost implements HasClusterCost {
@@ -117,12 +118,17 @@ public abstract class NetworkCost implements HasClusterCost {
                               // ingress might come from producer-send or follower-fetch.
                               return notNull(ingressRate.get(tp));
                             case Egress:
-                              // egress will come from consumer-fetch or follower-fetch.
+                              // egress is composed of consumer-fetch and follower-fetch.
                               // this implementation assumes no consumer rack awareness fetcher
                               // enabled so all consumers fetch data from the leader only.
                               return replica.isLeader()
                                   ? notNull(egressRate.get(tp))
                                       + notNull(ingressRate.get(tp))
+                                          // Multiply by the number of follower replicas. This
+                                          // number considers both online replicas and offline
+                                          // replicas since an offline replica is probably a
+                                          // transient behavior. So the offline state should get
+                                          // resolved in the near future, we count it in advance.
                                           * (clusterInfo.replicas(tp).size() - 1)
                                   : 0;
                             default:
