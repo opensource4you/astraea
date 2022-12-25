@@ -34,7 +34,7 @@ import org.astraea.common.producer.Record;
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      BlockingQueue<List<DataGenerator.DataSupplier.Data>> queue,
+      BlockingQueue<List<DataSupplier.Data>> queue,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
@@ -65,7 +65,7 @@ public interface ProducerThread extends AbstractThread {
                     try {
                       int interdependentCounter = 0;
                       while (!closed.get()) {
-                        List<DataGenerator.DataSupplier.Data> data;
+                        List<DataSupplier.Data> data;
                         try {
                           data = queue.take();
                         } catch (InterruptedException e) {
@@ -73,7 +73,7 @@ public interface ProducerThread extends AbstractThread {
                         }
 
                         // no more data
-                        if (data.stream().allMatch(DataGenerator.DataSupplier.Data::done)) return;
+                        if (data.stream().allMatch(DataSupplier.Data::done)) return;
 
                         var tp = data.get(0).topicPartition();
 
@@ -81,13 +81,11 @@ public interface ProducerThread extends AbstractThread {
                         if (interdependent > 1) {
                           Dispatcher.beginInterdependent(producer);
                           interdependentCounter +=
-                              data.stream()
-                                  .filter(DataGenerator.DataSupplier.Data::hasData)
-                                  .count();
+                              data.stream().filter(DataSupplier.Data::hasData).count();
                         }
                         producer.send(
                             data.stream()
-                                .filter(DataGenerator.DataSupplier.Data::hasData)
+                                .filter(DataSupplier.Data::hasData)
                                 .map(
                                     d ->
                                         Record.builder()

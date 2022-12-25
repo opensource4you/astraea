@@ -16,18 +16,28 @@
  */
 package org.astraea.app.performance;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
+import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-interface DataSupplier extends Supplier<DataSupplier.Data> {
+interface DataSupplier extends Function<TopicPartition, List<DataSupplier.Data>> {
 
-  static Data data(byte[] key, byte[] value) {
+  static Data data(byte[] key, byte[] value, TopicPartition tp) {
     return new Data() {
+      @Override
+      public TopicPartition topicPartition() {
+        return tp;
+      }
+
       @Override
       public boolean done() {
         return false;
@@ -53,6 +63,11 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
   Data NO_MORE_DATA =
       new Data() {
         @Override
+        public TopicPartition topicPartition() {
+          throw new IllegalStateException("there is no data");
+        }
+
+        @Override
         public boolean done() {
           return true;
         }
@@ -76,6 +91,11 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
   Data THROTTLED_DATA =
       new Data() {
         @Override
+        public TopicPartition topicPartition() {
+          throw new IllegalStateException("it is throttled");
+        }
+
+        @Override
         public boolean done() {
           return false;
         }
@@ -97,7 +117,10 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       };
 
   interface Data {
-
+    /**
+     * @return the topic-partition the data would be sent to.
+     */
+    TopicPartition topicPartition();
     /**
      * @return true if there is no data.
      */
@@ -125,7 +148,6 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
      */
     byte[] value();
   }
-
   /**
    * Generate Data according to the given arguments. The returned supplier map the 64-bit number
    * supplied by key(/value) distribution to a byte array. That is, if we want the DataSupplier to
@@ -133,35 +155,45 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
    * For example,
    *
    * <pre>{@code
-   * DataSupplier.of(exeTime,
+   * DataSupplier.of(batchSize,
+   *                 exeTime,
    *                 ()->1,
    *                 keySizeDistribution,
    *                 ()->1,
    *                 valueSizeDistribution,
-   *                 throughput)
+   *                 throughput,
+   *                 defaultThroughput)
+   *
    * }</pre>
    *
    * It is not recommend to supply too many unique number. This DataSupplier store every unique
    * number and its content in a map structure.
    *
+   * @param batchSize
    * @param exeTime the time for stop supplying data
    * @param keyDistribution supply abstract keys which is represented by a 64-bit integer
    * @param keySizeDistribution supply the size of newly created key
    * @param valueDistribution supply abstract value which is represented by a 64-bit integer
    * @param valueSizeDistribution supply the size of newly created value
-   * @param throughput the limit on data produced
+   * @param throughput the limit throughput of specify topic-partition
+   * @param defaultThroughput the default limit on data produced
    * @return supply data with given distribution. It will map the 64-bit number supplied by
-   *     key(/value) distribution to a byte array.
+   *     key(/value) distribution to a list of byte array.
    */
   static DataSupplier of(
+      int batchSize,
       ExeTime exeTime,
       Supplier<Long> keyDistribution,
       Supplier<Long> keySizeDistribution,
       Supplier<Long> valueDistribution,
       Supplier<Long> valueSizeDistribution,
-      DataRate throughput) {
+      Map<TopicPartition, DataRate> throughput,
+      DataRate defaultThroughput) {
     return new DataSupplier() {
-      private final Throttler throttler = new Throttler(throughput);
+      private final Map<TopicPartition, Throttler> throttlers =
+          throughput.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
+      private final Throttler defaultThrottler = new Throttler(defaultThroughput);
       private final long start = System.currentTimeMillis();
       private final Random rand = new Random();
       private final AtomicLong dataCount = new AtomicLong(0);
@@ -179,15 +211,21 @@ interface DataSupplier extends Supplier<DataSupplier.Data> {
       }
 
       @Override
-      public Data get() {
+      public List<Data> apply(TopicPartition topicPartition) {
         if (exeTime.percentage(dataCount.getAndIncrement(), System.currentTimeMillis() - start)
-            >= 100D) return NO_MORE_DATA;
-        var key = key();
-        var value = value();
-        if (throttler.throttled(
-            (value != null ? value.length : 0) + (key != null ? key.length : 0)))
-          return THROTTLED_DATA;
-        return data(key, value);
+            >= 100D) return List.of(NO_MORE_DATA);
+        return IntStream.range(0, batchSize)
+            .mapToObj(
+                i -> {
+                  var key = key();
+                  var value = value();
+                  var throttler = throttlers.getOrDefault(topicPartition, defaultThrottler);
+                  if (throttler.throttled(
+                      (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+                    return THROTTLED_DATA;
+                  return data(key, value, topicPartition);
+                })
+            .collect(Collectors.toUnmodifiableList());
       }
     };
   }
