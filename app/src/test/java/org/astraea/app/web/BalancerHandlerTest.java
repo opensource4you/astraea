@@ -75,6 +75,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.Mockito;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
@@ -636,6 +637,59 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                           .toCompletableFuture()
                           .join())
               .getCause());
+    }
+  }
+
+  @Test
+  @Timeout(value = 60)
+  void testGenerationDetectOngoing() {
+    var base =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1, 2, 3))
+            .addFolders(Map.of(1, Set.of("/f0", "/f1")))
+            .addFolders(Map.of(2, Set.of("/f0", "/f1")))
+            .addFolders(Map.of(3, Set.of("/f0", "/f1")))
+            .addTopic("A", 10, (short) 1)
+            .addTopic("B", 10, (short) 1)
+            .addTopic("C", 10, (short) 1)
+            .build();
+    var iter0 = Stream.iterate(true, (i) -> false).iterator();
+    var iter1 = Stream.iterate(true, (i) -> false).iterator();
+    var iter2 = Stream.iterate(true, (i) -> false).iterator();
+    var clusterHasFuture =
+        ClusterInfoBuilder.builder(base)
+            .mapLog(r -> Replica.builder(r).isFuture(iter0.next()).build())
+            .build();
+    var clusterHasAdding =
+        ClusterInfoBuilder.builder(base)
+            .mapLog(r -> Replica.builder(r).isAdding(iter1.next()).build())
+            .build();
+    var clusterHasRemoving =
+        ClusterInfoBuilder.builder(base)
+            .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
+            .build();
+    try (Admin admin = Mockito.mock(Admin.class)) {
+      Mockito.when(admin.topicNames(Mockito.anyBoolean()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasAdding));
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasRemoving));
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(base));
+      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(Channel.EMPTY));
     }
   }
 
