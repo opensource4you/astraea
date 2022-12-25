@@ -137,6 +137,7 @@ class BalancerHandler implements Handler {
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
+    checkNoOngoingMigration();
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var newPlanId = UUID.randomUUID().toString();
     var planGeneration =
@@ -399,7 +400,8 @@ class BalancerHandler implements Handler {
 
               return CompletableFuture.supplyAsync(
                       () -> {
-                        sanityCheck(thePlanInfo);
+                        checkPlanConsistency(thePlanInfo);
+                        checkNoOngoingMigration();
                         // already scheduled, nothing to do
                         if (executedPlans.containsKey(thePlanId))
                           return new PutPlanResponse(thePlanId);
@@ -434,7 +436,7 @@ class BalancerHandler implements Handler {
             });
   }
 
-  private void sanityCheck(PlanInfo thePlanInfo) {
+  private void checkPlanConsistency(PlanInfo thePlanInfo) {
     final var replicas =
         admin
             .clusterInfo(
@@ -447,7 +449,6 @@ class BalancerHandler implements Handler {
             .toCompletableFuture()
             .join();
 
-    // sanity check: replica allocation didn't change
     var mismatchPartitions =
         thePlanInfo.report.changes.stream()
             .filter(
@@ -484,15 +485,20 @@ class BalancerHandler implements Handler {
           "The cluster state has been changed significantly. "
               + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
               + mismatchPartitions);
+  }
 
-    // sanity check: no ongoing migration
+  private void checkNoOngoingMigration() {
+    var replicas =
+        admin
+            .topicNames(false)
+            .thenCompose(admin::clusterInfo)
+            .toCompletableFuture()
+            .join()
+            .replicas();
     var ongoingMigration =
-        replicas.entrySet().stream()
-            .filter(
-                e ->
-                    e.getValue().stream()
-                        .anyMatch(r -> r.isAdding() || r.isRemoving() || r.isFuture()))
-            .map(Map.Entry::getKey)
+        replicas.stream()
+            .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
+            .map(ReplicaInfo::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(
