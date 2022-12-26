@@ -67,12 +67,6 @@ public class Exporter extends SinkConnector {
           .type(Definition.Type.STRING)
           .documentation("the path required for file storage.")
           .build();
-  static Definition TOPIC_KEY =
-      Definition.builder()
-          .name("topic")
-          .type(Definition.Type.STRING)
-          .documentation("the topic names want to sink out.")
-          .build();
   static Definition SIZE_KEY =
       Definition.builder()
           .name("size")
@@ -86,9 +80,9 @@ public class Exporter extends SinkConnector {
   @Override
   protected void init(Configuration configuration) {
     this.cons = configuration;
-    configuration.requireString("topics");
-    configuration.requireString("path");
-    configuration.requireString("size");
+    configuration.requireString("topic");
+    configuration.requireString(PATH_KEY.name());
+    configuration.requireString(SIZE_KEY.name());
   }
 
   @Override
@@ -107,8 +101,7 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Definition> definitions() {
-    return List.of(
-        SCHEMA_KEY, HOSTNAME_KEY, PORT_KEY, USER_KEY, PASSWORD_KEY, PATH_KEY, TOPIC_KEY, SIZE_KEY);
+    return List.of(SCHEMA_KEY, HOSTNAME_KEY, PORT_KEY, USER_KEY, PASSWORD_KEY, PATH_KEY, SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -119,10 +112,10 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      this.ftpClient = FileSystem.of("ftp", configuration);
-      this.topicName = configuration.requireString("topics");
-      this.path = configuration.requireString("path");
-      this.size = configuration.requireString("size");
+      this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+      this.topicName = configuration.requireString("topic");
+      this.path = configuration.requireString(PATH_KEY.name());
+      this.size = configuration.requireString(SIZE_KEY.name());
     }
 
     @Override
