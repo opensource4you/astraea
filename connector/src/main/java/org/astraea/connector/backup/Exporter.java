@@ -35,43 +35,43 @@ public class Exporter extends SinkConnector {
       Definition.builder()
           .name("fs.schema")
           .type(Definition.Type.STRING)
-          .documentation("determine which file system needs to use.")
+          .documentation("decide which file system to use, such as FTP.")
           .build();
   static Definition HOSTNAME_KEY =
       Definition.builder()
           .name("fs.ftp.hostname")
           .type(Definition.Type.STRING)
-          .documentation("the host name of the ftp server.")
+          .documentation("the host name of the ftp server used.")
           .build();
   static Definition PORT_KEY =
       Definition.builder()
           .name("fs.ftp.port")
           .type(Definition.Type.STRING)
-          .documentation("the port of the ftp server.")
+          .documentation("the port of the ftp server used.")
           .build();
   static Definition USER_KEY =
       Definition.builder()
           .name("fs.ftp.user")
           .type(Definition.Type.STRING)
-          .documentation("the user to login the ftp server.")
+          .documentation("the user name required to login to the FTP server.")
           .build();
   static Definition PASSWORD_KEY =
       Definition.builder()
           .name("fs.ftp.password")
           .type(Definition.Type.STRING)
-          .documentation("the password to login the ftp server.")
+          .documentation("the password required to login to the ftp server.")
           .build();
   static Definition PATH_KEY =
       Definition.builder()
           .name("path")
           .type(Definition.Type.STRING)
-          .documentation("the path where the sink files to store.")
+          .documentation("the path required for file storage.")
           .build();
   static Definition TOPIC_KEY =
       Definition.builder()
           .name("topic")
           .type(Definition.Type.STRING)
-          .documentation("the topic names which want to sink to file.")
+          .documentation("the topic names want to sink out.")
           .build();
   static Definition SIZE_KEY =
       Definition.builder()
@@ -79,14 +79,7 @@ public class Exporter extends SinkConnector {
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .defaultValue("100MB")
-          .documentation("the number of each file limit size.")
-          .build();
-  static Definition TIME_KEY =
-      Definition.builder()
-          .name("time")
-          .type(Definition.Type.STRING)
-          .defaultValue("3s")
-          .documentation("the number of each file limit time to save the file.")
+          .documentation("is the maximum number of the size will be included in each file.")
           .build();
   private Configuration cons;
 
@@ -115,15 +108,7 @@ public class Exporter extends SinkConnector {
   @Override
   protected List<Definition> definitions() {
     return List.of(
-        SCHEMA_KEY,
-        HOSTNAME_KEY,
-        PORT_KEY,
-        USER_KEY,
-        PASSWORD_KEY,
-        PATH_KEY,
-        TOPIC_KEY,
-        SIZE_KEY,
-        TIME_KEY);
+        SCHEMA_KEY, HOSTNAME_KEY, PORT_KEY, USER_KEY, PASSWORD_KEY, PATH_KEY, TOPIC_KEY, SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
