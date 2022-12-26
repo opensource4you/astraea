@@ -80,7 +80,7 @@ public class Exporter extends SinkConnector {
   @Override
   protected void init(Configuration configuration) {
     this.cons = configuration;
-    configuration.requireString("topic");
+    configuration.requireString("topics");
     configuration.requireString(PATH_KEY.name());
     configuration.requireString(SIZE_KEY.name());
   }
@@ -113,7 +113,7 @@ public class Exporter extends SinkConnector {
     @Override
     protected void init(Configuration configuration) {
       this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.topicName = configuration.requireString("topic");
+      this.topicName = configuration.requireString("topics");
       this.path = configuration.requireString(PATH_KEY.name());
       this.size = configuration.requireString(SIZE_KEY.name());
     }
