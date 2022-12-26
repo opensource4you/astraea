@@ -1,3 +1,17 @@
+- [Add Prometheus DataSource](#Add-Prometheus-DataSource)
+  - [Add DataSource via CLI](#Add-DataSource-via-CLI)
+  - [Add DataSource via Grafana GUI](#Add-DataSource-via-Grafana-GUI)
+- [建立 Dashboard 與 Panel](#建立-Dashboard-與-Panel)
+  - [新增自定義的 dashboard](#新增自定義的-dashboard)
+  - [Import 別人寫好的 dashboard](#Import-別人寫好的-dashboard)
+- [利用 query 來建立效能相關圖表](#利用-query-來建立效能相關圖表)
+  - [列出特定指標](#列出特定指標)
+  - [針對特定 metrics 做處理](#針對特定-metrics-做處理)
+    - [過濾不想監控的 topic](#過濾不想監控的-topic)
+    - [加總 metrics 的值](#加總-metrics-的值)
+    - [使用 rate 呈現圖表](#使用-rate-呈現圖表)
+    - [修改 y 軸的資料單位](#修改-y-軸的資料單位)
+
 ### Run Grafana
 
 [Grafana](https://github.com/grafana/grafana)是一個以圖形化界面呈現服務狀態的開源軟體，使用者可以將資料來源端與Grafana連結，並讓使用者能以圖形化的方式觀看服務、系統一段時間內的數據
@@ -113,7 +127,7 @@ Grafana是呈現數據的軟體，需要設置資料的來源，目前有兩種�
 
 建立完 DataSource 後，就可以利用 dashboard 來呈現效能相關的圖表
 
-dashboard 的建立有兩種方式：
+dashboard 的建立**有兩種方式**：
 
 1. 自己新增自定義的 dashboard ，可依照使用者想監控的 metrics 來自行建置圖表
 2. Import [別人寫好的 dashboard](https://grafana.com/grafana/dashboards/)，廣大的網友們會分享自己使用的 dashboard ，可以依靠匯入 dashboard ID 來 import dashboard
@@ -170,20 +184,91 @@ dashboard 的建立有兩種方式：
 
 ### 利用 query 來建立效能相關圖表
 
-這個 section 來講解如何使用 query 來呈現效能圖表
+這個 section 來講解如何使用 query 來呈現效能圖表，Grafana 在使用 Prometheus 當作 Data source 時所執行的 query 為 [PQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) ，可到此網站查一些較進階的使用，下面會列出一些較常用的 query 
 
 ![Edit_Panel](pictures/Edit_Panel.png)
 
-此處的範例以 **Code queries** 為例，在 query 前請先確認 Data source 有選擇 Prometheus。
+以下的範例以 **Code queries** 為例，在 query 前請先確認 Data source 有選擇 Prometheus。
+
+#### 列出特定指標
+
+若要在 Grafana 中製作監控特定 metrics 的圖表，必須先確保 Prometheus 能 Scrape 到該資料。可以到 Prometheus 的 Web UI 中查詢有沒有該 metrics，詳細可以參考專案的  [Prometheus 文件](./run_prometheus.md) ，這邊先不贅述
+
+![Prometheus_Expression_2](pictures/Prometheus_Expression_2.png)
+
+在 Prometheus 的 WebUI 中可以看到有許多 metrics 可以選擇，例如現在想要查詢 Kafka log 相關的 metrics ，可以輸入 kafka_log 來查詢
 
 以 **kafka_log_log_size** 這個 metrics 為例
 
 ![Kafka_Log_Size_0](pictures/Kafka_Log_Size_0.png)
 
-輸入 kafka_log_log_size 後可以在 panel 上看到許多條**線**，每一條**線**代表每一個 topic-partition 在不同時間點時的資料量![Kafka_Log_Size_Without_InnerTopic](pictures/Kafka_Log_Size_Without_InnerTopic.png)
+1. 將 kafka_log_log_size 輸入在 Metrics browser 後可以在 panel 上看到許多條**線**，每一條**線**代表每一個 topic-partition 在不同時間點時的資料量
 
-若想忽略 Kafka 的 inner topic ，如 `__consumer_offsets` ，可以將之過濾，這樣在圖表中呈現時就不會出現 inner topic 的 log size
+#### 針對特定 metrics 做處理
+
+Query 了想要監控的 metrics 後，可以對 metrics 做一些處理，例如：過濾掉一些不想監控的 topic、將整個 topic 的 partition log size 加總起來、取一段時間的 rate 來監控，以下會介紹一些簡單的處理來讓監控的資料更好閱讀
+
+##### 過濾不想監控的 topic
+
+若想忽略 Kafka 的 inner topic ，如 `__consumer_offsets` ，可以將之過濾，讓效能圖表能夠更能呈現重點 partition 的 metrics 值
+
+![Kafka_Log_Size_Without_InnerTopic](pictures/Kafka_Log_Size_Without_InnerTopic.png)
+
+1. 在 Metrics browser 中的 query 後面加上 {topic!="你想過濾的 topic 名稱"}，在圖表中呈現時就不會出現該 topic 的 log size，這邊的範例是以 Kafka 的 inner topic `__consumer_offsets` 來過濾。 
+
+過濾後在圖表上就不會有該 topic 的數據了
+
+##### 加總 metrics 的值
+
+有時候會想觀察每個元件內相同 metrics 的總和，例如：整個 Topic 的 log size、叢集內全部 Topic 的 log size
+
+這個 section 會講解如何加總 log size
 
 ![Kafka_Log_Size_Sum](pictures/Kafka_Log_Size_Sum.png)
 
-若想看叢集內所有的 log size 加總，可以在前面加上 sum 來呈現
+1. 若想看叢集內所有的 log size 加總，可以在前面加上 sum 來呈現。 也可以用第二條線來呈現不同的 log size
+
+![Add_Query](pictures/Add_Query.png)
+
+2. 可以按下左下角的 Query ，可以多監控一個 metrics 
+
+![Two_Query](pictures/Two_Query.png)
+
+3. 按下 Query 後可以多新增一個 query 欄位，如上圖所示綠色框框為 **A** 欄位的 query 、紅色框框為 **B** 欄位的 query，在圖表上就只有這兩條**線**來表示不同時間點的 metrics 值
+
+##### 使用 rate 呈現圖表
+
+rate 是用來**計算一段時間(window) 內的 average rate**，以目前 Kafka log size 的例子來看
+
+![Query_Rate](pictures/Query_Rate.png)
+
+1. 在 Metrics browser 中輸入下方指令意味著想觀察 `Topic a2` 的 `Partition 1` log size 的增長速率。
+
+當圖表上的線在 **0 B** 上就代表當時 a2-1 的 log size 沒有增長，也就是沒有 producer 打資料到該 topic-partition 中。若有值，例如 21:10:00 時間的 **15.7 MB/s** 就代表該時間點的 log size 增長速率是以 15.7MB/s 增加
+
+```bash
+rate(kafka_log_log_size{topic="a2",partition="1"}[10s])
+```
+
+若把 **10s** 調長，就是將 window size 放大，會平均到較遠的值，如下圖
+
+![Query_Rate_2](pictures/Query_Rate_2.png)
+
+將 rate 的 window size 調到 1m，可以看到曲線較平滑，因為是取 1m 的平均增長率
+
+##### 修改 y 軸的資料單位
+
+建立好觀測的 panel 後，有時候 metrics 值的單位是以 Prometheus 撈下來的單位呈現，Grafana 提供了單位的換算，可以更清楚的知道目前圖表的物理意義
+
+![Panel_Standard_Option](pictures/Panel_Standard_Option.png)
+
+1. 從 Panel 頁面的右方往下滑可以看到 **Standard options**，裡面有一個 Unit 的欄位可以選擇這個 metrics 的單位，選擇以後 Grafana 會幫忙轉換單位成較好閱讀的形式
+
+![Data_Unit](pictures/Data_Unit.png)
+
+2. 轉換單位後，可以看到 y 軸的資料單位變成人類較好閱讀的 GB 來呈現
+
+**注意：轉換資料單位的時候要小心，在轉換單位的時候要知道 Prometheus scrape 下來的單位是多少，亂選擇單位的話會導致嚴重的後果(監測到很奇怪的大小......)**，如下圖所示
+
+![Data_Unit_2](pictures/Data_Unit_2.png)
+
