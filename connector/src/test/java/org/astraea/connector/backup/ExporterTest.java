@@ -39,6 +39,8 @@ public class ExporterTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
+            "fs.schema",
+            "ftp",
             "connector.class",
             Exporter.class.getName(),
             "tasks.max",
