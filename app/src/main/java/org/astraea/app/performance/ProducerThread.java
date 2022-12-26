@@ -34,7 +34,7 @@ import org.astraea.common.producer.Record;
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      BlockingQueue<List<DataSupplier.Data>> queue,
+      BlockingQueue<List<Record<byte[], byte[]>>> queue,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
@@ -65,36 +65,20 @@ public interface ProducerThread extends AbstractThread {
                     try {
                       int interdependentCounter = 0;
                       while (!closed.get()) {
-                        List<DataSupplier.Data> data;
+                        List<Record<byte[], byte[]>> data;
                         try {
-                          data = queue.take();
+                          data = queue.poll(3, TimeUnit.SECONDS);
                         } catch (InterruptedException e) {
                           throw new RuntimeException(e);
                         }
 
-                        // no more data
-                        if (data.stream().allMatch(DataSupplier.Data::done)) return;
-
-                        var tp = data.get(0).topicPartition();
-
                         // Using interdependent
-                        if (interdependent > 1) {
+                        if (interdependent > 1 && data != null) {
                           Dispatcher.beginInterdependent(producer);
-                          interdependentCounter +=
-                              data.stream().filter(DataSupplier.Data::hasData).count();
+                          interdependentCounter += data.size();
                         }
-                        producer.send(
-                            data.stream()
-                                .filter(DataSupplier.Data::hasData)
-                                .map(
-                                    d ->
-                                        Record.builder()
-                                            .topicPartition(tp)
-                                            .key(d.key())
-                                            .value(d.value())
-                                            .timestamp(System.currentTimeMillis())
-                                            .build())
-                                .collect(Collectors.toList()));
+                        if (data != null) producer.send(data);
+
                         // End interdependent
                         if (interdependent > 1 && interdependentCounter >= interdependent) {
                           Dispatcher.endInterdependent(producer);

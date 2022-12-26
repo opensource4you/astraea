@@ -17,25 +17,50 @@
 package org.astraea.app.performance;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.astraea.common.DataRate;
+import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.producer.Record;
 
 public interface DataGenerator extends AbstractThread {
   static DataGenerator of(
-      BlockingQueue<List<DataSupplier.Data>> queue,
+      BlockingQueue<List<Record<byte[], byte[]>>> queue,
       Supplier<TopicPartition> partitionSelector,
-      Function<TopicPartition, List<DataSupplier.Data>> dataSupplier) {
+      Performance.Argument argument) {
+    var dataSupplier =
+        DataSupplier.of(
+            argument.transactionSize,
+            argument.keyDistributionType.create(10000),
+            argument.keyDistributionType.create(
+                argument.keySize.measurement(DataUnit.Byte).intValue()),
+            argument.valueDistributionType.create(10000),
+            argument.valueDistributionType.create(
+                argument.valueSize.measurement(DataUnit.Byte).intValue()),
+            argument.throttles,
+            argument.throughput);
     var closeLatch = new CountDownLatch(1);
     var executor = Executors.newFixedThreadPool(1);
     var closed = new AtomicBoolean(false);
+    var start = System.currentTimeMillis();
+    var dataCount = new AtomicLong(0);
+
     // monitor the data generator if close or not
     CompletableFuture.runAsync(
         () -> {
@@ -46,6 +71,7 @@ public interface DataGenerator extends AbstractThread {
             Utils.swallowException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
           }
         });
+
     // put the data into blocking queue
     CompletableFuture.runAsync(
         () ->
@@ -53,15 +79,19 @@ public interface DataGenerator extends AbstractThread {
                 () -> {
                   try {
                     while (!closed.get()) {
+                      // check the generator is finished or not
+                      if (argument.exeTime.percentage(
+                              dataCount.getAndIncrement(), System.currentTimeMillis() - start)
+                          >= 100D) return;
+
                       var tp = partitionSelector.get();
-                      var data = dataSupplier.apply(tp);
+                      var records = dataSupplier.apply(tp);
 
                       // throttled data wouldn't put into the queue
-                      if (data.stream().allMatch(DataSupplier.Data::throttled)) continue;
+                      if (records.isEmpty()) continue;
 
                       try {
-                        if (!queue.offer(data, 5, TimeUnit.SECONDS)
-                            && data.stream().allMatch(DataSupplier.Data::done)) return;
+                        queue.put(records);
                       } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                       }
@@ -88,5 +118,115 @@ public interface DataGenerator extends AbstractThread {
         waitForDone();
       }
     };
+  }
+
+  interface DataSupplier extends Function<TopicPartition, List<Record<byte[], byte[]>>> {
+    static DataSupplier of(
+        int batchSize,
+        Supplier<Long> keyDistribution,
+        Supplier<Long> keySizeDistribution,
+        Supplier<Long> valueDistribution,
+        Supplier<Long> valueSizeDistribution,
+        Map<TopicPartition, DataRate> throughput,
+        DataRate defaultThroughput) {
+      return new DataSupplier() {
+        private final Map<TopicPartition, Throttler> throttlers =
+            throughput.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
+        private final Throttler defaultThrottler = new Throttler(defaultThroughput);
+        private final Random rand = new Random();
+        private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
+        private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
+        private final String THROTTLED_TOPIC = Utils.randomString(10);
+        private final int THROTTLED_PARTITION = Math.abs(ThreadLocalRandom.current().nextInt());
+
+        byte[] value() {
+          return getOrNew(
+              recordValueTable, valueDistribution, valueSizeDistribution.get().intValue(), rand);
+        }
+
+        byte[] key() {
+          return getOrNew(
+              recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
+        }
+
+        @Override
+        public List<Record<byte[], byte[]>> apply(TopicPartition tp) {
+          var throttler = throttlers.getOrDefault(tp, defaultThrottler);
+          var records =
+              IntStream.range(0, batchSize)
+                  .mapToObj(
+                      i -> {
+                        var key = key();
+                        var value = value();
+                        if (throttler.throttled(
+                            (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+                          return Record.builder()
+                              .topic(THROTTLED_TOPIC)
+                              .partition(THROTTLED_PARTITION)
+                              .build();
+                        return Record.builder()
+                            .key(key)
+                            .value(value)
+                            .topicPartition(tp)
+                            .timestamp(System.currentTimeMillis())
+                            .build();
+                      })
+                  .collect(Collectors.toUnmodifiableList());
+          if (records.stream()
+              .anyMatch(
+                  r ->
+                      Objects.equals(r.topic(), THROTTLED_TOPIC)
+                          && r.partition().get() == THROTTLED_PARTITION)) return List.of();
+          return records;
+        }
+      };
+    }
+  }
+
+  // Find the key from the table, if the record has been produced before. Randomly generate a
+  // byte array if
+  // the record has not been produced.
+  private static byte[] getOrNew(
+      Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
+    return table.computeIfAbsent(
+        distribution.get(),
+        ignore -> {
+          if (size == 0) return null;
+          var value = new byte[size];
+          rand.nextBytes(value);
+          return value;
+        });
+  }
+
+  class Throttler {
+    private final long start = System.currentTimeMillis();
+    private final long throughput;
+    private final AtomicLong totalBytes = new AtomicLong();
+
+    Throttler(DataRate max) {
+      throughput = Double.valueOf(max.byteRate()).longValue();
+    }
+
+    /**
+     * @param payloadLength of new data
+     * @return true if the data need to be throttled. Otherwise, false
+     */
+    boolean throttled(long payloadLength) {
+      var duration = durationInSeconds();
+      if (duration <= 0) return false;
+      var current = totalBytes.addAndGet(payloadLength);
+      // too much -> slow down
+      if ((current / duration) > throughput) {
+        totalBytes.addAndGet(-payloadLength);
+        return true;
+      }
+      return false;
+    }
+
+    // visible for testing
+    long durationInSeconds() {
+      return (System.currentTimeMillis() - start) / 1000;
+    }
   }
 }
