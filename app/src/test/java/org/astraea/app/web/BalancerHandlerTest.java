@@ -175,7 +175,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0D, v));
+      Assertions.assertNotEquals(
+          0,
+          sizeMigration.brokerCosts.values().stream().filter(v -> v > 0).count(),
+          "report.cost: " + report.cost + " report.newCost.get(): " + report.newCost.get());
     }
   }
 
