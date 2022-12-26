@@ -16,14 +16,12 @@
  */
 package org.astraea.app.performance;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -31,47 +29,10 @@ import org.junit.jupiter.api.Test;
 public class DataSupplierTest {
 
   @Test
-  void testDuration() {
-    var dataSupplier =
-        DataSupplier.of(
-            1,
-            ExeTime.of("2s"),
-            () -> 1L,
-            () -> 4L,
-            () -> 1L,
-            () -> 10L,
-            Map.of(),
-            DataRate.KiB.of(100).perSecond());
-    var tp = TopicPartition.of("test-0");
-    Assertions.assertTrue(dataSupplier.apply(tp).stream().allMatch(DataSupplier.Data::hasData));
-    Utils.sleep(Duration.ofSeconds(3));
-    Assertions.assertFalse(dataSupplier.apply(tp).stream().allMatch(DataSupplier.Data::hasData));
-  }
-
-  @Test
-  void testRecordLimit() {
-    var dataSupplier =
-        DataSupplier.of(
-            1,
-            ExeTime.of("2records"),
-            () -> DataSize.KiB.of(2).measurement(DataUnit.Byte).longValue(),
-            () -> 10L,
-            () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            () -> 10L,
-            Map.of(),
-            DataRate.KiB.of(102).perSecond());
-    var tp = TopicPartition.of("test-0");
-    Assertions.assertTrue(dataSupplier.apply(tp).stream().allMatch(DataSupplier.Data::hasData));
-    Assertions.assertTrue(dataSupplier.apply(tp).stream().allMatch(DataSupplier.Data::hasData));
-    Assertions.assertFalse(dataSupplier.apply(tp).stream().allMatch(DataSupplier.Data::hasData));
-  }
-
-  @Test
   void testKeySize() {
     var dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
             () -> 2L,
@@ -80,9 +41,9 @@ public class DataSupplierTest {
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data1.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertFalse(data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data2.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertFalse(data2.isEmpty());
     // key content is fixed, the keys are the same
     Assertions.assertEquals(data1.get(0).key(), data2.get(0).key());
   }
@@ -90,9 +51,8 @@ public class DataSupplierTest {
   @Test
   void testFixedValueSize() {
     var dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
             () -> 2L,
@@ -101,7 +61,7 @@ public class DataSupplierTest {
             DataRate.KiB.of(100).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(data.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data.isEmpty());
     // initial value size is 100KB and the distributed is fixed to zero, so the final size is 102400
     Assertions.assertEquals(102400, data.get(0).value().length);
   }
@@ -113,9 +73,8 @@ public class DataSupplierTest {
 
     // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
     var dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> counter.getAndIncrement() % 2,
             () -> 100L + counter2.getAndIncrement(),
             () -> 10L,
@@ -124,11 +83,11 @@ public class DataSupplierTest {
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data1.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data2.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data2.isEmpty());
     var data3 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data3.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data3.isEmpty());
 
     // The key of data1 and data2 should have size 100 bytes and 101 bytes respectively.
     Assertions.assertEquals(100, data1.get(0).key().length);
@@ -138,9 +97,8 @@ public class DataSupplierTest {
 
     // Round-robin on 2 keys. Fixed key size to 100 bytes.
     dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
             () -> 10L,
@@ -148,9 +106,9 @@ public class DataSupplierTest {
             Map.of(),
             DataRate.KiB.of(200).perSecond());
     data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data1.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data1.isEmpty());
     data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data2.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data2.isEmpty());
     // Same size but different content
     Assertions.assertEquals(100, data1.get(0).key().length);
     Assertions.assertEquals(100, data2.get(0).key().length);
@@ -164,9 +122,8 @@ public class DataSupplierTest {
 
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> 10L,
             () -> 10L,
             () -> counter.getAndIncrement() % 2,
@@ -176,11 +133,11 @@ public class DataSupplierTest {
 
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data1.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data2.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data2.isEmpty());
     var data3 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data3.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data3.isEmpty());
 
     // The value of data1 and data2 should have size 100 bytes and 101 bytes respectively.
     Assertions.assertEquals(100, data1.get(0).value().length);
@@ -190,9 +147,8 @@ public class DataSupplierTest {
 
     // Round-robin on 2 values. Fixed value size.
     dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> 10L,
             () -> 10L,
             () -> counter.getAndIncrement() % 2,
@@ -200,9 +156,9 @@ public class DataSupplierTest {
             Map.of(),
             DataRate.KiB.of(100).perSecond());
     data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data1.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data1.isEmpty());
     data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(data2.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data2.isEmpty());
     // Same size but different content
     Assertions.assertEquals(100, data1.get(0).value().length);
     Assertions.assertEquals(100, data2.get(0).value().length);
@@ -213,7 +169,7 @@ public class DataSupplierTest {
   void testThrottle() {
     var durationInSeconds = new AtomicLong(1);
     var throttler =
-        new DataSupplier.Throttler(DataRate.KiB.of(150).perSecond()) {
+        new DataGenerator.Throttler(DataRate.KiB.of(150).perSecond()) {
           @Override
           long durationInSeconds() {
             return durationInSeconds.get();
@@ -230,9 +186,8 @@ public class DataSupplierTest {
   @Test
   void testNoKey() {
     var dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> 10L,
             () -> 0L,
             () -> 10L,
@@ -242,16 +197,15 @@ public class DataSupplierTest {
 
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(data.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data.isEmpty());
     Assertions.assertNull(data.get(0).key());
   }
 
   @Test
   void testNoValue() {
     var dataSupplier =
-        DataSupplier.of(
+        DataGenerator.DataSupplier.of(
             1,
-            ExeTime.of("10s"),
             () -> 10L,
             () -> 10L,
             () -> 10L,
@@ -260,22 +214,15 @@ public class DataSupplierTest {
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(data.stream().allMatch(DataSupplier.Data::hasData));
+    Assertions.assertTrue(!data.isEmpty());
     Assertions.assertNull(data.get(0).value());
   }
 
   @Test
   void testBatch() {
     var dataSupplier =
-        DataSupplier.of(
-            3,
-            ExeTime.of("2records"),
-            () -> 1L,
-            () -> 1L,
-            () -> 1L,
-            () -> 1L,
-            Map.of(),
-            DataRate.KiB.of(100).perSecond());
+        DataGenerator.DataSupplier.of(
+            3, () -> 1L, () -> 1L, () -> 1L, () -> 1L, Map.of(), DataRate.KiB.of(100).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertEquals(3, data.size());
