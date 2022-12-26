@@ -58,7 +58,7 @@ public class Exporter extends SinkConnector {
   static Definition PASSWORD_KEY =
       Definition.builder()
           .name("fs.ftp.password")
-          .type(Definition.Type.STRING)
+          .type(Definition.Type.PASSWORD)
           .documentation("the password required to login to the ftp server.")
           .build();
   static Definition PATH_KEY =

@@ -77,6 +77,8 @@ public class ExporterTest extends RequireWorkerCluster {
       var task = new Exporter.Task();
       var configs =
           Map.of(
+              "fs.schema",
+              "ftp",
               "topics",
               topicName,
               "fs.ftp.hostname",
