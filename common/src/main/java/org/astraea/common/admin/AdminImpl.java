@@ -570,6 +570,17 @@ class AdminImpl implements Admin {
                                 .map(TopicPartition::to)
                                 .collect(Collectors.toUnmodifiableList()))
                         .all())
+                    .exceptionally(
+                        e -> {
+                          // supported version: 2.8.0
+                          // https://issues.apache.org/jira/browse/KAFKA-12238
+                          if (e instanceof UnsupportedVersionException
+                              || e.getCause() instanceof UnsupportedVersionException)
+                            return Map.of();
+
+                          if (e instanceof RuntimeException) throw (RuntimeException) e;
+                          throw new RuntimeException(e);
+                        })
                     .thenApply(
                         ps ->
                             ps.entrySet().stream()
