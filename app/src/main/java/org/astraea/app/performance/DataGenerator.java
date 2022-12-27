@@ -51,8 +51,8 @@ public interface DataGenerator extends AbstractThread {
     var random = new Random();
     var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
     var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    String THROTTLED_TOPIC = Utils.randomString(10);
-    int THROTTLED_PARTITION = Math.abs(ThreadLocalRandom.current().nextInt());
+    var THROTTLED_TOPIC = Utils.randomString(10);
+    var THROTTLED_PARTITION = Math.abs(ThreadLocalRandom.current().nextInt());
     Supplier<byte[]> valueSupplier =
         () ->
             getOrNew(
@@ -64,7 +64,7 @@ public interface DataGenerator extends AbstractThread {
                     .get()
                     .intValue(),
                 random);
-    final Supplier<byte[]> keySupplier =
+    Supplier<byte[]> keySupplier =
         () ->
             getOrNew(
                 recordKeyTable,
