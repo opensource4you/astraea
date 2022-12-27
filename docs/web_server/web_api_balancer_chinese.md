@@ -119,11 +119,8 @@ JSON Response 範例
 * `id`: 此 Response 所描述的負載平衡計劃之編號
 * `phase`: 代表此負載平衡計劃狀態的字串，可能是下列任一值
   * `Searching`: 正在搜尋能使叢集變更好的負載平衡計劃
-  * `NoSolutionFound`: 計劃搜尋結束且沒辦法找到能使叢集變更好的分佈方式
-  * `SearchException`: 計劃搜尋過程發生例外，`exception` 或 stderr 應該有相關的錯誤訊息
-  * `ReadyForExecution`: 計劃搜尋完成，有找到一個讓叢集變更好的分佈方式，等待使用者調度執行
+  * `Searched`: 計劃搜尋已經結束
   * `Executing`: 正在將負載平衡計劃套用至叢集
-  * `ExecutionException`: 負載平衡計劃套用過程發生例外，`exception` 或 stderr 應該有相關的錯誤訊息
   * `Executed`: 此負載平衡計劃已經成功套用至叢集
 * `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
   1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `SearchException`)
