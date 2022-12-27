@@ -123,8 +123,8 @@ JSON Response 範例
   * `Executing`: 正在將負載平衡計劃套用至叢集
   * `Executed`: 此負載平衡計劃已經成功套用至叢集
 * `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
-  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `SearchException`)
-  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `ExecutionException`)
+  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `Searched`)
+  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `Executed`)
 * `config` 此優化計劃的搜尋參數設定
   * `balancer`: 此計劃生成所使用的搜尋算法實作
   * `function`: 用來評估叢集狀態之品質的方法
