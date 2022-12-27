@@ -336,6 +336,19 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
   }
 
   @Test
+  void testMaxPartitionSize() {
+    var cost = new ReplicaSizeCost();
+    var tp = TopicPartition.of("t", 0);
+    var overFlowSize = List.of(100.0, 200.0, 300.0);
+    var size = List.of(100.0, 110.0, 120.0);
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, List.of()));
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, overFlowSize));
+    Assertions.assertEquals(120.0, cost.maxPartitionSize(tp, size));
+  }
+
+  @Test
   void testFetcher() throws InterruptedException {
     var interval = Duration.ofMillis(300);
     var topicName = Utils.randomString(10);

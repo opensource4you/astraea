@@ -119,37 +119,77 @@ public class ReplicaSizeCost
   @Override
   public BrokerCost brokerCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    var logSize =
+        clusterBean.replicas().stream()
+            .map(
+                p ->
+                    clusterBean
+                        .replicaMetrics(p, SizeStatisticalBean.class)
+                        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+                        .get())
+            .collect(
+                Collectors.groupingBy(
+                    bean ->
+                        TopicPartition.of(
+                            bean.topicIndex().get(), bean.partitionIndex().get().partition()),
+                    Collectors.mapping(HasGauge::value, Collectors.toList())));
     var result =
         clusterInfo.topicPartitionReplicas().stream()
             .collect(
                 Collectors.groupingBy(
                     TopicPartitionReplica::brokerId,
                     Collectors.mapping(
-                        tpr -> statistPartitionSizeCount(tpr.topicPartition(), clusterBean),
+                        tpr ->
+                            statistReplicaSizeCount(
+                                    clusterInfo
+                                        .replicaLeader(tpr.topicPartition())
+                                        .map(ReplicaInfo::topicPartitionReplica)
+                                        .orElse(tpr),
+                                    clusterBean)
+                                .orElse(
+                                    maxPartitionSize(
+                                        tpr.topicPartition(),
+                                        logSize.getOrDefault(tpr.topicPartition(), List.of()))),
                         Collectors.summingDouble(x -> x))));
     return () -> result;
   }
 
-  private double statistPartitionSizeCount(TopicPartition tp, ClusterBean clusterBean) {
-    return clusterBean
-        .partitionMetrics(tp, SizeStatisticalBean.class)
-        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-        .map(SizeStatisticalBean::value)
+  double maxPartitionSize(TopicPartition tp, List<Double> size) {
+    if (size.size() == 0)
+      throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric for " + tp);
+    checkSizeDiff(tp, size, 0.2);
+    return size.stream()
+        .max(Comparator.comparing(Function.identity()))
         .orElseThrow(
             () ->
                 new NoSufficientMetricsException(
                     this, Duration.ofSeconds(1), "No metric for " + tp));
   }
 
-  private double statistReplicaSizeCount(TopicPartitionReplica tpr, ClusterBean clusterBean) {
+  /**
+   * Check whether the partition log size difference of all replicas is within a certain percentage
+   *
+   * @param tp topicPartition
+   * @param size log size list of partition tp
+   * @param percentage the percentage of the maximum acceptable partition data volume difference
+   *     between replicas
+   */
+  private void checkSizeDiff(TopicPartition tp, List<Double> size, double percentage) {
+    var max = size.stream().max(Comparator.comparing(Function.identity())).get();
+    var min = size.stream().min(Comparator.comparing(Function.identity())).get();
+    if ((max - min) / min > percentage)
+      throw new NoSufficientMetricsException(
+          this,
+          Duration.ofSeconds(1),
+          "The log size gap of partition" + tp + "is too large, more than" + percentage);
+  }
+
+  private Optional<Double> statistReplicaSizeCount(
+      TopicPartitionReplica tpr, ClusterBean clusterBean) {
     return clusterBean
         .replicaMetrics(tpr, SizeStatisticalBean.class)
         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-        .map(SizeStatisticalBean::value)
-        .orElseThrow(
-            () ->
-                new NoSufficientMetricsException(
-                    this, Duration.ofSeconds(1), "No metric for " + tpr));
+        .map(SizeStatisticalBean::value);
   }
 
   @Override
@@ -168,8 +208,13 @@ public class ReplicaSizeCost
                 leaderReplica ->
                     Map.entry(
                         leaderReplica.topicPartition(),
-                        statistReplicaSizeCount(
-                            leaderReplica.topicPartitionReplica(), clusterBean)))
+                        statistReplicaSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)
+                            .orElseThrow(
+                                () ->
+                                    new NoSufficientMetricsException(
+                                        this,
+                                        Duration.ofSeconds(1),
+                                        "No metric for " + leaderReplica.topicPartitionReplica()))))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> result;
   }
