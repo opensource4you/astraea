@@ -11,6 +11,7 @@
     - [加總 metrics 的值](#加總-metrics-的值)
     - [使用 rate 呈現圖表](#使用-rate-呈現圖表)
     - [修改 y 軸的資料單位](#修改-y-軸的資料單位)
+- [監控特定 metrics 數值發出警告](#監控特定-metrics-數值發出警告)
 
 ### Run Grafana
 
@@ -268,7 +269,19 @@ rate(kafka_log_log_size{topic="a2",partition="1"}[10s])
 
 2. 轉換單位後，可以看到 y 軸的資料單位變成人類較好閱讀的 GB 來呈現
 
-**注意：轉換資料單位的時候要小心，在轉換單位的時候要知道 Prometheus scrape 下來的單位是多少，亂選擇單位的話會導致嚴重的後果(監測到很奇怪的大小......)**，如下圖所示
+**注意：轉換資料單位的時候要小心，在轉換單位的時候要知道 Prometheus scrape 下來的資料單位是多少，單位選擇錯誤的話會導致嚴重的後果 (如此範例，會監測到很奇怪的 log 大小)**，如下圖所示
 
 ![Data_Unit_2](pictures/Data_Unit_2.png)
+
+#### 監控特定 metrics 數值發出警告
+
+Grafana 提供 Alert 功能讓系統能夠更加**被監控**，當 Grafana 監測到系統數據發生異常(如：disk 空間用完、CPU 資源過高......)，可以警告使用者，讓使用者能馬上看到系統有沒有發生什麼異常
+
+![Alert_1](pictures/Alert_1.png)
+
+1. 到 Grafana 的界面中建立一個 alert rule，點選上圖箭頭所指之處
+
+![Alert_A](pictures/Alert_A.png)
+
+2. 建立 alert rule 前，可以決定要看多久以前的 metrics 值，像圖上的 `now-10m to now` 就是前十分鐘到現在的 metrics 值。這邊會需要使用者 query 自己想要加入 alert 的 metrics，若還不熟悉 query 可以參考 [前面的教學](#針對特定-metrics-做處理) or [PQL](https://prometheus.io/docs/prometheus/latest/querying/basics/)
 
