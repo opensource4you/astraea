@@ -200,7 +200,7 @@ JSON Response 範例
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
   "phase": "Searched",
-  "exception": "Unable to propose a suitable rebalance plan",
+  "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
   "config": { /* ... */ },
   "plan":{ /* ... */ }
 }
