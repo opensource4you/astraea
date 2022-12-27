@@ -16,9 +16,10 @@
  */
 package org.astraea.connector.backup;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.TopicPartition;
@@ -31,11 +32,57 @@ import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
 
-  private Configuration cons;
+  static Definition SCHEMA_KEY =
+      Definition.builder()
+          .name("fs.schema")
+          .type(Definition.Type.STRING)
+          .documentation("decide which file system to use, such as FTP.")
+          .required()
+          .build();
+  static Definition HOSTNAME_KEY =
+      Definition.builder()
+          .name("fs.ftp.hostname")
+          .type(Definition.Type.STRING)
+          .documentation("the host name of the ftp server used.")
+          .build();
+  static Definition PORT_KEY =
+      Definition.builder()
+          .name("fs.ftp.port")
+          .type(Definition.Type.STRING)
+          .documentation("the port of the ftp server used.")
+          .build();
+  static Definition USER_KEY =
+      Definition.builder()
+          .name("fs.ftp.user")
+          .type(Definition.Type.STRING)
+          .documentation("the user name required to login to the FTP server.")
+          .build();
+  static Definition PASSWORD_KEY =
+      Definition.builder()
+          .name("fs.ftp.password")
+          .type(Definition.Type.PASSWORD)
+          .documentation("the password required to login to the ftp server.")
+          .build();
+  static Definition PATH_KEY =
+      Definition.builder()
+          .name("path")
+          .type(Definition.Type.STRING)
+          .documentation("the path required for file storage.")
+          .required()
+          .build();
+  static Definition SIZE_KEY =
+      Definition.builder()
+          .name("size")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue("100MB")
+          .documentation("is the maximum number of the size will be included in each file.")
+          .build();
+  private Configuration configs;
 
   @Override
   protected void init(Configuration configuration) {
-    this.cons = configuration;
+    this.configs = configuration;
   }
 
   @Override
@@ -45,32 +92,26 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    List<Configuration> configs = new ArrayList<>();
-    for (int i = 0; i < maxTasks; i++) {
-      configs.add(cons);
-    }
-    return configs;
+    return IntStream.range(0, maxTasks).mapToObj(ignored -> configs).collect(Collectors.toList());
   }
 
   @Override
   protected List<Definition> definitions() {
-    return List.of(
-        Definition.builder()
-            .name("ftp")
-            .type(Definition.Type.STRING)
-            .defaultValue(null)
-            .documentation("test")
-            .build());
+    return List.of(SCHEMA_KEY, HOSTNAME_KEY, PORT_KEY, USER_KEY, PASSWORD_KEY, PATH_KEY, SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
     private FileSystem ftpClient;
-    private Configuration cons;
+    private String topicName;
+    private String path;
+    private String size;
 
     @Override
     protected void init(Configuration configuration) {
-      this.ftpClient = FileSystem.of("ftp", configuration);
-      this.cons = configuration;
+      this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+      this.topicName = configuration.requireString(TOPICS_KEY);
+      this.path = configuration.requireString(PATH_KEY.name());
+      this.size = configuration.requireString(SIZE_KEY.name());
     }
 
     @Override
@@ -81,22 +122,20 @@ public class Exporter extends SinkConnector {
             writers.computeIfAbsent(
                 record.topicPartition(),
                 ignored -> {
-                  var path = cons.requireString("path");
-                  var topicName = cons.requireString("topics");
                   var fileName = String.valueOf(record.offset());
                   return RecordWriter.builder(
                           ftpClient.write(
                               String.join(
                                   "/",
-                                  path,
-                                  topicName,
+                                  this.path,
+                                  this.topicName,
                                   String.valueOf(record.partition()),
                                   fileName)))
                       .build();
                 });
         writer.append(record);
 
-        if (writer.size().greaterThan(DataSize.of(cons.requireString("size")))) {
+        if (writer.size().greaterThan(DataSize.of(this.size))) {
           writers.remove(record.topicPartition()).close();
         }
       }

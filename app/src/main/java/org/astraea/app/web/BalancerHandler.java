@@ -219,7 +219,7 @@ class BalancerHandler implements Handler {
   }
 
   private static List<MigrationCost> migrationCosts(MoveCost cost) {
-    return List.of(
+    return Stream.of(
             new MigrationCost(
                 CHANGED_REPLICAS,
                 cost.changedReplicaCount().entrySet().stream()
@@ -238,7 +238,6 @@ class BalancerHandler implements Handler {
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
-        .stream()
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
   }
