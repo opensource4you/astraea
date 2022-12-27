@@ -415,10 +415,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "search done");
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
-      Assertions.assertTrue(progress.plan.newCost.isEmpty(), "No proposal");
       Assertions.assertNotNull(progress.config.function);
-      Assertions.assertEquals(0, progress.plan.changes.size(), "No proposal");
-      Assertions.assertEquals(0, progress.plan.migrationCosts.size(), "No proposal");
+      Assertions.assertNull(progress.plan, "no proposal");
       Assertions.assertInstanceOf(
           IllegalStateException.class,
           Assertions.assertThrows(
