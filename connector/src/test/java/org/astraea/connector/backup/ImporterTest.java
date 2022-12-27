@@ -16,61 +16,33 @@
  */
 package org.astraea.connector.backup;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.backup.RecordReader;
-import org.astraea.common.connector.Config;
+import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.connector.ConnectorClient;
-import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
+import org.astraea.connector.MetadataStorage;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.RequireWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ExporterTest extends RequireWorkerCluster {
-
+public class ImporterTest extends RequireWorkerCluster {
   @Test
-  void testRequiredConfigs() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
-    var validation =
-        client
-            .validate(Exporter.class.getName(), Map.of("topics", "aa", "name", "b"))
-            .toCompletableFuture()
-            .join();
-    Assertions.assertNotEquals(0, validation.errorCount());
-
-    var failed =
-        validation.configs().stream()
-            .map(Config::value)
-            .filter(v -> !v.errors().isEmpty())
-            .collect(Collectors.toMap(Value::name, Function.identity()));
-    Assertions.assertEquals(
-        Set.of(Exporter.SCHEMA_KEY.name(), Exporter.PATH_KEY.name()), failed.keySet());
-  }
-
-  @Test
-  void testCreateFtpSinkConnector() {
-
-    var topicName = Utils.randomString(10);
-
+  void testCreateFtpSourceConnector() {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
             "fs.schema",
             "ftp",
             "connector.class",
-            Exporter.class.getName(),
+            Importer.class.getName(),
             "tasks.max",
             "2",
-            "topics",
-            topicName,
             "fs.ftp.hostname",
             "127.0.0.1",
             "fs.ftp.port",
@@ -80,31 +52,36 @@ public class ExporterTest extends RequireWorkerCluster {
             "fs.ftp.password",
             "password",
             "path",
-            "/");
-
+            "/source",
+            "clean.source",
+            "archive",
+            "archive.dir",
+            "/archive");
     var createdConnectorInfo =
-        connectorClient.createConnector("FtpSink", connectorConfigs).toCompletableFuture().join();
+        connectorClient.createConnector("FtpSource", connectorConfigs).toCompletableFuture().join();
 
     var configs = createdConnectorInfo.config();
 
-    Assertions.assertEquals("FtpSink", createdConnectorInfo.name());
+    Assertions.assertEquals("FtpSource", createdConnectorInfo.name());
+    Assertions.assertEquals(Importer.class.getName(), configs.get("connector.class"));
     Assertions.assertEquals("2", configs.get("tasks.max"));
-    Assertions.assertEquals(Exporter.class.getName(), configs.get("connector.class"));
   }
 
   @Test
-  void testFtpSinkTask() {
+  void testFtpSourceTask() {
     try (var server = FtpServer.local()) {
-      var fileSize = "500Byte";
       var topicName = Utils.randomString(10);
-
-      var task = new Exporter.Task();
+      var task = new Importer.Task();
       var configs =
           Map.of(
               "fs.schema",
               "ftp",
-              "topics",
-              topicName,
+              "connector.class",
+              Importer.class.getName(),
+              "tasks.max",
+              "1",
+              "path",
+              "/source",
               "fs.ftp.hostname",
               String.valueOf(server.hostname()),
               "fs.ftp.port",
@@ -113,16 +90,12 @@ public class ExporterTest extends RequireWorkerCluster {
               String.valueOf(server.user()),
               "fs.ftp.password",
               String.valueOf(server.password()),
-              "path",
-              "/" + fileSize,
-              "size",
-              fileSize,
-              "tasks.max",
-              "1");
+              "clean.source",
+              "off",
+              "file.set",
+              "0");
 
       var fs = FileSystem.of("ftp", Configuration.of(configs));
-
-      task.start(configs);
 
       var records =
           List.of(
@@ -141,32 +114,21 @@ public class ExporterTest extends RequireWorkerCluster {
                   .timestamp(System.currentTimeMillis())
                   .build());
 
-      task.put(records);
-      Assertions.assertEquals(
-          2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
+      var os = fs.write("/source/topic/0/0");
+      var writer = RecordWriter.builder(os).build();
+      records.forEach(writer::append);
+      writer.close();
 
-      records.forEach(
-          sinkRecord -> {
-            var input =
-                fs.read(
-                    "/"
-                        + String.join(
-                            "/",
-                            fileSize,
-                            topicName,
-                            String.valueOf(sinkRecord.partition()),
-                            String.valueOf(sinkRecord.offset())));
-            var reader = RecordReader.builder(input).build();
+      task.init(Configuration.of(configs), MetadataStorage.EMPTY);
+      var returnRecords = new ArrayList<>(task.take());
 
-            while (reader.hasNext()) {
-              var record = reader.next();
-              Assertions.assertArrayEquals(record.key(), (byte[]) sinkRecord.key());
-              Assertions.assertArrayEquals(record.value(), (byte[]) sinkRecord.value());
-              Assertions.assertEquals(record.topic(), sinkRecord.topic());
-              Assertions.assertEquals(record.partition(), sinkRecord.partition());
-              Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
-            }
-          });
+      for (int i = 0; i < records.size(); i++) {
+        Assertions.assertEquals(records.get(i).topic(), returnRecords.get(i).topic());
+        Assertions.assertArrayEquals(records.get(i).key(), returnRecords.get(i).key());
+        Assertions.assertArrayEquals(records.get(i).value(), returnRecords.get(i).value());
+        Assertions.assertEquals(records.get(i).partition(), returnRecords.get(i).partition().get());
+        Assertions.assertEquals(records.get(i).timestamp(), returnRecords.get(i).timestamp().get());
+      }
     }
   }
 }

@@ -171,6 +171,11 @@ public class FtpFileSystem implements FileSystem {
             }
 
             @Override
+            public int readNBytes(byte[] b, int off, int len) throws IOException {
+              return inputStream.readNBytes(b, off, len);
+            }
+
+            @Override
             public void close() throws IOException {
               inputStream.close();
               if (!client.completePendingCommand())

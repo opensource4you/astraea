@@ -40,6 +40,8 @@ import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
+import org.astraea.common.admin.ProducerState;
+import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -262,6 +264,10 @@ public class TopicNode {
                                     .admin()
                                     .consumerGroupIds()
                                     .thenCompose(ids -> context.admin().consumerGroups(ids)),
+                                context
+                                    .admin()
+                                    .topicPartitions(topics)
+                                    .thenCompose(tps -> context.admin().producerStates(tps)),
                                 TopicNode::basicResult)))
         .build();
   }
@@ -329,18 +335,19 @@ public class TopicNode {
   }
 
   private static List<Map<String, Object>> basicResult(
-      List<Broker> brokers, List<Partition> partitions, List<ConsumerGroup> groups) {
+      List<Broker> brokers,
+      List<Partition> partitions,
+      List<ConsumerGroup> groups,
+      List<ProducerState> producerStates) {
     var topicSize =
         brokers.stream()
             .flatMap(
                 n -> n.dataFolders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
-            .collect(Collectors.groupingBy(e -> e.getKey().topic()))
-            .entrySet()
-            .stream()
             .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> e.getValue().stream().mapToLong(Map.Entry::getValue).sum()));
+                Collectors.groupingBy(
+                    e -> e.getKey().topic(),
+                    Collectors.mapping(Map.Entry::getValue, Collectors.reducing(0L, Long::sum))));
+
     var topicPartitions = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
     var topicGroups =
         groups.stream()
@@ -348,16 +355,16 @@ public class TopicNode {
                 g ->
                     g.assignment().values().stream()
                         .flatMap(tps -> tps.stream().map(tp -> Map.entry(tp.topic(), g.groupId()))))
-            .collect(Collectors.groupingBy(Map.Entry::getKey))
-            .entrySet()
-            .stream()
             .collect(
-                Collectors.toMap(
+                Collectors.groupingBy(
                     Map.Entry::getKey,
-                    e ->
-                        e.getValue().stream()
-                            .map(Map.Entry::getValue)
-                            .collect(Collectors.toSet())));
+                    Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
+    var topicProducers =
+        producerStates.stream()
+            .collect(
+                Collectors.groupingBy(
+                    ProducerState::topic,
+                    Collectors.mapping(ProducerState::producerId, Collectors.toSet())));
     return topicPartitions.keySet().stream()
         .sorted()
         .map(
@@ -376,7 +383,11 @@ public class TopicNode {
                   .findFirst()
                   .ifPresent(t -> result.put("max timestamp", t));
               result.put(
-                  "number of active consumers", topicGroups.getOrDefault(topic, Set.of()).size());
+                  "number of consumer group", topicGroups.getOrDefault(topic, Set.of()).size());
+              // producer states is supported by kafka 2.8.0+
+              if (!topicProducers.isEmpty())
+                result.put(
+                    "number of producer id", topicProducers.getOrDefault(topic, Set.of()).size());
               ps.stream()
                   .flatMap(p -> p.replicas().stream())
                   .collect(Collectors.groupingBy(NodeInfo::id))
@@ -390,6 +401,78 @@ public class TopicNode {
         .collect(Collectors.toList());
   }
 
+  public static Node healthNode(Context context) {
+    return PaneBuilder.of()
+        .firstPart(
+            null,
+            List.of(),
+            "CHECK",
+            (argument, logger) ->
+                context
+                    .admin()
+                    .topicNames(true)
+                    .thenCompose(
+                        names ->
+                            FutureUtils.combine(
+                                context.admin().topics(names),
+                                context.admin().partitions(names),
+                                (topics, partitions) -> {
+                                  var minInSync =
+                                      topics.stream()
+                                          .collect(
+                                              Collectors.toMap(
+                                                  Topic::name,
+                                                  t ->
+                                                      t.config()
+                                                          .value(
+                                                              TopicConfigs
+                                                                  .MIN_IN_SYNC_REPLICAS_CONFIG)
+                                                          .map(Integer::parseInt)
+                                                          .orElse(1)));
+                                  var result =
+                                      new LinkedHashMap<String, List<Map<String, Object>>>();
+
+                                  var unavailablePartitions =
+                                      partitions.stream()
+                                          .filter(
+                                              p ->
+                                                  p.isr().size()
+                                                          < minInSync.getOrDefault(p.topic(), 1)
+                                                      || p.leader().isEmpty())
+                                          .map(
+                                              p -> {
+                                                var r = new LinkedHashMap<String, Object>();
+                                                r.put("topic", p.topic());
+                                                r.put("partition", p.partition());
+                                                r.put(
+                                                    "leader",
+                                                    p.leader()
+                                                        .map(n -> String.valueOf(n.id()))
+                                                        .orElse("null"));
+                                                r.put(
+                                                    "in-sync replicas",
+                                                    p.isr().stream()
+                                                        .map(n -> String.valueOf(n.id()))
+                                                        .collect(Collectors.joining(",")));
+                                                r.put(
+                                                    TopicConfigs.MIN_IN_SYNC_REPLICAS_CONFIG,
+                                                    minInSync.getOrDefault(p.topic(), 1));
+                                                r.put("readable", p.leader().isPresent());
+                                                r.put(
+                                                    "writable",
+                                                    p.leader().isPresent()
+                                                        && p.isr().size()
+                                                            >= minInSync.getOrDefault(
+                                                                p.topic(), 1));
+                                                return (Map<String, Object>) r;
+                                              })
+                                          .collect(Collectors.toList());
+                                  result.put("unavailable partitions", unavailablePartitions);
+                                  return result;
+                                })))
+        .build();
+  }
+
   public static Node of(Context context) {
     return Slide.of(
             Side.TOP,
@@ -399,6 +482,7 @@ public class TopicNode {
                 "replica", ReplicaNode.of(context),
                 "config", configNode(context),
                 "metrics", metricsNode(context),
+                "health", healthNode(context),
                 "create", createNode(context)))
         .node();
   }

@@ -40,6 +40,23 @@ import org.junit.jupiter.api.Test;
 public class PerfSourceTest extends RequireSingleWorkerCluster {
 
   @Test
+  void testTaskConfiguration() {
+    var s = new PerfSource();
+    var config = Configuration.of(Map.of(PerfSource.SPECIFY_PARTITIONS_DEF.name(), "0,1,2,3"));
+    s.init(config, MetadataStorage.EMPTY);
+    var configs = s.takeConfiguration(10);
+    Assertions.assertEquals(4, configs.size());
+    Assertions.assertEquals(
+        0, configs.get(0).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals(
+        1, configs.get(1).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals(
+        2, configs.get(2).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals(
+        3, configs.get(3).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+  }
+
+  @Test
   void testDefaultConfig() {
     var name = Utils.randomString();
     var client = ConnectorClient.builder().url(workerUrl()).build();
@@ -75,12 +92,39 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   }
 
   @Test
-  void testFrequency() {
-    testConfig(PerfSource.FREQUENCY_DEF.name(), "a");
+  void testThroughput() {
+    testConfig(PerfSource.THROUGHPUT_DEF.name(), "a");
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> PerfSource.FREQUENCY_DEF.validator().accept("aa", "bbb"));
-    Assertions.assertDoesNotThrow(() -> PerfSource.FREQUENCY_DEF.validator().accept("aa", "10s"));
+        () -> PerfSource.THROUGHPUT_DEF.validator().accept("aa", "bbb"));
+    Assertions.assertDoesNotThrow(() -> PerfSource.THROUGHPUT_DEF.validator().accept("aa", "10Kb"));
+
+    var name = Utils.randomString();
+    var topicName = Utils.randomString();
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    client
+        .createConnector(
+            name,
+            Map.of(
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
+                PerfSource.class.getName(),
+                ConnectorConfigs.TASK_MAX_KEY,
+                "1",
+                ConnectorConfigs.TOPICS_KEY,
+                topicName,
+                PerfSource.THROUGHPUT_DEF.name(),
+                "1Byte"))
+        .toCompletableFuture()
+        .join();
+
+    Utils.sleep(Duration.ofSeconds(3));
+
+    try (var admin = Admin.of(bootstrapServers())) {
+      var offsets =
+          admin.latestOffsets(Set.of(TopicPartition.of(topicName, 0))).toCompletableFuture().join();
+      Assertions.assertEquals(1, offsets.size());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)));
+    }
   }
 
   @Test
@@ -304,7 +348,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
     Assertions.assertNotNull(task.rand);
     Assertions.assertNotNull(task.topics);
-    Assertions.assertNotNull(task.frequency);
+    Assertions.assertNotNull(task.throughput);
     Assertions.assertNotNull(task.keySelector);
     Assertions.assertNotNull(task.keySizeGenerator);
     Assertions.assertNotNull(task.keys);

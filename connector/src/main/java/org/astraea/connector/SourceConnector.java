@@ -24,7 +24,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
 
 public abstract class SourceConnector extends org.apache.kafka.connect.source.SourceConnector {
-  public static String TOPICS_KEY = "topics";
+  public static final String TOPICS_KEY = "topics";
 
   protected abstract void init(Configuration configuration, MetadataStorage storage);
 

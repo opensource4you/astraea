@@ -14,14 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost;
+package org.astraea.common.metrics.stats;
 
-/**
- * A cost function to evaluate cluster load balance score in terms of message ingress data rate. See
- * {@link NetworkCost} for further detail.
- */
-public class NetworkIngressCost extends NetworkCost {
-  public NetworkIngressCost() {
-    super(BandwidthType.Ingress);
+import java.time.Duration;
+import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class RateTest {
+
+  @Test
+  void testMeasure() {
+    var rate = Rate.sizeRate();
+    rate.record(DataSize.Byte.of(100L));
+    Utils.sleep(Duration.ofSeconds(1));
+    Assertions.assertTrue(rate.measure().bytes() < 100);
   }
 }
