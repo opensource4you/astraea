@@ -16,9 +16,10 @@
  */
 package org.astraea.connector.backup;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.TopicPartition;
@@ -36,6 +37,7 @@ public class Exporter extends SinkConnector {
           .name("fs.schema")
           .type(Definition.Type.STRING)
           .documentation("decide which file system to use, such as FTP.")
+          .required()
           .build();
   static Definition HOSTNAME_KEY =
       Definition.builder()
@@ -66,6 +68,7 @@ public class Exporter extends SinkConnector {
           .name("path")
           .type(Definition.Type.STRING)
           .documentation("the path required for file storage.")
+          .required()
           .build();
   static Definition SIZE_KEY =
       Definition.builder()
@@ -75,14 +78,11 @@ public class Exporter extends SinkConnector {
           .defaultValue("100MB")
           .documentation("is the maximum number of the size will be included in each file.")
           .build();
-  private Configuration cons;
+  private Configuration configs;
 
   @Override
   protected void init(Configuration configuration) {
-    this.cons = configuration;
-    configuration.requireString("topics");
-    configuration.requireString(PATH_KEY.name());
-    configuration.requireString(SIZE_KEY.name());
+    this.configs = configuration;
   }
 
   @Override
@@ -92,11 +92,7 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    List<Configuration> configs = new ArrayList<>();
-    for (int i = 0; i < maxTasks; i++) {
-      configs.add(cons);
-    }
-    return configs;
+    return IntStream.range(0, maxTasks).mapToObj(ignored -> configs).collect(Collectors.toList());
   }
 
   @Override
@@ -113,7 +109,7 @@ public class Exporter extends SinkConnector {
     @Override
     protected void init(Configuration configuration) {
       this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.topicName = configuration.requireString("topics");
+      this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size = configuration.requireString(SIZE_KEY.name());
     }
