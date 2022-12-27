@@ -18,10 +18,7 @@ package org.astraea.app.performance;
 
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -30,52 +27,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class DataSupplierTest {
-  static Supplier<byte[]> keySupplier(
-      ConcurrentHashMap<Long, byte[]> keyTable,
-      Supplier<Long> keyDistribution,
-      Supplier<Long> keySizeDistribution,
-      Random random) {
-    return () ->
-        DataGenerator.getOrNew(
-            keyTable, keyDistribution, keySizeDistribution.get().intValue(), random);
-  }
-
-  static Supplier<byte[]> valueSupplier(
-      ConcurrentHashMap<Long, byte[]> valueTable,
-      Supplier<Long> valueDistribution,
-      Supplier<Long> valueSizeDistribution,
-      Random random) {
-    return () ->
-        DataGenerator.getOrNew(
-            valueTable, valueDistribution, valueSizeDistribution.get().intValue(), random);
-  }
-
   @Test
   void testKeySize() {
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks =
-        keySupplier(
-            recordKeyTable,
+    var dataSupplier =
+        DataGenerator.supplier(
+            1,
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
-            random);
-    var vs =
-        valueSupplier(
-            recordValueTable,
             () -> 2L,
             () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            random);
-    var dataSupplier =
-        DataGenerator.dataSupplier(
-            1,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(200).perSecond()),
-            "Throttled",
-            1,
-            ks,
-            vs);
+            DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
@@ -87,30 +49,15 @@ public class DataSupplierTest {
 
   @Test
   void testFixedValueSize() {
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks =
-        keySupplier(
-            recordKeyTable,
+    var dataSupplier =
+        DataGenerator.supplier(
+            1,
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
-            random);
-    var vs =
-        valueSupplier(
-            recordValueTable,
             () -> 2L,
             () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            random);
-    var dataSupplier =
-        DataGenerator.dataSupplier(
-            1,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(100).perSecond()),
-            "throttled",
-            1,
-            ks,
-            vs);
+            DataRate.KiB.of(100).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertTrue(!data.isEmpty());
@@ -122,28 +69,18 @@ public class DataSupplierTest {
   void testKeyDistribution() {
     var counter = new AtomicLong(0L);
     var counter2 = new AtomicLong(0L);
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks =
-        keySupplier(
-            recordKeyTable,
+
+    // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
+    var dataSupplier =
+        DataGenerator.supplier(
+            1,
             () -> counter.getAndIncrement() % 2,
             () -> 100L + counter2.getAndIncrement(),
-            random);
-    var vs = valueSupplier(recordValueTable, () -> 10L, () -> 10L, random);
-    var dataSupplier =
-        DataGenerator.dataSupplier(
-            1,
+            () -> 10L,
+            () -> 10L,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(200).perSecond()),
-            "throttled",
-            1,
-            ks,
-            vs);
+            DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
-    // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
-
     var data1 = dataSupplier.apply(tp);
     Assertions.assertTrue(!data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
@@ -158,20 +95,15 @@ public class DataSupplierTest {
     Assertions.assertEquals(data1.get(0).key(), data3.get(0).key());
 
     // Round-robin on 2 keys. Fixed key size to 100 bytes.
-    var recordKeyTable2 = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable2 = new ConcurrentHashMap<Long, byte[]>();
-    var ks2 = keySupplier(recordKeyTable2, () -> counter.getAndIncrement() % 2, () -> 100L, random);
-    var vs2 = valueSupplier(recordValueTable2, () -> 10L, () -> 10L, random);
     dataSupplier =
-        DataGenerator.dataSupplier(
+        DataGenerator.supplier(
             1,
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L,
+            () -> 10L,
+            () -> 10L,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(200).perSecond()),
-            "throttled",
-            1,
-            ks2,
-            vs2);
-
+            DataRate.KiB.of(200).perSecond());
     data1 = dataSupplier.apply(tp);
     Assertions.assertTrue(!data1.isEmpty());
     data2 = dataSupplier.apply(tp);
@@ -186,26 +118,17 @@ public class DataSupplierTest {
   void testDistributedValueSize() {
     var counter = new AtomicLong(0);
     var counter2 = new AtomicLong(0);
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks = keySupplier(recordKeyTable, () -> 10L, () -> 10L, random);
-    var vs =
-        valueSupplier(
-            recordValueTable,
-            () -> counter.getAndIncrement() % 2,
-            () -> 100L + counter2.getAndIncrement(),
-            random);
+
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
-        DataGenerator.dataSupplier(
+        DataGenerator.supplier(
             1,
+            () -> 10L,
+            () -> 10L,
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L + counter2.getAndIncrement(),
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(100).perSecond()),
-            "throttled",
-            1,
-            ks,
-            vs);
+            DataRate.KiB.of(100).perSecond());
 
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
@@ -221,22 +144,16 @@ public class DataSupplierTest {
     // Round-robin value distribution with 2 possible value.
     Assertions.assertEquals(data1.get(0).value(), data3.get(0).value());
 
-    var recordKeyTable2 = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable2 = new ConcurrentHashMap<Long, byte[]>();
-    var ks2 = keySupplier(recordKeyTable2, () -> 10L, () -> 10L, random);
-    var vs2 =
-        valueSupplier(recordValueTable2, () -> counter.getAndIncrement() % 2, () -> 100L, random);
-
     // Round-robin on 2 values. Fixed value size.
     dataSupplier =
-        DataGenerator.dataSupplier(
+        DataGenerator.supplier(
             1,
+            () -> 10L,
+            () -> 10L,
+            () -> counter.getAndIncrement() % 2,
+            () -> 100L,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(100).perSecond()),
-            "throttled",
-            1,
-            ks2,
-            vs2);
+            DataRate.KiB.of(100).perSecond());
     data1 = dataSupplier.apply(tp);
     Assertions.assertTrue(!data1.isEmpty());
     data2 = dataSupplier.apply(tp);
@@ -267,20 +184,15 @@ public class DataSupplierTest {
 
   @Test
   void testNoKey() {
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks = keySupplier(recordKeyTable, () -> 10L, () -> 0L, random);
-    var vs = valueSupplier(recordValueTable, () -> 10L, () -> 10L, random);
     var dataSupplier =
-        DataGenerator.dataSupplier(
+        DataGenerator.supplier(
             1,
+            () -> 10L,
+            () -> 0L,
+            () -> 10L,
+            () -> 10L,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(200).perSecond()),
-            "throttled",
-            1,
-            ks,
-            vs);
+            DataRate.KiB.of(200).perSecond());
 
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
@@ -290,20 +202,15 @@ public class DataSupplierTest {
 
   @Test
   void testNoValue() {
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks = keySupplier(recordKeyTable, () -> 10L, () -> 10L, random);
-    var vs = valueSupplier(recordValueTable, () -> 10L, () -> 0L, random);
     var dataSupplier =
-        DataGenerator.dataSupplier(
+        DataGenerator.supplier(
             1,
+            () -> 10L,
+            () -> 10L,
+            () -> 10L,
+            () -> 0L,
             Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(200).perSecond()),
-            "throttled",
-            1,
-            ks,
-            vs);
+            DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertTrue(!data.isEmpty());
@@ -312,20 +219,9 @@ public class DataSupplierTest {
 
   @Test
   void testBatch() {
-    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
-    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
-    var random = new Random();
-    var ks = keySupplier(recordKeyTable, () -> 1L, () -> 1L, random);
-    var vs = valueSupplier(recordValueTable, () -> 1L, () -> 1L, random);
     var dataSupplier =
-        DataGenerator.dataSupplier(
-            3,
-            Map.of(),
-            new DataGenerator.Throttler(DataRate.KiB.of(100).perSecond()),
-            "throttled",
-            1,
-            ks,
-            vs);
+        DataGenerator.supplier(
+            3, () -> 1L, () -> 1L, () -> 1L, () -> 1L, Map.of(), DataRate.KiB.of(100).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertEquals(3, data.size());
