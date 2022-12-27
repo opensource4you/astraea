@@ -111,53 +111,40 @@ class BalancerHandler implements Handler {
     var planId = channel.target().get();
     if (!planCalculation.containsKey(planId))
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
-    boolean isCalculated =
-        planCalculation.get(planId).isDone()
-            && !planCalculation.get(planId).isCompletedExceptionally()
-            && !planCalculation.get(planId).isCancelled();
-    boolean isGenerated =
-        isCalculated
-            && planCalculation.get(planId).getNow(null).associatedPlan.solution().isPresent();
-    boolean isScheduled = executedPlans.containsKey(planId);
-    boolean isDone =
-        isScheduled
-            && executedPlans.get(planId).isDone()
-            && !executedPlans.get(planId).isCompletedExceptionally()
-            && !executedPlans.get(planId).isCancelled();
-    var generationException =
-        planCalculation
-            .getOrDefault(planId, CompletableFuture.completedFuture(null))
-            .handle((result, error) -> error != null ? error.toString() : null)
-            .getNow(null);
-    var executionException =
-        executedPlans
-            .getOrDefault(planId, CompletableFuture.completedFuture(null))
-            .handle((result, error) -> error != null ? error.toString() : null)
-            .getNow(null);
     var timeout = requestHistory.get(planId).executionTime.toMillis();
     var balancer = requestHistory.get(planId).balancerClasspath;
     var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
-    var report = isCalculated ? planCalculation.get(planId).join().report : null;
 
-    var phase = PlanPhase.Searching;
-    if (isCalculated && !isGenerated) phase = PlanPhase.NoSolutionFound;
-    if (phase == PlanPhase.Searching && isCalculated) phase = PlanPhase.ReadyForExecution;
-    if (phase == PlanPhase.Searching && generationException != null)
-      phase = PlanPhase.SearchException;
-    if (phase == PlanPhase.ReadyForExecution && isScheduled) phase = PlanPhase.Executing;
-    if (phase == PlanPhase.Executing && executionException != null)
-      phase = PlanPhase.ExecutionException;
-    if (phase == PlanPhase.Executing && isDone) phase = PlanPhase.Executed;
+    if (executedPlans.containsKey(planId)) {
+      var f = executedPlans.get(planId);
+      return CompletableFuture.completedFuture(
+          new PlanExecutionProgress(
+              planId,
+              f.isDone() ? PlanPhase.Executed : PlanPhase.Executing,
+              timeout,
+              balancer,
+              functions,
+              f.handle((result, err) -> err != null ? err.toString() : null).getNow(null),
+              planCalculation.get(planId).join().report));
+    }
 
+    var f = planCalculation.get(planId);
     return CompletableFuture.completedFuture(
         new PlanExecutionProgress(
             planId,
-            phase,
+            f.isDone() ? PlanPhase.Searched : PlanPhase.Searching,
             timeout,
             balancer,
             functions,
-            isCalculated ? executionException : generationException,
-            report));
+            f.handle(
+                    (result, err) ->
+                        err != null
+                            ? err.toString()
+                            : result.associatedPlan.solution().isEmpty()
+                                ? "Unable to propose a suitable rebalance plan"
+                                : null)
+                .getNow(null),
+            f.handle((result, err) -> err != null ? null : result.report).getNow(null)));
   }
 
   @Override
@@ -704,11 +691,8 @@ class BalancerHandler implements Handler {
 
   enum PlanPhase implements EnumInfo {
     Searching,
-    NoSolutionFound,
-    SearchException,
-    ReadyForExecution,
+    Searched,
     Executing,
-    ExecutionException,
     Executed;
 
     static PlanPhase ofAlias(String alias) {
@@ -726,7 +710,7 @@ class BalancerHandler implements Handler {
     }
 
     public Boolean calculated() {
-      return this == NoSolutionFound || this == ReadyForExecution;
+      return this == Searched;
     }
   }
 

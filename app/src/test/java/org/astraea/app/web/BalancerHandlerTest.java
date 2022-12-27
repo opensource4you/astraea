@@ -410,13 +410,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Assertions.assertEquals(post.id, progress.id);
       Assertions.assertEquals(996, progress.config.timeoutMs);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
-      Assertions.assertEquals(
-          BalancerHandler.PlanPhase.NoSolutionFound, progress.phase, "no solution");
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "search done");
+      Assertions.assertNotNull(progress.exception, "hint about no plan found");
       Assertions.assertTrue(progress.plan.newCost.isEmpty(), "No proposal");
       Assertions.assertNotNull(progress.config.function);
       Assertions.assertEquals(0, progress.plan.changes.size(), "No proposal");
       Assertions.assertEquals(0, progress.plan.migrationCosts.size(), "No proposal");
-      Assertions.assertNull(progress.exception, "No exception occurred during this process");
       Assertions.assertInstanceOf(
           IllegalStateException.class,
           Assertions.assertThrows(
@@ -775,7 +774,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           };
       var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
-      Assertions.assertEquals(BalancerHandler.PlanPhase.ReadyForExecution, progress.phase);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
 
       // not scheduled yet
       Utils.sleep(Duration.ofSeconds(1));
@@ -784,7 +783,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress0.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.ReadyForExecution, progress0.phase);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress0.phase);
       Assertions.assertNull(progress0.exception);
 
       // schedule
@@ -852,7 +851,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           ((BalancerHandler.PlanExecutionProgress)
                       handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
                   .phase
-              == BalancerHandler.PlanPhase.ReadyForExecution;
+              == BalancerHandler.PlanPhase.Searched;
       Assertions.assertTrue(generated, "The plan should be generated");
 
       var progress0 =
@@ -860,7 +859,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertEquals(
-          BalancerHandler.PlanPhase.ReadyForExecution, progress0.phase, "The plan is ready");
+          BalancerHandler.PlanPhase.Searched, progress0.phase, "The plan is ready");
 
       // schedule
       var response =
@@ -881,9 +880,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.ExecutionException, progress.phase);
       Assertions.assertNotNull(progress.exception);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.ExecutionException, progress.phase);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress.phase);
       Assertions.assertInstanceOf(String.class, progress.exception);
     }
   }
@@ -995,8 +993,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY,
                   String.join(",", topics)));
 
-      Assertions.assertEquals(
-          BalancerHandler.PlanPhase.ReadyForExecution, progress.phase, "Plan is here");
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "Plan is here");
       Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
       Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
     }
@@ -1101,7 +1098,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress =
           (BalancerHandler.PlanExecutionProgress)
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
-      Assertions.assertEquals(BalancerHandler.PlanPhase.SearchException, progress.phase);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
     }
@@ -1139,7 +1136,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY,
                   String.join(",", topics)));
 
-      Assertions.assertEquals(BalancerHandler.PlanPhase.ReadyForExecution, progress.phase);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
       Assertions.assertTrue(invoked.get());
     }
   }
