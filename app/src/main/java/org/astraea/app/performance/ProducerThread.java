@@ -64,26 +64,26 @@ public interface ProducerThread extends AbstractThread {
                   () -> {
                     try {
                       int interdependentCounter = 0;
-                      while (!closed.get()) {
-                        List<Record<byte[], byte[]>> data;
-                        try {
-                          data = queue.poll(3, TimeUnit.SECONDS);
-                        } catch (InterruptedException e) {
-                          throw new RuntimeException(e);
-                        }
+                      try {
+                        while (!closed.get()) {
 
-                        // Using interdependent
-                        if (interdependent > 1 && data != null) {
-                          Dispatcher.beginInterdependent(producer);
-                          interdependentCounter += data.size();
-                        }
-                        if (data != null) producer.send(data);
+                          var data = queue.poll(3, TimeUnit.SECONDS);
 
-                        // End interdependent
-                        if (interdependent > 1 && interdependentCounter >= interdependent) {
-                          Dispatcher.endInterdependent(producer);
-                          interdependentCounter = 0;
+                          // Using interdependent
+                          if (interdependent > 1 && data != null) {
+                            Dispatcher.beginInterdependent(producer);
+                            interdependentCounter += data.size();
+                          }
+                          if (data != null) producer.send(data);
+
+                          // End interdependent
+                          if (interdependent > 1 && interdependentCounter >= interdependent) {
+                            Dispatcher.endInterdependent(producer);
+                            interdependentCounter = 0;
+                          }
                         }
+                      } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
                       }
                     } finally {
                       Utils.swallowException(producer::close);

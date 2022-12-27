@@ -44,17 +44,48 @@ public interface DataGenerator extends AbstractThread {
       BlockingQueue<List<Record<byte[], byte[]>>> queue,
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
+    var throttlers =
+        argument.throttles.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
+    var defaultThrottler = new Throttler(argument.throughput);
+    var random = new Random();
+    var recordKeyTable = new ConcurrentHashMap<Long, byte[]>();
+    var recordValueTable = new ConcurrentHashMap<Long, byte[]>();
+    String THROTTLED_TOPIC = Utils.randomString(10);
+    int THROTTLED_PARTITION = Math.abs(ThreadLocalRandom.current().nextInt());
+    Supplier<byte[]> valueSupplier =
+        () ->
+            getOrNew(
+                recordValueTable,
+                argument.valueDistributionType.create(10000),
+                argument
+                    .valueDistributionType
+                    .create(argument.valueSize.measurement(DataUnit.Byte).intValue())
+                    .get()
+                    .intValue(),
+                random);
+    final Supplier<byte[]> keySupplier =
+        () ->
+            getOrNew(
+                recordKeyTable,
+                argument.keyDistributionType.create(10000),
+                argument
+                    .keyDistributionType
+                    .create(argument.keySize.measurement(DataUnit.Byte).intValue())
+                    .get()
+                    .intValue(),
+                random);
+
     var dataSupplier =
-        DataSupplier.of(
+        dataSupplier(
             argument.transactionSize,
-            argument.keyDistributionType.create(10000),
-            argument.keyDistributionType.create(
-                argument.keySize.measurement(DataUnit.Byte).intValue()),
-            argument.valueDistributionType.create(10000),
-            argument.valueDistributionType.create(
-                argument.valueSize.measurement(DataUnit.Byte).intValue()),
-            argument.throttles,
-            argument.throughput);
+            throttlers,
+            defaultThrottler,
+            THROTTLED_TOPIC,
+            THROTTLED_PARTITION,
+            keySupplier,
+            valueSupplier);
+
     var closeLatch = new CountDownLatch(1);
     var executor = Executors.newFixedThreadPool(1);
     var closed = new AtomicBoolean(false);
@@ -120,74 +151,49 @@ public interface DataGenerator extends AbstractThread {
     };
   }
 
-  interface DataSupplier extends Function<TopicPartition, List<Record<byte[], byte[]>>> {
-    static DataSupplier of(
-        int batchSize,
-        Supplier<Long> keyDistribution,
-        Supplier<Long> keySizeDistribution,
-        Supplier<Long> valueDistribution,
-        Supplier<Long> valueSizeDistribution,
-        Map<TopicPartition, DataRate> throughput,
-        DataRate defaultThroughput) {
-      return new DataSupplier() {
-        private final Map<TopicPartition, Throttler> throttlers =
-            throughput.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
-        private final Throttler defaultThrottler = new Throttler(defaultThroughput);
-        private final Random rand = new Random();
-        private final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
-        private final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
-        private final String THROTTLED_TOPIC = Utils.randomString(10);
-        private final int THROTTLED_PARTITION = Math.abs(ThreadLocalRandom.current().nextInt());
-
-        byte[] value() {
-          return getOrNew(
-              recordValueTable, valueDistribution, valueSizeDistribution.get().intValue(), rand);
-        }
-
-        byte[] key() {
-          return getOrNew(
-              recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
-        }
-
-        @Override
-        public List<Record<byte[], byte[]>> apply(TopicPartition tp) {
-          var throttler = throttlers.getOrDefault(tp, defaultThrottler);
-          var records =
-              IntStream.range(0, batchSize)
-                  .mapToObj(
-                      i -> {
-                        var key = key();
-                        var value = value();
-                        if (throttler.throttled(
-                            (value != null ? value.length : 0) + (key != null ? key.length : 0)))
-                          return Record.builder()
-                              .topic(THROTTLED_TOPIC)
-                              .partition(THROTTLED_PARTITION)
-                              .build();
-                        return Record.builder()
-                            .key(key)
-                            .value(value)
-                            .topicPartition(tp)
-                            .timestamp(System.currentTimeMillis())
-                            .build();
-                      })
-                  .collect(Collectors.toUnmodifiableList());
-          if (records.stream()
-              .anyMatch(
-                  r ->
-                      Objects.equals(r.topic(), THROTTLED_TOPIC)
-                          && r.partition().get() == THROTTLED_PARTITION)) return List.of();
-          return records;
-        }
-      };
-    }
+  static Function<TopicPartition, List<Record<byte[], byte[]>>> dataSupplier(
+      int batchSize,
+      Map<TopicPartition, Throttler> throttlers,
+      Throttler defaultThrottler,
+      String throttledTopic,
+      int throttledPartition,
+      Supplier<byte[]> keySupplier,
+      Supplier<byte[]> valueSupplier) {
+    return (tp) -> {
+      var throttler = throttlers.getOrDefault(tp, defaultThrottler);
+      var records =
+          IntStream.range(0, batchSize)
+              .mapToObj(
+                  i -> {
+                    var key = keySupplier.get();
+                    var value = valueSupplier.get();
+                    if (throttler.throttled(
+                        (value != null ? value.length : 0) + (key != null ? key.length : 0)))
+                      return Record.builder()
+                          .topic(throttledTopic)
+                          .partition(throttledPartition)
+                          .build();
+                    return Record.builder()
+                        .key(key)
+                        .value(value)
+                        .topicPartition(tp)
+                        .timestamp(System.currentTimeMillis())
+                        .build();
+                  })
+              .collect(Collectors.toUnmodifiableList());
+      if (records.stream()
+          .anyMatch(
+              r ->
+                  Objects.equals(r.topic(), throttledTopic)
+                      && r.partition().get() == throttledPartition)) return List.of();
+      return records;
+    };
   }
 
   // Find the key from the table, if the record has been produced before. Randomly generate a
   // byte array if
   // the record has not been produced.
-  private static byte[] getOrNew(
+  static byte[] getOrNew(
       Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
     return table.computeIfAbsent(
         distribution.get(),
