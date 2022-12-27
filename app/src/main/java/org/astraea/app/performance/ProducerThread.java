@@ -83,7 +83,9 @@ public interface ProducerThread extends AbstractThread {
                           }
                         }
                       } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
+                        if (!queue.isEmpty())
+                          throw new RuntimeException(
+                              e + ", The producer thread was prematurely closed.");
                       }
                     } finally {
                       Utils.swallowException(producer::close);
