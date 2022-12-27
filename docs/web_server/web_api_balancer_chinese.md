@@ -149,10 +149,7 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "calculated": true,
-  "generated": true,
-  "scheduled": true,
-  "done": true,
+  "phase": "Executed",
   "config": {
     "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
     "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.NetworkEgressCost@69be333e\" weight 1.0}, {\"org.astraea.common.cost.NetworkIngressCost@6c5ec944\" weight 1.0}]",
@@ -202,11 +199,8 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "calculated": false,
-  "generated": false,
-  "scheduled": false,
-  "done": false,
-  "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
+  "phase": "Searched",
+  "exception": "Unable to propose a suitable rebalance plan",
   "config": { /* ... */ },
   "plan":{ /* ... */ }
 }
