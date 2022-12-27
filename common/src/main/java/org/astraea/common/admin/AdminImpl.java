@@ -49,6 +49,7 @@ import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.errors.UnsupportedVersionException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
@@ -387,7 +388,7 @@ class AdminImpl implements Admin {
             // supported version: 3.0.0
             // https://issues.apache.org/jira/browse/KAFKA-12541
             // It is fine to return partition without max timestamp
-            .exceptionally(exceptionHandler(Map.of())),
+            .exceptionally(exceptionHandler(UnsupportedVersionException.class, Map.of())),
         topicDesc.thenApply(
             ts ->
                 ts.entrySet().stream()
@@ -567,7 +568,7 @@ class AdminImpl implements Admin {
                         .all())
                     // supported version: 2.8.0
                     // https://issues.apache.org/jira/browse/KAFKA-12238
-                    .exceptionally(exceptionHandler(Map.of()))
+                    .exceptionally(exceptionHandler(UnsupportedVersionException.class, Map.of()))
                     .thenApply(
                         ps ->
                             ps.entrySet().stream()
@@ -624,7 +625,7 @@ class AdminImpl implements Admin {
         to(kafkaAdmin.listPartitionReassignments().reassignments())
             // supported version: 2.4.0
             // https://issues.apache.org/jira/browse/KAFKA-8345
-            .exceptionally(exceptionHandler(Map.of())),
+            .exceptionally(exceptionHandler(UnsupportedVersionException.class, Map.of())),
         (logDirs, ts, reassignmentMap) ->
             ts.values().stream()
                 .flatMap(topic -> topic.partitions().stream().map(p -> Map.entry(topic.name(), p)))
@@ -982,7 +983,7 @@ class AdminImpl implements Admin {
         // This error occurred if the preferred leader of the given topic/partition is already
         // the leader. It is ok to swallow the exception since the preferred leader be the
         // actual leader. That is what the caller wants to be.
-        .exceptionally(exceptionHandler(null));
+        .exceptionally(exceptionHandler(ElectionNotNeededException.class, null));
   }
 
   @Override
@@ -1349,10 +1350,11 @@ class AdminImpl implements Admin {
                                                             Map.Entry::getValue)))))));
   }
 
-  private <T> Function<Throwable, T> exceptionHandler(T defaultValue) {
+  private <T> Function<Throwable, T> exceptionHandler(
+      Class<? extends Exception> clz, T defaultValue) {
     return e -> {
-      if (e instanceof UnsupportedVersionException
-          || e.getCause() instanceof UnsupportedVersionException) return defaultValue;
+      if (clz.isInstance(e) || (e.getCause() != null && clz.isInstance(e.getCause())))
+        return defaultValue;
 
       if (e instanceof RuntimeException) throw (RuntimeException) e;
       throw new RuntimeException(e);
