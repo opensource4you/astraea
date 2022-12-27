@@ -129,7 +129,7 @@ JSON Response 範例
   * `balancer`: 此計劃生成所使用的搜尋算法實作
   * `function`: 用來評估叢集狀態之品質的方法
   * `timeoutMs`: 此優化計劃的搜尋上限時間
-* `plan`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
+* `plan`: 此負載平衡計劃的詳細資訊，如果此計劃還沒完成搜尋，或是已經完成搜尋但找不到可用的計劃，則此欄位會是 `null`
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
     * `partition`: partition id
@@ -201,8 +201,7 @@ JSON Response 範例
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
   "phase": "Searched",
   "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
-  "config": { /* ... */ },
-  "plan":{ /* ... */ }
+  "config": { /* ... */ }
 }
 ```
 

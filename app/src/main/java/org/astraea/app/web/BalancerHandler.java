@@ -144,7 +144,16 @@ class BalancerHandler implements Handler {
                                 ? "Unable to propose a suitable rebalance plan"
                                 : null)
                 .getNow(null),
-            f.handle((result, err) -> err != null ? null : result.report).getNow(null)));
+            f.handle(
+                    (result, err) ->
+                        err != null
+                            ? null
+                            : result
+                                .associatedPlan
+                                .solution()
+                                .map(ignore -> result.report)
+                                .orElse(null))
+                .getNow(null)));
   }
 
   @Override
