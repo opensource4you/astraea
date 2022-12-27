@@ -51,6 +51,27 @@ public class GreedyBalancer implements Balancer {
    * config the better. On The Contrary, less move usually helps approach good allocation. There are
    * a few things to consider when tuning this number:
    *
+   * <h3>Large max step</h3>
+   *
+   * <ol>
+   *   <li>(Good)Make it possible to jump out of a local minimum.
+   *   <li>(Bad)The expected score improvement of each alteration is negative most of the time.
+   *       Making more moves usually results in the worst state. All these large steps might be a
+   *       waste of calculation
+   * </ol>
+   *
+   * <h3>Small max step</h3>
+   *
+   * <ol>
+   *   <li>(Good)You can construct a good large move with many small moves, with more confident.
+   *   <li>(Good)The Kafka log allocation optimization problem usually come with very high
+   *       dimensions. When the dimension is high, we have more chances to slip to a better state.
+   *       So we probably won't be stuck at a pretty bad local minimum.
+   *   <li>(Bad)When we really stuck at bad local minimum, we won't be able to jump out of it.
+   * </ol>
+   *
+   * <h3>Other discussion</h3>
+   *
    * <ol>
    *   <li>The mindset behind greedy balancer is discovering better allocation by making many steps
    *       of move. Not making large move in one go.
