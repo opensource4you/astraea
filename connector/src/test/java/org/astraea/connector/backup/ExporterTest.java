@@ -18,10 +18,15 @@ package org.astraea.connector.backup;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
+import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
@@ -32,6 +37,25 @@ import org.junit.jupiter.api.Test;
 public class ExporterTest extends RequireWorkerCluster {
 
   @Test
+  void testRequiredConfigs() {
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var validation =
+        client
+            .validate(Exporter.class.getName(), Map.of("topics", "aa", "name", "b"))
+            .toCompletableFuture()
+            .join();
+    Assertions.assertNotEquals(0, validation.errorCount());
+
+    var failed =
+        validation.configs().stream()
+            .map(Config::value)
+            .filter(v -> !v.errors().isEmpty())
+            .collect(Collectors.toMap(Value::name, Function.identity()));
+    Assertions.assertEquals(
+        Set.of(Exporter.SCHEMA_KEY.name(), Exporter.PATH_KEY.name()), failed.keySet());
+  }
+
+  @Test
   void testCreateFtpSinkConnector() {
 
     var topicName = Utils.randomString(10);
@@ -39,6 +63,8 @@ public class ExporterTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
+            "fs.schema",
+            "ftp",
             "connector.class",
             Exporter.class.getName(),
             "tasks.max",
@@ -75,6 +101,8 @@ public class ExporterTest extends RequireWorkerCluster {
       var task = new Exporter.Task();
       var configs =
           Map.of(
+              "fs.schema",
+              "ftp",
               "topics",
               topicName,
               "fs.ftp.hostname",

@@ -24,6 +24,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
 
 public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkConnector {
+  public static final String TOPICS_KEY = TOPICS_CONFIG;
 
   protected void init(Configuration configuration) {
     // empty
