@@ -99,6 +99,8 @@ function runContainer() {
       --master $master \
       /tmp/astraea-etl.jar \
       "$propertiesPath"
+
+    echo "application web: http:$ADDRESS:$ui_port"
   else
     echo "$master is unsupported"
     exit 1
