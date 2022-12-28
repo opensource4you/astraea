@@ -130,8 +130,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$property_file_path" == "" ]]; then
-    showHelp
-    exit 0
+  showHelp
+  exit 0
 fi
 
 runContainer "$master" "$property_file_path"
