@@ -9,6 +9,7 @@
   - [針對特定 metrics 做處理](#針對特定-metrics-做處理)
     - [過濾不想監控的 topic](#過濾不想監控的-topic)
     - [加總 metrics 的值](#加總-metrics-的值)
+    - [新增額外的 Query](#新增額外的-Query)
     - [使用 rate 呈現圖表](#使用-rate-呈現圖表)
     - [修改 y 軸的資料單位](#修改-y-軸的資料單位)
 - [監控特定 metrics 數值發出警告](#監控特定-metrics-數值發出警告)
@@ -165,15 +166,15 @@ dashboard 的建立**有兩種方式**：
 
 ![Grafana_Lab](pictures/Grafana_Lab.png)
 
-3. 在 Grafana Labs 中選擇一個自己要監控的 metrics 中有人寫好的 dashboard，這邊以 **Node Exporter Full** 舉例說明。 本專案的 [run Kafka broker](./run_kafka_broker.md) 有提供 暴露 Node Exporter 的 port ，可以用來監控 host 的資源使用情況
+3. 在 Grafana Labs 中選擇一個自己要監控的 metrics 中有人寫好的 dashboard，這邊以 **Node Exporter Full** 舉例說明。
 
 ![Node_Exporter_Dashboard](pictures/Node_Exporter_Dashboard.png)
 
-4. 進入 Node Exporter Full 的頁面時，可以看到右方的資訊，由上至下分別有 Data source 的版本、可複製 ID 到 clipboard、 Import 用的 JSON、Dashboard ID。 這個 dashboard 的 ID 為 **1860**
+4. 進入 Node Exporter Full 的頁面後，可以看到右方有提供 dashboard 可 import 的 ID: 1860
 
 ![Click_Load](pictures/Click_Load.png)
 
-5. 知道別人的 dashboard ID 後，就輸入到 Import via grafana.com 中，並按下 Load 按鈕
+5. 取得 dashboard ID 後，就可以輸入到 Import via grafana.com 欄位內，並按下 Load 按鈕
 
 ![Select_Dashboard_Source](pictures/Select_Dashboard_Source.png)
 
@@ -181,11 +182,11 @@ dashboard 的建立**有兩種方式**：
 
 ![Node_Exporter](pictures/Node_Exporter.png)
 
-7. 正常 Import 後就可以看到 dashboard 有許多的 metrics 可以看到，詳細的 metrics 說明可以參考[Node Exporter](https://github.com/prometheus/node_exporter)
+7. 正常 Import 後就可以看到 dashboard 有許多的 metrics 可以看到，詳細的 metrics 物理意義說明可以參考 [Node Exporter](https://github.com/prometheus/node_exporter)
 
 ### 利用 query 來建立效能相關圖表
 
-這個 section 來講解如何使用 query 來呈現效能圖表，Grafana 在使用 Prometheus 當作 Data source 時所執行的 query 為 [PQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) ，可到此網站查一些較進階的使用，下面會列出一些較常用的 query 
+這個 section 會講解如何使用 query 來呈現效能圖表，Grafana 在使用 Prometheus 當作 Data source 時所執行的 query 為 [PQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) ，可到此網站查一些較進階的使用，下面會列出一些較常用的 query 
 
 ![Edit_Panel](pictures/Edit_Panel.png)
 
@@ -193,13 +194,13 @@ dashboard 的建立**有兩種方式**：
 
 #### 列出特定指標
 
-若要在 Grafana 中製作監控特定 metrics 的圖表，必須先確保 Prometheus 能 Scrape 到該資料。可以到 Prometheus 的 Web UI 中查詢有沒有該 metrics，詳細可以參考專案的  [Prometheus 文件](./run_prometheus.md) ，這邊先不贅述
+若要在 Grafana 中製作監控特定 metrics 的圖表，必須先確保 Prometheus 能 Scrape 到該 metrics。Prometheus 的 Web UI 可以查詢有沒有 Scrape 該 metrics，詳細可以參考專案的  [Prometheus 文件](./run_prometheus.md) 
 
 ![Prometheus_Expression_2](pictures/Prometheus_Expression_2.png)
 
 在 Prometheus 的 WebUI 中可以看到有許多 metrics 可以選擇，例如現在想要查詢 Kafka log 相關的 metrics ，可以輸入 kafka_log 來查詢
 
-以 **kafka_log_log_size** 這個 metrics 為例
+以下會透過 query **kafka_log_log_size** 來當作範例
 
 ![Kafka_Log_Size_0](pictures/Kafka_Log_Size_0.png)
 
@@ -207,7 +208,7 @@ dashboard 的建立**有兩種方式**：
 
 #### 針對特定 metrics 做處理
 
-Query 了想要監控的 metrics 後，可以對 metrics 做一些處理，例如：過濾掉一些不想監控的 topic、將整個 topic 的 partition log size 加總起來、取一段時間的 rate 來監控，以下會介紹一些簡單的處理來讓監控的資料更好閱讀
+Query 了想要監控的 metrics 後，可以將 metrics 做一些處理，例如：過濾掉一些不想監控的 topic、將整個 topic 的 partition log size 加總起來、取一段時間的 rate 來監控，以下會介紹一些簡單的處理來讓監控的資料更好閱讀
 
 ##### 過濾不想監控的 topic
 
@@ -221,21 +222,23 @@ Query 了想要監控的 metrics 後，可以對 metrics 做一些處理，例�
 
 ##### 加總 metrics 的值
 
-有時候會想觀察每個元件內相同 metrics 的總和，例如：整個 Topic 的 log size、叢集內全部 Topic 的 log size
-
-這個 section 會講解如何加總 log size
+有時候會想觀察每個元件內相同 metrics 的總和，例如：整個 Topic 的 log size、Kafka 叢集內所有 Topic 的 log size
 
 ![Kafka_Log_Size_Sum](pictures/Kafka_Log_Size_Sum.png)
 
-1. 若想看叢集內所有的 log size 加總，可以在前面加上 sum 來呈現。 也可以用第二條線來呈現不同的 log size
+1. 若想看叢集內除了 inner topic 的所有 topics 的 log size 加總，可以在 query 的最前面加上 sum 來呈現。 
+
+##### 新增額外的 Query
+
+Grafana 支援在一個 panel 中新增額外的 query
 
 ![Add_Query](pictures/Add_Query.png)
 
-2. 可以按下左下角的 Query ，可以多監控一個 metrics 
+1. 可以按下左下角的 Query ，可以多監控一個 metrics 
 
 ![Two_Query](pictures/Two_Query.png)
 
-3. 按下 Query 後可以多新增一個 query 欄位，如上圖所示綠色框框為 **A** 欄位的 query 、紅色框框為 **B** 欄位的 query，在圖表上就只有這兩條**線**來表示不同時間點的 metrics 值
+2. 按下 Query 後可以多新增一個 query 欄位，如上圖所示有兩個 query ，綠色框框為 **A** 欄位的 query 、紅色框框為 **B** 欄位的 query。在圖表上會顯示這兩個 query 的 metrics 值
 
 ##### 使用 rate 呈現圖表
 
@@ -243,15 +246,15 @@ rate 是用來**計算一段時間(window) 內的 average rate**，以目前 Kaf
 
 ![Query_Rate](pictures/Query_Rate.png)
 
-1. 在 Metrics browser 中輸入下方指令意味著想觀察 `Topic a2` 的 `Partition 1` log size 的增長速率。
+1. 在 query 欄位中輸入下方指令意味著想觀察 `topic a2` 中 `partition 1` 的 log size 增長速率。
 
-當圖表上的線在 **0 B** 上就代表當時 a2-1 的 log size 沒有增長，也就是沒有 producer 打資料到該 topic-partition 中。若有值，例如 21:10:00 時間的 **15.7 MB/s** 就代表該時間點的 log size 增長速率是以 15.7MB/s 增加
+當圖表上的線在 **0 B** 上就代表當時 a2-1 的 log size 沒有增長，也就是沒有 producer 將資料送到該 topic-partition 中。若紀錄到的 metrics 值不為 0，例如 21:10:00 時間的 **15.7 MB/s** 就代表該時間點的 log size 增長速率是以 15.7MB/s 增加
 
 ```bash
 rate(kafka_log_log_size{topic="a2",partition="1"}[10s])
 ```
 
-若把 **10s** 調長，就是將 window size 放大，會平均到較遠的值，如下圖
+若把 **10s** 調長，就是將 window size 放大，會平均到較久遠的值，如下圖
 
 ![Query_Rate_2](pictures/Query_Rate_2.png)
 
@@ -259,11 +262,11 @@ rate(kafka_log_log_size{topic="a2",partition="1"}[10s])
 
 ##### 修改 y 軸的資料單位
 
-建立好觀測的 panel 後，有時候 metrics 值的單位是以 Prometheus 撈下來的單位呈現，Grafana 提供了單位的換算，可以更清楚的知道目前圖表的物理意義
+Grafana 提供了單位的換算，可以更清楚的知道目前圖表 y 軸的意義，向下圖的 y 軸是一個很龐大的數字，可以藉由單位轉換直接清楚的了解此 panel 表達的意義
 
 ![Panel_Standard_Option](pictures/Panel_Standard_Option.png)
 
-1. 從 Panel 頁面的右方往下滑可以看到 **Standard options**，裡面有一個 Unit 的欄位可以選擇這個 metrics 的單位，選擇以後 Grafana 會幫忙轉換單位成較好閱讀的形式
+1. 從 Panel 頁面的右方往下滑可以看到 **Standard options**，裡面有一個 Unit 的欄位可以選擇這個 metrics 的單位，選擇了資料的單位後 Grafana 會幫忙轉換單位成較好閱讀的形式
 
 ![Data_Unit](pictures/Data_Unit.png)
 
@@ -275,13 +278,72 @@ rate(kafka_log_log_size{topic="a2",partition="1"}[10s])
 
 #### 監控特定 metrics 數值發出警告
 
-Grafana 提供 Alert 功能讓系統能夠更加**被監控**，當 Grafana 監測到系統數據發生異常(如：disk 空間用完、CPU 資源過高......)，可以警告使用者，讓使用者能馬上看到系統有沒有發生什麼異常
+Grafana 提供 Alert 功能讓使用者能知道系統哪個時間點發生異常狀態，當 Grafana 監測到系統數據發生異常(如：disk 空間用完、CPU 資源過高......)，會標註異常的時間點警告使用者，讓使用者能馬上看到系統發生的異常
+
+此部份會講解該如何設置 alert 的參數值
 
 ![Alert_1](pictures/Alert_1.png)
 
-1. 到 Grafana 的界面中建立一個 alert rule，點選上圖箭頭所指之處
+1. 到想設置 alert 的 panel 中建立一個 alert rule，點選上圖箭頭所指之處
 
-![Alert_A](pictures/Alert_A.png)
+![Alert_2](pictures/Alert_2.png)
 
-2. 建立 alert rule 前，可以決定要看多久以前的 metrics 值，像圖上的 `now-10m to now` 就是前十分鐘到現在的 metrics 值。這邊會需要使用者 query 自己想要加入 alert 的 metrics，若還不熟悉 query 可以參考 [前面的教學](#針對特定-metrics-做處理) or [PQL](https://prometheus.io/docs/prometheus/latest/querying/basics/)
+2. 點選 create alert rule from this panel，來建立 alert rule
+
+![Alert_3](pictures/Alert_3.png)
+
+2. 開始建立 alert rule，使用者要設置一個觀測的時間範圍，在這個時間範圍內的 metrics 值若有超過 expression 所設置的，就會警告。
+   舉例來說：圖上的 (1) 就是收集前五分鐘到現在的 metrics 值。(2) 為使用者想監控的 metrics 值，圖上的範例為一台電腦的 CPU 花費在 system mode 的 rate。
+   在設置 alert 前，使用者需要 query 自己想要觀測的 metrics，若還不熟悉 query 可以參考 [前面的教學](#針對特定-metrics-做處理) or [PQL](https://prometheus.io/docs/prometheus/latest/querying/basics/)。
+
+![Alert_4](pictures/Alert_4.png)
+
+3. 設定完想觀測的 metrics 值與要觀察多久的時間後，上圖方框中的設定是用來設置 metrics 的值超過、低於多少發生 alert。
+   此範例先列出在這五分鐘內，若 metrics 的最大值超過 3 就會發出 alert
+
+![Alert_5](pictures/Alert_5.png)
+
+4. 設定完 Query 與 Expression 後，可以按下 Run queries 來看有沒有成功、所設置的 alert 值在圖表中呈現的位置
+
+![Alert_6](pictures/Alert_6.png)
+
+5. 前面的步驟都完成後，可以設置監控有無 alert 的頻率以及持續在 pending 狀態多久會轉變成 firing alert。
+   以上圖的例子就是每 1 分鐘會去計算有無發生最大值超過 3 的現象，若有就會進入 pending 狀態，若 pending 狀態持續 5 分鐘就會變成 firing state
+
+![Alert_7](pictures/Alert_7.png)
+
+6. 最後設置 **Rule name**、**Folder**、**Group** 即可，使用者可自行分類這個 alert 要放在哪
+
+![Alert_8](pictures/Alert_8.png)
+
+7. 設置完後按下右上角的 save ，就可以到 dashboard panel 來觀看
+
+![Alert_9](pictures/Alert_9.png)
+
+8. 成功設置後可以看到 panel name 前面會有一個愛心，就代表這個 panel 有設置 alert。因為現在觀測的時間 range 內都沒有最大值超過 3 的情況，所以 alert 狀態都一直在 `Normal`
+
+##### 發生 alert
+
+當 alert 被觸發後，會在 pending 的狀態持續一段時間(Alert Evaluation behavior 中所設置的參數值)，就會在 panel 上警告使用者並將狀態轉成 firing state。
+
+在解說範例前，先說明範例所設置的參數
+
+![Alert_13](pictures/Alert_13.png)
+
+1. 觀測的時間範圍為**五分鐘**
+2. 在這五分鐘內，若 query 出來的 metrics 值最大值超過 3 就會發生 alert
+3. 每 10 秒會計算一次有沒有發生 alert，若有發生會將狀態轉換成 pending，pending 狀態持續 1 分鐘會變成 firing state
+
+![Alert_10](pictures/Alert_10.png)
+
+1. 如上圖，當 max 值超過 3 後，會有 pending 狀態，並以虛線顯示哪個時間點有發生狀態異常
+
+![Alert_11](pictures/Alert_11.png)
+
+2. 發生 pending 狀態後，若持續發生 alert 事件一段時間(Alert Evaluation behavior 中所設置的參數值)，就會變成 firing 狀態，並以虛線顯示發生 firing state 的時間點
+
+![Alert_12](pictures/Alert_12.png)
+
+3. 如果在觀測的時間範圍內沒有偵測到發生 alert 的事件，就會將狀態轉回 Normal
+   例如：設置 `now-5m to now` 就代表 **5 分鐘前到現在** 都沒有發生 alert 事件就會將狀態轉回 Normal state
 
