@@ -19,10 +19,15 @@ package org.astraea.connector.backup;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordWriter;
+import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.fs.FileSystem;
@@ -32,6 +37,22 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ImporterTest extends RequireWorkerCluster {
+  @Test
+  void testRequireConfigs() {
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var validation =
+        client.validate(Importer.class.getName(), Map.of("name", "b")).toCompletableFuture().join();
+    Assertions.assertNotEquals(0, validation.errorCount());
+
+    var failed =
+        validation.configs().stream()
+            .map(Config::value)
+            .filter(v -> !v.errors().isEmpty())
+            .collect(Collectors.toMap(Value::name, Function.identity()));
+    Assertions.assertEquals(
+        Set.of(Importer.SCHEMA_KEY.name(), Importer.PATH_KEY.name()), failed.keySet());
+  }
+
   @Test
   void testCreateFtpSourceConnector() {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
