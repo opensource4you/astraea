@@ -384,8 +384,10 @@ public class TopicNode {
                   .ifPresent(t -> result.put("max timestamp", t));
               result.put(
                   "number of consumer group", topicGroups.getOrDefault(topic, Set.of()).size());
-              result.put(
-                  "number of producer id", topicProducers.getOrDefault(topic, Set.of()).size());
+              // producer states is supported by kafka 2.8.0+
+              if (!topicProducers.isEmpty())
+                result.put(
+                    "number of producer id", topicProducers.getOrDefault(topic, Set.of()).size());
               ps.stream()
                   .flatMap(p -> p.replicas().stream())
                   .collect(Collectors.groupingBy(NodeInfo::id))
