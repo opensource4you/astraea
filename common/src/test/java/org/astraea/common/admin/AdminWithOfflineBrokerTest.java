@@ -22,6 +22,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,6 +54,21 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(3));
+      try (var producer = Producer.of(bootstrapServers())) {
+        IntStream.range(0, PARTITIONS)
+            .forEach(
+                i ->
+                    producer
+                        .send(
+                            Record.builder()
+                                .topic(TOPIC_NAME)
+                                .partition(i)
+                                .key(new byte[100])
+                                .build())
+                        .toCompletableFuture()
+                        .join());
+      }
+
       var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       NUMBER_OF_ONLINE_PARTITIONS =
           PARTITIONS
@@ -60,6 +77,25 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(2));
     }
     closeBroker(CLOSED_BROKER_ID);
+  }
+
+  @Timeout(10)
+  @Test
+  void testProducerStates() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      var producerStates =
+          admin
+              .producerStates(
+                  admin
+                      .topicPartitions(admin.topicNames(true).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join())
+              .toCompletableFuture()
+              .join();
+      Assertions.assertNotEquals(0, producerStates.size());
+      // we can't get producer states from offline brokers
+      Assertions.assertNotEquals(PARTITIONS, producerStates.size());
+    }
   }
 
   @Timeout(10)
