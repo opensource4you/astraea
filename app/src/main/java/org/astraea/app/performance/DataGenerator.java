@@ -16,23 +16,21 @@
  */
 package org.astraea.app.performance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
@@ -78,6 +76,7 @@ public interface DataGenerator extends AbstractThread {
             executor.execute(
                 () -> {
                   try {
+
                     while (!closed.get()) {
                       // check the generator is finished or not
                       if (argument.exeTime.percentage(
@@ -90,12 +89,11 @@ public interface DataGenerator extends AbstractThread {
                       // throttled data wouldn't put into the queue
                       if (records.isEmpty()) continue;
 
-                      try {
-                        queue.put(records);
-                      } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                      }
+                      queue.put(records);
                     }
+                  } catch (InterruptedException e) {
+                    if (closeLatch.getCount() != 0 || closed.get())
+                      throw new RuntimeException(e + ", The data generator didn't close properly");
                   } finally {
                     closeLatch.countDown();
                     closed.set(true);
@@ -131,12 +129,10 @@ public interface DataGenerator extends AbstractThread {
     final Map<TopicPartition, Throttler> throttlers =
         throughput.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
-    final Throttler defaultThrottler = new Throttler(defaultThroughput);
+    final var defaultThrottler = new Throttler(defaultThroughput);
     final Random rand = new Random();
     final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
     final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
-    final String THROTTLED_TOPIC = Utils.randomString(10);
-    final int THROTTLED_PARTITION = Math.abs(ThreadLocalRandom.current().nextInt());
     Supplier<byte[]> keySupplier =
         () -> getOrNew(recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
     Supplier<byte[]> valueSupplier =
@@ -146,31 +142,21 @@ public interface DataGenerator extends AbstractThread {
 
     return (tp) -> {
       var throttler = throttlers.getOrDefault(tp, defaultThrottler);
-      var records =
-          IntStream.range(0, batchSize)
-              .mapToObj(
-                  i -> {
-                    var key = keySupplier.get();
-                    var value = valueSupplier.get();
-                    if (throttler.throttled(
-                        (value != null ? value.length : 0) + (key != null ? key.length : 0)))
-                      return Record.builder()
-                          .topic(THROTTLED_TOPIC)
-                          .partition(THROTTLED_PARTITION)
-                          .build();
-                    return Record.builder()
-                        .key(key)
-                        .value(value)
-                        .topicPartition(tp)
-                        .timestamp(System.currentTimeMillis())
-                        .build();
-                  })
-              .collect(Collectors.toUnmodifiableList());
-      if (records.stream()
-          .anyMatch(
-              r ->
-                  Objects.equals(r.topic(), THROTTLED_TOPIC)
-                      && r.partition().get() == THROTTLED_PARTITION)) return List.of();
+      var records = new ArrayList<Record<byte[], byte[]>>(batchSize);
+
+      for (int i = 0; i < batchSize; i++) {
+        var key = keySupplier.get();
+        var value = valueSupplier.get();
+        if (throttler.throttled(
+            (value != null ? value.length : 0) + (key != null ? key.length : 0))) return List.of();
+        records.add(
+            Record.builder()
+                .key(key)
+                .value(value)
+                .topicPartition(tp)
+                .timestamp(System.currentTimeMillis())
+                .build());
+      }
       return records;
     };
   }

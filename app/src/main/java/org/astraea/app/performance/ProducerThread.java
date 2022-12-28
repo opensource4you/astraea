@@ -64,29 +64,28 @@ public interface ProducerThread extends AbstractThread {
                   () -> {
                     try {
                       int interdependentCounter = 0;
-                      try {
-                        while (!closed.get()) {
 
-                          var data = queue.poll(3, TimeUnit.SECONDS);
+                      while (!closed.get()) {
 
-                          // Using interdependent
-                          if (interdependent > 1 && data != null) {
-                            Dispatcher.beginInterdependent(producer);
-                            interdependentCounter += data.size();
-                          }
-                          if (data != null) producer.send(data);
+                        var data = queue.poll(3, TimeUnit.SECONDS);
 
-                          // End interdependent
-                          if (interdependent > 1 && interdependentCounter >= interdependent) {
-                            Dispatcher.endInterdependent(producer);
-                            interdependentCounter = 0;
-                          }
+                        // Using interdependent
+                        if (interdependent > 1 && data != null) {
+                          Dispatcher.beginInterdependent(producer);
+                          interdependentCounter += data.size();
                         }
-                      } catch (InterruptedException e) {
-                        if (!queue.isEmpty())
-                          throw new RuntimeException(
-                              e + ", The producer thread was prematurely closed.");
+                        if (data != null) producer.send(data);
+
+                        // End interdependent
+                        if (interdependent > 1 && interdependentCounter >= interdependent) {
+                          Dispatcher.endInterdependent(producer);
+                          interdependentCounter = 0;
+                        }
                       }
+                    } catch (InterruptedException e) {
+                      if (!queue.isEmpty())
+                        throw new RuntimeException(
+                            e + ", The producer thread was prematurely closed.");
                     } finally {
                       Utils.swallowException(producer::close);
                       closeLatch.countDown();

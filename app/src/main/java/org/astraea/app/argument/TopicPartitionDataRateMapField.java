@@ -23,8 +23,14 @@ import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.TopicPartition;
 
+/**
+ * Convert the string to a Map with the Key being a TopicPartition and the Value being a DataRate.
+ * For example, if the input string is "t1-0:5MB/s,t1-1:10MB/s", it will be converted into a Map
+ * storing the mapping between each TopicPartition and DataRate. Map: [t1-0 -> 5MB/s , t1-1 ->
+ * 10MB/s]
+ */
 public class TopicPartitionDataRateMapField extends Field<Map<TopicPartition, DataRate>> {
-  private static final DataRateField rateConverter = new DataRateField();
+  private static final DataRateField RATE_CONVERTER = new DataRateField();
 
   @Override
   public Map<TopicPartition, DataRate> convert(String value) {
@@ -33,7 +39,7 @@ public class TopicPartitionDataRateMapField extends Field<Map<TopicPartition, Da
             item -> {
               var k = item.split(":");
               if (k.length != 2) throw new ParameterException("incorrect format : " + item);
-              return Map.entry(TopicPartition.of(k[0]), rateConverter.convert(k[1]));
+              return Map.entry(TopicPartition.of(k[0]), RATE_CONVERTER.convert(k[1]));
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
