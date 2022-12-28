@@ -1,6 +1,6 @@
 ### 查詢 replicas
 - [replicas 基本資訊](#調閱-replicas-基本資訊) 
-- [replicas 搬移](#搬移-replicas) `move to brokers`
+- [replicas 搬移](#搬移-replicas) 
 
 ## 調閱 replicas 基本資訊
 `Replica` 頁面提供您查詢 `kafka replica` 的資訊
