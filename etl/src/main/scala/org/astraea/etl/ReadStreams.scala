@@ -36,6 +36,7 @@ object ReadStreams {
       columns: Seq[DataColumn]
   ): DataFrameOp = {
     val df = session.readStream
+      .option("recursiveFileLookup", "true")
       .option("cleanSource", "delete")
       .schema(schema(columns))
       .csv(source)

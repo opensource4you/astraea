@@ -151,11 +151,12 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testPartitionSupplier() {
     var topicName = Utils.randomString(10);
+    var NUMBER_OF_PARTITIONS = 6;
     try (var admin = Admin.of(bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
-          .numberOfPartitions(6)
+          .numberOfPartitions(NUMBER_OF_PARTITIONS)
           .numberOfReplicas((short) 3)
           .run()
           .toCompletableFuture()
@@ -235,15 +236,15 @@ public class PerformanceTest extends RequireBrokerCluster {
               .collect(Collectors.toUnmodifiableSet());
       Assertions.assertEquals(expected2, actual2);
 
-      // no specify broker
-      Assertions.assertEquals(
-          -1,
+      var partition =
           Argument.parse(
                   new Performance.Argument(),
                   new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
               .topicPartitionSelector()
               .get()
-              .partition());
+              .partition();
+      // no specify broker
+      Assertions.assertTrue(0 <= partition && partition < NUMBER_OF_PARTITIONS);
 
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
