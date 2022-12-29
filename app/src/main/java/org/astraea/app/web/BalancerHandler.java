@@ -85,11 +85,11 @@ class BalancerHandler implements Handler {
   private final Duration sampleInterval = Duration.ofSeconds(1);
 
   BalancerHandler(Admin admin) {
-    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor());
+    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
   }
 
   BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
-    this(admin, jmxPortMapper, new StraightPlanExecutor());
+    this(admin, jmxPortMapper, new StraightPlanExecutor(true));
   }
 
   BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
@@ -554,7 +554,10 @@ class BalancerHandler implements Handler {
   static class Placement {
 
     final int brokerId;
-    final String directory;
+
+    // temporarily disable data-directory migration, there are some Kafka bug related to it.
+    // see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
+    @JsonIgnore final String directory;
 
     final Optional<Long> size;
 

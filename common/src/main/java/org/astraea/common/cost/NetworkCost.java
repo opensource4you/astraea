@@ -48,6 +48,9 @@ import org.astraea.common.metrics.collector.Fetcher;
  *   <li>The network egress data rate of each partition is constant, it won't fluctuate over time.
  *   <li>No consumer or consumer group attempts to subscribe or read a subset of partitions. It must
  *       subscribe to the whole topic.
+ *   <li>This cost function relies on fifteen-minute rate metrics. To run two rebalance plans one by
+ *       one, make sure there is a 15 minute interval between the generation of next plan and the
+ *       execution of previous plan
  *   <li>This implementation assumes consumer won't fetch data from the closest replica. That is,
  *       every consumer fetches data from the leader(which is the default behavior of Kafka). For
  *       more detail about consumer rack awareness or how consumer can fetch data from the closest

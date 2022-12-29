@@ -135,9 +135,9 @@ JSON Response 範例
     * `partition`: partition id
     * `before`: 原本的配置
       * `brokerId`: 有掌管 replica 的節點 id
-      * `directory`: replica 存在資料的路徑
       * `size`: replica 在硬碟上的資料大小
     * `after`: 比較好的配置
+      * `brokerId`: 有掌管 replica 的節點 id
   * `migrations`: 計算搬移計畫的成本
     * `function`: 用來評估成本的演算法
     * `totalCost`: 各個broker的成本總和
