@@ -64,6 +64,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HostMetrics;
@@ -502,6 +503,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 360)
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
+    var costWeights = List.of(costWeight(ReplicaLeaderCost.class.getName(), 1));
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(30).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -514,7 +516,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Utils.sleep(Duration.ofSeconds(3));
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
-      var progress = submitPlanGeneration(handler, Map.of());
+      var progress = submitPlanGeneration(handler, Map.of(COST_WEIGHT_KEY, costWeights));
 
       // use many threads to increase the chance to trigger a data race
       final int threadCount = Runtime.getRuntime().availableProcessors() * 3;
@@ -553,6 +555,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testRebalanceOnePlanAtATime() {
     createAndProduceTopic(3);
+    var costWeights = List.of(costWeight(ReplicaLeaderCost.class.getName(), 1));
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
@@ -570,8 +573,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
-      var plan0 = submitPlanGeneration(handler, Map.of());
-      var plan1 = submitPlanGeneration(handler, Map.of());
+      var plan0 = submitPlanGeneration(handler, Map.of(COST_WEIGHT_KEY, costWeights));
+      var plan1 = submitPlanGeneration(handler, Map.of(COST_WEIGHT_KEY, costWeights));
 
       Assertions.assertDoesNotThrow(
           () ->
@@ -755,6 +758,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
+    var costWeights = List.of(costWeight(ReplicaLeaderCost.class.getName(), 1));
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
@@ -774,7 +778,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
-      var progress = submitPlanGeneration(handler, Map.of());
+      var progress = submitPlanGeneration(handler, Map.of(COST_WEIGHT_KEY, costWeights));
       Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
 
       // not scheduled yet
@@ -826,6 +830,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
+    var costWeights = List.of(costWeight(ReplicaLeaderCost.class.getName(), 1));
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
@@ -838,11 +843,16 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
-
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.EMPTY).toCompletableFuture().join());
+              handler
+                  .post(
+                      Channel.ofRequest(
+                          JsonConverter.defaultConverter()
+                              .toJson(Map.of(COST_WEIGHT_KEY, costWeights))))
+                  .toCompletableFuture()
+                  .join());
       Utils.waitFor(
           () ->
               ((BalancerHandler.PlanExecutionProgress)
