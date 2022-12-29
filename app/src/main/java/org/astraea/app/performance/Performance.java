@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
@@ -46,10 +47,10 @@ import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.TopicPartitionDataRateMapField;
 import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
-import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -61,6 +62,7 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
+import org.astraea.common.producer.Record;
 
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
@@ -69,18 +71,8 @@ public class Performance {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
-  private static DataSupplier dataSupplier(Performance.Argument argument) {
-    return DataSupplier.of(
-        argument.exeTime,
-        argument.keyDistributionType.create(10000),
-        argument.keyDistributionType.create(argument.keySize.measurement(DataUnit.Byte).intValue()),
-        argument.valueDistributionType.create(10000),
-        argument.valueDistributionType.create(
-            argument.valueSize.measurement(DataUnit.Byte).intValue()),
-        argument.throughput);
-  }
-
   public static List<String> execute(final Argument param) throws IOException {
+    var blockingQueue = new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(1000);
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -91,16 +83,15 @@ public class Performance {
     System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
-            param.transactionSize,
-            dataSupplier(param),
-            param.topicPartitionSelector(),
-            param.producers,
-            param::createProducer,
-            param.interdependent);
+            blockingQueue, param.producers, param::createProducer, param.interdependent);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
             : consumers(param, latestOffsets);
+
+    System.out.println("creating data generator");
+    var dataGenerator = DataGenerator.of(blockingQueue, param.topicPartitionSelector(), param);
+
     System.out.println("creating tracker");
     var tracker =
         TrackerThread.create(
@@ -124,11 +115,20 @@ public class Performance {
 
     CompletableFuture.runAsync(
         () -> {
-          producerThreads.forEach(AbstractThread::waitForDone);
+          dataGenerator.waitForDone();
           var last = 0L;
           var lastChange = System.currentTimeMillis();
           while (true) {
             var current = Report.recordsConsumedTotal();
+
+            if (blockingQueue.isEmpty()) {
+              var unfinishedProducers =
+                  producerThreads.stream()
+                      .filter(p -> !p.closed())
+                      .collect(Collectors.toUnmodifiableList());
+              unfinishedProducers.forEach(AbstractThread::close);
+            }
+
             if (current != last) {
               last = current;
               lastChange = System.currentTimeMillis();
@@ -136,11 +136,14 @@ public class Performance {
             if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
               consumerThreads.forEach(AbstractThread::close);
               monkeys.forEach(AbstractThread::close);
-              return;
             }
+            if (consumerThreads.stream().allMatch(AbstractThread::closed)
+                && monkeys.stream().allMatch(AbstractThread::closed)
+                && producerThreads.stream().allMatch(AbstractThread::closed)) return;
             Utils.sleep(Duration.ofSeconds(1));
           }
         });
+    producerThreads.forEach(AbstractThread::waitForDone);
     monkeys.forEach(AbstractThread::waitForDone);
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
@@ -321,7 +324,6 @@ public class Performance {
                 + "partition level. This argument can't be use in conjunction with `specify.brokers`, `topics` or `partitioner`.",
         converter = TopicPartitionField.class)
     List<TopicPartition> specifyPartitions = List.of();
-
     /**
      * @return a supplier that randomly return a sending target
      */
@@ -344,7 +346,6 @@ public class Performance {
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .distinct()
                   .collect(Collectors.toUnmodifiableList());
-
           if (selections.isEmpty())
             throw new IllegalArgumentException(
                 "No partition match the specify.brokers requirement");
@@ -359,6 +360,8 @@ public class Performance {
         // sanity check, ensure all specified partitions are existed
         try (var admin = Admin.of(configs())) {
           var allTopics = admin.topicNames(false).toCompletableFuture().join();
+          // give the time to update metadata
+          Utils.sleep(Duration.ofSeconds(1));
           var allTopicPartitions =
               admin
                   .clusterInfo(
@@ -384,15 +387,20 @@ public class Performance {
             specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       } else {
-        final var selection =
-            topics.stream()
-                .map(topic -> TopicPartition.of(topic, -1))
-                .distinct()
-                .collect(Collectors.toUnmodifiableList());
-        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+        try (var admin = Admin.of(configs())) {
+          final var selection =
+              admin
+                  .clusterInfo(Set.copyOf(topics))
+                  .toCompletableFuture()
+                  .join()
+                  .replicaStream()
+                  .map(ReplicaInfo::topicPartition)
+                  .distinct()
+                  .collect(Collectors.toUnmodifiableList());
+          return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
+        }
       }
     }
-
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
@@ -440,5 +448,11 @@ public class Performance {
             "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
         validateWith = PositiveIntegerField.class)
     int interdependent = 1;
+
+    @Parameter(
+        names = {"--throttle"},
+        description = "Map<String, DataRate>: Set the topic-partitions and its' throttle data rate",
+        converter = TopicPartitionDataRateMapField.class)
+    Map<TopicPartition, DataRate> throttles = Map.of();
   }
 }
