@@ -1,3 +1,8 @@
+## Grafana readme
+
+- [Run Grafana](#Run-Grafana)
+  - [Start Grafana](#Start-Grafana)
+    - [Access Grafana dashboard](#Access-Grafana-dashboard)
 - [Add Prometheus DataSource](#Add-Prometheus-DataSource)
   - [Add DataSource via CLI](#Add-DataSource-via-CLI)
   - [Add DataSource via Grafana GUI](#Add-DataSource-via-Grafana-GUI)
@@ -13,6 +18,7 @@
     - [使用 rate 呈現圖表](#使用-rate-呈現圖表)
     - [修改 y 軸的資料單位](#修改-y-軸的資料單位)
 - [監控特定 metrics 數值發出警告](#監控特定-metrics-數值發出警告)
+- [發生 alert 的範例](#發生-alert-的範例)
 
 ### Run Grafana
 
@@ -36,11 +42,11 @@ aa8a47da91a2e0974a38690525f9148c9697f7ffc752611ef06248ffb09ef53a
 
 ##### Access Grafana dashboard
 
-進入`http://192.168.0.2:3000`後，會出現下圖
+利用專案的腳本部署 Grafana 後，console 會顯示可以 access Grafana 的網址，如上例為 `http://192.168.0.2:3000`，進入`http://192.168.0.2:3000`後會出現登入選單，如下圖
 
 ![image-20220628231924579](pictures/grafana.jpg)
 
-預設的使用者帳號/密碼為admin，登錄後可看到Grafana的界面
+預設的使用者帳號/密碼皆為admin，登錄後可看到Grafana的界面
 
 ![image-20220628232312952](pictures/grafana_overview.jpg)
 
@@ -322,7 +328,7 @@ Grafana 提供 Alert 功能讓使用者能知道系統哪個時間點發生異�
 
 8. 成功設置後可以看到 panel name 前面會有一個愛心，就代表這個 panel 有設置 alert。因為現在觀測的時間 range 內都沒有最大值超過 3 的情況，所以 alert 狀態都一直在 `Normal`
 
-##### 發生 alert
+#### 發生 alert 的範例
 
 當 alert 被觸發後，會在 pending 的狀態持續一段時間(Alert Evaluation behavior 中所設置的參數值)，就會在 panel 上警告使用者並將狀態轉成 firing state。
 
