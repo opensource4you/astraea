@@ -101,12 +101,10 @@ public class Importer extends SourceConnector {
   public static final String FILE_SET_KEY = "file.set";
   public static final String TASKS_COUNT_KEY = "tasks.count";
   private Configuration config;
-  private int tasksCount;
 
   @Override
   protected void init(Configuration configuration, MetadataStorage storage) {
     this.config = configuration;
-    this.tasksCount = 0;
   }
 
   @Override
@@ -121,19 +119,7 @@ public class Importer extends SourceConnector {
             i -> {
               var taskMap = new HashMap<>(config.raw());
               taskMap.put(FILE_SET_KEY, String.valueOf(i));
-              return taskMap;
-            })
-        .collect(
-            Collectors.collectingAndThen(
-                Collectors.toList(),
-                list -> {
-                  tasksCount = list.size();
-                  return list;
-                }))
-        .stream()
-        .map(
-            taskMap -> {
-              taskMap.put(TASKS_COUNT_KEY, String.valueOf(tasksCount));
+              taskMap.put(TASKS_COUNT_KEY, String.valueOf(maxTasks));
               return Configuration.of(taskMap);
             })
         .collect(Collectors.toList());
