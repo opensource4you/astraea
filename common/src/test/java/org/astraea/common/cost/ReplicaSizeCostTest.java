@@ -59,7 +59,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
       new BeanObject(
           "domain",
           Map.of("topic", "t", "partition", "12", "name", "SIZE"),
-          Map.of("Value", 500.0),
+          Map.of("Value", 499.0),
           200);
 
   @Test

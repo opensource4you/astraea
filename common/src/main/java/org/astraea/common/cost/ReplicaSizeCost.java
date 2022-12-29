@@ -43,6 +43,11 @@ import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Avg;
 
+/**
+ * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
+ * in broker -> higher broker score ClusterCost: The more unbalanced the replica log size among
+ * brokers -> higher cluster score MoveCost: more replicas log size migrate -> higher cost
+ */
 public class ReplicaSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
@@ -126,7 +131,10 @@ public class ReplicaSizeCost
                     clusterBean
                         .replicaMetrics(p, SizeStatisticalBean.class)
                         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-                        .get())
+                        .orElseThrow(
+                            () ->
+                                new NoSufficientMetricsException(
+                                    this, Duration.ofSeconds(1), "No metric for " + p)))
             .collect(
                 Collectors.groupingBy(
                     bean ->
@@ -155,7 +163,7 @@ public class ReplicaSizeCost
   }
 
   double maxPartitionSize(TopicPartition tp, List<Double> size) {
-    if (size.size() == 0)
+    if (size.isEmpty())
       throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric for " + tp);
     checkSizeDiff(tp, size, 0.2);
     return size.stream()
@@ -204,18 +212,18 @@ public class ReplicaSizeCost
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.replicaLeaders().stream()
-            .map(
-                leaderReplica ->
-                    Map.entry(
-                        leaderReplica.topicPartition(),
+            .collect(
+                Collectors.toMap(
+                    ReplicaInfo::topicPartition,
+                    leaderReplica ->
                         statistReplicaSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)
                             .orElseThrow(
                                 () ->
                                     new NoSufficientMetricsException(
                                         this,
                                         Duration.ofSeconds(1),
-                                        "No metric for " + leaderReplica.topicPartitionReplica()))))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                                        "No metric for "
+                                            + leaderReplica.topicPartitionReplica()))));
     return () -> result;
   }
 }
