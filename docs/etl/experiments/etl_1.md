@@ -1,6 +1,10 @@
 # etl 測試
 
-此次實驗目的主要是測試 Astraea etl 的三個部分，包括測試 10GB 資料需要多少時間跑完；檢查 input output 資料的一致性,例如資料筆數,抽檢資料是否一致；替換 spark 中的 kafka partitioner 再次測試效能,看有沒有變好
+此次實驗目的主要是測試 Astraea etl 的三個部分，包括測試 
+1. 10GB 資料需要多少時間跑完 
+2. 檢查 input output 資料的一致性,例如資料筆數,抽檢資料是否一致
+3. 替換 spark 中的 kafka partitioner 再次測試效能,看有沒有變好
+
 ## 測試環境
 
 ### 硬體規格
@@ -46,7 +50,7 @@ B1    B2    B3    S1    S2    C1
 | Spark master             |      |      |      |  V   |      |      |
 | Spark worker             |      |      |      |  V   |  V   |      |
 | Zookeeper                |  V   |      |      |      |      |      |
-| Kakfa Broker             |  V   |  V   |  V   |      |      |      |
+| Kafka Broker             |  V   |  V   |  V   |      |      |      |
 | Node Exporter            |  V   |  V   |  V   |      |      |      |
 | Prometheus               |      |      |  V   |      |      |      |
 | Grafana                  |      |      |  V   |      |      |      |
@@ -56,26 +60,14 @@ B1    B2    B3    S1    S2    C1
 
 整個實驗分爲兩種情景，在普通情景下測試與在kafka叢集中一臺broker，網路延遲較高、且網路頻寬較低的不平衡情境下進行測試。
 
-測試流程：兩種情景都需要首先啓動spark cluster。使用專案docker中的start_spark.sh啓動master及worker,確保docker掛載上source path。
+測試流程：兩種情景都需要首先啓動spark cluster。可以參考[start_spark](../../run_spark.md)啓動spark cluster.
 
-```bash
-# Run Spark Master
-SPARK_PORT=8080 SPARK_UI_PORT=7077 docker/start_spark.sh \
-folder=/home/kafka/spark2kafkaTest/ImportcsvTest/source:/home/kafka/spark2kafkaTest/ImportcsvTest/source
-```
-
-```bash
-# Run Spark Worker
-SPARK_PORT=8081 SPARK_UI_PORT=7078 docker/start_spark.sh \
-master=spark://192.168.103.189:8080 \
-folder=/home/kafka/spark2kafkaTest/ImportcsvTest/source:/home/kafka/spark2kafkaTest/ImportcsvTest/source
-```
 
 ### 普通情景
 
 在普通情景下，只會用到上述的五臺機器{B1， B2， B3， S1， S2}。本情景將測試10GB 資料需要多少時間跑完與檢查 input output 資料的一致性。
 
-測試10GB資料需要多少時間跑完
+#### 測試10GB資料需要多少時間跑完
 
 ```bash
 # Run Spark-submit
@@ -86,7 +78,7 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
 從圖中可以看出10GB的資料處理完畢需要花費2分55秒
 ![processing time](../../pictures/etl_experiment_1_1.png)
 
-檢查 input output 資料的一致性
+#### 檢查 input output 資料的一致性
 
 10GB資料共98090266筆資料。
 ![number of records](../../pictures/etl_experiment_1_2.png)
@@ -100,7 +92,7 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
 
 ### 不平衡情景
 
-在該情景下會用到上述的全部六臺機器，同時B1， B2， B3的網路頻寬將被降低至2.5G以確保etl產生的資料量在叢集高負載的情況下會有較明顯的體現。 
+在該情景下會用到上述的全部六臺機器，同時B1， B2， B3的網路頻寬將被設置爲2.5G以確保etl效能的變化在叢集高負載的情況下會有較明顯的體現。 
 其中C1將被用來向B1發送資料，以確保B1處在高負載的狀態。
 
 使用default partitioner進行測試
@@ -116,3 +108,13 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
 所以結論替換partitioner後反而變成了負優化，進一步觀察分布在各Broker partition的offset。處在負載最重的B1的partitions反而吃到了最多的資料。這與設想的不符合，這一問題還需要再探究其發生原因。
 
 ![partition offset of strict partitioner](../../pictures/etl_experiment_1_6.png)
+
+## 結論
+
+在普通情景下，擁有兩個worker的spark cluster中，使用standalone mode 啓動 astraea etl ，處理資料的平均速率爲58.5MB/s。
+
+在不平衡情境下，替換partitioner後的效能對比。
+
+| 吞吐/延遲比較 | default partitioner | strict partitioner | 改善                         |
+| ------------- |---------------------|--------------------| ---------------------------- |
+| 吞吐量        | 42.7 MB/second   | 34.1 MiB/second | 平均吞吐提升：約 0.80 倍     |
