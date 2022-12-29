@@ -25,7 +25,8 @@
 
 `producer` 提供您查詢 producer 的資訊
 * 可以透過搜尋欄，增加查詢條件（支援Regex)
-*  **注意：只有idempotent producer 的資訊可供查詢** ([Idempotent Producer介紹](https://www.conduktor.io/kafka/idempotent-kafka-producer))
+
+***注意：只有 idempotent producer 的資訊可供查詢** ([Idempotent Producer介紹](https://www.conduktor.io/kafka/idempotent-kafka-producer))
 ![client_producer](client_producer.png)
 
 ## write
