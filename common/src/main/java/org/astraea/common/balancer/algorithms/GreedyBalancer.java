@@ -63,6 +63,8 @@ public class GreedyBalancer implements Balancer {
    * <h3>Small max step</h3>
    *
    * <ol>
+   *   <li>(Good)Less step equals to less calculation, this can save some considerable processing
+   *       resource for balancer to focus on explore the state space
    *   <li>(Good)You can construct a good large move with many small moves, with more confident.
    *   <li>(Good)The Kafka log allocation optimization problem usually come with very high
    *       dimensions. When the dimension is high, we have more chances to slip to a better state.
@@ -122,6 +124,8 @@ public class GreedyBalancer implements Balancer {
             .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
+            // Use 5 as the maximum step in each trial, this number provide a good balance between
+            // exploration and processing resource.
             .orElse(5);
     iteration =
         config

@@ -43,11 +43,13 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class NetworkCostTest {
 
@@ -300,6 +302,123 @@ class NetworkCostTest {
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0xfee1dead, 1, 100, 500, -5566, 0xcafebabe, 0x5566, 0x996, 0xABCDEF})
+  @Disabled
+  void testExpectedImprovement(int seed) {
+    var testCase = new LargeTestCase(6, 100, seed);
+    var clusterInfo = testCase.clusterInfo();
+    var clusterBean = testCase.clusterBean();
+    var smallShuffle = new ShuffleTweaker(1, 6);
+    var largeShuffle = new ShuffleTweaker(1, 31);
+    var costFunction = HasClusterCost.of(Map.of(ingressCost(), 1.0, egressCost(), 1.0));
+    var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
+
+    Function<ShuffleTweaker, Double> experiment =
+        (tweaker) -> {
+          return IntStream.range(0, 10)
+              .mapToDouble(
+                  (ignore) -> {
+                    var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
+                    var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
+                    var counting = 0;
+                    var next = clusterInfo;
+                    while (!timeUp.get()) {
+                      next =
+                          tweaker
+                              .generate(next)
+                              .parallel()
+                              .limit(30)
+                              .takeWhile(i -> !timeUp.get())
+                              .map(
+                                  cluster ->
+                                      Map.entry(
+                                          cluster,
+                                          costFunction.clusterCost(cluster, clusterBean).value()))
+                              .filter(e -> originalCost.value() > e.getValue())
+                              .min(Map.Entry.comparingByValue())
+                              .map(Map.Entry::getKey)
+                              .orElse(next);
+                      counting++;
+                    }
+                    var a = originalCost.value();
+                    var b = costFunction.clusterCost(next, clusterBean).value();
+                    System.out.println(counting);
+                    return a - b;
+                  })
+              .average()
+              .orElseThrow();
+        };
+
+    long s0 = System.currentTimeMillis();
+    double small = experiment.apply(smallShuffle);
+    long s1 = System.currentTimeMillis();
+    double large = experiment.apply(largeShuffle);
+    long s2 = System.currentTimeMillis();
+
+    double largeTime = (s2 - s1) / 1000.0;
+    double smallTime = (s1 - s0) / 1000.0;
+    System.out.println("[Use seed " + seed + "]");
+    System.out.println(small + " (takes " + largeTime + "s)");
+    System.out.println(large + " (takes " + smallTime + "s)");
+    System.out.println("Small step is better: " + (small > large));
+    System.out.println();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0xfee1dead, 1, 100, 500, -5566, 0xcafebabe, 0x5566, 0x996, 0xABCDEF})
+  @Disabled
+  void testSingleStepImprovement(int seed) {
+    var random = new Random(seed);
+
+    Map<Boolean, Long> counting =
+        IntStream.range(0, 100)
+            .map(i -> random.nextInt())
+            .mapToObj(
+                cSeed -> {
+                  var testCase = new LargeTestCase(6, 100, cSeed);
+                  var clusterInfo = testCase.clusterInfo();
+                  var clusterBean = testCase.clusterBean();
+                  var smallShuffle = new ShuffleTweaker(5, 6);
+                  var largeShuffle = new ShuffleTweaker(30, 31);
+                  var costFunction =
+                      HasClusterCost.of(Map.of(ingressCost(), 1.0, egressCost(), 1.0));
+                  var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
+
+                  double improve30 =
+                      largeShuffle
+                          .generate(clusterInfo)
+                          .limit(50)
+                          .parallel()
+                          .map(cluster -> costFunction.clusterCost(cluster, clusterBean))
+                          .mapToDouble(ClusterCost::value)
+                          .map(score -> originalCost.value() - score)
+                          .max()
+                          .orElseThrow();
+                  double improve5 =
+                      smallShuffle
+                          .generate(clusterInfo)
+                          .limit(300)
+                          .parallel()
+                          .map(cluster -> costFunction.clusterCost(cluster, clusterBean))
+                          .mapToDouble(ClusterCost::value)
+                          .map(score -> originalCost.value() - score)
+                          .max()
+                          .orElseThrow();
+
+                  System.out.println("Step 30 Improvement: " + improve30);
+                  System.out.println("Step  5 Improvement: " + improve5);
+                  System.out.println("Is small step better: " + (improve5 > improve30));
+                  System.out.println();
+                  return improve5 > improve30;
+                })
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+
+    System.out.println("[Summary]");
+    System.out.println("True  test: " + counting.get(true));
+    System.out.println("False test: " + counting.get(false));
   }
 
   interface TestCase {
