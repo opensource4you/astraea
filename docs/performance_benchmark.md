@@ -41,7 +41,7 @@
 |      read.idle      | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料      |           2秒            |
 | interdependent.size | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Dispatcher 可以使用) |            1             |
 |       monkeys       | (選填) 設定 chaos monkey 的觸發頻率，支援 : `kill`, `add`, `unsubscribe`。<br />觸發頻率單位為 ：day, h, m, s, ms, us, ns<br />範例：`--monkeys kill:3s,add:5s` |           none           |
-|      throttle       | (選填) 用來指定 topic-partitions 的限流值<br />例如：--throttle a1-0:5MB/s,a2-0:10MB/s,a10-4:30MB/s |                          |
+|      throttle       | (選填) 用來指定 topic-partitions 的限流值<br />例如：--throttle a1-0:5MB/s,a2-0:10MB/s,a10-4:30MB/s |           none           |
 
 #### 使用範例
 
