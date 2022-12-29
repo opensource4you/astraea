@@ -31,7 +31,7 @@
 # 在 worker 中創建 exporter 把 kafka 中的資料寫入到 ftp server 之中，
 # 每筆資料大小上限為 10MB，topic name 是 test
 
-curl -x POST http://localhost:13575/connectors \
+curl -X POST http://localhost:13575/connectors \
      -H "Content-Type: application/json" \
      -d '{"name": "FtpSink",
           "config": {
