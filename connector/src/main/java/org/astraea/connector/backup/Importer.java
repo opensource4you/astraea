@@ -99,12 +99,14 @@ public class Importer extends SourceConnector {
           .documentation("the directory of the imported file that needs to be archived")
           .build();
   public static final String FILE_SET_KEY = "file.set";
-  public static final String TASKS_MAX_KEY = "tasks.max";
+  public static final String TASKS_COUNT_KEY = "tasks.count";
   private Configuration config;
+  private int tasksCount;
 
   @Override
   protected void init(Configuration configuration, MetadataStorage storage) {
     this.config = configuration;
+    this.tasksCount = 0;
   }
 
   @Override
@@ -119,6 +121,19 @@ public class Importer extends SourceConnector {
             i -> {
               var taskMap = new HashMap<>(config.raw());
               taskMap.put(FILE_SET_KEY, String.valueOf(i));
+              return taskMap;
+            })
+        .collect(
+            Collectors.collectingAndThen(
+                Collectors.toList(),
+                list -> {
+                  tasksCount = list.size();
+                  return list;
+                }))
+        .stream()
+        .map(
+            taskMap -> {
+              taskMap.put(TASKS_COUNT_KEY, String.valueOf(tasksCount));
               return Configuration.of(taskMap);
             })
         .collect(Collectors.toList());
@@ -135,7 +150,7 @@ public class Importer extends SourceConnector {
     private int fileSet;
     private Set<String> addedPaths;
     private String rootDir;
-    private int maxTasks;
+    private int tasksCount;
     private List<String> paths;
     private String cleanSource;
     private Optional<String> archiveDir;
@@ -145,7 +160,7 @@ public class Importer extends SourceConnector {
       this.fileSet = configuration.requireInteger(FILE_SET_KEY);
       this.addedPaths = new HashSet<>();
       this.rootDir = configuration.requireString(PATH_KEY.name());
-      this.maxTasks = configuration.requireInteger(TASKS_MAX_KEY);
+      this.tasksCount = configuration.requireInteger(TASKS_COUNT_KEY);
       this.paths = new LinkedList<>();
       this.cleanSource =
           configuration
@@ -157,7 +172,7 @@ public class Importer extends SourceConnector {
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
       if (paths.isEmpty()) {
-        paths = getFileSet(addedPaths, rootDir, maxTasks, fileSet);
+        paths = getFileSet(addedPaths, rootDir, tasksCount, fileSet);
       }
       addedPaths.addAll(paths);
       var currentPath = ((LinkedList<String>) paths).poll();
@@ -205,7 +220,7 @@ public class Importer extends SourceConnector {
     }
 
     protected LinkedList<String> getFileSet(
-        Set<String> addedPaths, String root, int maxTasks, int fileSet) {
+        Set<String> addedPaths, String root, int TasksCount, int fileSet) {
       var filePaths = new LinkedList<String>();
       var path = new LinkedList<>(Collections.singletonList(root));
       while (true) {
@@ -216,7 +231,7 @@ public class Importer extends SourceConnector {
           var folders = Client.listFolders(current);
           if (!files.isEmpty()) {
             files.stream()
-                .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % maxTasks == fileSet)
+                .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % TasksCount == fileSet)
                 .filter(Predicate.not(addedPaths::contains))
                 .forEach(filePaths::add);
             continue;

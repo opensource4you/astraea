@@ -99,7 +99,7 @@ public class ImporterTest extends RequireWorkerCluster {
               "ftp",
               "connector.class",
               Importer.class.getName(),
-              "tasks.max",
+              "tasks.count",
               "1",
               "path",
               "/source",
