@@ -17,18 +17,17 @@ spark -> kafka 將csv檔案透過 spark streaming 轉入 kafka topic，包括讀
 Astraea etl 通過讀取[property file](../../config/spark2kafka.properties) 來獲取系統運行時可能需要的資訊。
 以下是property中參數簡介
 
-|        參數名稱         | 說明                                                                                                                                                      |  預設值  |
-|:-------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------|:-----:|
-|     source.path     | (必填) 資料來源路徑                                                                                                                                             |   無   |
-|      sink.path      | (必填) 處理完畢後的資料寫入路徑                                                                                                                                       |   無   |
-|     column.name     | (必填) csv table的欄位名稱及該欄位對應的屬性 For example:sA=string,sB=integer,sC=boolean...                                                                             |   無   |
-|      producers      | (必填) csv table中的primary key. For example:sA=string,sB=integer,sC=boolean...                                                                             |   無   |
-|  bootstrap.servers  | (必填) 欲連接的Kafka server address                                                                                                                           |   無   |
-|     topic.name      | (必填) 欲發往的topic name                                                                                                                                     |   無   |
-|    deploy.model     | (必填) 設置spark deploy model 支持local mode 與standalone mode。For example: spark://HOST:PORT or local[*].                                                     | 無 |
-|  topic.partitions   | (選填) 目標topic的partition數量                                                                                                                                |  15   |
-|   topic.replicas    | (選填) 目標topic的replica數量                                                                                                                                  |   1   |
-|   topic.config      | (選填) 配置kafka的其他參數 For example: compression.type\=lz4                                                                                                    |   無   |
+|       參數名稱        | 說明                                                                          |  預設值  |
+|:-----------------:|:----------------------------------------------------------------------------|:-----:|
+|    source.path    | (必填) 資料來源路徑                                                                 |   無   |
+|   column.names    | (必填) csv table的欄位名稱及該欄位對應的屬性 For example:sA=string,sB=integer,sC=boolean... |   無   |
+|   primary.keys    | (必填) csv table中的primary key. For example:sA=string,sB=integer,sC=boolean... |   無   |
+| bootstrap.servers | (必填) 欲連接的Kafka server address                                               |   無   |
+|    topic.name     | (必填) 欲發往的topic name                                                         |   無   |
+|    checkpoint     | (必填) spark checkpoint 存放路徑                                                  |   無   |
+| topic.partitions  | (選填) 目標topic的partition數量                                                    |  15   |
+|  topic.replicas   | (選填) 目標topic的replica數量                                                      |   1   |
+|   topic.configs   | (選填) 配置kafka的其他參數 For example: compression.type\=lz4                        |   無   |
 
 #### 使用範例
 
