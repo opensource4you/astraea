@@ -18,7 +18,7 @@
 ![client_consumer](client_consumer.png)
 
 ## read
-`read` 提供您資料寫入 `topic` 和 `partition` 的狀況
+`read` 提供您調閱 `topic` 資料
 * 可以透過搜尋欄，增加查詢條件（支援Regex)
 * records：預期取得多少幾筆資料
 * timeout：可以等待多久時間（直到資料回傳）
