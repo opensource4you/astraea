@@ -97,7 +97,7 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
 實驗環境：testTopic用來接受etl產生的資料，分佈於B1， B2， B3
         costTopic用來對kafka叢集中的單一節點造成負載，分佈於B1
 
-將進行兩次對比實驗圖中左側爲不平衡情景，右側爲普通情景
+圖中左側爲不平衡情景，右側爲普通情景,方便直觀感受差別
 
 左側實驗開始時先向costTopic發送資料，使其到達節點的頻寬上線。在一段時間後啓動etl，可以看到因爲etl發送資料分走了原先costTopic所佔據的頻寬，造成其效能下降。等到etl運行完畢costTopic的效能恢復到開始狀態。
 左側數據處理完畢共花費3分40秒
