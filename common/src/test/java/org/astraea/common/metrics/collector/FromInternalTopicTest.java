@@ -29,7 +29,7 @@ public class FromInternalTopicTest {
   void testClusterBean() {
     try (var collector = new FromInternalTopic("192.168.103.26:9092")) {
       for (int i = 0; i < 10; ++i) {
-        Thread.sleep(20000);
+        Thread.sleep(5000);
         getLogEndOffset(collector).forEach(System.out::println);
         System.out.println("=====");
       }
@@ -48,8 +48,9 @@ public class FromInternalTopicTest {
   private List<String> getLogEndOffset(MetricCollector collector) {
     return collector.clusterBean().all().values().stream()
         .flatMap(Collection::stream)
-        .filter(bean -> bean.beanObject().domainName().equals("java.lang"))
-        .filter(bean -> bean.beanObject().attributes().containsKey("ProcessCpuLoad"))
+        .filter(bean -> bean.beanObject().domainName().equals("kafka.log"))
+        .filter(bean -> bean.beanObject().properties().getOrDefault("name", "").equals("Size"))
+        .filter(bean -> bean.beanObject().properties().getOrDefault("topic", "").equals("simple"))
         .map(hbo -> hbo.beanObject().toString())
         .collect(Collectors.toUnmodifiableList());
   }
