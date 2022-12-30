@@ -14,9 +14,9 @@
 | connector.class | (必填) "Importer"                                                                                              | 無   |
 | fs.schema       | (必填) 決定儲存目標為何種檔案系統，例如: `local`, `ftp`等                                                                       | 無   |
 | tasks.max       | (選填) 設定 task 數量上限                                                                                            | 1   |
-| path            | (選填) 填入目標檔案系統要讀取的檔案根路徑                                                                                       | 無   |
+| path            | (選填) 填入目標檔案系統要讀取的檔案目錄位置                                                                                      | 無   |
 | clean.source    | (選填) 選擇已讀入之檔案的處理方式<br/>`off`：不做處理<br/>`delete`：將檔案移除<br/>`archive`： 將檔案移至`archive.dir`(須填入 `archive.dir` 參數) | off |
-| archive.dir     | (選填) 移入之根路徑                                                                                                  | 無   |
+| archive.dir     | (選填) 封存已經處理好的檔案目錄位置                                                                                          | 無   |
 
 若 `fs.schema` 為 `local` 之外的檔案系統（_{file System}_）須設定以下參數
 

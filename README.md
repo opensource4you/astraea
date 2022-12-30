@@ -30,6 +30,7 @@
 10. [GUI](docs/gui/README.md): 簡單好用的叢集資訊圖形化工具
 11. [Build說明](docs/build_project.md): 說明如何建構與測試本專案各模組
 12. [Import Csv](./docs/import_csv.md): 建立多檔案系統下自動化清洗csv數據
+13. [Connector](./docs/connector/README.md): 簡單將資料進行備份及提供效能評測
 
 # 技術發表
 
