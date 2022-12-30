@@ -1,6 +1,9 @@
 ### client
 
-`client` 頁面提供您查詢 `consumer` `read` `producer` `write` `import csv` `transaction` 的資訊
+`client` 頁面提供您:
+* 查詢 `consumer` `producer` `transaction` 的資訊。
+* 使用`read`頁面來查看讀取數據的狀況
+* 使用`write`頁面來寫入 `Key\Value` 數據到指定的`topic`和`partition`。
 
 - [consumer](#consumer)
 - [read](#read)
@@ -10,37 +13,28 @@
 - [transaction](#transaction)
 
 ## consumer
-
-`consumer` 提供您查詢 consumer groups 的資訊
-
+`consumer` 提供您查詢 consumer 的資訊
+* 可以透過搜尋欄，增加查詢條件（支援Regex) 
 ![client_consumer](client_consumer.png)
 
 ## read
-
-`read` 提供您讀取 `records`
-- 編碼選擇：`base64` `string`
-- `records`：讀取數量
-- `timeout`：逾時秒數
-
+`read` 提供您資料寫入 `topic` 和 `partition` 的狀況
+* 可以透過搜尋欄，增加查詢條件（支援Regex)
+* records：預期取得多少幾筆資料
+* timeout：可以等待多久時間（直到資料回傳）
 ![client_read](client_read.png)
 
 ## producer
 
 `producer` 提供您查詢 producer 的資訊
+* 可以透過搜尋欄，增加查詢條件（支援Regex)
 
-**注意：只有idempotent producer 的資訊可供查詢**
-
+***注意：只有 idempotent producer 的資訊可供查詢** ([Idempotent Producer介紹](https://kafka.apache.org/documentation/#producerconfigs_enable.idempotence))
 ![client_producer](client_producer.png)
 
 ## write
-
-`write` 提供您發送資料的能力
-- `topic`：指定發送之目標 `topic`
-- `partition`：指定發送之目標 `partition`
-- `key`：發送之 `key`
-- `value`：發送之 `value`
-
-![client_write](client_write.png)
+`write` 提供您單筆 `Key\Value` 寫入指定的`topic` 和 `partition`
+![client_producer](client_write.png)
 
 ## import csv
 
@@ -63,7 +57,6 @@
 ![client_import_csv_push](client_import_csv_push.png)
 
 ## transaction
-
 `transaction` 提供您查詢 transaction 的資訊
-
+* 可以透過搜尋欄，增加查詢條件（支援Regex)
 ![client_transaction](client_transaction.png)
