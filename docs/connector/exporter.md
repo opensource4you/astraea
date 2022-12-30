@@ -5,10 +5,9 @@
 輸出之檔案會依照當初在叢集中的 `partition` 來進行資料夾的分隔，每個檔案之檔名為其包含之第一筆 `record` 的 `offset`。
 
 目前支援之檔案系統有以下列出項目
+
 - local
 - ftp
-
-
 
 #### Exporter Configurations
 
@@ -24,6 +23,12 @@
 | path                      | (選填)   填入目標檔案系統要儲存的資料夾目錄之目標位置                                                               | 無     |
 | size                      | (選填)   寫入檔案目標超過此設定之大小上限時會創見新檔案，並且寫入目標改為新創建之檔案。  <br/>檔案大小之單位可以設定為 `Bit`, `Kb`, `KiB`, `Mb`等 | 100MB |     |
 
+注意：如果`worker`預設之`converter`並非為`byte array convert`
+時，需要在將以下參數使設定為`org.apache.kafka.connect.converters.ByteArrayConverter`使本工具順利執行。
+
+- key.converter
+- value.converter
+- header.converter
 
 #### 使用範例
 
