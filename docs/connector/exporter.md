@@ -23,7 +23,7 @@
 | path                      | (選填)   填入目標檔案系統要儲存的資料夾目錄之目標位置                                                               | 無     |
 | size                      | (選填)   寫入檔案目標超過此設定之大小上限時會創見新檔案，並且寫入目標改為新創建之檔案。  <br/>檔案大小之單位可以設定為 `Bit`, `Kb`, `KiB`, `Mb`等 | 100MB |     |
 
-注意：如果`worker`預設之`converter`並非為`byte array convert`
+注意：如果`worker`預設之`converter`並非為`byte array converter`
 時，需要在將以下參數使設定為`org.apache.kafka.connect.converters.ByteArrayConverter`使本工具順利執行。
 
 - key.converter
