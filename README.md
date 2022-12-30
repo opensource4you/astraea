@@ -28,9 +28,8 @@
 8. [Dispatcher](docs/dispatcher/README.md): 強大且高效率的 Kafka partitioner 實作
 9. [Balancer](docs/balancer/README.md): `Kafka` 伺服器端負載平衡工具
 10. [GUI](docs/gui/README.md): 簡單好用的叢集資訊圖形化工具
-11. [Import Csv](./docs/import_csv.md): 建立多檔案系統下自動化清洗csv數據
-12. [Connector](./docs/connector/README.md): 提供基於 `kafka connector` 實作的高效平行化工具，包含效能測試和資料遷移等工具
-13. [Build](docs/build_project.md): 說明如何建構與測試本專案各模組
+11. [Connector](./docs/connector/README.md): 提供基於 `kafka connector` 實作的高效平行化工具，包含效能測試和資料遷移等工具
+12. [Build](docs/build_project.md): 說明如何建構與測試本專案各模組
 
 # 技術發表
 
