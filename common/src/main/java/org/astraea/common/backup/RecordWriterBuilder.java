@@ -37,6 +37,8 @@ public class RecordWriterBuilder {
             private final AtomicInteger count = new AtomicInteger();
             private final LongAdder size = new LongAdder();
 
+            private final Long time = System.currentTimeMillis();
+
             @Override
             public void append(Record<byte[], byte[]> record) {
               var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
@@ -89,6 +91,11 @@ public class RecordWriterBuilder {
             @Override
             public DataSize size() {
               return DataSize.Byte.of(size.sum());
+            }
+
+            @Override
+            public Long time() {
+              return time;
             }
 
             @Override

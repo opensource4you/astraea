@@ -32,6 +32,11 @@ public interface RecordWriter extends AutoCloseable {
   DataSize size();
 
   /**
+   * @return create time of this writer
+   */
+  Long time();
+
+  /**
    * @return count of all records
    */
   int count();

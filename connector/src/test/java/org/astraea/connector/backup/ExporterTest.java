@@ -16,6 +16,7 @@
  */
 package org.astraea.connector.backup;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -118,7 +119,9 @@ public class ExporterTest extends RequireWorkerCluster {
               "size",
               fileSize,
               "tasks.max",
-              "1");
+              "1",
+              "time",
+              "10m");
 
       var fs = FileSystem.of("ftp", Configuration.of(configs));
 
@@ -142,6 +145,8 @@ public class ExporterTest extends RequireWorkerCluster {
                   .build());
 
       task.put(records);
+
+      task.close();
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
 
@@ -167,6 +172,174 @@ public class ExporterTest extends RequireWorkerCluster {
               Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
             }
           });
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  void testFtpSinkTaskIntervalWith1File() {
+    try (var server = FtpServer.local()) {
+      var fileSize = "500Byte";
+      var topicName = Utils.randomString(10);
+
+      var task = new Exporter.Task();
+      var configs =
+          Map.of(
+              "fs.schema",
+              "ftp",
+              "topics",
+              topicName,
+              "fs.ftp.hostname",
+              String.valueOf(server.hostname()),
+              "fs.ftp.port",
+              String.valueOf(server.port()),
+              "fs.ftp.user",
+              String.valueOf(server.user()),
+              "fs.ftp.password",
+              String.valueOf(server.password()),
+              "path",
+              "/" + fileSize,
+              "size",
+              fileSize,
+              "tasks.max",
+              "1",
+              "time",
+              "300ms");
+
+      var fs = FileSystem.of("ftp", Configuration.of(configs));
+
+      task.start(configs);
+
+      var records1 =
+          Record.builder()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build();
+
+      task.put(List.of(records1));
+
+      Utils.sleep(Duration.ofMillis(500));
+
+      Assertions.assertEquals(
+          1, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
+
+      var input =
+          fs.read(
+              "/"
+                  + String.join(
+                      "/",
+                      fileSize,
+                      topicName,
+                      String.valueOf(records1.partition()),
+                      String.valueOf(records1.offset())));
+      var reader = RecordReader.builder(input).build();
+
+      while (reader.hasNext()) {
+        var record = reader.next();
+        Assertions.assertArrayEquals(record.key(), (byte[]) records1.key());
+        Assertions.assertArrayEquals(record.value(), (byte[]) records1.value());
+        Assertions.assertEquals(record.topic(), records1.topic());
+        Assertions.assertEquals(record.partition(), records1.partition());
+        Assertions.assertEquals(record.timestamp(), records1.timestamp());
+        Assertions.assertEquals(record.offset(), records1.offset());
+      }
+    }
+  }
+
+  @Test
+  void testFtpSinkTaskIntervalWith2Files() {
+    try (var server = FtpServer.local()) {
+      var fileSize = "500Byte";
+      var topicName = Utils.randomString(10);
+
+      var task = new Exporter.Task();
+      var configs =
+          Map.of(
+              "fs.schema",
+              "ftp",
+              "topics",
+              topicName,
+              "fs.ftp.hostname",
+              String.valueOf(server.hostname()),
+              "fs.ftp.port",
+              String.valueOf(server.port()),
+              "fs.ftp.user",
+              String.valueOf(server.user()),
+              "fs.ftp.password",
+              String.valueOf(server.password()),
+              "path",
+              "/" + fileSize,
+              "size",
+              fileSize,
+              "tasks.max",
+              "1",
+              "time",
+              "3ms");
+
+      var fs = FileSystem.of("ftp", Configuration.of(configs));
+
+      task.start(configs);
+
+      var records1 =
+          Record.builder()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build();
+
+      var records2 =
+          Record.builder()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test1".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+
+      task.put(List.of(records1));
+
+      Utils.sleep(Duration.ofMillis(200));
+
+      task.put(List.of(records2));
+
+      Utils.sleep(Duration.ofMillis(200));
+
+      Assertions.assertEquals(
+          2, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
+
+      List.of(records1, records2)
+          .forEach(
+              sinkRecord -> {
+                var input =
+                    fs.read(
+                        "/"
+                            + String.join(
+                                "/",
+                                fileSize,
+                                topicName,
+                                String.valueOf(sinkRecord.partition()),
+                                String.valueOf(sinkRecord.offset())));
+                var reader = RecordReader.builder(input).build();
+
+                while (reader.hasNext()) {
+                  var record = reader.next();
+                  Assertions.assertArrayEquals(record.key(), (byte[]) sinkRecord.key());
+                  Assertions.assertArrayEquals(record.value(), (byte[]) sinkRecord.value());
+                  Assertions.assertEquals(record.topic(), sinkRecord.topic());
+                  Assertions.assertEquals(record.partition(), sinkRecord.partition());
+                  Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
+                  Assertions.assertEquals(record.offset(), sinkRecord.offset());
+                }
+              });
     }
   }
 }

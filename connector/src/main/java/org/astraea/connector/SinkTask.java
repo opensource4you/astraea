@@ -39,7 +39,7 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   protected abstract void put(List<Record<byte[], byte[]>> records);
 
-  protected void close() {
+  protected void close() throws InterruptedException {
     // empty
   }
 
@@ -102,6 +102,10 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   @Override
   public final void stop() {
-    close();
+    try {
+      close();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
