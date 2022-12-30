@@ -104,14 +104,16 @@ public class Exporter extends SinkConnector {
     private FileSystem ftpClient;
     private String topicName;
     private String path;
-    private String size;
+    private DataSize size;
 
     @Override
     protected void init(Configuration configuration) {
       this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
-      this.size = configuration.requireString(SIZE_KEY.name());
+      this.size =
+          DataSize.of(
+              configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
     }
 
     @Override
@@ -135,7 +137,7 @@ public class Exporter extends SinkConnector {
                 });
         writer.append(record);
 
-        if (writer.size().greaterThan(DataSize.of(this.size))) {
+        if (writer.size().greaterThan(size)) {
           writers.remove(record.topicPartition()).close();
         }
       }
