@@ -158,38 +158,16 @@ JSON Response 範例
   "plan": {
     "changes": [
       {
-        "topic": "__consumer_offsets",
-        "partition": 40,
-        "before": [
-          {
-            "brokerId": 1006,
-            "directory": "/tmp/log-folder-0",
-            "size": 1234
-          }
-        ],
-        "after": [
-          {
-            "brokerId": 1002,
-            "directory": "/tmp/log-folder-0"
-          }
-        ]
+        "topic": "example_topic",
+        "partition": 0,
+        "before": [ { "brokerId": 1006, "size": 2048 } ],
+        "after": [ { "brokerId": 1002 } ]
       },
       {
-        "topic": "__consumer_offsets",
-        "partition": 44,
-        "before": [
-          {
-            "brokerId": 1003,
-            "directory": "/tmp/log-folder-0",
-            "size": 12355
-          }
-        ],
-        "after": [
-          {
-            "brokerId": 1001,
-            "directory": "/tmp/log-folder-2"
-          }
-        ]
+        "topic": "example_topic",
+        "partition": 1,
+        "before": [ { "brokerId": 1003, "size": 1024 } ],
+        "after": [ { "brokerId": 1004 } ]
       }
     ]
   }
