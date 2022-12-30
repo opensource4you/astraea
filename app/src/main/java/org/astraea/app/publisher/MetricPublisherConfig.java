@@ -31,4 +31,13 @@ public enum MetricPublisherConfig implements EnumInfo {
   public String alias() {
     return this.name;
   }
+
+  @Override
+  public String toString() {
+    return this.name;
+  }
+
+  public MetricPublisherConfig ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(MetricPublisherConfig.class, alias);
+  }
 }
