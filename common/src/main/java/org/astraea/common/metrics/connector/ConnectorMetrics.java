@@ -64,4 +64,18 @@ public class ConnectorMetrics {
         .map(b -> (TaskError) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
+
+  public static List<ConnectorInfo> connectorInfo(MBeanClient client) {
+    return client
+        .queryBeans(
+            BeanQuery.builder()
+                .domainName("kafka.connect")
+                .property("type", "connector-task-metrics")
+                .property("connector", "*")
+                .property("task", "*")
+                .build())
+        .stream()
+        .map(b -> (ConnectorInfo) () -> b)
+        .collect(Collectors.toUnmodifiableList());
+  }
 }

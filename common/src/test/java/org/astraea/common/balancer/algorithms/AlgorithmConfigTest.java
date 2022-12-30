@@ -33,7 +33,7 @@ public class AlgorithmConfigTest {
     var config1 = AlgorithmConfig.builder(config0).build();
     Assertions.assertSame(config0.executionId(), config1.executionId());
     Assertions.assertSame(config0.clusterCostFunction(), config1.clusterCostFunction());
-    Assertions.assertSame(config0.moveCostFunctions(), config1.moveCostFunctions());
+    Assertions.assertSame(config0.moveCostFunction(), config1.moveCostFunction());
     Assertions.assertSame(config0.clusterConstraint(), config1.clusterConstraint());
     Assertions.assertSame(config0.movementConstraint(), config1.movementConstraint());
     Assertions.assertSame(config0.topicFilter(), config1.topicFilter());

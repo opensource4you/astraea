@@ -16,15 +16,16 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.HasBeanObject;
@@ -33,7 +34,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost.Helper {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "leader";
 
@@ -90,22 +91,39 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(
-      Collection<Replica> removedReplicas,
-      Collection<Replica> addedReplicas,
-      ClusterBean clusterBean) {
-    return MoveCost.builder()
-        .name(COST_NAME)
-        .unit("partition leaders")
-        .totalCost(addedReplicas.stream().filter(Replica::isLeader).count())
-        .change(
-            Stream.concat(
-                    removedReplicas.stream()
-                        .filter(Replica::isLeader)
-                        .map(replica -> Map.entry(replica.nodeInfo().id(), -1L)),
-                    addedReplicas.stream()
-                        .filter(Replica::isLeader)
-                        .map(replica -> Map.entry(replica.nodeInfo().id(), +1L)))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum)))
-        .build();
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+    return MoveCost.changedReplicaLeaderCount(
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .distinct()
+            .parallel()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    id -> {
+                      var removedLeaders =
+                          (int)
+                              before
+                                  .replicaStream(id)
+                                  .filter(ReplicaInfo::isLeader)
+                                  .filter(
+                                      r ->
+                                          after
+                                              .replicaStream(r.topicPartitionReplica())
+                                              .noneMatch(ReplicaInfo::isLeader))
+                                  .count();
+                      var newLeaders =
+                          (int)
+                              after
+                                  .replicaStream(id)
+                                  .filter(ReplicaInfo::isLeader)
+                                  .filter(
+                                      r ->
+                                          before
+                                              .replicaStream(r.topicPartitionReplica())
+                                              .noneMatch(ReplicaInfo::isLeader))
+                                  .count();
+                      return newLeaders - removedLeaders;
+                    })));
   }
 }

@@ -143,8 +143,8 @@ public interface Dispatcher extends Partitioner {
     var target =
         partition(
             topic,
-            keyBytes == null ? new byte[0] : keyBytes,
-            valueBytes == null ? new byte[0] : valueBytes,
+            keyBytes,
+            valueBytes,
             CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)));
     interdependent.targetPartitions = target;
     return target;

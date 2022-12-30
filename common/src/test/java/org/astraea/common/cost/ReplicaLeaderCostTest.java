@@ -196,12 +196,13 @@ public class ReplicaLeaderCostTest {
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
     var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
-    Assertions.assertEquals(1, moveCost.totalCost());
-    Assertions.assertEquals(2, moveCost.changes().size());
-    Assertions.assertTrue(moveCost.changes().containsKey(0));
-    Assertions.assertTrue(moveCost.changes().containsKey(2));
-    Assertions.assertEquals(-1, moveCost.changes().get(0));
-    Assertions.assertEquals(1, moveCost.changes().get(2));
+    Assertions.assertEquals(3, moveCost.changedReplicaLeaderCount().size());
+    Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(0));
+    Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(1));
+    Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(2));
+    Assertions.assertEquals(-1, moveCost.changedReplicaLeaderCount().get(0));
+    Assertions.assertEquals(0, moveCost.changedReplicaLeaderCount().get(1));
+    Assertions.assertEquals(1, moveCost.changedReplicaLeaderCount().get(2));
   }
 
   private ServerMetrics.ReplicaManager.Gauge mockResult(String name, int count) {

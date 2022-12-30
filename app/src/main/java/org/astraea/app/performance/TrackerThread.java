@@ -70,7 +70,7 @@ public interface TrackerThread extends AbstractThread {
                       .filter(d -> !Double.isNaN(d))
                       .sum()));
       System.out.printf(
-          "  error: %.1f records/second%n",
+          "  error rate: %.1f records/second%n",
           sumOfAttribute(
               ProducerMetrics.topics(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
       reports.stream()

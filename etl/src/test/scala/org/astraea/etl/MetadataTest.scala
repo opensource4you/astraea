@@ -16,146 +16,65 @@
  */
 package org.astraea.etl
 
-import org.astraea.etl.DataColumn.{columnParse, requireNonidentical}
-import org.astraea.etl.DataType.StringType
-import org.astraea.etl.Metadata.requirePair
-import org.junit.jupiter.api.Assertions.{assertEquals, assertThrows, assertTrue}
-import org.junit.jupiter.api.{BeforeEach, Test}
+import org.junit.jupiter.api.{Assertions, Test}
 
 import java.io.{File, FileOutputStream}
-import java.nio.file.Files.createTempFile
+import java.nio.file.Files
 import java.util.Properties
-import scala.util.Try
+import scala.util.Using
 
 class MetadataTest {
-  var file = new File("")
-  var path = ""
 
-  @BeforeEach def setup(): Unit = {
-    file = createTempFile("local_kafka", ".properties").toFile
-    path = file.getAbsolutePath
-    testConfig()
-  }
-
-  @Test def defaultTest(): Unit = {
-    val config = Metadata(Utils.requireFile(file.getAbsolutePath))
-    assertEquals(config.sourcePath, new File(file.getParent))
-    assertEquals(config.sinkPath, new File(file.getParent))
-    assertEquals(
-      config.column.map(col => (col.name, col.dataType)).toMap,
+  @Test
+  def testTopicConfigs(): Unit = {
+    val path = save(
       Map(
-        "ID" -> StringType,
-        "KA" -> StringType,
-        "KB" -> StringType,
-        "KC" -> StringType
+        Metadata.SOURCE_PATH_KEY -> "/tmp/aa",
+        Metadata.TOPIC_NAME_KEY -> "bb",
+        Metadata.COLUMN_NAME_KEY -> "a,b",
+        Metadata.KAFKA_BOOTSTRAP_SERVERS_KEY -> "host:1122",
+        Metadata.TOPIC_CONFIGS_KEY -> "a=b,c=d"
       )
     )
-    assertEquals(
-      config.column
-        .filter(col => col.isPK)
-        .map(col => (col.name, col.dataType))
-        .toMap,
-      Map("ID" -> StringType)
-    )
-    assertEquals(config.kafkaBootstrapServers, "0.0.0.0")
-    assertEquals(config.numPartitions, 15)
-    assertEquals(config.numReplicas, 1.toShort)
-    assertTrue(config.topicName.nonEmpty)
-    assertTrue(config.topicConfig.isEmpty)
+    val metadata = Metadata.of(path)
+    Assertions.assertEquals(2, metadata.topicConfigs.size)
+    Assertions.assertEquals("b", metadata.topicConfigs("a"))
+    Assertions.assertEquals("d", metadata.topicConfigs("c"))
   }
 
-  @Test def configuredTest(): Unit = {
+  @Test
+  def testDefault(): Unit = {
+    val path = save(
+      Map(
+        Metadata.SOURCE_PATH_KEY -> "/tmp/aa",
+        Metadata.TOPIC_NAME_KEY -> "bb",
+        Metadata.COLUMN_NAME_KEY -> "a,b",
+        Metadata.KAFKA_BOOTSTRAP_SERVERS_KEY -> "host:1122"
+      )
+    )
+    val metadata = Metadata.of(path)
+
+    Assertions.assertEquals("/tmp/aa", metadata.sourcePath)
+    Assertions.assertEquals("host:1122", metadata.kafkaBootstrapServers)
+    Assertions.assertEquals("bb", metadata.topicName)
+    Assertions.assertEquals(2, metadata.columns.size)
+    Assertions.assertEquals("a", metadata.columns.head.name)
+    Assertions.assertTrue(metadata.columns.head.isPk)
+    Assertions.assertEquals(DataType.StringType, metadata.columns.head.dataType)
+    Assertions.assertEquals("b", metadata.columns(1).name)
+    Assertions.assertTrue(metadata.columns(1).isPk)
+    Assertions.assertEquals(DataType.StringType, metadata.columns(1).dataType)
+  }
+
+  private def save(props: Map[String, String]): File = {
     val prop = new Properties
-    Utils.Using(scala.io.Source.fromFile(file)) { bufferedSource =>
-      prop.load(bufferedSource.reader())
+    props.foreach { case (k, v) =>
+      prop.put(k, v)
     }
-    prop.setProperty("topic.partitions", "30")
-    prop.setProperty("topic.replicas", "3")
-    prop.setProperty("topic.config", "KA=VA,KB=VB")
-    prop.store(new FileOutputStream(file), null)
-
-    val config = Metadata(Utils.requireFile(file.getAbsolutePath))
-    assertTrue(config.sourcePath.equals(new File(file.getParent)))
-    assertTrue(config.sinkPath.equals(new File(file.getParent)))
-    assertEquals(
-      config.column.map(col => (col.name, col.dataType)).toMap,
-      Map(
-        "ID" -> StringType,
-        "KA" -> StringType,
-        "KB" -> StringType,
-        "KC" -> StringType
-      )
-    )
-    assertEquals(
-      config.column
-        .filter(col => col.isPK)
-        .map(col => (col.name, col.dataType))
-        .toMap,
-      Map("ID" -> StringType)
-    )
-    assertTrue(config.kafkaBootstrapServers.equals("0.0.0.0"))
-    assertTrue(config.numPartitions.equals(30))
-    assertTrue(config.numReplicas.equals(3.toShort))
-    assertTrue(config.topicName.equals("spark-1"))
-    assertTrue(config.topicConfig.equals(Map("KA" -> "VA", "KB" -> "VB")))
-  }
-
-  @Test def requireNonidenticalTest(): Unit = {
-    assertThrows(
-      classOf[IllegalArgumentException],
-      () => requireNonidentical("data", "ID,KA,KB,KC,ID")
-    )
-  }
-
-  @Test def primaryKeysParseTest(): Unit = {
-    assertThrows(
-      classOf[IllegalArgumentException],
-      () =>
-        columnParse("ID=string,KA=string,KB=string,KC=integer", "data=string")
-    )
-  }
-
-  @Test def requirePairTest(): Unit = {
-    val map = "ID=KA,PP=KB,KC"
-    assertThrows(classOf[IllegalArgumentException], () => requirePair(map))
-  }
-
-  @Test def columnParseTest(): Unit = {
-//    columnParse("data=string", "ID=string,KA=string,KB=string,KC=integer")
-    assertThrows(
-      classOf[IllegalArgumentException],
-      () => columnParse("ID=string,KA=string,KB=string,KC=intege", "ID=string")
-    )
-  }
-
-  @Test def typeParseTest(): Unit = {
-    assertThrows(
-      classOf[IllegalArgumentException],
-      () => DataType.of("LLL")
-    )
-  }
-
-  @Test def requireDeployModeTest(): Unit = {
-    assertThrows(
-      classOf[IllegalArgumentException],
-      () => Metadata.requireDeployMode("deployment.model", "local")
-    )
-  }
-
-  def testConfig(): Unit = {
-    Try {
-      val prop = new Properties
-      prop.setProperty("source.path", file.getParent)
-      prop.setProperty("sink.path", file.getParent)
-      prop.setProperty("column.name", "ID=string,KA=string,KB=string,KC=string")
-      prop.setProperty("primary.keys", "ID=string")
-      prop.setProperty("kafka.bootstrap.servers", "0.0.0.0")
-      prop.setProperty("topic.name", "spark-1")
-      prop.setProperty("topic.partitions", "")
-      prop.setProperty("topic.replicas", "")
-      prop.setProperty("topic.config", "")
-      prop.setProperty("deployment.model", "local[2]")
-      prop.store(new FileOutputStream(file), null)
+    val file = Files.createTempFile("test", "props").toFile
+    Using(new FileOutputStream(file)) { output =>
+      prop.store(output, null)
     }
+    file
   }
 }

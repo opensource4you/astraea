@@ -82,7 +82,7 @@ public class ConnectorTest extends RequireWorkerCluster {
     // wait for sync
     Utils.sleep(Duration.ofSeconds(3));
     Assertions.assertEquals(
-        3, client.connectorInfo(name).toCompletableFuture().join().tasks().size());
+        3, client.connectorStatus(name).toCompletableFuture().join().tasks().size());
 
     client.deleteConnector(name).toCompletableFuture().join();
     Utils.sleep(Duration.ofSeconds(3));
@@ -133,7 +133,7 @@ public class ConnectorTest extends RequireWorkerCluster {
     private static final AtomicInteger CLOSE_COUNT = new AtomicInteger(0);
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, MetadataStorage storage) {
       INIT_COUNT.incrementAndGet();
     }
 

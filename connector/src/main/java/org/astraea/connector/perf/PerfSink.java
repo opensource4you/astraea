@@ -28,10 +28,9 @@ import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
 
 public class PerfSink extends SinkConnector {
-
   static Definition FREQUENCY_DEF =
       Definition.builder()
-          .name("frequency.in.seconds")
+          .name("frequency")
           .type(Definition.Type.STRING)
           .defaultValue("300ms")
           .validator((name, value) -> Utils.toDuration(value.toString()))
@@ -61,17 +60,14 @@ public class PerfSink extends SinkConnector {
 
   public static class Task extends SinkTask {
 
-    private Duration frequency = Utils.toDuration(PerfSink.FREQUENCY_DEF.defaultValue().toString());
+    private Duration frequency = Utils.toDuration(FREQUENCY_DEF.defaultValue().toString());
 
     private volatile long lastPut = System.currentTimeMillis();
 
     @Override
     protected void init(Configuration configuration) {
       frequency =
-          configuration
-              .string(PerfSource.FREQUENCY_DEF.name())
-              .map(Utils::toDuration)
-              .orElse(frequency);
+          configuration.string(FREQUENCY_DEF.name()).map(Utils::toDuration).orElse(frequency);
     }
 
     @Override

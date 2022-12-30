@@ -17,12 +17,62 @@
 package org.astraea.common.cost;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
+
+  HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.EMPTY;
+
+  static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts) {
+    return (before, after, clusterBean) -> {
+      var costs =
+          hasMoveCosts.stream()
+              .map(c -> c.moveCost(before, after, clusterBean))
+              .collect(Collectors.toList());
+      var movedReplicaSize =
+          costs.stream()
+              .flatMap(c -> c.movedReplicaSize().entrySet().stream())
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+      var changedReplicaCount =
+          costs.stream()
+              .flatMap(c -> c.changedReplicaCount().entrySet().stream())
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+      var changedReplicaLeaderCount =
+          costs.stream()
+              .flatMap(c -> c.changedReplicaLeaderCount().entrySet().stream())
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+
+      return new MoveCost() {
+        @Override
+        public Map<Integer, DataSize> movedReplicaSize() {
+          return movedReplicaSize;
+        }
+
+        @Override
+        public Map<Integer, Integer> changedReplicaCount() {
+          return changedReplicaCount;
+        }
+
+        @Override
+        public Map<Integer, Integer> changedReplicaLeaderCount() {
+          return changedReplicaLeaderCount;
+        }
+      };
+    };
+  }
+
   /**
    * score migrate cost from originClusterInfo to newClusterInfo
    *
@@ -33,31 +83,4 @@ public interface HasMoveCost extends CostFunction {
    */
   MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
-
-  /**
-   * Use this helper if you don't need to calculate the before and after changes of the cluster
-   * distribution by yourself
-   */
-  interface Helper extends HasMoveCost {
-
-    default MoveCost moveCost(
-        ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-      return moveCost(
-          ClusterInfo.diff(before, after), ClusterInfo.diff(after, before), clusterBean);
-    }
-
-    /**
-     * @param removedReplicas replicas removed from the source broker
-     * @param addedReplicas replicas removed add to the sink broker
-     * @param clusterBean cluster metrics
-     * @return the score of migrate cost
-     */
-    MoveCost moveCost(
-        Collection<Replica> removedReplicas,
-        Collection<Replica> addedReplicas,
-        ClusterBean clusterBean);
-  }
-
-  HasMoveCost EMPTY =
-      (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.builder().totalCost(0).build();
 }

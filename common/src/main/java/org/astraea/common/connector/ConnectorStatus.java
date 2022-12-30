@@ -48,8 +48,8 @@ public class ConnectorStatus {
     this.state = state;
     this.workerId = workerId;
     this.type = type;
-    this.configs = configs;
-    this.tasks = tasks;
+    this.configs = Map.copyOf(configs);
+    this.tasks = List.copyOf(tasks);
   }
 
   public String name() {

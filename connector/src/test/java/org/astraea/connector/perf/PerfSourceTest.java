@@ -23,18 +23,38 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
+import org.astraea.connector.MetadataStorage;
 import org.astraea.it.RequireSingleWorkerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class PerfSourceTest extends RequireSingleWorkerCluster {
+
+  @Test
+  void testTaskConfiguration() {
+    var s = new PerfSource();
+    var config = Configuration.of(Map.of(PerfSource.SPECIFY_PARTITIONS_DEF.name(), "0,1,2,3"));
+    s.init(config, MetadataStorage.EMPTY);
+    var configs = s.takeConfiguration(10);
+    Assertions.assertEquals(4, configs.size());
+    Assertions.assertEquals(
+        0, configs.get(0).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals(
+        1, configs.get(1).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals(
+        2, configs.get(2).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals(
+        3, configs.get(3).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+  }
 
   @Test
   void testDefaultConfig() {
@@ -72,18 +92,108 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   }
 
   @Test
-  void testFrequency() {
-    testConfig(PerfSource.FREQUENCY_DEF.name(), "a");
+  void testThroughput() {
+    testConfig(PerfSource.THROUGHPUT_DEF.name(), "a");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> PerfSource.THROUGHPUT_DEF.validator().accept("aa", "bbb"));
+    Assertions.assertDoesNotThrow(() -> PerfSource.THROUGHPUT_DEF.validator().accept("aa", "10Kb"));
+
+    var name = Utils.randomString();
+    var topicName = Utils.randomString();
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    client
+        .createConnector(
+            name,
+            Map.of(
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
+                PerfSource.class.getName(),
+                ConnectorConfigs.TASK_MAX_KEY,
+                "1",
+                ConnectorConfigs.TOPICS_KEY,
+                topicName,
+                PerfSource.THROUGHPUT_DEF.name(),
+                "1Byte"))
+        .toCompletableFuture()
+        .join();
+
+    Utils.sleep(Duration.ofSeconds(3));
+
+    try (var admin = Admin.of(bootstrapServers())) {
+      var offsets =
+          admin.latestOffsets(Set.of(TopicPartition.of(topicName, 0))).toCompletableFuture().join();
+      Assertions.assertEquals(1, offsets.size());
+      Assertions.assertEquals(1, offsets.get(TopicPartition.of(topicName, 0)));
+    }
   }
 
   @Test
   void testKeyDistribution() {
     testConfig(PerfSource.KEY_DISTRIBUTION_DEF.name(), "a");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> PerfSource.KEY_DISTRIBUTION_DEF.validator().accept("aa", "bbb"));
+    for (var d : DistributionType.values())
+      Assertions.assertDoesNotThrow(
+          () -> PerfSource.KEY_DISTRIBUTION_DEF.validator().accept("a", d.alias()));
   }
 
   @Test
   void testValueDistribution() {
     testConfig(PerfSource.VALUE_DISTRIBUTION_DEF.name(), "a");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> PerfSource.VALUE_DISTRIBUTION_DEF.validator().accept("aa", "bbb"));
+    for (var d : DistributionType.values())
+      Assertions.assertDoesNotThrow(
+          () -> PerfSource.VALUE_DISTRIBUTION_DEF.validator().accept("a", d.alias()));
+  }
+
+  @Test
+  void testSpecifyPartition() {
+    testConfig(PerfSource.SPECIFY_PARTITIONS_DEF.name(), "a");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> PerfSource.SPECIFY_PARTITIONS_DEF.validator().accept("aa", "bbb"));
+    Assertions.assertDoesNotThrow(
+        () -> PerfSource.SPECIFY_PARTITIONS_DEF.validator().accept("a", "1,2,10"));
+
+    var name = Utils.randomString();
+    var topicName = Utils.randomString();
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(3));
+      var client = ConnectorClient.builder().url(workerUrl()).build();
+      client
+          .createConnector(
+              name,
+              Map.of(
+                  ConnectorConfigs.CONNECTOR_CLASS_KEY,
+                  PerfSource.class.getName(),
+                  ConnectorConfigs.TASK_MAX_KEY,
+                  "1",
+                  ConnectorConfigs.TOPICS_KEY,
+                  topicName,
+                  PerfSource.SPECIFY_PARTITIONS_DEF.name(),
+                  "0"))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(3));
+      Assertions.assertNotEquals(
+          0,
+          admin
+              .latestOffsets(Set.of(TopicPartition.of(topicName, 0)))
+              .toCompletableFuture()
+              .join()
+              .get(TopicPartition.of(topicName, 0)));
+      Assertions.assertEquals(
+          0,
+          admin
+              .latestOffsets(Set.of(TopicPartition.of(topicName, 1)))
+              .toCompletableFuture()
+              .join()
+              .get(TopicPartition.of(topicName, 1)));
+    }
   }
 
   private void testConfig(String name, String errorValue) {
@@ -180,6 +290,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     Assertions.assertNotEquals(0, m0.size());
     m0.forEach(
         m -> {
+          Assertions.assertNotNull(m.connectorName());
+          Assertions.assertDoesNotThrow(m::taskId);
           Assertions.assertNotNull(m.taskType());
           Assertions.assertDoesNotThrow(m::pollBatchAvgTimeMs);
           Assertions.assertDoesNotThrow(m::pollBatchMaxTimeMs);
@@ -208,15 +320,35 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
           Assertions.assertEquals(0D, m.totalRecordFailures());
           Assertions.assertEquals(0D, m.totalRecordsSkipped());
         });
+
+    var m2 =
+        ConnectorMetrics.connectorInfo(MBeanClient.local()).stream()
+            .filter(m -> m.connectorName().equals(name))
+            .collect(Collectors.toList());
+    Assertions.assertEquals(1, m2.size());
+    m2.forEach(
+        m -> {
+          Assertions.assertNotNull(m.connectorName());
+          Assertions.assertDoesNotThrow(m::taskId);
+          Assertions.assertNotNull(m.connectorType());
+          Assertions.assertDoesNotThrow(m::batchSizeAvg);
+          Assertions.assertDoesNotThrow(m::batchSizeMax);
+          Assertions.assertDoesNotThrow(m::offsetCommitSuccessPercentage);
+          Assertions.assertDoesNotThrow(m::offsetCommitFailurePercentage);
+          Assertions.assertDoesNotThrow(m::offsetCommitAvgTimeMs);
+          Assertions.assertDoesNotThrow(m::offsetCommitMaxTimeMs);
+          Assertions.assertDoesNotThrow(m::pauseRatio);
+          Assertions.assertDoesNotThrow(m::status);
+        });
   }
 
   @Test
   void testInit() {
     var task = new PerfSource.Task();
-    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")));
+    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
     Assertions.assertNotNull(task.rand);
     Assertions.assertNotNull(task.topics);
-    Assertions.assertNotNull(task.frequency);
+    Assertions.assertNotNull(task.throughput);
     Assertions.assertNotNull(task.keySelector);
     Assertions.assertNotNull(task.keySizeGenerator);
     Assertions.assertNotNull(task.keys);
@@ -236,7 +368,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
                 PerfSource.KEY_DISTRIBUTION_DEF.name(),
                 "uniform",
                 PerfSource.VALUE_DISTRIBUTION_DEF.name(),
-                "uniform")));
+                "uniform")),
+        MetadataStorage.EMPTY);
     var keys =
         IntStream.range(0, 100)
             .mapToObj(ignored -> Optional.ofNullable(task.key()))
@@ -258,7 +391,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")));
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")),
+        MetadataStorage.EMPTY);
     Assertions.assertNull(task.key());
     Assertions.assertEquals(0, task.keys.size());
   }
@@ -268,7 +402,8 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")));
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")),
+        MetadataStorage.EMPTY);
     Assertions.assertNull(task.value());
     Assertions.assertEquals(0, task.values.size());
   }

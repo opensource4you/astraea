@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
-import java.util.Optional;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.BrokerTopic;
@@ -51,7 +50,7 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
           .forEach(
               r ->
                   Assertions.assertNotEquals(
-                      Optional.empty(), clusterInfo.replica(r.topicPartitionReplica())));
+                      0, clusterInfo.replicas(r.topicPartitionReplica()).size()));
       clusterInfo
           .replicas()
           .forEach(

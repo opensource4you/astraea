@@ -19,10 +19,6 @@ package org.astraea.common.metrics.stats;
 import java.time.Duration;
 
 public class Avg {
-  public static final String AVG_KEY = "avg";
-  public static final String RATE_BY_TIME_KEY = "rate_by_time";
-  public static final String EXP_WEIGHT_BY_TIME_KEY = "exp_weight_by_time";
-
   public static Stat<Double> of() {
     return new Stat<>() {
       private int counter = 0;
@@ -38,40 +34,6 @@ public class Avg {
       public synchronized Double measure() {
         if (counter == 0) throw new RuntimeException("Nothing to measure");
         return accumulator / counter;
-      }
-    };
-  }
-
-  /**
-   * Calculate the difference of the latest two ranged data.
-   *
-   * @param period Set the interval time for obtaining indicators. If multiple values are obtained
-   *     within the duration, it will be regarded as one
-   */
-  public static Stat<Double> rateByTime(Duration period) {
-    return new Stat<>() {
-      private double accumulate = 0.0;
-
-      private long count = 0;
-
-      private final Debounce<Double> debounce = Debounce.of(period);
-      ;
-
-      @Override
-      public synchronized void record(Double value) {
-        long current = System.currentTimeMillis();
-        debounce
-            .record(value, current)
-            .ifPresent(
-                debouncedValue -> {
-                  accumulate += debouncedValue;
-                  ++count;
-                });
-      }
-
-      @Override
-      public synchronized Double measure() {
-        return accumulate / count;
       }
     };
   }

@@ -96,28 +96,6 @@ class ConnectorClientTest extends RequireWorkerCluster {
   }
 
   @Test
-  void testConnectorByName() {
-    var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
-
-    var CompletionException =
-        assertThrows(
-            CompletionException.class,
-            () -> connectorClient.connectorInfo(connectorName).toCompletableFuture().join());
-    var exception = getResponseException(CompletionException);
-    assertEquals(404, exception.code());
-    assertTrue(exception.getMessage().contains(connectorName));
-
-    connectorClient
-        .createConnector(connectorName, getExampleConnector())
-        .toCompletableFuture()
-        .join();
-    var connector = connectorClient.connectorInfo(connectorName).toCompletableFuture().join();
-    assertEquals(connectorName, connector.name());
-    assertExampleConnector(connector.config());
-  }
-
-  @Test
   void testCreateConnector() {
     var connectorName = Utils.randomString(10);
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
@@ -137,14 +115,15 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     assertTrue(
         connectorClient
-            .waitConnectorInfo(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
+            .waitConnector(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
             .toCompletableFuture()
             .join());
-    var connectorInfo = connectorClient.connectorInfo(connectorName).toCompletableFuture().join();
+    var connectorInfo = connectorClient.connectorStatus(connectorName).toCompletableFuture().join();
     assertEquals(3, connectorInfo.tasks().size());
     assertTrue(
         connectorInfo.tasks().stream().allMatch(x -> connectorName.equals(x.connectorName())));
-    assertEquals(3, connectorInfo.tasks().stream().map(TaskInfo::id).distinct().count());
+    assertEquals(3, connectorInfo.tasks().stream().map(TaskStatus::id).distinct().count());
+    connectorInfo.tasks().forEach(t -> assertNotEquals(0, t.configs().size()));
   }
 
   @Test
@@ -174,11 +153,6 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     // wait for syncing configs and re-balance
     Utils.sleep(Duration.ofSeconds(7));
-    connector = connectorClient.connectorInfo(connectorName).toCompletableFuture().join();
-    assertEquals("2", connector.config().get("tasks.max"));
-    assertEquals("myTopic2", connector.config().get("topics"));
-    assertEquals(2, connector.tasks().size());
-
     var status = connectorClient.connectorStatus(connectorName).toCompletableFuture().join();
     assertEquals(connectorName, status.name());
     assertEquals("RUNNING", status.state());
@@ -186,6 +160,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     assertEquals(2, status.tasks().size());
     assertNotEquals(0, status.configs().size());
     status.tasks().forEach(t -> assertEquals("RUNNING", t.state()));
+    status.tasks().forEach(t -> assertNotEquals(0, t.configs().size()));
   }
 
   @Test
@@ -242,7 +217,10 @@ class ConnectorClientTest extends RequireWorkerCluster {
                 Utils.packException(
                     () -> {
                       var connector =
-                          connectorClient.connectorInfo(connectorName).toCompletableFuture().join();
+                          connectorClient
+                              .connectorStatus(connectorName)
+                              .toCompletableFuture()
+                              .join();
                       assertEquals(connectorName, connector.name());
                     }));
   }
@@ -286,7 +264,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
     connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().join();
     assertTrue(
         connectorClient
-            .waitConnectorInfo(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
+            .waitConnector(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
             .toCompletableFuture()
             .join());
 
@@ -299,7 +277,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     assertFalse(
         connectorClient
-            .waitConnectorInfo(errConnectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
+            .waitConnector(errConnectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
             .toCompletableFuture()
             .join());
   }

@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
@@ -55,7 +54,7 @@ public interface AlgorithmConfig {
   /**
    * @return the movement cost functions for this problem
    */
-  List<HasMoveCost> moveCostFunctions();
+  HasMoveCost moveCostFunction();
 
   /**
    * @return the cluster cost constraint that must be complied with by the algorithm solution
@@ -65,7 +64,7 @@ public interface AlgorithmConfig {
   /**
    * @return the movement constraint that must be complied with by the algorithm solution
    */
-  Predicate<List<MoveCost>> movementConstraint();
+  Predicate<MoveCost> movementConstraint();
 
   /**
    * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
@@ -86,10 +85,10 @@ public interface AlgorithmConfig {
 
     private String executionId = "noname-" + UUID.randomUUID();
     private HasClusterCost clusterCostFunction;
-    private List<HasMoveCost> moveCostFunctions = List.of(HasMoveCost.EMPTY);
+    private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
-    private Predicate<List<MoveCost>> movementConstraint = ignore -> true;
+    private Predicate<MoveCost> movementConstraint = ignore -> true;
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
     private Configuration config = Configuration.EMPTY;
@@ -98,7 +97,7 @@ public interface AlgorithmConfig {
       if (config != null) {
         this.executionId = config.executionId();
         this.clusterCostFunction = config.clusterCostFunction();
-        this.moveCostFunctions = config.moveCostFunctions();
+        this.moveCostFunction = config.moveCostFunction();
         this.clusterConstraint = config.clusterConstraint();
         this.movementConstraint = config.movementConstraint();
         this.metricSource = config.metricSource();
@@ -138,8 +137,8 @@ public interface AlgorithmConfig {
      *     cluster.
      * @return this
      */
-    public Builder moveCost(List<HasMoveCost> costFunction) {
-      this.moveCostFunctions = Objects.requireNonNull(costFunction);
+    public Builder moveCost(HasMoveCost costFunction) {
+      this.moveCostFunction = Objects.requireNonNull(costFunction);
       return this;
     }
 
@@ -164,7 +163,7 @@ public interface AlgorithmConfig {
      *     acceptable(in terms of the ongoing cost caused by execute this rebalance plan).
      * @return this
      */
-    public Builder movementConstraint(Predicate<List<MoveCost>> moveConstraint) {
+    public Builder movementConstraint(Predicate<MoveCost> moveConstraint) {
       this.movementConstraint = Objects.requireNonNull(moveConstraint);
       return this;
     }
@@ -220,8 +219,8 @@ public interface AlgorithmConfig {
         }
 
         @Override
-        public List<HasMoveCost> moveCostFunctions() {
-          return moveCostFunctions;
+        public HasMoveCost moveCostFunction() {
+          return moveCostFunction;
         }
 
         @Override
@@ -230,7 +229,7 @@ public interface AlgorithmConfig {
         }
 
         @Override
-        public Predicate<List<MoveCost>> movementConstraint() {
+        public Predicate<MoveCost> movementConstraint() {
           return movementConstraint;
         }
 

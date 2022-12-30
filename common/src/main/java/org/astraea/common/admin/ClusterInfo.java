@@ -39,36 +39,6 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[helpers]---------------------//
 
-  /**
-   * find the changed replicas between `before` and `after`. The diff is based on following
-   * conditions. 1) the replicas are existent only in the `before` cluster 2) find the changes based
-   * on either broker or data folder between `before` and `after`. Noted that the replicas existent
-   * only in the `after` cluster are NOT returned.
-   *
-   * @param before to be compared
-   * @param after to compare
-   * @return the diff replicas
-   */
-  static Set<Replica> diff(ClusterInfo<Replica> before, ClusterInfo<Replica> after) {
-    return before
-        .replicaStream()
-        .parallel()
-        .filter(
-            beforeReplica ->
-                after
-                    .replicaStream()
-                    .parallel()
-                    .noneMatch(
-                        r ->
-                            r.nodeInfo().id() == beforeReplica.nodeInfo().id()
-                                && r.partition() == beforeReplica.partition()
-                                && r.topic().equals(beforeReplica.topic())
-                                && Objects.equals(r.path(), beforeReplica.path())
-                                && r.isLeader() == beforeReplica.isLeader()
-                                && r.isPreferredLeader() == beforeReplica.isPreferredLeader()))
-        .collect(Collectors.toSet());
-  }
-
   /** Mask specific topics from a {@link ClusterInfo}. */
   static <T extends ReplicaInfo> ClusterInfo<T> masked(
       ClusterInfo<T> clusterInfo, Predicate<String> topicFilter) {
@@ -360,8 +330,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param replica to search
    * @return the replica matched to input replica
    */
-  default Optional<T> replica(TopicPartitionReplica replica) {
-    return replicaStream(replica).findFirst();
+  default List<T> replicas(TopicPartitionReplica replica) {
+    return replicaStream(replica).collect(Collectors.toUnmodifiableList());
   }
 
   // ---------------------[others]---------------------//

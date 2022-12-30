@@ -35,10 +35,10 @@ class GreedyBalancerTest {
   @Test
   void testConfig() {
     Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
+        GreedyBalancer.ALL_CONFIGS.contains("shuffle.tweaker.min.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
-        GreedyBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
+        GreedyBalancer.ALL_CONFIGS.contains("shuffle.tweaker.max.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
         GreedyBalancer.ALL_CONFIGS.contains("iteration"),
@@ -69,7 +69,7 @@ class GreedyBalancerTest {
           .forEach(
               run -> {
                 var plan = balancer.offer(clusterInfo, Duration.ofMillis(300));
-                Assertions.assertTrue(plan.isPresent());
+                Assertions.assertTrue(plan.solution().isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(
                         () ->

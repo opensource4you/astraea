@@ -16,50 +16,58 @@
  */
 package org.astraea.etl
 
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.StructType
 import org.astraea.common.admin.Admin
-import org.astraea.etl.Reader.createSchema
-import org.astraea.etl.Utils.createTopic
 
-import java.util.concurrent.TimeUnit
-import scala.concurrent.Await
+import java.io.File
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
+import scala.util.Using
 
 object Spark2Kafka {
-  def executor(args: Array[String], duration: Int): Unit = {
-    val metaData = Metadata(Utils.requireFile(args(0)))
-    Utils.Using(Admin.of(metaData.kafkaBootstrapServers)) { admin =>
-      Await.result(createTopic(admin, metaData), Duration.Inf)
-      val df = Reader
-        .of()
-        .spark(metaData.deployModel)
-        .schema(
-          createSchema(
-            metaData.column.map(col => (col.name, col.dataType)).toMap
-          )
-        )
-        .sinkPath(metaData.sinkPath.getPath)
-        .primaryKeys(
-          metaData.column.filter(col => col.isPK).map(col => col.name)
-        )
-        .readCSV(metaData.sourcePath.getPath)
-        .csvToJSON(metaData.column)
+  def executor(
+      sparkSession: SparkSession,
+      metadata: Metadata,
+      duration: Duration
+  ): Unit = {
+    Using(Admin.of(metadata.kafkaBootstrapServers))(
+      _.creator()
+        .topic(metadata.topicName)
+        .configs(metadata.topicConfigs.asJava)
+        .numberOfPartitions(metadata.numberOfPartitions)
+        .numberOfReplicas(metadata.numberOfReplicas)
+        .run()
+        .toCompletableFuture
+        .join()
+    )
 
-      val query = Writer
-        .of()
-        .dataFrameOp(df)
-        .target(metaData.topicName)
-        .checkpoint(metaData.checkpoint.toString)
-        .writeToKafka(metaData.kafkaBootstrapServers)
-        .start()
-      if (duration > 0) {
-        query.awaitTermination(Duration(duration, TimeUnit.SECONDS).toMillis)
-      } else {
-        query.awaitTermination()
-      }
-    }
+    val df = ReadStreams
+      .create(
+        session = sparkSession,
+        source = metadata.sourcePath,
+        columns = metadata.columns
+      )
+      .csvToJSON(metadata.columns)
+
+    Writer
+      .of()
+      .dataFrameOp(df)
+      .target(metadata.topicName)
+      .checkpoint(metadata.checkpoint)
+      .writeToKafka(metadata.kafkaBootstrapServers)
+      .start()
+      .awaitTermination(duration.toMillis)
   }
 
   def main(args: Array[String]): Unit = {
-    executor(args, 0)
+    executor(
+      SparkSession
+        .builder()
+        .appName("astraea etl")
+        .getOrCreate(),
+      Metadata.of(new File(args(0))),
+      Duration("1000 seconds")
+    )
   }
 }

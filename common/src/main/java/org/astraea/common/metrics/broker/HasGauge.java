@@ -26,6 +26,7 @@ import org.astraea.common.metrics.HasBeanObject;
  * Double.
  */
 public interface HasGauge<T> extends HasBeanObject {
+  String VALUE_KEY = "Value";
 
   static HasGauge<Long> ofLong(BeanObject beanObject) {
     return () -> beanObject;
@@ -33,6 +34,6 @@ public interface HasGauge<T> extends HasBeanObject {
 
   @SuppressWarnings("unchecked")
   default T value() {
-    return (T) Objects.requireNonNull(beanObject().attributes().get("Value"));
+    return (T) Objects.requireNonNull(beanObject().attributes().get(VALUE_KEY));
   }
 }

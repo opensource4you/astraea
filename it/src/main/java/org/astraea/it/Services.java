@@ -31,7 +31,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
-import kafka.server.KafkaConfig$;
 import kafka.server.KafkaServer;
 import org.apache.kafka.common.network.ListenerName;
 import org.apache.kafka.common.utils.SystemTime;
@@ -138,19 +137,15 @@ public final class Services {
                 index -> {
                   Properties config = new Properties();
                   // reduce the backoff of compact thread to test it quickly
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.LogCleanerBackoffMsProp(), String.valueOf(2000));
+                  config.setProperty("log.cleaner.backoff.ms", String.valueOf(2000));
                   // reduce the number from partitions and replicas to speedup the mini cluster
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.OffsetsTopicPartitionsProp(), String.valueOf(1));
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.OffsetsTopicReplicationFactorProp(), String.valueOf(1));
-                  config.setProperty(KafkaConfig$.MODULE$.ZkConnectProp(), zk.connectionProps());
-                  config.setProperty(KafkaConfig$.MODULE$.BrokerIdProp(), String.valueOf(index));
+                  config.setProperty("offsets.topic.num.partitions", String.valueOf(1));
+                  config.setProperty("offsets.topic.replication.factor", String.valueOf(1));
+                  config.setProperty("zookeeper.connect", zk.connectionProps());
+                  config.setProperty("broker.id", String.valueOf(index));
                   // bind broker on random port
-                  config.setProperty(KafkaConfig$.MODULE$.ListenersProp(), "PLAINTEXT://:0");
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.LogDirsProp(), String.join(",", tempFolders.get(index)));
+                  config.setProperty("listeners", "PLAINTEXT://:0");
+                  config.setProperty("log.dirs", String.join(",", tempFolders.get(index)));
 
                   // TODO: provide a mechanism to offer customized embedded cluster for specialized
                   // test scenario. keeping adding config to this method might cause configuration
@@ -159,12 +154,10 @@ public final class Services {
 
                   // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
                   // correctly.
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.AutoLeaderRebalanceEnableProp(), String.valueOf(false));
+                  config.setProperty("auto.leader.rebalance.enable", String.valueOf(false));
 
                   // increase the timeout in order to avoid ZkTimeoutException
-                  config.setProperty(
-                      KafkaConfig$.MODULE$.ZkSessionTimeoutMsProp(), String.valueOf(30 * 1000));
+                  config.setProperty("zookeeper.session.timeout.ms", String.valueOf(30 * 1000));
                   KafkaServer broker =
                       new KafkaServer(
                           new KafkaConfig(config), SystemTime.SYSTEM, scala.Option.empty(), false);

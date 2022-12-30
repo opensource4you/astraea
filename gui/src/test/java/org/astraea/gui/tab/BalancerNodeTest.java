@@ -53,20 +53,13 @@ class BalancerNodeTest extends RequireBrokerCluster {
 
   @Test
   void testMovementConstraint() {
-    Assertions.assertTrue(BalancerNode.movementConstraint(Map.of()).test(List.of()));
-    Assertions.assertTrue(
-        BalancerNode.movementConstraint(Map.of())
-            .test(List.of(MoveCost.builder().name("test").totalCost(100).build())));
+    Assertions.assertTrue(BalancerNode.movementConstraint(Map.of()).test(MoveCost.EMPTY));
     Assertions.assertFalse(
         BalancerNode.movementConstraint(Map.of(BalancerNode.MAX_MIGRATE_LEADER_NUM, "10"))
-            .test(
-                List.of(
-                    MoveCost.builder().name(ReplicaLeaderCost.COST_NAME).totalCost(100).build())));
+            .test(MoveCost.changedReplicaLeaderCount(Map.of(1, 1000))));
     Assertions.assertTrue(
         BalancerNode.movementConstraint(Map.of(BalancerNode.MAX_MIGRATE_LEADER_NUM, "10"))
-            .test(
-                List.of(
-                    MoveCost.builder().name(ReplicaLeaderCost.COST_NAME).totalCost(5).build())));
+            .test(MoveCost.changedReplicaLeaderCount(Map.of(1, 5))));
   }
 
   @Test
@@ -163,11 +156,10 @@ class BalancerNodeTest extends RequireBrokerCluster {
     var results =
         BalancerNode.assignmentResult(
             beforeClusterInfo,
-            new Balancer.Plan(
-                ClusterInfo.of(allNodes, afterReplicas),
+            new Balancer.Solution(
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
-                new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
-                List.of(MoveCost.builder().build())));
+                MoveCost.EMPTY,
+                ClusterInfo.of(allNodes, afterReplicas)));
     Assertions.assertEquals(results.size(), 1);
     Assertions.assertEquals(results.get(0).get("topic"), topic);
     Assertions.assertEquals(results.get(0).get("partition"), 0);

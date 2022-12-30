@@ -25,10 +25,10 @@ class SingleStepBalancerTest {
   @Test
   void testConfig() {
     Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.min.step"),
+        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.tweaker.min.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.plan.generator.max.step"),
+        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.tweaker.max.step"),
         "Config exists for backward compatability reason");
     Assertions.assertTrue(
         SingleStepBalancer.ALL_CONFIGS.contains("iteration"),

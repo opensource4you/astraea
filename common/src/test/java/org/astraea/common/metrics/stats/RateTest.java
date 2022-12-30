@@ -14,37 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.etl
+package org.astraea.common.metrics.stats;
 
-import scala.util.matching.Regex
+import java.time.Duration;
+import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-sealed abstract class DeployMode(pattern: Regex) {
-  def r: Regex = {
-    pattern
-  }
-}
+public class RateTest {
 
-object DeployMode {
-  // Whether it is a local mode string.
-  case object Local extends DeployMode("local(\\[)[\\d{1}](])".r)
-  // Whether it is a standalone mode string.
-  case object Standalone extends DeployMode("spark://(.+)".r)
-
-  def of(str: String): DeployMode = {
-    val patterns = all().filter(_.r.findAllIn(str).hasNext)
-    if (patterns.isEmpty) {
-      throw new IllegalArgumentException(
-        s"$str does not belong to any of the deploy modes."
-      )
-    }
-    patterns.head
-  }
-
-  def deployMatch(str: String): Boolean = {
-    all().exists(_.r.findAllIn(str).hasNext)
-  }
-
-  def all(): Seq[DeployMode] = {
-    Seq(Local, Standalone)
+  @Test
+  void testMeasure() {
+    var rate = Rate.sizeRate();
+    rate.record(DataSize.Byte.of(100L));
+    Utils.sleep(Duration.ofSeconds(1));
+    Assertions.assertTrue(rate.measure().bytes() < 100);
   }
 }

@@ -29,13 +29,12 @@ curl -X POST http://localhost:8001/balancer \
     -d '{ "timeout": "10s" ,
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
-        "shuffle.plan.generator.min.step": "1",
-        "shuffle.plan.generator.max.step": "30",
-        "iteration": "10000"
+        "shuffle.tweaker.min.step": "1",
+        "shuffle.tweaker.max.step": "5"
       },
       "costWeights": [
-        { "cost":  "org.astraea.common.cost.ReplicaSizeCost", "weight":  3},
-        { "cost":  "org.astraea.common.cost.ReplicaLeaderCost", "weight":  2}
+        { "cost": "org.astraea.common.cost.ReplicaSizeCost", "weight": 1 },
+        { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],
       "maxMigratedSize": "300MB",
       "maxMigratedLeader": "3"
@@ -117,17 +116,20 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 
 JSON Response 範例
 
-* `id`: 此 Response 所描述的負載平衡計劃編號
-* `generated`: 此負載平衡計劃是否已經生成
-* `scheduled`: 此負載平衡計劃是否有排程執行過
-* `done`: 此負載平衡計劃是否結束執行
+* `id`: 此 Response 所描述的負載平衡計劃之編號
+* `phase`: 代表此負載平衡計劃狀態的字串，可能是下列任一值
+  * `Searching`: 正在搜尋能使叢集變更好的負載平衡計劃
+  * `Searched`: 計劃搜尋已經結束
+  * `Executing`: 正在將負載平衡計劃套用至叢集
+  * `Executed`: 此負載平衡計劃已經成功套用至叢集
 * `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
-  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `generated` 會是 `false`)
-  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
-* `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
-  * `cost`: 目前叢集的成本 (越高越不好)
-  * `newCost`: 評估後比較好的成本 (<= `cost`)
-  * `function`: 用來評估品質的方法
+  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `Searched`)
+  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `Executed`)
+* `config` 此優化計劃的搜尋參數設定
+  * `balancer`: 此計劃生成所使用的搜尋算法實作
+  * `function`: 用來評估叢集狀態之品質的方法
+  * `timeoutMs`: 此優化計劃的搜尋上限時間
+* `plan`: 此負載平衡計劃的詳細資訊，如果此計劃還沒完成搜尋，或是已經完成搜尋但找不到可用的計劃，則此欄位會是 `null`
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
     * `partition`: partition id
@@ -147,13 +149,13 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "generated": true,
-  "scheduled": true,
-  "done": true,
-  "info": {
-    "cost": 0.04948716593053935,
-    "newCost": 0.04948716593053935,
-    "function": "ReplicaLeaderCost",
+  "phase": "Executed",
+  "config": {
+    "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.NetworkEgressCost@69be333e\" weight 1.0}, {\"org.astraea.common.cost.NetworkIngressCost@6c5ec944\" weight 1.0}]",
+    "timeoutMs": 10000
+  },
+  "plan": {
     "changes": [
       {
         "topic": "__consumer_offsets",
@@ -197,11 +199,9 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "generated": true,
-  "scheduled": true,
-  "done": true,
+  "phase": "Searched",
   "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
-  "info":{ /* ... */ }
+  "config": { /* ... */ }
 }
 ```
 

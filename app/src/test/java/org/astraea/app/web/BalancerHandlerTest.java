@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +32,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.app.web.BalancerHandler.BalancerPostRequest;
 import org.astraea.app.web.BalancerHandler.CostWeight;
 import org.astraea.common.Configuration;
@@ -47,21 +50,20 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
-import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
-import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HostMetrics;
@@ -74,6 +76,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.Mockito;
 
 public class BalancerHandlerTest extends RequireBrokerCluster {
 
@@ -86,6 +89,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   static final String BALANCER_CONFIGURATION_KEY = "balancerConfig";
   static final int TIMEOUT_DEFAULT = 3;
 
+  private static final List<BalancerHandler.CostWeight> defaultIncreasing =
+      List.of(costWeight(IncreasingCost.class.getName(), 1));
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
       List.of(costWeight(DecreasingCost.class.getName(), 1));
 
@@ -106,14 +111,20 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           submitPlanGeneration(
               handler,
               Map.of(
+                  BALANCER_IMPLEMENTATION_KEY,
+                  GreedyBalancer.class.getName(),
                   BALANCER_CONFIGURATION_KEY,
-                  Map.of("iteration", "3000"),
+                  Map.of("a", "b"),
+                  TIMEOUT_KEY,
+                  "1234ms",
                   COST_WEIGHT_KEY,
                   defaultDecreasing));
-      var report = progress.report;
+      var report = progress.plan;
       Assertions.assertNotNull(progress.id);
+      Assertions.assertEquals(1234, progress.config.timeoutMs);
+      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
-      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
+      Assertions.assertTrue(report.cost >= report.newCost.get());
       // "before" should record size
       report.changes.forEach(
           c ->
@@ -128,42 +139,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       report.changes.stream()
           .flatMap(c -> c.after.stream())
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
-      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
+      Assertions.assertTrue(report.cost >= report.newCost.get());
       var sizeMigration =
-          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
-      Assertions.assertTrue(sizeMigration.totalCost >= 0);
-      Assertions.assertTrue(sizeMigration.cost.size() > 0);
-      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
-    }
-  }
-
-  @Test
-  @Timeout(value = 60)
-  void testTopic() {
-    var topicNames = createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
-      var report =
-          submitPlanGeneration(
-                  handler,
-                  Map.of(
-                      BALANCER_CONFIGURATION_KEY,
-                      Map.of("iteration", "30"),
-                      TOPICS_KEY,
-                      topicNames.get(0),
-                      COST_WEIGHT_KEY,
-                      defaultDecreasing))
-              .report;
-      var actual =
-          report.changes.stream().map(r -> r.topic).collect(Collectors.toUnmodifiableSet());
-      Assertions.assertEquals(1, actual.size());
-      Assertions.assertEquals(topicNames.get(0), actual.iterator().next());
-      Assertions.assertTrue(report.cost.get() >= report.newCost.get());
-      var sizeMigration =
-          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
-      Assertions.assertTrue(sizeMigration.totalCost >= 0);
-      Assertions.assertTrue(sizeMigration.cost.size() > 0);
-      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
+          report.migrationCosts.stream()
+              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .findFirst()
+              .get();
+      Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
+      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0D, v));
     }
   }
 
@@ -186,22 +169,32 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       String.join(",", allowedTopics),
                       COST_WEIGHT_KEY,
                       defaultDecreasing))
-              .report;
+              .plan;
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
       Assertions.assertTrue(
-          report.cost.get() >= report.newCost.get(),
+          report.cost >= report.newCost.get(),
           "The proposed plan should has better score then the current one");
       var sizeMigration =
-          report.migrationCosts.stream().filter(x -> x.function.equals("size")).findFirst().get();
-      Assertions.assertTrue(sizeMigration.totalCost >= 0);
-      Assertions.assertTrue(sizeMigration.cost.size() > 0);
-      Assertions.assertEquals(0, sizeMigration.cost.stream().mapToLong(x -> x.cost).sum());
+          report.migrationCosts.stream()
+              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .findFirst()
+              .get();
+      Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
+      Assertions.assertNotEquals(
+          0,
+          sizeMigration.brokerCosts.values().stream().filter(v -> v > 0).count(),
+          "report.cost: " + report.cost + " report.newCost.get(): " + report.newCost.get());
     }
   }
 
   private static List<String> createAndProduceTopic(int topicCount) {
+    return createAndProduceTopic(topicCount, 3, (short) 1, true);
+  }
+
+  private static List<String> createAndProduceTopic(
+      int topicCount, int partitions, short replicas, boolean skewed) {
     try (var admin = Admin.of(bootstrapServers())) {
       var topics =
           IntStream.range(0, topicCount)
@@ -212,18 +205,22 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             admin
                 .creator()
                 .topic(topic)
-                .numberOfPartitions(3)
-                .numberOfReplicas((short) 1)
+                .numberOfPartitions(partitions)
+                .numberOfReplicas(replicas)
                 .run()
                 .toCompletableFuture()
                 .join();
-            Utils.sleep(Duration.ofSeconds(1));
-            admin
-                .moveToBrokers(
-                    admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
-                        .collect(Collectors.toMap(tp -> tp, ignored -> List.of(1))))
-                .toCompletableFuture()
-                .join();
+            if (skewed) {
+              Utils.sleep(Duration.ofSeconds(1));
+              var placement =
+                  brokerIds().stream().limit(replicas).collect(Collectors.toUnmodifiableList());
+              admin
+                  .moveToBrokers(
+                      admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
+                          .collect(Collectors.toMap(tp -> tp, ignored -> placement)))
+                  .toCompletableFuture()
+                  .join();
+            }
           });
       Utils.sleep(Duration.ofSeconds(3));
       try (var producer = Producer.of(bootstrapServers())) {
@@ -266,9 +263,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
-      HasMoveCost moveCostFunction =
-          (originClusterInfo, newClusterInfo, clusterBean) ->
-              MoveCost.builder().totalCost(100).build();
+      HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
 
       var balancerHandler = new BalancerHandler(admin);
       var Best =
@@ -277,7 +272,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
-                      .moveCost(List.of(moveCostFunction))
+                      .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> true)
                       .build())
               .offer(
@@ -298,7 +293,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       AlgorithmConfig.builder()
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
-                          .moveCost(List.of(moveCostFunction))
+                          .moveCost(moveCostFunction)
                           .movementConstraint(moveCosts -> true)
                           .config(Configuration.of(Map.of("iteration", "0")))
                           .build())
@@ -317,7 +312,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
-                      .moveCost(List.of(moveCostFunction))
+                      .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> true)
                       .build())
               .offer(
@@ -325,7 +320,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(3)));
+                  Duration.ofSeconds(3))
+              .solution());
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -335,7 +331,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
-                      .moveCost(List.of(moveCostFunction))
+                      .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> false)
                       .build())
               .offer(
@@ -343,7 +339,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(3)));
+                  Duration.ofSeconds(3))
+              .solution());
     }
   }
 
@@ -363,15 +360,19 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       sizeLimit,
                       COST_WEIGHT_KEY,
                       defaultDecreasing))
-              .report;
+              .plan;
       report.migrationCosts.forEach(
           migrationCost -> {
-            switch (migrationCost.function) {
-              case ReplicaSizeCost.COST_NAME:
-                Assertions.assertTrue(migrationCost.totalCost <= DataSize.of(sizeLimit).bytes());
+            switch (migrationCost.name) {
+              case BalancerHandler.MOVED_SIZE:
+                Assertions.assertTrue(
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
+                        <= DataSize.of(sizeLimit).bytes());
                 break;
-              case ReplicaLeaderCost.COST_NAME:
-                Assertions.assertTrue(migrationCost.totalCost <= Integer.parseInt(leaderLimit));
+              case BalancerHandler.CHANGED_LEADERS:
+                Assertions.assertTrue(
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::byteValue).sum()
+                        <= Integer.parseInt(leaderLimit));
                 break;
             }
           });
@@ -394,7 +395,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       Channel.ofRequest(
                           JsonConverter.defaultConverter()
                               .toJson(
-                                  Map.of(BALANCER_CONFIGURATION_KEY, Map.of("iteration", "0")))))
+                                  Map.of(
+                                      COST_WEIGHT_KEY,
+                                      defaultIncreasing,
+                                      TIMEOUT_KEY,
+                                      "996ms",
+                                      BALANCER_IMPLEMENTATION_KEY,
+                                      GreedyBalancer.class.getName()))))
                   .toCompletableFuture()
                   .join());
       Utils.sleep(Duration.ofSeconds(5));
@@ -404,8 +411,26 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertNotNull(post.id);
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertFalse(progress.generated);
-      Assertions.assertNotNull(progress.exception);
+      Assertions.assertEquals(996, progress.config.timeoutMs);
+      Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "search done");
+      Assertions.assertNotNull(progress.exception, "hint about no plan found");
+      Assertions.assertNotNull(progress.config.function);
+      Assertions.assertNull(progress.plan, "no proposal");
+      Assertions.assertInstanceOf(
+          IllegalStateException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      handler
+                          .put(
+                              Channel.ofRequest(
+                                  JsonConverter.defaultConverter()
+                                      .toJson(Map.of("id", progress.id))))
+                          .toCompletableFuture()
+                          .join())
+              .getCause(),
+          "Cannot execute a plan with no proposal available");
     }
   }
 
@@ -413,7 +438,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testPut() {
     // arrange
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, 10, (short) 2, false);
     try (var admin = Admin.of(bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
@@ -634,6 +659,59 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   @Timeout(value = 60)
+  void testGenerationDetectOngoing() {
+    var base =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1, 2, 3))
+            .addFolders(Map.of(1, Set.of("/f0", "/f1")))
+            .addFolders(Map.of(2, Set.of("/f0", "/f1")))
+            .addFolders(Map.of(3, Set.of("/f0", "/f1")))
+            .addTopic("A", 10, (short) 1)
+            .addTopic("B", 10, (short) 1)
+            .addTopic("C", 10, (short) 1)
+            .build();
+    var iter0 = Stream.iterate(true, (i) -> false).iterator();
+    var iter1 = Stream.iterate(true, (i) -> false).iterator();
+    var iter2 = Stream.iterate(true, (i) -> false).iterator();
+    var clusterHasFuture =
+        ClusterInfoBuilder.builder(base)
+            .mapLog(r -> Replica.builder(r).isFuture(iter0.next()).build())
+            .build();
+    var clusterHasAdding =
+        ClusterInfoBuilder.builder(base)
+            .mapLog(r -> Replica.builder(r).isAdding(iter1.next()).build())
+            .build();
+    var clusterHasRemoving =
+        ClusterInfoBuilder.builder(base)
+            .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
+            .build();
+    try (Admin admin = Mockito.mock(Admin.class)) {
+      Mockito.when(admin.topicNames(Mockito.anyBoolean()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasAdding));
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasRemoving));
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+
+      Mockito.when(admin.clusterInfo(Mockito.any()))
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(base));
+      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(Channel.EMPTY));
+    }
+  }
+
+  @Test
+  @Timeout(value = 60)
   void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).get(0);
     try (var admin = Admin.of(bootstrapServers())) {
@@ -647,7 +725,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY, topic));
 
       // pick a partition and alter its placement
-      var theChange = theProgress.report.changes.stream().findAny().orElseThrow();
+      var theChange = theProgress.plan.changes.stream().findAny().orElseThrow();
       admin
           .moveToBrokers(
               Map.of(TopicPartition.of(theChange.topic, theChange.partition), List.of(0, 1, 2)))
@@ -697,7 +775,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           };
       var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, Map.of());
-      Assertions.assertTrue(progress.generated, "The plan should be generated");
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
 
       // not scheduled yet
       Utils.sleep(Duration.ofSeconds(1));
@@ -706,9 +784,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress0.id);
-      Assertions.assertTrue(progress0.generated);
-      Assertions.assertFalse(progress0.scheduled);
-      Assertions.assertFalse(progress0.done);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress0.phase);
       Assertions.assertNull(progress0.exception);
 
       // schedule
@@ -730,9 +806,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress1.id);
-      Assertions.assertTrue(progress1.generated);
-      Assertions.assertTrue(progress1.scheduled);
-      Assertions.assertFalse(progress1.done);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Executing, progress1.phase);
       Assertions.assertNull(progress1.exception);
 
       // it is done
@@ -743,9 +817,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress2.id);
-      Assertions.assertTrue(progress2.generated);
-      Assertions.assertTrue(progress2.scheduled);
-      Assertions.assertTrue(progress2.done);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress2.phase);
       Assertions.assertNull(progress2.exception);
     }
   }
@@ -775,12 +847,20 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           () ->
               ((BalancerHandler.PlanExecutionProgress)
                       handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
-                  .generated);
+                  .phase.calculated());
       var generated =
           ((BalancerHandler.PlanExecutionProgress)
-                  handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
-              .generated;
+                      handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
+                  .phase
+              == BalancerHandler.PlanPhase.Searched;
       Assertions.assertTrue(generated, "The plan should be generated");
+
+      var progress0 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
+      Assertions.assertEquals(
+          BalancerHandler.PlanPhase.Searched, progress0.phase, "The plan is ready");
 
       // schedule
       var response =
@@ -801,10 +881,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertTrue(progress.generated);
-      Assertions.assertTrue(progress.scheduled);
-      Assertions.assertTrue(progress.done);
       Assertions.assertNotNull(progress.exception);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress.phase);
       Assertions.assertInstanceOf(String.class, progress.exception);
     }
   }
@@ -916,7 +994,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY,
                   String.join(",", topics)));
 
-      Assertions.assertTrue(progress.generated, "The plan has been generated");
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "Plan is here");
       Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
       Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
     }
@@ -1021,7 +1099,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var progress =
           (BalancerHandler.PlanExecutionProgress)
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
-      Assertions.assertFalse(progress.generated, "The plan won't generate");
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
     }
@@ -1059,7 +1137,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   TOPICS_KEY,
                   String.join(",", topics)));
 
-      Assertions.assertTrue(progress.generated);
+      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
       Assertions.assertTrue(invoked.get());
     }
   }
@@ -1078,6 +1156,132 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
   }
 
+  @Test
+  void testChangeOrder() {
+    // arrange
+    var sourcePlacement =
+        IntStream.range(0, 10)
+            .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
+            .sorted(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toUnmodifiableList());
+    var destPlacement =
+        IntStream.range(0, 10)
+            .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
+            .sorted(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toUnmodifiableList());
+    var base =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
+            .addFolders(Map.of(0, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(2, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(3, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(4, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(5, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(6, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(7, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(8, Set.of("/folder0", "/folder1", "/folder2")))
+            .addFolders(Map.of(9, Set.of("/folder0", "/folder1", "/folder2")))
+            .build();
+    var srcIter = sourcePlacement.iterator();
+    var srcPrefIter = Stream.iterate(true, (ignore) -> false).iterator();
+    var srcDirIter = Stream.generate(() -> "/folder0").iterator();
+    var sourceCluster =
+        ClusterInfoBuilder.builder(base)
+            .addTopic(
+                "Pipeline",
+                1,
+                (short) 10,
+                r ->
+                    Replica.builder(r)
+                        .nodeInfo(base.node(srcIter.next()))
+                        .isPreferredLeader(srcPrefIter.next())
+                        .path(srcDirIter.next())
+                        .build())
+            .build();
+    var dstIter = destPlacement.iterator();
+    var dstPrefIter = Stream.iterate(true, (ignore) -> false).iterator();
+    var dstDirIter = Stream.generate(() -> "/folder1").iterator();
+    var destCluster =
+        ClusterInfoBuilder.builder(base)
+            .addTopic(
+                "Pipeline",
+                1,
+                (short) 10,
+                r ->
+                    Replica.builder(r)
+                        .nodeInfo(base.node(dstIter.next()))
+                        .isPreferredLeader(dstPrefIter.next())
+                        .path(dstDirIter.next())
+                        .build())
+            .build();
+
+    // act
+    var change =
+        BalancerHandler.Change.from(
+            sourceCluster.replicas("Pipeline"), destCluster.replicas("Pipeline"));
+
+    // assert
+    Assertions.assertEquals("Pipeline", change.topic);
+    Assertions.assertEquals(0, change.partition);
+    Assertions.assertEquals(
+        sourcePlacement.get(0), change.before.get(0).brokerId, "First replica is preferred leader");
+    Assertions.assertEquals(
+        destPlacement.get(0), change.after.get(0).brokerId, "First replica is preferred leader");
+    Assertions.assertEquals(
+        Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+        change.before.stream().map(x -> x.brokerId).collect(Collectors.toUnmodifiableSet()),
+        "No node ignored");
+    Assertions.assertEquals(
+        Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+        change.after.stream().map(x -> x.brokerId).collect(Collectors.toUnmodifiableSet()),
+        "No node ignored");
+    Assertions.assertTrue(
+        change.before.stream().map(x -> x.directory).allMatch(x -> x.equals("/folder0")),
+        "Correct folder");
+    Assertions.assertTrue(
+        change.after.stream().map(x -> x.directory).allMatch(x -> x.equals("/folder1")),
+        "Correct folder");
+    Assertions.assertTrue(change.before.stream().allMatch(x -> x.size.isPresent()), "Has size");
+    Assertions.assertTrue(change.after.stream().noneMatch(x -> x.size.isPresent()), "No size");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            BalancerHandler.Change.from(
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 1, (short) 3)
+                    .build()
+                    .replicas(),
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 5, (short) 3)
+                    .build()
+                    .replicas()),
+        "Should be a replica list");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            BalancerHandler.Change.from(
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 5, (short) 3)
+                    .build()
+                    .replicas(),
+                ClusterInfoBuilder.builder(base)
+                    .addTopic("Pipeline", 1, (short) 3)
+                    .build()
+                    .replicas()),
+        "Should be a replica list");
+    Assertions.assertThrows(
+        NoSuchElementException.class,
+        () -> BalancerHandler.Change.from(sourceCluster.replicas(), Set.of()));
+    Assertions.assertThrows(
+        NoSuchElementException.class,
+        () -> BalancerHandler.Change.from(Set.of(), sourceCluster.replicas()));
+    Assertions.assertThrows(
+        NoSuchElementException.class, () -> BalancerHandler.Change.from(Set.of(), Set.of()));
+  }
+
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, Map<String, Object> requestBody) {
@@ -1093,7 +1297,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               (BalancerHandler.PlanExecutionProgress)
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
-          return progress.generated;
+          return progress.phase.calculated();
         });
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
@@ -1130,6 +1334,25 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
       value0 = value0 * 0.998;
+      return () -> theCost;
+    }
+  }
+
+  public static class IncreasingCost implements HasClusterCost {
+
+    private ClusterInfo<Replica> original;
+
+    public IncreasingCost(Configuration configuration) {}
+
+    private double value0 = 1.0;
+
+    @Override
+    public synchronized ClusterCost clusterCost(
+        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      if (original == null) original = clusterInfo;
+      if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
+      double theCost = value0;
+      value0 = value0 * 1.002;
       return () -> theCost;
     }
   }
@@ -1175,7 +1398,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public Optional<Plan> offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
       return super.offer(currentClusterInfo, timeout);
