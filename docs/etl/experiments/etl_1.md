@@ -91,8 +91,22 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
 ![record comparison](../../pictures/etl_experiment_1_8.png)
 
 ### 不平衡情景
+#### 不平衡情景下會誘發的問題
+以下圖爲例
 
-在該情景下會用到上述的全部六臺機器，同時B1， B2， B3的網路頻寬將被設置爲2.5G以確保etl效能的變化在叢集高負載的情況下會有較明顯的體現。 
+實驗環境：testTopic用來接受etl產生的資料，分佈於B1， B2， B3
+        costTopic用來對kafka叢集中的單一節點造成負載，分佈於B1
+
+將進行兩次對比實驗圖中左側爲不平衡情景，右側爲普通情景
+
+左側實驗開始時先向costTopic發送資料，使其到達節點的頻寬上線。在一段時間後啓動etl，可以看到因爲etl發送資料分走了原先costTopic所佔據的頻寬，造成其效能下降。等到etl運行完畢costTopic的效能恢復到開始狀態。
+左側數據處理完畢共花費3分40秒
+
+右側實驗在普通情景下的效能即每秒處理的資料量要明顯高於左側，數據處理完畢的時間也更短總共花費3分鐘。這證明在kafka叢集不平衡的情景下，會影響到etl的效能。
+![imbalance kafka cluster](../../pictures/etl_experiment_1_9.png)
+
+#### 實驗過程
+在該情景下會用到上述的全部六臺機器，同時B1， B2， B3的網路頻寬將被設置爲2.5G,確保etl效能的變化在叢集高負載的情況下會有較明顯的體現。
 其中C1將被用來向B1發送資料，以確保B1處在高負載的狀態。
 
 使用default partitioner進行測試
