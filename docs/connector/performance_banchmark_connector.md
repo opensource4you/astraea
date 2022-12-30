@@ -19,6 +19,42 @@
 | frequency | (必填) 執行時拉出資料的間隔 | 300ms |
 
 
-
+<br>
 
 #### PerfSource
+
+| 參數名稱               | 說明                                                             | 預設值     |
+|--------------------|----------------------------------------------------------------|---------|
+| name               | (必填) connector 名稱                                              | 無       |
+| connector.class    | (必填) connector 類別                                              | 無       |
+| topics             | (必填) 指定要用來測試寫入的 topics                                         | 無       |
+| tasks.max          | (選填) 設定 task 數量上限                                              | 1       |
+| throughput         | (選填) 用來限制輸入資料的每秒大小 <br/> 大小單位: MB, MiB, Kb etc.                | 100GB   |
+| key.distribution   | (選填) key的分佈，可用的分佈為：`uniform`, `zipfian`, `latest`, `fixed`     | uniform |
+| key.length         | (選填) 每筆record key的大小上限                                         | 50Byte  |
+| value.distribution | (選填) value的分佈， 可用的分佈為: `uniform`, `zipfian`, `latest`, `fixed` | uniform |
+| value.length       | (選填) 每筆record value的大小上限                                       | 1KB     |
+| specify.partitions | (選填) 指定要傳送資料的 topic/partitions，多個項目之間可以用逗號隔開                   | 無       |
+
+#### 使用範例
+
+```bash
+# 在 worker 中創建 PerfSource connector 做寫入測試。
+curl -X POST http://localhost:13575/connectors \
+     -H "Content-Type: application/json" \
+     -d '{ 
+            "name": "perf-connector", 
+            "config": {
+                "connector.class": "PerfSource",
+                "topics":"test1",
+                "tasks.max":"3",
+                "throughput": "10GB",
+                "key.distribution": "uniform",
+                "key.length": "50Byte",
+                "value.distribution": "uniform",
+                "value.length": "1KB",
+                "specify.partitions": "0"
+            }
+        }'
+```
+
