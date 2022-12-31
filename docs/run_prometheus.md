@@ -2,7 +2,7 @@
 
 [Prometheus](https://github.com/prometheus/prometheus)是一個開源專案，以週期性的方式蒐集metrics，並將metrics與timestamps儲存成[時序](https://zh.wikipedia.org/zh-tw/%E6%99%82%E9%96%93%E5%BA%8F%E5%88%97)資料。能夠讓使用者監控目前的系統使用量，並能透過過去與現在的metrics進行趨勢分析，可以提前預測未來什麼時間點對資源進行擴充，也能透過比對分析來了解不同版本的系統運行時資源的使用量。
 
-在進行數據蒐集時，需要先開啟node exporter(refer to node exporter readme)，Prometheus週期性的從node exporter暴露出的address拉取metrics資料。當獲取到metrics後，可以利用Grafana(refer to Grafana readme)以圖形化界面呈現從Prometheus獲取的資料。
+在進行數據蒐集時，需要先開啟node exporter，可以參考專案內的[node exporter 文件](./run_node_exporter.md)。Prometheus週期性的從node exporter暴露出的address拉取metrics資料。當獲取到metrics後，可以利用Grafana(refer to Grafana readme)以圖形化界面呈現從Prometheus獲取的資料。
 
 #### Start Prometheus
 
