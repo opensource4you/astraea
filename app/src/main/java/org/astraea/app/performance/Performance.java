@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.app.argument.DataRateField;
 import org.astraea.app.argument.DataSizeField;
 import org.astraea.app.argument.DistributionTypeField;
@@ -72,7 +74,10 @@ public class Performance {
   }
 
   public static List<String> execute(final Argument param) throws IOException {
-    var blockingQueue = new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(1000);
+    var blockingQueues =
+        IntStream.range(0, param.producers)
+            .mapToObj(i -> new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000))
+            .collect(Collectors.toUnmodifiableList());
     // always try to init topic even though it may be existent already.
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -83,14 +88,14 @@ public class Performance {
     System.out.println("creating threads");
     var producerThreads =
         ProducerThread.create(
-            blockingQueue, param.producers, param::createProducer, param.interdependent);
+            blockingQueues, param.producers, param::createProducer, param.interdependent);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
             : consumers(param, latestOffsets);
 
     System.out.println("creating data generator");
-    var dataGenerator = DataGenerator.of(blockingQueue, param.topicPartitionSelector(), param);
+    var dataGenerator = DataGenerator.of(blockingQueues, param.topicPartitionSelector(), param);
 
     System.out.println("creating tracker");
     var tracker =
@@ -121,7 +126,7 @@ public class Performance {
           while (true) {
             var current = Report.recordsConsumedTotal();
 
-            if (blockingQueue.isEmpty()) {
+            if (blockingQueues.stream().allMatch(Collection::isEmpty)) {
               var unfinishedProducers =
                   producerThreads.stream()
                       .filter(p -> !p.closed())

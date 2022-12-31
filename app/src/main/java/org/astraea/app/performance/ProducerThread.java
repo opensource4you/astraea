@@ -17,7 +17,7 @@
 package org.astraea.app.performance;
 
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -34,7 +34,7 @@ import org.astraea.common.producer.Record;
 public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
-      BlockingQueue<List<Record<byte[], byte[]>>> queue,
+      List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
@@ -60,6 +60,7 @@ public interface ProducerThread extends AbstractThread {
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
               var producer = producerSupplier.get();
+              var queue = queues.get(index);
               executors.execute(
                   () -> {
                     try {
