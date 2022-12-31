@@ -127,7 +127,7 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
 
 在普通情景下，擁有兩個worker的spark cluster中，使用standalone mode 啓動 astraea etl ，處理資料的平均速率爲58.5MB/s。
 
-在不平衡情境下，替換partitioner後的效能對比。
+在kafka叢集不平衡情境下，etl的效能會收到影響，這會導致處理相同的資料要花費更多的時間表。以下爲該情景下，替換partitioner前後的效能對比。
 
 | 吞吐/延遲比較 | default partitioner | strict partitioner | 改善                         |
 | ------------- |---------------------|--------------------| ---------------------------- |
