@@ -393,6 +393,8 @@ public class Performance {
             specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       } else if (throttle) {
+        // TODO: The functions of throttle and select partitioner should not conflict with each
+        // other
         if (partitioner != null)
           throw new IllegalArgumentException(
               "--throttle can't be used in conjunction with partitioner");
