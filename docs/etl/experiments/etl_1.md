@@ -98,6 +98,10 @@ property.file=/home/kafka/spark2kafkaTest/spark2kafka.properties
         costTopic用來對kafka叢集中的單一節點造成負載，分佈於B1
 
 圖中左側爲不平衡情景，右側爲普通情景,方便直觀感受差別
+costTopic： 接受使一個節點較忙碌的資料。它只分布在B1上。
+testTopic： etl產生的資料會發往該topic。它分布在B1， B2， B3上。
+圖中的testTopic有三個是因為它顯示了該topic在三個節點中各自的流量。
+而costTopic之所以只有一個是因為只有B1一個節點接收到資料。
 
 左側實驗開始時先向costTopic發送資料，使其到達節點的頻寬上線。在一段時間後啓動etl，可以看到因爲etl發送資料分走了原先costTopic所佔據的頻寬，造成其效能下降。等到etl運行完畢costTopic的效能恢復到開始狀態。
 左側數據處理完畢共花費3分40秒
