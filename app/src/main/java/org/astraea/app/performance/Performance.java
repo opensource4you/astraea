@@ -393,6 +393,9 @@ public class Performance {
             specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       } else if (throttle) {
+        if (partitioner != null)
+          throw new IllegalArgumentException(
+              "--throttle can't be used in conjunction with partitioner");
         try (var admin = Admin.of(configs())) {
           final var selection =
               admin
