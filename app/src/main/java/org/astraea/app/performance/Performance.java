@@ -330,6 +330,7 @@ public class Performance {
     Supplier<TopicPartition> topicPartitionSelector() {
       var specifiedByBroker = !specifyBrokers.isEmpty();
       var specifiedByPartition = !specifyPartitions.isEmpty();
+      var throttle = !throttles.isEmpty();
       if (specifiedByBroker && specifiedByPartition)
         throw new IllegalArgumentException(
             "`--specify.partitions` can't be used in conjunction with `--specify.brokers`");
@@ -386,7 +387,7 @@ public class Performance {
         final var selection =
             specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
-      } else {
+      } else if (throttle) {
         try (var admin = Admin.of(configs())) {
           final var selection =
               admin
@@ -399,6 +400,13 @@ public class Performance {
                   .collect(Collectors.toUnmodifiableList());
           return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
         }
+      } else {
+        final var selection =
+            topics.stream()
+                .map(topic -> TopicPartition.of(topic, -1))
+                .distinct()
+                .collect(Collectors.toUnmodifiableList());
+        return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
