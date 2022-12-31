@@ -118,7 +118,7 @@ public class Exporter extends SinkConnector {
     private FileSystem ftpClient;
     private String topicName;
     private String path;
-    private String size;
+    private DataSize size;
 
     private String time;
 
@@ -154,7 +154,7 @@ public class Exporter extends SinkConnector {
 
         writer.append(record);
 
-        if (writer.size().greaterThan(DataSize.of(size))) {
+        if (writer.size().greaterThan(size)) {
           this.writers.remove(record.topicPartition()).close();
         }
       }
@@ -204,7 +204,9 @@ public class Exporter extends SinkConnector {
       this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
-      this.size = configuration.requireString(SIZE_KEY.name());
+      this.size =
+          DataSize.of(
+              configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
       this.time = configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString());
       writer = new Writer(this.ftpClient, Utils.toDuration(this.time).toMillis());
       executor.execute(writer);

@@ -41,6 +41,7 @@
 |      read.idle      | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料      |           2秒            |
 | interdependent.size | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Dispatcher 可以使用) |            1             |
 |       monkeys       | (選填) 設定 chaos monkey 的觸發頻率，支援 : `kill`, `add`, `unsubscribe`。<br />觸發頻率單位為 ：day, h, m, s, ms, us, ns<br />範例：`--monkeys kill:3s,add:5s` |           none           |
+|      throttle       | (選填) 用來指定 topic-partitions 的限流值<br />例如：--throttle a1-0:5MB/s,a2-0:10MB/s,a10-4:30MB/s |           none           |
 
 #### 使用範例
 
@@ -86,5 +87,10 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
 docker/start_app.sh performance --bootstrap.servers localhost:9092 --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+```
+
+```bash
+# 使用 throttle 功能，限制 producers 送進 a1-0 與 a3-1 的資料量在 20MB/s 與 10MB/s 內
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics a1,a2,a3 --producers 5 --consumers 0 --throttle a1-0:20MB/s,a3-1:10MB/s --run.until 5m
 ```
 
