@@ -32,6 +32,8 @@
 提醒：Kafka 預設會使用 `json convert`來處理 records，因此如果使用本專案的`backup`工具，
 需要將 `converter`設定為 `org.apache.kafka.connect.converters.ByteArrayConverter`
 
+詳情可以至[Exporter](../../connector/exporter.md#注意)查看
+
 ![connector_create_1.png](connector_create_1.png)
 
 ### active workers

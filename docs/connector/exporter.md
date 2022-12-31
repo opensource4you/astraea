@@ -23,12 +23,29 @@
 | path                      | (選填)   填入目標檔案系統要儲存的資料夾目錄之目標位置                                                               | 無     |
 | size                      | (選填)   寫入檔案目標超過此設定之大小上限時會創見新檔案，並且寫入目標改為新創建之檔案。  <br/>檔案大小之單位可以設定為 `Bit`, `Kb`, `KiB`, `Mb`等 | 100MB |     |
 
-注意：如果`worker`預設之`converter`並非為`byte array converter`
-時，需要在將以下參數使設定為`org.apache.kafka.connect.converters.ByteArrayConverter`使本工具順利執行。
 
+##### 注意
+如果`worker`預設之`converter`並非為`byte array converter`
+時，需要在將以下參數使設定為`org.apache.kafka.connect.converters.ByteArrayConverter`使本工具順利執行。
 - key.converter
 - value.converter
 - header.converter
+
+因為當`topic`內的資料為非 `worker converter`包裝的話，沒有設定`converter`會出現類似以下的錯誤資訊
+```
+org.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler
+at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:223)
+...
+Caused by: org.apache.kafka.connect.errors.DataException: Converting byte[] to Kafka Connect data failed due to serialization error:
+at org.apache.kafka.connect.json.JsonConverter.toConnectData(JsonConverter.java:324)
+...
+Caused by: org.apache.kafka.common.errors.SerializationException: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'test': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+...
+Caused by: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'test': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+...
+```
+
+
 
 #### 使用範例
 
