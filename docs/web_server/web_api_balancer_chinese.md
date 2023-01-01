@@ -16,11 +16,20 @@ POST /balancer
 |-------------------|------------------------------------------------------------|-------------------------------------------------------|
 | topics            | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
 | timeout           | (選填) 指定產生時間                                                | 3s                                                    |
-| balancer          | (選填) 愈使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
+| balancer          | (選填) 欲使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
 | balancerConfig    | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                     |
 | costWeights       | (選填) 指定要優化的目標以及權重                                          | ReplicaSizeCost,ReplicaLeaderCost權重皆為1                |
  | maxMigratedSize   | (選填) 設定最大可搬移的log size                                      | 無 　                                                   |
  | maxMigratedLeader | (選填) 設定最大可搬移的leader 數量                                     | 無                                                     |
+
+目前支援的 CostFunction
+
+| CostFunction 名稱                              | 優化目標                           |
+|----------------------------------------------|--------------------------------|
+| `org.astraea.common.cost.ReplicaLeaderCost`  | 使每個節點服務的 leader partition 數量平均 |
+| `org.astraea.common.cost.ReplicaNumberCost`  | 使每個節點服務的 partition 數量平均        |
+| `org.astraea.common.cost.NetworkIngressCost` | 使每個節點服務的輸入流量接近                 |
+| `org.astraea.common.cost.NetworkEgressCost`  | 使每個節點服務的輸出流量接近                 |
 
 cURL 範例
 ```shell
