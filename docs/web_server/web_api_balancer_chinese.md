@@ -24,12 +24,19 @@ POST /balancer
 
 目前支援的 CostFunction
 
-| CostFunction 名稱                              | 優化目標                           |
-|----------------------------------------------|--------------------------------|
-| `org.astraea.common.cost.ReplicaLeaderCost`  | 使每個節點服務的 leader partition 數量平均 |
-| `org.astraea.common.cost.ReplicaNumberCost`  | 使每個節點服務的 partition 數量平均        |
-| `org.astraea.common.cost.NetworkIngressCost` | 使每個節點服務的輸入流量接近                 |
-| `org.astraea.common.cost.NetworkEgressCost`  | 使每個節點服務的輸出流量接近                 |
+| CostFunction 名稱                              | 優化目標                                             |
+|----------------------------------------------|--------------------------------------------------|
+| `org.astraea.common.cost.ReplicaLeaderCost`  | 使每個節點服務的 leader partition 數量平均                   |
+| `org.astraea.common.cost.ReplicaNumberCost`  | 使每個節點服務的 partition 數量平均                          |
+| `org.astraea.common.cost.NetworkIngressCost` | 使每個節點服務的輸入流量接近，此 Cost Function 使用上有些注意事項，詳情見下方附註 |
+| `org.astraea.common.cost.NetworkEgressCost`  | 使每個節點服務的輸出流量接近，此 Cost Function 使用上有些注意事項，詳情見下方附註 |
+
+* `NetworkIngressCost` 和 `NetworkEgressCost` 本身的實作存在一些假設，當某些假設不成立時，負載優化的結果可能會出現誤差：
+  1. 每個 Partition 的網路輸入/輸出流量是定值，不會隨時間而波動。
+  2. Consumer 總是訂閱和撈取整個 topic 的資料，不會有只對個別 partition 進行撈取的行為。
+  3. 當連續針對 `NetworkIngressCost` 或 `NetworkEgressCost` 進行負載優化時
+     ，兩個負載優化計劃之間的執行需要有至少 20 分鐘的間隔時間，避免此實作將非生產環境正常行為的效能指標納入考量。
+  4. 沒有使用 [Consumer Rack Awareness](https://cwiki.apache.org/confluence/x/go_zBQ)。
 
 cURL 範例
 ```shell
