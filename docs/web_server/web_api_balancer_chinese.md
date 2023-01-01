@@ -16,24 +16,40 @@ POST /balancer
 |-------------------|------------------------------------------------------------|-------------------------------------------------------|
 | topics            | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
 | timeout           | (選填) 指定產生時間                                                | 3s                                                    |
-| balancer          | (選填) 愈使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
+| balancer          | (選填) 欲使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
 | balancerConfig    | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                     |
 | costWeights       | (選填) 指定要優化的目標以及權重                                          | ReplicaSizeCost,ReplicaLeaderCost權重皆為1                |
  | maxMigratedSize   | (選填) 設定最大可搬移的log size                                      | 無 　                                                   |
  | maxMigratedLeader | (選填) 設定最大可搬移的leader 數量                                     | 無                                                     |
 
+目前支援的 Cost Function
+
+| CostFunction 名稱                              | 優化目標                                             |
+|----------------------------------------------|--------------------------------------------------|
+| `org.astraea.common.cost.ReplicaLeaderCost`  | 使每個節點服務的 leader partition 數量平均                   |
+| `org.astraea.common.cost.ReplicaNumberCost`  | 使每個節點服務的 partition 數量平均                          |
+| `org.astraea.common.cost.NetworkIngressCost` | 使每個節點承受的輸入流量接近，此 cost function 使用上有些注意事項，詳情見下方附註 |
+| `org.astraea.common.cost.NetworkEgressCost`  | 使每個節點承受的輸出流量接近，此 cost function 使用上有些注意事項，詳情見下方附註 |
+
+* `NetworkIngressCost` 和 `NetworkEgressCost` 的實作存在一些假設，當這些假設不成立時，負載優化的結果可能會出現誤差：
+  1. 每個 Partition 的網路輸入/輸出流量是定值，不太會隨時間而波動。
+  2. Consumer 總是訂閱和撈取整個 topic 的資料，不會有只對個別 partition 進行撈取的行為。
+  3. 當連續針對 `NetworkIngressCost` 或 `NetworkEgressCost` 進行負載優化時
+     ，兩個負載優化計劃之間的執行需要有至少 20 分鐘的間隔時間，避免此實作將非生產環境正常行為的效能指標納入考量。
+  4. 沒有使用 [Consumer Rack Awareness](https://cwiki.apache.org/confluence/x/go_zBQ)。
+
 cURL 範例
 ```shell
 curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
-    -d '{ "timeout": "10s" ,
+    -d '{ 
+      "timeout": "10s" ,
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
         "shuffle.tweaker.min.step": "1",
         "shuffle.tweaker.max.step": "5"
       },
       "costWeights": [
-        { "cost": "org.astraea.common.cost.ReplicaSizeCost", "weight": 1 },
         { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],
       "maxMigratedSize": "300MB",
