@@ -35,7 +35,8 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
-    -d '{ "timeout": "10s" ,
+    -d '{ 
+      "timeout": "10s" ,
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
         "shuffle.tweaker.min.step": "1",
