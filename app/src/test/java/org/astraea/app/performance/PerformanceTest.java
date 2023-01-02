@@ -244,7 +244,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               .get()
               .partition();
       // no specify broker
-      Assertions.assertTrue(0 <= partition && partition < NUMBER_OF_PARTITIONS);
+      Assertions.assertTrue(-1 == partition);
 
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
@@ -383,6 +383,30 @@ public class PerformanceTest extends RequireBrokerCluster {
                         RoundRobinPartitioner.class.getName()
                       })
                   .topicPartitionSelector());
+      // test throttle partition selector
+      admin
+          .creator()
+          .topic("throttle")
+          .numberOfPartitions(NUMBER_OF_PARTITIONS)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(2));
+      var arguments5 =
+          Argument.parse(
+              new Performance.Argument(),
+              new String[] {
+                "--bootstrap.servers",
+                bootstrapServers(),
+                "--topics",
+                "throttle",
+                "--throttle",
+                "throttle-0:5MB/s"
+              });
+      var selector5 = arguments.topicPartitionSelector();
+      Assertions.assertTrue(
+          0 <= selector5.get().partition() && selector5.get().partition() < NUMBER_OF_PARTITIONS);
     }
   }
 

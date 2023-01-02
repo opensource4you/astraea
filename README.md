@@ -30,6 +30,7 @@
 10. [GUI](docs/gui/README.md): 簡單好用的叢集資訊圖形化工具
 11. [Connector](./docs/connector/README.md): 提供基於 `kafka connector` 實作的高效平行化工具，包含效能測試和資料遷移等工具
 12. [Build](docs/build_project.md): 說明如何建構與測試本專案各模組
+13. [etl](./docs/etl/README.md): 構建 spark-kafka 的資料傳輸通道
 
 # 技術發表
 
