@@ -48,7 +48,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().join();
     }
-    var cost1 = new ReplicaSizeCost();
+    var cost1 = new ReplicaLeaderSizeCost();
     var cost2 = new ReplicaLeaderCost();
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =

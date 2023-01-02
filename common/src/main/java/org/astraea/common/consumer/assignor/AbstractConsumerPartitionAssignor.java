@@ -31,7 +31,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.HasPartitionCost;
-import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.PartitionerUtils;
 
@@ -73,7 +73,7 @@ public abstract class AbstractConsumerPartitionAssignor implements ConsumerParti
 
     this.costFunction =
         costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new ReplicaSizeCost(), 1D))
+            ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
     this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);

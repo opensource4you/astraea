@@ -38,7 +38,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaSizeCostTest extends RequireBrokerCluster {
+class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
   private static final BeanObject bean1 =
       new BeanObject(
           "domain",
@@ -65,7 +65,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
   @Test
   void testClusterCost() {
     final Dispersion dispersion = Dispersion.cov();
-    var loadCostFunction = new ReplicaSizeCost();
+    var loadCostFunction = new ReplicaLeaderSizeCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     var clusterCost = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
     Assertions.assertEquals(dispersion.calculate(brokerLoad.values()), clusterCost);
@@ -73,7 +73,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   @Test
   void testBrokerCost() {
-    var cost = new ReplicaSizeCost();
+    var cost = new ReplicaLeaderSizeCost();
     var result = cost.brokerCost(clusterInfo(), clusterBean());
     Assertions.assertEquals(3, result.value().size());
     Assertions.assertEquals(777 + 500, result.value().get(0));
@@ -83,7 +83,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   @Test
   void testMoveCost() {
-    var cost = new ReplicaSizeCost();
+    var cost = new ReplicaLeaderSizeCost();
     var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
 
     Assertions.assertEquals(
@@ -281,7 +281,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   @Test
   void testPartitionCost() {
-    var cost = new ReplicaSizeCost();
+    var cost = new ReplicaLeaderSizeCost();
     var result = cost.partitionCost(clusterInfo(), clusterBean()).value();
 
     Assertions.assertEquals(3, result.size());
@@ -327,17 +327,17 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
         Map.of(
             0,
             List.of(
-                (ReplicaSizeCost.SizeStatisticalBean) () -> bean1,
-                (ReplicaSizeCost.SizeStatisticalBean) () -> bean4),
+                (ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean1,
+                (ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean4),
             1,
-            List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean2),
+            List.of((ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean2),
             2,
-            List.of((ReplicaSizeCost.SizeStatisticalBean) () -> bean3)));
+            List.of((ReplicaLeaderSizeCost.SizeStatisticalBean) () -> bean3)));
   }
 
   @Test
   void testMaxPartitionSize() {
-    var cost = new ReplicaSizeCost();
+    var cost = new ReplicaLeaderSizeCost();
     var tp = TopicPartition.of("t", 0);
     var overFlowSize = List.of(100.0, 200.0, 300.0);
     var size = List.of(100.0, 110.0, 120.0);
@@ -354,7 +354,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
-        var costFunction = new ReplicaSizeCost();
+        var costFunction = new ReplicaLeaderSizeCost();
         // when cluster has partitions,each partition will correspond to a statistical bean
         Assertions.assertThrows(
             NoSufficientMetricsException.class,
@@ -391,7 +391,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
             170 * 0.5,
             collector
                 .clusterBean()
-                .replicaMetrics(tpr.get(0), ReplicaSizeCost.SizeStatisticalBean.class)
+                .replicaMetrics(tpr.get(0), ReplicaLeaderSizeCost.SizeStatisticalBean.class)
                 .findFirst()
                 .orElseThrow()
                 .value());

@@ -58,8 +58,8 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
-import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -68,10 +68,10 @@ import org.astraea.common.metrics.collector.MetricSensor;
 class BalancerHandler implements Handler {
 
   static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
-      HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
+      HasClusterCost.of(Map.of(new ReplicaLeaderSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
-          List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
+          List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;

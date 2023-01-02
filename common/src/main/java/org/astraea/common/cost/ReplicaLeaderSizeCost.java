@@ -45,10 +45,10 @@ import org.astraea.common.metrics.stats.Avg;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
- * in broker -> higher broker score ClusterCost: The more unbalanced the replica log size among
- * brokers -> higher cluster score MoveCost: more replicas log size migrate -> higher cost
+ * in broker -> higher broker cost ClusterCost: The more unbalanced the replica log size among
+ * brokers -> higher cluster cost MoveCost: more replicas log size migrate
  */
-public class ReplicaSizeCost
+public class ReplicaLeaderSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
   private static final String LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY = "log_size_exp_weight_by_time";
@@ -142,22 +142,24 @@ public class ReplicaSizeCost
                             bean.topicIndex().get(), bean.partitionIndex().get().partition()),
                     Collectors.mapping(HasGauge::value, Collectors.toList())));
     var result =
-        clusterInfo.topicPartitionReplicas().stream()
+        clusterInfo.replicas().stream()
             .collect(
                 Collectors.groupingBy(
-                    TopicPartitionReplica::brokerId,
+                    r -> r.nodeInfo().id(),
                     Collectors.mapping(
-                        tpr ->
+                        r ->
                             statistReplicaSizeCount(
-                                    clusterInfo
-                                        .replicaLeader(tpr.topicPartition())
-                                        .map(ReplicaInfo::topicPartitionReplica)
-                                        .orElse(tpr),
+                                    r.isLeader()
+                                        ? r.topicPartitionReplica()
+                                        : clusterInfo
+                                            .replicaLeader(r.topicPartition())
+                                            .map(ReplicaInfo::topicPartitionReplica)
+                                            .orElse(r.topicPartitionReplica()),
                                     clusterBean)
                                 .orElse(
                                     maxPartitionSize(
-                                        tpr.topicPartition(),
-                                        logSize.getOrDefault(tpr.topicPartition(), List.of()))),
+                                        r.topicPartition(),
+                                        logSize.getOrDefault(r.topicPartition(), List.of()))),
                         Collectors.summingDouble(x -> x))));
     return () -> result;
   }
