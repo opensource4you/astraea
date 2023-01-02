@@ -37,7 +37,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaMaxRateCostTest extends RequireBrokerCluster {
+class ReplicaMaxInRateCostTest extends RequireBrokerCluster {
   private static final BeanObject bean1 =
       new BeanObject("domain", Map.of("topic", "t", "partition", "10"), Map.of("Value", 777.0));
   private static final BeanObject bean2 =
@@ -50,8 +50,40 @@ class ReplicaMaxRateCostTest extends RequireBrokerCluster {
           "domain", Map.of("topic", "t", "partition", "12"), Map.of("Value", 500.0), 200);
 
   @Test
+  void testIdle() {
+    BeanObject bean1 =
+        new BeanObject("domain", Map.of("topic", "t", "partition", "10"), Map.of("Value", 0.0));
+    BeanObject bean2 =
+        new BeanObject("domain", Map.of("topic", "t", "partition", "11"), Map.of("Value", 0.0));
+    BeanObject bean3 =
+        new BeanObject(
+            "domain", Map.of("topic", "t", "partition", "12"), Map.of("Value", 0.0), 200);
+    BeanObject bean4 =
+        new BeanObject(
+            "domain", Map.of("topic", "t", "partition", "12"), Map.of("Value", 0.0), 200);
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                0,
+                List.of(
+                    (ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean1,
+                    (ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean4),
+                1,
+                List.of((ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean2),
+                2,
+                List.of((ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean3)));
+    var loadCostFunction = new ReplicaMaxInRateCost();
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class,
+        () -> loadCostFunction.brokerCost(clusterInfo(), clusterBean).value());
+    Assertions.assertThrows(
+        NoSufficientMetricsException.class,
+        () -> loadCostFunction.clusterCost(clusterInfo(), clusterBean).value());
+  }
+
+  @Test
   void testBrokerCost() {
-    var loadCostFunction = new ReplicaMaxRateCost();
+    var loadCostFunction = new ReplicaMaxInRateCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     Assertions.assertEquals(777 + 500, brokerLoad.get(0));
     Assertions.assertEquals(700, brokerLoad.get(1));
@@ -61,7 +93,7 @@ class ReplicaMaxRateCostTest extends RequireBrokerCluster {
   @Test
   void testClusterCost() {
     final Dispersion dispersion = Dispersion.cov();
-    var loadCostFunction = new ReplicaMaxRateCost();
+    var loadCostFunction = new ReplicaMaxInRateCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     var clusterCost = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
     Assertions.assertEquals(dispersion.calculate(brokerLoad.values()), clusterCost);
@@ -103,12 +135,12 @@ class ReplicaMaxRateCostTest extends RequireBrokerCluster {
         Map.of(
             0,
             List.of(
-                (ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean1,
-                (ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean4),
+                (ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean1,
+                (ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean4),
             1,
-            List.of((ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean2),
+            List.of((ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean2),
             2,
-            List.of((ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean3)));
+            List.of((ReplicaMaxInRateCost.LogRateStatisticalBean) () -> bean3)));
   }
 
   @Test
@@ -117,7 +149,7 @@ class ReplicaMaxRateCostTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
-        var costFunction = new ReplicaMaxRateCost();
+        var costFunction = new ReplicaMaxInRateCost();
         // create come partition to get metrics
         admin
             .creator()
@@ -157,7 +189,7 @@ class ReplicaMaxRateCostTest extends RequireBrokerCluster {
             Math.max((440 - 170), 170),
             collector
                 .clusterBean()
-                .replicaMetrics(tpr.get(0), ReplicaMaxRateCost.LogRateStatisticalBean.class)
+                .replicaMetrics(tpr.get(0), ReplicaMaxInRateCost.LogRateStatisticalBean.class)
                 .max(Comparator.comparing(HasBeanObject::createdTimestamp))
                 .orElseThrow()
                 .value());

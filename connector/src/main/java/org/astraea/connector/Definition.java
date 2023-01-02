@@ -77,7 +77,7 @@ public interface Definition {
     private Object defaultValue;
 
     private String documentation = "";
-    private Type type;
+    private Type type = Type.STRING;
 
     private BiConsumer<String, Object> validator;
 
@@ -86,6 +86,10 @@ public interface Definition {
     public Builder name(String name) {
       this.name = name;
       return this;
+    }
+
+    public Builder required() {
+      return defaultValue(ConfigDef.NO_DEFAULT_VALUE);
     }
 
     public Builder documentation(String documentation) {

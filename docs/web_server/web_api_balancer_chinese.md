@@ -16,24 +16,40 @@ POST /balancer
 |-------------------|------------------------------------------------------------|-------------------------------------------------------|
 | topics            | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
 | timeout           | (選填) 指定產生時間                                                | 3s                                                    |
-| balancer          | (選填) 愈使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
+| balancer          | (選填) 欲使用的負載平衡計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
 | balancerConfig    | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                     |
 | costWeights       | (選填) 指定要優化的目標以及權重                                          | ReplicaSizeCost,ReplicaLeaderCost權重皆為1                |
  | maxMigratedSize   | (選填) 設定最大可搬移的log size                                      | 無 　                                                   |
  | maxMigratedLeader | (選填) 設定最大可搬移的leader 數量                                     | 無                                                     |
 
+目前支援的 Cost Function
+
+| CostFunction 名稱                              | 優化目標                                             |
+|----------------------------------------------|--------------------------------------------------|
+| `org.astraea.common.cost.ReplicaLeaderCost`  | 使每個節點服務的 leader partition 數量平均                   |
+| `org.astraea.common.cost.ReplicaNumberCost`  | 使每個節點服務的 partition 數量平均                          |
+| `org.astraea.common.cost.NetworkIngressCost` | 使每個節點承受的輸入流量接近，此 cost function 使用上有些注意事項，詳情見下方附註 |
+| `org.astraea.common.cost.NetworkEgressCost`  | 使每個節點承受的輸出流量接近，此 cost function 使用上有些注意事項，詳情見下方附註 |
+
+* `NetworkIngressCost` 和 `NetworkEgressCost` 的實作存在一些假設，當這些假設不成立時，負載優化的結果可能會出現誤差：
+  1. 每個 Partition 的網路輸入/輸出流量是定值，不太會隨時間而波動。
+  2. Consumer 總是訂閱和撈取整個 topic 的資料，不會有只對個別 partition 進行撈取的行為。
+  3. 當連續針對 `NetworkIngressCost` 或 `NetworkEgressCost` 進行負載優化時
+     ，兩個負載優化計劃之間的執行需要有至少 20 分鐘的間隔時間，避免此實作將非生產環境正常行為的效能指標納入考量。
+  4. 沒有使用 [Consumer Rack Awareness](https://cwiki.apache.org/confluence/x/go_zBQ)。
+
 cURL 範例
 ```shell
 curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
-    -d '{ "timeout": "10s" ,
+    -d '{ 
+      "timeout": "10s" ,
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
         "shuffle.tweaker.min.step": "1",
         "shuffle.tweaker.max.step": "5"
       },
       "costWeights": [
-        { "cost": "org.astraea.common.cost.ReplicaSizeCost", "weight": 1 },
         { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],
       "maxMigratedSize": "300MB",
@@ -116,26 +132,28 @@ curl -X GET http://localhost:8001/balancer/46ecf6e7-aa28-4f72-b1b6-a788056c122a
 
 JSON Response 範例
 
-* `id`: 此 Response 所描述的負載平衡計劃編號
-* `generated`: 此負載平衡計劃是否已經生成
-* `scheduled`: 此負載平衡計劃是否有排程執行過
-* `done`: 此負載平衡計劃是否結束執行
+* `id`: 此 Response 所描述的負載平衡計劃之編號
+* `phase`: 代表此負載平衡計劃狀態的字串，可能是下列任一值
+  * `Searching`: 正在搜尋能使叢集變更好的負載平衡計劃
+  * `Searched`: 計劃搜尋已經結束
+  * `Executing`: 正在將負載平衡計劃套用至叢集
+  * `Executed`: 此負載平衡計劃已經成功套用至叢集
 * `exception`: 當負載平衡計劃發生結束時，其所附帶的錯誤訊息。如果沒有錯誤，此欄位會是 `null`，可能觸發錯誤的時間點包含：
-  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `generated` 會是 `false`)
-  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `scheduled` 會是 `true` 但 `done` 為 `false`)
-* `info`: 此負載平衡計劃的詳細資訊，如果此計劃還沒生成，則此欄位會是 `null`
-  * `isPlanGenerated`: 表示計劃是否成功生成，如果此欄位為 `false` 代表 Balancer 實作無法找到更好的計劃
-  * `cost`: 目前叢集的分數 (越高越不好)
-  * `newCost`: 提出的新計劃之分數，當計劃沒有成功生成時，此欄位會是 `null`
-  * `function`: 用來評估品質的方法
+  1. 搜尋負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `Searched`)
+  2. 執行負載平衡計劃的過程中發生錯誤 (此情境下 `phase` 會是 `Executed`)
+* `config` 此優化計劃的搜尋參數設定
+  * `balancer`: 此計劃生成所使用的搜尋算法實作
+  * `function`: 用來評估叢集狀態之品質的方法
+  * `timeoutMs`: 此優化計劃的搜尋上限時間
+* `plan`: 此負載平衡計劃的詳細資訊，如果此計劃還沒完成搜尋，或是已經完成搜尋但找不到可用的計劃，則此欄位會是 `null`
   * `changes`: 新的 partitions 配置
     * `topic`: topic 名稱
     * `partition`: partition id
     * `before`: 原本的配置
       * `brokerId`: 有掌管 replica 的節點 id
-      * `directory`: replica 存在資料的路徑
       * `size`: replica 在硬碟上的資料大小
     * `after`: 比較好的配置
+      * `brokerId`: 有掌管 replica 的節點 id
   * `migrations`: 計算搬移計畫的成本
     * `function`: 用來評估成本的演算法
     * `totalCost`: 各個broker的成本總和
@@ -147,48 +165,25 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "generated": true,
-  "scheduled": true,
-  "done": true,
-  "info": {
-    "isPlanGenerated": true,
-    "cost": 0.04948716593053935,
-    "newCost": 0.04948716593053935,
-    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.ReplicaSizeCost@36835e87\" weight 1.0}, {\"org.astraea.common.cost.ReplicaLeaderCost@2d87f4d3\" weight 1.0}]",
+  "phase": "Executed",
+  "config": {
+    "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+    "function": "WeightCompositeClusterCost[{\"org.astraea.common.cost.NetworkEgressCost@69be333e\" weight 1.0}, {\"org.astraea.common.cost.NetworkIngressCost@6c5ec944\" weight 1.0}]",
+    "timeoutMs": 10000
+  },
+  "plan": {
     "changes": [
       {
-        "topic": "__consumer_offsets",
-        "partition": 40,
-        "before": [
-          {
-            "brokerId": 1006,
-            "directory": "/tmp/log-folder-0",
-            "size": 1234
-          }
-        ],
-        "after": [
-          {
-            "brokerId": 1002,
-            "directory": "/tmp/log-folder-0"
-          }
-        ]
+        "topic": "example_topic",
+        "partition": 0,
+        "before": [ { "brokerId": 1006, "size": 2048 } ],
+        "after": [ { "brokerId": 1002 } ]
       },
       {
-        "topic": "__consumer_offsets",
-        "partition": 44,
-        "before": [
-          {
-            "brokerId": 1003,
-            "directory": "/tmp/log-folder-0",
-            "size": 12355
-          }
-        ],
-        "after": [
-          {
-            "brokerId": 1001,
-            "directory": "/tmp/log-folder-2"
-          }
-        ]
+        "topic": "example_topic",
+        "partition": 1,
+        "before": [ { "brokerId": 1003, "size": 1024 } ],
+        "after": [ { "brokerId": 1004 } ]
       }
     ]
   }
@@ -198,11 +193,9 @@ JSON Response 範例
 ```json
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
-  "generated": true,
-  "scheduled": true,
-  "done": true,
+  "phase": "Searched",
   "exception": "org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient",
-  "info":{ /* ... */ }
+  "config": { /* ... */ }
 }
 ```
 

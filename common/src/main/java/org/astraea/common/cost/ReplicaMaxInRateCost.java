@@ -41,7 +41,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Debounce;
 import org.astraea.common.metrics.stats.Max;
 
-public class ReplicaMaxRateCost implements HasClusterCost, HasBrokerCost {
+public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost {
   private static final Dispersion dispersion = Dispersion.cov();
   private static final String REPLICA_WRITE_RATE = "replica_write_rate";
   private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
@@ -51,11 +51,11 @@ public class ReplicaMaxRateCost implements HasClusterCost, HasBrokerCost {
   static final Map<TopicPartitionReplica, Sensor<Double>> expWeightSensors = new HashMap<>();
   static final Map<TopicPartitionReplica, Debounce<Double>> denounces = new HashMap<>();
 
-  ReplicaMaxRateCost() {
+  ReplicaMaxInRateCost() {
     this.duration = DEFAULT_DURATION;
   }
 
-  ReplicaMaxRateCost(Duration duration) {
+  ReplicaMaxInRateCost(Duration duration) {
     this.duration = duration;
   }
 
@@ -91,6 +91,9 @@ public class ReplicaMaxRateCost implements HasClusterCost, HasBrokerCost {
                 Collectors.toMap(
                     tpr -> tpr,
                     tpr -> statistPartitionSizeCount(tpr.topicPartition(), clusterBean)));
+    if (replicaIn.values().stream().allMatch(x -> x == 0.0))
+      throw new NoSufficientMetricsException(
+          this, Duration.ofSeconds(1), "all topic partitions are currently idle.");
     var scoreForBroker =
         clusterInfo.nodes().stream()
             .map(
@@ -177,7 +180,7 @@ public class ReplicaMaxRateCost implements HasClusterCost, HasBrokerCost {
                                     lastTime.put(tpr, current);
                                     lastRecord.put(tpr, debouncedValue);
                                   });
-                          return (ReplicaMaxRateCost.LogRateStatisticalBean)
+                          return (ReplicaMaxInRateCost.LogRateStatisticalBean)
                               () ->
                                   new BeanObject(
                                       g.beanObject().domainName(),

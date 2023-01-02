@@ -33,6 +33,26 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class UtilsTest {
 
   @Test
+  void testChunk() {
+    var input = List.of("a", "b", "c", "d");
+
+    var output = List.copyOf(Utils.chunk(input, 1));
+    Assertions.assertEquals(1, output.size());
+    Assertions.assertEquals(input, output.get(0));
+
+    var output2 = List.copyOf(Utils.chunk(input, 2));
+    Assertions.assertEquals(2, output2.size());
+    Assertions.assertEquals(List.of("a", "c"), output2.get(0));
+    Assertions.assertEquals(List.of("b", "d"), output2.get(1));
+
+    var output3 = List.copyOf(Utils.chunk(input, 3));
+    Assertions.assertEquals(3, output3.size(), output3.toString());
+    Assertions.assertEquals(List.of("a", "d"), output3.get(0));
+    Assertions.assertEquals(List.of("b"), output3.get(1));
+    Assertions.assertEquals(List.of("c"), output3.get(2));
+  }
+
+  @Test
   void testHandleException() {
     var executionRuntimeException =
         Assertions.assertThrows(

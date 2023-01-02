@@ -19,19 +19,13 @@ plugins {
     id 'scala'
 }
 
+apply from: "$rootDir/gradle/dependencies.gradle"
+
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
 
-def versions = [
-        kafka      : project.properties['kafka.version'] ?: "3.3.1",
-        scala      : project.properties['scala.version'] ?: "2.13.10",
-        spark_sql  : project.properties['spark_sql.version'] ?: "3.3.1",
-        spark_kafka: project.properties['spark_kafka.version'] ?: "3.3.1",
-        junit      : project.properties['junit.version'] ?: "5.9.1",
-        opencsv    : project.properties['opencsv.version'] ?: "5.7.1"
-]
 
 dependencies {
     // Gradle module metadata for jackson-databind 2.13.4.1 references non-existent jackson-bom.
@@ -39,21 +33,21 @@ dependencies {
     // This will be removed when spark is updated to 3.3.2. https://issues.apache.org/jira/browse/SPARK-40886
     compileOnly 'com.fasterxml.jackson:jackson-bom:2.13.4.20221013'
     // Astraea etl is run by spark framework, so we don't need to package spark-related dependencies
-    compileOnly "org.scala-lang:scala-library:${versions["scala"]}"
-    compileOnly "org.apache.spark:spark-sql_2.13:${versions["spark_sql"]}"
-    compileOnly "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark_kafka"]}"
-    compileOnly "com.fasterxml.jackson.core:jackson-databind:2.13.4.1"
-    implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
+    compileOnly libs["scala"]
+    compileOnly libs["spark-sql"]
+    compileOnly libs["spark-kafka"]
+    compileOnly libs["jackson-databind"]
+    implementation libs["kafka-client"]
     implementation project(':common')
 
 
-    testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
-    testImplementation "com.opencsv:opencsv:${versions["opencsv"]}"
+    testImplementation libs["junit"]
+    testImplementation libs["opencsv"]
     // This will be removed when spark is updated to 3.3.2. https://issues.apache.org/jira/browse/SPARK-40886
     testImplementation enforcedPlatform('com.fasterxml.jackson:jackson-bom:2.13.4.20221013')
     // there are unit tests requiring spark, so we add them back for test scope
-    testImplementation "org.apache.spark:spark-sql_2.13:${versions["spark_sql"]}"
-    testImplementation "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark_kafka"]}"
+    testImplementation libs["spark-sql"]
+    testImplementation libs["spark-kafka"]
     testImplementation project(':it')
 }
 

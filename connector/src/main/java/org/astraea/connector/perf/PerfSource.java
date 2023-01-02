@@ -16,7 +16,6 @@
  */
 package org.astraea.connector.perf;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,6 +32,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
+import org.astraea.common.metrics.stats.Rate;
 import org.astraea.common.producer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
@@ -40,12 +40,13 @@ import org.astraea.connector.SourceConnector;
 import org.astraea.connector.SourceTask;
 
 public class PerfSource extends SourceConnector {
-  static Definition FREQUENCY_DEF =
+  static Definition THROUGHPUT_DEF =
       Definition.builder()
-          .name("frequency")
+          .name("throughput")
           .type(Definition.Type.STRING)
-          .defaultValue("1s")
-          .validator((name, value) -> Utils.toDuration(value.toString()))
+          .defaultValue("100GB")
+          .validator((name, value) -> DataSize.of(value.toString()))
+          .documentation("the data rate (in second) of sending records")
           .build();
 
   static Definition KEY_DISTRIBUTION_DEF =
@@ -119,13 +120,25 @@ public class PerfSource extends SourceConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    return IntStream.range(0, maxTasks).mapToObj(i -> config).collect(Collectors.toList());
+    var ps = specifyPartitions(config);
+    if (ps.isEmpty())
+      return IntStream.range(0, maxTasks).mapToObj(i -> config).collect(Collectors.toList());
+    return Utils.chunk(ps, maxTasks).stream()
+        .map(
+            partitions -> {
+              var c = new HashMap<>(config.raw());
+              c.put(
+                  SPECIFY_PARTITIONS_DEF.name(),
+                  partitions.stream().map(String::valueOf).collect(Collectors.joining(",")));
+              return Configuration.of(c);
+            })
+        .collect(Collectors.toList());
   }
 
   @Override
   protected List<Definition> definitions() {
     return List.of(
-        FREQUENCY_DEF,
+        THROUGHPUT_DEF,
         KEY_LENGTH_DEF,
         KEY_DISTRIBUTION_DEF,
         VALUE_LENGTH_DEF,
@@ -133,11 +146,18 @@ public class PerfSource extends SourceConnector {
         SPECIFY_PARTITIONS_DEF);
   }
 
+  private static Set<Integer> specifyPartitions(Configuration configuration) {
+    return configuration
+        .string(SPECIFY_PARTITIONS_DEF.name())
+        .map(s -> Arrays.stream(s.split(",")).map(Integer::parseInt).collect(Collectors.toSet()))
+        .orElse(Set.of());
+  }
+
   public static class Task extends SourceTask {
 
     final Random rand = new Random();
     Set<String> topics = Set.of();
-    Duration frequency;
+    DataSize throughput;
     Supplier<Long> keySelector;
     Supplier<Long> keySizeGenerator;
     final Map<Long, byte[]> keys = new HashMap<>();
@@ -145,18 +165,18 @@ public class PerfSource extends SourceConnector {
     Supplier<Long> valueSizeGenerator;
     final Map<Long, byte[]> values = new HashMap<>();
 
-    List<Integer> specifyPartitions = List.of();
+    Set<Integer> specifyPartitions = Set.of();
 
-    long last = System.currentTimeMillis();
+    final Rate<DataSize> sizeRate = Rate.sizeRate();
 
     @Override
     protected void init(Configuration configuration, MetadataStorage storage) {
       this.topics = Set.copyOf(configuration.list(SourceConnector.TOPICS_KEY, ","));
-      this.frequency =
-          Utils.toDuration(
+      this.throughput =
+          DataSize.of(
               configuration
-                  .string(FREQUENCY_DEF.name())
-                  .orElse(FREQUENCY_DEF.defaultValue().toString()));
+                  .string(THROUGHPUT_DEF.name())
+                  .orElse(THROUGHPUT_DEF.defaultValue().toString()));
       var keyLength =
           DataSize.of(
               configuration
@@ -182,15 +202,7 @@ public class PerfSource extends SourceConnector {
       valueSelector = valueDistribution.create(10000);
       valueSizeGenerator =
           valueDistribution.create(valueLength.measurement(DataUnit.Byte).intValue());
-      specifyPartitions =
-          configuration
-              .string(SPECIFY_PARTITIONS_DEF.name())
-              .map(
-                  s ->
-                      Arrays.stream(s.split(","))
-                          .map(Integer::parseInt)
-                          .collect(Collectors.toList()))
-              .orElse(List.of());
+      specifyPartitions = specifyPartitions(configuration);
     }
 
     byte[] key() {
@@ -219,30 +231,41 @@ public class PerfSource extends SourceConnector {
           });
     }
 
+    private Collection<Record<byte[], byte[]>> records() {
+      if (specifyPartitions.isEmpty())
+        return topics.stream()
+            .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
+            .collect(Collectors.toList());
+      return topics.stream()
+          .flatMap(
+              t ->
+                  specifyPartitions.stream()
+                      .map(
+                          p ->
+                              Record.builder()
+                                  .topic(t)
+                                  .partition(p)
+                                  .key(key())
+                                  .value(value())
+                                  .build()))
+          .collect(Collectors.toList());
+    }
+
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
-      if (System.currentTimeMillis() - last < frequency.toMillis()) return List.of();
-      try {
-        if (specifyPartitions.isEmpty())
-          return topics.stream()
-              .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
-              .collect(Collectors.toList());
-        return topics.stream()
-            .flatMap(
-                t ->
-                    specifyPartitions.stream()
-                        .map(
-                            p ->
-                                Record.builder()
-                                    .topic(t)
-                                    .partition(p)
-                                    .key(key())
-                                    .value(value())
-                                    .build()))
-            .collect(Collectors.toList());
-      } finally {
-        last = System.currentTimeMillis();
-      }
+      var size = sizeRate.measure();
+      if (size.greaterThan(throughput)) return List.of();
+      var records = records();
+      records.forEach(r -> sizeRate.record(DataSize.Byte.of(estimatedSize(r))));
+      return records;
+    }
+
+    private static int estimatedSize(Record<byte[], byte[]> record) {
+      return (record.key() == null ? 0 : record.key().length)
+          + (record.value() == null ? 0 : record.value().length)
+          + record.headers().stream()
+              .mapToInt(h -> h.key().length() + (h.value() == null ? 0 : record.value().length))
+              .sum();
     }
   }
 }

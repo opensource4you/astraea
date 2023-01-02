@@ -19,40 +19,30 @@ plugins {
     id 'application'
 }
 
+apply from: "$rootDir/gradle/dependencies.gradle"
+
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
 
-def versions = [
-        kafka       : project.properties['kafka.version'] ?: "3.3.1",
-        junit       : project.properties['junit.version'] ?: "5.9.1",
-        mockito     : project.properties['mockito.version'] ?: "4.8.1",
-        jcommander  : project.properties['jcommander.version'] ?: "1.82",
-        slf4j       : project.properties['slf4j.version'] ?: "2.0.3",
-        "commons-io": project.properties['commons-io.version'] ?: "2.11.0",
-        "opencsv"   : project.properties['opencsv.version'] ?: "5.6",
-        "math3"     : project.properties['math3.version'] ?: "3.6.1",
-        jackson     : project.properties['jackson.version'] ?: "2.13.4",
-]
-
 dependencies {
-    testImplementation "org.junit.jupiter:junit-jupiter:${versions["junit"]}"
-    testImplementation "org.mockito:mockito-core:${versions["mockito"]}"
-    testImplementation "org.mockito:mockito-inline:${versions["mockito"]}"
-    testImplementation "org.apache.kafka:kafka_2.13:${versions["kafka"]}"
-    testImplementation "commons-io:commons-io:${versions["commons-io"]}"
+    testImplementation libs["junit"]
+    testImplementation libs["mockito-core"]
+    testImplementation libs["mockito-inline"]
+    testImplementation libs["kafka-core"]
+    testImplementation libs["commons-io"]
     testImplementation project(':it')
 
     implementation project(':common')
     implementation project(':fs')
-    implementation "org.apache.kafka:kafka-clients:${versions["kafka"]}"
-    implementation "com.beust:jcommander:${versions["jcommander"]}"
+    implementation libs["kafka-client"]
+    implementation libs["jcommander"]
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
-    implementation "org.slf4j:slf4j-nop:${versions["slf4j"]}"
-    implementation "com.opencsv:opencsv:${versions["opencsv"]}"
-    implementation "org.apache.commons:commons-math3:${versions["math3"]}"
-    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${versions["jackson"]}"
+    implementation libs["slf4j-nop"]
+    implementation libs["opencsv"]
+    implementation libs["commons-math3"]
+    implementation libs["jackson-datatype-jdk8"]
 }
 
 application {

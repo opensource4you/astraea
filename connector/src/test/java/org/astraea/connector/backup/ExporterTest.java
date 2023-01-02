@@ -16,13 +16,25 @@
  */
 package org.astraea.connector.backup;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
+import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
+import org.astraea.common.connector.ConnectorConfigs;
+import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.producer.Producer;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.RequireWorkerCluster;
@@ -32,6 +44,71 @@ import org.junit.jupiter.api.Test;
 public class ExporterTest extends RequireWorkerCluster {
 
   @Test
+  void testRunWithDefaultConfigs() throws IOException {
+    var topic = Utils.randomString();
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    try (var producer = Producer.of(bootstrapServers())) {
+      IntStream.range(0, 100)
+          .forEach(
+              i ->
+                  producer.send(
+                      org.astraea.common.producer.Record.builder()
+                          .topic(topic)
+                          .key(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .value(String.valueOf(i).getBytes(StandardCharsets.UTF_8))
+                          .build()));
+      producer.flush();
+    }
+
+    var tmpFolder = Files.createTempDirectory("testRunWithDefaultConfigs").toString();
+    var name = Utils.randomString();
+    client
+        .createConnector(
+            name,
+            Map.of(
+                ConnectorConfigs.CONNECTOR_CLASS_KEY,
+                Exporter.class.getName(),
+                ConnectorConfigs.TOPICS_KEY,
+                topic,
+                ConnectorConfigs.TASK_MAX_KEY,
+                "1",
+                "path",
+                tmpFolder,
+                "fs.schema",
+                "local"))
+        .toCompletableFuture()
+        .join();
+
+    Utils.sleep(Duration.ofSeconds(3));
+
+    var status = client.connectorStatus(name).toCompletableFuture().join();
+    Assertions.assertEquals("RUNNING", status.state());
+    Assertions.assertNotEquals(0, status.tasks().size());
+    status
+        .tasks()
+        .forEach(t -> Assertions.assertEquals("RUNNING", t.state(), t.error().orElse("")));
+  }
+
+  @Test
+  void testRequiredConfigs() {
+    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var validation =
+        client
+            .validate(Exporter.class.getName(), Map.of("topics", "aa", "name", "b"))
+            .toCompletableFuture()
+            .join();
+    Assertions.assertNotEquals(0, validation.errorCount());
+
+    var failed =
+        validation.configs().stream()
+            .map(Config::value)
+            .filter(v -> !v.errors().isEmpty())
+            .collect(Collectors.toMap(Value::name, Function.identity()));
+    Assertions.assertEquals(
+        Set.of(Exporter.SCHEMA_KEY.name(), Exporter.PATH_KEY.name()), failed.keySet());
+  }
+
+  @Test
   void testCreateFtpSinkConnector() {
 
     var topicName = Utils.randomString(10);
@@ -39,6 +116,8 @@ public class ExporterTest extends RequireWorkerCluster {
     var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
+            "fs.schema",
+            "ftp",
             "connector.class",
             Exporter.class.getName(),
             "tasks.max",
@@ -75,6 +154,8 @@ public class ExporterTest extends RequireWorkerCluster {
       var task = new Exporter.Task();
       var configs =
           Map.of(
+              "fs.schema",
+              "ftp",
               "topics",
               topicName,
               "fs.ftp.hostname",
