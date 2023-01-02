@@ -37,7 +37,7 @@ import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaDiskInCostTest extends RequireBrokerCluster {
+class ReplicaMaxRateCostTest extends RequireBrokerCluster {
   private static final BeanObject bean1 =
       new BeanObject("domain", Map.of("topic", "t", "partition", "10"), Map.of("Value", 777.0));
   private static final BeanObject bean2 =
@@ -51,7 +51,7 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
 
   @Test
   void testBrokerCost() {
-    var loadCostFunction = new ReplicaDiskInCost();
+    var loadCostFunction = new ReplicaMaxRateCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     Assertions.assertEquals(777 + 500, brokerLoad.get(0));
     Assertions.assertEquals(700, brokerLoad.get(1));
@@ -61,7 +61,7 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
   @Test
   void testClusterCost() {
     final Dispersion dispersion = Dispersion.cov();
-    var loadCostFunction = new ReplicaDiskInCost();
+    var loadCostFunction = new ReplicaMaxRateCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), clusterBean()).value();
     var clusterCost = loadCostFunction.clusterCost(clusterInfo(), clusterBean()).value();
     Assertions.assertEquals(dispersion.calculate(brokerLoad.values()), clusterCost);
@@ -103,12 +103,12 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
         Map.of(
             0,
             List.of(
-                (ReplicaDiskInCost.LogRateStatisticalBean) () -> bean1,
-                (ReplicaDiskInCost.LogRateStatisticalBean) () -> bean4),
+                (ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean1,
+                (ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean4),
             1,
-            List.of((ReplicaDiskInCost.LogRateStatisticalBean) () -> bean2),
+            List.of((ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean2),
             2,
-            List.of((ReplicaDiskInCost.LogRateStatisticalBean) () -> bean3)));
+            List.of((ReplicaMaxRateCost.LogRateStatisticalBean) () -> bean3)));
   }
 
   @Test
@@ -117,7 +117,7 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
-        var costFunction = new ReplicaDiskInCost();
+        var costFunction = new ReplicaMaxRateCost();
         // create come partition to get metrics
         admin
             .creator()
@@ -144,15 +144,20 @@ class ReplicaDiskInCostTest extends RequireBrokerCluster {
                 TopicPartitionReplica.of(topicName, 3, 0));
         Utils.sleep(interval);
         producer
+            .send(Record.builder().topic(topicName).partition(0).key(new byte[200]).build())
+            .toCompletableFuture()
+            .join();
+        Utils.sleep(interval);
+        producer
             .send(Record.builder().topic(topicName).partition(0).key(new byte[100]).build())
             .toCompletableFuture()
             .join();
         Utils.sleep(interval);
         Assertions.assertEquals(
-            (340 - 170) / 2,
+            Math.max((440 - 170), 170),
             collector
                 .clusterBean()
-                .replicaMetrics(tpr.get(0), ReplicaDiskInCost.LogRateStatisticalBean.class)
+                .replicaMetrics(tpr.get(0), ReplicaMaxRateCost.LogRateStatisticalBean.class)
                 .max(Comparator.comparing(HasBeanObject::createdTimestamp))
                 .orElseThrow()
                 .value());

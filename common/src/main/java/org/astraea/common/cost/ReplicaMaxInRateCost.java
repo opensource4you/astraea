@@ -16,8 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.metrics.stats.Avg.expWeightByTime;
-
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -41,14 +39,25 @@ import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Debounce;
+import org.astraea.common.metrics.stats.Max;
 
-public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
+public class ReplicaMaxRateCost implements HasClusterCost, HasBrokerCost {
   private static final Dispersion dispersion = Dispersion.cov();
   private static final String REPLICA_WRITE_RATE = "replica_write_rate";
+  private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
+  private final Duration duration;
   static final Map<TopicPartitionReplica, Double> lastRecord = new HashMap<>();
   static final Map<TopicPartitionReplica, Duration> lastTime = new HashMap<>();
   static final Map<TopicPartitionReplica, Sensor<Double>> expWeightSensors = new HashMap<>();
   static final Map<TopicPartitionReplica, Debounce<Double>> denounces = new HashMap<>();
+
+  ReplicaMaxRateCost() {
+    this.duration = DEFAULT_DURATION;
+  }
+
+  ReplicaMaxRateCost(Duration duration) {
+    this.duration = duration;
+  }
 
   @Override
   public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
@@ -81,8 +90,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
             .collect(
                 Collectors.toMap(
                     tpr -> tpr,
-                    tpr ->
-                            statistPartitionSizeCount(tpr.topicPartition(), clusterBean)));
+                    tpr -> statistPartitionSizeCount(tpr.topicPartition(), clusterBean)));
     var scoreForBroker =
         clusterInfo.nodes().stream()
             .map(
@@ -152,13 +160,10 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
                                   tpr,
                                   ignore ->
                                       Sensor.builder()
-                                          .addStat(
-                                              REPLICA_WRITE_RATE,
-                                              expWeightByTime(Duration.ofSeconds(1)))
+                                          .addStat(REPLICA_WRITE_RATE, new Max<Double>())
                                           .build());
                           var debounce =
-                              denounces.computeIfAbsent(
-                                  tpr, ignore -> Debounce.of(Duration.ofSeconds(1)));
+                              denounces.computeIfAbsent(tpr, ignore -> Debounce.of(duration));
                           debounce
                               .record(size, current.toMillis())
                               .ifPresent(
@@ -172,7 +177,7 @@ public class ReplicaDiskInCost implements HasClusterCost, HasBrokerCost {
                                     lastTime.put(tpr, current);
                                     lastRecord.put(tpr, debouncedValue);
                                   });
-                          return (ReplicaDiskInCost.LogRateStatisticalBean)
+                          return (ReplicaMaxRateCost.LogRateStatisticalBean)
                               () ->
                                   new BeanObject(
                                       g.beanObject().domainName(),
