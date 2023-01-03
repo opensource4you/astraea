@@ -47,8 +47,6 @@ public interface ConnectorClient {
 
   CompletionStage<Set<String>> connectorNames();
 
-  CompletionStage<ConnectorInfo> connectorInfo(String name);
-
   CompletionStage<ConnectorStatus> connectorStatus(String name);
 
   CompletionStage<ConnectorInfo> createConnector(String name, Map<String, String> config);
@@ -61,7 +59,7 @@ public interface ConnectorClient {
 
   CompletionStage<List<PluginInfo>> plugins();
 
-  default CompletionStage<Boolean> waitConnectorInfo(
+  default CompletionStage<Boolean> waitConnector(
       String connectName, Predicate<ConnectorStatus> predicate, Duration timeout) {
     return Utils.loop(
         () ->

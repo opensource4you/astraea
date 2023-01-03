@@ -36,7 +36,7 @@
 |       configs       | (選填) 給partitioner的設置檔。 設置格式為 "\<key1\>=\<value1\>[,\<key2\>=\<value2\>]*"。 <br />例如: "--configs broker.1001.jmx.port=14338,org.astraea.cost.ThroughputCost=1" |           none           |
 |     throughput      | (選填) 用來限制輸出資料的速度, 範例： "--throughput 2MiB/m", "--throughput 2GB" 預設值是秒 <br/>大小單位: MB, MiB, Kb etc. <br />時間單位: second(s), minute(m), hour(h), day(d) or PT expression(PT30S) |      500 GiB/second      |
 |   specify.brokers   | (選填) 指定broker的ID，送資料到指定的broker，若 broker 上有 "目標 topic 的 partition" |           none           |
-| specify.partitions  | (選填) 指定要傳送資料的 topic/partitions，多個項目之間可以用逗號隔開，注意這個選項不能和 `specify.brokers` 或 `partitioner` 一起使用 |           none           |
+| specify.partitions  | (選填) 指定要傳送資料的 topic/partitions，多個項目之間可以用逗號隔開，注意這個選項不能和 `specify.brokers` 、`throttle` 或 `partitioner` 一起使用 |           none           |
 |     report.path     | (選填) report file的檔案路徑                                 |           none           |
 |    report.format    | (選填) 選擇輸出檔案格式, 可用的格式：`csv`, `json`           |           csv            |
 |  transaction.size   | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write |            1             |
@@ -44,6 +44,7 @@
 |      read.idle      | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料      |           2秒            |
 | interdependent.size | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Dispatcher 可以使用) |            1             |
 |       monkeys       | (選填) 設定 chaos monkey 的觸發頻率，支援 : `kill`, `add`, `unsubscribe`。<br />觸發頻率單位為 ：day, h, m, s, ms, us, ns<br />範例：`--monkeys kill:3s,add:5s` |           none           |
+|      throttle       | (選填) 用來指定 topic-partitions 的限流值<br />例如：--throttle a1-0:5MB/s,a2-0:10MB/s,a10-4:30MB/s<br />注意此參數不可與`specify.partitions`、`specify.brokers` 或`partitioner` 一起使用 |           none           |
 
 #### 使用範例
 
@@ -89,5 +90,10 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTo
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
 docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+```
+
+```bash
+# 使用 throttle 功能，限制 producers 送進 a1-0 與 a3-1 的資料量在 20MB/s 與 10MB/s 內
+docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics a1,a2,a3 --producers 5 --consumers 0 --throttle a1-0:20MB/s,a3-1:10MB/s --run.until 5m
 ```
 

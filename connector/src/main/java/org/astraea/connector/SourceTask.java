@@ -28,7 +28,7 @@ import org.astraea.common.producer.Record;
 
 public abstract class SourceTask extends org.apache.kafka.connect.source.SourceTask {
 
-  protected abstract void init(Configuration configuration);
+  protected abstract void init(Configuration configuration, MetadataStorage storage);
 
   /**
    * use {@link Record#builder()} or {@link SourceRecord#builder()} to construct the returned
@@ -52,7 +52,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
 
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    init(Configuration.of(props), MetadataStorage.of(context.offsetStorageReader()));
   }
 
   @Override

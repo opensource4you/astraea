@@ -93,6 +93,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                       .toCompletableFuture()
                       .join(),
                   Duration.ofSeconds(5))
+              .solution()
               .get();
 
       var plan =
@@ -105,6 +106,7 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                       .toCompletableFuture()
                       .join(),
                   Duration.ofSeconds(5))
+              .solution()
               .get();
 
       Assertions.assertTrue(

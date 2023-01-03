@@ -59,7 +59,7 @@ import org.astraea.gui.text.TextInput;
 
 public class BalancerNode {
 
-  static final AtomicReference<Balancer.Plan> LAST_PLAN = new AtomicReference<>();
+  static final AtomicReference<Balancer.Solution> LAST_PLAN = new AtomicReference<>();
   static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";
   private static final String MAX_MIGRATE_LOG_SIZE = "total max migrate log size";
@@ -88,7 +88,7 @@ public class BalancerNode {
     }
   }
 
-  static List<Map<String, Object>> costResult(Balancer.Plan plan) {
+  static List<Map<String, Object>> costResult(Balancer.Solution plan) {
     var map = new HashMap<Integer, LinkedHashMap<String, Object>>();
 
     BiConsumer<String, Map<Integer, ?>> process =
@@ -112,12 +112,12 @@ public class BalancerNode {
   }
 
   static List<Map<String, Object>> assignmentResult(
-      ClusterInfo<Replica> clusterInfo, Balancer.Plan plan) {
-    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal()).stream()
+      ClusterInfo<Replica> clusterInfo, Balancer.Solution solution) {
+    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, solution.proposal()).stream()
         .map(
             tp -> {
               var previousAssignments = clusterInfo.replicas(tp);
-              var newAssignments = plan.proposal().replicas(tp);
+              var newAssignments = solution.proposal().replicas(tp);
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, tp.topic());
               result.put(PARTITION_KEY, tp.partition());
@@ -223,10 +223,11 @@ public class BalancerNode {
                 })
             .thenApply(
                 entry -> {
-                  entry.getValue().ifPresent(LAST_PLAN::set);
+                  entry.getValue().solution().ifPresent(LAST_PLAN::set);
                   var result =
                       entry
                           .getValue()
+                          .solution()
                           .map(
                               plan ->
                                   Map.of(

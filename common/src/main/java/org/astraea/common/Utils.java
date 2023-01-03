@@ -23,6 +23,7 @@ import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -31,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -381,6 +383,13 @@ public final class Utils {
               // reset debounce for retry
               return loop(supplier, remaining, debounce, debounce);
             });
+  }
+
+  public static <T> Collection<List<T>> chunk(Collection<T> input, int numberOfChunks) {
+    var counter = new AtomicInteger(0);
+    return input.stream()
+        .collect(Collectors.groupingBy(s -> counter.getAndIncrement() % numberOfChunks))
+        .values();
   }
 
   private Utils() {}

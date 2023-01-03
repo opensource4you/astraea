@@ -21,7 +21,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.astraea.common.json.JsonConverter
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 class DataFrameOp(dataFrame: DataFrame) {
@@ -77,7 +77,7 @@ class DataFrameOp(dataFrame: DataFrame) {
           defaultConverter(
             map(
               cols
-                .filter(dataColumn => dataColumn.isPK)
+                .filter(dataColumn => dataColumn.isPk)
                 .flatMap(c => List(lit(c.name), col(c.name))): _*
             )
           )

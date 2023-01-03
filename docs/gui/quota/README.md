@@ -7,14 +7,12 @@
 
 ## 調閱 quota
 
-`basic` tab 中，您可以透過上方選擇基於 `ip address` 或是 `client id` 來查詢對應的 `quotas`
+`basic` tab 中，您可以查詢當前所設定的 `quotas`
 
-![quota_ip](quota_ip.png)
-![quota_client_id](quota_client_id.png)
+![quota_basic](quota_basic.png)
 
-您也可以透過搜尋欄位查詢指定 `ip` 或 `client id`
+您也可以透過搜尋欄位查詢指定 `client id`
 
-![quota_ip_search](quota_ip_search.png)
 ![quota_client_id_search](quota_client_id_search.png)
 
 ## 設定 quota

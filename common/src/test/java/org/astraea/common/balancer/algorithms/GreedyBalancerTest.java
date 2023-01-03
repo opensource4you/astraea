@@ -69,7 +69,7 @@ class GreedyBalancerTest {
           .forEach(
               run -> {
                 var plan = balancer.offer(clusterInfo, Duration.ofMillis(300));
-                Assertions.assertTrue(plan.isPresent());
+                Assertions.assertTrue(plan.solution().isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(
                         () ->
