@@ -95,7 +95,7 @@ public class StrictCostDispatcherTest {
   @Test
   void testNoAvailableBrokers() {
     try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Map.of(), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.EMPTY);
       Assertions.assertEquals(
           0, dispatcher.partition("topic", new byte[0], new byte[0], ClusterInfo.empty()));
     }
@@ -106,7 +106,7 @@ public class StrictCostDispatcherTest {
     var nodeInfo = NodeInfo.of(10, "host", 11111);
     var replicaInfo = ReplicaInfo.of("topic", 10, nodeInfo, true, true, false);
     try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Map.of(), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.EMPTY);
       Assertions.assertEquals(
           10,
           dispatcher.partition(
@@ -152,6 +152,15 @@ public class StrictCostDispatcherTest {
         () -> StrictCostDispatcher.parseCostFunctionWeight(config2));
   }
 
+  public static class DumbHasBrokerCost implements HasBrokerCost {
+
+    @Override
+    public BrokerCost brokerCost(
+        ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+      return Map::of;
+    }
+  }
+
   @Test
   void testCostFunctionWithoutFetcher() {
     HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
@@ -159,8 +168,7 @@ public class StrictCostDispatcherTest {
     var replicaInfo1 =
         ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
     try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(
-          Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.of((Map.of(DumbHasBrokerCost.class.getName(), "1"))));
       dispatcher.partition(
           "topic",
           new byte[0],
@@ -175,19 +183,15 @@ public class StrictCostDispatcherTest {
     try (var dispatcher = new StrictCostDispatcher()) {
 
       // pass due to local mbean
-      dispatcher.configure(
-          Map.of(new NodeThroughputCost(), 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.of(Map.of(NodeThroughputCost.class.getName(), "1")));
+    }
+  }
 
-      // pass due to default port
-      dispatcher.configure(
-          Map.of(new NodeThroughputCost(), 1D), Optional.of(111), Map.of(), Duration.ofSeconds(10));
-
-      // pass due to specify port
-      dispatcher.configure(
-          Map.of(new NodeThroughputCost(), 1D),
-          Optional.empty(),
-          Map.of(222, 111),
-          Duration.ofSeconds(10));
+  public static class MyFunction implements HasBrokerCost {
+    @Override
+    public BrokerCost brokerCost(
+        ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+      return () -> Map.of(22, 10D);
     }
   }
 
@@ -196,16 +200,7 @@ public class StrictCostDispatcherTest {
     var brokerId = 22;
     var partitionId = 123;
     try (var dispatcher = new StrictCostDispatcher()) {
-      var costFunction =
-          new HasBrokerCost() {
-            @Override
-            public BrokerCost brokerCost(
-                ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-              return () -> Map.of(brokerId, 10D);
-            }
-          };
-      dispatcher.configure(
-          Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.of(Map.of(MyFunction.class.getName(), "1")));
 
       var replicaInfo0 =
           ReplicaInfo.of(
