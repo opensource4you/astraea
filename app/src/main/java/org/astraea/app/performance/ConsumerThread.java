@@ -34,13 +34,32 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.stats.Avg;
 
 public interface ConsumerThread extends AbstractThread {
-
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_ASSIGNED_PARTITIONS =
       new ConcurrentHashMap<>();
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_REVOKED_PARTITIONS =
       new ConcurrentHashMap<>();
+
+  // consumer id and sensor. The sensor is for recording number of non-sticky partitions
+  ConcurrentMap<String, Sensor<Double>> NON_STICKY_SENSOR = new ConcurrentHashMap<>();
+
+  // consumer id and sensor. The sensor is for recording number of partition difference between
+  // consumer group rebalance
+  ConcurrentMap<String, Sensor<Double>> DIFFERENCE_SENSOR = new ConcurrentHashMap<>();
+
+  static long nonStickyPartitionBetweenRebalance(String clientId) {
+    return CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).stream()
+        .filter(tp -> !CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).contains(tp))
+        .count();
+  }
+
+  static long differenceBetweenRebalance(String clientId) {
+    return CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of()).size()
+        - CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of()).size();
+  }
 
   static List<ConsumerThread> create(
       int consumers,
@@ -90,6 +109,8 @@ public interface ConsumerThread extends AbstractThread {
                       closed.set(true);
                       CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);
                       CLIENT_ID_REVOKED_PARTITIONS.remove(clientId);
+                      NON_STICKY_SENSOR.remove(clientId);
+                      DIFFERENCE_SENSOR.remove(clientId);
                     }
                   });
               return new ConsumerThread() {
@@ -138,6 +159,18 @@ public interface ConsumerThread extends AbstractThread {
     @Override
     public void onPartitionAssigned(Set<TopicPartition> partitions) {
       CLIENT_ID_ASSIGNED_PARTITIONS.put(clientId, partitions);
+      NON_STICKY_SENSOR.putIfAbsent(
+          this.clientId,
+          Sensor.builder().addStat("exp-avg", Avg.expWeightByTime(Duration.ofSeconds(1))).build());
+      DIFFERENCE_SENSOR.putIfAbsent(
+          this.clientId,
+          Sensor.builder().addStat("exp-avg", Avg.expWeightByTime(Duration.ofSeconds(1))).build());
+      NON_STICKY_SENSOR
+          .get(this.clientId)
+          .record((double) nonStickyPartitionBetweenRebalance(this.clientId));
+      DIFFERENCE_SENSOR
+          .get(this.clientId)
+          .record((double) differenceBetweenRebalance(this.clientId));
     }
 
     @Override

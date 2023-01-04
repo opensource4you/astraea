@@ -16,6 +16,11 @@
  */
 package org.astraea.connector.backup;
 
+import static org.astraea.fs.ftp.FtpFileSystem.HOSTNAME_KEY;
+import static org.astraea.fs.ftp.FtpFileSystem.PASSWORD_KEY;
+import static org.astraea.fs.ftp.FtpFileSystem.PORT_KEY;
+import static org.astraea.fs.ftp.FtpFileSystem.USER_KEY;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -24,6 +29,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -41,17 +47,43 @@ import org.astraea.fs.Type;
 
 public class Importer extends SourceConnector {
   static Definition SCHEMA_KEY =
-      Definition.builder().name("fs.schema").type(Definition.Type.STRING).build();
-  static Definition HOSTNAME_KEY =
-      Definition.builder().name("fs.ftp.hostname").type(Definition.Type.STRING).build();
-  static Definition PORT_KEY =
-      Definition.builder().name("fs.ftp.port").type(Definition.Type.STRING).build();
-  static Definition USER_KEY =
-      Definition.builder().name("fs.ftp.user").type(Definition.Type.STRING).build();
-  static Definition PASSWORD_KEY =
-      Definition.builder().name("fs.ftp.password").type(Definition.Type.STRING).build();
+      Definition.builder()
+          .name("fs.schema")
+          .type(Definition.Type.STRING)
+          .documentation("decide which file system to use, such as FTP.")
+          .required()
+          .build();
+  static Definition HOSTNAME =
+      Definition.builder()
+          .name(HOSTNAME_KEY)
+          .type(Definition.Type.STRING)
+          .documentation("the host name of the ftp server used.")
+          .build();
+  static Definition PORT =
+      Definition.builder()
+          .name(PORT_KEY)
+          .type(Definition.Type.STRING)
+          .documentation("the port of the ftp server used.")
+          .build();
+  static Definition USER =
+      Definition.builder()
+          .name(USER_KEY)
+          .type(Definition.Type.STRING)
+          .documentation("the user name required to login to the FTP server.")
+          .build();
+  static Definition PASSWORD =
+      Definition.builder()
+          .name(PASSWORD_KEY)
+          .type(Definition.Type.STRING)
+          .documentation("the password required to login to the ftp server.")
+          .build();
   static Definition PATH_KEY =
-      Definition.builder().name("path").type(Definition.Type.STRING).build();
+      Definition.builder()
+          .name("path")
+          .type(Definition.Type.STRING)
+          .documentation("The root directory of the file that needs to be imported.")
+          .required()
+          .build();
   static Definition CLEAN_SOURCE_KEY =
       Definition.builder()
           .name("clean.source")
@@ -61,8 +93,13 @@ public class Importer extends SourceConnector {
               "Clean source policy. Available policies: \"off\", \"delete\", \"archive\". Default: off")
           .build();
   static Definition ARCHIVE_DIR_KEY =
-      Definition.builder().name("archive.dir").type(Definition.Type.STRING).build();
+      Definition.builder()
+          .name("archive.dir")
+          .type(Definition.Type.STRING)
+          .documentation("the directory of the imported file that needs to be archived")
+          .build();
   public static final String FILE_SET_KEY = "file.set";
+  public static final String TASKS_COUNT_KEY = "tasks.count";
   private Configuration config;
 
   @Override
@@ -82,6 +119,7 @@ public class Importer extends SourceConnector {
             i -> {
               var taskMap = new HashMap<>(config.raw());
               taskMap.put(FILE_SET_KEY, String.valueOf(i));
+              taskMap.put(TASKS_COUNT_KEY, String.valueOf(maxTasks));
               return Configuration.of(taskMap);
             })
         .collect(Collectors.toList());
@@ -90,23 +128,16 @@ public class Importer extends SourceConnector {
   @Override
   protected List<Definition> definitions() {
     return List.of(
-        SCHEMA_KEY,
-        HOSTNAME_KEY,
-        PORT_KEY,
-        USER_KEY,
-        PASSWORD_KEY,
-        PATH_KEY,
-        CLEAN_SOURCE_KEY,
-        ARCHIVE_DIR_KEY);
+        SCHEMA_KEY, HOSTNAME, PORT, USER, PASSWORD, PATH_KEY, CLEAN_SOURCE_KEY, ARCHIVE_DIR_KEY);
   }
 
   public static class Task extends SourceTask {
     private FileSystem Client;
     private int fileSet;
-    private HashSet<String> addedPaths;
+    private Set<String> addedPaths;
     private String rootDir;
-    private int maxTasks;
-    private LinkedList<String> paths;
+    private int tasksCount;
+    private List<String> paths;
     private String cleanSource;
     private Optional<String> archiveDir;
 
@@ -115,7 +146,7 @@ public class Importer extends SourceConnector {
       this.fileSet = configuration.requireInteger(FILE_SET_KEY);
       this.addedPaths = new HashSet<>();
       this.rootDir = configuration.requireString(PATH_KEY.name());
-      this.maxTasks = configuration.requireInteger("tasks.max");
+      this.tasksCount = configuration.requireInteger(TASKS_COUNT_KEY);
       this.paths = new LinkedList<>();
       this.cleanSource =
           configuration
@@ -127,10 +158,10 @@ public class Importer extends SourceConnector {
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
       if (paths.isEmpty()) {
-        paths = getFileSet(addedPaths, rootDir, maxTasks, fileSet);
+        paths = getFileSet(addedPaths, rootDir, tasksCount, fileSet);
       }
       addedPaths.addAll(paths);
-      var currentPath = paths.poll();
+      var currentPath = ((LinkedList<String>) paths).poll();
       if (currentPath != null) {
         var records = new ArrayList<Record<byte[], byte[]>>();
         var inputStream = Client.read(currentPath);
@@ -175,7 +206,7 @@ public class Importer extends SourceConnector {
     }
 
     protected LinkedList<String> getFileSet(
-        HashSet<String> addedPaths, String root, int maxTasks, int fileSet) {
+        Set<String> addedPaths, String root, int TasksCount, int fileSet) {
       var filePaths = new LinkedList<String>();
       var path = new LinkedList<>(Collections.singletonList(root));
       while (true) {
@@ -186,7 +217,7 @@ public class Importer extends SourceConnector {
           var folders = Client.listFolders(current);
           if (!files.isEmpty()) {
             files.stream()
-                .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % maxTasks == fileSet)
+                .filter(file -> (file.hashCode() & Integer.MAX_VALUE) % TasksCount == fileSet)
                 .filter(Predicate.not(addedPaths::contains))
                 .forEach(filePaths::add);
             continue;

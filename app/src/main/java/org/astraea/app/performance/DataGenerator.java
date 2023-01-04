@@ -20,11 +20,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,7 +40,7 @@ import org.astraea.common.producer.Record;
 
 public interface DataGenerator extends AbstractThread {
   static DataGenerator of(
-      BlockingQueue<List<Record<byte[], byte[]>>> queue,
+      List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
     var dataSupplier =
@@ -88,7 +89,7 @@ public interface DataGenerator extends AbstractThread {
 
                       // throttled data wouldn't put into the queue
                       if (records.isEmpty()) continue;
-
+                      var queue = queues.get(ThreadLocalRandom.current().nextInt(queues.size()));
                       queue.put(records);
                     }
                   } catch (InterruptedException e) {
