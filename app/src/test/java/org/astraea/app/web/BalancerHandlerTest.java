@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -93,6 +94,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       List.of(costWeight(IncreasingCost.class.getName(), 1));
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
       List.of(costWeight(DecreasingCost.class.getName(), 1));
+  private static final Channel defaultPostPlan =
+      httpRequest(Map.of(COST_WEIGHT_KEY, defaultDecreasing));
 
   @Test
   @Timeout(value = 60)
@@ -692,21 +695,21 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
       Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasAdding));
       Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasRemoving));
       Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(base));
-      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(Channel.EMPTY));
+      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(defaultPostPlan));
     }
   }
 
@@ -842,7 +845,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.EMPTY).toCompletableFuture().join());
+              handler
+                  .post(httpRequest(Map.of(COST_WEIGHT_KEY, defaultDecreasing)))
+                  .toCompletableFuture()
+                  .join());
       Utils.waitFor(
           () ->
               ((BalancerHandler.PlanExecutionProgress)
@@ -1006,14 +1012,22 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var clusterInfo =
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       {
-        // default
-        var postRequest =
-            BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo);
+        // no cost weight
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo),
+            "CostWeights must be specified");
+      }
+      {
+        // minimal
+        var request = new BalancerPostRequest();
+        request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
+        var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
         Assertions.assertTrue(config.config().entrySet().isEmpty());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
-        Assertions.assertEquals(
-            BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
+        Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
+        Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
         Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
         Assertions.assertTrue(
             clusterInfo.topics().stream().allMatch(t -> config.topicFilter().test(t)));
@@ -1285,6 +1299,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, Map<String, Object> requestBody) {
+    if (!requestBody.containsKey(COST_WEIGHT_KEY)) {
+      requestBody = new HashMap<>(requestBody);
+      requestBody.put(COST_WEIGHT_KEY, defaultDecreasing);
+    }
     var post =
         (BalancerHandler.PostPlanResponse)
             handler
@@ -1410,5 +1428,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     cw.cost = Optional.of(cost);
     cw.weight = Optional.of(weight);
     return cw;
+  }
+
+  private static Channel httpRequest(Map<String, ?> payload) {
+    return Channel.ofRequest(JsonConverter.defaultConverter().toJson(payload));
   }
 }
