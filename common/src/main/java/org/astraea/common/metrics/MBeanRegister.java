@@ -68,7 +68,7 @@ public class MBeanRegister {
      *
      * @return this.
      */
-    public LocalRegister setDomainName(String domainName) {
+    public LocalRegister domainName(String domainName) {
       this.domainName = domainName;
       return this;
     }
@@ -78,7 +78,7 @@ public class MBeanRegister {
      *
      * @return this.
      */
-    public LocalRegister addProperty(String key, String value) {
+    public LocalRegister property(String key, String value) {
       this.properties.put(key, value);
       return this;
     }
@@ -88,7 +88,7 @@ public class MBeanRegister {
      *
      * @return this.
      */
-    public LocalRegister setDescription(String description) {
+    public LocalRegister description(String description) {
       this.description = description;
       return this;
     }
@@ -102,8 +102,7 @@ public class MBeanRegister {
      *     thread-safe.
      * @return this.
      */
-    public <T> LocalRegister addAttribute(
-        String name, Class<T> attributeClass, Supplier<T> source) {
+    public <T> LocalRegister attribute(String name, Class<T> attributeClass, Supplier<T> source) {
       Objects.requireNonNull(name);
       Objects.requireNonNull(attributeClass);
       Objects.requireNonNull(source);
