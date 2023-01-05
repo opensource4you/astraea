@@ -67,8 +67,6 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
-  static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
-      HasClusterCost.of(Map.of(new ReplicaLeaderSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
           List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaLeaderSizeCost()));
@@ -359,7 +357,7 @@ class BalancerHandler implements Handler {
 
   static HasClusterCost getClusterCost(BalancerPostRequest request) {
     var costWeights = request.costWeights;
-    if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
+    if (costWeights.isEmpty()) throw new IllegalArgumentException("costWeights is not specified");
     var costWeightMap =
         costWeights.stream()
             .flatMap(cw -> cw.cost.map(c -> Map.entry(c, cw.weight.orElse(1D))).stream())
