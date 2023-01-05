@@ -50,10 +50,7 @@ curl -X POST http://localhost:8001/balancer \
         "shuffle.tweaker.max.step": "5"
       },
       "costWeights": [
-<<<<<<< HEAD
         { "cost": "org.astraea.common.cost.ReplicaLeaderSizeCost", "weight": 1 },
-=======
->>>>>>> 237935e7c4d363c7a09dfc47913f0cd29c09dfd7
         { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],
       "maxMigratedSize": "300MB",
