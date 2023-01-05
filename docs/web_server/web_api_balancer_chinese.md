@@ -14,11 +14,11 @@ POST /balancer
 
 | 名稱                | 說明                                                         | 預設值                                                   |
 |-------------------|------------------------------------------------------------|-------------------------------------------------------|
+| costWeights       | (必填) 指定要優化的目標以及對應權重                                        | 無                                                     |
 | topics            | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
 | timeout           | (選填) 指定產生時間                                                | 3s                                                    |
 | balancer          | (選填) 欲使用的負載優化計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
 | balancerConfig    | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                     |
-| costWeights       | (選填) 指定要優化的目標以及權重                                          | ReplicaSizeCost,ReplicaLeaderCost權重皆為1                |
  | maxMigratedSize   | (選填) 設定最大可搬移的log size                                      | 無 　                                                   |
  | maxMigratedLeader | (選填) 設定最大可搬移的leader 數量                                     | 無                                                     |
 
