@@ -26,9 +26,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.astraea.common.DataRate;
-import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -47,10 +45,13 @@ import org.astraea.common.metrics.stats.Debounce;
 import org.astraea.common.metrics.stats.Max;
 
 /**
- * in broker -> higher broker cost ClusterCost: The more unbalanced the replica log size among
- * brokers -> higher cluster cost MoveCost: more replicas log size migrate
+ * PartitionCost: large replica max write rate per partition -> higher partition cost. BrokerCost:
+ * more replica max write rate in broker -> higher broker cost. ClusterCost: The more unbalanced the
+ * replica max write rate among brokers -> higher cluster cost. MoveCost: more max write rate change
+ * -> higher migrate cost.
  */
-public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost, HasMoveCost {
+public class PartitionMaxInRateCost
+    implements HasClusterCost, HasBrokerCost, HasPartitionCost, HasMoveCost {
   private static final Dispersion dispersion = Dispersion.cov();
   private static final String REPLICA_WRITE_RATE = "replica_write_rate";
   private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
@@ -60,11 +61,11 @@ public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost, HasM
   static final Map<TopicPartitionReplica, Sensor<Double>> expWeightSensors = new HashMap<>();
   static final Map<TopicPartitionReplica, Debounce<Double>> denounces = new HashMap<>();
 
-  ReplicaMaxInRateCost() {
+  PartitionMaxInRateCost() {
     this.duration = DEFAULT_DURATION;
   }
 
-  ReplicaMaxInRateCost(Duration duration) {
+  PartitionMaxInRateCost(Duration duration) {
     this.duration = duration;
   }
 
@@ -78,66 +79,76 @@ public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost, HasM
   @Override
   public BrokerCost brokerCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    var partitionCost = partitionCost(clusterInfo, clusterBean);
-    var brokerLoad =
-        clusterInfo.nodes().stream()
-            .map(
-                node ->
-                    Map.entry(
-                        node.id(),
-                        partitionCost.apply(node.id()).values().stream()
-                            .mapToDouble(rate -> rate)
-                            .sum()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return () -> brokerLoad;
-  }
-
-  private Function<Integer, Map<TopicPartition, Double>> partitionCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    var replicaIn =
-        clusterInfo.topicPartitionReplicas().stream()
-            .collect(
-                Collectors.toMap(
-                    tpr -> tpr,
-                    tpr -> statistPartitionSizeCount(tpr.topicPartition(), clusterBean)));
-    if (replicaIn.values().stream().allMatch(x -> x == 0.0))
-      throw new NoSufficientMetricsException(
-          this, Duration.ofSeconds(1), "all topic partitions are currently idle.");
+    var partitionIn = partitionCost(clusterInfo, clusterBean).value();
     var scoreForBroker =
         clusterInfo.nodes().stream()
-            .map(
-                node ->
-                    Map.entry(
-                        node.id(),
-                        replicaIn.entrySet().stream()
-                            .filter(x -> x.getKey().brokerId() == node.id())
-                            .collect(
-                                Collectors.groupingBy(
-                                    x ->
-                                        TopicPartition.of(
-                                            x.getKey().topic(), x.getKey().partition())))
-                            .entrySet()
-                            .stream()
-                            .map(
-                                entry ->
-                                    Map.entry(
-                                        entry.getKey(),
-                                        entry.getValue().stream()
-                                            .mapToDouble(Map.Entry::getValue)
-                                            .max()
-                                            .orElseThrow()))
-                            .collect(
-                                Collectors.toUnmodifiableMap(
-                                    Map.Entry::getKey, Map.Entry::getValue))))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    return scoreForBroker::get;
+            .collect(
+                Collectors.toMap(
+                    NodeInfo::id,
+                    node ->
+                        clusterInfo.replicas().stream()
+                            .filter(r -> r.nodeInfo().equals(node))
+                            .mapToDouble(r -> partitionIn.get(r.topicPartition()))
+                            .sum()));
+    return () -> scoreForBroker;
   }
 
-  private double statistPartitionSizeCount(TopicPartition tp, ClusterBean clusterBean) {
+  @Override
+  public PartitionCost partitionCost(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    var replicaRate =
+        clusterBean.replicas().stream()
+            .map(
+                p ->
+                    clusterBean
+                        .replicaMetrics(p, LogRateStatisticalBean.class)
+                        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
+                        .orElseThrow(
+                            () ->
+                                new NoSufficientMetricsException(
+                                    this, Duration.ofSeconds(1), "No metric for " + p)))
+            .collect(
+                Collectors.groupingBy(
+                    bean ->
+                        TopicPartition.of(
+                            bean.topicIndex().get(), bean.partitionIndex().get().partition()),
+                    Collectors.mapping(HasGauge::value, Collectors.toList())));
+    var partitionIn =
+        clusterInfo.topicPartitions().stream()
+            .collect(
+                Collectors.toMap(
+                    Function.identity(),
+                    topicPartition ->
+                        statistPartitionRateCount(
+                                clusterInfo
+                                    .replicaLeader(topicPartition)
+                                    .map(ReplicaInfo::topicPartitionReplica)
+                                    .get(),
+                                clusterBean)
+                            .orElse(
+                                maxPartitionRate(
+                                    topicPartition,
+                                    replicaRate.getOrDefault(topicPartition, List.of())))));
+
+    if (partitionIn.values().stream().allMatch(x -> x == 0.0))
+      throw new NoSufficientMetricsException(
+          this, Duration.ofSeconds(1), "all topic partitions are currently idle.");
+    return () -> partitionIn;
+  }
+
+  private Optional<Double> statistPartitionRateCount(
+      TopicPartitionReplica tpr, ClusterBean clusterBean) {
     return clusterBean
-        .partitionMetrics(tp, LogRateStatisticalBean.class)
+        .replicaMetrics(tpr, LogRateStatisticalBean.class)
         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-        .map(LogRateStatisticalBean::value)
+        .map(LogRateStatisticalBean::value);
+  }
+
+  double maxPartitionRate(TopicPartition tp, List<Double> size) {
+    if (size.isEmpty())
+      throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric for " + tp);
+    return size.stream()
+        .max(Comparator.comparing(Function.identity()))
         .orElseThrow(
             () ->
                 new NoSufficientMetricsException(
@@ -189,7 +200,7 @@ public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost, HasM
                                     lastTime.put(tpr, current);
                                     lastRecord.put(tpr, debouncedValue);
                                   });
-                          return (ReplicaMaxInRateCost.LogRateStatisticalBean)
+                          return (PartitionMaxInRateCost.LogRateStatisticalBean)
                               () ->
                                   new BeanObject(
                                       g.beanObject().domainName(),
@@ -205,20 +216,27 @@ public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost, HasM
   @Override
   public MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    var beforePartitionCost = partitionCost(before,clusterBean);
-    var afterPartitionCost = partitionCost(after,clusterBean);
+    var partitionIn = partitionCost(before, clusterBean).value();
     return MoveCost.changedReplicaMaxInRate(
-            Stream.concat(before.nodes().stream(), after.nodes().stream())
-                    .map(NodeInfo::id)
-                    .distinct()
-                    .parallel()
-                    .collect(
-                            Collectors.toUnmodifiableMap(
-                                    Function.identity(),
-                                    id ->
-                                            DataRate.Byte.of(after.replicaStream(id).mapToLong(r -> af.sum()
-                                                    - before.replicaStream(id).mapToLong(r -> r.size()).sum()).perSecond())));
-    );
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .distinct()
+            .parallel()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    id ->
+                        DataRate.Byte.of(
+                                Math.round(
+                                    after
+                                            .replicaStream(id)
+                                            .mapToDouble(r -> partitionIn.get(r.topicPartition()))
+                                            .sum()
+                                        - before
+                                            .replicaStream(id)
+                                            .mapToDouble(r -> partitionIn.get(r.topicPartition()))
+                                            .sum()))
+                            .perSecond())));
   }
 
   public interface LogRateStatisticalBean extends HasGauge<Double> {}

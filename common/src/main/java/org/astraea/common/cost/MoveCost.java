@@ -52,7 +52,7 @@ public interface MoveCost {
     };
   }
 
-  static MoveCost changedReplicaMaxInRate(Map<Integer, DataRate> value){
+  static MoveCost changedReplicaMaxInRate(Map<Integer, DataRate> value) {
     return new MoveCost() {
       @Override
       public Map<Integer, DataRate> changedReplicaMaxInRate() {
