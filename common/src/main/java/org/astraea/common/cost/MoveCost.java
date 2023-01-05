@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
+import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
@@ -51,6 +52,15 @@ public interface MoveCost {
     };
   }
 
+  static MoveCost changedReplicaMaxInRate(Map<Integer, DataRate> value){
+    return new MoveCost() {
+      @Override
+      public Map<Integer, DataRate> changedReplicaMaxInRate() {
+        return value;
+      }
+    };
+  }
+
   /**
    * @return the data size of moving replicas. Noted that the "removing" replicas are excluded.
    */
@@ -71,6 +81,14 @@ public interface MoveCost {
    *     number of removing leaders)
    */
   default Map<Integer, Integer> changedReplicaLeaderCount() {
+    return Map.of();
+  }
+
+  /**
+   * @return broker id and changed max replica write rate. changed rate = (max replica write rate of
+   *     adding replicas - max replica write rate of removing replicas)
+   */
+  default Map<Integer, DataRate> changedReplicaMaxInRate() {
     return Map.of();
   }
 }

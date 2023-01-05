@@ -25,8 +25,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -41,7 +46,11 @@ import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Debounce;
 import org.astraea.common.metrics.stats.Max;
 
-public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost {
+/**
+ * in broker -> higher broker cost ClusterCost: The more unbalanced the replica log size among
+ * brokers -> higher cluster cost MoveCost: more replicas log size migrate
+ */
+public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost, HasMoveCost {
   private static final Dispersion dispersion = Dispersion.cov();
   private static final String REPLICA_WRITE_RATE = "replica_write_rate";
   private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
@@ -191,6 +200,25 @@ public class ReplicaMaxInRateCost implements HasClusterCost, HasBrokerCost {
                                       System.currentTimeMillis());
                         })
                     .collect(Collectors.toList())));
+  }
+
+  @Override
+  public MoveCost moveCost(
+      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+    var beforePartitionCost = partitionCost(before,clusterBean);
+    var afterPartitionCost = partitionCost(after,clusterBean);
+    return MoveCost.changedReplicaMaxInRate(
+            Stream.concat(before.nodes().stream(), after.nodes().stream())
+                    .map(NodeInfo::id)
+                    .distinct()
+                    .parallel()
+                    .collect(
+                            Collectors.toUnmodifiableMap(
+                                    Function.identity(),
+                                    id ->
+                                            DataRate.Byte.of(after.replicaStream(id).mapToLong(r -> af.sum()
+                                                    - before.replicaStream(id).mapToLong(r -> r.size()).sum()).perSecond())));
+    );
   }
 
   public interface LogRateStatisticalBean extends HasGauge<Double> {}
