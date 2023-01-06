@@ -48,18 +48,19 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   @Override
   public int partition(
       String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
-    var targetPartition = unusedPartitions.poll();
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
-    refreshPartitionMetaData(clusterInfo, topic);
-    Supplier<Map<Integer, Double>> supplier =
-        () ->
-            // fetch the latest beans for each node
-            neutralIntegratedCost.brokerCost(clusterInfo, metricCollector.clusterBean()).value();
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
 
     // just return the only one available partition
     if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
+
+    var targetPartition = unusedPartitions.poll();
+    refreshPartitionMetaData(clusterInfo, topic);
+    Supplier<Map<Integer, Double>> supplier =
+        () ->
+            // fetch the latest beans for each node
+            neutralIntegratedCost.brokerCost(clusterInfo, metricCollector.clusterBean()).value();
 
     smoothWeightCal.refresh(supplier);
 

@@ -28,11 +28,11 @@ public final class SmoothWeightCal<E> {
   public Map<E, Double> currentEffectiveWeightResult;
 
   public SmoothWeightCal(Map<E, Double> effectiveWeight) {
-    effectiveWeightResult.get(
+    this.effectiveWeightResult.get(
         () ->
             effectiveWeight.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0)));
-    currentEffectiveWeightResult = effectiveWeightResult.get();
+    this.currentEffectiveWeightResult = effectiveWeightResult.get();
   }
 
   /**
@@ -41,7 +41,7 @@ public final class SmoothWeightCal<E> {
    * @param brokerScore Broker Score.
    */
   void refresh(Supplier<Map<E, Double>> brokerScore) {
-    effectiveWeightResult =
+    this.effectiveWeightResult =
         Lazy.of(
             () -> {
               var score = brokerScore.get();
