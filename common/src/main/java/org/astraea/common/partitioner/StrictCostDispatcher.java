@@ -21,15 +21,13 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
@@ -61,16 +59,10 @@ public class StrictCostDispatcher implements Dispatcher {
   final MetricCollector metricCollector =
       MetricCollector.builder().interval(Duration.ofSeconds(4)).build();
 
-  Duration roundRobinLease;
-
   HasBrokerCost costFunction = HasBrokerCost.EMPTY;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
 
-  final int[] roundRobin = new int[ROUND_ROBIN_LENGTH];
-
-  final AtomicInteger next = new AtomicInteger(0);
-
-  volatile long timeToUpdateRoundRobin = -1;
+  PreArrangementSmoothRR preArrangementSmoothRR;
 
   void tryToUpdateFetcher(ClusterInfo<ReplicaInfo> clusterInfo) {
     // register new nodes to metric collector
@@ -106,31 +98,19 @@ public class StrictCostDispatcher implements Dispatcher {
 
     tryToUpdateFetcher(clusterInfo);
 
-    tryToUpdateRoundRobin(clusterInfo);
+    preArrangementSmoothRR.tryToUpdateRoundRobin(
+        clusterInfo,
+        Lazy.of(
+            () ->
+                costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean()))));
 
-    var target =
-        roundRobin[
-            next.getAndUpdate(previous -> previous >= roundRobin.length - 1 ? 0 : previous + 1)];
+    var target = preArrangementSmoothRR.next();
 
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
     var candidate =
         target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
     return candidate.get((int) (Math.random() * candidate.size())).partition();
-  }
-
-  synchronized void tryToUpdateRoundRobin(ClusterInfo<ReplicaInfo> clusterInfo) {
-    if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
-      var roundRobin =
-          RoundRobin.smooth(
-              costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean())));
-      var ids =
-          clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-      // TODO: make ROUND_ROBIN_LENGTH configurable ???
-      IntStream.range(0, ROUND_ROBIN_LENGTH)
-          .forEach(index -> this.roundRobin[index] = roundRobin.next(ids).orElse(-1));
-      timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
-    }
   }
 
   /**
@@ -191,7 +171,7 @@ public class StrictCostDispatcher implements Dispatcher {
                 metricCollector.registerLocalJmx(-1);
                 metricCollector.addFetcher(fetcher);
               });
-      this.roundRobinLease = roundRobinLease;
+      this.preArrangementSmoothRR = PreArrangementSmoothRR.of(ROUND_ROBIN_LENGTH, roundRobinLease);
     }
   }
 

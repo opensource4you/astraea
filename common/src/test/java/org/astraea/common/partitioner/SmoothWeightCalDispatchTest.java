@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.partitioner.smooth;
+package org.astraea.common.partitioner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,9 +34,6 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
@@ -46,9 +43,8 @@ import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
-public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
+public class SmoothWeightCalDispatchTest extends RequireBrokerCluster {
   private final String brokerList = bootstrapServers();
   private final Admin admin = Admin.of(bootstrapServers());
 
@@ -189,8 +185,7 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
     var props = initProConfig();
     var file =
         new File(
-            SmoothWeightRoundRobinDispatchTest.class.getResource("").getPath()
-                + "PartitionerConfigTest");
+            SmoothWeightCalDispatchTest.class.getResource("").getPath() + "PartitionerConfigTest");
     try (var fileWriter = new FileWriter(file)) {
       fileWriter.write(
           "broker.0.jmx.port="
@@ -251,30 +246,5 @@ public class SmoothWeightRoundRobinDispatchTest extends RequireBrokerCluster {
         producer.flush();
       }
     };
-  }
-
-  @Test
-  public void testGetAndChoose() {
-    var topic = "test";
-    var smoothWeight = new SmoothWeightRoundRobin(Map.of(1, 5.0, 2, 3.0, 3, 1.0));
-    var node1 = Mockito.mock(NodeInfo.class);
-    Mockito.when(node1.id()).thenReturn(1);
-    var re1 = ReplicaInfo.of(topic, 0, node1, true, true, false);
-
-    var node2 = Mockito.mock(NodeInfo.class);
-    Mockito.when(node2.id()).thenReturn(2);
-    var re2 = ReplicaInfo.of(topic, 1, node2, true, true, false);
-
-    var node3 = Mockito.mock(NodeInfo.class);
-    Mockito.when(node3.id()).thenReturn(3);
-    var re3 = ReplicaInfo.of(topic, 2, node3, true, true, false);
-    var testCluster = ClusterInfo.of(List.of(node1, node2, node3), List.of(re1, re2, re3));
-    Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
-    Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
-    Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));
-    Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
-    Assertions.assertEquals(2, smoothWeight.getAndChoose(topic, testCluster));
-    Assertions.assertEquals(3, smoothWeight.getAndChoose(topic, testCluster));
-    Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
   }
 }

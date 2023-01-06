@@ -20,6 +20,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.spark.sql.SparkSession
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.generateCSVF
+import org.astraea.etl.ReadStreams.schema
 import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
@@ -33,6 +34,18 @@ import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 
 class Spark2KafkaTest extends RequireBrokerCluster {
+  @Test
+  def test(): Unit = {
+    val df = session.readStream
+      .option("recursiveFileLookup", "true")
+      .option("cleanSource", "delete")
+      .schema(schema(columns))
+      .csv(source)
+      .filter(row => {
+        val bool = (0 until row.length).exists(i => !row.isNullAt(i))
+        bool
+      })
+  }
   @Test
   def consumerDataTest(): Unit = {
     val topic = new util.HashSet[String]
