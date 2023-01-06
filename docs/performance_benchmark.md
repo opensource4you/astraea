@@ -15,7 +15,9 @@
 4. Produce rate : producer送資料的速率(MB/s)
 5. Produce record error rate : 發送資料時錯誤的頻率
 6. rebalance latency : consumer group 平衡所花的時間
-7. consumer assigned partitions : consumer 被 assigned partition 數量、數量差
+7. consumer assigned partitions : consumer 被 assigned partition 數量、non-sticky partition 數量平均（註1）、數量差平均（註1）
+
+註1：此平均是以 exponential average 計算，每一次的 rebalance 都會把上一次算得的平均乘以 0.5 加上現在數值乘以0.5，算得本次的平均，起始值從 0 開始算。也就是 $a_n=a_{n-1}*0.5+current*0.5$ 。其中 $a_n$ 代表第 $n$ 次 rebalance 後算得的平均，$current$ 代表的是新的要紀錄的數值，如： non-sticky partition 的數量、partition 數量差。
 
 #### Performance Benchmark Configurations
 
@@ -56,10 +58,10 @@
 使用`docker`執行`performance benchmark`
 
 ```bash 
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic
 ```
 
-(localhost, 9092 替換成自己Kafka server 的 ip 和 port)
+(192.168.103.26, 9092 替換成自己Kafka server 的 ip 和 port)
 
 ![performance_tool_demo](pictures/performance_tool_demo.png)
 
@@ -69,31 +71,31 @@ docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTo
 
 ```bash
 # 開啟 1 個 producer 打 25 分鐘資料， 1 個 consumer 消費資料
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --run.until 25m
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --run.until 25m
 ```
 
 ```bash
 # 開啟 1 個 producer ，打 10000 筆資料 且 沒有consumer
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --run.until 10000records --consumers 0
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --run.until 10000records --consumers 0
 ```
 
 ```bash
 # 打50秒資料、每筆大小10KiB、固定大小、使用4個producer threads、10個consumer threads，指定topic名稱，producer送資料前使用 lz4 壓縮演算法
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --value.size 10KiB --value.distribution fixed --run.until 50s --producers 4 --consumers 10 --topics MyTopic --configs compression.type=lz4
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --value.size 10KiB --value.distribution fixed --run.until 50s --producers 4 --consumers 10 --topics MyTopic --configs compression.type=lz4
 ```
 
 ```bash
 # 使用astraea的 partitioner ，傳入config檔案路徑，裡面可以放 partitioner 所需的參數，如jmx port等
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --prop.file ./config
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --prop.file ./config
 ```
 
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
 
 ```bash
 # 使用 throttle 功能，限制 producers 送進 a1-0 與 a3-1 的資料量在 20MB/s 與 10MB/s 內
-docker/start_app.sh performance --bootstrap.servers localhost:9092 --topics a1,a2,a3 --producers 5 --consumers 0 --throttle a1-0:20MB/s,a3-1:10MB/s --run.until 5m
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics a1,a2,a3 --producers 5 --consumers 0 --throttle a1-0:20MB/s,a3-1:10MB/s --run.until 5m
 ```
 
