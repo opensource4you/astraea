@@ -17,7 +17,7 @@
 6. rebalance latency : consumer group 平衡所花的時間
 7. consumer assigned partitions : consumer 被 assigned partition 數量、non-sticky partition 數量平均（註1）、數量差平均（註1）
 
-註1：此平均是以 exponential average 計算，每一次的 rebalance 都會把上一次算得的平均乘以 0.5 加上現在數值乘以0.5，算得本次的平均，起始值從 0 開始算。也就是 $a_n=a_{n-1}*0.5+current*0.5$ 。其中 $a_n$ 代表第 $n$ 次 rebalance 後算得的平均，$current$ 代表的是新的要紀錄的數值，如： non-sticky partition 的數量、partition 數量差。
+註1：此平均是以 exponential average 計算，每一次的 rebalance 都會把上一次算得的平均乘以 0.5 加上現在數值乘以0.5，算得本次的平均，起始值從 0 開始算。也就是 $a_n$ = $a_{n-1}$ \* 0.5 + $current$ \* 0.5 。其中 $a_n$ 代表第 $n$ 次 rebalance 後算得的平均，$current$ 代表的是新的要紀錄的數值，如： non-sticky partition 的數量、partition 數量差。
 
 #### Performance Benchmark Configurations
 
