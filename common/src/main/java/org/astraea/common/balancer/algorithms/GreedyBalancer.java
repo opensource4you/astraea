@@ -177,12 +177,12 @@ public class GreedyBalancer implements Balancer {
     var currentMinCost =
         new DoubleAccumulator((l, r) -> Double.isNaN(r) ? l : Math.min(l, r), initialCost.value());
     MBeanRegister.local()
-        .setDomainName("astraea.balancer")
-        .addProperty("id", config.executionId())
-        .addProperty("algorithm", GreedyBalancer.class.getSimpleName())
-        .addProperty("run", Integer.toString(run.getAndIncrement()))
-        .addAttribute("Iteration", Long.class, currentIteration::sum)
-        .addAttribute("MinCost", Double.class, currentMinCost::get)
+        .domainName("astraea.balancer")
+        .property("id", config.executionId())
+        .property("algorithm", GreedyBalancer.class.getSimpleName())
+        .property("run", Integer.toString(run.getAndIncrement()))
+        .attribute("Iteration", Long.class, currentIteration::sum)
+        .attribute("MinCost", Double.class, currentMinCost::get)
         .register();
 
     while (true) {

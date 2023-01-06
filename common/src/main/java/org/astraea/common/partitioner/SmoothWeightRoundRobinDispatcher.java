@@ -39,7 +39,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final MetricCollector metricCollector =
-      MetricCollector.builder().interval(Duration.ofSeconds(4)).build();
+      MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
   private SmoothWeightCal<Integer> smoothWeightCal;
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
   private PreArrangementSmoothRR preArrangementSmoothRR;

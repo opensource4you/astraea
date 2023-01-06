@@ -19,10 +19,26 @@ package org.astraea.common.metrics;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class MBeanRegisterTest {
+
+  @Test
+  void testNodeMetrics() {
+    MBeanRegister.local()
+        .domainName("kafka.producer")
+        .property("type", "producer-node-metrics")
+        .property("node-id", "100")
+        .property("client-id", "xxxx")
+        .attribute("incoming-byte-rate", Double.class, () -> 10D)
+        .register();
+
+    var metrics = ProducerMetrics.nodes(MBeanClient.local());
+    Assertions.assertEquals(1, metrics.size());
+    Assertions.assertEquals(10D, metrics.iterator().next().incomingByteRate());
+  }
 
   @Test
   void testBuilder() {
@@ -36,11 +52,11 @@ class MBeanRegisterTest {
 
       // register
       MBeanRegister.local()
-          .setDomainName(domainName)
-          .setDescription("Hello World")
-          .addProperty("id", id)
-          .addAttribute("Name", String.class, () -> "Robert")
-          .addAttribute("Age", Integer.class, () -> 43)
+          .domainName(domainName)
+          .description("Hello World")
+          .property("id", id)
+          .attribute("Name", String.class, () -> "Robert")
+          .attribute("Age", Integer.class, () -> 43)
           .register();
       Assertions.assertEquals(domainName, bean.get().domainName());
       Assertions.assertEquals(Map.of("id", id), bean.get().properties());

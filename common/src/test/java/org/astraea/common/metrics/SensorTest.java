@@ -52,8 +52,8 @@ public class SensorTest {
     Mockito.when(stat1.measure()).thenReturn(1.0);
     Mockito.when(stat2.measure()).thenReturn(2.0);
 
-    Assertions.assertEquals(1.0, sensor.measure("t1"));
-    Assertions.assertEquals(2.0, sensor.measure("t2"));
+    Assertions.assertEquals(1.0, (Double) sensor.measure("t1"));
+    Assertions.assertEquals(2.0, (Double) sensor.measure("t2"));
   }
 
   @Test
@@ -61,9 +61,9 @@ public class SensorTest {
     var sensor = Sensor.builder().addStat("average", Avg.of()).build();
     sensor.record(1.0);
     var metrics = sensor.metrics();
-    Assertions.assertEquals(1.0, metrics.get("average").measure());
+    Assertions.assertEquals(1.0, (Double) metrics.get("average").measure());
     sensor.record(2.0);
-    Assertions.assertEquals(1.0, metrics.get("average").measure());
+    Assertions.assertEquals(1.0, (Double) metrics.get("average").measure());
   }
 
   private Stat<Double> countRecord(AtomicInteger counter) {
