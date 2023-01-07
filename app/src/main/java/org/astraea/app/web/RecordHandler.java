@@ -182,7 +182,7 @@ public class RecordHandler implements Handler {
     var producer =
         postRequest
             .transactionId()
-            .map(transactionalProducerCache::get)
+            .map(transactionalProducerCache::require)
             .orElse(this.producer.get());
 
     var result =
