@@ -45,6 +45,7 @@ public class ClusterInfoTest {
     // TODO: this method is not suitable for production use. Move it to the test scope.
     //  see https://github.com/skiptests/astraea/issues/1185
     return ClusterInfo.of(
+        "fake",
         replicas.stream()
             .map(ReplicaInfo::nodeInfo)
             .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))

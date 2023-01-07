@@ -160,7 +160,7 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
                 .nodeInfo(nodes.get(2))
                 .size(30)
                 .build());
-    var results = ReplicaNode.allResult(ClusterInfo.of(nodes, replicas));
+    var results = ReplicaNode.allResult(ClusterInfo.of("fake", nodes, replicas));
     Assertions.assertEquals(3, results.size());
     Assertions.assertEquals(
         1,

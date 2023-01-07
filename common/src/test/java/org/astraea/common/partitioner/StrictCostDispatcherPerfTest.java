@@ -55,6 +55,7 @@ public class StrictCostDispatcherPerfTest {
     var node2 = NodeInfo.of(2, "node2", 2222);
     var clusterInfo =
         ClusterInfo.of(
+            "fake",
             List.of(node0, node1, node2),
             List.of(
                 ReplicaInfo.of("topic", 0, node0, true, true, false),
