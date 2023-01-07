@@ -78,7 +78,7 @@ public class StrictCostDispatcherPerfTest {
                     .collect(Collectors.groupingBy(i -> i));
 
             var keys =
-                Arrays.stream(dispatcher.roundRobin)
+                Arrays.stream(dispatcher.preArrangementSmoothRR.roundRobin)
                     .boxed()
                     .collect(Collectors.groupingBy(i -> i))
                     .keySet();
