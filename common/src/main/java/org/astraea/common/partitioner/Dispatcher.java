@@ -27,14 +27,16 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ReplicaInfo;
 
-public interface Dispatcher extends Partitioner {
+public abstract class Dispatcher implements Partitioner {
   /**
    * cache the cluster info to reduce the cost of converting cluster. Producer does not update
    * Cluster frequently, so it is ok to cache it.
    */
-  ConcurrentHashMap<Cluster, ClusterInfo<ReplicaInfo>> CLUSTER_CACHE = new ConcurrentHashMap<>();
+  static final ConcurrentHashMap<Cluster, ClusterInfo<ReplicaInfo>> CLUSTER_CACHE =
+      new ConcurrentHashMap<>();
 
-  ThreadLocal<Interdependent> THREAD_LOCAL = ThreadLocal.withInitial(Interdependent::new);
+  static final ThreadLocal<Interdependent> THREAD_LOCAL =
+      ThreadLocal.withInitial(Interdependent::new);
 
   /**
    * Compute the partition for the given record.
@@ -44,16 +46,22 @@ public interface Dispatcher extends Partitioner {
    * @param value The value to partition
    * @param clusterInfo The current cluster metadata
    */
-  int partition(String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo);
+  protected abstract int partition(
+      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.
    *
    * @param config configuration
    */
-  default void configure(Configuration config) {}
+  protected void configure(Configuration config) {}
 
-  default void doClose() {}
+  protected void onNewBatch(String topic, int prevPartition) {}
+
+  @Override
+  public void close() {}
+
+  // -----------------------[interdependent]-----------------------//
 
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
@@ -74,7 +82,8 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO One thread supports multiple producers.
-  static void beginInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
+  public static void beginInterdependent(
+      org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.get().isInterdependent = true;
   }
 
@@ -98,7 +107,7 @@ public interface Dispatcher extends Partitioner {
    */
   // TODO One thread supports multiple producers.
   // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
-  static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
+  public static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     beginInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
@@ -107,7 +116,7 @@ public interface Dispatcher extends Partitioner {
    *
    * @param producer Kafka producer
    */
-  static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
+  public static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
   }
   /**
@@ -116,18 +125,19 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
-  static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
+  public static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     endInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
-  /** close this dispatcher. This method is executed only once. */
-  @Override
-  default void close() {
-    doClose();
+  private static class Interdependent {
+    boolean isInterdependent = false;
+    private int targetPartitions = -1;
   }
 
+  // -----------------------[kafka method]-----------------------//
+
   @Override
-  default void configure(Map<String, ?> configs) {
+  public final void configure(Map<String, ?> configs) {
     configure(
         Configuration.of(
             configs.entrySet().stream()
@@ -135,7 +145,7 @@ public interface Dispatcher extends Partitioner {
   }
 
   @Override
-  default int partition(
+  public final int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     var interdependent = THREAD_LOCAL.get();
     if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
@@ -151,10 +161,7 @@ public interface Dispatcher extends Partitioner {
   }
 
   @Override
-  default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
-
-  class Interdependent {
-    boolean isInterdependent = false;
-    private int targetPartitions = -1;
+  public final void onNewBatch(String topic, Cluster cluster, int prevPartition) {
+    onNewBatch(topic, prevPartition);
   }
 }

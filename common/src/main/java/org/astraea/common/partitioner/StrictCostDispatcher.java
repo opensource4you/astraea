@@ -51,7 +51,7 @@ import org.astraea.common.metrics.collector.MetricCollector;
  * and its weight. For example,
  * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.broker.BrokerOutputCost=1`.
  */
-public class StrictCostDispatcher implements Dispatcher {
+public class StrictCostDispatcher extends Dispatcher {
   static final int ROUND_ROBIN_LENGTH = 400;
 
   public static final String JMX_PORT = "jmx.port";
@@ -204,7 +204,7 @@ public class StrictCostDispatcher implements Dispatcher {
   }
 
   @Override
-  public void doClose() {
+  public void close() {
     metricCollector.close();
   }
 }
