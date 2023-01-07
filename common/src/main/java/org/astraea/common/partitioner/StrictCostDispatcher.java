@@ -51,16 +51,15 @@ import org.astraea.common.metrics.collector.MetricCollector;
  */
 public class StrictCostDispatcher implements Dispatcher {
   static final int ROUND_ROBIN_LENGTH = 400;
-  public static final String JMX_PORT = "jmx.port";
-  public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
+  static final String JMX_PORT = "jmx.port";
+  static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
   final MetricCollector metricCollector =
       MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
 
-  Duration roundRobinLease = Duration.ofSeconds(4);
+  private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
-
   PreArrangementSmoothRR preArrangementSmoothRR;
 
   void tryToUpdateFetcher(ClusterInfo<ReplicaInfo> clusterInfo) {

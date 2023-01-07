@@ -28,10 +28,10 @@ import org.astraea.common.admin.ReplicaInfo;
 
 public class PreArrangementSmoothRR {
   private final int preLength;
+  private final AtomicInteger next = new AtomicInteger(0);
   final int[] roundRobin;
   final Duration roundRobinLease;
   volatile long timeToUpdateRoundRobin = -1;
-  final AtomicInteger next = new AtomicInteger(0);
 
   private PreArrangementSmoothRR(int preLength, Duration roundRobinLease) {
     this.preLength = preLength;

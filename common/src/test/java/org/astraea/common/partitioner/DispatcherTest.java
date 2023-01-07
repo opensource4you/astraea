@@ -47,16 +47,15 @@ import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.swing.plaf.synth.SynthOptionPaneUI;
-
 public class DispatcherTest extends RequireSingleBrokerCluster {
-  private final String SMOOTH_ROUND_ROBIN = "org.astraea.common.partitioner.SmoothWeightRoundRobinDispatcher";
+  private final String SMOOTH_ROUND_ROBIN =
+      "org.astraea.common.partitioner.SmoothWeightRoundRobinDispatcher";
   private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostDispatcher";
+
   @Test
   void testNullKey() {
     var count = new AtomicInteger();
@@ -85,61 +84,61 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(2, count.get());
   }
 
-    @ParameterizedTest
-    @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
-    void multipleThreadTest(String className) throws IOException {
-        var topicName = "address";
-        createTopic(topicName);
-        var key = "tainan";
-        var value = "shanghai";
-        var timestamp = System.currentTimeMillis() + 10;
-        var header = Header.of("a", "b".getBytes());
-        try (var producer =
-                     Producer.builder()
-                             .keySerializer(Serializer.STRING)
-                             .configs(
-                                     put(initProConfig(),className).entrySet().stream()
-                                             .collect(
-                                                     Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
-                             .build()) {
-            Runnable runnable =
-                    () -> {
-                        Dispatcher.beginInterdependent(instanceOfProducer(producer));
-                        var exceptPartition =
-                                producerSend(producer, topicName, key, value, timestamp, header).partition();
-                        IntStream.range(0, 10)
-                                .forEach(
-                                        i -> {
-                                            Metadata metadata;
-                                            metadata = producerSend(producer, topicName, key, value, timestamp, header);
-                                            assertEquals(topicName, metadata.topic());
-                                            assertEquals(timestamp, metadata.timestamp());
-                                            assertEquals(exceptPartition, metadata.partition());
-                                        });
-                        Dispatcher.endInterdependent(instanceOfProducer(producer));
-                    };
+  @ParameterizedTest
+  @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
+  void multipleThreadTest(String className) throws IOException {
+    var topicName = "address";
+    createTopic(topicName);
+    var key = "tainan";
+    var value = "shanghai";
+    var timestamp = System.currentTimeMillis() + 10;
+    var header = Header.of("a", "b".getBytes());
+    try (var producer =
+        Producer.builder()
+            .keySerializer(Serializer.STRING)
+            .configs(
+                put(initProConfig(), className).entrySet().stream()
+                    .collect(
+                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+            .build()) {
+      Runnable runnable =
+          () -> {
             Dispatcher.beginInterdependent(instanceOfProducer(producer));
-
-            var fs =
-                    IntStream.range(0, 10)
-                            .mapToObj(i -> CompletableFuture.runAsync(runnable))
-                            .collect(Collectors.toList());
-
             var exceptPartition =
-                    producerSend(producer, topicName, key, value, timestamp, header).partition();
+                producerSend(producer, topicName, key, value, timestamp, header).partition();
             IntStream.range(0, 10)
-                    .forEach(
-                            i -> {
-                                Metadata metadata;
-                                metadata = producerSend(producer, topicName, key, value, timestamp, header);
-                                assertEquals(topicName, metadata.topic());
-                                assertEquals(timestamp, metadata.timestamp());
-                                assertEquals(exceptPartition, metadata.partition());
-                            });
+                .forEach(
+                    i -> {
+                      Metadata metadata;
+                      metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                      assertEquals(topicName, metadata.topic());
+                      assertEquals(timestamp, metadata.timestamp());
+                      assertEquals(exceptPartition, metadata.partition());
+                    });
             Dispatcher.endInterdependent(instanceOfProducer(producer));
-            fs.forEach(CompletableFuture::join);
-        }
+          };
+      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+
+      var fs =
+          IntStream.range(0, 10)
+              .mapToObj(i -> CompletableFuture.runAsync(runnable))
+              .collect(Collectors.toList());
+
+      var exceptPartition =
+          producerSend(producer, topicName, key, value, timestamp, header).partition();
+      IntStream.range(0, 10)
+          .forEach(
+              i -> {
+                Metadata metadata;
+                metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                assertEquals(topicName, metadata.topic());
+                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(exceptPartition, metadata.partition());
+              });
+      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      fs.forEach(CompletableFuture::join);
     }
+  }
 
   @Test
   void testClusterCache() {
@@ -160,11 +159,11 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 
-    @Test
-    void palindromes() {
-        System.out.println(SMOOTH_ROUND_ROBIN);
-        System.out.println(STRICT_ROUND_ROBIN);
-    }
+  @Test
+  void palindromes() {
+    System.out.println(SMOOTH_ROUND_ROBIN);
+    System.out.println(STRICT_ROUND_ROBIN);
+  }
 
   @ParameterizedTest
   @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
@@ -263,8 +262,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   }
 
   private Properties put(Properties properties, String name) {
-      properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, name);
-      return properties;
+    properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, name);
+    return properties;
   }
 
   private Properties initProConfig() throws IOException {
@@ -273,7 +272,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
+    props.put(
+        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
     props.put("producerID", 1);
     var file =
         new File(

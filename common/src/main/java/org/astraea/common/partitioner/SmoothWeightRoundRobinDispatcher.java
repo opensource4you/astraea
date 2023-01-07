@@ -40,8 +40,8 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final MetricCollector metricCollector =
       MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
-  private SmoothWeightCal<Integer> smoothWeightCal;
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
+  private SmoothWeightCal<Integer> smoothWeightCal;
   private PreArrangementSmoothRR preArrangementSmoothRR;
   private Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
 
