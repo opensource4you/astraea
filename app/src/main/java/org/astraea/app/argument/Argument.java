@@ -26,8 +26,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.AdminConfigs;
 
 /** This basic argument defines the common property used by all kafka clients. */
 public abstract class Argument {
@@ -82,7 +82,7 @@ public abstract class Argument {
           });
       props.forEach((k, v) -> all.put(k.toString(), v.toString()));
     }
-    all.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+    all.put(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     return Collections.unmodifiableMap(all);
   }
 
