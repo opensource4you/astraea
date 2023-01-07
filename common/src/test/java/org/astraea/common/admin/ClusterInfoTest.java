@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.ClusterResource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -129,6 +130,7 @@ public class ClusterInfoTest {
         .thenReturn(List.of(partition));
     Mockito.when(kafkaCluster.partitionsForTopic(partition.topic())).thenReturn(List.of(partition));
     Mockito.when(kafkaCluster.nodes()).thenReturn(List.of(node));
+    Mockito.when(kafkaCluster.clusterResource()).thenReturn(new ClusterResource("Xxx"));
 
     var clusterInfo = ClusterInfo.of(kafkaCluster);
 
