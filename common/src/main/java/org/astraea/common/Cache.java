@@ -21,33 +21,34 @@ import static java.util.Objects.requireNonNull;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Cache<K, V> {
 
-  @FunctionalInterface
-  public interface CacheLoader<K, V> {
-    V load(K key);
+  public static <K, V> CacheBuilder<K, V> builder() {
+    return new CacheBuilder<>();
   }
 
-  @FunctionalInterface
-  public interface RemovalListener<K, V> {
-    void onRemove(K k, V v);
-  }
-
-  public static <K, V> CacheBuilder<K, V> builder(CacheLoader<? super K, V> cacheLoader) {
+  public static <K, V> CacheBuilder<K, V> builder(Function<K, V> cacheLoader) {
     return new CacheBuilder<>(cacheLoader);
   }
 
   public static final class CacheBuilder<A, B> {
-    private final CacheLoader<? super A, B> cacheLoader;
+    private final Function<A, B> cacheLoader;
     private long expireAfterAccessNanos = -1;
     private int maxCapacity = -1;
-    private RemovalListener<? super A, ? super B> removalListener =
-        (RemovalListener<A, B>) (a, b) -> {};
+    private BiConsumer<A, B> removalListener = (a, b) -> {};
 
-    private CacheBuilder(CacheLoader<? super A, B> cacheLoader) {
+    private CacheBuilder(Function<A, B> cacheLoader) {
       this.cacheLoader = requireNonNull(cacheLoader);
+    }
+
+    private CacheBuilder() {
+      this.cacheLoader = null;
     }
 
     public CacheBuilder<A, B> expireAfterAccess(Duration duration) {
@@ -60,8 +61,7 @@ public class Cache<K, V> {
       return this;
     }
 
-    public CacheBuilder<A, B> removalListener(
-        RemovalListener<? super A, ? super B> removalListener) {
+    public CacheBuilder<A, B> removalListener(BiConsumer<A, B> removalListener) {
       this.removalListener = requireNonNull(removalListener);
       return this;
     }
@@ -72,10 +72,10 @@ public class Cache<K, V> {
   }
 
   private final Map<K, Wrapper<V>> map = new HashMap<>();
-  private final CacheLoader<? super K, V> cacheLoader;
+  private final Function<K, V> cacheLoader;
   private final long expireAfterAccessNanos;
   private final int maxCapacity;
-  private final RemovalListener<? super K, ? super V> removalListener;
+  private final BiConsumer<K, V> removalListener;
 
   private Cache(CacheBuilder<K, V> builder) {
     this.cacheLoader = builder.cacheLoader;
@@ -84,17 +84,27 @@ public class Cache<K, V> {
     this.removalListener = builder.removalListener;
   }
 
-  public synchronized V get(K key) {
+  public synchronized Optional<V> get(K key) {
+    cleanup();
+    return Optional.ofNullable(map.get(key)).map(Wrapper::get);
+  }
+
+  public synchronized V require(K key, Function<K, V> cacheLoader) {
     cleanup();
     return map.computeIfAbsent(
             key,
             k -> {
-              if (maxCapacity == map.size()) {
+              if (maxCapacity > 0 && maxCapacity == map.size()) {
                 throw new RuntimeException("cache is full");
               }
-              return new Wrapper<>(cacheLoader.load((k)));
+              return new Wrapper<>(cacheLoader.apply(k));
             })
         .get();
+  }
+
+  public synchronized V require(K key) {
+    return require(
+        key, Objects.requireNonNull(this.cacheLoader, "There is no default cache loader"));
   }
 
   public synchronized int size() {
@@ -110,7 +120,7 @@ public class Cache<K, V> {
         .forEach(
             entry -> {
               try {
-                removalListener.onRemove(entry.getKey(), entry.getValue().get());
+                removalListener.accept(entry.getKey(), entry.getValue().get());
               } catch (Throwable err) {
                 System.err.printf("Exception thrown by removal listener, %s%n", err.getMessage());
               }
