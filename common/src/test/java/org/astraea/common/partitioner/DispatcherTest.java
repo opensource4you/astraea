@@ -159,12 +159,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 
-  @Test
-  void palindromes() {
-    System.out.println(SMOOTH_ROUND_ROBIN);
-    System.out.println(STRICT_ROUND_ROBIN);
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
   void interdependentTest(String className) throws IOException {
