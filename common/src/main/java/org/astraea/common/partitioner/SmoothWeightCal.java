@@ -24,8 +24,8 @@ import org.astraea.common.Lazy;
 
 public final class SmoothWeightCal<E> {
   private final double UPPER_LIMIT_OFFSET_RATIO = 0.1;
-  public Lazy<Map<E, Double>> effectiveWeightResult = Lazy.of();
-  public Map<E, Double> currentEffectiveWeightResult;
+  Lazy<Map<E, Double>> effectiveWeightResult = Lazy.of();
+  Map<E, Double> currentEffectiveWeightResult;
 
   public SmoothWeightCal(Map<E, Double> effectiveWeight) {
     this.effectiveWeightResult.get(
@@ -40,7 +40,7 @@ public final class SmoothWeightCal<E> {
    *
    * @param brokerScore Broker Score.
    */
-  void refresh(Supplier<Map<E, Double>> brokerScore) {
+  synchronized void refresh(Supplier<Map<E, Double>> brokerScore) {
     this.effectiveWeightResult =
         Lazy.of(
             () -> {

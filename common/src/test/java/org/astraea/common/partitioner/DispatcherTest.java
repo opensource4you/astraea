@@ -49,8 +49,14 @@ import org.astraea.it.RequireSingleBrokerCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import javax.swing.plaf.synth.SynthOptionPaneUI;
 
 public class DispatcherTest extends RequireSingleBrokerCluster {
+  private final String SMOOTH_ROUND_ROBIN = "org.astraea.common.partitioner.SmoothWeightRoundRobinDispatcher";
+  private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostDispatcher";
   @Test
   void testNullKey() {
     var count = new AtomicInteger();
@@ -79,6 +85,62 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(2, count.get());
   }
 
+    @ParameterizedTest
+    @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
+    void multipleThreadTest(String className) throws IOException {
+        var topicName = "address";
+        createTopic(topicName);
+        var key = "tainan";
+        var value = "shanghai";
+        var timestamp = System.currentTimeMillis() + 10;
+        var header = Header.of("a", "b".getBytes());
+        try (var producer =
+                     Producer.builder()
+                             .keySerializer(Serializer.STRING)
+                             .configs(
+                                     put(initProConfig(),className).entrySet().stream()
+                                             .collect(
+                                                     Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
+                             .build()) {
+            Runnable runnable =
+                    () -> {
+                        Dispatcher.beginInterdependent(instanceOfProducer(producer));
+                        var exceptPartition =
+                                producerSend(producer, topicName, key, value, timestamp, header).partition();
+                        IntStream.range(0, 10)
+                                .forEach(
+                                        i -> {
+                                            Metadata metadata;
+                                            metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                                            assertEquals(topicName, metadata.topic());
+                                            assertEquals(timestamp, metadata.timestamp());
+                                            assertEquals(exceptPartition, metadata.partition());
+                                        });
+                        Dispatcher.endInterdependent(instanceOfProducer(producer));
+                    };
+            Dispatcher.beginInterdependent(instanceOfProducer(producer));
+
+            var fs =
+                    IntStream.range(0, 10)
+                            .mapToObj(i -> CompletableFuture.runAsync(runnable))
+                            .collect(Collectors.toList());
+
+            var exceptPartition =
+                    producerSend(producer, topicName, key, value, timestamp, header).partition();
+            IntStream.range(0, 10)
+                    .forEach(
+                            i -> {
+                                Metadata metadata;
+                                metadata = producerSend(producer, topicName, key, value, timestamp, header);
+                                assertEquals(topicName, metadata.topic());
+                                assertEquals(timestamp, metadata.timestamp());
+                                assertEquals(exceptPartition, metadata.partition());
+                            });
+            Dispatcher.endInterdependent(instanceOfProducer(producer));
+            fs.forEach(CompletableFuture::join);
+        }
+    }
+
   @Test
   void testClusterCache() {
     var dispatcher =
@@ -98,63 +160,15 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 
-  @RepeatedTest(5)
-  void multipleThreadTest() throws IOException {
-    var topicName = "address";
-    createTopic(topicName);
-    var key = "tainan";
-    var value = "shanghai";
-    var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
-    try (var producer =
-        Producer.builder()
-            .keySerializer(Serializer.STRING)
-            .configs(
-                initProConfig().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
-            .build()) {
-      Runnable runnable =
-          () -> {
-            Dispatcher.beginInterdependent(instanceOfProducer(producer));
-            var exceptPartition =
-                producerSend(producer, topicName, key, value, timestamp, header).partition();
-            IntStream.range(0, 10)
-                .forEach(
-                    i -> {
-                      Metadata metadata;
-                      metadata = producerSend(producer, topicName, key, value, timestamp, header);
-                      assertEquals(topicName, metadata.topic());
-                      assertEquals(timestamp, metadata.timestamp());
-                      assertEquals(exceptPartition, metadata.partition());
-                    });
-            Dispatcher.endInterdependent(instanceOfProducer(producer));
-          };
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
-
-      var fs =
-          IntStream.range(0, 10)
-              .mapToObj(i -> CompletableFuture.runAsync(runnable))
-              .collect(Collectors.toList());
-
-      var exceptPartition =
-          producerSend(producer, topicName, key, value, timestamp, header).partition();
-      IntStream.range(0, 10)
-          .forEach(
-              i -> {
-                Metadata metadata;
-                metadata = producerSend(producer, topicName, key, value, timestamp, header);
-                assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
-                assertEquals(exceptPartition, metadata.partition());
-              });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
-      fs.forEach(CompletableFuture::join);
+    @Test
+    void palindromes() {
+        System.out.println(SMOOTH_ROUND_ROBIN);
+        System.out.println(STRICT_ROUND_ROBIN);
     }
-  }
 
-  @Test
-  void interdependentTest() throws IOException {
+  @ParameterizedTest
+  @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
+  void interdependentTest(String className) throws IOException {
     var topicName = "address";
     createTopic(topicName);
     var key = "tainan";
@@ -165,7 +179,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         Producer.builder()
             .keySerializer(Serializer.STRING)
             .configs(
-                initProConfig().entrySet().stream()
+                put(initProConfig(), className).entrySet().stream()
                     .collect(
                         Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
             .build()) {
@@ -248,14 +262,18 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         : null;
   }
 
+  private Properties put(Properties properties, String name) {
+      properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, name);
+      return properties;
+  }
+
   private Properties initProConfig() throws IOException {
     Properties props = new Properties();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    // TODO: add smooth dispatch to this test
-    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, StrictCostDispatcher.class.getName());
+    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
     props.put("producerID", 1);
     var file =
         new File(

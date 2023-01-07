@@ -147,6 +147,7 @@ public class StrictCostDispatcher implements Dispatcher {
     if (!metricCollector.listIdentities().contains(-1)) metricCollector.registerLocalJmx(-1);
 
     this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
+    this.preArrangementSmoothRR = PreArrangementSmoothRR.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
 
   /**
