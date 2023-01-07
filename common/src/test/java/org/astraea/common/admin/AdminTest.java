@@ -1903,4 +1903,23 @@ public class AdminTest extends RequireBrokerCluster {
                               Assertions.assertTrue(bootstrapServers.contains(bootstrapServer))));
     }
   }
+
+  @Test
+  void testClusterId() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic("xxx").run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertEquals(
+          admin
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .clusterId(),
+          admin
+              .clusterInfo(admin.topicNames(true).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .clusterId());
+    }
+  }
 }

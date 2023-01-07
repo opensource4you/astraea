@@ -27,6 +27,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
@@ -107,7 +108,9 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        replicas.stream().map(r -> r.nodeInfo()).collect(Collectors.toList()), replicas);
+        "fake",
+        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toList()),
+        replicas);
   }
 
   static ClusterInfo<Replica> originClusterInfo() {
@@ -317,7 +320,9 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .nodeInfo(NodeInfo.of(0, "", -1))
                 .build());
     return ClusterInfo.of(
-        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)), replicas);
+        "fake",
+        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
+        replicas);
   }
 
   private static ClusterBean clusterBean() {

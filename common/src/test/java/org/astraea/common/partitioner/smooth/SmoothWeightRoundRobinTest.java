@@ -62,6 +62,7 @@ public class SmoothWeightRoundRobinTest {
             NodeInfo.of(2, "host", 1111),
             NodeInfo.of(3, "host", 1111));
     return ClusterInfo.of(
+        "fake",
         nodes,
         List.of(
             ReplicaInfo.of("test", 1, nodes.get(0), true, true, false),

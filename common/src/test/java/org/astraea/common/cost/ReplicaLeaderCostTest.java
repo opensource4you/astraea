@@ -44,6 +44,7 @@ public class ReplicaLeaderCostTest {
             ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
     var clusterInfo =
         ClusterInfo.of(
+            "fake",
             List.of(
                 NodeInfo.of(10, "host1", 8080),
                 NodeInfo.of(11, "host1", 8080),

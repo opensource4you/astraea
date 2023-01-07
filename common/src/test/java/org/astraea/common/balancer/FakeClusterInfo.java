@@ -170,6 +170,6 @@ public class FakeClusterInfo {
                                     .build()))
             .collect(Collectors.toUnmodifiableList());
 
-    return ClusterInfo.of(List.copyOf(nodes), replicas);
+    return ClusterInfo.of("fake", List.copyOf(nodes), replicas);
   }
 }
