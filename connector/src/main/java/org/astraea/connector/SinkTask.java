@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
@@ -33,13 +34,13 @@ import org.astraea.common.consumer.Record;
 
 public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration) throws ExecutionException, InterruptedException {
     // empty
   }
 
   protected abstract void put(List<Record<byte[], byte[]>> records);
 
-  protected void close() throws InterruptedException {
+  protected void close() throws InterruptedException, ExecutionException {
     // empty
   }
 
@@ -51,7 +52,13 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    try {
+      init(Configuration.of(props));
+    } catch (ExecutionException e) {
+      throw new RuntimeException(e);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
@@ -105,6 +112,8 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
     try {
       close();
     } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    } catch (ExecutionException e) {
       throw new RuntimeException(e);
     }
   }

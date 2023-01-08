@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -172,8 +173,8 @@ public class ExporterTest extends RequireWorkerCluster {
               fileSize,
               "tasks.max",
               "1",
-              "time",
-              "10m");
+              "roll.duration",
+              "100m");
 
       var fs = FileSystem.of("ftp", Configuration.of(configs));
 
@@ -198,7 +199,10 @@ public class ExporterTest extends RequireWorkerCluster {
 
       task.put(records);
 
+      Utils.sleep(Duration.ofMillis(2000));
+
       task.close();
+
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
 
@@ -225,6 +229,8 @@ public class ExporterTest extends RequireWorkerCluster {
             }
           });
     } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    } catch (ExecutionException e) {
       throw new RuntimeException(e);
     }
   }
@@ -256,7 +262,7 @@ public class ExporterTest extends RequireWorkerCluster {
               fileSize,
               "tasks.max",
               "1",
-              "time",
+              "roll.duration",
               "300ms");
 
       var fs = FileSystem.of("ftp", Configuration.of(configs));
@@ -275,7 +281,7 @@ public class ExporterTest extends RequireWorkerCluster {
 
       task.put(List.of(records1));
 
-      Utils.sleep(Duration.ofMillis(500));
+      Utils.sleep(Duration.ofMillis(1000));
 
       Assertions.assertEquals(
           1, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
@@ -330,7 +336,7 @@ public class ExporterTest extends RequireWorkerCluster {
               fileSize,
               "tasks.max",
               "1",
-              "time",
+              "roll.duration",
               "3ms");
 
       var fs = FileSystem.of("ftp", Configuration.of(configs));
@@ -359,11 +365,11 @@ public class ExporterTest extends RequireWorkerCluster {
 
       task.put(List.of(records1));
 
-      Utils.sleep(Duration.ofMillis(200));
+      Utils.sleep(Duration.ofMillis(300));
 
       task.put(List.of(records2));
 
-      Utils.sleep(Duration.ofMillis(200));
+      Utils.sleep(Duration.ofMillis(600));
 
       Assertions.assertEquals(
           2, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());

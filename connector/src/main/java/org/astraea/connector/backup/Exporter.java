@@ -16,12 +16,15 @@
  */
 package org.astraea.connector.backup;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
@@ -86,11 +89,11 @@ public class Exporter extends SinkConnector {
 
   static Definition TIME_KEY =
       Definition.builder()
-          .name("time")
+          .name("roll.duration")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> Utils.toDuration(obj.toString()))
           .defaultValue("3s")
-          .documentation("is the interval to split the file.")
+          .documentation("the maximum time before a new archive file is rolling out.")
           .build();
   private Configuration configs;
 
@@ -120,96 +123,80 @@ public class Exporter extends SinkConnector {
     private String path;
     private DataSize size;
 
-    private String time;
+    private CompletableFuture<Void> writerFuture;
 
-    private Writer writer;
-    private ExecutorService executor = Executors.newFixedThreadPool(1);
+    private AtomicBoolean closed = new AtomicBoolean(false);
+
+    private Duration interval;
+
+    private ConcurrentHashMap<TopicPartition, RecordWriter> writers = new ConcurrentHashMap<>();
+
     private final List<Record> recordList = Collections.synchronizedList(new ArrayList<>());
 
-    class Writer implements Runnable {
-      private final FileSystem client;
-
-      private boolean running = true;
-
-      private Long time;
-
-      private ConcurrentHashMap<TopicPartition, RecordWriter> writers = new ConcurrentHashMap<>();
-
-      private void writeRecord(Record<byte[], byte[]> record) {
-        var writer =
-            this.writers.computeIfAbsent(
-                record.topicPartition(),
-                ignored -> {
-                  var fileName = String.valueOf(record.offset());
-                  return RecordWriter.builder(
-                          this.client.write(
-                              String.join(
-                                  "/",
-                                  path,
-                                  topicName,
-                                  String.valueOf(record.partition()),
-                                  fileName)))
-                      .build();
-                });
-
-        writer.append(record);
-
-        if (writer.size().greaterThan(size)) {
-          this.writers.remove(record.topicPartition()).close();
-        }
-      }
-
-      private void flushWriters() {
-        var currentTime = System.currentTimeMillis();
-        this.writers.forEach(
-            (tp, writer) -> {
-              if (currentTime - writer.time() > this.time) {
-                this.writers.remove(tp).close();
-              }
-            });
-      }
-
-      public Writer(FileSystem client, Long time) {
-        this.client = client;
-        this.time = time;
-      }
-
-      @Override
-      public void run() {
-        while (running) {
-          synchronized (recordList) {
-            if (!recordList.isEmpty()) {
-              recordList.forEach(this::writeRecord);
-              recordList.clear();
-            }
-          }
-          flushWriters();
-        }
-      }
-
-      public void stop() {
-        running = false;
-        synchronized (recordList) {
-          if (!recordList.isEmpty()) {
-            recordList.forEach(this::writeRecord);
-            recordList.clear();
-          }
-        }
-        writers.forEach((tp, writer) -> writer.close());
-      }
-    }
-
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration)
+        throws ExecutionException, InterruptedException {
       this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size =
           DataSize.of(
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
-      this.time = configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString());
-      writer = new Writer(this.ftpClient, Utils.toDuration(this.time).toMillis());
-      executor.execute(writer);
+      this.interval =
+          Utils.toDuration(
+              configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()));
+
+      this.writerFuture =
+          CompletableFuture.runAsync(
+              () -> {
+                var intervalTimeInMillis = interval.toMillis();
+                Long sleepTime = interval.toMillis();
+                if (sleepTime > 1000) sleepTime = 1000L;
+                try {
+                  while (!closed.get()) {
+                    synchronized (recordList) {
+                      if (!recordList.isEmpty()) {
+                        recordList.forEach(
+                            record -> {
+                              var writer =
+                                  writers.computeIfAbsent(
+                                      record.topicPartition(),
+                                      ignored -> {
+                                        var fileName = String.valueOf(record.offset());
+                                        return RecordWriter.builder(
+                                                ftpClient.write(
+                                                    String.join(
+                                                        "/",
+                                                        path,
+                                                        topicName,
+                                                        String.valueOf(record.partition()),
+                                                        fileName)))
+                                            .build();
+                                      });
+
+                              writer.append(record);
+                              if (writer.size().greaterThan(size)) {
+                                writers.remove(record.topicPartition()).close();
+                              }
+                            });
+                        recordList.clear();
+                      }
+                    }
+
+                    var currentTime = System.currentTimeMillis();
+                    writers.forEach(
+                        (tp, writer) -> {
+                          if (currentTime - writer.time() > intervalTimeInMillis) {
+                            writers.remove(tp).close();
+                          }
+                        });
+                    TimeUnit.MILLISECONDS.sleep(sleepTime);
+                  }
+                  writers.forEach((tp, writer) -> writer.close());
+                } catch (InterruptedException ignored) {
+                  // swallow
+                }
+              });
     }
 
     @Override
@@ -220,9 +207,12 @@ public class Exporter extends SinkConnector {
     }
 
     @Override
-    protected void close() throws InterruptedException {
-      writer.stop();
-      executor.shutdown();
+    protected void close() throws InterruptedException, ExecutionException {
+      this.closed.set(true);
+      TimeUnit.MILLISECONDS.sleep(2000);
+      if (!this.writerFuture.isDone()) {
+        throw new IllegalStateException();
+      }
       this.ftpClient.close();
     }
   }
