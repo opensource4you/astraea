@@ -16,27 +16,30 @@
  */
 package org.astraea.common.partitioner;
 
+import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.producer.ProducerConfigs;
 
 public abstract class Dispatcher implements Partitioner {
-  /**
-   * cache the cluster info to reduce the cost of converting cluster. Producer does not update
-   * Cluster frequently, so it is ok to cache it.
-   */
-  static final ConcurrentHashMap<Cluster, ClusterInfo<ReplicaInfo>> CLUSTER_CACHE =
-      new ConcurrentHashMap<>();
+  private static final Duration CLUSTER_INFO_LEASE = Duration.ofSeconds(15);
 
   static final ThreadLocal<Interdependent> THREAD_LOCAL =
       ThreadLocal.withInitial(Interdependent::new);
+
+  private final AtomicLong lastUpdated = new AtomicLong(-1);
+  volatile ClusterInfo<Replica> clusterInfo = ClusterInfo.empty();
+  Admin admin = null;
 
   /**
    * Compute the partition for the given record.
@@ -47,7 +50,7 @@ public abstract class Dispatcher implements Partitioner {
    * @param clusterInfo The current cluster metadata
    */
   protected abstract int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo);
+      String topic, byte[] key, byte[] value, ClusterInfo<? extends ReplicaInfo> clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.
@@ -59,7 +62,9 @@ public abstract class Dispatcher implements Partitioner {
   protected void onNewBatch(String topic, int prevPartition) {}
 
   @Override
-  public void close() {}
+  public void close() {
+    if (admin != null) Utils.packException(admin::close);
+  }
 
   // -----------------------[interdependent]-----------------------//
 
@@ -138,10 +143,13 @@ public abstract class Dispatcher implements Partitioner {
 
   @Override
   public final void configure(Map<String, ?> configs) {
-    configure(
+    var config =
         Configuration.of(
             configs.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString()))));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+    config.string(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));
+    configure(config);
+    tryToUpdate(null);
   }
 
   @Override
@@ -150,14 +158,43 @@ public abstract class Dispatcher implements Partitioner {
     var interdependent = THREAD_LOCAL.get();
     if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
       return interdependent.targetPartitions;
-    var target =
-        partition(
-            topic,
-            keyBytes,
-            valueBytes,
-            CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)));
+    tryToUpdate(topic);
+    final int target;
+    if (!clusterInfo.topics().contains(topic)) {
+      // the cached cluster info is not updated, so we just return a random partition
+      var ps = cluster.availablePartitionsForTopic(topic);
+      target = ps.isEmpty() ? 0 : ps.get((int) (Math.random() * ps.size())).partition();
+    } else target = partition(topic, keyBytes, valueBytes, clusterInfo);
     interdependent.targetPartitions = target;
     return target;
+  }
+
+  boolean tryToUpdate(String topic) {
+    if (admin == null) return false;
+    var now = System.currentTimeMillis();
+    // need to refresh cluster info if
+    // 1) the topic is not included by ClusterInfo
+    // 2) lease expires
+    if (lastUpdated.updateAndGet(
+            last -> {
+              if (topic != null && !clusterInfo.topics().contains(topic)) return now;
+              if (now - last >= CLUSTER_INFO_LEASE.toMillis()) return now;
+              return last;
+            })
+        == now) {
+      admin
+          .topicNames(true)
+          .thenCompose(names -> admin.clusterInfo(names))
+          .whenComplete(
+              (c, e) -> {
+                if (c != null) {
+                  this.clusterInfo = c;
+                  lastUpdated.set(System.currentTimeMillis());
+                }
+              });
+      return true;
+    }
+    return false;
   }
 
   @Override
