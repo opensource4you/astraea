@@ -39,8 +39,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   public static final String COST_NAME = "leader";
 
   @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var result =
         leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
@@ -55,7 +54,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   private static Map<Integer, Integer> leaderCount(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+      ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     if (clusterBean == ClusterBean.EMPTY) return leaderCount(clusterInfo);
     var leaderCount = leaderCount(clusterBean);
     // if there is no available metrics, we re-count the leaders based on cluster information
