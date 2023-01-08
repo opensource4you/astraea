@@ -72,7 +72,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
   volatile long timeToUpdateRoundRobin = -1;
 
-  void tryToUpdateFetcher(ClusterInfo<ReplicaInfo> clusterInfo) {
+  void tryToUpdateFetcher(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
     // register new nodes to metric collector
     costFunction
         .fetcher()
@@ -96,7 +96,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
   @Override
   public int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
+      String topic, byte[] key, byte[] value, ClusterInfo<? extends ReplicaInfo> clusterInfo) {
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
@@ -119,7 +119,7 @@ public class StrictCostDispatcher extends Dispatcher {
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
-  synchronized void tryToUpdateRoundRobin(ClusterInfo<ReplicaInfo> clusterInfo) {
+  synchronized void tryToUpdateRoundRobin(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin =
           RoundRobin.smooth(
@@ -206,5 +206,6 @@ public class StrictCostDispatcher extends Dispatcher {
   @Override
   public void close() {
     metricCollector.close();
+    super.close();
   }
 }

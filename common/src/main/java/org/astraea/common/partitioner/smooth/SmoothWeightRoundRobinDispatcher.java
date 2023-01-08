@@ -53,13 +53,13 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
-  private List<ReplicaInfo> partitions;
+  private List<? extends ReplicaInfo> partitions;
 
   public static final String JMX_PORT = "jmx.port";
 
   @Override
   protected int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
+      String topic, byte[] key, byte[] value, ClusterInfo<? extends ReplicaInfo> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     refreshPartitionMetaData(clusterInfo, topic);
     Supplier<Map<Integer, Double>> supplier =
@@ -92,6 +92,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   @Override
   public void close() {
     metricCollector.close();
+    super.close();
   }
 
   @Override
@@ -118,7 +119,8 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
         () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
 
-  private int nextValue(String topic, ClusterInfo<ReplicaInfo> clusterInfo, int targetBroker) {
+  private int nextValue(
+      String topic, ClusterInfo<? extends ReplicaInfo> clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
         .brokerCounter
@@ -126,7 +128,8 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
         .getAndIncrement();
   }
 
-  private void refreshPartitionMetaData(ClusterInfo<ReplicaInfo> clusterInfo, String topic) {
+  private void refreshPartitionMetaData(
+      ClusterInfo<? extends ReplicaInfo> clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
     partitions.stream()
         .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
@@ -141,7 +144,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private static class BrokerNextCounter {
     private final Map<Integer, AtomicInteger> brokerCounter;
 
-    BrokerNextCounter(ClusterInfo<ReplicaInfo> clusterInfo) {
+    BrokerNextCounter(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
       brokerCounter =
           clusterInfo.nodes().stream()
               .collect(Collectors.toMap(NodeInfo::id, node -> new AtomicInteger(0)));

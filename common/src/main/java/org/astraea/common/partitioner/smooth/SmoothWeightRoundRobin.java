@@ -110,7 +110,8 @@ public final class SmoothWeightRoundRobin {
    *
    * @return the preferred ID
    */
-  public synchronized int getAndChoose(String topic, ClusterInfo<ReplicaInfo> clusterInfo) {
+  public synchronized int getAndChoose(
+      String topic, ClusterInfo<? extends ReplicaInfo> clusterInfo) {
     // TODO Update brokerID with ClusterInfo frequency.
     var brokerID =
         brokersIDofTopic.computeIfAbsent(
