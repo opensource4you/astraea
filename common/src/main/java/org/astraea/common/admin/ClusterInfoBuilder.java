@@ -216,7 +216,7 @@ public class ClusterInfoBuilder {
                                         .lag(0)
                                         .internal(false)
                                         .isLeader(index == 0)
-                                        .inSync(true)
+                                        .isSync(true)
                                         .isFuture(false)
                                         .isOffline(false)
                                         .isPreferredLeader(index == 0)

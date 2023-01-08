@@ -29,6 +29,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
@@ -104,7 +105,13 @@ public class StrictCostDispatcherTest {
   @Test
   void testSingleBroker() {
     var nodeInfo = NodeInfo.of(10, "host", 11111);
-    var replicaInfo = ReplicaInfo.of("topic", 10, nodeInfo, true, true, false);
+    var replicaInfo =
+        Replica.builder()
+            .topic("topic")
+            .partition(10)
+            .path("/tmp/aa")
+            .nodeInfo(nodeInfo)
+            .buildLeader();
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.EMPTY);
       Assertions.assertEquals(
@@ -164,9 +171,20 @@ public class StrictCostDispatcherTest {
   @Test
   void testCostFunctionWithoutFetcher() {
     HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
-    var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
+    var replicaInfo0 =
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/tmp/aa")
+            .nodeInfo(NodeInfo.of(10, "host", 11111))
+            .buildLeader();
     var replicaInfo1 =
-        ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/tmp/aa")
+            .nodeInfo(NodeInfo.of(12, "host2", 11111))
+            .buildLeader();
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.of((Map.of(DumbHasBrokerCost.class.getName(), "1"))));
       dispatcher.partition(
@@ -203,10 +221,19 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(Configuration.of(Map.of(MyFunction.class.getName(), "1")));
 
       var replicaInfo0 =
-          ReplicaInfo.of(
-              "topic", partitionId, NodeInfo.of(brokerId, "host", 11111), true, true, false);
+          Replica.builder()
+              .topic("topic")
+              .partition(partitionId)
+              .path("/tmp/aa")
+              .nodeInfo(NodeInfo.of(brokerId, "host", 11111))
+              .buildLeader();
       var replicaInfo1 =
-          ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, false);
+          Replica.builder()
+              .topic("topic")
+              .partition(1)
+              .path("/tmp/aa")
+              .nodeInfo(NodeInfo.of(1111, "host2", 11111))
+              .buildLeader();
       Assertions.assertEquals(
           partitionId,
           dispatcher.partition(

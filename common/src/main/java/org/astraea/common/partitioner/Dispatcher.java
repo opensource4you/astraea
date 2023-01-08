@@ -28,7 +28,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.producer.ProducerConfigs;
 
 public abstract class Dispatcher implements Partitioner {
@@ -50,7 +49,7 @@ public abstract class Dispatcher implements Partitioner {
    * @param clusterInfo The current cluster metadata
    */
   protected abstract int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<? extends ReplicaInfo> clusterInfo);
+      String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.

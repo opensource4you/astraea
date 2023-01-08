@@ -31,7 +31,7 @@ public class ReplicaBuilder {
   private boolean isRemoving;
   private boolean internal;
   private boolean isLeader;
-  private boolean inSync;
+  private boolean isSync;
   private boolean isFuture;
   private boolean isOffline;
   private boolean isPreferredLeader;
@@ -44,7 +44,7 @@ public class ReplicaBuilder {
     this.lag = replica.lag();
     this.size = replica.size();
     this.isLeader = replica.isLeader();
-    this.inSync = replica.inSync();
+    this.isSync = replica.isSync();
     this.isFuture = replica.isFuture();
     this.isOffline = replica.isOffline();
     this.isPreferredLeader = replica.isPreferredLeader();
@@ -98,8 +98,8 @@ public class ReplicaBuilder {
     return this;
   }
 
-  public ReplicaBuilder inSync(boolean inSync) {
-    this.inSync = inSync;
+  public ReplicaBuilder isSync(boolean isSync) {
+    this.isSync = isSync;
     return this;
   }
 
@@ -123,6 +123,24 @@ public class ReplicaBuilder {
     return this;
   }
 
+  /**
+   * a helper used to set all flags for a replica leader.
+   *
+   * @return a replica leader
+   */
+  public Replica buildLeader() {
+    Objects.requireNonNull(path);
+    return new ReplicaImpl(
+        this.isLeader(true)
+            .isPreferredLeader(true)
+            .isSync(true)
+            .isFuture(false)
+            .isOffline(false)
+            .isRemoving(false)
+            .isAdding(false)
+            .lag(0));
+  }
+
   public Replica build() {
     return new ReplicaImpl(this);
   }
@@ -140,7 +158,7 @@ public class ReplicaBuilder {
     private final boolean isAdding;
 
     private final boolean isRemoving;
-    private final boolean inSync;
+    private final boolean isSync;
     private final boolean isFuture;
     private final boolean isOffline;
     private final boolean isPreferredLeader;
@@ -156,7 +174,7 @@ public class ReplicaBuilder {
       this.size = builder.size;
       this.internal = builder.internal;
       this.isLeader = builder.isLeader;
-      this.inSync = builder.inSync;
+      this.isSync = builder.isSync;
       this.isFuture = builder.isFuture;
       this.isOffline = builder.isOffline;
       this.isPreferredLeader = builder.isPreferredLeader;
@@ -214,8 +232,8 @@ public class ReplicaBuilder {
     }
 
     @Override
-    public boolean inSync() {
-      return inSync;
+    public boolean isSync() {
+      return isSync;
     }
 
     @Override
@@ -245,7 +263,7 @@ public class ReplicaBuilder {
           && isLeader == replica.isLeader
           && isAdding == replica.isAdding
           && isRemoving == replica.isRemoving
-          && inSync == replica.inSync
+          && isSync == replica.isSync
           && isFuture == replica.isFuture
           && isOffline == replica.isOffline
           && isPreferredLeader == replica.isPreferredLeader
@@ -284,7 +302,7 @@ public class ReplicaBuilder {
           isLeader,
           isAdding,
           isRemoving,
-          inSync,
+          isSync,
           isFuture,
           isOffline,
           isPreferredLeader,

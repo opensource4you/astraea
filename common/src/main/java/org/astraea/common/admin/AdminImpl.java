@@ -686,7 +686,7 @@ class AdminImpl implements Admin {
                                                       partition.leader() != null
                                                           && !partition.leader().isEmpty()
                                                           && partition.leader().id() == node.id())
-                                                  .inSync(partition.isr().contains(node))
+                                                  .isSync(partition.isr().contains(node))
                                                   .isFuture(pathAndReplica.getValue().isFuture())
                                                   .isOffline(
                                                       node.isEmpty()

@@ -30,6 +30,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
@@ -95,8 +96,7 @@ public class StrictCostDispatcher extends Dispatcher {
   }
 
   @Override
-  public int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+  public int partition(String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;

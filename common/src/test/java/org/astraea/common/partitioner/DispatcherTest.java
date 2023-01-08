@@ -41,7 +41,7 @@ import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -61,10 +61,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         new Dispatcher() {
           @Override
           public int partition(
-              String topic,
-              byte[] key,
-              byte[] value,
-              ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
             Assertions.assertNotNull(clusterInfo);
             return 0;
           }
@@ -114,10 +111,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         new Dispatcher() {
           @Override
           public int partition(
-              String topic,
-              byte[] key,
-              byte[] value,
-              ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
             Assertions.assertNotNull(clusterInfo);
             return 0;
           }
@@ -137,10 +131,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         new Dispatcher() {
           @Override
           public int partition(
-              String topic,
-              byte[] key,
-              byte[] value,
-              ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
             Assertions.assertNull(key);
             Assertions.assertNull(value);
             count.incrementAndGet();
