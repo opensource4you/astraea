@@ -29,7 +29,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
@@ -39,7 +38,7 @@ import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.Dispatcher;
 
-public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
+public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final ConcurrentMap<String, BrokerNextCounter> topicCounter = new ConcurrentHashMap<>();
   private final MetricCollector metricCollector =
@@ -59,7 +58,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   public static final String JMX_PORT = "jmx.port";
 
   @Override
-  public int partition(
+  protected int partition(
       String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     refreshPartitionMetaData(clusterInfo, topic);
@@ -91,7 +90,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   }
 
   @Override
-  public void doClose() {
+  public void close() {
     metricCollector.close();
   }
 
@@ -109,7 +108,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   }
 
   @Override
-  public void onNewBatch(String topic, Cluster cluster, int prevPartition) {
+  protected void onNewBatch(String topic, int prevPartition) {
     unusedPartitions.add(prevPartition);
   }
 
