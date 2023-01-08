@@ -164,7 +164,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
       offlineReplicas.forEach(r -> Assertions.assertFalse(r.isFuture()));
       offlineReplicas.forEach(r -> Assertions.assertTrue(r.isPreferredLeader()));
       offlineReplicas.forEach(r -> Assertions.assertFalse(r.isLeader()));
-      offlineReplicas.forEach(r -> Assertions.assertTrue(r.inSync()));
+      offlineReplicas.forEach(r -> Assertions.assertTrue(r.isSync()));
     }
   }
 

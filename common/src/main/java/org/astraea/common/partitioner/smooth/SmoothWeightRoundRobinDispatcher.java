@@ -33,6 +33,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -59,7 +60,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
 
   @Override
   protected int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+      String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     refreshPartitionMetaData(clusterInfo, topic);
     Supplier<Map<Integer, Double>> supplier =

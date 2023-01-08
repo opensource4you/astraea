@@ -69,7 +69,7 @@ public class ReplicaNode {
               result.put("isPreferredLeader", replica.isPreferredLeader());
               result.put("isOffline", replica.isOffline());
               result.put("isFuture", replica.isFuture());
-              result.put("inSync", replica.inSync());
+              result.put("inSync", replica.isSync());
               result.put("isAdding", replica.isAdding());
               result.put("isRemoving", replica.isRemoving());
               result.put("lag", replica.lag());

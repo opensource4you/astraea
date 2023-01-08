@@ -160,7 +160,7 @@ public class FakeClusterInfo {
                                     .lag(0)
                                     .size(-1)
                                     .isLeader(r == 0)
-                                    .inSync(true)
+                                    .isSync(true)
                                     .isFuture(false)
                                     .isOffline(false)
                                     .isPreferredLeader(r == 0)

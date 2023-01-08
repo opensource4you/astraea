@@ -320,7 +320,7 @@ class TopicHandler implements Handler {
           replica.lag(),
           replica.size(),
           replica.isLeader(),
-          replica.inSync(),
+          replica.isSync(),
           replica.isFuture(),
           replica.path());
     }

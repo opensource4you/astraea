@@ -432,7 +432,7 @@ public interface Admin extends AutoCloseable {
             clusterInfo
                 .replicaStream()
                 .filter(r -> replicas.contains(r.topicPartitionReplica()))
-                .allMatch(r -> r.inSync() && !r.isFuture()),
+                .allMatch(r -> r.isSync() && !r.isFuture()),
         timeout,
         2);
   }
