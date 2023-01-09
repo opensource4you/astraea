@@ -24,6 +24,7 @@ declare -r SPARK_VERSION=${SPARK_VERSION:-3.3.1}
 declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)
 # ===============================[properties keys]=================================
 declare -r SOURCE_KEY="source.path"
+declare -r CHECKPOINT_KEY="checkpoint"
 # ===============================[spark driver/executor resource]==================
 declare -r RESOURCES_CONFIGS="${RESOURCES_CONFIGS:-"--conf spark.driver.memory=4g --conf spark.executor.memory=4g"}"
 # ===================================[functions]===================================
@@ -49,6 +50,7 @@ function runContainer() {
   fi
 
   source_path=$(cat $propertiesPath | grep $SOURCE_KEY | cut -d "=" -f2)
+  checkpoint_path=$(cat $propertiesPath | grep $CHECKPOINT_KEY | cut -d "=" -f2)
   source_name=$(echo "${source_path}" | tr '/' '-')
 
   docker run --rm -v "$LOCAL_PATH":/tmp/astraea \
@@ -86,6 +88,7 @@ function runContainer() {
       -v "$propertiesPath":"$propertiesPath":ro \
       -v "$jar_path":/tmp/astraea-etl.jar:ro \
       -v "${source_path}":"${source_path}" \
+      -v "${checkpoint_path}":"${checkpoint_path}" \
       -e JAVA_OPTS="$HEAP_OPTS" \
       ghcr.io/skiptests/astraea/spark:$SPARK_VERSION \
       ./bin/spark-submit \
