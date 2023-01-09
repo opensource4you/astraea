@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

@@ -48,6 +48,7 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.assignor.RandomAssignor;
 import org.astraea.common.producer.Producer;
 import org.astraea.it.RequireBrokerCluster;
 import org.junit.jupiter.api.Assertions;
@@ -593,7 +594,7 @@ public class ConsumerTest extends RequireBrokerCluster {
             .bootstrapServers(bootstrapServers())
             .config(
                 ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                org.astraea.common.consumer.assignor.RandomAssignor.class.getName())
+                RandomAssignor.class.getName())
             .seek(DISTANCE_FROM_BEGINNING, 0)
             .build()) {
       var records = consumer.poll(30, Duration.ofSeconds(5));
@@ -660,8 +661,7 @@ public class ConsumerTest extends RequireBrokerCluster {
                                       .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                                       .config(
                                           ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                                          org.astraea.common.consumer.assignor.RandomAssignor.class
-                                              .getName())
+                                          RandomAssignor.class.getName())
                                       .bootstrapServers(bootstrapServers())
                                       .seek(SEEK_TO, 0)
                                       .consumerRebalanceListener(

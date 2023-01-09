@@ -14,23 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
-public final class GroupAssignment {
-  private final Map<String, Assignment> assignments;
+public final class GroupSubscription {
+  private final Map<String, Subscription> subscriptions;
 
-  public GroupAssignment(Map<String, Assignment> assignments) {
-    this.assignments = assignments;
+  public GroupSubscription(Map<String, Subscription> subscriptions) {
+    this.subscriptions = subscriptions;
   }
 
-  public Map<String, Assignment> groupAssignment() {
-    return assignments;
+  public Map<String, Subscription> groupSubscription() {
+    return subscriptions;
+  }
+
+  public static GroupSubscription from(
+      org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription
+          groupSubscription) {
+    return new GroupSubscription(
+        groupSubscription.groupSubscription().entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> Subscription.from(e.getValue()))));
   }
 
   @Override
   public String toString() {
-    return "GroupAssignment(" + "assignments=" + assignments + ")";
+    return "GroupSubscription(" + "subscriptions=" + subscriptions + ")";
   }
 }

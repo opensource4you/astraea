@@ -14,32 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
+import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import org.astraea.common.admin.TopicPartition;
 
-public final class GroupSubscription {
-  private final Map<String, Subscription> subscriptions;
+public final class Assignment {
+  private List<TopicPartition> partitions;
+  private Map<String, String> userData;
 
-  public GroupSubscription(Map<String, Subscription> subscriptions) {
-    this.subscriptions = subscriptions;
+  public Assignment(List<TopicPartition> partitions, Map<String, String> userData) {
+    this.partitions = partitions;
+    this.userData = userData;
   }
 
-  public Map<String, Subscription> groupSubscription() {
-    return subscriptions;
+  public Assignment(List<TopicPartition> partitions) {
+    this(partitions, null);
   }
 
-  public static GroupSubscription from(
-      org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription
-          groupSubscription) {
-    return new GroupSubscription(
-        groupSubscription.groupSubscription().entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> Subscription.from(e.getValue()))));
+  public List<TopicPartition> partitions() {
+    return partitions;
+  }
+
+  public Map<String, String> userData() {
+    return userData;
   }
 
   @Override
   public String toString() {
-    return "GroupSubscription(" + "subscriptions=" + subscriptions + ")";
+    return "Assignment("
+        + "partitions="
+        + partitions
+        + (userData == null ? "" : ", user data= " + userData)
+        + ')';
   }
 }
