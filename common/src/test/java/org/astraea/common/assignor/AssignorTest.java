@@ -66,7 +66,7 @@ public class AssignorTest {
     var ourUser2Subscription = ourGroupSubscription.groupSubscription().get("user2");
 
     Assertions.assertEquals(Optional.empty(), ourUser1Subscription.groupInstanceId());
-    Assertions.assertNull(ourUser1Subscription.ownedPartitions());
+    Assertions.assertEquals(0, ourUser1Subscription.ownedPartitions().size());
     Assertions.assertEquals("1", ourUser1Subscription.userData().get("rack"));
     Assertions.assertEquals(List.of("test1", "test2"), ourUser1Subscription.topics());
     Assertions.assertEquals(
