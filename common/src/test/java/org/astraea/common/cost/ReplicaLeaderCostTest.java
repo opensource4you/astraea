@@ -36,23 +36,25 @@ public class ReplicaLeaderCostTest {
 
   @Test
   void testNoMetrics() {
-
     var replicas =
         List.of(
             Replica.builder()
                 .topic("topic")
                 .partition(0)
                 .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
-                .partition(1)
+                .partition(0)
+                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("topic")
+                .partition(0)
                 .nodeInfo(NodeInfo.of(11, "broker1", 1111))
-                .buildLeader(),
-            Replica.builder()
-                .topic("topic")
-                .partition(2)
-                .nodeInfo(NodeInfo.of(12, "broker2", 1111))
+                .path("/tmp/aa")
                 .buildLeader());
     var clusterInfo =
         ClusterInfo.of(

@@ -65,8 +65,23 @@ public class SmoothWeightRoundRobinTest {
         "fake",
         nodes,
         List.of(
-            Replica.builder().topic("test").partition(1).nodeInfo(nodes.get(0)).buildLeader(),
-            Replica.builder().topic("test").partition(2).nodeInfo(nodes.get(1)).buildLeader(),
-            Replica.builder().topic("test").partition(3).nodeInfo(nodes.get(2)).buildLeader()));
+            Replica.builder()
+                .topic("test")
+                .partition(1)
+                .nodeInfo(nodes.get(0))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("test")
+                .partition(2)
+                .nodeInfo(nodes.get(1))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("test")
+                .partition(3)
+                .nodeInfo(nodes.get(2))
+                .path("/tmp/aa")
+                .buildLeader()));
   }
 }
