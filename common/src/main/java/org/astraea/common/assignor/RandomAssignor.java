@@ -14,39 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.admin.TopicPartition;
 
-public final class Assignment {
-  private List<TopicPartition> partitions;
-  private Map<String, String> userData;
+public class RandomAssignor extends Assignor {
 
-  public Assignment(List<TopicPartition> partitions, Map<String, String> userData) {
-    this.partitions = partitions;
-    this.userData = userData;
-  }
+  @Override
+  public Map<String, List<TopicPartition>> assign(
+      Map<String, org.astraea.common.assignor.Subscription> subscriptions,
+      Set<TopicPartition> topicPartitions) {
+    var assignments = new HashMap<String, List<TopicPartition>>();
+    var consumers = new ArrayList<>(subscriptions.keySet());
+    consumers.forEach(consumer -> assignments.put(consumer, new ArrayList<>()));
 
-  public Assignment(List<TopicPartition> partitions) {
-    this(partitions, null);
-  }
+    topicPartitions.forEach(
+        topicPartition -> {
+          var consumer = consumers.get((int) (Math.random() * consumers.size()));
+          assignments.get(consumer).add(topicPartition);
+        });
 
-  public List<TopicPartition> partitions() {
-    return partitions;
-  }
-
-  public Map<String, String> userData() {
-    return userData;
+    return assignments;
   }
 
   @Override
-  public String toString() {
-    return "Assignment("
-        + "partitions="
-        + partitions
-        + (userData == null ? "" : ", user data= " + userData)
-        + ')';
+  public String name() {
+    return "random";
   }
 }
