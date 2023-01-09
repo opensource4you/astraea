@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Configurable;
 import org.astraea.common.Configuration;
@@ -37,8 +38,7 @@ import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
-public abstract class Assignor
-    implements org.apache.kafka.clients.consumer.ConsumerPartitionAssignor, Configurable {
+public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;

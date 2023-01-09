@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.NodeInfo;
@@ -34,8 +35,7 @@ public class AssignorTest {
     var data = "rack=1";
     var userData = ByteBuffer.wrap(data.getBytes(StandardCharsets.UTF_8));
     var kafkaSubscription =
-        new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Subscription(
-            List.of("test"), userData, null);
+        new ConsumerPartitionAssignor.Subscription(List.of("test"), userData, null);
     var ourSubscription = Subscription.from(kafkaSubscription);
 
     Assertions.assertEquals(kafkaSubscription.topics(), ourSubscription.topics());
@@ -48,16 +48,16 @@ public class AssignorTest {
   @Test
   void testGroupSubscriptionConvert() {
     var kafkaUser1Subscription =
-        new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Subscription(
+        new ConsumerPartitionAssignor.Subscription(
             List.of("test1", "test2"), convert("rack=1"), null);
     var kafkaUser2Subscription =
-        new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Subscription(
+        new ConsumerPartitionAssignor.Subscription(
             List.of("test1", "test2"),
             convert("rack=2"),
             List.of(new TopicPartition("test1", 0), new TopicPartition("test2", 1)));
     kafkaUser2Subscription.setGroupInstanceId(Optional.of("astraea"));
     var kafkaGroupSubscription =
-        new org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription(
+        new ConsumerPartitionAssignor.GroupSubscription(
             Map.of("user1", kafkaUser1Subscription, "user2", kafkaUser2Subscription));
     var ourGroupSubscription = GroupSubscription.from(kafkaGroupSubscription);
 
@@ -65,7 +65,7 @@ public class AssignorTest {
     var ourUser2Subscription = ourGroupSubscription.groupSubscription().get("user2");
 
     Assertions.assertEquals(Optional.empty(), ourUser1Subscription.groupInstanceId());
-    Assertions.assertEquals(null, ourUser1Subscription.ownedPartitions());
+    Assertions.assertNull(ourUser1Subscription.ownedPartitions());
     Assertions.assertEquals("1", ourUser1Subscription.userData().get("rack"));
     Assertions.assertEquals(List.of("test1", "test2"), ourUser1Subscription.topics());
     Assertions.assertEquals(
