@@ -39,7 +39,8 @@ public class AssignorTest {
     var ourSubscription = Subscription.from(kafkaSubscription);
 
     Assertions.assertEquals(kafkaSubscription.topics(), ourSubscription.topics());
-    Assertions.assertEquals(kafkaSubscription.ownedPartitions(), ourSubscription.ownedPartitions());
+    Assertions.assertNull(kafkaSubscription.ownedPartitions());
+    Assertions.assertEquals(0, ourSubscription.ownedPartitions().size());
     Assertions.assertEquals(kafkaSubscription.groupInstanceId(), ourSubscription.groupInstanceId());
     Assertions.assertEquals("1", ourSubscription.userData().get("rack"));
     Assertions.assertNull(ourSubscription.userData().get("rack=1"));
@@ -85,14 +86,14 @@ public class AssignorTest {
   @Test
   void testJMXPort() {
     var randomAssignor = new RandomAssignor();
-    randomAssignor.configure(Configuration.of(Map.of()));
+    randomAssignor.configure(Map.of());
     Assertions.assertEquals(Optional.empty(), randomAssignor.jmxPortGetter.apply(0));
-    randomAssignor.configure(Configuration.of(Map.of("broker.1000.jmx.port", "12345")));
+    randomAssignor.configure(Map.of("broker.1000.jmx.port", "12345"));
     Assertions.assertEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(1000));
     Assertions.assertNotEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(0));
 
     var random2 = new RandomAssignor();
-    random2.configure(Configuration.of(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8888")));
+    random2.configure(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8888"));
     Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(0));
     Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(1));
     Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(2));

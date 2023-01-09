@@ -71,7 +71,7 @@ public final class Subscription {
     // convert astraea topic-partition into Kafka topic-partition
     var ownPartitions =
         subscription.ownedPartitions() == null
-            ? null
+            ? List.<TopicPartition>of()
             : subscription.ownedPartitions().stream()
                 .map(TopicPartition::from)
                 .collect(Collectors.toUnmodifiableList());
