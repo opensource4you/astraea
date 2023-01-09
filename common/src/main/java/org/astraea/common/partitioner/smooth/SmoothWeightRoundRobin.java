@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 
 /**
  * Given initial key-score pair, it will output a preferred key with the highest current weight. The
@@ -110,8 +110,7 @@ public final class SmoothWeightRoundRobin {
    *
    * @return the preferred ID
    */
-  public synchronized int getAndChoose(
-      String topic, ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+  public synchronized int getAndChoose(String topic, ClusterInfo<Replica> clusterInfo) {
     // TODO Update brokerID with ClusterInfo frequency.
     var brokerID =
         brokersIDofTopic.computeIfAbsent(

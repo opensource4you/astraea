@@ -47,7 +47,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -469,7 +468,7 @@ class BalancerHandler implements Handler {
                 clusterInfo ->
                     clusterInfo
                         .replicaStream()
-                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+                        .collect(Collectors.groupingBy(Replica::topicPartition)))
             .toCompletableFuture()
             .join();
 
@@ -522,7 +521,7 @@ class BalancerHandler implements Handler {
     var ongoingMigration =
         replicas.stream()
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
-            .map(ReplicaInfo::topicPartitionReplica)
+            .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(

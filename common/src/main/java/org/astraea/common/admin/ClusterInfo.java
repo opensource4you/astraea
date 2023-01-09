@@ -93,7 +93,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
       ClusterInfo<Replica> source, ClusterInfo<Replica> target) {
 
     final var sourceTopicPartition =
-        source.replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toSet());
+        source.replicaStream().map(Replica::topicPartition).collect(Collectors.toSet());
     final var targetTopicPartition = target.topicPartitions();
     final var unknownTopicPartitions =
         targetTopicPartition.stream()
@@ -214,10 +214,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   static Map<TopicPartition, Long> leaderSize(ClusterInfo<Replica> clusterInfo) {
     return clusterInfo
         .replicaStream()
-        .filter(ReplicaInfo::isLeader)
+        .filter(Replica::isLeader)
         .collect(
             Collectors.groupingBy(
-                ReplicaInfo::topicPartition,
+                Replica::topicPartition,
                 Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
   }
 

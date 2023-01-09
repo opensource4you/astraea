@@ -155,7 +155,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
       var replicas = admin.clusterInfo(Set.of(TOPIC_NAME)).toCompletableFuture().join().replicas();
       Assertions.assertEquals(PARTITIONS, replicas.size());
       var offlineReplicas =
-          replicas.stream().filter(ReplicaInfo::isOffline).collect(Collectors.toList());
+          replicas.stream().filter(Replica::isOffline).collect(Collectors.toList());
       Assertions.assertNotEquals(PARTITIONS, offlineReplicas.size());
       offlineReplicas.forEach(r -> Assertions.assertTrue(r.nodeInfo().offline()));
       offlineReplicas.forEach(r -> Assertions.assertNull(r.path()));

@@ -57,7 +57,7 @@ import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -347,7 +347,7 @@ public class Performance {
                   .toCompletableFuture()
                   .join()
                   .replicaStream()
-                  .filter(ReplicaInfo::isLeader)
+                  .filter(Replica::isLeader)
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .distinct()
@@ -405,7 +405,7 @@ public class Performance {
                   .toCompletableFuture()
                   .join()
                   .replicaStream()
-                  .map(ReplicaInfo::topicPartition)
+                  .map(Replica::topicPartition)
                   .distinct()
                   .collect(Collectors.toUnmodifiableList());
           return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));

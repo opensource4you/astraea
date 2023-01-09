@@ -385,8 +385,8 @@ public interface Admin extends AutoCloseable {
           var current =
               clusterInfo
                   .replicaStream()
-                  .filter(ReplicaInfo::isLeader)
-                  .collect(Collectors.groupingBy(ReplicaInfo::topic));
+                  .filter(Replica::isLeader)
+                  .collect(Collectors.groupingBy(Replica::topic));
           return topicAndNumberOfPartitions.entrySet().stream()
               .allMatch(
                   entry ->
@@ -412,7 +412,7 @@ public interface Admin extends AutoCloseable {
                 .replicaStream()
                 .filter(r -> topicPartitions.contains(r.topicPartition()))
                 .filter(Replica::isPreferredLeader)
-                .allMatch(ReplicaInfo::isLeader),
+                .allMatch(Replica::isLeader),
         timeout,
         2);
   }

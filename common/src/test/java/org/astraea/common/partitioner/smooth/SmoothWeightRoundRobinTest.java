@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +55,7 @@ public class SmoothWeightRoundRobinTest {
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
   }
 
-  ClusterInfo<ReplicaInfo> clusterInfo() {
+  ClusterInfo<Replica> clusterInfo() {
     var nodes =
         List.of(
             NodeInfo.of(1, "host", 1111),
@@ -65,8 +65,23 @@ public class SmoothWeightRoundRobinTest {
         "fake",
         nodes,
         List.of(
-            ReplicaInfo.of("test", 1, nodes.get(0), true, true, false),
-            ReplicaInfo.of("test", 2, nodes.get(1), true, true, false),
-            ReplicaInfo.of("test", 3, nodes.get(2), true, true, false)));
+            Replica.builder()
+                .topic("test")
+                .partition(1)
+                .nodeInfo(nodes.get(0))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("test")
+                .partition(2)
+                .nodeInfo(nodes.get(1))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("test")
+                .partition(3)
+                .nodeInfo(nodes.get(2))
+                .path("/tmp/aa")
+                .buildLeader()));
   }
 }

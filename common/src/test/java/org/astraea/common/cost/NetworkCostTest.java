@@ -34,7 +34,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -625,8 +624,8 @@ class NetworkCostTest {
                                       clusterInfo
                                           .replicaStream()
                                           .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(ReplicaInfo::isLeader)
-                                          .filter(ReplicaInfo::isOnline)
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
                                           .mapToLong(r -> rate.get(r.topicPartition()))
                                           .sum()),
                                   noise(random.nextInt()),
@@ -637,8 +636,8 @@ class NetworkCostTest {
                                       clusterInfo
                                           .replicaStream()
                                           .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(ReplicaInfo::isLeader)
-                                          .filter(ReplicaInfo::isOnline)
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
                                           .mapToLong(
                                               r ->
                                                   rate.get(r.topicPartition())

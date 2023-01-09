@@ -30,7 +30,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.HasBrokerCost;
@@ -292,8 +291,16 @@ public class StrictCostDispatcherTest {
                   invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
         try (var dispatcher = new StrictCostDispatcher()) {
           var nodeInfo = NodeInfo.of(10, "host", 2222);
+
           var clusterInfo =
-              ClusterInfoTest.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
+              ClusterInfoTest.of(
+                  List.of(
+                      Replica.builder()
+                          .topic("topic")
+                          .partition(0)
+                          .nodeInfo(nodeInfo)
+                          .path("/tmp/aa")
+                          .buildLeader()));
 
           Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
           dispatcher.costFunction =
