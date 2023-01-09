@@ -161,7 +161,7 @@ public class StrictCostDispatcherTest {
   public static class DumbHasBrokerCost implements HasBrokerCost {
 
     @Override
-    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return Map::of;
     }
   }
@@ -205,7 +205,7 @@ public class StrictCostDispatcherTest {
 
   public static class MyFunction implements HasBrokerCost {
     @Override
-    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return () -> Map.of(22, 10D);
     }
   }
@@ -306,8 +306,7 @@ public class StrictCostDispatcherTest {
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
-                public BrokerCost brokerCost(
-                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+                public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
                   return Map::of;
                 }
 

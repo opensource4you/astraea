@@ -293,7 +293,7 @@ class BalancerHandler implements Handler {
 
   // visible for test
   static PostRequestWrapper parsePostRequestWrapper(
-      BalancerPostRequest balancerPostRequest, ClusterInfo<Replica> currentClusterInfo) {
+      BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
 
     var balancerClasspath = balancerPostRequest.balancer;
     var balancerConfig = Configuration.of(balancerPostRequest.balancerConfig);
@@ -534,13 +534,13 @@ class BalancerHandler implements Handler {
     final String balancerClasspath;
     final Duration executionTime;
     final AlgorithmConfig algorithmConfig;
-    final ClusterInfo<Replica> clusterInfo;
+    final ClusterInfo clusterInfo;
 
     PostRequestWrapper(
         String balancerClasspath,
         Duration executionTime,
         AlgorithmConfig algorithmConfig,
-        ClusterInfo<Replica> clusterInfo) {
+        ClusterInfo clusterInfo) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
       this.algorithmConfig = algorithmConfig;
@@ -640,13 +640,10 @@ class BalancerHandler implements Handler {
 
   static class PlanInfo {
     private final PlanReport report;
-    private final ClusterInfo<Replica> associatedClusterInfo;
+    private final ClusterInfo associatedClusterInfo;
     private final Balancer.Plan associatedPlan;
 
-    PlanInfo(
-        PlanReport report,
-        ClusterInfo<Replica> associatedClusterInfo,
-        Balancer.Plan associatedPlan) {
+    PlanInfo(PlanReport report, ClusterInfo associatedClusterInfo, Balancer.Plan associatedPlan) {
       this.report = report;
       this.associatedClusterInfo = associatedClusterInfo;
       this.associatedPlan = associatedPlan;

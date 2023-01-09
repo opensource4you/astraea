@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.collector.Fetcher;
 
@@ -42,8 +41,7 @@ public interface HasPartitionCost extends CostFunction {
                 .collect(Collectors.toUnmodifiableList()));
     return new HasPartitionCost() {
       @Override
-      public PartitionCost partitionCost(
-          ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
         var result = new HashMap<TopicPartition, Double>();
         costAndWeight.forEach(
             (function, weight) ->
@@ -66,5 +64,5 @@ public interface HasPartitionCost extends CostFunction {
     };
   }
 
-  PartitionCost partitionCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean);
+  PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
 }

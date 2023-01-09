@@ -30,7 +30,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
@@ -72,7 +71,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
   volatile long timeToUpdateRoundRobin = -1;
 
-  void tryToUpdateFetcher(ClusterInfo<Replica> clusterInfo) {
+  void tryToUpdateFetcher(ClusterInfo clusterInfo) {
     // register new nodes to metric collector
     costFunction
         .fetcher()
@@ -95,7 +94,7 @@ public class StrictCostDispatcher extends Dispatcher {
   }
 
   @Override
-  public int partition(String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+  public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
@@ -118,7 +117,7 @@ public class StrictCostDispatcher extends Dispatcher {
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
-  synchronized void tryToUpdateRoundRobin(ClusterInfo<Replica> clusterInfo) {
+  synchronized void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin =
           RoundRobin.smooth(

@@ -154,8 +154,7 @@ class BalancerTest extends RequireBrokerCluster {
       var randomScore =
           new HasClusterCost() {
             @Override
-            public ClusterCost clusterCost(
-                ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+            public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
               return () -> ThreadLocalRandom.current().nextDouble();
             }
           };
@@ -270,8 +269,7 @@ class BalancerTest extends RequireBrokerCluster {
           var theCostFunction =
               new HasClusterCost() {
                 @Override
-                public ClusterCost clusterCost(
-                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+                public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
                   Assertions.assertEquals(1, clusterBean.all().get(0).size());
                   Assertions.assertEquals(
                       expected,
@@ -317,7 +315,7 @@ class BalancerTest extends RequireBrokerCluster {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+          public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
               throw new NoSufficientMetricsException(
                   costFunction,
@@ -343,7 +341,7 @@ class BalancerTest extends RequireBrokerCluster {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+          public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
           }

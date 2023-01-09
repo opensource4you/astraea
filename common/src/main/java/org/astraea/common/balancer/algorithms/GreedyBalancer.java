@@ -27,7 +27,6 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
@@ -137,7 +136,7 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+  public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
@@ -149,7 +148,7 @@ public class GreedyBalancer implements Balancer {
     final var executionTime = timeout.toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
-    BiFunction<ClusterInfo<Replica>, ClusterCost, Optional<Solution>> next =
+    BiFunction<ClusterInfo, ClusterCost, Optional<Solution>> next =
         (currentAllocation, currentCost) ->
             allocationTweaker
                 .generate(currentAllocation)

@@ -22,7 +22,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -81,8 +80,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
     var cost0 =
         new HasClusterCost() {
           @Override
-          public ClusterCost clusterCost(
-              ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+          public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
             return null;
           }
 
@@ -94,8 +92,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
     var cost1 =
         new HasClusterCost() {
           @Override
-          public ClusterCost clusterCost(
-              ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+          public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
             return null;
           }
 
@@ -107,8 +104,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
     var cost2 =
         new HasClusterCost() {
           @Override
-          public ClusterCost clusterCost(
-              ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+          public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
             return null;
           }
 

@@ -27,7 +27,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.producer.ProducerConfigs;
 
 public abstract class Dispatcher implements Partitioner {
@@ -37,7 +36,7 @@ public abstract class Dispatcher implements Partitioner {
       ThreadLocal.withInitial(Interdependent::new);
 
   private final AtomicLong lastUpdated = new AtomicLong(-1);
-  volatile ClusterInfo<Replica> clusterInfo = ClusterInfo.empty();
+  volatile ClusterInfo clusterInfo = ClusterInfo.empty();
   Admin admin = null;
 
   /**
@@ -48,8 +47,7 @@ public abstract class Dispatcher implements Partitioner {
    * @param value The value to partition
    * @param clusterInfo The current cluster metadata
    */
-  protected abstract int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo);
+  protected abstract int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.

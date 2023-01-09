@@ -41,8 +41,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
   }
 
   @Override
-  public CompletionStage<Void> run(
-      Admin admin, ClusterInfo<Replica> logAllocation, Duration timeout) {
+  public CompletionStage<Void> run(Admin admin, ClusterInfo logAllocation, Duration timeout) {
     return admin
         .topicNames(true)
         .thenCompose(admin::clusterInfo)

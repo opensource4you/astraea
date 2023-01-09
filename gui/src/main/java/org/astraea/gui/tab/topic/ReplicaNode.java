@@ -30,7 +30,6 @@ import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.function.Bi3Function;
@@ -51,7 +50,7 @@ public class ReplicaNode {
 
   static final String MOVE_BROKER_KEY = "move to brokers";
 
-  static List<Map<String, Object>> allResult(ClusterInfo<Replica> clusterInfo) {
+  static List<Map<String, Object>> allResult(ClusterInfo clusterInfo) {
     // There are two leader replicas if the leader replica is moving to another folder
     var leaderSizes = ClusterInfo.leaderSize(clusterInfo);
     return clusterInfo
