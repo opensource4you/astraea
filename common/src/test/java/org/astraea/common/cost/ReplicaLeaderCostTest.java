@@ -24,7 +24,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -37,11 +36,24 @@ public class ReplicaLeaderCostTest {
 
   @Test
   void testNoMetrics() {
+
     var replicas =
         List.of(
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
+            Replica.builder()
+                .topic("topic")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .buildLeader(),
+            Replica.builder()
+                .topic("topic")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(11, "broker1", 1111))
+                .buildLeader(),
+            Replica.builder()
+                .topic("topic")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(12, "broker2", 1111))
+                .buildLeader());
     var clusterInfo =
         ClusterInfo.of(
             "fake",

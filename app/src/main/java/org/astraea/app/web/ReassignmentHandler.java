@@ -34,7 +34,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.json.TypeRef;
@@ -157,7 +156,7 @@ public class ReassignmentHandler implements Handler {
               return new Reassignments(
                   clusterInfo
                       .replicaStream()
-                      .filter(ReplicaInfo::isAdding)
+                      .filter(Replica::isAdding)
                       .map(
                           r ->
                               new AddingReplica(

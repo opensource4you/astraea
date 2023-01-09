@@ -31,7 +31,6 @@ import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
@@ -73,7 +72,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
   volatile long timeToUpdateRoundRobin = -1;
 
-  void tryToUpdateFetcher(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+  void tryToUpdateFetcher(ClusterInfo<Replica> clusterInfo) {
     // register new nodes to metric collector
     costFunction
         .fetcher()

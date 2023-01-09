@@ -40,15 +40,14 @@ public class ClusterInfoTest {
    *
    * @param replicas used to build cluster info
    * @return cluster info
-   * @param <T> ReplicaInfo or Replica
    */
-  public static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+  public static ClusterInfo<Replica> of(List<Replica> replicas) {
     // TODO: this method is not suitable for production use. Move it to the test scope.
     //  see https://github.com/skiptests/astraea/issues/1185
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(ReplicaInfo::nodeInfo)
+            .map(Replica::nodeInfo)
             .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()

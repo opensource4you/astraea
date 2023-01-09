@@ -34,7 +34,6 @@ import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.Dispatcher;
@@ -54,7 +53,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
-  private List<? extends ReplicaInfo> partitions;
+  private List<Replica> partitions;
 
   public static final String JMX_PORT = "jmx.port";
 
@@ -120,8 +119,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
         () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
 
-  private int nextValue(
-      String topic, ClusterInfo<? extends ReplicaInfo> clusterInfo, int targetBroker) {
+  private int nextValue(String topic, ClusterInfo<Replica> clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
         .brokerCounter
@@ -129,8 +127,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
         .getAndIncrement();
   }
 
-  private void refreshPartitionMetaData(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo<Replica> clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
     partitions.stream()
         .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
@@ -145,7 +142,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private static class BrokerNextCounter {
     private final Map<Integer, AtomicInteger> brokerCounter;
 
-    BrokerNextCounter(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+    BrokerNextCounter(ClusterInfo<Replica> clusterInfo) {
       brokerCounter =
           clusterInfo.nodes().stream()
               .collect(Collectors.toMap(NodeInfo::id, node -> new AtomicInteger(0)));
