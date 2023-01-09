@@ -31,7 +31,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
@@ -145,8 +144,7 @@ public class ReplicaSizeCost
   }
 
   @Override
-  public PartitionCost partitionCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public PartitionCost partitionCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.replicaLeaders().stream()
             .map(
