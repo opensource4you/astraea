@@ -119,7 +119,7 @@ public class StrictCostDispatcher extends Dispatcher {
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
-  synchronized void tryToUpdateRoundRobin(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+  synchronized void tryToUpdateRoundRobin(ClusterInfo<Replica> clusterInfo) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin =
           RoundRobin.smooth(

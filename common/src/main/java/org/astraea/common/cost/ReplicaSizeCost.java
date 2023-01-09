@@ -117,8 +117,7 @@ public class ReplicaSizeCost
    * @return a BrokerCost contains the used space for each broker
    */
   @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.topicPartitionReplicas().stream()
             .collect(
