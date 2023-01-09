@@ -17,12 +17,12 @@
 package org.astraea.connector.backup;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -125,13 +125,14 @@ public class Exporter extends SinkConnector {
 
     private CompletableFuture<Void> writerFuture;
 
-    private AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private Duration interval;
 
-    private ConcurrentHashMap<TopicPartition, RecordWriter> writers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<TopicPartition, RecordWriter> writers =
+        new ConcurrentHashMap<>();
 
-    private final List<Record> recordList = Collections.synchronizedList(new ArrayList<>());
+    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
     @Override
     protected void init(Configuration configuration)
@@ -150,70 +151,67 @@ public class Exporter extends SinkConnector {
           CompletableFuture.runAsync(
               () -> {
                 var intervalTimeInMillis = interval.toMillis();
-                Long sleepTime = interval.toMillis();
+                long sleepTime = interval.toMillis();
                 if (sleepTime > 1000) sleepTime = 1000L;
                 try {
                   while (!closed.get()) {
-                    synchronized (recordList) {
-                      if (!recordList.isEmpty()) {
-                        recordList.forEach(
-                            record -> {
-                              var writer =
-                                  writers.computeIfAbsent(
-                                      record.topicPartition(),
-                                      ignored -> {
-                                        var fileName = String.valueOf(record.offset());
-                                        return RecordWriter.builder(
-                                                ftpClient.write(
-                                                    String.join(
-                                                        "/",
-                                                        path,
-                                                        topicName,
-                                                        String.valueOf(record.partition()),
-                                                        fileName)))
-                                            .build();
-                                      });
-
-                              writer.append(record);
-                              if (writer.size().greaterThan(size)) {
-                                writers.remove(record.topicPartition()).close();
-                              }
-                            });
-                        recordList.clear();
-                      }
-                    }
-
+                    var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
                     var currentTime = System.currentTimeMillis();
                     writers.forEach(
-                        (tp, writer) -> {
-                          if (currentTime - writer.time() > intervalTimeInMillis) {
+                        (tp, recordWriter) -> {
+                          if (currentTime - recordWriter.time() > intervalTimeInMillis) {
                             writers.remove(tp).close();
                           }
                         });
-                    TimeUnit.MILLISECONDS.sleep(sleepTime);
+                    if (record == null) continue;
+                    var writer =
+                        writers.computeIfAbsent(
+                            record.topicPartition(),
+                            ignored -> {
+                              var fileName = String.valueOf(record.offset());
+                              return RecordWriter.builder(
+                                      ftpClient.write(
+                                          String.join(
+                                              "/",
+                                              path,
+                                              topicName,
+                                              String.valueOf(record.partition()),
+                                              fileName)))
+                                  .build();
+                            });
+                    writer.append(record);
+                    if (writer.size().greaterThan(size)) {
+                      writers.remove(record.topicPartition()).close();
+                    }
                   }
-                  writers.forEach((tp, writer) -> writer.close());
                 } catch (InterruptedException ignored) {
                   // swallow
+                } finally {
+                  writers.forEach((tp, writer) -> writer.close());
+                  ftpClient.close();
                 }
               });
     }
 
     @Override
     protected void put(List<Record<byte[], byte[]>> records) {
-      synchronized (recordList) {
-        recordList.addAll(records);
-      }
+      records.forEach(
+          record -> {
+            try {
+              recordsQueue.put(record);
+            } catch (InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+          });
     }
 
     @Override
     protected void close() throws InterruptedException, ExecutionException {
       this.closed.set(true);
-      TimeUnit.MILLISECONDS.sleep(2000);
+      writerFuture.toCompletableFuture().get();
       if (!this.writerFuture.isDone()) {
         throw new IllegalStateException();
       }
-      this.ftpClient.close();
     }
   }
 }
