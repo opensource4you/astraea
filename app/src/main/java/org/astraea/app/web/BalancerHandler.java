@@ -47,7 +47,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -67,8 +66,6 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
-  static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
-      HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
           List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
@@ -359,7 +356,7 @@ class BalancerHandler implements Handler {
 
   static HasClusterCost getClusterCost(BalancerPostRequest request) {
     var costWeights = request.costWeights;
-    if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
+    if (costWeights.isEmpty()) throw new IllegalArgumentException("costWeights is not specified");
     var costWeightMap =
         costWeights.stream()
             .flatMap(cw -> cw.cost.map(c -> Map.entry(c, cw.weight.orElse(1D))).stream())
@@ -471,7 +468,7 @@ class BalancerHandler implements Handler {
                 clusterInfo ->
                     clusterInfo
                         .replicaStream()
-                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+                        .collect(Collectors.groupingBy(Replica::topicPartition)))
             .toCompletableFuture()
             .join();
 
@@ -524,7 +521,7 @@ class BalancerHandler implements Handler {
     var ongoingMigration =
         replicas.stream()
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
-            .map(ReplicaInfo::topicPartitionReplica)
+            .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(

@@ -107,7 +107,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
   static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        replicas.stream().map(r -> r.nodeInfo()).collect(Collectors.toList()), replicas);
+        "fake", replicas.stream().map(Replica::nodeInfo).collect(Collectors.toList()), replicas);
   }
 
   static ClusterInfo<Replica> originClusterInfo() {
@@ -120,7 +120,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -133,7 +133,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -146,7 +146,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -159,7 +159,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -172,7 +172,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -185,7 +185,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -204,7 +204,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -217,7 +217,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -230,7 +230,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -243,7 +243,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -256,7 +256,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -269,7 +269,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -317,7 +317,9 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
                 .nodeInfo(NodeInfo.of(0, "", -1))
                 .build());
     return ClusterInfo.of(
-        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)), replicas);
+        "fake",
+        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
+        replicas);
   }
 
   private static ClusterBean clusterBean() {

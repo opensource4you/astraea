@@ -14,27 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.stats;
+package org.astraea.common.function;
 
-/** This should be thread safe */
-public interface Stat<V> {
-  void record(V value);
-
-  V measure();
-
-  /** Make a readonly copy of this object. */
-  default Stat<V> snapshot() {
-    var statistics = measure();
-    return new Stat<>() {
-      @Override
-      public void record(V ignore) {
-        throw new UnsupportedOperationException("Cannot update snapshot object!");
-      }
-
-      @Override
-      public V measure() {
-        return statistics;
-      }
-    };
-  }
+@FunctionalInterface
+public interface Bi6Function<A, B, C, D, E, F, R> {
+  R apply(A a, B b, C c, D d, E e, F f);
 }

@@ -70,7 +70,7 @@ public interface ReplicaInfo {
       }
 
       @Override
-      public boolean inSync() {
+      public boolean isSync() {
         return isSynced;
       }
 
@@ -99,7 +99,7 @@ public interface ReplicaInfo {
             + " replicaAtBroker="
             + nodeInfo.id()
             + (isLeader() ? " leader" : "")
-            + (inSync() ? ":synced" : "")
+            + (isSync() ? ":synced" : "")
             + (isOffline() ? ":offline" : "")
             + "}";
       }
@@ -113,7 +113,7 @@ public interface ReplicaInfo {
               && this.partition() == that.partition()
               && this.nodeInfo().equals(that.nodeInfo())
               && this.isLeader() == that.isLeader()
-              && this.inSync() == that.inSync()
+              && this.isSync() == that.isSync()
               && this.isOffline() == that.isOffline();
         }
         return false;
@@ -174,7 +174,7 @@ public interface ReplicaInfo {
   /**
    * @return true if this replica is synced
    */
-  boolean inSync();
+  boolean isSync();
 
   /**
    * @return true if this replica is offline

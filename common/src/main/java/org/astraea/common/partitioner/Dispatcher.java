@@ -16,25 +16,29 @@
  */
 package org.astraea.common.partitioner;
 
+import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.producer.ProducerConfigs;
 
-public interface Dispatcher extends Partitioner {
-  /**
-   * cache the cluster info to reduce the cost of converting cluster. Producer does not update
-   * Cluster frequently, so it is ok to cache it.
-   */
-  ConcurrentHashMap<Cluster, ClusterInfo<ReplicaInfo>> CLUSTER_CACHE = new ConcurrentHashMap<>();
+public abstract class Dispatcher implements Partitioner {
+  private static final Duration CLUSTER_INFO_LEASE = Duration.ofSeconds(15);
 
-  ThreadLocal<Interdependent> THREAD_LOCAL = ThreadLocal.withInitial(Interdependent::new);
+  static final ThreadLocal<Interdependent> THREAD_LOCAL =
+      ThreadLocal.withInitial(Interdependent::new);
+
+  private final AtomicLong lastUpdated = new AtomicLong(-1);
+  volatile ClusterInfo<Replica> clusterInfo = ClusterInfo.empty();
+  Admin admin = null;
 
   /**
    * Compute the partition for the given record.
@@ -44,16 +48,24 @@ public interface Dispatcher extends Partitioner {
    * @param value The value to partition
    * @param clusterInfo The current cluster metadata
    */
-  int partition(String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo);
+  protected abstract int partition(
+      String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo);
 
   /**
    * configure this dispatcher. This method is called only once.
    *
    * @param config configuration
    */
-  default void configure(Configuration config) {}
+  protected void configure(Configuration config) {}
 
-  default void doClose() {}
+  protected void onNewBatch(String topic, int prevPartition) {}
+
+  @Override
+  public void close() {
+    if (admin != null) Utils.packException(admin::close);
+  }
+
+  // -----------------------[interdependent]-----------------------//
 
   /**
    * Use the producer to get the scheduler, allowing you to control it for interdependent
@@ -74,7 +86,8 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO One thread supports multiple producers.
-  static void beginInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
+  public static void beginInterdependent(
+      org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.get().isInterdependent = true;
   }
 
@@ -98,7 +111,7 @@ public interface Dispatcher extends Partitioner {
    */
   // TODO One thread supports multiple producers.
   // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
-  static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
+  public static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     beginInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
@@ -107,7 +120,7 @@ public interface Dispatcher extends Partitioner {
    *
    * @param producer Kafka producer
    */
-  static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
+  public static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
   }
   /**
@@ -116,45 +129,75 @@ public interface Dispatcher extends Partitioner {
    * @param producer Kafka producer
    */
   // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
-  static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
+  public static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     endInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
 
-  /** close this dispatcher. This method is executed only once. */
-  @Override
-  default void close() {
-    doClose();
+  private static class Interdependent {
+    boolean isInterdependent = false;
+    private int targetPartitions = -1;
   }
 
+  // -----------------------[kafka method]-----------------------//
+
   @Override
-  default void configure(Map<String, ?> configs) {
-    configure(
+  public final void configure(Map<String, ?> configs) {
+    var config =
         Configuration.of(
             configs.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString()))));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+    config.string(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));
+    configure(config);
+    tryToUpdate(null);
   }
 
   @Override
-  default int partition(
+  public final int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     var interdependent = THREAD_LOCAL.get();
     if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
       return interdependent.targetPartitions;
-    var target =
-        partition(
-            topic,
-            keyBytes,
-            valueBytes,
-            CLUSTER_CACHE.computeIfAbsent(cluster, ignored -> ClusterInfo.of(cluster)));
+    tryToUpdate(topic);
+    final int target;
+    if (!clusterInfo.topics().contains(topic)) {
+      // the cached cluster info is not updated, so we just return a random partition
+      var ps = cluster.availablePartitionsForTopic(topic);
+      target = ps.isEmpty() ? 0 : ps.get((int) (Math.random() * ps.size())).partition();
+    } else target = partition(topic, keyBytes, valueBytes, clusterInfo);
     interdependent.targetPartitions = target;
     return target;
   }
 
-  @Override
-  default void onNewBatch(String topic, Cluster cluster, int prevPartition) {}
+  boolean tryToUpdate(String topic) {
+    if (admin == null) return false;
+    var now = System.currentTimeMillis();
+    // need to refresh cluster info if
+    // 1) the topic is not included by ClusterInfo
+    // 2) lease expires
+    if (lastUpdated.updateAndGet(
+            last -> {
+              if (topic != null && !clusterInfo.topics().contains(topic)) return now;
+              if (now - last >= CLUSTER_INFO_LEASE.toMillis()) return now;
+              return last;
+            })
+        == now) {
+      admin
+          .topicNames(true)
+          .thenCompose(names -> admin.clusterInfo(names))
+          .whenComplete(
+              (c, e) -> {
+                if (c != null) {
+                  this.clusterInfo = c;
+                  lastUpdated.set(System.currentTimeMillis());
+                }
+              });
+      return true;
+    }
+    return false;
+  }
 
-  class Interdependent {
-    boolean isInterdependent = false;
-    private int targetPartitions = -1;
+  @Override
+  public final void onNewBatch(String topic, Cluster cluster, int prevPartition) {
+    onNewBatch(topic, prevPartition);
   }
 }

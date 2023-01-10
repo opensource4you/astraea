@@ -29,17 +29,16 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.Dispatcher;
 
-public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
+public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private final ConcurrentMap<String, BrokerNextCounter> topicCounter = new ConcurrentHashMap<>();
   private final MetricCollector metricCollector =
@@ -54,13 +53,13 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
-  private List<ReplicaInfo> partitions;
+  private List<Replica> partitions;
 
   public static final String JMX_PORT = "jmx.port";
 
   @Override
-  public int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
+  protected int partition(
+      String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     refreshPartitionMetaData(clusterInfo, topic);
     Supplier<Map<Integer, Double>> supplier =
@@ -91,8 +90,9 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   }
 
   @Override
-  public void doClose() {
+  public void close() {
     metricCollector.close();
+    super.close();
   }
 
   @Override
@@ -109,7 +109,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   }
 
   @Override
-  public void onNewBatch(String topic, Cluster cluster, int prevPartition) {
+  protected void onNewBatch(String topic, int prevPartition) {
     unusedPartitions.add(prevPartition);
   }
 
@@ -119,7 +119,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
         () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
 
-  private int nextValue(String topic, ClusterInfo<ReplicaInfo> clusterInfo, int targetBroker) {
+  private int nextValue(String topic, ClusterInfo<Replica> clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
         .brokerCounter
@@ -127,7 +127,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
         .getAndIncrement();
   }
 
-  private void refreshPartitionMetaData(ClusterInfo<ReplicaInfo> clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo<Replica> clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
     partitions.stream()
         .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
@@ -142,7 +142,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   private static class BrokerNextCounter {
     private final Map<Integer, AtomicInteger> brokerCounter;
 
-    BrokerNextCounter(ClusterInfo<ReplicaInfo> clusterInfo) {
+    BrokerNextCounter(ClusterInfo<Replica> clusterInfo) {
       brokerCounter =
           clusterInfo.nodes().stream()
               .collect(Collectors.toMap(NodeInfo::id, node -> new AtomicInteger(0)));

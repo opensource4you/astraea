@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.stats;
+package org.astraea.common.assignor;
 
-/** This should be thread safe */
-public interface Stat<V> {
-  void record(V value);
+import java.util.Map;
 
-  V measure();
+public final class GroupAssignment {
+  private final Map<String, Assignment> assignments;
 
-  /** Make a readonly copy of this object. */
-  default Stat<V> snapshot() {
-    var statistics = measure();
-    return new Stat<>() {
-      @Override
-      public void record(V ignore) {
-        throw new UnsupportedOperationException("Cannot update snapshot object!");
-      }
+  public GroupAssignment(Map<String, Assignment> assignments) {
+    this.assignments = assignments;
+  }
 
-      @Override
-      public V measure() {
-        return statistics;
-      }
-    };
+  public Map<String, Assignment> groupAssignment() {
+    return assignments;
+  }
+
+  @Override
+  public String toString() {
+    return "GroupAssignment(" + "assignments=" + assignments + ")";
   }
 }

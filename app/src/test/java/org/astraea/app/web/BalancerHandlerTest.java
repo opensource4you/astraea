@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -93,6 +94,8 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       List.of(costWeight(IncreasingCost.class.getName(), 1));
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
       List.of(costWeight(DecreasingCost.class.getName(), 1));
+  private static final Channel defaultPostPlan =
+      httpRequest(Map.of(COST_WEIGHT_KEY, defaultDecreasing));
 
   @Test
   @Timeout(value = 60)
@@ -245,6 +248,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var currentClusterInfo =
           ClusterInfo.of(
+              "fake",
               List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
               List.of(
                   Replica.builder()
@@ -254,7 +258,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .lag(0)
                       .size(100)
                       .isLeader(true)
-                      .inSync(true)
+                      .isSync(true)
                       .isFuture(false)
                       .isOffline(false)
                       .isPreferredLeader(true)
@@ -392,16 +396,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               BalancerHandler.PostPlanResponse.class,
               handler
                   .post(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter()
-                              .toJson(
-                                  Map.of(
-                                      COST_WEIGHT_KEY,
-                                      defaultIncreasing,
-                                      TIMEOUT_KEY,
-                                      "996ms",
-                                      BALANCER_IMPLEMENTATION_KEY,
-                                      GreedyBalancer.class.getName()))))
+                      httpRequest(
+                          Map.of(
+                              COST_WEIGHT_KEY,
+                              defaultIncreasing,
+                              TIMEOUT_KEY,
+                              "996ms",
+                              BALANCER_IMPLEMENTATION_KEY,
+                              GreedyBalancer.class.getName())))
                   .toCompletableFuture()
                   .join());
       Utils.sleep(Duration.ofSeconds(5));
@@ -423,10 +425,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   CompletionException.class,
                   () ->
                       handler
-                          .put(
-                              Channel.ofRequest(
-                                  JsonConverter.defaultConverter()
-                                      .toJson(Map.of("id", progress.id))))
+                          .put(httpRequest(Map.of("id", progress.id)))
                           .toCompletableFuture()
                           .join())
               .getCause(),
@@ -456,12 +455,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", thePlanId))))
-                  .toCompletableFuture()
-                  .join());
+              handler.put(httpRequest(Map.of("id", thePlanId))).toCompletableFuture().join());
       Utils.sleep(Duration.ofSeconds(1));
 
       // assert
@@ -487,13 +481,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // no such plan id
       Assertions.assertThrows(
           IllegalArgumentException.class,
-          () ->
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", "no such plan"))))
-                  .toCompletableFuture()
-                  .join(),
+          () -> handler.put(httpRequest(Map.of("id", "no such plan"))).toCompletableFuture().join(),
           "The requested plan doesn't exists");
     }
   }
@@ -528,9 +516,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   executor.submit(
                       () -> {
                         // the plan
-                        final var request =
-                            Channel.ofRequest(
-                                JsonConverter.defaultConverter().toJson(Map.of("id", progress.id)));
+                        final var request = httpRequest(Map.of("id", progress.id));
                         // use cyclic barrier to ensure all threads are ready to work
                         Utils.packException(() -> barrier.await());
                         // send the put request
@@ -574,24 +560,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var plan1 = submitPlanGeneration(handler, Map.of());
 
       Assertions.assertDoesNotThrow(
-          () ->
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", plan0.id))))
-                  .toCompletableFuture()
-                  .join());
+          () -> handler.put(httpRequest(Map.of("id", plan0.id))).toCompletableFuture().join());
       Assertions.assertInstanceOf(
           IllegalStateException.class,
           Assertions.assertThrows(
                   CompletionException.class,
                   () ->
-                      handler
-                          .put(
-                              Channel.ofRequest(
-                                  JsonConverter.defaultConverter().toJson(Map.of("id", plan1.id))))
-                          .toCompletableFuture()
-                          .join())
+                      handler.put(httpRequest(Map.of("id", plan1.id))).toCompletableFuture().join())
               .getCause());
     }
   }
@@ -647,10 +622,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   CompletionException.class,
                   () ->
                       handler
-                          .put(
-                              Channel.ofRequest(
-                                  JsonConverter.defaultConverter()
-                                      .toJson(Map.of("id", theReport.id))))
+                          .put(httpRequest(Map.of("id", theReport.id)))
                           .toCompletableFuture()
                           .join())
               .getCause());
@@ -692,21 +664,21 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
       Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasAdding));
       Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasRemoving));
       Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(Channel.EMPTY));
+          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(base));
-      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(Channel.EMPTY));
+      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(defaultPostPlan));
     }
   }
 
@@ -740,10 +712,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                   CompletionException.class,
                   () ->
                       handler
-                          .put(
-                              Channel.ofRequest(
-                                  JsonConverter.defaultConverter()
-                                      .toJson(Map.of("id", theProgress.id))))
+                          .put(httpRequest(Map.of("id", theProgress.id)))
                           .toCompletableFuture()
                           .join(),
                   "The cluster state has changed, prevent the plan from execution")
@@ -791,12 +760,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", progress.id))))
-                  .toCompletableFuture()
-                  .join());
+              handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join());
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // not done yet
@@ -842,7 +806,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
-              handler.post(Channel.EMPTY).toCompletableFuture().join());
+              handler
+                  .post(httpRequest(Map.of(COST_WEIGHT_KEY, defaultDecreasing)))
+                  .toCompletableFuture()
+                  .join());
       Utils.waitFor(
           () ->
               ((BalancerHandler.PlanExecutionProgress)
@@ -866,12 +833,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", post.id))))
-                  .toCompletableFuture()
-                  .join());
+              handler.put(httpRequest(Map.of("id", post.id))).toCompletableFuture().join());
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // exception
@@ -900,13 +862,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       // plan doesn't exists
       Assertions.assertThrows(
           IllegalArgumentException.class,
-          () ->
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", "no such plan"))))
-                  .toCompletableFuture()
-                  .join(),
+          () -> handler.put(httpRequest(Map.of("id", "no such plan"))).toCompletableFuture().join(),
           "This plan doesn't exists");
     }
   }
@@ -923,13 +879,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
               Map.of(COST_WEIGHT_KEY, defaultDecreasing, TOPICS_KEY, String.join(",", topics)));
 
       Assertions.assertDoesNotThrow(
-          () ->
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", progress.id))))
-                  .toCompletableFuture()
-                  .join(),
+          () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
           "Schedule the rebalance task");
 
       // Wait until the migration occurred
@@ -941,18 +891,12 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                     .toCompletableFuture()
                     .join()
                     .replicaStream()
-                    .anyMatch(replica -> replica.isFuture() || !replica.inSync()));
+                    .anyMatch(replica -> replica.isFuture() || !replica.isSync()));
       } catch (Exception ignore) {
       }
 
       Assertions.assertDoesNotThrow(
-          () ->
-              handler
-                  .put(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter().toJson(Map.of("id", progress.id))))
-                  .toCompletableFuture()
-                  .join(),
+          () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
           "Idempotent behavior");
     }
   }
@@ -1006,14 +950,22 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
       var clusterInfo =
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       {
-        // default
-        var postRequest =
-            BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo);
+        // no cost weight
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo),
+            "CostWeights must be specified");
+      }
+      {
+        // minimal
+        var request = new BalancerPostRequest();
+        request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
+        var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
         Assertions.assertTrue(config.config().entrySet().isEmpty());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
-        Assertions.assertEquals(
-            BalancerHandler.DEFAULT_CLUSTER_COST_FUNCTION, config.clusterCostFunction());
+        Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
+        Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
         Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
         Assertions.assertTrue(
             clusterInfo.topics().stream().allMatch(t -> config.topicFilter().test(t)));
@@ -1088,10 +1040,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
       var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
-      var channel =
-          Channel.ofRequest(
-              JsonConverter.defaultConverter()
-                  .toJson(Map.of(TIMEOUT_KEY, "10", COST_WEIGHT_KEY, costFunction)));
+      var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", COST_WEIGHT_KEY, costFunction));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(11));
@@ -1285,12 +1234,13 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, Map<String, Object> requestBody) {
+    if (!requestBody.containsKey(COST_WEIGHT_KEY)) {
+      requestBody = new HashMap<>(requestBody);
+      requestBody.put(COST_WEIGHT_KEY, defaultDecreasing);
+    }
     var post =
         (BalancerHandler.PostPlanResponse)
-            handler
-                .post(Channel.ofRequest(JsonConverter.defaultConverter().toJson(requestBody)))
-                .toCompletableFuture()
-                .join();
+            handler.post(httpRequest(requestBody)).toCompletableFuture().join();
     Utils.waitFor(
         () -> {
           var progress =
@@ -1410,5 +1360,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     cw.cost = Optional.of(cost);
     cw.weight = Optional.of(weight);
     return cw;
+  }
+
+  private static Channel httpRequest(Map<String, ?> payload) {
+    return Channel.ofRequest(JsonConverter.defaultConverter().toJson(payload));
   }
 }

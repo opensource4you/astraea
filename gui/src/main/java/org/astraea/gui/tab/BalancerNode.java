@@ -35,7 +35,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -122,12 +121,12 @@ public class BalancerNode {
               result.put(TOPIC_NAME_KEY, tp.topic());
               result.put(PARTITION_KEY, tp.partition());
               previousAssignments.stream()
-                  .filter(ReplicaInfo::isLeader)
+                  .filter(Replica::isLeader)
                   .findFirst()
                   .ifPresent(
                       r -> result.put(PREVIOUS_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
               newAssignments.stream()
-                  .filter(ReplicaInfo::isLeader)
+                  .filter(Replica::isLeader)
                   .findFirst()
                   .ifPresent(r -> result.put(NEW_LEADER_KEY, r.nodeInfo().id() + ":" + r.path()));
               var previousFollowers =

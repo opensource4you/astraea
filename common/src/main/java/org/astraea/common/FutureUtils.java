@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.common.function.Bi4Function;
 import org.astraea.common.function.Bi5Function;
+import org.astraea.common.function.Bi6Function;
 
 public final class FutureUtils {
 
@@ -71,6 +72,27 @@ public final class FutureUtils {
                 b ->
                     f2.thenCompose(
                         c -> f3.thenCompose(d -> f4.thenApply(e -> fn.apply(a, b, c, d, e))))));
+  }
+
+  public static <A, B, C, D, E, F, R> CompletionStage<R> combine(
+      CompletionStage<? extends A> f0,
+      CompletionStage<? extends B> f1,
+      CompletionStage<? extends C> f2,
+      CompletionStage<? extends D> f3,
+      CompletionStage<? extends E> f4,
+      CompletionStage<? extends F> f5,
+      Bi6Function<? super A, ? super B, ? super C, ? super D, ? super E, ? super F, ? extends R>
+          fn) {
+    return f0.thenCompose(
+        a ->
+            f1.thenCompose(
+                b ->
+                    f2.thenCompose(
+                        c ->
+                            f3.thenCompose(
+                                d ->
+                                    f4.thenCompose(
+                                        e -> f5.thenApply(f -> fn.apply(a, b, c, d, e, f)))))));
   }
 
   private FutureUtils() {}

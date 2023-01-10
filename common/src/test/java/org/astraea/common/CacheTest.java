@@ -19,10 +19,19 @@ package org.astraea.common;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class CacheTest {
+
+  @Test
+  void testGetAndRequire() {
+    var cache = Cache.<String, String>builder().expireAfterAccess(Duration.ofSeconds(1)).build();
+    Assertions.assertEquals(Optional.empty(), cache.get("xxx"));
+    Assertions.assertThrows(NullPointerException.class, () -> cache.require("xxx"));
+    Assertions.assertEquals("aaa", cache.require("xxx", k -> "aaa"));
+  }
 
   @Test
   void testCacheCleanup() {
@@ -30,10 +39,10 @@ public class CacheTest {
         Cache.<String, String>builder(key -> key + "-test")
             .expireAfterAccess(Duration.ofSeconds(1))
             .build();
-    cache.get("foo");
+    cache.require("foo");
     // this won't do anything since expire time is 1 second
     cache.cleanup();
-    cache.get("bar");
+    cache.require("bar");
     // this won't do anything since expire time is 1 second
     cache.cleanup();
     // this won't do anything since expire time is 1 second
@@ -56,14 +65,14 @@ public class CacheTest {
             .removalListener((k, v) -> onRemoveList.add(k))
             .build();
 
-    Assertions.assertEquals("foo-test", cache.get("foo"));
-    Assertions.assertEquals("bar-test", cache.get("bar"));
+    Assertions.assertEquals("foo-test", cache.require("foo"));
+    Assertions.assertEquals("bar-test", cache.require("bar"));
     // this won't throw error since foo is cached
-    Assertions.assertEquals("foo-test", cache.get("foo"));
-    Assertions.assertThrowsExactly(RuntimeException.class, () -> cache.get("error"));
+    Assertions.assertEquals("foo-test", cache.require("foo"));
+    Assertions.assertThrowsExactly(RuntimeException.class, () -> cache.require("error"));
     Utils.sleep(Duration.ofSeconds(1));
     // trigger remove listener after 1s
-    cache.get("");
+    cache.require("");
 
     var expected = List.of("foo", "bar");
     Assertions.assertTrue(

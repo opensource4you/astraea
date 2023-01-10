@@ -29,7 +29,6 @@ import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
@@ -109,7 +108,7 @@ public abstract class NetworkCost implements HasClusterCost {
     var brokerRate =
         clusterInfo
             .replicaStream()
-            .filter(ReplicaInfo::isOnline)
+            .filter(Replica::isOnline)
             .collect(
                 Collectors.groupingBy(
                     replica -> clusterInfo.node(replica.nodeInfo().id()),
@@ -168,8 +167,8 @@ public abstract class NetworkCost implements HasClusterCost {
       ClusterInfo<? extends Replica> clusterInfo) {
     return clusterInfo
         .replicaStream()
-        .filter(ReplicaInfo::isOnline)
-        .filter(ReplicaInfo::isLeader)
+        .filter(Replica::isOnline)
+        .filter(Replica::isLeader)
         .map(r -> Map.entry(BrokerTopic.of(r.nodeInfo().id(), r.topic()), r))
         .collect(
             Collectors.groupingBy(

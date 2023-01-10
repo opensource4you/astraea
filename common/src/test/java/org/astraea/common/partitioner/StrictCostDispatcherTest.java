@@ -29,7 +29,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.HasBrokerCost;
@@ -95,7 +95,7 @@ public class StrictCostDispatcherTest {
   @Test
   void testNoAvailableBrokers() {
     try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Map.of(), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.EMPTY);
       Assertions.assertEquals(
           0, dispatcher.partition("topic", new byte[0], new byte[0], ClusterInfo.empty()));
     }
@@ -104,9 +104,15 @@ public class StrictCostDispatcherTest {
   @Test
   void testSingleBroker() {
     var nodeInfo = NodeInfo.of(10, "host", 11111);
-    var replicaInfo = ReplicaInfo.of("topic", 10, nodeInfo, true, true, false);
+    var replicaInfo =
+        Replica.builder()
+            .topic("topic")
+            .partition(10)
+            .path("/tmp/aa")
+            .nodeInfo(nodeInfo)
+            .buildLeader();
     try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Map.of(), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.EMPTY);
       Assertions.assertEquals(
           10,
           dispatcher.partition(
@@ -152,15 +158,33 @@ public class StrictCostDispatcherTest {
         () -> StrictCostDispatcher.parseCostFunctionWeight(config2));
   }
 
+  public static class DumbHasBrokerCost implements HasBrokerCost {
+
+    @Override
+    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      return Map::of;
+    }
+  }
+
   @Test
   void testCostFunctionWithoutFetcher() {
     HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
-    var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
+    var replicaInfo0 =
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/tmp/aa")
+            .nodeInfo(NodeInfo.of(10, "host", 11111))
+            .buildLeader();
     var replicaInfo1 =
-        ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/tmp/aa")
+            .nodeInfo(NodeInfo.of(12, "host2", 11111))
+            .buildLeader();
     try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(
-          Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.of((Map.of(DumbHasBrokerCost.class.getName(), "1"))));
       dispatcher.partition(
           "topic",
           new byte[0],
@@ -175,19 +199,14 @@ public class StrictCostDispatcherTest {
     try (var dispatcher = new StrictCostDispatcher()) {
 
       // pass due to local mbean
-      dispatcher.configure(
-          Map.of(new NodeThroughputCost(), 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.of(Map.of(NodeThroughputCost.class.getName(), "1")));
+    }
+  }
 
-      // pass due to default port
-      dispatcher.configure(
-          Map.of(new NodeThroughputCost(), 1D), Optional.of(111), Map.of(), Duration.ofSeconds(10));
-
-      // pass due to specify port
-      dispatcher.configure(
-          Map.of(new NodeThroughputCost(), 1D),
-          Optional.empty(),
-          Map.of(222, 111),
-          Duration.ofSeconds(10));
+  public static class MyFunction implements HasBrokerCost {
+    @Override
+    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      return () -> Map.of(22, 10D);
     }
   }
 
@@ -196,22 +215,22 @@ public class StrictCostDispatcherTest {
     var brokerId = 22;
     var partitionId = 123;
     try (var dispatcher = new StrictCostDispatcher()) {
-      var costFunction =
-          new HasBrokerCost() {
-            @Override
-            public BrokerCost brokerCost(
-                ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-              return () -> Map.of(brokerId, 10D);
-            }
-          };
-      dispatcher.configure(
-          Map.of(costFunction, 1D), Optional.empty(), Map.of(), Duration.ofSeconds(10));
+      dispatcher.configure(Configuration.of(Map.of(MyFunction.class.getName(), "1")));
 
       var replicaInfo0 =
-          ReplicaInfo.of(
-              "topic", partitionId, NodeInfo.of(brokerId, "host", 11111), true, true, false);
+          Replica.builder()
+              .topic("topic")
+              .partition(partitionId)
+              .path("/tmp/aa")
+              .nodeInfo(NodeInfo.of(brokerId, "host", 11111))
+              .buildLeader();
       var replicaInfo1 =
-          ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, false);
+          Replica.builder()
+              .topic("topic")
+              .partition(1)
+              .path("/tmp/aa")
+              .nodeInfo(NodeInfo.of(1111, "host2", 11111))
+              .buildLeader();
       Assertions.assertEquals(
           partitionId,
           dispatcher.partition(
@@ -272,15 +291,23 @@ public class StrictCostDispatcherTest {
                   invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
         try (var dispatcher = new StrictCostDispatcher()) {
           var nodeInfo = NodeInfo.of(10, "host", 2222);
+
           var clusterInfo =
-              ClusterInfoTest.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
+              ClusterInfoTest.of(
+                  List.of(
+                      Replica.builder()
+                          .topic("topic")
+                          .partition(0)
+                          .nodeInfo(nodeInfo)
+                          .path("/tmp/aa")
+                          .buildLeader()));
 
           Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
                 public BrokerCost brokerCost(
-                    ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
                   return Map::of;
                 }
 
