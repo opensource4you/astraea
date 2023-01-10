@@ -32,9 +32,9 @@ public class AvgTest {
   }
 
   @Test
-  void testException() {
+  void testNan() {
     var stat = Avg.of();
-    Assertions.assertThrows(RuntimeException.class, stat::measure);
+    Assertions.assertEquals(Double.NaN, stat.measure());
   }
 
   @Test

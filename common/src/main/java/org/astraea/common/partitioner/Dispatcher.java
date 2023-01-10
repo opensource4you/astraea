@@ -146,7 +146,7 @@ public abstract class Dispatcher implements Partitioner {
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));
     configure(config);
-    tryToUpdate(null);
+    tryToUpdate();
   }
 
   @Override
@@ -155,7 +155,7 @@ public abstract class Dispatcher implements Partitioner {
     var interdependent = THREAD_LOCAL.get();
     if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
       return interdependent.targetPartitions;
-    tryToUpdate(topic);
+    tryToUpdate();
     final int target;
     if (!clusterInfo.topics().contains(topic)) {
       // the cached cluster info is not updated, so we just return a random partition
@@ -166,16 +166,13 @@ public abstract class Dispatcher implements Partitioner {
     return target;
   }
 
-  boolean tryToUpdate(String topic) {
+  boolean tryToUpdate() {
     if (admin == null) return false;
-    var now = System.currentTimeMillis();
-    // need to refresh cluster info if
-    // 1) the topic is not included by ClusterInfo
-    // 2) lease expires
+    var now = System.nanoTime();
+    // need to refresh cluster info if lease expires
     if (lastUpdated.updateAndGet(
             last -> {
-              if (topic != null && !clusterInfo.topics().contains(topic)) return now;
-              if (now - last >= CLUSTER_INFO_LEASE.toMillis()) return now;
+              if (now - last >= CLUSTER_INFO_LEASE.toNanos()) return now;
               return last;
             })
         == now) {
@@ -186,7 +183,7 @@ public abstract class Dispatcher implements Partitioner {
               (c, e) -> {
                 if (c != null) {
                   this.clusterInfo = c;
-                  lastUpdated.set(System.currentTimeMillis());
+                  lastUpdated.set(System.nanoTime());
                 }
               });
       return true;
