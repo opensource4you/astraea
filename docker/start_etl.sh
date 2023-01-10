@@ -74,10 +74,10 @@ function runContainer() {
   fi
 
   mkdir -p "$checkpoint_path"
-    if [ $? -ne 0 ]; then
-      echo "failed to create folder on $checkpoint_path"
-      exit 1
-    fi
+  if [ $? -ne 0 ]; then
+    echo "failed to create folder on $checkpoint_path"
+    exit 1
+  fi
 
   ui_port=$(($(($RANDOM % 10000)) + 10000))
   if [[ "$master" == "local"* ]]; then
