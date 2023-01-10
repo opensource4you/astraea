@@ -96,24 +96,18 @@ public interface Report {
 
                   @Override
                   public Optional<Double> e2eLatency() {
-                    try {
-                      return Optional.ofNullable(
-                              MBeanClient.local()
-                                  .queryBean(
-                                      BeanQuery.builder()
-                                          .domainName(ProducerThread.DOMAIN_NAME)
-                                          .property(
-                                              ProducerThread.TYPE_PROPERTY,
-                                              ProducerThread.TYPE_VALUE)
-                                          .property(ProducerThread.ID_PROPERTY, m.clientId())
-                                          .build())
-                                  .attributes()
-                                  .get(ProducerThread.AVG_PROPERTY))
-                          .map(v -> (double) v);
-                    } catch (Exception e) {
-                      e.printStackTrace();
-                      return Optional.empty();
-                    }
+                    return Optional.ofNullable(
+                            MBeanClient.local()
+                                .queryBean(
+                                    BeanQuery.builder()
+                                        .domainName(ProducerThread.DOMAIN_NAME)
+                                        .property(
+                                            ProducerThread.TYPE_PROPERTY, ProducerThread.TYPE_VALUE)
+                                        .property(ProducerThread.ID_PROPERTY, m.clientId())
+                                        .build())
+                                .attributes()
+                                .get(ProducerThread.AVG_PROPERTY))
+                        .map(v -> (double) v);
                   }
 
                   @Override
