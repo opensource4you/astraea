@@ -56,9 +56,7 @@ class NetworkCostTest {
     return new NetworkIngressCost() {
       @Override
       void updateCurrentCluster(
-          ClusterInfo<Replica> clusterInfo,
-          ClusterBean clusterBean,
-          AtomicReference<ClusterInfo<Replica>> ref) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
         ref.compareAndSet(null, clusterInfo);
       }
     };
@@ -68,9 +66,7 @@ class NetworkCostTest {
     return new NetworkEgressCost() {
       @Override
       void updateCurrentCluster(
-          ClusterInfo<Replica> clusterInfo,
-          ClusterBean clusterBean,
-          AtomicReference<ClusterInfo<Replica>> ref) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
         ref.compareAndSet(null, clusterInfo);
       }
     };
@@ -422,7 +418,7 @@ class NetworkCostTest {
 
   interface TestCase {
 
-    ClusterInfo<Replica> clusterInfo();
+    ClusterInfo clusterInfo();
 
     ClusterBean clusterBean();
   }
@@ -484,7 +480,7 @@ class NetworkCostTest {
                       .collect(Collectors.toUnmodifiableList())));
     }
 
-    final ClusterInfo<Replica> base =
+    final ClusterInfo base =
         ClusterInfoBuilder.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(Map.of(1, Set.of("/ssd1", "/ssd2", "/ssd3")))
@@ -524,7 +520,7 @@ class NetworkCostTest {
                 .size(expectedRate.get(replica.topicPartition()) * 100)
                 .nodeInfo(base.node(1 + replica.partition() % 3))
                 .build();
-    final ClusterInfo<Replica> clusterInfo =
+    final ClusterInfo clusterInfo =
         ClusterInfoBuilder.builder(base)
             .addTopic("Beef", 4, (short) 1, modPlacement)
             .addTopic("Pork", 4, (short) 1, modPlacement)
@@ -536,7 +532,7 @@ class NetworkCostTest {
     }
 
     @Override
-    public ClusterInfo<Replica> clusterInfo() {
+    public ClusterInfo clusterInfo() {
       return clusterInfo;
     }
 
@@ -549,7 +545,7 @@ class NetworkCostTest {
   /** A large cluster */
   private static class LargeTestCase implements TestCase {
 
-    private final ClusterInfo<Replica> clusterInfo;
+    private final ClusterInfo clusterInfo;
     private final ClusterBean clusterBean;
     private final Map<TopicPartition, Long> rate;
     private final Supplier<DataRate> dataRateSupplier;
@@ -647,7 +643,7 @@ class NetworkCostTest {
     }
 
     @Override
-    public ClusterInfo<Replica> clusterInfo() {
+    public ClusterInfo clusterInfo() {
       return clusterInfo;
     }
 

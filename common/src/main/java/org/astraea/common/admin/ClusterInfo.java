@@ -32,16 +32,15 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Lazy;
 
-public interface ClusterInfo<T extends ReplicaInfo> {
-  static <T extends ReplicaInfo> ClusterInfo<T> empty() {
+public interface ClusterInfo {
+  static ClusterInfo empty() {
     return of("unknown", List.of(), List.of());
   }
 
   // ---------------------[helpers]---------------------//
 
   /** Mask specific topics from a {@link ClusterInfo}. */
-  static <T extends ReplicaInfo> ClusterInfo<T> masked(
-      ClusterInfo<T> clusterInfo, Predicate<String> topicFilter) {
+  static ClusterInfo masked(ClusterInfo clusterInfo, Predicate<String> topicFilter) {
     final var nodes = List.copyOf(clusterInfo.nodes());
     final var replicas =
         clusterInfo
@@ -64,8 +63,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param replacement offers new host and data folder
    * @return new cluster info
    */
-  static ClusterInfo<Replica> update(
-      ClusterInfo<Replica> clusterInfo, Function<TopicPartition, Collection<Replica>> replacement) {
+  static ClusterInfo update(
+      ClusterInfo clusterInfo, Function<TopicPartition, Collection<Replica>> replacement) {
     var newReplicas =
         clusterInfo.replicas().stream()
             .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
@@ -89,8 +88,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * exactly same topic/partitions set. Otherwise, an {@link IllegalArgumentException} will be
    * raised.
    */
-  static Set<TopicPartition> findNonFulfilledAllocation(
-      ClusterInfo<Replica> source, ClusterInfo<Replica> target) {
+  static Set<TopicPartition> findNonFulfilledAllocation(ClusterInfo source, ClusterInfo target) {
 
     final var sourceTopicPartition =
         source.replicaStream().map(Replica::topicPartition).collect(Collectors.toSet());
@@ -148,7 +146,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             });
   }
 
-  static String toString(ClusterInfo<Replica> allocation) {
+  static String toString(ClusterInfo allocation) {
     StringBuilder stringBuilder = new StringBuilder();
 
     allocation.topicPartitions().stream()
@@ -173,24 +171,6 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   // ---------------------[constructor]---------------------//
 
   /**
-   * convert the kafka Cluster to our ClusterInfo. Noted: this method is used by {@link
-   * org.astraea.common.cost.HasBrokerCost} normally, so all data structure are converted
-   * immediately
-   *
-   * @param cluster kafka ClusterInfo
-   * @return ClusterInfo
-   */
-  static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
-    return of(
-        cluster.clusterResource().clusterId(),
-        cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
-        cluster.topics().stream()
-            .flatMap(t -> cluster.partitionsForTopic(t).stream())
-            .flatMap(p -> ReplicaInfo.of(p).stream())
-            .collect(Collectors.toUnmodifiableList()));
-  }
-
-  /**
    * build a cluster info based on replicas and a set of cluster node information.
    *
    * <p>Be aware that this the <code>replicas</code>parameter describes <strong>the replica lists of
@@ -202,16 +182,14 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param nodes the node information of the cluster info
    * @param replicas used to build cluster info
    * @return cluster info
-   * @param <T> ReplicaInfo or Replica
    */
-  static <T extends ReplicaInfo> ClusterInfo<T> of(
-      String clusterId, List<NodeInfo> nodes, List<T> replicas) {
-    return new Optimized<>(clusterId, nodes, replicas);
+  static ClusterInfo of(String clusterId, List<NodeInfo> nodes, List<Replica> replicas) {
+    return new Optimized(clusterId, nodes, replicas);
   }
 
   // ---------------------[for leader]---------------------//
 
-  static Map<TopicPartition, Long> leaderSize(ClusterInfo<Replica> clusterInfo) {
+  static Map<TopicPartition, Long> leaderSize(ClusterInfo clusterInfo) {
     return clusterInfo
         .replicaStream()
         .filter(Replica::isLeader)
@@ -224,12 +202,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /**
    * Get the list of replica leaders
    *
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> replicaLeaders() {
+  default List<Replica> replicaLeaders() {
     return replicaStream()
-        .filter(ReplicaInfo::isLeader)
-        .filter(ReplicaInfo::isOnline)
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -237,12 +215,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * Get the list of replica leaders of given topic
    *
    * @param topic The Topic name
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> replicaLeaders(String topic) {
+  default List<Replica> replicaLeaders(String topic) {
     return replicaStream(topic)
-        .filter(ReplicaInfo::isLeader)
-        .filter(ReplicaInfo::isOnline)
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -250,24 +228,24 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * Get the list of replica leaders of given node
    *
    * @param broker the broker id
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> replicaLeaders(int broker) {
+  default List<Replica> replicaLeaders(int broker) {
     return replicaStream(broker)
-        .filter(ReplicaInfo::isLeader)
-        .filter(ReplicaInfo::isOnline)
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
   /**
    * Get the list of replica leaders of given topic on the given node
    *
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> replicaLeaders(BrokerTopic brokerTopic) {
+  default List<Replica> replicaLeaders(BrokerTopic brokerTopic) {
     return replicaStream(brokerTopic)
-        .filter(ReplicaInfo::isLeader)
-        .filter(ReplicaInfo::isOnline)
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
         .collect(Collectors.toUnmodifiableList());
   }
 
@@ -275,12 +253,12 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * Get the replica leader of given topic partition
    *
    * @param topicPartition topic and partition id
-   * @return {@link ReplicaInfo} or empty if there is no leader
+   * @return {@link Replica} or empty if there is no leader
    */
-  default Optional<T> replicaLeader(TopicPartition topicPartition) {
+  default Optional<Replica> replicaLeader(TopicPartition topicPartition) {
     return replicaStream(topicPartition)
-        .filter(ReplicaInfo::isLeader)
-        .filter(ReplicaInfo::isOnline)
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
         .findFirst();
   }
 
@@ -290,12 +268,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * Get the list of available replicas of given topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> availableReplicas(String topic) {
-    return replicaStream(topic)
-        .filter(ReplicaInfo::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+  default List<Replica> availableReplicas(String topic) {
+    return replicaStream(topic).filter(Replica::isOnline).collect(Collectors.toUnmodifiableList());
   }
 
   // ---------------------[for replicas]---------------------//
@@ -303,7 +279,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /**
    * @return all replicas cached by this cluster info.
    */
-  default List<T> replicas() {
+  default List<Replica> replicas() {
     return replicaStream().collect(Collectors.toUnmodifiableList());
   }
 
@@ -311,9 +287,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * Get the list of replica information of each partition/replica pair for the given topic
    *
    * @param topic The topic name
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> replicas(String topic) {
+  default List<Replica> replicas(String topic) {
     return replicaStream(topic).collect(Collectors.toUnmodifiableList());
   }
 
@@ -322,9 +298,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * broker
    *
    * @param topicPartition topic name and partition id
-   * @return A list of {@link ReplicaInfo}.
+   * @return A list of {@link Replica}.
    */
-  default List<T> replicas(TopicPartition topicPartition) {
+  default List<Replica> replicas(TopicPartition topicPartition) {
     return replicaStream(topicPartition).collect(Collectors.toUnmodifiableList());
   }
 
@@ -332,7 +308,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @param replica to search
    * @return the replica matched to input replica
    */
-  default List<T> replicas(TopicPartitionReplica replica) {
+  default List<Replica> replicas(TopicPartitionReplica replica) {
     return replicaStream(replica).collect(Collectors.toUnmodifiableList());
   }
 
@@ -346,16 +322,16 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return return a set of topic names
    */
   default Set<String> topics() {
-    return replicaStream().map(ReplicaInfo::topic).collect(Collectors.toUnmodifiableSet());
+    return replicaStream().map(Replica::topic).collect(Collectors.toUnmodifiableSet());
   }
 
   default Set<TopicPartition> topicPartitions() {
-    return replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toUnmodifiableSet());
+    return replicaStream().map(Replica::topicPartition).collect(Collectors.toUnmodifiableSet());
   }
 
   default Set<TopicPartitionReplica> topicPartitionReplicas() {
     return replicaStream()
-        .map(ReplicaInfo::topicPartitionReplica)
+        .map(Replica::topicPartitionReplica)
         .collect(Collectors.toUnmodifiableSet());
   }
 
@@ -397,24 +373,24 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   // ---------------------[streams methods]---------------------//
   // implements following methods by smart index to speed up the queries
 
-  default Stream<T> replicaStream(int broker) {
+  default Stream<Replica> replicaStream(int broker) {
     return replicaStream().filter(r -> r.nodeInfo().id() == broker);
   }
 
-  default Stream<T> replicaStream(String topic) {
+  default Stream<Replica> replicaStream(String topic) {
     return replicaStream().filter(r -> r.topic().equals(topic));
   }
 
-  default Stream<T> replicaStream(BrokerTopic brokerTopic) {
+  default Stream<Replica> replicaStream(BrokerTopic brokerTopic) {
     return replicaStream(brokerTopic.topic())
         .filter(r -> r.nodeInfo().id() == brokerTopic.broker());
   }
 
-  default Stream<T> replicaStream(TopicPartition partition) {
+  default Stream<Replica> replicaStream(TopicPartition partition) {
     return replicaStream(partition.topic()).filter(r -> r.partition() == partition.partition());
   }
 
-  default Stream<T> replicaStream(TopicPartitionReplica replica) {
+  default Stream<Replica> replicaStream(TopicPartitionReplica replica) {
     return replicaStream(replica.topicPartition())
         .filter(r -> r.nodeInfo().id() == replica.brokerId());
   }
@@ -429,21 +405,21 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   /**
    * @return replica stream to offer effective way to operate a bunch of replicas
    */
-  Stream<T> replicaStream();
+  Stream<Replica> replicaStream();
 
   /** It optimizes all queries by pre-allocated Map collection. */
-  class Optimized<T extends ReplicaInfo> implements ClusterInfo<T> {
+  class Optimized implements ClusterInfo {
     private final String clusterId;
     private final List<NodeInfo> nodeInfos;
-    private final List<T> all;
+    private final List<Replica> all;
 
-    private final Lazy<Map<BrokerTopic, List<T>>> byBrokerTopic;
-    private final Lazy<Map<Integer, List<T>>> byBroker;
-    private final Lazy<Map<String, List<T>>> byTopic;
-    private final Lazy<Map<TopicPartition, List<T>>> byPartition;
-    private final Lazy<Map<TopicPartitionReplica, List<T>>> byReplica;
+    private final Lazy<Map<BrokerTopic, List<Replica>>> byBrokerTopic;
+    private final Lazy<Map<Integer, List<Replica>>> byBroker;
+    private final Lazy<Map<String, List<Replica>>> byTopic;
+    private final Lazy<Map<TopicPartition, List<Replica>>> byPartition;
+    private final Lazy<Map<TopicPartitionReplica, List<Replica>>> byReplica;
 
-    protected Optimized(String clusterId, List<NodeInfo> nodeInfos, List<T> replicas) {
+    protected Optimized(String clusterId, List<NodeInfo> nodeInfos, List<Replica> replicas) {
       this.clusterId = clusterId;
       this.nodeInfos = nodeInfos;
       this.all = replicas;
@@ -468,8 +444,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
               () ->
                   all.stream()
                       .collect(
-                          Collectors.groupingBy(
-                              ReplicaInfo::topic, Collectors.toUnmodifiableList())));
+                          Collectors.groupingBy(Replica::topic, Collectors.toUnmodifiableList())));
 
       this.byPartition =
           Lazy.of(
@@ -477,7 +452,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                   all.stream()
                       .collect(
                           Collectors.groupingBy(
-                              ReplicaInfo::topicPartition, Collectors.toUnmodifiableList())));
+                              Replica::topicPartition, Collectors.toUnmodifiableList())));
 
       this.byReplica =
           Lazy.of(
@@ -485,32 +460,31 @@ public interface ClusterInfo<T extends ReplicaInfo> {
                   all.stream()
                       .collect(
                           Collectors.groupingBy(
-                              ReplicaInfo::topicPartitionReplica,
-                              Collectors.toUnmodifiableList())));
+                              Replica::topicPartitionReplica, Collectors.toUnmodifiableList())));
     }
 
     @Override
-    public Stream<T> replicaStream(String topic) {
+    public Stream<Replica> replicaStream(String topic) {
       return byTopic.get().getOrDefault(topic, List.of()).stream();
     }
 
     @Override
-    public Stream<T> replicaStream(TopicPartition partition) {
+    public Stream<Replica> replicaStream(TopicPartition partition) {
       return byPartition.get().getOrDefault(partition, List.of()).stream();
     }
 
     @Override
-    public Stream<T> replicaStream(TopicPartitionReplica replica) {
+    public Stream<Replica> replicaStream(TopicPartitionReplica replica) {
       return byReplica.get().getOrDefault(replica, List.of()).stream();
     }
 
     @Override
-    public Stream<T> replicaStream(int broker) {
+    public Stream<Replica> replicaStream(int broker) {
       return byBroker.get().getOrDefault(broker, List.of()).stream();
     }
 
     @Override
-    public Stream<T> replicaStream(BrokerTopic brokerTopic) {
+    public Stream<Replica> replicaStream(BrokerTopic brokerTopic) {
       return byBrokerTopic.get().getOrDefault(brokerTopic, List.of()).stream();
     }
 
@@ -540,7 +514,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     }
 
     @Override
-    public Stream<T> replicaStream() {
+    public Stream<Replica> replicaStream() {
       return all.stream();
     }
   }

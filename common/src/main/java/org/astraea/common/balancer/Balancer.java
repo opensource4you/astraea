@@ -21,7 +21,6 @@ import java.util.Optional;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -35,7 +34,7 @@ public interface Balancer {
    * Execute {@link Balancer#offer(ClusterInfo, Duration)}. Retry the plan generation if a {@link
    * NoSufficientMetricsException} exception occurred.
    */
-  default Plan retryOffer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+  default Plan retryOffer(ClusterInfo currentClusterInfo, Duration timeout) {
     final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
     while (System.currentTimeMillis() < timeoutMs) {
       try {
@@ -65,7 +64,7 @@ public interface Balancer {
   /**
    * @return a rebalance plan
    */
-  Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout);
+  Plan offer(ClusterInfo currentClusterInfo, Duration timeout);
 
   @SuppressWarnings("unchecked")
   static Balancer create(String classpath, AlgorithmConfig config) {
@@ -122,11 +121,11 @@ public interface Balancer {
 
   class Solution {
 
-    final ClusterInfo<Replica> proposal;
+    final ClusterInfo proposal;
     final ClusterCost proposalClusterCost;
     final MoveCost moveCost;
 
-    public ClusterInfo<Replica> proposal() {
+    public ClusterInfo proposal() {
       return proposal;
     }
 
@@ -139,8 +138,7 @@ public interface Balancer {
       return moveCost;
     }
 
-    public Solution(
-        ClusterCost proposalClusterCost, MoveCost moveCost, ClusterInfo<Replica> proposal) {
+    public Solution(ClusterCost proposalClusterCost, MoveCost moveCost, ClusterInfo proposal) {
       this.proposal = proposal;
       this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;

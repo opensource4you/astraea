@@ -18,7 +18,6 @@ package org.astraea.common.balancer.tweakers;
 
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 
 @FunctionalInterface
 public interface AllocationTweaker {
@@ -41,5 +40,5 @@ public interface AllocationTweaker {
    * @param baseAllocation the {@link ClusterInfo} as the base being tweaked.
    * @return a {@link Stream} of possible tweaked {@link ClusterInfo}.
    */
-  Stream<ClusterInfo<Replica>> generate(ClusterInfo<Replica> baseAllocation);
+  Stream<ClusterInfo> generate(ClusterInfo baseAllocation);
 }

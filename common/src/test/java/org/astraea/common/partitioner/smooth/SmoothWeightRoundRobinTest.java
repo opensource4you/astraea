@@ -55,7 +55,7 @@ public class SmoothWeightRoundRobinTest {
     Assertions.assertEquals(1, smoothWeight.getAndChoose(topic, testCluster));
   }
 
-  ClusterInfo<Replica> clusterInfo() {
+  ClusterInfo clusterInfo() {
     var nodes =
         List.of(
             NodeInfo.of(1, "host", 1111),
