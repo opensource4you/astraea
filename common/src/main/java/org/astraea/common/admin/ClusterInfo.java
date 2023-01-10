@@ -34,7 +34,7 @@ import org.astraea.common.Lazy;
 
 public interface ClusterInfo<T extends ReplicaInfo> {
   static <T extends ReplicaInfo> ClusterInfo<T> empty() {
-    return of(List.of(), List.of());
+    return of("unknown", List.of(), List.of());
   }
 
   // ---------------------[helpers]---------------------//
@@ -48,7 +48,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             .replicaStream()
             .filter(replica -> topicFilter.test(replica.topic()))
             .collect(Collectors.toUnmodifiableList());
-    return of(nodes, replicas);
+    return of(clusterInfo.clusterId(), nodes, replicas);
   }
 
   /**
@@ -80,7 +80,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableList());
 
-    return ClusterInfo.of(clusterInfo.nodes(), newReplicas);
+    return ClusterInfo.of(clusterInfo.clusterId(), clusterInfo.nodes(), newReplicas);
   }
 
   /**
@@ -93,7 +93,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
       ClusterInfo<Replica> source, ClusterInfo<Replica> target) {
 
     final var sourceTopicPartition =
-        source.replicaStream().map(ReplicaInfo::topicPartition).collect(Collectors.toSet());
+        source.replicaStream().map(Replica::topicPartition).collect(Collectors.toSet());
     final var targetTopicPartition = target.topicPartitions();
     final var unknownTopicPartitions =
         targetTopicPartition.stream()
@@ -182,6 +182,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    */
   static ClusterInfo<ReplicaInfo> of(org.apache.kafka.common.Cluster cluster) {
     return of(
+        cluster.clusterResource().clusterId(),
         cluster.nodes().stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()),
         cluster.topics().stream()
             .flatMap(t -> cluster.partitionsForTopic(t).stream())
@@ -203,8 +204,9 @@ public interface ClusterInfo<T extends ReplicaInfo> {
    * @return cluster info
    * @param <T> ReplicaInfo or Replica
    */
-  static <T extends ReplicaInfo> ClusterInfo<T> of(List<NodeInfo> nodes, List<T> replicas) {
-    return new Optimized<>(nodes, replicas);
+  static <T extends ReplicaInfo> ClusterInfo<T> of(
+      String clusterId, List<NodeInfo> nodes, List<T> replicas) {
+    return new Optimized<>(clusterId, nodes, replicas);
   }
 
   // ---------------------[for leader]---------------------//
@@ -212,10 +214,10 @@ public interface ClusterInfo<T extends ReplicaInfo> {
   static Map<TopicPartition, Long> leaderSize(ClusterInfo<Replica> clusterInfo) {
     return clusterInfo
         .replicaStream()
-        .filter(ReplicaInfo::isLeader)
+        .filter(Replica::isLeader)
         .collect(
             Collectors.groupingBy(
-                ReplicaInfo::topicPartition,
+                Replica::topicPartition,
                 Collectors.reducing(0L, Replica::size, BinaryOperator.maxBy(Long::compare))));
   }
 
@@ -336,6 +338,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   // ---------------------[others]---------------------//
 
+  String clusterId();
+
   /**
    * All topic names
    *
@@ -429,6 +433,7 @@ public interface ClusterInfo<T extends ReplicaInfo> {
 
   /** It optimizes all queries by pre-allocated Map collection. */
   class Optimized<T extends ReplicaInfo> implements ClusterInfo<T> {
+    private final String clusterId;
     private final List<NodeInfo> nodeInfos;
     private final List<T> all;
 
@@ -438,7 +443,8 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     private final Lazy<Map<TopicPartition, List<T>>> byPartition;
     private final Lazy<Map<TopicPartitionReplica, List<T>>> byReplica;
 
-    protected Optimized(List<NodeInfo> nodeInfos, List<T> replicas) {
+    protected Optimized(String clusterId, List<NodeInfo> nodeInfos, List<T> replicas) {
+      this.clusterId = clusterId;
       this.nodeInfos = nodeInfos;
       this.all = replicas;
       this.byBrokerTopic =
@@ -516,6 +522,11 @@ public interface ClusterInfo<T extends ReplicaInfo> {
     @Override
     public Set<TopicPartitionReplica> topicPartitionReplicas() {
       return byReplica.get().keySet();
+    }
+
+    @Override
+    public String clusterId() {
+      return clusterId;
     }
 
     @Override

@@ -35,7 +35,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -79,7 +78,7 @@ class BalancerTest extends RequireBrokerCluster {
                             n ->
                                 clusterInfo
                                     .replicaStream(n.id())
-                                    .filter(ReplicaInfo::isLeader)
+                                    .filter(Replica::isLeader)
                                     .count()));
               };
       var currentImbalanceFactor =
@@ -188,26 +187,26 @@ class BalancerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           currentCluster.replicas(topic1).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           newCluster.replicas(topic1).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
       Assertions.assertEquals(
           currentCluster.replicas(topic2).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           newCluster.replicas(topic2).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
       Assertions.assertEquals(
           currentCluster.replicas(topic3).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           newCluster.replicas(topic3).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
     }

@@ -216,7 +216,7 @@ public class ClusterInfoBuilder {
                                         .lag(0)
                                         .internal(false)
                                         .isLeader(index == 0)
-                                        .inSync(true)
+                                        .isSync(true)
                                         .isFuture(false)
                                         .isOffline(false)
                                         .isPreferredLeader(index == 0)
@@ -324,7 +324,7 @@ public class ClusterInfoBuilder {
       nodes = e.getKey();
       replicas = e.getValue();
     }
-    return ClusterInfo.of(nodes, replicas);
+    return ClusterInfo.of(sourceCluster.clusterId(), nodes, replicas);
   }
 
   private static Broker fakeNode(int brokerId) {

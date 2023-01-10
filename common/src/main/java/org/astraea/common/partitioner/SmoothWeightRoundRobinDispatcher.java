@@ -24,16 +24,15 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 
-public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
+public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private static final int ROUND_ROBIN_LENGTH = 400;
   private static final String JMX_PORT = "jmx.port";
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
@@ -42,12 +41,11 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
       MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
   private SmoothWeightCal<Integer> smoothWeightCal;
-  private PreArrangementSmoothRR preArrangementSmoothRR;
+  private RoundRobinKeeper roundRobinKeeper;
   private Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
 
   @Override
-  public int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
+  public int partition(String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
@@ -65,9 +63,8 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
     smoothWeightCal.refresh(supplier);
 
     if (targetPartition == null) {
-      preArrangementSmoothRR.tryToUpdateRoundRobin(
-          clusterInfo, smoothWeightCal.effectiveWeightResult);
-      var target = preArrangementSmoothRR.next();
+      roundRobinKeeper.tryToUpdate(clusterInfo, smoothWeightCal.effectiveWeightResult);
+      var target = roundRobinKeeper.next();
 
       var candidate =
           target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
@@ -80,7 +77,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   }
 
   @Override
-  public void doClose() {
+  public void close() {
     metricCollector.close();
   }
 
@@ -103,7 +100,7 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
       Duration roundRobinLease) {
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
     this.neutralIntegratedCost.fetcher().ifPresent(metricCollector::addFetcher);
-    this.preArrangementSmoothRR = PreArrangementSmoothRR.of(ROUND_ROBIN_LENGTH, roundRobinLease);
+    this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
     this.smoothWeightCal =
         new SmoothWeightCal<>(
             customJmxPort.entrySet().stream()
@@ -111,11 +108,11 @@ public class SmoothWeightRoundRobinDispatcher implements Dispatcher {
   }
 
   @Override
-  public void onNewBatch(String topic, Cluster cluster, int prevPartition) {
+  public void onNewBatch(String topic, int prevPartition) {
     unusedPartitions.add(prevPartition);
   }
 
-  private void refreshPartitionMetaData(ClusterInfo<ReplicaInfo> clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo<Replica> clusterInfo, String topic) {
     clusterInfo.availableReplicas(topic).stream()
         .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
         .forEach(

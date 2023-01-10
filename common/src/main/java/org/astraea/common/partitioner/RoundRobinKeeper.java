@@ -24,33 +24,31 @@ import java.util.stream.IntStream;
 import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 
-public class PreArrangementSmoothRR {
-  private final int preLength;
+public class RoundRobinKeeper {
   private final AtomicInteger next = new AtomicInteger(0);
   final int[] roundRobin;
   final Duration roundRobinLease;
   volatile long timeToUpdateRoundRobin = -1;
 
-  private PreArrangementSmoothRR(int preLength, Duration roundRobinLease) {
-    this.preLength = preLength;
+  private RoundRobinKeeper(int preLength, Duration roundRobinLease) {
     this.roundRobin = new int[preLength];
     this.roundRobinLease = roundRobinLease;
   }
 
-  public static PreArrangementSmoothRR of(int preLength, Duration roundRobinLease) {
-    return new PreArrangementSmoothRR(preLength, roundRobinLease);
+  static RoundRobinKeeper of(int preLength, Duration roundRobinLease) {
+    return new RoundRobinKeeper(preLength, roundRobinLease);
   }
 
-  synchronized void tryToUpdateRoundRobin(
-      ClusterInfo<ReplicaInfo> clusterInfo, Lazy<Map<Integer, Double>> costToScore) {
+  synchronized void tryToUpdate(
+      ClusterInfo<Replica> clusterInfo, Lazy<Map<Integer, Double>> costToScore) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin = RoundRobin.smooth(costToScore.get());
       var ids =
           clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
       // TODO: make ROUND_ROBIN_LENGTH configurable ???
-      IntStream.range(0, preLength)
+      IntStream.range(0, this.roundRobin.length)
           .forEach(index -> this.roundRobin[index] = roundRobin.next(ids).orElse(-1));
       timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
     }

@@ -248,6 +248,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     try (var admin = Admin.of(bootstrapServers())) {
       var currentClusterInfo =
           ClusterInfo.of(
+              "fake",
               List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
               List.of(
                   Replica.builder()
@@ -257,7 +258,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                       .lag(0)
                       .size(100)
                       .isLeader(true)
-                      .inSync(true)
+                      .isSync(true)
                       .isFuture(false)
                       .isOffline(false)
                       .isPreferredLeader(true)
@@ -890,7 +891,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
                     .toCompletableFuture()
                     .join()
                     .replicaStream()
-                    .anyMatch(replica -> replica.isFuture() || !replica.inSync()));
+                    .anyMatch(replica -> replica.isFuture() || !replica.isSync()));
       } catch (Exception ignore) {
       }
 

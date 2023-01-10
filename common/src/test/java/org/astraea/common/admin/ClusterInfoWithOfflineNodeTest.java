@@ -74,7 +74,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
               .allMatch(x -> x.nodeInfo().id() != brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
-              .filter(ReplicaInfo::isOffline)
+              .filter(Replica::isOffline)
               .allMatch(x -> x.nodeInfo().id() == brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()

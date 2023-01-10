@@ -29,7 +29,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.MBeanRegister;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -55,11 +55,27 @@ public class StrictCostDispatcherPerfTest {
     var node2 = NodeInfo.of(2, "node2", 2222);
     var clusterInfo =
         ClusterInfo.of(
+            "fake",
             List.of(node0, node1, node2),
             List.of(
-                ReplicaInfo.of("topic", 0, node0, true, true, false),
-                ReplicaInfo.of("topic", 1, node1, true, true, false),
-                ReplicaInfo.of("topic", 2, node2, true, true, false)));
+                Replica.builder()
+                    .topic("topic")
+                    .partition(0)
+                    .nodeInfo(node0)
+                    .path("/tmp/aa")
+                    .buildLeader(),
+                Replica.builder()
+                    .topic("topic")
+                    .partition(1)
+                    .nodeInfo(node1)
+                    .path("/tmp/aa")
+                    .buildLeader(),
+                Replica.builder()
+                    .topic("topic")
+                    .partition(2)
+                    .nodeInfo(node2)
+                    .path("/tmp/aa")
+                    .buildLeader()));
 
     var node0Latency = createMetric(0);
     var node1Latency = createMetric(1);
@@ -78,7 +94,7 @@ public class StrictCostDispatcherPerfTest {
                     .collect(Collectors.groupingBy(i -> i));
 
             var keys =
-                Arrays.stream(dispatcher.preArrangementSmoothRR.roundRobin)
+                Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
                     .boxed()
                     .collect(Collectors.groupingBy(i -> i))
                     .keySet();

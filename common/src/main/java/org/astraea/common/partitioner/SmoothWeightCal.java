@@ -16,14 +16,16 @@
  */
 package org.astraea.common.partitioner;
 
+import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Lazy;
+import org.astraea.common.cost.Dispersion;
 
 public final class SmoothWeightCal<E> {
   private final double UPPER_LIMIT_OFFSET_RATIO = 0.1;
+  private final Dispersion dispersion = Dispersion.standardDeviation();
   private Map<E, Double> currentEffectiveWeightResult;
   Lazy<Map<E, Double>> effectiveWeightResult = Lazy.of();
 
@@ -55,7 +57,7 @@ public final class SmoothWeightCal<E> {
               // If the average offset of all brokers from the cluster is greater than 0.1, it is
               // unbalanced.
               var balance =
-                  standardDeviationImperative(avgScore, score)
+                  dispersion.calculate(new ArrayList<>(score.values()))
                       > UPPER_LIMIT_OFFSET_RATIO * avgScore;
               this.currentEffectiveWeightResult =
                   this.currentEffectiveWeightResult.entrySet().stream()
@@ -73,15 +75,5 @@ public final class SmoothWeightCal<E> {
 
               return this.currentEffectiveWeightResult;
             });
-  }
-
-  private double standardDeviationImperative(double avgMetrics, Map<E, Double> metrics) {
-    var variance = new AtomicReference<>(0.0);
-    metrics
-        .values()
-        .forEach(
-            metric ->
-                variance.updateAndGet(v -> v + (metric - avgMetrics) * (metric - avgMetrics)));
-    return Math.sqrt(variance.get() / metrics.size());
   }
 }

@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.ClusterResource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -39,14 +40,14 @@ public class ClusterInfoTest {
    *
    * @param replicas used to build cluster info
    * @return cluster info
-   * @param <T> ReplicaInfo or Replica
    */
-  public static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+  public static ClusterInfo<Replica> of(List<Replica> replicas) {
     // TODO: this method is not suitable for production use. Move it to the test scope.
     //  see https://github.com/skiptests/astraea/issues/1185
     return ClusterInfo.of(
+        "fake",
         replicas.stream()
-            .map(ReplicaInfo::nodeInfo)
+            .map(Replica::nodeInfo)
             .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()
@@ -66,7 +67,7 @@ public class ClusterInfoTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -79,7 +80,7 @@ public class ClusterInfoTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -92,7 +93,7 @@ public class ClusterInfoTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -128,6 +129,7 @@ public class ClusterInfoTest {
         .thenReturn(List.of(partition));
     Mockito.when(kafkaCluster.partitionsForTopic(partition.topic())).thenReturn(List.of(partition));
     Mockito.when(kafkaCluster.nodes()).thenReturn(List.of(node));
+    Mockito.when(kafkaCluster.clusterResource()).thenReturn(new ClusterResource("Xxx"));
 
     var clusterInfo = ClusterInfo.of(kafkaCluster);
 

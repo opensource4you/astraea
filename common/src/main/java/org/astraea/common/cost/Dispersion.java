@@ -54,6 +54,29 @@ public interface Dispersion {
   }
 
   /**
+   * Obtain standard deviation from a series of values.
+   *
+   * <ul>
+   *   <li>If no number was given, then the standard deviation is zero.
+   * </ul>
+   */
+  static Dispersion standardDeviation() {
+    return numbers -> {
+      // special case: no number
+      if (numbers.isEmpty()) return 0;
+      var numSummary = numbers.stream().mapToDouble(Number::doubleValue).summaryStatistics();
+      var numVariance =
+          numbers.stream()
+              .mapToDouble(Number::doubleValue)
+              .map(score -> score - numSummary.getAverage())
+              .map(score -> score * score)
+              .summaryStatistics()
+              .getSum();
+      return Math.sqrt(numVariance / numbers.size());
+    };
+  }
+
+  /**
    * Processing a series of values via a specific statistics method.
    *
    * @param scores origin data

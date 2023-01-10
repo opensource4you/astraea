@@ -22,11 +22,11 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.security.Key;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -40,7 +40,8 @@ import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -57,13 +58,84 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostDispatcher";
 
   @Test
-  void testNullKey() {
-    var count = new AtomicInteger();
-    var dispatcher =
+  void testNoTopicInCachedClusterInfo() {
+    var topicName = Utils.randomString();
+    var count = new AtomicInteger(0);
+    try (var dispatcher =
         new Dispatcher() {
           @Override
           public int partition(
-              String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
+              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+            Assertions.assertNotNull(clusterInfo);
+            return 0;
+          }
+
+          @Override
+          boolean tryToUpdate(String topic) {
+            if (topic != null) Assertions.assertEquals(topicName, topic);
+            var rval = super.tryToUpdate(topic);
+            if (rval) count.incrementAndGet();
+            return rval;
+          }
+        }) {
+
+      dispatcher.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()));
+
+      // the topic is nonexistent in cluster, so it always request to update cluster info
+      Assertions.assertEquals(
+          0,
+          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
+      Assertions.assertEquals(2, count.get());
+      Assertions.assertEquals(
+          0,
+          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
+      Assertions.assertEquals(3, count.get());
+
+      // create the topic
+      dispatcher.admin.creator().topic(topicName).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(
+          0,
+          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
+      Assertions.assertEquals(4, count.get());
+
+      // ok, the topic exists now, and it should not request to update
+      Utils.sleep(Duration.ofSeconds(2));
+      Assertions.assertEquals(
+          0,
+          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
+      Assertions.assertEquals(4, count.get());
+    }
+  }
+
+  @Test
+  void testUpdateClusterInfo() {
+
+    try (var dispatcher =
+        new Dispatcher() {
+          @Override
+          public int partition(
+              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+            Assertions.assertNotNull(clusterInfo);
+            return 0;
+          }
+        }) {
+
+      dispatcher.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()));
+      Assertions.assertNotNull(dispatcher.admin);
+      Utils.sleep(Duration.ofSeconds(3));
+      Assertions.assertNotEquals(0, dispatcher.clusterInfo.nodes().size());
+    }
+  }
+
+  @Test
+  void testNullKey() {
+    var count = new AtomicInteger();
+    Dispatcher dispatcher =
+        new Dispatcher() {
+          @Override
+          public int partition(
+              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
             Assertions.assertNull(key);
             Assertions.assertNull(value);
             count.incrementAndGet();
@@ -79,8 +151,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     dispatcher.configure(Map.of("a", "b"));
 
     Assertions.assertEquals(1, count.get());
-    dispatcher.partition(
-        "t", null, null, null, null, new Cluster("aa", List.of(), List.of(), Set.of(), Set.of()));
+    dispatcher.partition("t", null, null, ClusterInfoBuilder.builder().build());
     Assertions.assertEquals(2, count.get());
   }
 
@@ -138,25 +209,6 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
       Dispatcher.endInterdependent(instanceOfProducer(producer));
       fs.forEach(CompletableFuture::join);
     }
-  }
-
-  @Test
-  void testClusterCache() {
-    var dispatcher =
-        new Dispatcher() {
-          @Override
-          public int partition(
-              String topic, byte[] key, byte[] value, ClusterInfo<ReplicaInfo> clusterInfo) {
-            return 0;
-          }
-        };
-    dispatcher.configure(Map.of());
-    var initialCount = Dispatcher.CLUSTER_CACHE.size();
-    var cluster = new Cluster("aa", List.of(), List.of(), Set.of(), Set.of());
-    dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
-    Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
-    dispatcher.partition("topic", "a", new byte[0], "v", new byte[0], cluster);
-    Assertions.assertEquals(initialCount + 1, Dispatcher.CLUSTER_CACHE.size());
   }
 
   @ParameterizedTest

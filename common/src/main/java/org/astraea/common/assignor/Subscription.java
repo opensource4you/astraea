@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.astraea.common.admin.TopicPartition;
 
 public final class Subscription {
@@ -65,13 +66,12 @@ public final class Subscription {
     return groupInstanceId;
   }
 
-  public static Subscription from(
-      org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.Subscription subscription) {
+  public static Subscription from(ConsumerPartitionAssignor.Subscription subscription) {
     Subscription ourSubscription;
     // convert astraea topic-partition into Kafka topic-partition
     var ownPartitions =
         subscription.ownedPartitions() == null
-            ? null
+            ? List.<TopicPartition>of()
             : subscription.ownedPartitions().stream()
                 .map(TopicPartition::from)
                 .collect(Collectors.toUnmodifiableList());

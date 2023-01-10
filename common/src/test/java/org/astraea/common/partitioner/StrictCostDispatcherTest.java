@@ -30,7 +30,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.ReplicaInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.HasBrokerCost;
@@ -105,7 +105,13 @@ public class StrictCostDispatcherTest {
   @Test
   void testSingleBroker() {
     var nodeInfo = NodeInfo.of(10, "host", 11111);
-    var replicaInfo = ReplicaInfo.of("topic", 10, nodeInfo, true, true, false);
+    var replicaInfo =
+        Replica.builder()
+            .topic("topic")
+            .partition(10)
+            .path("/tmp/aa")
+            .nodeInfo(nodeInfo)
+            .buildLeader();
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.EMPTY);
       Assertions.assertEquals(
@@ -156,8 +162,7 @@ public class StrictCostDispatcherTest {
   public static class DumbHasBrokerCost implements HasBrokerCost {
 
     @Override
-    public BrokerCost brokerCost(
-        ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
       return Map::of;
     }
   }
@@ -165,9 +170,20 @@ public class StrictCostDispatcherTest {
   @Test
   void testCostFunctionWithoutFetcher() {
     HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
-    var replicaInfo0 = ReplicaInfo.of("topic", 0, NodeInfo.of(10, "host", 11111), true, true, true);
+    var replicaInfo0 =
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/tmp/aa")
+            .nodeInfo(NodeInfo.of(10, "host", 11111))
+            .buildLeader();
     var replicaInfo1 =
-        ReplicaInfo.of("topic", 1, NodeInfo.of(12, "host2", 11111), true, true, true);
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .path("/tmp/aa")
+            .nodeInfo(NodeInfo.of(12, "host2", 11111))
+            .buildLeader();
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.of((Map.of(DumbHasBrokerCost.class.getName(), "1"))));
       dispatcher.partition(
@@ -190,8 +206,7 @@ public class StrictCostDispatcherTest {
 
   public static class MyFunction implements HasBrokerCost {
     @Override
-    public BrokerCost brokerCost(
-        ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
       return () -> Map.of(22, 10D);
     }
   }
@@ -204,10 +219,19 @@ public class StrictCostDispatcherTest {
       dispatcher.configure(Configuration.of(Map.of(MyFunction.class.getName(), "1")));
 
       var replicaInfo0 =
-          ReplicaInfo.of(
-              "topic", partitionId, NodeInfo.of(brokerId, "host", 11111), true, true, false);
+          Replica.builder()
+              .topic("topic")
+              .partition(partitionId)
+              .path("/tmp/aa")
+              .nodeInfo(NodeInfo.of(brokerId, "host", 11111))
+              .buildLeader();
       var replicaInfo1 =
-          ReplicaInfo.of("topic", 1, NodeInfo.of(1111, "host2", 11111), true, true, false);
+          Replica.builder()
+              .topic("topic")
+              .partition(1)
+              .path("/tmp/aa")
+              .nodeInfo(NodeInfo.of(1111, "host2", 11111))
+              .buildLeader();
       Assertions.assertEquals(
           partitionId,
           dispatcher.partition(
@@ -239,30 +263,24 @@ public class StrictCostDispatcherTest {
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(
           Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
-      Assertions.assertEquals(
-          Duration.ofSeconds(2), dispatcher.preArrangementSmoothRR.roundRobinLease);
+      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinKeeper.roundRobinLease);
 
-      dispatcher.preArrangementSmoothRR.tryToUpdateRoundRobin(
-          ClusterInfo.empty(), Lazy.of(Map::of));
-      var t = dispatcher.preArrangementSmoothRR.timeToUpdateRoundRobin;
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
+      var t = dispatcher.roundRobinKeeper.timeToUpdateRoundRobin;
       var rr =
-          Arrays.stream(dispatcher.preArrangementSmoothRR.roundRobin)
+          Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
               .boxed()
               .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(StrictCostDispatcher.ROUND_ROBIN_LENGTH, rr.size());
       // the rr is not updated yet
-      dispatcher.preArrangementSmoothRR.tryToUpdateRoundRobin(
-          ClusterInfo.empty(), Lazy.of(Map::of));
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
       IntStream.range(0, rr.size())
           .forEach(
-              i ->
-                  Assertions.assertEquals(
-                      rr.get(i), dispatcher.preArrangementSmoothRR.roundRobin[i]));
+              i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobinKeeper.roundRobin[i]));
       Utils.sleep(Duration.ofSeconds(3));
-      dispatcher.preArrangementSmoothRR.tryToUpdateRoundRobin(
-          ClusterInfo.empty(), Lazy.of(Map::of));
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
       // rr is updated already
-      Assertions.assertNotEquals(t, dispatcher.preArrangementSmoothRR.timeToUpdateRoundRobin);
+      Assertions.assertNotEquals(t, dispatcher.roundRobinKeeper.timeToUpdateRoundRobin);
     }
   }
 
@@ -276,15 +294,23 @@ public class StrictCostDispatcherTest {
                   invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
         try (var dispatcher = new StrictCostDispatcher()) {
           var nodeInfo = NodeInfo.of(10, "host", 2222);
+
           var clusterInfo =
-              ClusterInfoTest.of(List.of(ReplicaInfo.of("topic", 0, nodeInfo, true, true, false)));
+              ClusterInfoTest.of(
+                  List.of(
+                      Replica.builder()
+                          .topic("topic")
+                          .partition(0)
+                          .nodeInfo(nodeInfo)
+                          .path("/tmp/aa")
+                          .buildLeader()));
 
           Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
                 public BrokerCost brokerCost(
-                    ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
                   return Map::of;
                 }
 

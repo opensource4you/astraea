@@ -27,7 +27,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -39,8 +38,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   public static final String COST_NAME = "leader";
 
   @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     var result =
         leaderCount(clusterInfo, clusterBean).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
@@ -55,7 +53,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   private static Map<Integer, Integer> leaderCount(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+      ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
     if (clusterBean == ClusterBean.EMPTY) return leaderCount(clusterInfo);
     var leaderCount = leaderCount(clusterBean);
     // if there is no available metrics, we re-count the leaders based on cluster information
@@ -78,7 +76,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                         .sum()));
   }
 
-  static Map<Integer, Integer> leaderCount(ClusterInfo<? extends ReplicaInfo> clusterInfo) {
+  static Map<Integer, Integer> leaderCount(ClusterInfo<Replica> clusterInfo) {
     return clusterInfo.nodes().stream()
         .map(nodeInfo -> Map.entry(nodeInfo.id(), clusterInfo.replicaLeaders(nodeInfo.id()).size()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -105,23 +103,23 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                           (int)
                               before
                                   .replicaStream(id)
-                                  .filter(ReplicaInfo::isLeader)
+                                  .filter(Replica::isLeader)
                                   .filter(
                                       r ->
                                           after
                                               .replicaStream(r.topicPartitionReplica())
-                                              .noneMatch(ReplicaInfo::isLeader))
+                                              .noneMatch(Replica::isLeader))
                                   .count();
                       var newLeaders =
                           (int)
                               after
                                   .replicaStream(id)
-                                  .filter(ReplicaInfo::isLeader)
+                                  .filter(Replica::isLeader)
                                   .filter(
                                       r ->
                                           before
                                               .replicaStream(r.topicPartitionReplica())
-                                              .noneMatch(ReplicaInfo::isLeader))
+                                              .noneMatch(Replica::isLeader))
                                   .count();
                       return newLeaders - removedLeaders;
                     })));

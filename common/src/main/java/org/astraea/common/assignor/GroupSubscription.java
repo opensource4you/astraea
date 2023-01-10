@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 
 public final class GroupSubscription {
   private final Map<String, Subscription> subscriptions;
@@ -31,8 +32,7 @@ public final class GroupSubscription {
   }
 
   public static GroupSubscription from(
-      org.apache.kafka.clients.consumer.ConsumerPartitionAssignor.GroupSubscription
-          groupSubscription) {
+      ConsumerPartitionAssignor.GroupSubscription groupSubscription) {
     return new GroupSubscription(
         groupSubscription.groupSubscription().entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> Subscription.from(e.getValue()))));

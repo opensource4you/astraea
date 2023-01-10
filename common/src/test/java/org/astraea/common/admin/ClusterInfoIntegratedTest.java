@@ -64,7 +64,7 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
                               .lag(0)
                               .size(randomSizeValue)
                               .isLeader(true)
-                              .inSync(true)
+                              .isSync(true)
                               .isFuture(false)
                               .isOffline(false)
                               .isPreferredLeader(true)

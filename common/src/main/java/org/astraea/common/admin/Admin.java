@@ -27,7 +27,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.astraea.common.DataRate;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
@@ -39,7 +38,7 @@ import org.astraea.common.consumer.SeekStrategy;
 public interface Admin extends AutoCloseable {
 
   static Admin of(String bootstrap) {
-    return of(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrap));
+    return of(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrap));
   }
 
   static Admin of(Map<String, String> configs) {
@@ -386,8 +385,8 @@ public interface Admin extends AutoCloseable {
           var current =
               clusterInfo
                   .replicaStream()
-                  .filter(ReplicaInfo::isLeader)
-                  .collect(Collectors.groupingBy(ReplicaInfo::topic));
+                  .filter(Replica::isLeader)
+                  .collect(Collectors.groupingBy(Replica::topic));
           return topicAndNumberOfPartitions.entrySet().stream()
               .allMatch(
                   entry ->
@@ -413,7 +412,7 @@ public interface Admin extends AutoCloseable {
                 .replicaStream()
                 .filter(r -> topicPartitions.contains(r.topicPartition()))
                 .filter(Replica::isPreferredLeader)
-                .allMatch(ReplicaInfo::isLeader),
+                .allMatch(Replica::isLeader),
         timeout,
         2);
   }
@@ -433,7 +432,7 @@ public interface Admin extends AutoCloseable {
             clusterInfo
                 .replicaStream()
                 .filter(r -> replicas.contains(r.topicPartitionReplica()))
-                .allMatch(r -> r.inSync() && !r.isFuture()),
+                .allMatch(r -> r.isSync() && !r.isFuture()),
         timeout,
         2);
   }
