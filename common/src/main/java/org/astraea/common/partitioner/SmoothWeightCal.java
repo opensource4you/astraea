@@ -29,7 +29,7 @@ public final class SmoothWeightCal<E> {
   private Map<E, Double> currentEffectiveWeightResult;
   Lazy<Map<E, Double>> effectiveWeightResult = Lazy.of();
 
-  public SmoothWeightCal(Map<E, Double> effectiveWeight) {
+  SmoothWeightCal(Map<E, Double> effectiveWeight) {
     this.effectiveWeightResult.get(
         () ->
             effectiveWeight.entrySet().stream()
