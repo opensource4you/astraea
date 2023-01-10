@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -39,6 +40,7 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -602,44 +604,39 @@ class NetworkCostTest {
                   Collectors.toUnmodifiableMap(
                       p -> TopicPartition.of("Pipeline", p), p -> random.nextInt(10)));
       this.clusterBean =
-          ClusterBean.of(
-              IntStream.range(0, brokers)
-                  .boxed()
-                  .collect(
-                      Collectors.toUnmodifiableMap(
-                          id -> id,
-                          id ->
-                              List.of(
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  bandwidth(
+          MetricSeriesBuilder.of()
+              .timeRange(LocalDateTime.now(), Duration.ofSeconds(10))
+              .sampleInterval(Duration.ofSeconds(2))
+              .series(
+                  (Gen, broker) ->
+                      Gen.perOnlinePartitionLeader(
+                          r ->
+                              Gen.topic(
+                                  ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                  r.topic(),
+                                  Map.of("FifteenMinuteRate", rate.get(r.topicPartition())))))
+              .series(
+                  (Gen, broker) ->
+                      Gen.perOnlinePartitionLeader(
+                          r ->
+                              Gen.topic(
+                                  ServerMetrics.Topic.BYTES_OUT_PER_SEC,
+                                  r.topic(),
+                                  Map.of(
+                                      "FifteenMinuteRate",
+                                      rate.get(r.topicPartition())
+                                          * consumerFanout.get(r.topicPartition())))))
+              .series(
+                  (Gen, broker) ->
+                      IntStream.range(0, 10)
+                          .mapToObj(
+                              i ->
+                                  Gen.topic(
                                       ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                      "Pipeline",
-                                      clusterInfo
-                                          .replicaStream()
-                                          .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(Replica::isLeader)
-                                          .filter(Replica::isOnline)
-                                          .mapToLong(r -> rate.get(r.topicPartition()))
-                                          .sum()),
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                      "Pipeline",
-                                      clusterInfo
-                                          .replicaStream()
-                                          .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(Replica::isLeader)
-                                          .filter(Replica::isOnline)
-                                          .mapToLong(
-                                              r ->
-                                                  rate.get(r.topicPartition())
-                                                      * consumerFanout.get(r.topicPartition()))
-                                          .sum()),
-                                  noise(random.nextInt())))));
+                                      "Noise_" + i,
+                                      Map.of())))
+              .series((Gen, broker) -> Gen.perReplica(r -> Gen.logSize(r.topicPartition(), 0)))
+              .build();
     }
 
     @Override
