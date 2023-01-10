@@ -119,8 +119,9 @@ public class StrictCostDispatcher extends Dispatcher {
 
   synchronized void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
-      var cost = costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean()));
-      var roundRobin = RoundRobin.smooth(cost);
+      var roundRobin =
+          RoundRobin.smooth(
+              costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean())));
       var ids =
           clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
       // TODO: make ROUND_ROBIN_LENGTH configurable ???
