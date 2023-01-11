@@ -44,15 +44,8 @@ import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Debounce;
 import org.astraea.common.metrics.stats.Max;
 
-/**
- * PartitionCost: large replica max write rate per partition -> higher partition cost. BrokerCost:
- * more replica max write rate in broker -> higher broker cost. ClusterCost: The more unbalanced the
- * replica max write rate among brokers -> higher cluster cost. MoveCost: more max write rate change
- * -> higher migrate cost.
- */
-public class PartitionMaxInRateCost
-    implements HasClusterCost, HasBrokerCost, HasPartitionCost, HasMoveCost {
-  private static final Dispersion dispersion = Dispersion.cov();
+/** MoveCost: more max write rate change -> higher migrate cost. */
+public class PartitionMaxInRateCost implements HasMoveCost {
   private static final String REPLICA_WRITE_RATE = "replica_write_rate";
   private static final Duration DEFAULT_DURATION = Duration.ofSeconds(1);
   private final Duration duration;
@@ -69,39 +62,14 @@ public class PartitionMaxInRateCost
     this.duration = duration;
   }
 
-  @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
-    var brokerCost = brokerCost(clusterInfo, clusterBean).value();
-    var value = dispersion.calculate(brokerCost.values());
-    return () -> value;
-  }
-
-  @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
-    var partitionIn = partitionCost(clusterInfo, clusterBean).value();
-    var scoreForBroker =
-        clusterInfo.nodes().stream()
-            .collect(
-                Collectors.toMap(
-                    NodeInfo::id,
-                    node ->
-                        clusterInfo.replicas().stream()
-                            .filter(r -> r.nodeInfo().equals(node))
-                            .mapToDouble(r -> partitionIn.get(r.topicPartition()))
-                            .sum()));
-    return () -> scoreForBroker;
-  }
-
-  @Override
-  public PartitionCost partitionCost(
+  public Map<TopicPartition, Double> partitionCost(
       ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
     var replicaRate =
         clusterBean.replicas().stream()
             .map(
                 p ->
                     clusterBean
-                        .replicaMetrics(p, LogRateStatisticalBean.class)
+                        .replicaMetrics(p, WorseLogRateStatisticalBean.class)
                         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
                         .orElseThrow(
                             () ->
@@ -133,15 +101,15 @@ public class PartitionMaxInRateCost
     if (partitionIn.values().stream().allMatch(x -> x == 0.0))
       throw new NoSufficientMetricsException(
           this, Duration.ofSeconds(1), "all topic partitions are currently idle.");
-    return () -> partitionIn;
+    return partitionIn;
   }
 
   private Optional<Double> statistPartitionRateCount(
       TopicPartitionReplica tpr, ClusterBean clusterBean) {
     return clusterBean
-        .replicaMetrics(tpr, LogRateStatisticalBean.class)
+        .replicaMetrics(tpr, WorseLogRateStatisticalBean.class)
         .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-        .map(LogRateStatisticalBean::value);
+        .map(WorseLogRateStatisticalBean::value);
   }
 
   double maxPartitionRate(TopicPartition tp, List<Double> size) {
@@ -200,7 +168,7 @@ public class PartitionMaxInRateCost
                                     lastTime.put(tpr, current);
                                     lastRecord.put(tpr, debouncedValue);
                                   });
-                          return (PartitionMaxInRateCost.LogRateStatisticalBean)
+                          return (WorseLogRateStatisticalBean)
                               () ->
                                   new BeanObject(
                                       g.beanObject().domainName(),
@@ -216,7 +184,7 @@ public class PartitionMaxInRateCost
   @Override
   public MoveCost moveCost(
       ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
-    var partitionIn = partitionCost(before, clusterBean).value();
+    var partitionIn = partitionCost(before, clusterBean);
     return MoveCost.changedReplicaMaxInRate(
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -239,5 +207,5 @@ public class PartitionMaxInRateCost
                             .perSecond())));
   }
 
-  public interface LogRateStatisticalBean extends HasGauge<Double> {}
+  public interface WorseLogRateStatisticalBean extends HasGauge<Double> {}
 }
