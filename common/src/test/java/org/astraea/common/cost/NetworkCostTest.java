@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
+import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
@@ -604,38 +605,52 @@ class NetworkCostTest {
                   Collectors.toUnmodifiableMap(
                       p -> TopicPartition.of("Pipeline", p), p -> random.nextInt(10)));
       this.clusterBean =
-          MetricSeriesBuilder.of()
-              .timeRange(LocalDateTime.now(), Duration.ofSeconds(10))
-              .sampleInterval(Duration.ofSeconds(2))
+          MetricSeriesBuilder.builder()
+              .cluster(clusterInfo)
+              .timeRange(LocalDateTime.now(), Duration.ZERO)
+              .sampleInterval(Duration.ofSeconds(1))
               .series(
                   (Gen, broker) ->
-                      Gen.perOnlinePartitionLeader(
-                          r ->
+                      Gen.perBrokerTopic(
+                          topic ->
                               Gen.topic(
                                   ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                  r.topic(),
-                                  Map.of("FifteenMinuteRate", rate.get(r.topicPartition())))))
-              .series(
-                  (Gen, broker) ->
-                      Gen.perOnlinePartitionLeader(
-                          r ->
-                              Gen.topic(
-                                  ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                  r.topic(),
+                                  topic,
                                   Map.of(
                                       "FifteenMinuteRate",
-                                      rate.get(r.topicPartition())
-                                          * consumerFanout.get(r.topicPartition())))))
+                                      clusterInfo
+                                          .replicaStream(BrokerTopic.of(broker, topic))
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
+                                          .mapToDouble(r -> rate.get(r.topicPartition()))
+                                          .sum()))))
+              .series(
+                  (Gen, broker) ->
+                      Gen.perBrokerTopic(
+                          topic ->
+                              Gen.topic(
+                                  ServerMetrics.Topic.BYTES_OUT_PER_SEC,
+                                  topic,
+                                  Map.of(
+                                      "FifteenMinuteRate",
+                                      clusterInfo
+                                          .replicaStream(BrokerTopic.of(broker, topic))
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
+                                          .mapToDouble(
+                                              r ->
+                                                  rate.get(r.topicPartition())
+                                                      * consumerFanout.get(r.topicPartition()))
+                                          .sum()))))
               .series(
                   (Gen, broker) ->
                       IntStream.range(0, 10)
                           .mapToObj(
                               i ->
                                   Gen.topic(
-                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                      ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC,
                                       "Noise_" + i,
                                       Map.of())))
-              .series((Gen, broker) -> Gen.perReplica(r -> Gen.logSize(r.topicPartition(), 0)))
               .build();
     }
 
@@ -674,11 +689,11 @@ class NetworkCostTest {
     var domainName = LogMetrics.DOMAIN_NAME;
     var properties =
         Map.of(
-            "type", "BrokerTopicMetric",
+            "type", "Log",
             "topic", topicPartition.topic(),
             "partition", String.valueOf(topicPartition.partition()),
             "name", LogMetrics.Log.SIZE.metricName());
-    var attributes = Map.<String, Object>of("value", size);
+    var attributes = Map.<String, Object>of("Value", size);
     return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, attributes));
   }
 }
