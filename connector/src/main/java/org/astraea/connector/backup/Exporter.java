@@ -153,19 +153,19 @@ public class Exporter extends SinkConnector {
               () -> {
                 var intervalTimeInMillis = interval.toMillis();
                 long sleepTime = Math.min(intervalTimeInMillis, 1000);
+                long lastWriteTime = System.currentTimeMillis();
                 try {
                   while (!closed.get()) {
                     var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
                     var currentTime = System.currentTimeMillis();
-                    // it will check for any writers that need to be closed, with a maximum of 1 second.
-                    // a writer needs to be closed when it has been idle for more than roll.duration.
-                    writers.forEach(
-                        (tp, recordWriter) -> {
-                          if (currentTime - recordWriter.lastActiveTime() > intervalTimeInMillis) {
-                            writers.remove(tp).close();
-                          }
-                        });
-                    if (record == null) continue;
+
+                    if (record == null) {
+                      // close all writers if they have been idle over roll.duration.
+                      if (currentTime - lastWriteTime > intervalTimeInMillis) {
+                        writers.forEach((tp, recordWriter) -> writers.remove(tp).close());
+                      }
+                      continue;
+                    }
                     var writer =
                         writers.computeIfAbsent(
                             record.topicPartition(),

@@ -309,8 +309,7 @@ public class ExporterTest extends RequireWorkerCluster {
   }
 
   @Test
-  void testFtpSinkTaskIntervalWith2Files()
-      throws ExecutionException, InterruptedException, TimeoutException {
+  void testFtpSinkTaskIntervalWith2Writers() {
     try (var server = FtpServer.local()) {
       var fileSize = "500Byte";
       var topicName = Utils.randomString(10);
@@ -343,78 +342,75 @@ public class ExporterTest extends RequireWorkerCluster {
 
       task.start(configs);
 
-      var records =
-          List.of(
-              Record.builder()
-                  .topic(topicName)
-                  .key("test".getBytes())
-                  .value("test1".getBytes())
-                  .partition(0)
-                  .offset(0)
-                  .timestamp(System.currentTimeMillis())
-                  .build(),
-              Record.builder()
-                  .topic(topicName)
-                  .key("test".getBytes())
-                  .value("test2".getBytes())
-                  .partition(0)
-                  .offset(1)
-                  .timestamp(System.currentTimeMillis())
-                  .build(),
-              Record.builder()
-                  .topic(topicName)
-                  .key("test".getBytes())
-                  .value("test3".getBytes())
-                  .partition(0)
-                  .offset(2)
-                  .timestamp(System.currentTimeMillis())
-                  .build());
+      var record1 =
+          Record.builder()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build();
 
-      task.put(List.of(records.get(0)));
+      var record2 =
+          Record.builder()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test1".getBytes())
+              .partition(1)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build();
 
+      var record3 =
+          Record.builder()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test2".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+
+      task.put(List.of(record1));
       Utils.sleep(Duration.ofMillis(50));
 
-      task.put(List.of(records.get(1)));
+      task.put(List.of(record2));
+      Utils.sleep(Duration.ofMillis(600));
 
-      Utils.sleep(Duration.ofMillis(500));
+      task.put(List.of(record3));
+      Utils.sleep(Duration.ofMillis(600));
 
-      task.put(List.of(records.get(2)));
-
-      task.close();
+      Assertions.assertEquals(
+          2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
 
       Assertions.assertEquals(
           2, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
 
-      var input = fs.read("/" + String.join("/", fileSize, topicName, "0", "0"));
+      List.of(record1, record2, record3)
+          .forEach(
+              sinkRecord -> {
+                var input =
+                    fs.read(
+                        "/"
+                            + String.join(
+                                "/",
+                                fileSize,
+                                topicName,
+                                String.valueOf(sinkRecord.partition()),
+                                String.valueOf(sinkRecord.offset())));
+                var reader = RecordReader.builder(input).build();
 
-      var reader = RecordReader.builder(input).build();
-
-      var readerCnt = 0;
-
-      while (reader.hasNext()) {
-        var record = reader.next();
-        Assertions.assertArrayEquals(record.key(), (byte[]) records.get(readerCnt).key());
-        Assertions.assertArrayEquals(record.value(), (byte[]) records.get(readerCnt).value());
-        Assertions.assertEquals(record.topic(), records.get(readerCnt).topic());
-        Assertions.assertEquals(record.partition(), records.get(readerCnt).partition());
-        Assertions.assertEquals(record.timestamp(), records.get(readerCnt).timestamp());
-        Assertions.assertEquals(record.offset(), records.get(readerCnt).offset());
-        readerCnt++;
-      }
-
-      input = fs.read("/" + String.join("/", fileSize, topicName, "0", "2"));
-
-      reader = RecordReader.builder(input).build();
-
-      while (reader.hasNext()) {
-        var record = reader.next();
-        Assertions.assertArrayEquals(record.key(), (byte[]) records.get(readerCnt).key());
-        Assertions.assertArrayEquals(record.value(), (byte[]) records.get(readerCnt).value());
-        Assertions.assertEquals(record.topic(), records.get(readerCnt).topic());
-        Assertions.assertEquals(record.partition(), records.get(readerCnt).partition());
-        Assertions.assertEquals(record.timestamp(), records.get(readerCnt).timestamp());
-        Assertions.assertEquals(record.offset(), records.get(readerCnt).offset());
-      }
+                while (reader.hasNext()) {
+                  var record = reader.next();
+                  Assertions.assertArrayEquals(record.key(), (byte[]) sinkRecord.key());
+                  Assertions.assertArrayEquals(record.value(), (byte[]) sinkRecord.value());
+                  Assertions.assertEquals(record.topic(), sinkRecord.topic());
+                  Assertions.assertEquals(record.partition(), sinkRecord.partition());
+                  Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
+                  Assertions.assertEquals(record.offset(), sinkRecord.offset());
+                }
+              });
     }
   }
 }
