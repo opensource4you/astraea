@@ -105,9 +105,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
   }
 
-  /**
-   * update cluster information
-   */
+  /** update cluster information */
   private void updateClusterInfo() {
     try (Admin admin = Admin.of(bootstrap)) {
       var topics = admin.topicNames(false).toCompletableFuture().join();
