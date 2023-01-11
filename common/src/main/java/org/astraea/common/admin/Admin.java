@@ -180,7 +180,7 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
 
-  CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics);
+  CompletionStage<ClusterInfo> clusterInfo(Set<String> topics);
 
   default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
     if (checkers.isEmpty()) {
@@ -449,10 +449,7 @@ public interface Admin extends AutoCloseable {
    * @return a background running loop
    */
   default CompletionStage<Boolean> waitCluster(
-      Set<String> topics,
-      Predicate<ClusterInfo<Replica>> predicate,
-      Duration timeout,
-      int debounce) {
+      Set<String> topics, Predicate<ClusterInfo> predicate, Duration timeout, int debounce) {
     return Utils.loop(
         () ->
             clusterInfo(topics)

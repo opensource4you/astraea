@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
 
@@ -30,7 +29,7 @@ public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
   private final Dispersion dispersion = Dispersion.cov();
 
   @Override
-  public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost =
         clusterBean.all().entrySet().stream()
             .collect(
@@ -50,7 +49,7 @@ public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
     return () -> value;

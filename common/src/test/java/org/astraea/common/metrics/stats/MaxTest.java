@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 public class MaxTest {
   @Test
   void testMax() {
-    var stat = new Max<Integer>();
+    var stat = Max.<Integer>of();
     stat.record(39);
     stat.record(20);
     stat.record(103);
@@ -32,7 +32,7 @@ public class MaxTest {
 
   @Test
   void testException() {
-    var stat = new Max<Integer>();
+    var stat = Max.<Integer>of();
     Assertions.assertThrows(RuntimeException.class, stat::measure);
   }
 }

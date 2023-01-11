@@ -610,7 +610,7 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+  public CompletionStage<ClusterInfo> clusterInfo(Set<String> topics) {
     return FutureUtils.combine(
         clusterIdAndBrokers(),
         replicas(topics),

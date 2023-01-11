@@ -57,7 +57,7 @@ public class ShuffleTweaker implements AllocationTweaker {
   }
 
   @Override
-  public Stream<ClusterInfo<Replica>> generate(ClusterInfo<Replica> baseAllocation) {
+  public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
     // There is no broker
     if (baseAllocation.nodes().isEmpty()) return Stream.of();
 
@@ -85,7 +85,7 @@ public class ShuffleTweaker implements AllocationTweaker {
         });
   }
 
-  private static Function<ClusterInfo<Replica>, ClusterInfo<Replica>> allocationGenerator(
+  private static Function<ClusterInfo, ClusterInfo> allocationGenerator(
       Map<Integer, Set<String>> brokerFolders) {
     return currentAllocation -> {
       final var selectedPartition =
@@ -103,7 +103,7 @@ public class ShuffleTweaker implements AllocationTweaker {
               .skip(1)
               .map(
                   follower ->
-                      (Supplier<ClusterInfo<Replica>>)
+                      (Supplier<ClusterInfo>)
                           () ->
                               ClusterInfoBuilder.builder(currentAllocation)
                                   .setPreferredLeader(follower.topicPartitionReplica())
@@ -123,7 +123,7 @@ public class ShuffleTweaker implements AllocationTweaker {
                       currentReplicas.stream()
                           .map(
                               replica ->
-                                  (Supplier<ClusterInfo<Replica>>)
+                                  (Supplier<ClusterInfo>)
                                       () -> {
                                         var toThisDir =
                                             randomElement(brokerFolders.get(toThisBroker));

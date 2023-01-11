@@ -58,8 +58,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   public static final String JMX_PORT = "jmx.port";
 
   @Override
-  protected int partition(
-      String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+  protected int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var targetPartition = unusedPartitions.poll();
     refreshPartitionMetaData(clusterInfo, topic);
     Supplier<Map<Integer, Double>> supplier =
@@ -119,7 +118,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
         () -> new NoSuchElementException("broker: " + id + " does not have jmx port"));
   }
 
-  private int nextValue(String topic, ClusterInfo<Replica> clusterInfo, int targetBroker) {
+  private int nextValue(String topic, ClusterInfo clusterInfo, int targetBroker) {
     return topicCounter
         .computeIfAbsent(topic, k -> new BrokerNextCounter(clusterInfo))
         .brokerCounter
@@ -127,7 +126,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
         .getAndIncrement();
   }
 
-  private void refreshPartitionMetaData(ClusterInfo<Replica> clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
     partitions = clusterInfo.availableReplicas(topic);
     partitions.stream()
         .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
@@ -142,7 +141,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private static class BrokerNextCounter {
     private final Map<Integer, AtomicInteger> brokerCounter;
 
-    BrokerNextCounter(ClusterInfo<Replica> clusterInfo) {
+    BrokerNextCounter(ClusterInfo clusterInfo) {
       brokerCounter =
           clusterInfo.nodes().stream()
               .collect(Collectors.toMap(NodeInfo::id, node -> new AtomicInteger(0)));

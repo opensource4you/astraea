@@ -544,7 +544,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           new NoOpExecutor() {
             @Override
             public CompletionStage<Void> run(
-                Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
               return super.run(admin, targetAllocation, Duration.ofSeconds(5))
                   // Use another thread to block this completion to avoid deadlock in
                   // BalancerHandler#put
@@ -731,7 +731,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
             @Override
             public CompletionStage<Void> run(
-                Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
               return super.run(admin, targetAllocation, Duration.ofSeconds(5))
                   // Use another thread to block this completion to avoid deadlock in
                   // BalancerHandler#put
@@ -795,7 +795,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
           new NoOpExecutor() {
             @Override
             public CompletionStage<Void> run(
-                Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
               return super.run(admin, targetAllocation, Duration.ofSeconds(5))
                   .thenCompose(
                       ignored -> CompletableFuture.failedFuture(new RuntimeException("Boom")));
@@ -1258,8 +1258,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     private final LongAdder executionCounter = new LongAdder();
 
     @Override
-    public CompletionStage<Void> run(
-        Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout) {
+    public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
       executionCounter.increment();
       return CompletableFuture.completedFuture(null);
     }
@@ -1271,15 +1270,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   public static class DecreasingCost implements HasClusterCost {
 
-    private ClusterInfo<Replica> original;
+    private ClusterInfo original;
 
     public DecreasingCost(Configuration configuration) {}
 
     private double value0 = 1.0;
 
     @Override
-    public synchronized ClusterCost clusterCost(
-        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public synchronized ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       if (original == null) original = clusterInfo;
       if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
@@ -1290,15 +1288,14 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   public static class IncreasingCost implements HasClusterCost {
 
-    private ClusterInfo<Replica> original;
+    private ClusterInfo original;
 
     public IncreasingCost(Configuration configuration) {}
 
     private double value0 = 1.0;
 
     @Override
-    public synchronized ClusterCost clusterCost(
-        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public synchronized ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       if (original == null) original = clusterInfo;
       if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
@@ -1321,8 +1318,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public synchronized ClusterCost clusterCost(
-        ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public synchronized ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       callback.get().accept(clusterBean);
       return super.clusterCost(clusterInfo, clusterBean);
     }
@@ -1330,7 +1326,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   public static class TimeoutCost implements HasClusterCost {
     @Override
-    public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       throw new NoSufficientMetricsException(this, Duration.ofSeconds(10));
     }
   }
@@ -1348,7 +1344,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
     }
 
     @Override
-    public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+    public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
       return super.offer(currentClusterInfo, timeout);

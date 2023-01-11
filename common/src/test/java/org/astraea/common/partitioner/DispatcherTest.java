@@ -41,7 +41,6 @@ import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -54,64 +53,12 @@ import org.junit.jupiter.api.Test;
 public class DispatcherTest extends RequireSingleBrokerCluster {
 
   @Test
-  void testNoTopicInCachedClusterInfo() {
-    var topicName = Utils.randomString();
-    var count = new AtomicInteger(0);
-    try (var dispatcher =
-        new Dispatcher() {
-          @Override
-          public int partition(
-              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
-            Assertions.assertNotNull(clusterInfo);
-            return 0;
-          }
-
-          @Override
-          boolean tryToUpdate(String topic) {
-            if (topic != null) Assertions.assertEquals(topicName, topic);
-            var rval = super.tryToUpdate(topic);
-            if (rval) count.incrementAndGet();
-            return rval;
-          }
-        }) {
-
-      dispatcher.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()));
-
-      // the topic is nonexistent in cluster, so it always request to update cluster info
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(2, count.get());
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(3, count.get());
-
-      // create the topic
-      dispatcher.admin.creator().topic(topicName).run().toCompletableFuture().join();
-      Utils.sleep(Duration.ofSeconds(2));
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(4, count.get());
-
-      // ok, the topic exists now, and it should not request to update
-      Utils.sleep(Duration.ofSeconds(2));
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(4, count.get());
-    }
-  }
-
-  @Test
   void testUpdateClusterInfo() {
 
     try (var dispatcher =
         new Dispatcher() {
           @Override
-          public int partition(
-              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             Assertions.assertNotNull(clusterInfo);
             return 0;
           }
@@ -130,8 +77,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     var dispatcher =
         new Dispatcher() {
           @Override
-          public int partition(
-              String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             Assertions.assertNull(key);
             Assertions.assertNull(value);
             count.incrementAndGet();
