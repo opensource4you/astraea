@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -151,15 +152,16 @@ public class Exporter extends SinkConnector {
           CompletableFuture.runAsync(
               () -> {
                 var intervalTimeInMillis = interval.toMillis();
-                long sleepTime = interval.toMillis();
-                if (sleepTime > 1000) sleepTime = 1000L;
+                long sleepTime = Math.min(intervalTimeInMillis, 1000);
                 try {
                   while (!closed.get()) {
                     var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
                     var currentTime = System.currentTimeMillis();
+                    // it will check for any writers that need to be closed, with a maximum of 1 second.
+                    // a writer needs to be closed when it has been idle for more than roll.duration.
                     writers.forEach(
                         (tp, recordWriter) -> {
-                          if (currentTime - recordWriter.time() > intervalTimeInMillis) {
+                          if (currentTime - recordWriter.lastActiveTime() > intervalTimeInMillis) {
                             writers.remove(tp).close();
                           }
                         });
@@ -195,23 +197,13 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void put(List<Record<byte[], byte[]>> records) {
-      records.forEach(
-          record -> {
-            try {
-              recordsQueue.put(record);
-            } catch (InterruptedException e) {
-              throw new RuntimeException(e);
-            }
-          });
+      recordsQueue.addAll(records);
     }
 
     @Override
-    protected void close() throws InterruptedException, ExecutionException {
+    protected void close() throws InterruptedException, ExecutionException, TimeoutException {
       this.closed.set(true);
-      writerFuture.toCompletableFuture().get();
-      if (!this.writerFuture.isDone()) {
-        throw new IllegalStateException();
-      }
+      writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS);
     }
   }
 }

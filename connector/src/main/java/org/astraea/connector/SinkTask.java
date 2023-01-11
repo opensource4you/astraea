@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
@@ -40,7 +41,7 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   protected abstract void put(List<Record<byte[], byte[]>> records);
 
-  protected void close() throws InterruptedException, ExecutionException {
+  protected void close() throws InterruptedException, ExecutionException, TimeoutException {
     // empty
   }
 
@@ -111,9 +112,7 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
   public final void stop() {
     try {
       close();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
+    } catch (InterruptedException | TimeoutException | ExecutionException e) {
       throw new RuntimeException(e);
     }
   }
