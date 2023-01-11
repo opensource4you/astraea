@@ -105,12 +105,12 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
 
    */
 
-  static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
+  static ClusterInfo getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
         "fake", replicas.stream().map(Replica::nodeInfo).collect(Collectors.toList()), replicas);
   }
 
-  static ClusterInfo<Replica> originClusterInfo() {
+  static ClusterInfo originClusterInfo() {
     var replicas =
         List.of(
             Replica.builder()
@@ -194,7 +194,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     return getClusterInfo(replicas);
   }
 
-  static ClusterInfo<Replica> newClusterInfo() {
+  static ClusterInfo newClusterInfo() {
     var replicas =
         List.of(
             Replica.builder()
@@ -289,7 +289,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(500.0, result.get(TopicPartition.of("t", 12)));
   }
 
-  private ClusterInfo<Replica> clusterInfo() {
+  private ClusterInfo clusterInfo() {
     var replicas =
         List.of(
             Replica.builder()

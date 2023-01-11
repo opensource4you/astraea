@@ -28,7 +28,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 
@@ -45,7 +44,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
 
   @Override
-  public int partition(String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+  public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
@@ -112,7 +111,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
     unusedPartitions.add(prevPartition);
   }
 
-  private void refreshPartitionMetaData(ClusterInfo<Replica> clusterInfo, String topic) {
+  private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
     clusterInfo.availableReplicas(topic).stream()
         .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
         .forEach(

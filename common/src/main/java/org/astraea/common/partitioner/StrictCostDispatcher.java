@@ -28,7 +28,6 @@ import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
@@ -62,7 +61,7 @@ public class StrictCostDispatcher extends Dispatcher {
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   RoundRobinKeeper roundRobinKeeper;
 
-  void tryToUpdateFetcher(ClusterInfo<Replica> clusterInfo) {
+  void tryToUpdateFetcher(ClusterInfo clusterInfo) {
     // register new nodes to metric collector
     costFunction
         .fetcher()
@@ -85,7 +84,7 @@ public class StrictCostDispatcher extends Dispatcher {
   }
 
   @Override
-  public int partition(String topic, byte[] key, byte[] value, ClusterInfo<Replica> clusterInfo) {
+  public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
     var partitionLeaders = clusterInfo.replicaLeaders(topic);
     // just return first partition if there is no available partitions
     if (partitionLeaders.isEmpty()) return 0;
@@ -118,14 +117,18 @@ public class StrictCostDispatcher extends Dispatcher {
    * @return weights
    */
   static Map<Integer, Double> costToScore(BrokerCost cost) {
+    // reduce the both zero and negative number
+    var shift =
+        cost.value().values().stream()
+            .min(Double::compare)
+            .map(Math::abs)
+            .filter(v -> v > 0)
+            .orElse(0.01);
     var max = cost.value().values().stream().max(Double::compare);
-    var min = cost.value().values().stream().min(Double::compare);
     return max.map(
             m ->
                 cost.value().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(
-                            Map.Entry::getKey, e -> m - e.getValue() + min.orElse(0.0))))
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> m - e.getValue() + shift)))
         .orElse(cost.value());
   }
 

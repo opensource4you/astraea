@@ -32,12 +32,12 @@ import org.astraea.common.admin.TopicPartition;
 
 public class FakeClusterInfo {
 
-  public static ClusterInfo<Replica> of(
+  public static ClusterInfo of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount) {
     return of(nodeCount, topicCount, partitionCount, replicaCount, 3);
   }
 
-  public static ClusterInfo<Replica> of(
+  public static ClusterInfo of(
       int nodeCount, int topicCount, int partitionCount, int replicaCount, int folderCount) {
     final var random = new Random();
     random.setSeed(0);
@@ -63,7 +63,7 @@ public class FakeClusterInfo {
                 .collect(Collectors.toUnmodifiableSet()));
   }
 
-  public static ClusterInfo<Replica> of(
+  public static ClusterInfo of(
       int nodeCount,
       int topicCount,
       int partitionCount,

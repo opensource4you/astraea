@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
@@ -41,5 +40,5 @@ public interface RebalancePlanExecutor {
    *     IllegalStateException if the metadata can't get synced and timeout is expired.
    * @return a background running thread
    */
-  CompletionStage<Void> run(Admin admin, ClusterInfo<Replica> targetAllocation, Duration timeout);
+  CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout);
 }

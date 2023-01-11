@@ -162,7 +162,7 @@ public class StrictCostDispatcherTest {
   public static class DumbHasBrokerCost implements HasBrokerCost {
 
     @Override
-    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return Map::of;
     }
   }
@@ -206,7 +206,7 @@ public class StrictCostDispatcherTest {
 
   public static class MyFunction implements HasBrokerCost {
     @Override
-    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return () -> Map.of(22, 10D);
     }
   }
@@ -256,6 +256,19 @@ public class StrictCostDispatcherTest {
     var cost = Map.of(1, 100D, 2, 10D);
     var score = StrictCostDispatcher.costToScore(() -> cost);
     Assertions.assertTrue(score.get(2) > score.get(1));
+  }
+
+  @Test
+  void testInvalidCostToScore() {
+    Assertions.assertEquals(1, StrictCostDispatcher.costToScore(() -> Map.of(1, 100D)).size());
+    Assertions.assertEquals(
+        2, StrictCostDispatcher.costToScore(() -> Map.of(1, 100D, 2, 100D)).size());
+    var score = StrictCostDispatcher.costToScore(() -> Map.of(1, 100D, 2, 0D));
+    Assertions.assertNotEquals(0, score.size());
+    Assertions.assertTrue(score.get(2) > score.get(1));
+    StrictCostDispatcher.costToScore(() -> Map.of(1, -133D, 2, 100D))
+        .values()
+        .forEach(v -> Assertions.assertTrue(v > 0));
   }
 
   @Test
@@ -309,8 +322,7 @@ public class StrictCostDispatcherTest {
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
-                public BrokerCost brokerCost(
-                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+                public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
                   return Map::of;
                 }
 

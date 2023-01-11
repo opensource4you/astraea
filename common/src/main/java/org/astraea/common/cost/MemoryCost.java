@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HasJvmMemory;
 import org.astraea.common.metrics.platform.HostMetrics;
@@ -35,7 +34,7 @@ public class MemoryCost implements HasBrokerCost {
    * to the memory usage of brokers.
    */
   @Override
-  public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var memoryCosts =
         clusterBean.all().entrySet().stream()
             .collect(

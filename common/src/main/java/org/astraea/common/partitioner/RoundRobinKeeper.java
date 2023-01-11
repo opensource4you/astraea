@@ -24,7 +24,6 @@ import java.util.stream.IntStream;
 import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
 
 public class RoundRobinKeeper {
   private final AtomicInteger next = new AtomicInteger(0);
@@ -41,8 +40,7 @@ public class RoundRobinKeeper {
     return new RoundRobinKeeper(preLength, roundRobinLease);
   }
 
-  synchronized void tryToUpdate(
-      ClusterInfo<Replica> clusterInfo, Lazy<Map<Integer, Double>> costToScore) {
+  synchronized void tryToUpdate(ClusterInfo clusterInfo, Lazy<Map<Integer, Double>> costToScore) {
     if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
       var roundRobin = RoundRobin.smooth(costToScore.get());
       var ids =
