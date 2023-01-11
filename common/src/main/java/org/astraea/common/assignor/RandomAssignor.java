@@ -18,8 +18,10 @@ package org.astraea.common.assignor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -32,18 +34,20 @@ public class RandomAssignor extends Assignor {
       ClusterInfo<Replica> clusterInfo) {
     var assignments = new HashMap<String, List<TopicPartition>>();
     var consumers = new ArrayList<>(subscriptions.keySet());
+    Set<String> topics = new HashSet<>();
     consumers.forEach(consumer -> assignments.put(consumer, new ArrayList<>()));
 
-    clusterInfo
-        .topicPartitions()
+    for (org.astraea.common.assignor.Subscription subscription : subscriptions.values())
+      topics.addAll(subscription.topics());
+
+    clusterInfo.topicPartitions().stream()
+        .filter(tp -> topics.contains(tp.topic()))
         .forEach(
-            topicPartition -> {
+            tp -> {
               var consumer = consumers.get((int) (Math.random() * consumers.size()));
-              assignments.get(consumer).add(topicPartition);
+              assignments.get(consumer).add(tp);
             });
-    assignments.forEach((consumer, assignment) -> {
-        System.out.println("consumer#" + consumer + ", its assignment = " + assignment);
-    });
+
     return assignments;
   }
 

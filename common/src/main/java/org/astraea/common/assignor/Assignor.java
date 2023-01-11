@@ -44,7 +44,7 @@ import org.astraea.common.partitioner.PartitionerUtils;
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
-  private Admin admin = null;
+  private String bootstrap;
   private ClusterInfo<Replica> clusterInfo = ClusterInfo.empty();
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
@@ -60,7 +60,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * Perform the group assignment given the member subscriptions and current cluster metadata.
    *
    * @param subscriptions Map from the member id to their respective topic subscription.
-   * @param topicPartitions Current topic/broker metadata known by consumer.
+   * @param clusterInfo Current cluster information fetched by admin.
    * @return Map from each member to the list of partitions assigned to them.
    */
   protected abstract Map<String, List<TopicPartition>> assign(
@@ -108,9 +108,12 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   }
 
   private void updateClusterInfo() {
-    var topics = admin.topicNames(false).toCompletableFuture().join();
-    clusterInfo = admin.clusterInfo(topics).toCompletableFuture().join();
+    try (Admin admin = Admin.of(bootstrap)) {
+      var topics = admin.topicNames(false).toCompletableFuture().join();
+      clusterInfo = admin.clusterInfo(topics).toCompletableFuture().join();
+    }
   }
+
   /**
    * Parse cost function names and weight. you can specify multiple cost function with assignor. The
    * format of key and value pair is "<CostFunction name>"="<weight>". For instance,
@@ -152,6 +155,9 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     var subscriptionsPerMember =
         org.astraea.common.assignor.GroupSubscription.from(groupSubscription).groupSubscription();
 
+    // TODO: Detected if consumers subscribed to the same topics.
+    // For now, assume that the consumers only subscribed to identical topics
+
     return new GroupAssignment(
         assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
             .collect(
@@ -170,7 +176,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
-    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));
+    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
     var costFunctions = parseCostFunctionWeight(config);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
