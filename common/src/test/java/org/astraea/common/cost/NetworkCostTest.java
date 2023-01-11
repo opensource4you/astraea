@@ -608,7 +608,6 @@ class NetworkCostTest {
           MetricSeriesBuilder.builder()
               .cluster(clusterInfo)
               .timeRange(LocalDateTime.now(), Duration.ZERO)
-              .sampleInterval(Duration.ofSeconds(1))
               .series(
                   (Gen, broker) ->
                       Gen.perBrokerTopic(
