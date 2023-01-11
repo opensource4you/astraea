@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
@@ -30,8 +29,12 @@ import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Configurable;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -41,6 +44,8 @@ import org.astraea.common.partitioner.PartitionerUtils;
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
+  private Admin admin = null;
+  private ClusterInfo<Replica> clusterInfo = ClusterInfo.empty();
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
@@ -60,7 +65,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected abstract Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
-      Set<TopicPartition> topicPartitions);
+      ClusterInfo<Replica> clusterInfo);
   // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
   // https://github.com/skiptests/astraea/issues/1409
 
@@ -102,6 +107,10 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
   }
 
+  private void updateClusterInfo() {
+    var topics = admin.topicNames(false).toCompletableFuture().join();
+    clusterInfo = admin.clusterInfo(topics).toCompletableFuture().join();
+  }
   /**
    * Parse cost function names and weight. you can specify multiple cost function with assignor. The
    * format of key and value pair is "<CostFunction name>"="<weight>". For instance,
@@ -138,20 +147,13 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
 
   @Override
   public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
+    updateClusterInfo();
     // convert Kafka's data structure to ours
     var subscriptionsPerMember =
         org.astraea.common.assignor.GroupSubscription.from(groupSubscription).groupSubscription();
 
-    var topicPartitions =
-        metadata.topics().stream()
-            .flatMap(
-                name ->
-                    metadata.partitionsForTopic(name).stream()
-                        .map(p -> TopicPartition.of(p.topic(), p.partition())))
-            .collect(Collectors.toSet());
-
     return new GroupAssignment(
-        assign(subscriptionsPerMember, topicPartitions).entrySet().stream()
+        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
@@ -168,6 +170,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));
     var costFunctions = parseCostFunctionWeight(config);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
