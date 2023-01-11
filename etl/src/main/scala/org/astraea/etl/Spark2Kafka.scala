@@ -42,12 +42,11 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = ReadStreams
-      .create(
-        session = sparkSession,
-        source = metadata.sourcePath,
-        columns = metadata.columns
-      )
+    val df = ReadStreamsBuilder
+      .of()
+      .source(metadata.sourcePath)
+      .columns(metadata.columns)
+      .build()
       .csvToJSON(metadata.columns)
 
     Writer
