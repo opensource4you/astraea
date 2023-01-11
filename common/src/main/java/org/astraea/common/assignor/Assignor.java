@@ -32,7 +32,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
@@ -45,7 +44,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
-  private ClusterInfo<Replica> clusterInfo = ClusterInfo.empty();
+  private ClusterInfo clusterInfo = ClusterInfo.empty();
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
@@ -64,8 +63,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * @return Map from each member to the list of partitions assigned to them.
    */
   protected abstract Map<String, List<TopicPartition>> assign(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions,
-      ClusterInfo<Replica> clusterInfo);
+      Map<String, org.astraea.common.assignor.Subscription> subscriptions, ClusterInfo clusterInfo);
   // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
   // https://github.com/skiptests/astraea/issues/1409
 
@@ -107,6 +105,9 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
   }
 
+  /**
+   * update cluster information
+   */
   private void updateClusterInfo() {
     try (Admin admin = Admin.of(bootstrap)) {
       var topics = admin.topicNames(false).toCompletableFuture().join();

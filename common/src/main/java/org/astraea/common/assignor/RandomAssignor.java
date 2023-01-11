@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 
 public class RandomAssignor extends Assignor {
@@ -31,7 +30,7 @@ public class RandomAssignor extends Assignor {
   @Override
   public Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
-      ClusterInfo<Replica> clusterInfo) {
+      ClusterInfo clusterInfo) {
     var assignments = new HashMap<String, List<TopicPartition>>();
     var consumers = new ArrayList<>(subscriptions.keySet());
     Set<String> topics = new HashSet<>();
