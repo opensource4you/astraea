@@ -44,7 +44,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
-  private ClusterInfo clusterInfo = ClusterInfo.empty();
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
@@ -105,12 +104,18 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
   }
 
-  /** update cluster information */
-  private void updateClusterInfo() {
+  /**
+   * update cluster information
+   *
+   * @return cluster information
+   */
+  private ClusterInfo updateClusterInfo() {
+    var clusterInfo = ClusterInfo.empty();
     try (Admin admin = Admin.of(bootstrap)) {
       var topics = admin.topicNames(false).toCompletableFuture().join();
       clusterInfo = admin.clusterInfo(topics).toCompletableFuture().join();
     }
+    return clusterInfo;
   }
 
   /**
@@ -149,7 +154,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
 
   @Override
   public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-    updateClusterInfo();
+    var clusterInfo = updateClusterInfo();
     // convert Kafka's data structure to ours
     var subscriptionsPerMember =
         org.astraea.common.assignor.GroupSubscription.from(groupSubscription).groupSubscription();
