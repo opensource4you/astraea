@@ -58,7 +58,7 @@ class PartitionMaxInRateCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(-500.0 + 700.0, mc.changedReplicaMaxInRate().get(2).byteRate());
   }
 
-  private ClusterInfo<Replica> afterClusterInfo() {
+  private ClusterInfo afterClusterInfo() {
     var replicas =
         List.of(
             Replica.builder()
@@ -91,7 +91,7 @@ class PartitionMaxInRateCostTest extends RequireBrokerCluster {
         replicas);
   }
 
-  private ClusterInfo<Replica> clusterInfo() {
+  private ClusterInfo clusterInfo() {
     var replicas =
         List.of(
             Replica.builder()

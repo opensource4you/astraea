@@ -31,7 +31,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
@@ -63,7 +62,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
   }
 
   public Map<TopicPartition, Double> partitionCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+      ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var replicaRate =
         clusterBean.replicas().stream()
             .map(
@@ -90,7 +89,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                         statistPartitionRateCount(
                                 clusterInfo
                                     .replicaLeader(topicPartition)
-                                    .map(ReplicaInfo::topicPartitionReplica)
+                                    .map(Replica::topicPartitionReplica)
                                     .get(),
                                 clusterBean)
                             .orElse(
@@ -151,7 +150,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                                   tpr,
                                   ignore ->
                                       Sensor.builder()
-                                          .addStat(REPLICA_WRITE_RATE, new Max<Double>())
+                                          .addStat(REPLICA_WRITE_RATE, Max.<Double>of())
                                           .build());
                           var debounce =
                               denounces.computeIfAbsent(tpr, ignore -> Debounce.of(duration));
@@ -182,8 +181,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
   }
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var partitionIn = partitionCost(before, clusterBean);
     return MoveCost.changedReplicaMaxInRate(
         Stream.concat(before.nodes().stream(), after.nodes().stream())
