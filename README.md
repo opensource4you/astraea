@@ -37,3 +37,5 @@
 `Astraea` 鼓勵貢獻者參與研討會做技術發表，各年度的發表請見下列連結：
 
 [2022 年度](https://github.com/skiptests/astraea/issues/238)
+
+上述報告和測試所使用的硬體詳細資訊：[Astraea 測試用硬體](https://github.com/skiptests/astraea/issues/130)
