@@ -182,6 +182,7 @@ public class Exporter extends SinkConnector {
                                   .build();
                             });
                     writer.append(record);
+                    lastWriteTime = System.currentTimeMillis();
                     if (writer.size().greaterThan(size)) {
                       writers.remove(record.topicPartition()).close();
                     }
