@@ -22,12 +22,12 @@ import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
 import org.astraea.etl.Writer._
 
 class Writer[PassedStep <: BuildStep] private (
-    var dataFrameOp: DataFrameOp,
+    var dataFrameOp: OptionalDataFrame,
     var target: String,
     var checkpoint: String
 ) {
   protected def this() =
-    this(DataFrameOp.empty(), "topic", "checkPoint")
+    this(OptionalDataFrame.empty(), "topic", "checkPoint")
 
   protected def this(pb: Writer[_]) = this(
     pb.dataFrameOp,
@@ -36,7 +36,7 @@ class Writer[PassedStep <: BuildStep] private (
   )
 
   def dataFrameOp(
-      dataFrameOp: DataFrameOp
+      dataFrameOp: OptionalDataFrame
   ): Writer[PassedStep with DFStep] = {
     this.dataFrameOp = dataFrameOp
     new Writer[PassedStep with DFStep](this)

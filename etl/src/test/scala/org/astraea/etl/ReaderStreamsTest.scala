@@ -54,23 +54,22 @@ class ReaderStreamsTest extends RequireBrokerCluster {
 
     createCSV(sourceDir, row, 0)
 
-    val df = ReadStreams
-      .create(
-        session = SparkSession
-          .builder()
-          .master("local[2]")
-          .appName("Astraea ETL")
-          .getOrCreate(),
-        source = sourceDir.getPath,
-        columns = Seq(
+    val df = OptionalDataFrameBuilder
+      .builder(
+        SparkSession.builder().master("local[4]").appName("test").getOrCreate()
+      )
+      .source(sourceDir.getPath)
+      .columns(
+        Seq(
           DataColumn("RecordNumber", true, StringType),
           DataColumn("Size", true, StringType),
           DataColumn("Type", true, StringType)
         )
       )
-      .dataFrame()
+      .build()
 
-    df.writeStream
+    df.dataFrame()
+      .writeStream
       .format("csv")
       .option("path", dataDir.getPath)
       .option("checkpointLocation", checkoutDir.getPath)
@@ -95,20 +94,20 @@ class ReaderStreamsTest extends RequireBrokerCluster {
     val checkoutDir = Files.createTempDirectory("checkpoint").toFile
     val dataDir = Files.createTempDirectory("data").toFile
 
-    val csvDF = ReadStreams
-      .create(
-        session = SparkSession
-          .builder()
-          .master("local[2]")
-          .appName("Astraea ETL")
-          .getOrCreate(),
-        source = sourceDir.getPath,
-        columns = Seq(
+    val csvDF = OptionalDataFrameBuilder
+      .builder(
+        SparkSession.builder().master("local[4]").appName("test").getOrCreate()
+      )
+      .source(sourceDir.getPath)
+      .columns(
+        Seq(
           DataColumn("RecordNumber", true, StringType),
           DataColumn("Size", true, StringType),
           DataColumn("Type", true, StringType)
         )
       )
+      .build()
+
     assertTrue(
       csvDF.dataFrame().isStreaming,
       "sessions must be a streaming Dataset"
@@ -147,7 +146,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
 
-    val result = new DataFrameOp(
+    val result = new OptionalDataFrame(
       Seq(("Michael", 29)).toDF().toDF("name", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -162,7 +161,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       result("{\"name\":\"Michael\"}")
     )
 
-    val resultExchange = new DataFrameOp(
+    val resultExchange = new OptionalDataFrame(
       Seq((29, "Michael")).toDF().toDF("age", "name")
     ).csvToJSON(columns)
       .dataFrame()
@@ -191,7 +190,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("secondName", isPk = true, DataType.StringType),
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
-    val result = new DataFrameOp(
+    val result = new OptionalDataFrame(
       Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -219,7 +218,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("secondName", isPk = true, DataType.StringType),
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
-    val result = new DataFrameOp(
+    val result = new OptionalDataFrame(
       Seq(("Michael", "A", null)).toDF().toDF("firstName", "secondName", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -267,7 +266,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("fInt", isPk = false, dataType = IntegerType)
     )
 
-    val json = new DataFrameOp(
+    val json = new OptionalDataFrame(
       spark.createDataFrame(spark.sparkContext.parallelize(data), structType)
     ).csvToJSON(columns)
       .dataFrame()

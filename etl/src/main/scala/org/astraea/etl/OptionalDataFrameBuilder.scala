@@ -19,10 +19,7 @@ package org.astraea.etl
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.streaming.DataStreamReader
 import org.apache.spark.sql.types.{StructField, StructType}
-
-private[etl] case class ReadStreamsBuilder(
-    private val sparkSession: SparkSession
-) {
+abstract class OptionalDataFrameBuilder(sparkSession: SparkSession) {
   private val SOURCE_ARCHIVE_DIR = "sourceArchiveDir"
   private val CLEAN_SOURCE = "cleanSource"
   private val RECURSIVE_FILE_LOOK_UP = "recursiveFileLookup"
@@ -33,44 +30,44 @@ private[etl] case class ReadStreamsBuilder(
   private var _sourceArchiveDir: String = ""
   private var _columns: Seq[DataColumn] = Seq.empty
 
-  def recursiveFileLookup(r: String): ReadStreamsBuilder = {
+  def recursiveFileLookup(r: String): OptionalDataFrameBuilder = {
     _recursiveFileLookup = r
     this
   }
 
-  def archive(c: String): ReadStreamsBuilder = {
+  def archive(c: String): OptionalDataFrameBuilder = {
     _cleanSource = c
     this
   }
 
-  def source(s: String): ReadStreamsBuilder = {
+  def source(s: String): OptionalDataFrameBuilder = {
     _source = s
     this
   }
 
-  def columns(c: Seq[DataColumn]): ReadStreamsBuilder = {
+  def columns(c: Seq[DataColumn]): OptionalDataFrameBuilder = {
     _columns = c
     this
   }
 
-  def sourceArchiveDir(a: String): ReadStreamsBuilder = {
+  def sourceArchiveDir(a: String): OptionalDataFrameBuilder = {
     _sourceArchiveDir = a
     this
   }
 
-  def build(): DataFrameOp = {
+  def build(): OptionalDataFrame = {
     val df = options(sparkSession.readStream)
       .option("recursiveFileLookup", _recursiveFileLookup)
       .option("cleanSource", _cleanSource)
       .option("sourceArchiveDir", _sourceArchiveDir)
-      .schema(schema(_columns))
+      .schema(OptionalDataFrameBuilder.schema(_columns))
       .csv(_source)
       .filter(row => {
         val bool = (0 until row.length).exists(i => !row.isNullAt(i))
         bool
       })
 
-    new DataFrameOp(df)
+    new OptionalDataFrame(df)
   }
 
   private def options(reader: DataStreamReader): DataStreamReader = {
@@ -93,8 +90,25 @@ private[etl] case class ReadStreamsBuilder(
     }
     r
   }
+}
 
-  def schema(columns: Seq[DataColumn]): StructType =
+object OptionalDataFrameBuilder {
+  def builder(): OptionalDataFrameBuilder = OptionalDataFrameBuilderImpl(
+    SparkSession
+      .builder()
+      .appName("AstraeaETL")
+      .getOrCreate()
+  )
+
+  // for testing
+  def builder(sparkSession: SparkSession): OptionalDataFrameBuilder =
+    OptionalDataFrameBuilderImpl(sparkSession)
+
+  private case class OptionalDataFrameBuilderImpl(
+      private val sparkSession: SparkSession
+  ) extends OptionalDataFrameBuilder(sparkSession)
+
+  private def schema(columns: Seq[DataColumn]): StructType =
     StructType(columns.map { col =>
       if (col.dataType != DataType.StringType)
         throw new IllegalArgumentException(
@@ -102,14 +116,4 @@ private[etl] case class ReadStreamsBuilder(
         )
       StructField(col.name, col.dataType.sparkType)
     })
-}
-
-object ReadStreamsBuilder {
-  def of(): ReadStreamsBuilder = new ReadStreamsBuilder(
-    SparkSession
-      .builder()
-      .appName("AstraeaETL")
-      .getOrCreate()
-  )
-
 }

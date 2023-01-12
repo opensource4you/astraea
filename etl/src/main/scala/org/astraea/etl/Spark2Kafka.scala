@@ -42,8 +42,8 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = ReadStreamsBuilder
-      .of()
+    val df = OptionalDataFrameBuilder
+      .builder()
       .source(metadata.sourcePath)
       .columns(metadata.columns)
       .build()

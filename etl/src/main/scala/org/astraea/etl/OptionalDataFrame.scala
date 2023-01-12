@@ -24,7 +24,7 @@ import org.astraea.common.json.JsonConverter
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
-class DataFrameOp(dataFrame: DataFrame) {
+class OptionalDataFrame(dataFrame: DataFrame) {
 
   val defaultConverter: UserDefinedFunction =
     udf[String, Map[String, String]]((value: Map[String, String]) => {
@@ -63,8 +63,8 @@ class DataFrameOp(dataFrame: DataFrame) {
     * @return
     *   json df
     */
-  def csvToJSON(cols: Seq[DataColumn]): DataFrameOp = {
-    new DataFrameOp(
+  def csvToJSON(cols: Seq[DataColumn]): OptionalDataFrame = {
+    new OptionalDataFrame(
       dataFrame
         .withColumn(
           "value",
@@ -91,8 +91,8 @@ class DataFrameOp(dataFrame: DataFrame) {
   }
 }
 
-object DataFrameOp {
-  def empty(): DataFrameOp = {
+object OptionalDataFrame {
+  def empty(): OptionalDataFrame = {
     null
   }
 }
