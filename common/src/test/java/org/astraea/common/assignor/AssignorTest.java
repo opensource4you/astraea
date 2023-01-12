@@ -146,15 +146,16 @@ public class AssignorTest {
   void testParseCostFunctionWeight() {
     var costFunction =
         Assignor.parseCostFunctionWeight(
-            Configuration.of(Map.of("org.astraea.common.cost.ReplicaSizeCost", "100")));
+            Configuration.of(Map.of("org.astraea.common.cost.ReplicaLeaderSizeCost", "100")));
     Assertions.assertEquals(1, costFunction.size());
     for (var e : costFunction.entrySet()) {
       Assertions.assertEquals(
-          "org.astraea.common.cost.ReplicaSizeCost", e.getKey().getClass().getName());
+          "org.astraea.common.cost.ReplicaLeaderSizeCost", e.getKey().getClass().getName());
       Assertions.assertEquals(100, e.getValue());
     }
 
-    var negativeConfig = Configuration.of(Map.of("org.astraea.common.cost.ReplicaSizeCost", "-1"));
+    var negativeConfig =
+        Configuration.of(Map.of("org.astraea.common.cost.ReplicaLeaderSizeCost", "-1"));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> Assignor.parseCostFunctionWeight(negativeConfig));
   }
