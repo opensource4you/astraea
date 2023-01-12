@@ -35,7 +35,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
@@ -150,7 +149,7 @@ public class AdminTest extends RequireBrokerCluster {
   @Test
   void testClusterInfo() {
     try (var admin =
-        new AdminImpl(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
+        new AdminImpl(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()))) {
       try (var producer = Producer.of(bootstrapServers())) {
         producer.send(Record.builder().topic(Utils.randomString()).key(new byte[100]).build());
         producer.send(Record.builder().topic(Utils.randomString()).key(new byte[55]).build());
@@ -199,9 +198,9 @@ public class AdminTest extends RequireBrokerCluster {
   void testWaitClusterWithException() {
 
     try (var admin =
-        new AdminImpl(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers())) {
+        new AdminImpl(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers())) {
           @Override
-          public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+          public CompletionStage<ClusterInfo> clusterInfo(Set<String> topics) {
             return CompletableFuture.failedFuture(
                 new org.apache.kafka.common.errors.UnknownTopicOrPartitionException());
           }
@@ -1901,6 +1900,25 @@ public class AdminTest extends RequireBrokerCluster {
                       .forEach(
                           bootstrapServer ->
                               Assertions.assertTrue(bootstrapServers.contains(bootstrapServer))));
+    }
+  }
+
+  @Test
+  void testClusterId() {
+    try (var admin = Admin.of(bootstrapServers())) {
+      admin.creator().topic("xxx").run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(1));
+      Assertions.assertEquals(
+          admin
+              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .clusterId(),
+          admin
+              .clusterInfo(admin.topicNames(true).toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .clusterId());
     }
   }
 }

@@ -27,7 +27,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
@@ -106,12 +105,12 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
 
    */
 
-  static ClusterInfo<Replica> getClusterInfo(List<Replica> replicas) {
+  static ClusterInfo getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        replicas.stream().map(ReplicaInfo::nodeInfo).collect(Collectors.toList()), replicas);
+        "fake", replicas.stream().map(Replica::nodeInfo).collect(Collectors.toList()), replicas);
   }
 
-  static ClusterInfo<Replica> originClusterInfo() {
+  static ClusterInfo originClusterInfo() {
     var replicas =
         List.of(
             Replica.builder()
@@ -121,7 +120,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -134,7 +133,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -147,7 +146,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -160,7 +159,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -173,7 +172,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -186,7 +185,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -195,7 +194,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
     return getClusterInfo(replicas);
   }
 
-  static ClusterInfo<Replica> newClusterInfo() {
+  static ClusterInfo newClusterInfo() {
     var replicas =
         List.of(
             Replica.builder()
@@ -205,7 +204,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -218,7 +217,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(6000000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -231,7 +230,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -244,7 +243,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(700000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -257,7 +256,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -270,7 +269,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .lag(-1)
                 .size(800000)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -290,7 +289,7 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
     Assertions.assertEquals(500.0, result.get(TopicPartition.of("t", 12)));
   }
 
-  private ClusterInfo<Replica> clusterInfo() {
+  private ClusterInfo clusterInfo() {
     var replicas =
         List.of(
             Replica.builder()
@@ -318,7 +317,9 @@ class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
                 .nodeInfo(NodeInfo.of(0, "", -1))
                 .build());
     return ClusterInfo.of(
-        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)), replicas);
+        "fake",
+        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
+        replicas);
   }
 
   private static ClusterBean clusterBean() {

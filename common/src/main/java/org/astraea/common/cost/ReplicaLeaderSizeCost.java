@@ -31,7 +31,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
@@ -101,8 +100,7 @@ public class ReplicaLeaderSizeCost
   public interface SizeStatisticalBean extends HasGauge<Double> {}
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     return MoveCost.movedReplicaSize(
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -122,8 +120,7 @@ public class ReplicaLeaderSizeCost
    * @return a BrokerCost contains the used space for each broker
    */
   @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var logSize =
         clusterBean.replicas().stream()
             .map(
@@ -153,7 +150,7 @@ public class ReplicaLeaderSizeCost
                                         ? r.topicPartitionReplica()
                                         : clusterInfo
                                             .replicaLeader(r.topicPartition())
-                                            .map(ReplicaInfo::topicPartitionReplica)
+                                            .map(Replica::topicPartitionReplica)
                                             .orElse(r.topicPartitionReplica()),
                                     clusterBean)
                                 .orElse(
@@ -203,20 +200,19 @@ public class ReplicaLeaderSizeCost
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
     return () -> value;
   }
 
   @Override
-  public PartitionCost partitionCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.replicaLeaders().stream()
             .collect(
                 Collectors.toMap(
-                    ReplicaInfo::topicPartition,
+                    Replica::topicPartition,
                     leaderReplica ->
                         statistReplicaSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)
                             .orElseThrow(

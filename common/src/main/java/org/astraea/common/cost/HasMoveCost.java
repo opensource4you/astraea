@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
@@ -81,6 +80,5 @@ public interface HasMoveCost extends CostFunction {
    * @param clusterBean cluster metrics
    * @return the score of migrate cost
    */
-  MoveCost moveCost(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean);
+  MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean);
 }

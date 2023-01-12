@@ -14,25 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.stats;
+package org.astraea.common.assignor;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.util.Map;
 
-public class MaxTest {
-  @Test
-  void testMax() {
-    var stat = Max.<Integer>of();
-    stat.record(39);
-    stat.record(20);
-    stat.record(103);
+public final class GroupAssignment {
+  private final Map<String, Assignment> assignments;
 
-    Assertions.assertEquals(103, stat.measure());
+  public GroupAssignment(Map<String, Assignment> assignments) {
+    this.assignments = assignments;
   }
 
-  @Test
-  void testException() {
-    var stat = Max.<Integer>of();
-    Assertions.assertThrows(RuntimeException.class, stat::measure);
+  public Map<String, Assignment> groupAssignment() {
+    return assignments;
+  }
+
+  @Override
+  public String toString() {
+    return "GroupAssignment(" + "assignments=" + assignments + ")";
   }
 }

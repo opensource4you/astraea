@@ -29,7 +29,6 @@ import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
@@ -59,7 +58,7 @@ import org.astraea.common.metrics.collector.Fetcher;
  */
 public abstract class NetworkCost implements HasClusterCost {
 
-  private final AtomicReference<ClusterInfo<Replica>> currentCluster = new AtomicReference<>();
+  private final AtomicReference<ClusterInfo> currentCluster = new AtomicReference<>();
   private final BandwidthType bandwidthType;
 
   NetworkCost(BandwidthType bandwidthType) {
@@ -80,9 +79,7 @@ public abstract class NetworkCost implements HasClusterCost {
   }
 
   void updateCurrentCluster(
-      ClusterInfo<Replica> clusterInfo,
-      ClusterBean clusterBean,
-      AtomicReference<ClusterInfo<Replica>> ref) {
+      ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
     // TODO: We need a reliable way to access the actual current cluster info. The following method
     //  try to compare the equality of cluster info and cluster bean in terms of replica set. But it
     //  didn't consider the data folder info. See the full discussion:
@@ -98,7 +95,7 @@ public abstract class NetworkCost implements HasClusterCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
     updateCurrentCluster(clusterInfo, clusterBean, currentCluster);
 
@@ -109,7 +106,7 @@ public abstract class NetworkCost implements HasClusterCost {
     var brokerRate =
         clusterInfo
             .replicaStream()
-            .filter(ReplicaInfo::isOnline)
+            .filter(Replica::isOnline)
             .collect(
                 Collectors.groupingBy(
                     replica -> clusterInfo.node(replica.nodeInfo().id()),
@@ -164,12 +161,11 @@ public abstract class NetworkCost implements HasClusterCost {
             LogMetrics.Log.SIZE::fetch));
   }
 
-  private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(
-      ClusterInfo<? extends Replica> clusterInfo) {
+  private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(ClusterInfo clusterInfo) {
     return clusterInfo
         .replicaStream()
-        .filter(ReplicaInfo::isOnline)
-        .filter(ReplicaInfo::isLeader)
+        .filter(Replica::isOnline)
+        .filter(Replica::isLeader)
         .map(r -> Map.entry(BrokerTopic.of(r.nodeInfo().id(), r.topic()), r))
         .collect(
             Collectors.groupingBy(
@@ -182,9 +178,7 @@ public abstract class NetworkCost implements HasClusterCost {
    * ClusterBean, it will be considered as zero produce load.
    */
   Map<TopicPartition, Long> estimateRate(
-      ClusterInfo<? extends Replica> clusterInfo,
-      ClusterBean clusterBean,
-      ServerMetrics.Topic metric) {
+      ClusterInfo clusterInfo, ClusterBean clusterBean, ServerMetrics.Topic metric) {
     return mapLeaderAllocation(clusterInfo).entrySet().stream()
         .flatMap(
             e -> {

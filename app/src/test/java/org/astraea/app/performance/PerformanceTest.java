@@ -27,7 +27,6 @@ import org.astraea.app.argument.Argument;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
 import org.astraea.it.RequireBrokerCluster;
@@ -181,7 +180,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               .replicaStream()
               .filter(Replica::isLeader)
               .filter(r -> r.nodeInfo().id() == 1)
-              .map(ReplicaInfo::topicPartition)
+              .map(Replica::topicPartition)
               .collect(Collectors.toUnmodifiableSet());
 
       // assert there are 3 brokers, the 6 partitions are divided
@@ -225,9 +224,9 @@ public class PerformanceTest extends RequireBrokerCluster {
               .toCompletableFuture()
               .join()
               .replicaStream()
-              .filter(ReplicaInfo::isLeader)
+              .filter(Replica::isLeader)
               .filter(replica -> replica.nodeInfo().id() == 1)
-              .map(ReplicaInfo::topicPartition)
+              .map(Replica::topicPartition)
               .collect(Collectors.toSet());
       var selector2 = args.topicPartitionSelector();
       var actual2 =

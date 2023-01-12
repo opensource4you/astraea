@@ -34,7 +34,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -57,9 +56,7 @@ class NetworkCostTest {
     return new NetworkIngressCost() {
       @Override
       void updateCurrentCluster(
-          ClusterInfo<Replica> clusterInfo,
-          ClusterBean clusterBean,
-          AtomicReference<ClusterInfo<Replica>> ref) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
         ref.compareAndSet(null, clusterInfo);
       }
     };
@@ -69,9 +66,7 @@ class NetworkCostTest {
     return new NetworkEgressCost() {
       @Override
       void updateCurrentCluster(
-          ClusterInfo<Replica> clusterInfo,
-          ClusterBean clusterBean,
-          AtomicReference<ClusterInfo<Replica>> ref) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
         ref.compareAndSet(null, clusterInfo);
       }
     };
@@ -423,7 +418,7 @@ class NetworkCostTest {
 
   interface TestCase {
 
-    ClusterInfo<Replica> clusterInfo();
+    ClusterInfo clusterInfo();
 
     ClusterBean clusterBean();
   }
@@ -485,7 +480,7 @@ class NetworkCostTest {
                       .collect(Collectors.toUnmodifiableList())));
     }
 
-    final ClusterInfo<Replica> base =
+    final ClusterInfo base =
         ClusterInfoBuilder.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(Map.of(1, Set.of("/ssd1", "/ssd2", "/ssd3")))
@@ -525,7 +520,7 @@ class NetworkCostTest {
                 .size(expectedRate.get(replica.topicPartition()) * 100)
                 .nodeInfo(base.node(1 + replica.partition() % 3))
                 .build();
-    final ClusterInfo<Replica> clusterInfo =
+    final ClusterInfo clusterInfo =
         ClusterInfoBuilder.builder(base)
             .addTopic("Beef", 4, (short) 1, modPlacement)
             .addTopic("Pork", 4, (short) 1, modPlacement)
@@ -537,7 +532,7 @@ class NetworkCostTest {
     }
 
     @Override
-    public ClusterInfo<Replica> clusterInfo() {
+    public ClusterInfo clusterInfo() {
       return clusterInfo;
     }
 
@@ -550,7 +545,7 @@ class NetworkCostTest {
   /** A large cluster */
   private static class LargeTestCase implements TestCase {
 
-    private final ClusterInfo<Replica> clusterInfo;
+    private final ClusterInfo clusterInfo;
     private final ClusterBean clusterBean;
     private final Map<TopicPartition, Long> rate;
     private final Supplier<DataRate> dataRateSupplier;
@@ -625,8 +620,8 @@ class NetworkCostTest {
                                       clusterInfo
                                           .replicaStream()
                                           .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(ReplicaInfo::isLeader)
-                                          .filter(ReplicaInfo::isOnline)
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
                                           .mapToLong(r -> rate.get(r.topicPartition()))
                                           .sum()),
                                   noise(random.nextInt()),
@@ -637,8 +632,8 @@ class NetworkCostTest {
                                       clusterInfo
                                           .replicaStream()
                                           .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(ReplicaInfo::isLeader)
-                                          .filter(ReplicaInfo::isOnline)
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
                                           .mapToLong(
                                               r ->
                                                   rate.get(r.topicPartition())
@@ -648,7 +643,7 @@ class NetworkCostTest {
     }
 
     @Override
-    public ClusterInfo<Replica> clusterInfo() {
+    public ClusterInfo clusterInfo() {
       return clusterInfo;
     }
 

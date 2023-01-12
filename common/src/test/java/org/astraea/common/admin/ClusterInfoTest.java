@@ -17,14 +17,10 @@
 package org.astraea.common.admin;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Cluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 public class ClusterInfoTest {
 
@@ -39,14 +35,14 @@ public class ClusterInfoTest {
    *
    * @param replicas used to build cluster info
    * @return cluster info
-   * @param <T> ReplicaInfo or Replica
    */
-  public static <T extends ReplicaInfo> ClusterInfo<T> of(List<T> replicas) {
+  public static ClusterInfo of(List<Replica> replicas) {
     // TODO: this method is not suitable for production use. Move it to the test scope.
     //  see https://github.com/skiptests/astraea/issues/1185
     return ClusterInfo.of(
+        "fake",
         replicas.stream()
-            .map(ReplicaInfo::nodeInfo)
+            .map(Replica::nodeInfo)
             .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()
@@ -66,7 +62,7 @@ public class ClusterInfoTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -79,7 +75,7 @@ public class ClusterInfoTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -92,7 +88,7 @@ public class ClusterInfoTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -116,39 +112,5 @@ public class ClusterInfoTest {
     var emptyCluster = ClusterInfo.empty();
     Assertions.assertEquals(0, emptyCluster.nodes().size());
     Assertions.assertEquals(0, emptyCluster.replicaStream().count());
-  }
-
-  @Test
-  void testNode() {
-    var node = NodeInfoTest.node();
-    var partition = ReplicaInfoTest.partitionInfo();
-    var kafkaCluster = Mockito.mock(Cluster.class);
-    Mockito.when(kafkaCluster.topics()).thenReturn(Set.of(partition.topic()));
-    Mockito.when(kafkaCluster.availablePartitionsForTopic(partition.topic()))
-        .thenReturn(List.of(partition));
-    Mockito.when(kafkaCluster.partitionsForTopic(partition.topic())).thenReturn(List.of(partition));
-    Mockito.when(kafkaCluster.nodes()).thenReturn(List.of(node));
-
-    var clusterInfo = ClusterInfo.of(kafkaCluster);
-
-    Assertions.assertEquals(1, clusterInfo.nodes().size());
-    Assertions.assertEquals(NodeInfo.of(node), clusterInfo.nodes().iterator().next());
-    Assertions.assertEquals(1, clusterInfo.availableReplicas(partition.topic()).size());
-    Assertions.assertEquals(1, clusterInfo.replicas(partition.topic()).size());
-    Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.availableReplicas(partition.topic()).get(0).nodeInfo());
-    Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.replicaLeaders(partition.topic()).get(0).nodeInfo());
-    Assertions.assertEquals(
-        NodeInfo.of(node), clusterInfo.replicas(partition.topic()).get(0).nodeInfo());
-  }
-
-  @Test
-  void testIllegalQuery() {
-    var clusterInfo = ClusterInfo.of(Cluster.empty());
-    Assertions.assertEquals(0, clusterInfo.replicas("unknown").size());
-    Assertions.assertThrows(NoSuchElementException.class, () -> clusterInfo.node(0));
-    Assertions.assertEquals(0, clusterInfo.availableReplicas("unknown").size());
-    Assertions.assertEquals(0, clusterInfo.replicaLeaders("unknown").size());
   }
 }

@@ -47,7 +47,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -294,7 +293,7 @@ class BalancerHandler implements Handler {
 
   // visible for test
   static PostRequestWrapper parsePostRequestWrapper(
-      BalancerPostRequest balancerPostRequest, ClusterInfo<Replica> currentClusterInfo) {
+      BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
 
     var balancerClasspath = balancerPostRequest.balancer;
     var balancerConfig = Configuration.of(balancerPostRequest.balancerConfig);
@@ -469,7 +468,7 @@ class BalancerHandler implements Handler {
                 clusterInfo ->
                     clusterInfo
                         .replicaStream()
-                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+                        .collect(Collectors.groupingBy(Replica::topicPartition)))
             .toCompletableFuture()
             .join();
 
@@ -522,7 +521,7 @@ class BalancerHandler implements Handler {
     var ongoingMigration =
         replicas.stream()
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
-            .map(ReplicaInfo::topicPartitionReplica)
+            .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(
@@ -535,13 +534,13 @@ class BalancerHandler implements Handler {
     final String balancerClasspath;
     final Duration executionTime;
     final AlgorithmConfig algorithmConfig;
-    final ClusterInfo<Replica> clusterInfo;
+    final ClusterInfo clusterInfo;
 
     PostRequestWrapper(
         String balancerClasspath,
         Duration executionTime,
         AlgorithmConfig algorithmConfig,
-        ClusterInfo<Replica> clusterInfo) {
+        ClusterInfo clusterInfo) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
       this.algorithmConfig = algorithmConfig;
@@ -641,13 +640,10 @@ class BalancerHandler implements Handler {
 
   static class PlanInfo {
     private final PlanReport report;
-    private final ClusterInfo<Replica> associatedClusterInfo;
+    private final ClusterInfo associatedClusterInfo;
     private final Balancer.Plan associatedPlan;
 
-    PlanInfo(
-        PlanReport report,
-        ClusterInfo<Replica> associatedClusterInfo,
-        Balancer.Plan associatedPlan) {
+    PlanInfo(PlanReport report, ClusterInfo associatedClusterInfo, Balancer.Plan associatedPlan) {
       this.report = report;
       this.associatedClusterInfo = associatedClusterInfo;
       this.associatedPlan = associatedPlan;

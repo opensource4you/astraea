@@ -24,7 +24,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -46,7 +45,7 @@ public interface HasClusterCost extends CostFunction {
 
     return new HasClusterCost() {
       @Override
-      public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+      public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
         var cost =
             costAndWeight.entrySet().stream()
                 .mapToDouble(
@@ -89,5 +88,5 @@ public interface HasClusterCost extends CostFunction {
    * @param clusterBean cluster metrics
    * @return the score of cluster.
    */
-  ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean);
+  ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
 }

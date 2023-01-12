@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /**
@@ -44,8 +43,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   private final WeightProvider weightProvider = WeightProvider.entropy(Normalizer.minMax(true));
 
   @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var costMetrics =
         clusterBean.all().entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
@@ -97,9 +95,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   // calculation.
   // TODO Refactor
   void setBrokerMetrics(
-      HasBrokerCost hasBrokerCost,
-      ClusterInfo<? extends ReplicaInfo> clusterInfo,
-      ClusterBean clusterBean) {
+      HasBrokerCost hasBrokerCost, ClusterInfo clusterInfo, ClusterBean clusterBean) {
     if (hasBrokerCost instanceof BrokerInputCost) {
       var inputBrokerCost = hasBrokerCost.brokerCost(clusterInfo, clusterBean);
       inputBrokerCost

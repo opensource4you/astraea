@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
@@ -67,7 +66,7 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+  public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var currentClusterBean = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();

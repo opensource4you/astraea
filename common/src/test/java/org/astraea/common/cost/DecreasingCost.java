@@ -19,19 +19,17 @@ package org.astraea.common.cost;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 
 public class DecreasingCost implements HasClusterCost {
 
-  private ClusterInfo<Replica> original;
+  private ClusterInfo original;
 
   public DecreasingCost(Configuration configuration) {}
 
   private double value0 = 1.0;
 
   @Override
-  public synchronized ClusterCost clusterCost(
-      ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public synchronized ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     if (original == null) original = clusterInfo;
     if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
     double theCost = value0;

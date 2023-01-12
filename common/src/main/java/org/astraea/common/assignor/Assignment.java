@@ -14,23 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.consumer.assignor;
+package org.astraea.common.assignor;
 
+import java.util.List;
 import java.util.Map;
+import org.astraea.common.admin.TopicPartition;
 
-public final class GroupAssignment {
-  private final Map<String, Assignment> assignments;
+public final class Assignment {
+  private List<TopicPartition> partitions;
+  private Map<String, String> userData;
 
-  public GroupAssignment(Map<String, Assignment> assignments) {
-    this.assignments = assignments;
+  public Assignment(List<TopicPartition> partitions, Map<String, String> userData) {
+    this.partitions = partitions;
+    this.userData = userData;
   }
 
-  public Map<String, Assignment> groupAssignment() {
-    return assignments;
+  public Assignment(List<TopicPartition> partitions) {
+    this(partitions, null);
+  }
+
+  public List<TopicPartition> partitions() {
+    return partitions;
+  }
+
+  public Map<String, String> userData() {
+    return userData;
   }
 
   @Override
   public String toString() {
-    return "GroupAssignment(" + "assignments=" + assignments + ")";
+    return "Assignment("
+        + "partitions="
+        + partitions
+        + (userData == null ? "" : ", user data= " + userData)
+        + ')';
   }
 }

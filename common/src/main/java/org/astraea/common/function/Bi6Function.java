@@ -14,25 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.stats;
+package org.astraea.common.function;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-public class MaxTest {
-  @Test
-  void testMax() {
-    var stat = Max.<Integer>of();
-    stat.record(39);
-    stat.record(20);
-    stat.record(103);
-
-    Assertions.assertEquals(103, stat.measure());
-  }
-
-  @Test
-  void testException() {
-    var stat = Max.<Integer>of();
-    Assertions.assertThrows(RuntimeException.class, stat::measure);
-  }
+@FunctionalInterface
+public interface Bi6Function<A, B, C, D, E, F, R> {
+  R apply(A a, B b, C c, D d, E e, F f);
 }

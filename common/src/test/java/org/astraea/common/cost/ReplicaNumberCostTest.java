@@ -35,7 +35,7 @@ class ReplicaNumberCostTest {
     var nodeInfo = NodeInfo.of(10, "h", 100);
     var replica = Replica.builder().nodeInfo(nodeInfo).topic("t").build();
     var clusterInfo =
-        ClusterInfo.of(List.of(nodeInfo, NodeInfo.of(100, "h", 100)), List.of(replica));
+        ClusterInfo.of("fake", List.of(nodeInfo, NodeInfo.of(100, "h", 100)), List.of(replica));
     var cost = new ReplicaNumberCost();
     Assertions.assertEquals(
         Long.MAX_VALUE, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
@@ -44,7 +44,7 @@ class ReplicaNumberCostTest {
   @Test
   void testClusterCostForSingleNode() {
     var nodeInfo = NodeInfo.of(10, "h", 100);
-    var clusterInfo = ClusterInfo.of(List.of(nodeInfo), List.<Replica>of());
+    var clusterInfo = ClusterInfo.of("fake", List.of(nodeInfo), List.<Replica>of());
     var cost = new ReplicaNumberCost();
     Assertions.assertEquals(0, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
   }
@@ -54,7 +54,7 @@ class ReplicaNumberCostTest {
     var nodeInfo = NodeInfo.of(10, "h", 100);
     var replica = Replica.builder().nodeInfo(nodeInfo).topic("t").build();
     var clusterInfo =
-        ClusterInfo.of(List.of(nodeInfo, NodeInfo.of(11, "j", 100)), List.of(replica));
+        ClusterInfo.of("fake", List.of(nodeInfo, NodeInfo.of(11, "j", 100)), List.of(replica));
     var cost = new ReplicaNumberCost();
     Assertions.assertEquals(
         Long.MAX_VALUE, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
@@ -68,7 +68,8 @@ class ReplicaNumberCostTest {
             .mapToObj(i -> Replica.builder().nodeInfo(nodeInfo).topic("t").build())
             .collect(Collectors.toCollection(ArrayList::new));
     replicas.add(Replica.builder().nodeInfo(NodeInfo.of(11, "j", 100)).topic("t").build());
-    var clusterInfo = ClusterInfo.of(List.of(nodeInfo, NodeInfo.of(11, "j", 100)), replicas);
+    var clusterInfo =
+        ClusterInfo.of("fake", List.of(nodeInfo, NodeInfo.of(11, "j", 100)), replicas);
     var cost = new ReplicaNumberCost();
     Assertions.assertEquals(9, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
   }
@@ -85,7 +86,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -98,7 +99,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -111,7 +112,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -124,7 +125,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -139,7 +140,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -152,7 +153,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -165,7 +166,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -178,7 +179,7 @@ class ReplicaNumberCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)

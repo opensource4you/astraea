@@ -33,7 +33,7 @@ public class Avg {
 
       @Override
       public synchronized Double measure() {
-        if (counter == 0) throw new RuntimeException("Nothing to measure");
+        if (counter == 0) return Double.NaN;
         return accumulator / counter;
       }
     };

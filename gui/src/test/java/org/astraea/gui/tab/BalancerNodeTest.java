@@ -152,7 +152,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(List.of(), beforeReplicas);
+    var beforeClusterInfo = ClusterInfo.of("fake", List.of(), beforeReplicas);
 
     var results =
         BalancerNode.assignmentResult(
@@ -160,7 +160,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
             new Balancer.Solution(
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 MoveCost.EMPTY,
-                ClusterInfo.of(allNodes, afterReplicas)));
+                ClusterInfo.of("fake", allNodes, afterReplicas)));
     Assertions.assertEquals(results.size(), 1);
     Assertions.assertEquals(results.get(0).get("topic"), topic);
     Assertions.assertEquals(results.get(0).get("partition"), 0);
