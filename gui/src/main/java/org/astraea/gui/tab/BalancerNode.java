@@ -111,7 +111,7 @@ public class BalancerNode {
   }
 
   static List<Map<String, Object>> assignmentResult(
-      ClusterInfo<Replica> clusterInfo, Balancer.Solution solution) {
+      ClusterInfo clusterInfo, Balancer.Solution solution) {
     return ClusterInfo.findNonFulfilledAllocation(clusterInfo, solution.proposal()).stream()
         .map(
             tp -> {

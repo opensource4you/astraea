@@ -79,6 +79,12 @@ public interface TrackerThread extends AbstractThread {
           .mapToDouble(Report::avgLatency)
           .average()
           .ifPresent(i -> System.out.printf("  publish average latency: %.3f ms%n", i));
+      reports.stream()
+          .flatMap(r -> r.e2eLatency().stream())
+          .mapToDouble(v -> v)
+          .filter(v -> !Double.isNaN(v))
+          .average()
+          .ifPresent(i -> System.out.printf("  publish e2e-average latency: %.3f ms%n", i));
       for (int i = 0; i < reports.size(); ++i) {
         System.out.printf(
             "  producer[%d] average throughput: %s%n",

@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -161,7 +162,7 @@ public class StrictCostDispatcherTest {
   public static class DumbHasBrokerCost implements HasBrokerCost {
 
     @Override
-    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return Map::of;
     }
   }
@@ -205,7 +206,7 @@ public class StrictCostDispatcherTest {
 
   public static class MyFunction implements HasBrokerCost {
     @Override
-    public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+    public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return () -> Map.of(22, 10D);
     }
   }
@@ -258,26 +259,41 @@ public class StrictCostDispatcherTest {
   }
 
   @Test
+  void testInvalidCostToScore() {
+    Assertions.assertEquals(1, StrictCostDispatcher.costToScore(() -> Map.of(1, 100D)).size());
+    Assertions.assertEquals(
+        2, StrictCostDispatcher.costToScore(() -> Map.of(1, 100D, 2, 100D)).size());
+    var score = StrictCostDispatcher.costToScore(() -> Map.of(1, 100D, 2, 0D));
+    Assertions.assertNotEquals(0, score.size());
+    Assertions.assertTrue(score.get(2) > score.get(1));
+    StrictCostDispatcher.costToScore(() -> Map.of(1, -133D, 2, 100D))
+        .values()
+        .forEach(v -> Assertions.assertTrue(v > 0));
+  }
+
+  @Test
   void testRoundRobinLease() {
     try (var dispatcher = new StrictCostDispatcher()) {
-
       dispatcher.configure(
           Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
-      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinLease);
+      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinKeeper.roundRobinLease);
 
-      dispatcher.tryToUpdateRoundRobin(ClusterInfo.empty());
-      var t = dispatcher.timeToUpdateRoundRobin;
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
+      var t = dispatcher.roundRobinKeeper.timeToUpdateRoundRobin;
       var rr =
-          Arrays.stream(dispatcher.roundRobin).boxed().collect(Collectors.toUnmodifiableList());
+          Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
+              .boxed()
+              .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(StrictCostDispatcher.ROUND_ROBIN_LENGTH, rr.size());
       // the rr is not updated yet
-      dispatcher.tryToUpdateRoundRobin(ClusterInfo.empty());
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
       IntStream.range(0, rr.size())
-          .forEach(i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobin[i]));
+          .forEach(
+              i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobinKeeper.roundRobin[i]));
       Utils.sleep(Duration.ofSeconds(3));
-      dispatcher.tryToUpdateRoundRobin(ClusterInfo.empty());
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
       // rr is updated already
-      Assertions.assertNotEquals(t, dispatcher.timeToUpdateRoundRobin);
+      Assertions.assertNotEquals(t, dispatcher.roundRobinKeeper.timeToUpdateRoundRobin);
     }
   }
 
@@ -306,8 +322,7 @@ public class StrictCostDispatcherTest {
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
-                public BrokerCost brokerCost(
-                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+                public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
                   return Map::of;
                 }
 

@@ -200,7 +200,7 @@ public class AdminTest extends RequireBrokerCluster {
     try (var admin =
         new AdminImpl(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers())) {
           @Override
-          public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+          public CompletionStage<ClusterInfo> clusterInfo(Set<String> topics) {
             return CompletableFuture.failedFuture(
                 new org.apache.kafka.common.errors.UnknownTopicOrPartitionException());
           }

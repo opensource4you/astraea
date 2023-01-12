@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /** more replicas migrate -> higher cost */
@@ -35,8 +34,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   }
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     return MoveCost.changedReplicaCount(
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -69,7 +67,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     // there is no better plan for single node
     if (clusterInfo.nodes().size() == 1) return () -> 0;
 

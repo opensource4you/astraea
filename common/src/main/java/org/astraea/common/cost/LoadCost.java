@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
@@ -42,7 +41,7 @@ public class LoadCost implements HasBrokerCost {
 
   /** Do "Poisson" and "weightPoisson" calculation on "load". And change output to double. */
   @Override
-  public BrokerCost brokerCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var load = computeLoad(clusterBean.all());
 
     // Poisson calculation (-> Poisson -> throughputAbility -> to double)
