@@ -25,11 +25,19 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricCollector;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BrokerOutputCostTest extends RequireBrokerCluster {
+public class BrokerOutputCostTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testCost() {
@@ -56,7 +64,8 @@ public class BrokerOutputCostTest extends RequireBrokerCluster {
           (id, err) -> Assertions.fail(err.getMessage()));
       collector.registerJmx(
           0,
-          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort()));
+          InetSocketAddress.createUnresolved(
+              SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()));
 
       // Test the fetched object's type, and its metric name.
       Assertions.assertTrue(

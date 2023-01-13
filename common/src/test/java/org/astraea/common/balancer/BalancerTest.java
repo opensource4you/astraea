@@ -48,7 +48,8 @@ import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -56,12 +57,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
-class BalancerTest extends RequireBrokerCluster {
+class BalancerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
   void testLeaderCountRebalance(Class<? extends Balancer> theClass) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
@@ -98,7 +106,8 @@ class BalancerTest extends RequireBrokerCluster {
                   .mapToObj(i -> TopicPartition.of(topicName, i))
                   .collect(
                       Collectors.toMap(
-                          Function.identity(), ignored -> List.of(brokerIds().iterator().next()))))
+                          Function.identity(),
+                          ignored -> List.of(SERVICE.dataFolders().keySet().iterator().next()))))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -140,7 +149,7 @@ class BalancerTest extends RequireBrokerCluster {
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
   void testFilter(Class<? extends Balancer> theClass) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
@@ -214,7 +223,7 @@ class BalancerTest extends RequireBrokerCluster {
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
   void testExecutionTime(Class<? extends Balancer> theClass) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();

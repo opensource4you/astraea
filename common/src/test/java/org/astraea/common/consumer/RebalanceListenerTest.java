@@ -20,10 +20,18 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.common.Utils;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
-public class RebalanceListenerTest extends RequireBrokerCluster {
+public class RebalanceListenerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testConsumerRebalanceListener() {
@@ -31,7 +39,7 @@ public class RebalanceListenerTest extends RequireBrokerCluster {
     var topicName = "testRebalanceListener-" + System.currentTimeMillis();
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .consumerRebalanceListener(ignore -> getAssignment.incrementAndGet())
             .build()) {
       Utils.waitFor(

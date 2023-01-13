@@ -20,14 +20,23 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.common.Utils;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
+public class ClusterInfoWithOfflineNodeTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testClusterInfoWithOfflineNode() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var topicName = "ClusterInfo_Offline_" + Utils.randomString();
       var partitionCount = 30;
       var replicaCount = (short) 3;
@@ -52,7 +61,7 @@ public class ClusterInfoWithOfflineNodeTest extends RequireBrokerCluster {
 
       // act
       int brokerToClose = ThreadLocalRandom.current().nextInt(0, 3);
-      closeBroker(brokerToClose);
+      SERVICE.close(brokerToClose);
       Utils.sleep(Duration.ofSeconds(1));
 
       // after node offline

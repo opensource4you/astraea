@@ -44,13 +44,22 @@ import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public class DispatcherTest extends RequireSingleBrokerCluster {
+public class DispatcherTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   private final String SMOOTH_ROUND_ROBIN =
       "org.astraea.common.partitioner.SmoothWeightRoundRobinDispatcher";
   private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostDispatcher";
@@ -67,7 +76,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           }
         }) {
 
-      dispatcher.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()));
+      dispatcher.configure(
+          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
       Assertions.assertNotNull(dispatcher.admin);
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertNotEquals(0, dispatcher.clusterInfo.nodes().size());
@@ -219,7 +229,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   }
 
   private void createTopic(String topic) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(9).run().toCompletableFuture().join();
     }
   }
@@ -259,7 +269,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
 
   private Properties initProConfig() throws IOException {
     Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers());
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
@@ -271,10 +281,10 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
             Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
                 + "PartitionerConfigTest");
     try (var fileWriter = new FileWriter(file)) {
-      fileWriter.write("jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.0.jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.1.jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.2.jmx.port=" + jmxServiceURL().getPort());
+      fileWriter.write("jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.0.jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.1.jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.2.jmx.port=" + SERVICE.jmxServiceURL().getPort());
       fileWriter.flush();
     }
     props.put(

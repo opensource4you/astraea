@@ -71,7 +71,8 @@ import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -79,7 +80,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 
-public class BalancerHandlerTest extends RequireBrokerCluster {
+public class BalancerHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   static final String TOPICS_KEY = "topics";
   static final String TIMEOUT_KEY = "timeout";
@@ -101,7 +109,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testReport() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       // make sure all replicas have
       admin
           .clusterInfo(Set.copyOf(topics))
@@ -157,7 +165,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testTopics() {
     var topicNames = createAndProduceTopic(5);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
       // For all 5 topics, we only allow the first two topics can be altered.
       // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
@@ -198,7 +206,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   private static List<String> createAndProduceTopic(
       int topicCount, int partitions, short replicas, boolean skewed) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var topics =
           IntStream.range(0, topicCount)
               .mapToObj(ignored -> Utils.randomString(10))
@@ -216,7 +224,9 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             if (skewed) {
               Utils.sleep(Duration.ofSeconds(1));
               var placement =
-                  brokerIds().stream().limit(replicas).collect(Collectors.toUnmodifiableList());
+                  SERVICE.dataFolders().keySet().stream()
+                      .limit(replicas)
+                      .collect(Collectors.toUnmodifiableList());
               admin
                   .moveToBrokers(
                       admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
@@ -226,7 +236,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
             }
           });
       Utils.sleep(Duration.ofSeconds(3));
-      try (var producer = Producer.of(bootstrapServers())) {
+      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
         IntStream.range(0, 30)
             .forEach(
                 index ->
@@ -245,7 +255,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Test
   @Timeout(value = 60)
   void testBestPlan() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var currentClusterInfo =
           ClusterInfo.of(
               "fake",
@@ -352,7 +362,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @ParameterizedTest
   void testMoveCost(String leaderLimit, String sizeLimit) {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
       var report =
           submitPlanGeneration(
@@ -387,7 +397,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testNoReport() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));
       var handler = new BalancerHandler(admin);
@@ -438,7 +448,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   void testPut() {
     // arrange
     createAndProduceTopic(3, 10, (short) 2, false);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
       var progress =
@@ -469,7 +479,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testBadPut() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, new NoOpExecutor());
 
       // no id offered
@@ -490,7 +500,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 360)
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(30).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       admin
@@ -539,7 +549,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testRebalanceOnePlanAtATime() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
             @Override
@@ -574,10 +584,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Test
   @Timeout(value = 60)
   void testRebalanceDetectOngoing() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theTopic = Utils.randomString();
       admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
-      try (var producer = Producer.of(bootstrapServers())) {
+      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
         var dummy = new byte[1024];
         IntStream.range(0, 100000)
             .mapToObj(i -> producer.send(Record.builder().topic(theTopic).value(dummy).build()))
@@ -686,7 +696,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).get(0);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
       var theProgress =
@@ -724,7 +734,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
             final CountDownLatch latch = new CountDownLatch(1);
@@ -790,7 +800,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor =
           new NoOpExecutor() {
             @Override
@@ -853,7 +863,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testBadLookupRequest() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, new NoOpExecutor());
 
       Assertions.assertEquals(
@@ -871,7 +881,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, new StraightPlanExecutor());
       var progress =
           submitPlanGeneration(
@@ -905,7 +915,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Timeout(value = 60)
   void testCustomBalancer() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, new StraightPlanExecutor());
       var balancer = SpyBalancer.class.getName();
       var balancerConfig =
@@ -946,7 +956,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testParsePostRequest() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
       var clusterInfo =
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       {
@@ -1037,9 +1047,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Test
   void testTimeout() {
     createAndProduceTopic(5);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
-      var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
+      var handler =
+          new BalancerHandler(admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()));
       var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", COST_WEIGHT_KEY, costFunction));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
@@ -1057,9 +1068,10 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
   @Test
   void testCostWithFetcher() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var invoked = new AtomicBoolean();
-      var handler = new BalancerHandler(admin, (ignore) -> Optional.of(jmxServiceURL().getPort()));
+      var handler =
+          new BalancerHandler(admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()));
       FetcherAndCost.callback.set(
           (clusterBean) -> {
             var metrics =
@@ -1093,7 +1105,7 @@ public class BalancerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testFreshJmxAddress() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
       var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
       var partialJmx =

@@ -20,11 +20,20 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 
-public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
+public class TopicHandlerForProbabilityTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @RepeatedTest(2)
   void testCreateTopicByProbability() {
     int repeat = 5;
@@ -33,7 +42,7 @@ public class TopicHandlerForProbabilityTest extends RequireBrokerCluster {
     double replica2 = 0;
     for (int i = 0; i < repeat; i++) {
       var topicName = Utils.randomString(10);
-      try (var admin = Admin.of(bootstrapServers())) {
+      try (var admin = Admin.of(SERVICE.bootstrapServers())) {
         var handler = new TopicHandler(admin);
         var request =
             Channel.ofRequest(
