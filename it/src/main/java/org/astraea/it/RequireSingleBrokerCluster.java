@@ -18,33 +18,35 @@ package org.astraea.it;
 
 import java.util.Map;
 import java.util.Set;
+import javax.management.remote.JMXServiceURL;
 import org.junit.jupiter.api.AfterAll;
 
 /**
  * This class offers a way to have embedded kafka cluster. It is useful to test code which is
  * depended on true cluster.
  */
-public abstract class RequireSingleBrokerCluster extends RequireJmxServer {
-  private static final int NUMBER_OF_BROKERS = 1;
-  private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-  private static final BrokerCluster BROKER_CLUSTER =
-      Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
+public abstract class RequireSingleBrokerCluster {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
   protected static String bootstrapServers() {
-    return BROKER_CLUSTER.bootstrapServers();
+    return SERVICE.bootstrapServers();
   }
 
   protected static Map<Integer, Set<String>> dataFolders() {
-    return BROKER_CLUSTER.dataFolders();
+    return SERVICE.dataFolders();
   }
 
   protected static int brokerId() {
     return dataFolders().keySet().iterator().next();
   }
 
+  protected static JMXServiceURL jmxServiceURL() {
+    return SERVICE.jmxServiceURL();
+  }
+
   @AfterAll
-  static void shutdownClusters() throws Exception {
-    BROKER_CLUSTER.close();
-    ZOOKEEPER_CLUSTER.close();
+  static void shutdownClusters() {
+    SERVICE.close();
   }
 }

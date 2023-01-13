@@ -17,33 +17,32 @@
 package org.astraea.it;
 
 import java.net.URL;
+import javax.management.remote.JMXServiceURL;
 import org.junit.jupiter.api.AfterAll;
 
 /**
  * This class offers a way to have single node embedded kafka worker. It is useful to test code
  * which is depended on true cluster.
  */
-public abstract class RequireSingleWorkerCluster extends RequireJmxServer {
-  private static final int NUMBER_OF_BROKERS = 3;
-  private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-  private static final BrokerCluster BROKER_CLUSTER =
-      Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
+public abstract class RequireSingleWorkerCluster {
 
-  private static final WorkerCluster WORKER_CLUSTER =
-      Services.workerCluster(BROKER_CLUSTER, new int[] {0});
+  private static final Service SERVICE =
+      Service.builder().numberOfBrokers(1).numberOfWorkers(1).build();
 
   protected static String bootstrapServers() {
-    return BROKER_CLUSTER.bootstrapServers();
+    return SERVICE.bootstrapServers();
   }
 
   protected static URL workerUrl() {
-    return WORKER_CLUSTER.workerUrls().get(0);
+    return SERVICE.workerUrls().iterator().next();
+  }
+
+  protected static JMXServiceURL jmxServiceURL() {
+    return SERVICE.jmxServiceURL();
   }
 
   @AfterAll
-  static void shutdownClusters() throws Exception {
-    WORKER_CLUSTER.close();
-    BROKER_CLUSTER.close();
-    ZOOKEEPER_CLUSTER.close();
+  static void shutdownClusters() {
+    SERVICE.close();
   }
 }
