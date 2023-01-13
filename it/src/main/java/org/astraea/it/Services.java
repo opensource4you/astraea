@@ -194,7 +194,7 @@ public final class Services {
 
       @Override
       public void close() {
-        IntStream.range(0, brokers.size() - 1).forEach(this::close);
+        Set.copyOf(brokers.keySet()).forEach(this::close);
       }
 
       @Override
