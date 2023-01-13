@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -273,24 +274,26 @@ public class StrictCostDispatcherTest {
   @Test
   void testRoundRobinLease() {
     try (var dispatcher = new StrictCostDispatcher()) {
-
       dispatcher.configure(
           Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
-      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinLease);
+      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinKeeper.roundRobinLease);
 
-      dispatcher.tryToUpdateRoundRobin(ClusterInfo.empty());
-      var t = dispatcher.timeToUpdateRoundRobin;
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
+      var t = dispatcher.roundRobinKeeper.timeToUpdateRoundRobin;
       var rr =
-          Arrays.stream(dispatcher.roundRobin).boxed().collect(Collectors.toUnmodifiableList());
+          Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
+              .boxed()
+              .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(StrictCostDispatcher.ROUND_ROBIN_LENGTH, rr.size());
       // the rr is not updated yet
-      dispatcher.tryToUpdateRoundRobin(ClusterInfo.empty());
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
       IntStream.range(0, rr.size())
-          .forEach(i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobin[i]));
+          .forEach(
+              i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobinKeeper.roundRobin[i]));
       Utils.sleep(Duration.ofSeconds(3));
-      dispatcher.tryToUpdateRoundRobin(ClusterInfo.empty());
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
       // rr is updated already
-      Assertions.assertNotEquals(t, dispatcher.timeToUpdateRoundRobin);
+      Assertions.assertNotEquals(t, dispatcher.roundRobinKeeper.timeToUpdateRoundRobin);
     }
   }
 

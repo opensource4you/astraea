@@ -187,6 +187,8 @@ public class AdminTest extends RequireBrokerCluster {
               .toCompletableFuture()
               .join();
 
+      Assertions.assertEquals(brokerIds().size(), clusterInfo.brokers().size());
+
       Assertions.assertEquals(
           logFolders(),
           clusterInfo.brokerFolders(),
