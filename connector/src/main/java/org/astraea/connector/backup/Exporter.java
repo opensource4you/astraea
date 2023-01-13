@@ -17,14 +17,12 @@
 package org.astraea.connector.backup;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -119,7 +117,6 @@ public class Exporter extends SinkConnector {
   }
 
   public static class Task extends SinkTask {
-    private FileSystem ftpClient;
     private String topicName;
     private String path;
     private DataSize size;
@@ -130,15 +127,10 @@ public class Exporter extends SinkConnector {
 
     private Duration interval;
 
-    private final ConcurrentHashMap<TopicPartition, RecordWriter> writers =
-        new ConcurrentHashMap<>();
-
     private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
     @Override
-    protected void init(Configuration configuration)
-        throws ExecutionException, InterruptedException {
-      this.ftpClient = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+    protected void init(Configuration configuration) {
       this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size =
@@ -151,9 +143,12 @@ public class Exporter extends SinkConnector {
       this.writerFuture =
           CompletableFuture.runAsync(
               () -> {
+                var fs =
+                    FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+                var writers = new HashMap<TopicPartition, RecordWriter>();
                 var intervalTimeInMillis = interval.toMillis();
-                long sleepTime = Math.min(intervalTimeInMillis, 1000);
-                long lastWriteTime = System.currentTimeMillis();
+                var sleepTime = Math.min(intervalTimeInMillis, 1000);
+                var lastWriteTime = System.currentTimeMillis();
                 try {
                   while (!closed.get()) {
                     var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
@@ -162,7 +157,8 @@ public class Exporter extends SinkConnector {
                     if (record == null) {
                       // close all writers if they have been idle over roll.duration.
                       if (currentTime - lastWriteTime > intervalTimeInMillis) {
-                        writers.forEach((tp, recordWriter) -> writers.remove(tp).close());
+                        writers.values().forEach(RecordWriter::close);
+                        writers.clear();
                       }
                       continue;
                     }
@@ -172,7 +168,7 @@ public class Exporter extends SinkConnector {
                             ignored -> {
                               var fileName = String.valueOf(record.offset());
                               return RecordWriter.builder(
-                                      ftpClient.write(
+                                      fs.write(
                                           String.join(
                                               "/",
                                               path,
@@ -191,7 +187,7 @@ public class Exporter extends SinkConnector {
                   // swallow
                 } finally {
                   writers.forEach((tp, writer) -> writer.close());
-                  ftpClient.close();
+                  fs.close();
                 }
               });
     }
@@ -202,9 +198,13 @@ public class Exporter extends SinkConnector {
     }
 
     @Override
-    protected void close() throws InterruptedException, ExecutionException, TimeoutException {
+    protected void close() {
       this.closed.set(true);
-      writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS);
+      Utils.packException(() -> writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS));
+    }
+
+    boolean isWriterDone() {
+      return writerFuture.isDone();
     }
   }
 }

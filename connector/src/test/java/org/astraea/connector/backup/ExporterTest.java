@@ -23,8 +23,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -204,6 +202,8 @@ public class ExporterTest extends RequireWorkerCluster {
 
       task.close();
 
+      Assertions.assertTrue(task.isWriterDone());
+
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
 
@@ -222,15 +222,13 @@ public class ExporterTest extends RequireWorkerCluster {
 
             while (reader.hasNext()) {
               var record = reader.next();
-              Assertions.assertArrayEquals(record.key(), (byte[]) sinkRecord.key());
-              Assertions.assertArrayEquals(record.value(), (byte[]) sinkRecord.value());
+              Assertions.assertArrayEquals(record.key(), sinkRecord.key());
+              Assertions.assertArrayEquals(record.value(), sinkRecord.value());
               Assertions.assertEquals(record.topic(), sinkRecord.topic());
               Assertions.assertEquals(record.partition(), sinkRecord.partition());
               Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
             }
           });
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new RuntimeException(e);
     }
   }
 
@@ -298,8 +296,8 @@ public class ExporterTest extends RequireWorkerCluster {
 
       while (reader.hasNext()) {
         var record = reader.next();
-        Assertions.assertArrayEquals(record.key(), (byte[]) records1.key());
-        Assertions.assertArrayEquals(record.value(), (byte[]) records1.value());
+        Assertions.assertArrayEquals(record.key(), records1.key());
+        Assertions.assertArrayEquals(record.value(), records1.value());
         Assertions.assertEquals(record.topic(), records1.topic());
         Assertions.assertEquals(record.partition(), records1.partition());
         Assertions.assertEquals(record.timestamp(), records1.timestamp());
@@ -403,8 +401,8 @@ public class ExporterTest extends RequireWorkerCluster {
 
                 while (reader.hasNext()) {
                   var record = reader.next();
-                  Assertions.assertArrayEquals(record.key(), (byte[]) sinkRecord.key());
-                  Assertions.assertArrayEquals(record.value(), (byte[]) sinkRecord.value());
+                  Assertions.assertArrayEquals(record.key(), sinkRecord.key());
+                  Assertions.assertArrayEquals(record.value(), sinkRecord.value());
                   Assertions.assertEquals(record.topic(), sinkRecord.topic());
                   Assertions.assertEquals(record.partition(), sinkRecord.partition());
                   Assertions.assertEquals(record.timestamp(), sinkRecord.timestamp());
