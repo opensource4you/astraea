@@ -110,12 +110,12 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * @return cluster information
    */
   private ClusterInfo updateClusterInfo() {
-    var clusterInfo = ClusterInfo.empty();
     try (Admin admin = Admin.of(bootstrap)) {
-      var topics = admin.topicNames(false).toCompletableFuture().join();
-      clusterInfo = admin.clusterInfo(topics).toCompletableFuture().join();
+      return admin
+          .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+          .toCompletableFuture()
+          .join();
     }
-    return clusterInfo;
   }
 
   /**
