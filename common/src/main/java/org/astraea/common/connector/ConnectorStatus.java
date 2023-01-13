@@ -75,25 +75,4 @@ public class ConnectorStatus {
   public List<TaskStatus> tasks() {
     return tasks;
   }
-
-  @Override
-  public String toString() {
-    return "ConnectorStatus{"
-        + "name='"
-        + name
-        + '\''
-        + ", state='"
-        + state
-        + '\''
-        + ", workerId='"
-        + workerId
-        + '\''
-        + ", type="
-        + type
-        + ", configs="
-        + configs
-        + ", tasks="
-        + tasks
-        + '}';
-  }
 }
