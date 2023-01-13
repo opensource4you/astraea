@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 
-class ReaderStreamsTest extends RequireBrokerCluster {
+class DataFrameProcessorBuilderTest extends RequireBrokerCluster {
   @Test
   def skipBlankLineTest(): Unit = {
     val sourceDir = Files.createTempDirectory("source").toFile
@@ -54,11 +54,12 @@ class ReaderStreamsTest extends RequireBrokerCluster {
 
     createCSV(sourceDir, row, 0)
 
-    val df = OptionalDataFrameBuilder
-      .builder(
-        SparkSession.builder().master("local[4]").appName("test").getOrCreate()
-      )
+    val df = DataFrameProcessorBuilder(
+      SparkSession.builder().master("local[4]").appName("test").getOrCreate()
+    )
       .source(sourceDir.getPath)
+      .cleanSource("delete")
+      .recursiveFileLookup("true")
       .columns(
         Seq(
           DataColumn("RecordNumber", true, StringType),
@@ -66,7 +67,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
           DataColumn("Type", true, StringType)
         )
       )
-      .build()
+      .buildFromCsv()
 
     df.dataFrame()
       .writeStream
@@ -83,7 +84,6 @@ class ReaderStreamsTest extends RequireBrokerCluster {
     assertEquals(br.readLine, "A1,52,fghgh")
     assertEquals(br.readLine, "B1,36,gjgbn")
     assertEquals(br.readLine, "D1,25,dfjf")
-
   }
 
   @Test
@@ -94,11 +94,12 @@ class ReaderStreamsTest extends RequireBrokerCluster {
     val checkoutDir = Files.createTempDirectory("checkpoint").toFile
     val dataDir = Files.createTempDirectory("data").toFile
 
-    val csvDF = OptionalDataFrameBuilder
-      .builder(
-        SparkSession.builder().master("local[4]").appName("test").getOrCreate()
-      )
+    val csvDF = DataFrameProcessorBuilder(
+      SparkSession.builder().master("local[4]").appName("test").getOrCreate()
+    )
       .source(sourceDir.getPath)
+      .cleanSource("delete")
+      .recursiveFileLookup("true")
       .columns(
         Seq(
           DataColumn("RecordNumber", true, StringType),
@@ -106,7 +107,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
           DataColumn("Type", true, StringType)
         )
       )
-      .build()
+      .buildFromCsv()
 
     assertTrue(
       csvDF.dataFrame().isStreaming,
@@ -146,7 +147,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
 
-    val result = new OptionalDataFrame(
+    val result = new DataFrameProcessor(
       Seq(("Michael", 29)).toDF().toDF("name", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -161,7 +162,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       result("{\"name\":\"Michael\"}")
     )
 
-    val resultExchange = new OptionalDataFrame(
+    val resultExchange = new DataFrameProcessor(
       Seq((29, "Michael")).toDF().toDF("age", "name")
     ).csvToJSON(columns)
       .dataFrame()
@@ -190,7 +191,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("secondName", isPk = true, DataType.StringType),
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
-    val result = new OptionalDataFrame(
+    val result = new DataFrameProcessor(
       Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -218,7 +219,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("secondName", isPk = true, DataType.StringType),
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
-    val result = new OptionalDataFrame(
+    val result = new DataFrameProcessor(
       Seq(("Michael", "A", null)).toDF().toDF("firstName", "secondName", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -266,7 +267,7 @@ class ReaderStreamsTest extends RequireBrokerCluster {
       DataColumn("fInt", isPk = false, dataType = IntegerType)
     )
 
-    val json = new OptionalDataFrame(
+    val json = new DataFrameProcessor(
       spark.createDataFrame(spark.sparkContext.parallelize(data), structType)
     ).csvToJSON(columns)
       .dataFrame()

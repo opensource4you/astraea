@@ -17,7 +17,6 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.StructType
 import org.astraea.common.admin.Admin
 
 import java.io.File
@@ -42,19 +41,19 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = OptionalDataFrameBuilder
-      .builder()
+    val df = DataFrameProcessorBuilder()
       .source(metadata.sourcePath)
       .columns(metadata.columns)
-      .build()
+      .cleanSource(metadata.cleanSource)
+      .recursiveFileLookup(metadata.recursiveFile)
+      .sourceArchiveDir(metadata.archivePath)
+      .buildFromCsv()
       .csvToJSON(metadata.columns)
 
-    Writer
-      .of()
-      .dataFrameOp(df)
+    DataStreamWriterBuilder(df)
       .target(metadata.topicName)
       .checkpoint(metadata.checkpoint)
-      .writeToKafka(metadata.kafkaBootstrapServers)
+      .buildToKafka(metadata.kafkaBootstrapServers)
       .start()
       .awaitTermination(duration.toMillis)
   }

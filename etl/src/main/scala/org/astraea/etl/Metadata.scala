@@ -48,23 +48,31 @@ case class Metadata private (
     topicName: String,
     topicConfigs: Map[String, String],
     numberOfPartitions: Int,
-    numberOfReplicas: Short
+    numberOfReplicas: Short,
+    cleanSource: String,
+    recursiveFile: String,
+    archivePath: String
 )
 
 object Metadata {
+  private[etl] val ARCHIVE_PATH = "archive.path"
   private[etl] val SOURCE_PATH_KEY = "source.path"
   private[etl] val CHECKPOINT_KEY = "checkpoint"
   private[etl] val COLUMN_NAME_KEY = "column.names"
   private[etl] val COLUMN_TYPES_KEY = "column.types"
+  private[etl] val CLEAN_SOURCE = "clean.source"
   private[etl] val PRIMARY_KEY_KEY = "primary.keys"
   private[etl] val KAFKA_BOOTSTRAP_SERVERS_KEY = "kafka.bootstrap.servers"
   private[etl] val TOPIC_NAME_KEY = "topic.name"
   private[etl] val TOPIC_CONFIGS_KEY = "topic.configs"
   private[etl] val TOPIC_PARTITIONS_KEY = "topic.partitions"
   private[etl] val TOPIC_REPLICAS_KEY = "topic.replicas"
+  private[etl] val RECURSIVE_FILE = "recursive.file"
 
   private[etl] val DEFAULT_PARTITIONS = 15
   private[etl] val DEFAULT_REPLICAS = 1.toShort
+  private[etl] val DEFAULT_RECURSIVE = "ture"
+  private[etl] val DEFAULT_CLEAN_SOURCE = "delete"
 
   // Parameters needed to configure ETL.
   def of(path: File): Metadata = {
@@ -117,7 +125,10 @@ object Metadata {
       numberOfReplicas = properties
         .get(TOPIC_REPLICAS_KEY)
         .map(_.toShort)
-        .getOrElse(DEFAULT_REPLICAS)
+        .getOrElse(DEFAULT_REPLICAS),
+      cleanSource = properties.getOrElse(CLEAN_SOURCE, DEFAULT_CLEAN_SOURCE),
+      recursiveFile = properties.getOrElse(RECURSIVE_FILE, DEFAULT_RECURSIVE),
+      archivePath = properties.getOrElse(ARCHIVE_PATH, "")
     )
   }
 

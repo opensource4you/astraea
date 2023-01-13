@@ -20,6 +20,11 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.spark.sql.SparkSession
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.generateCSVF
+import org.astraea.etl.Metadata.{
+  ARCHIVE_PATH,
+  DEFAULT_RECURSIVE,
+  RECURSIVE_FILE
+}
 import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows}
 import org.astraea.it.RequireBrokerCluster
 import org.astraea.it.RequireBrokerCluster.bootstrapServers
@@ -114,7 +119,10 @@ object Spark2KafkaTest extends RequireBrokerCluster {
       topicName = "testTopic",
       topicConfigs = Map("compression.type" -> "lz4"),
       numberOfPartitions = 10,
-      numberOfReplicas = 1
+      numberOfReplicas = 1,
+      cleanSource = "delete",
+      recursiveFile = "true",
+      archivePath = ""
     )
 
     Spark2Kafka.executor(

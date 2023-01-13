@@ -19,33 +19,18 @@ package org.astraea.etl
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
-import org.astraea.etl.Writer._
+import org.astraea.etl.DataStreamWriterBuilder._
 
-class Writer[PassedStep <: BuildStep] private (
-    var dataFrameOp: OptionalDataFrame,
-    var target: String,
-    var checkpoint: String
+case class DataStreamWriterBuilder(
+    var dataFrameProcessor: DataFrameProcessor
 ) {
-  protected def this() =
-    this(OptionalDataFrame.empty(), "topic", "checkPoint")
+  private var _target: String = ""
+  private var _checkpoint: String = ""
 
-  protected def this(pb: Writer[_]) = this(
-    pb.dataFrameOp,
-    pb.target,
-    pb.checkpoint
-  )
-
-  def dataFrameOp(
-      dataFrameOp: OptionalDataFrame
-  ): Writer[PassedStep with DFStep] = {
-    this.dataFrameOp = dataFrameOp
-    new Writer[PassedStep with DFStep](this)
-  }
-
-  def writeToKafka(
+  def buildToKafka(
       bootstrap: String
-  )(implicit ev: PassedStep =:= FullWriter): DataStreamWriter[Row] = {
-    dataFrameOp
+  ): DataStreamWriter[Row] = {
+    dataFrameProcessor
       .dataFrame()
       .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
       .writeStream
@@ -65,10 +50,10 @@ class Writer[PassedStep <: BuildStep] private (
         ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringSerializer"
       )
-      .option("topic", target)
+      .option("topic", _target)
       .option(ProducerConfig.ACKS_CONFIG, "all")
       .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
-      .option("checkpointLocation", checkpoint)
+      .option("checkpointLocation", _checkpoint)
   }
 
   /** Target represents the destination of the data, for Kafka it represents the
@@ -79,26 +64,20 @@ class Writer[PassedStep <: BuildStep] private (
     * @return
     *   Writer
     */
-  def target(target: String): Writer[PassedStep with TargetStep] = {
-    this.target = target
-    new Writer[PassedStep with TargetStep](this)
+  def target(target: String): DataStreamWriterBuilder = {
+    _target = target
+    this
   }
 
   def checkpoint(
       checkpoint: String
-  ): Writer[PassedStep with CheckpointStep] = {
-    this.checkpoint = checkpoint
-    new Writer[PassedStep with CheckpointStep](this)
+  ): DataStreamWriterBuilder = {
+    _checkpoint = checkpoint
+    this
   }
 }
 
-object Writer {
-  sealed trait BuildStep
-  sealed trait DFStep extends BuildStep
-  sealed trait TargetStep extends BuildStep
-  sealed trait CheckpointStep extends BuildStep
-
-  type FullWriter = DFStep with TargetStep with CheckpointStep
-
-  def of() = new Writer[BuildStep]()
+object DataStreamWriterBuilder {
+  def apply(dataFrameProcessor: DataFrameProcessor) =
+    new DataStreamWriterBuilder(dataFrameProcessor)
 }
