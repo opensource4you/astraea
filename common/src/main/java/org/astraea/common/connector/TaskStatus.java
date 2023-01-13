@@ -70,4 +70,25 @@ public class TaskStatus {
   public Optional<String> error() {
     return error;
   }
+
+  @Override
+  public String toString() {
+    return "TaskStatus{"
+        + "connectorName='"
+        + connectorName
+        + '\''
+        + ", id="
+        + id
+        + ", state='"
+        + state
+        + '\''
+        + ", workerId='"
+        + workerId
+        + '\''
+        + ", configs="
+        + configs
+        + ", error="
+        + error
+        + '}';
+  }
 }

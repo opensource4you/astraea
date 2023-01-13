@@ -17,44 +17,40 @@
 package org.astraea.it;
 
 import java.net.URL;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Set;
+import javax.management.remote.JMXServiceURL;
 import org.junit.jupiter.api.AfterAll;
 
 /**
  * This class offers a way to have 3 node embedded kafka worker. It is useful to test code which is
  * depended on true cluster.
  */
-public abstract class RequireWorkerCluster extends RequireJmxServer {
-  private static final int NUMBER_OF_BROKERS = 3;
-  private static final ZookeeperCluster ZOOKEEPER_CLUSTER = Services.zookeeperCluster();
-  private static final BrokerCluster BROKER_CLUSTER =
-      Services.brokerCluster(ZOOKEEPER_CLUSTER, NUMBER_OF_BROKERS);
+public abstract class RequireWorkerCluster {
 
-  private static final WorkerCluster WORKER_CLUSTER =
-      Services.workerCluster(BROKER_CLUSTER, new int[] {0, 0, 0});
+  private static final Service SERVICE =
+      Service.builder().numberOfBrokers(3).numberOfWorkers(3).build();
 
   protected static String bootstrapServers() {
-    return BROKER_CLUSTER.bootstrapServers();
+    return SERVICE.bootstrapServers();
   }
 
-  protected static List<URL> workerUrls() {
-    return WORKER_CLUSTER.workerUrls();
+  protected static Set<URL> workerUrls() {
+    return SERVICE.workerUrls();
   }
 
   /**
    * @return url of any worker
    */
   protected static URL workerUrl() {
-    var urls = WORKER_CLUSTER.workerUrls();
-    int randomNum = ThreadLocalRandom.current().nextInt(0, urls.size());
-    return urls.get(randomNum);
+    return SERVICE.workerUrl();
+  }
+
+  protected static JMXServiceURL jmxServiceURL() {
+    return SERVICE.jmxServiceURL();
   }
 
   @AfterAll
-  static void shutdownClusters() throws Exception {
-    WORKER_CLUSTER.close();
-    BROKER_CLUSTER.close();
-    ZOOKEEPER_CLUSTER.close();
+  static void shutdownClusters() {
+    SERVICE.close();
   }
 }
