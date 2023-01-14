@@ -48,7 +48,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
-  private final MetricCollector metricCollector =
+  protected final MetricCollector metricCollector =
       MetricCollector.builder()
           .interval(Duration.ofSeconds(1))
           .expiration(Duration.ofSeconds(15))
@@ -111,10 +111,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   private ClusterInfo updateClusterInfo() {
     try (Admin admin = Admin.of(bootstrap)) {
-      return admin
-          .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-          .toCompletableFuture()
-          .join();
+      return admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
     }
   }
 
