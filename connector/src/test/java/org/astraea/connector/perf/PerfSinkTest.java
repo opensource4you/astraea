@@ -27,15 +27,24 @@ import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
-import org.astraea.it.RequireSingleWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class PerfSinkTest extends RequireSingleWorkerCluster {
+public class PerfSinkTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testDefaultConfig() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var validation =
         client
             .validate(
@@ -61,7 +70,7 @@ public class PerfSinkTest extends RequireSingleWorkerCluster {
 
   @Test
   void testFrequency() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var validation =
         client
             .validate(
@@ -107,7 +116,7 @@ public class PerfSinkTest extends RequireSingleWorkerCluster {
   void testMetrics() {
     var name = Utils.randomString();
     var topicName = Utils.randomString();
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     client
         .createConnector(
             name,

@@ -16,10 +16,45 @@
  */
 package org.astraea.it;
 
+import java.net.InetSocketAddress;
+import org.apache.zookeeper.server.NIOServerCnxnFactory;
+import org.apache.zookeeper.server.ZooKeeperServer;
+
 public interface ZookeeperCluster extends AutoCloseable {
+
+  static ZookeeperCluster of() {
+    final NIOServerCnxnFactory factory;
+    var snapshotDir = Utils.createTempDirectory("local_zk_snapshot");
+    var logDir = Utils.createTempDirectory("local_zk_log");
+
+    try {
+      factory = new NIOServerCnxnFactory();
+      factory.configure(new InetSocketAddress("0.0.0.0", 0), 1024);
+      factory.startup(new ZooKeeperServer(snapshotDir, logDir, 500));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    return new ZookeeperCluster() {
+      @Override
+      public void close() {
+        factory.shutdown();
+        Utils.delete(snapshotDir);
+        Utils.delete(logDir);
+      }
+
+      @Override
+      public String connectionProps() {
+        return Utils.hostname() + ":" + factory.getLocalPort();
+      }
+    };
+  }
 
   /**
    * @return zookeeper information. the form is "host_a:port_a,host_b:port_b"
    */
   String connectionProps();
+
+  @Override
+  void close();
 }

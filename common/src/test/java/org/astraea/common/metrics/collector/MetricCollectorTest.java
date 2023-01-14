@@ -36,13 +36,21 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
-class MetricCollectorTest extends RequireBrokerCluster {
+class MetricCollectorTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   private static final Fetcher memoryFetcher = (client) -> List.of(HostMetrics.jvmMemory(client));
   private static final Fetcher osFetcher = (client) -> List.of(HostMetrics.operatingSystem(client));
@@ -70,7 +78,8 @@ class MetricCollectorTest extends RequireBrokerCluster {
   void registerJmx() {
     try (var collector = MetricCollector.builder().build()) {
       var socket =
-          InetSocketAddress.createUnresolved(jmxServiceURL().getHost(), jmxServiceURL().getPort());
+          InetSocketAddress.createUnresolved(
+              SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
       collector.registerJmx(1, socket);
       collector.registerLocalJmx(-1);
 
@@ -181,7 +190,7 @@ class MetricCollectorTest extends RequireBrokerCluster {
           Mockito.mockStatic(Executors.class, sniff("newScheduledThreadPool", services))) {
         var socket =
             InetSocketAddress.createUnresolved(
-                jmxServiceURL().getHost(), jmxServiceURL().getPort());
+                SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
         var collector = MetricCollector.builder().build();
         collector.addFetcher(memoryFetcher);
         collector.addFetcher(memoryFetcher);

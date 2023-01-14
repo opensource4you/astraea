@@ -28,18 +28,27 @@ import org.astraea.common.Utils;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireSingleWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class MetadataStorageTest extends RequireSingleWorkerCluster {
+public class MetadataStorageTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   private static final Map<String, String> KEY = Map.of("a", "b");
   private static final Map<String, String> VALUE = Map.of("c", "d");
 
   @Test
   void test() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var name = Utils.randomString();
     var topic = Utils.randomString();
     client

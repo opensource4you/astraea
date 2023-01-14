@@ -33,11 +33,20 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ReplicaSizeCostTest extends RequireBrokerCluster {
+class ReplicaSizeCostTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   private static final BeanObject bean1 =
       new BeanObject(
           "domain",
@@ -340,7 +349,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
   void testFetcher() throws InterruptedException {
     var interval = Duration.ofMillis(300);
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
         var costFunction = new ReplicaSizeCost();
         // create come partition to get metrics
@@ -352,7 +361,7 @@ class ReplicaSizeCostTest extends RequireBrokerCluster {
             .run()
             .toCompletableFuture()
             .get();
-        var producer = Producer.of(bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers());
         producer
             .send(Record.builder().topic(topicName).partition(0).key(new byte[100]).build())
             .toCompletableFuture()

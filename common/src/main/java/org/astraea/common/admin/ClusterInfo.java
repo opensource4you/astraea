@@ -354,20 +354,14 @@ public interface ClusterInfo {
    *     then an empty set will be associated with that node.
    */
   default Map<Integer, Set<String>> brokerFolders() {
-    return nodes().stream()
+    return brokers().stream()
         .collect(
             Collectors.toUnmodifiableMap(
                 NodeInfo::id,
-                node -> {
-                  if (node instanceof Broker) {
-                    return ((Broker) node)
-                        .dataFolders().stream()
-                            .map(Broker.DataFolder::path)
-                            .collect(Collectors.toUnmodifiableSet());
-                  } else {
-                    return Set.of();
-                  }
-                }));
+                node ->
+                    node.dataFolders().stream()
+                        .map(Broker.DataFolder::path)
+                        .collect(Collectors.toUnmodifiableSet())));
   }
 
   // ---------------------[streams methods]---------------------//
@@ -401,6 +395,13 @@ public interface ClusterInfo {
    * @return The known nodes
    */
   List<NodeInfo> nodes();
+
+  default List<Broker> brokers() {
+    return nodes().stream()
+        .filter(n -> n instanceof Broker)
+        .map(n -> (Broker) n)
+        .collect(Collectors.toUnmodifiableList());
+  }
 
   /**
    * @return replica stream to offer effective way to operate a bunch of replicas

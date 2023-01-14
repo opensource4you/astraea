@@ -30,16 +30,24 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ReplicaNodeTest extends RequireBrokerCluster {
+public class ReplicaNodeTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testTableAction() {
     var topicName = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
@@ -72,7 +80,7 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
                   Map.of(
                       ReplicaNode.MOVE_BROKER_KEY,
                       Optional.of(
-                          brokerIds().stream()
+                          SERVICE.dataFolders().keySet().stream()
                               .map(String::valueOf)
                               .collect(Collectors.joining(","))))),
               log::set);
@@ -88,8 +96,8 @@ public class ReplicaNodeTest extends RequireBrokerCluster {
               .replicaStream()
               .count());
 
-      var id = brokerIds().iterator().next();
-      var path = List.copyOf(logFolders().get(id)).get(2);
+      var id = SERVICE.dataFolders().keySet().iterator().next();
+      var path = List.copyOf(SERVICE.dataFolders().get(id)).get(2);
 
       var f4 =
           action.apply(

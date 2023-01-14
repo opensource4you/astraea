@@ -25,11 +25,19 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ClusterCostTest extends RequireSingleBrokerCluster {
+class ClusterCostTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testMerge() {
@@ -44,7 +52,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
   @Test
   void testFetcher() {
     // create topic partition to get metrics
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().join();
     }
     var cost1 = new ReplicaSizeCost();
@@ -52,7 +60,7 @@ class ClusterCostTest extends RequireSingleBrokerCluster {
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =
         mergeCost.fetcher().stream()
-            .map(x -> x.fetch(MBeanClient.of(jmxServiceURL())))
+            .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL())))
             .collect(Collectors.toSet());
     Assertions.assertTrue(
         metrics.iterator().next().stream()
