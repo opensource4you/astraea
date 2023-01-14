@@ -29,24 +29,32 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class GroupHandlerTest extends RequireBrokerCluster {
+public class GroupHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testListGroups() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-              .bootstrapServers(bootstrapServers())
+              .bootstrapServers(SERVICE.bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         var handler = new GroupHandler(admin);
@@ -63,7 +71,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   @Test
   void testQueryNonexistentGroup() {
     var group = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new GroupHandler(admin);
       Assertions.assertInstanceOf(
           NoSuchElementException.class,
@@ -78,13 +86,13 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   void testQuerySingleGroup() {
     var topicName = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
               .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-              .bootstrapServers(bootstrapServers())
+              .bootstrapServers(SERVICE.bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         var group =
@@ -102,20 +110,22 @@ public class GroupHandlerTest extends RequireBrokerCluster {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);
     var groupId0 = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       try (var consumer0 =
               Consumer.forTopics(Set.of(topicName0))
                   .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId0)
-                  .bootstrapServers(bootstrapServers())
+                  .bootstrapServers(SERVICE.bootstrapServers())
                   .config(
                       ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                       ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                   .build();
           var consumer1 =
-              Consumer.forTopics(Set.of(topicName1)).bootstrapServers(bootstrapServers()).build();
-          var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+              Consumer.forTopics(Set.of(topicName1))
+                  .bootstrapServers(SERVICE.bootstrapServers())
+                  .build();
+          var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
         producer.send(Record.builder().topic(topicName0).key(new byte[2]).build());
         producer.flush();
         Assertions.assertEquals(1, consumer0.poll(1, Duration.ofSeconds(10)).size());
@@ -147,12 +157,14 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   @Test
   void testDeleteMembers() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       // test 0: delete all members
       try (var consumer =
-          Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers()).build()) {
+          Consumer.forTopics(Set.of(topicName))
+              .bootstrapServers(SERVICE.bootstrapServers())
+              .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
         Assertions.assertEquals(
             1,
@@ -180,7 +192,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
       // test 1: delete static member
       try (var consumer =
           Consumer.forTopics(Set.of(topicName))
-              .bootstrapServers(bootstrapServers())
+              .bootstrapServers(SERVICE.bootstrapServers())
               .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
@@ -221,7 +233,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
   @Test
   void testDeleteGroup() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
       var groupIds =
@@ -230,7 +242,7 @@ public class GroupHandlerTest extends RequireBrokerCluster {
           groupId -> {
             try (var consumer =
                 Consumer.forTopics(Set.of(topicName))
-                    .bootstrapServers(bootstrapServers())
+                    .bootstrapServers(SERVICE.bootstrapServers())
                     .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, Utils.randomString(10))
                     .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                     .build()) {

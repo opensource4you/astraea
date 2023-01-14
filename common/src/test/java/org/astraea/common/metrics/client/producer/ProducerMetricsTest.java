@@ -25,16 +25,24 @@ import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ProducerMetricsTest extends RequireBrokerCluster {
+public class ProducerMetricsTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testAppInfo() {
     var topic = Utils.randomString(10);
-    try (var producer = Producer.of(bootstrapServers())) {
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
     }
@@ -43,7 +51,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   @Test
   void testMetrics() {
     var topic = Utils.randomString(10);
-    try (var producer = Producer.of(bootstrapServers())) {
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       var metrics =
           ProducerMetrics.of(MBeanClient.local()).stream()
@@ -125,7 +133,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   @Test
   void testTopicMetrics() {
     var topic = Utils.randomString(10);
-    try (var producer = Producer.of(bootstrapServers())) {
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       var metrics = ProducerMetrics.topics(MBeanClient.local());
       Assertions.assertNotEquals(0, metrics.stream().filter(m -> m.topic().equals(topic)).count());
@@ -146,8 +154,8 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
   @Test
   void testNodeMetrics() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       producer
@@ -171,7 +179,7 @@ public class ProducerMetricsTest extends RequireBrokerCluster {
           metrics.stream()
               .map(HasNodeMetrics::brokerId)
               .collect(Collectors.toUnmodifiableList())
-              .containsAll(brokerIds()));
+              .containsAll(SERVICE.dataFolders().keySet()));
       metrics.forEach(ProducerMetricsTest::check);
     }
   }

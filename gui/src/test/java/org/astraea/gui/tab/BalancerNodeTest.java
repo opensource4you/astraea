@@ -35,11 +35,19 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class BalancerNodeTest extends RequireBrokerCluster {
+class BalancerNodeTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testClusterCost() {
@@ -65,7 +73,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
   @Test
   void testGenerator() {
     var topicName = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)

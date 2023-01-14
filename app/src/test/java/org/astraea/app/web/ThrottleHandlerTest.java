@@ -36,16 +36,24 @@ import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class ThrottleHandlerTest extends RequireBrokerCluster {
+public class ThrottleHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @BeforeEach
   public void cleanup() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .nodeInfos()
           .thenApply(
@@ -83,7 +91,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testThrottleBandwidth() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var dataRate = DataRate.MiB.of(500).perSecond();
       var longDataRate = (long) dataRate.byteRate();
@@ -137,7 +145,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testThrottleSomeLogs() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicName = Utils.randomString();
       admin
@@ -187,7 +195,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testThrottleEveryLog() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicName = Utils.randomString();
       admin
@@ -310,7 +318,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testPost() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topicA = Utils.randomString();
       var topicB = Utils.randomString();
@@ -428,7 +436,7 @@ public class ThrottleHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDelete() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
       var topic = Utils.randomString();
       admin

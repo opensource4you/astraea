@@ -23,11 +23,19 @@ import java.util.Objects;
 import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ReassignmentHandlerTest extends RequireBrokerCluster {
+public class ReassignmentHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   static final String TOPIC_KEY = "topic";
   static final String PARTITION_KEY = "partition";
@@ -38,7 +46,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testMigrateToAnotherBroker() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -54,7 +62,8 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
               .get()
               .nodeInfo()
               .id();
-      var nextBroker = brokerIds().stream().filter(i -> i != currentBroker).findAny().get();
+      var nextBroker =
+          SERVICE.dataFolders().keySet().stream().filter(i -> i != currentBroker).findAny().get();
 
       var body =
           String.format(
@@ -87,7 +96,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testMigrateToAnotherPath() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -105,7 +114,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
       var currentBroker = currentReplica.nodeInfo().id();
       var currentPath = currentReplica.path();
       var nextPath =
-          logFolders().get(currentBroker).stream()
+          SERVICE.dataFolders().get(currentBroker).stream()
               .filter(p -> !p.equals(currentPath))
               .findFirst()
               .get();
@@ -147,7 +156,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testExcludeSpecificBroker() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -197,7 +206,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   void testExcludeSpecificBrokerTopic() {
     var topicName = Utils.randomString(10);
     var targetTopic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
       admin.creator().topic(targetTopic).numberOfPartitions(10).run().toCompletableFuture().join();
@@ -259,7 +268,7 @@ public class ReassignmentHandlerTest extends RequireBrokerCluster {
   @Test
   void testBadRequest() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ReassignmentHandler(admin);
       admin.creator().topic(topicName).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));

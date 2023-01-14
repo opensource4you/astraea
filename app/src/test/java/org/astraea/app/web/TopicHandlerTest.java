@@ -38,15 +38,23 @@ import org.astraea.common.http.Response;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class TopicHandlerTest extends RequireBrokerCluster {
+public class TopicHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testWithWebService() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString();
       var partitions = ThreadLocalRandom.current().nextInt(1, 11);
       var replicas = (short) ThreadLocalRandom.current().nextInt(1, 4);
@@ -57,7 +65,8 @@ public class TopicHandlerTest extends RequireBrokerCluster {
       topic.replicas = replicas;
       request.topics = List.of(topic);
 
-      try (var service = new WebService(Admin.of(bootstrapServers()), 0, id -> Optional.empty())) {
+      try (var service =
+          new WebService(Admin.of(SERVICE.bootstrapServers()), 0, id -> Optional.empty())) {
         Response<TopicHandler.Topics> response =
             HttpExecutor.builder()
                 .build()
@@ -83,7 +92,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testListTopics() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
@@ -105,7 +114,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentTopic() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       Assertions.assertInstanceOf(
           NoSuchElementException.class,
@@ -123,7 +132,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testQuerySingleTopic() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var handler = new TopicHandler(admin);
@@ -139,7 +148,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testCreateSingleTopic() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request = Channel.ofRequest(String.format("{\"topics\":[{\"name\":\"%s\"}]}", topicName));
       var topics = handler.post(request).toCompletableFuture().join();
@@ -152,7 +161,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   void testCreateTopics() {
     var topicName0 = Utils.randomString(10);
     var topicName1 = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request =
           Channel.ofRequest(
@@ -176,7 +185,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testDuplicateTopic() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request =
           Channel.ofRequest(
@@ -190,7 +199,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testQueryWithPartition() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request =
           Channel.ofRequest(
@@ -220,12 +229,13 @@ public class TopicHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryWithListInternal() {
-    var bootstrapServers = bootstrapServers();
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers);
-        var producer = Producer.of(bootstrapServers);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers());
         var consumer =
-            Consumer.forTopics(Set.of(topicName)).bootstrapServers(bootstrapServers).build()) {
+            Consumer.forTopics(Set.of(topicName))
+                .bootstrapServers(SERVICE.bootstrapServers())
+                .build()) {
       // producer and consumer here are used to trigger kafka to create internal topic
       // __consumer_offsets
       producer
@@ -265,7 +275,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   @Test
   void testCreateTopicWithReplicas() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       var request =
           Channel.ofRequest(
@@ -311,7 +321,7 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   void testDeleteTopic() {
     var topicNames =
         IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       for (var name : topicNames)
         admin
@@ -345,15 +355,15 @@ public class TopicHandlerTest extends RequireBrokerCluster {
   void testGroupIdAndTimestamp() {
     var topicName = Utils.randomString();
     var groupId = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers());
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers());
         var consumer =
             Consumer.forTopics(Set.of(topicName))
                 .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                 .config(
                     ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                     ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-                .bootstrapServers(bootstrapServers())
+                .bootstrapServers(SERVICE.bootstrapServers())
                 .build()) {
       var handler = new TopicHandler(admin);
 

@@ -21,10 +21,9 @@ import org.apache.spark.sql.SparkSession
 import org.astraea.common.consumer.{Consumer, Deserializer}
 import org.astraea.etl.FileCreator.generateCSVF
 import org.astraea.etl.Spark2KafkaTest.{COL_NAMES, rows}
-import org.astraea.it.RequireBrokerCluster
-import org.astraea.it.RequireBrokerCluster.bootstrapServers
+import org.astraea.it.Service
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.{BeforeAll, Test}
+import org.junit.jupiter.api.{AfterAll, BeforeAll, Test}
 
 import java.nio.file.Files
 import java.util
@@ -32,7 +31,7 @@ import scala.collection.immutable
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 
-class Spark2KafkaTest extends RequireBrokerCluster {
+class Spark2KafkaTest {
   @Test
   def consumerDataTest(): Unit = {
     val topic = new util.HashSet[String]
@@ -41,7 +40,7 @@ class Spark2KafkaTest extends RequireBrokerCluster {
     val consumer =
       Consumer
         .forTopics(topic)
-        .bootstrapServers(bootstrapServers())
+        .bootstrapServers(Spark2KafkaTest.SERVICE.bootstrapServers())
         .keyDeserializer(Deserializer.STRING)
         .valueDeserializer(Deserializer.STRING)
         .configs(
@@ -84,7 +83,12 @@ class Spark2KafkaTest extends RequireBrokerCluster {
   }
 }
 
-object Spark2KafkaTest extends RequireBrokerCluster {
+object Spark2KafkaTest {
+  private val SERVICE = Service.builder.numberOfBrokers(3).build()
+
+  @AfterAll
+  private def closeService(): Unit = SERVICE.close()
+
   private val COL_NAMES =
     "FirstName=string,SecondName=string,Age=integer"
 
@@ -110,7 +114,7 @@ object Spark2KafkaTest extends RequireBrokerCluster {
         ),
         DataColumn(name = "Age", dataType = DataType.StringType)
       ),
-      kafkaBootstrapServers = bootstrapServers(),
+      kafkaBootstrapServers = SERVICE.bootstrapServers(),
       topicName = "testTopic",
       topicConfigs = Map("compression.type" -> "lz4"),
       numberOfPartitions = 10,
