@@ -19,65 +19,64 @@ package org.astraea.etl
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
-import org.astraea.etl.DataStreamWriterBuilder._
-
-case class DataStreamWriterBuilder(
-    var dataFrameProcessor: DataFrameProcessor
-) {
-  private var _target: String = ""
-  private var _checkpoint: String = ""
-
-  def buildToKafka(
-      bootstrap: String
-  ): DataStreamWriter[Row] = {
-    dataFrameProcessor
-      .dataFrame()
-      .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
-      .writeStream
-      .outputMode(OutputMode.Append())
-      .format("kafka")
-      .option(
-        "kafka." +
-          ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-        bootstrap
-      )
-      // Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
-      .option(
-        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"
-      )
-      .option(
-        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"
-      )
-      .option("topic", _target)
-      .option(ProducerConfig.ACKS_CONFIG, "all")
-      .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
-      .option("checkpointLocation", _checkpoint)
-  }
-
-  /** Target represents the destination of the data, for Kafka it represents the
-    * topic, for other targets it can represent the data path.
-    *
-    * @param target
-    *   destination of the data
-    * @return
-    *   Writer
-    */
-  def target(target: String): DataStreamWriterBuilder = {
-    _target = target
-    this
-  }
-
-  def checkpoint(
-      checkpoint: String
-  ): DataStreamWriterBuilder = {
-    _checkpoint = checkpoint
-    this
-  }
-}
 
 object DataStreamWriterBuilder {
   def apply(dataFrameProcessor: DataFrameProcessor) =
     new DataStreamWriterBuilder(dataFrameProcessor)
+
+  class DataStreamWriterBuilder(
+      var dataFrameProcessor: DataFrameProcessor
+  ) {
+    private var _target: String = ""
+    private var _checkpoint: String = ""
+
+    def buildToKafka(
+        bootstrap: String
+    ): DataStreamWriter[Row] = {
+      dataFrameProcessor
+        .dataFrame()
+        .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
+        .writeStream
+        .outputMode(OutputMode.Append())
+        .format("kafka")
+        .option(
+          "kafka." +
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+          bootstrap
+        )
+        // Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
+        .option(
+          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+          "org.apache.kafka.common.serialization.StringSerializer"
+        )
+        .option(
+          ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+          "org.apache.kafka.common.serialization.StringSerializer"
+        )
+        .option("topic", _target)
+        .option(ProducerConfig.ACKS_CONFIG, "all")
+        .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
+        .option("checkpointLocation", _checkpoint)
+    }
+
+    /** Target represents the destination of the data, for Kafka it represents
+      * the topic, for other targets it can represent the data path.
+      *
+      * @param target
+      *   destination of the data
+      * @return
+      *   Writer
+      */
+    def target(target: String): DataStreamWriterBuilder = {
+      _target = target
+      this
+    }
+
+    def checkpoint(
+        checkpoint: String
+    ): DataStreamWriterBuilder = {
+      _checkpoint = checkpoint
+      this
+    }
+  }
 }
