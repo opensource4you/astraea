@@ -28,23 +28,32 @@ import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class JsonSerializerTest extends RequireBrokerCluster {
+public class JsonSerializerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testJson() {
     String topic = createTopic();
     Utils.sleep(Duration.ofSeconds(1));
     try (var producer =
             Producer.builder()
-                .bootstrapServers(bootstrapServers())
+                .bootstrapServers(SERVICE.bootstrapServers())
                 .keySerializer(Serializer.of(TypeRef.of(Map.class)))
                 .build();
         var consumer =
             Consumer.forTopics(Set.of(topic))
-                .bootstrapServers(bootstrapServers())
+                .bootstrapServers(SERVICE.bootstrapServers())
                 .keyDeserializer(Deserializer.STRING)
                 .config(
                     ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
@@ -62,7 +71,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
     }
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .keyDeserializer(Deserializer.of(TypeRef.of(Map.class)))
             .configs(
                 Map.of(
@@ -89,12 +98,12 @@ public class JsonSerializerTest extends RequireBrokerCluster {
     Utils.sleep(Duration.ofSeconds(1));
     try (var producer =
             Producer.builder()
-                .bootstrapServers(bootstrapServers())
+                .bootstrapServers(SERVICE.bootstrapServers())
                 .keySerializer(Serializer.of(TypeRef.of(TestPrimitiveClass.class)))
                 .build();
         var consumer =
             Consumer.forTopics(Set.of(topic))
-                .bootstrapServers(bootstrapServers())
+                .bootstrapServers(SERVICE.bootstrapServers())
                 .keyDeserializer(Deserializer.STRING)
                 .config(
                     ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
@@ -115,7 +124,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .keyDeserializer(Deserializer.of(TypeRef.of(TestPrimitiveClass.class)))
             .configs(
                 Map.of(
@@ -134,7 +143,7 @@ public class JsonSerializerTest extends RequireBrokerCluster {
 
   private static String createTopic() {
     var topic = "topic" + Utils.randomString(5);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topic)

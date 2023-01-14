@@ -52,7 +52,8 @@ import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -61,7 +62,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
-public class RecordHandlerTest extends RequireBrokerCluster {
+public class RecordHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   static final String RECORDS = "records";
   static final String TRANSACTION_ID = "transactionId";
@@ -69,7 +77,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testInvalidPost() {
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
@@ -96,13 +104,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
-            new RecordHandler(Admin.of(bootstrapServers()))
+            new RecordHandler(Admin.of(SERVICE.bootstrapServers()))
                 .post(
                     Channel.ofRequest(
                         JsonConverter.defaultConverter().toJson(Map.of(TIMEOUT, "foo")))));
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
-        new RecordHandler(Admin.of(bootstrapServers()))
+        new RecordHandler(Admin.of(SERVICE.bootstrapServers()))
             .post(
                 Channel.ofRequest(
                     JsonConverter.defaultConverter()
@@ -124,7 +132,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
-            new RecordHandler(Admin.of(bootstrapServers()))
+            new RecordHandler(Admin.of(SERVICE.bootstrapServers()))
                 .post(
                     Channel.ofRequest(
                         "{\"records\":[{\"topic\":\"testPostRawString\", \"partition\":0,\"keySerializer\":\"string\",\"valueSerializer\":\"string\",\"key\":\"abc\",\"value\":\"abcd\"}]}"))
@@ -135,7 +143,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -169,7 +177,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.PostResponse.class,
-            new RecordHandler(Admin.of(bootstrapServers()))
+            new RecordHandler(Admin.of(SERVICE.bootstrapServers()))
                 .post(Channel.ofRequest(JsonConverter.defaultConverter().toJson(requestParams)))
                 .toCompletableFuture()
                 .join());
@@ -193,7 +201,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -228,7 +236,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testPostWithAsync() {
     var topic = Utils.randomString(10);
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var currentTimestamp = System.currentTimeMillis();
     var result =
         Assertions.assertInstanceOf(
@@ -259,7 +267,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -279,7 +287,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @MethodSource("forTestSerializer")
   void testSerializer(String serializer, String actual, byte[] expected) {
     var topic = Utils.randomString(10);
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
         handler
@@ -297,7 +305,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -321,7 +329,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   }
 
   private static void produceData(String topic, int size) {
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
       IntStream.range(0, size)
           .forEach(
               i ->
@@ -336,7 +344,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testInvalidGet() {
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> handler.get(Channel.EMPTY).toCompletableFuture().join().code());
@@ -369,7 +377,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -393,7 +401,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -417,7 +425,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 5);
 
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -437,8 +445,8 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testGetRecordByPartition() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var partitionNum = 2;
       admin
           .creator()
@@ -462,7 +470,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
       producer.flush();
     }
 
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -483,7 +491,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     var topic = Utils.randomString(10);
     produceData(topic, 10);
 
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -515,13 +523,13 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @MethodSource("forTestDeserializer")
   void testDeserializer(String valueDeserializer, byte[] value, Object expectedValue) {
     var topic = Utils.randomString(10);
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
 
       producer.send(Record.builder().topic(topic).value(value).build());
       producer.flush();
     }
 
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -571,7 +579,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testGetResponse() {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
 
       producer.send(
           Record.builder()
@@ -583,7 +591,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .build());
       producer.flush();
     }
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -625,7 +633,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testGetJsonResponse() {
     var topic = Utils.randomString(10);
     var timestamp = System.currentTimeMillis();
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
       producer.send(
           Record.builder()
               .topic(topic)
@@ -636,7 +644,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
               .build());
       producer.flush();
     }
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var response =
         Assertions.assertInstanceOf(
             RecordHandler.GetResponse.class,
@@ -681,7 +689,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @Test
   void testPostAndGet() {
     var topic = Utils.randomString(10);
-    var handler = new RecordHandler(Admin.of(bootstrapServers()));
+    var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     var currentTimestamp = System.currentTimeMillis();
     Assertions.assertInstanceOf(
         RecordHandler.PostResponse.class,
@@ -743,10 +751,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
-            new RecordHandler(Admin.of(bootstrapServers()))
+            new RecordHandler(Admin.of(SERVICE.bootstrapServers()))
                 .get(Channel.ofQueries("test", Map.of(TIMEOUT, "foo"))));
     var response =
-        new RecordHandler(Admin.of(bootstrapServers()))
+        new RecordHandler(Admin.of(SERVICE.bootstrapServers()))
             .get(Channel.ofQueries("test", Map.of(TIMEOUT, "10s")))
             .toCompletableFuture()
             .join();
@@ -757,9 +765,9 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteParameter() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = new RecordHandler(Admin.of(bootstrapServers()));
+      var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -794,10 +802,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDelete() {
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = new RecordHandler(Admin.of(bootstrapServers()));
+      var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -878,10 +886,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeleteOffset() {
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = new RecordHandler(Admin.of(bootstrapServers()));
+      var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -935,10 +943,10 @@ public class RecordHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testDeletePartition() {
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString(10);
-      var handler = new RecordHandler(Admin.of(bootstrapServers()));
+      var handler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
       admin
           .creator()
           .topic(topicName)
@@ -994,7 +1002,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   void testGetRecordsCommitOffsetWithGroupId() {
     var topic = Utils.randomString(10);
     var groupId = Utils.randomString(10);
-    var recordHandler = new RecordHandler(Admin.of(bootstrapServers()));
+    var recordHandler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
 
     Function<Boolean, RecordHandler.GetResponse> getRecords =
         needError ->
@@ -1044,7 +1052,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
   @MethodSource("forTestGetRecordsCloseConsumer")
   void testGetRecordsCloseConsumer(Map<String, String> args) {
     var topic = Utils.randomString(10);
-    var recordHandler = new RecordHandler(Admin.of(bootstrapServers()));
+    var recordHandler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
 
     var response =
         Assertions.assertInstanceOf(
@@ -1083,7 +1091,7 @@ public class RecordHandlerTest extends RequireBrokerCluster {
     @SuppressWarnings({"unchecked", "resource"})
     Consumer<byte[], byte[]> consumer = Mockito.mock(Consumer.class);
     Mockito.when(consumer.poll(Mockito.anyInt(), Mockito.any())).thenThrow(exception);
-    var recordHandler = new RecordHandler(Admin.of(bootstrapServers()));
+    var recordHandler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     Assertions.assertEquals(
         exception,
         Assertions.assertThrows(

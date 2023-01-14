@@ -32,11 +32,20 @@ import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireSingleWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SourceDataTest extends RequireSingleWorkerCluster {
+public class SourceDataTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   private static final byte[] KEY = "key".getBytes(StandardCharsets.UTF_8);
   private static final byte[] VALUE = "value".getBytes(StandardCharsets.UTF_8);
@@ -45,7 +54,7 @@ public class SourceDataTest extends RequireSingleWorkerCluster {
 
   @Test
   void testConsumeDataFromSource() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var name = Utils.randomString();
     var topic = Utils.randomString();
     client
@@ -84,7 +93,7 @@ public class SourceDataTest extends RequireSingleWorkerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)

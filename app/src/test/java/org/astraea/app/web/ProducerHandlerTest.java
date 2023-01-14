@@ -24,17 +24,25 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ProducerHandlerTest extends RequireBrokerCluster {
+public class ProducerHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testListProducers() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var handler = new ProducerHandler(admin);
       producer
           .send(Record.builder().topic(topicName).value(new byte[1]).build())
@@ -60,8 +68,8 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
   @Test
   void testQuerySinglePartition() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new ProducerHandler(admin);
@@ -127,7 +135,7 @@ public class ProducerHandlerTest extends RequireBrokerCluster {
   @Test
   void testPartitions() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ProducerHandler(admin);
       var topics = admin.topicNames(false).toCompletableFuture().join();
       Assertions.assertEquals(

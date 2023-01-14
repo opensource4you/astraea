@@ -24,13 +24,21 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
+public class AdminWithOfflineBrokerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   private static final String TOPIC_NAME = Utils.randomString();
   private static final int PARTITIONS = 10;
@@ -39,13 +47,13 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
       IntStream.range(0, PARTITIONS)
           .mapToObj(id -> TopicPartition.of(TOPIC_NAME, id))
           .collect(Collectors.toSet());
-  private static final int CLOSED_BROKER_ID = brokerIds().iterator().next();
+  private static final int CLOSED_BROKER_ID = SERVICE.dataFolders().keySet().iterator().next();
 
   private static int NUMBER_OF_ONLINE_PARTITIONS = -1;
 
   @BeforeAll
   static void closeOneBroker() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(TOPIC_NAME)
@@ -54,7 +62,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(3));
-      try (var producer = Producer.of(bootstrapServers())) {
+      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
         IntStream.range(0, PARTITIONS)
             .forEach(
                 i ->
@@ -76,13 +84,13 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
       Assertions.assertEquals(PARTITIONS, allPs.size());
       Utils.sleep(Duration.ofSeconds(2));
     }
-    closeBroker(CLOSED_BROKER_ID);
+    SERVICE.close(CLOSED_BROKER_ID);
   }
 
   @Timeout(10)
   @Test
   void testProducerStates() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var producerStates =
           admin
               .producerStates(
@@ -101,7 +109,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testNodeInfos() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var nodeInfos = admin.nodeInfos().toCompletableFuture().join();
       Assertions.assertEquals(2, nodeInfos.size());
       var offlineNodeInfos =
@@ -113,7 +121,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testBrokers() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var brokers = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(2, brokers.size());
       brokers.forEach(
@@ -128,7 +136,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testPartitions() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       Assertions.assertEquals(PARTITIONS, partitions.size());
       var offlinePartitions =
@@ -151,7 +159,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testReplicas() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var replicas = admin.clusterInfo(Set.of(TOPIC_NAME)).toCompletableFuture().join().replicas();
       Assertions.assertEquals(PARTITIONS, replicas.size());
       var offlineReplicas =
@@ -171,7 +179,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testTopicPartitions() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertNotEquals(
           0,
           admin
@@ -187,7 +195,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testTopicNames() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertEquals(1, admin.topicNames(false).toCompletableFuture().join().size());
     }
   }
@@ -195,7 +203,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testTopics() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertEquals(
           1, admin.topics(Set.of(TOPIC_NAME)).toCompletableFuture().join().size());
     }
@@ -204,7 +212,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testEarliest() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertEquals(
           0, admin.earliestOffsets(TOPIC_PARTITIONS).toCompletableFuture().join().size());
     }
@@ -213,7 +221,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testLatest() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertEquals(
           0, admin.latestOffsets(TOPIC_PARTITIONS).toCompletableFuture().join().size());
     }
@@ -222,7 +230,7 @@ public class AdminWithOfflineBrokerTest extends RequireBrokerCluster {
   @Timeout(10)
   @Test
   void testMaxTimestamp() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertEquals(
           0, admin.maxTimestamps(TOPIC_PARTITIONS).toCompletableFuture().join().size());
     }

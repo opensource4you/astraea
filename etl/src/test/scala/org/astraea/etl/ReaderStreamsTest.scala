@@ -21,7 +21,6 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Row, SparkSession}
 import org.astraea.etl.DataType.{IntegerType, StringType}
 import org.astraea.etl.FileCreator.{createCSV, generateCSVF, getCSVFile}
-import org.astraea.it.RequireBrokerCluster
 import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
 import org.junit.jupiter.api.Test
 
@@ -31,7 +30,8 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 
-class ReaderStreamsTest extends RequireBrokerCluster {
+class ReaderStreamsTest {
+
   @Test
   def skipBlankLineTest(): Unit = {
     val sourceDir = Files.createTempDirectory("source").toFile

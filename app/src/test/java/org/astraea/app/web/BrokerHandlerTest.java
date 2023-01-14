@@ -23,24 +23,34 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BrokerHandlerTest extends RequireBrokerCluster {
+public class BrokerHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testListBrokers() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
       var response =
           Assertions.assertInstanceOf(
               BrokerHandler.Brokers.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
-      Assertions.assertEquals(brokerIds().size(), response.brokers.size());
-      brokerIds()
+      Assertions.assertEquals(SERVICE.dataFolders().keySet().size(), response.brokers.size());
+      SERVICE
+          .dataFolders()
+          .keySet()
           .forEach(
               id ->
                   Assertions.assertEquals(
@@ -52,7 +62,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentBroker() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertInstanceOf(
           NoSuchElementException.class,
@@ -65,7 +75,7 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryInvalidBroker() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertInstanceOf(
           NoSuchElementException.class,
@@ -79,8 +89,8 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
   @Test
   void testQuerySingleBroker() {
     var topic = Utils.randomString(10);
-    var brokerId = brokerIds().iterator().next();
-    try (var admin = Admin.of(bootstrapServers())) {
+    var brokerId = SERVICE.dataFolders().keySet().iterator().next();
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var handler = new BrokerHandler(admin);
@@ -96,16 +106,18 @@ public class BrokerHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testBrokers() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BrokerHandler(admin);
       Assertions.assertEquals(
-          Set.of(brokerIds().iterator().next()),
+          Set.of(SERVICE.dataFolders().keySet().iterator().next()),
           handler
-              .brokers(Optional.of(String.valueOf(brokerIds().iterator().next())))
+              .brokers(
+                  Optional.of(String.valueOf(SERVICE.dataFolders().keySet().iterator().next())))
               .toCompletableFuture()
               .join());
       Assertions.assertEquals(
-          brokerIds(), handler.brokers(Optional.empty()).toCompletableFuture().join());
+          SERVICE.dataFolders().keySet(),
+          handler.brokers(Optional.empty()).toCompletableFuture().join());
       Assertions.assertThrows(
           CompletionException.class,
           () -> handler.brokers(Optional.of("aaa")).toCompletableFuture().join());
