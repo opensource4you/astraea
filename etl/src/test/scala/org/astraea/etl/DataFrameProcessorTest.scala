@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 
-class DataFrameProcessorBuilderTest {
+class DataFrameProcessorTest {
   @Test
   def skipBlankLineTest(): Unit = {
     val sourceDir = Files.createTempDirectory("source").toFile
@@ -53,20 +53,26 @@ class DataFrameProcessorBuilderTest {
 
     createCSV(sourceDir, row, 0)
 
-    val df = DataFrameProcessorBuilder(
-      SparkSession.builder().master("local[4]").appName("test").getOrCreate()
-    )
-      .source(sourceDir.getPath)
-      .cleanSource("delete")
-      .recursiveFileLookup("true")
-      .columns(
-        Seq(
+    val df = DataFrameProcessor.fromMetadata(
+      createSpark(),
+      Metadata(
+        sourcePath = sourceDir.getPath,
+        checkpoint = "",
+        columns = Seq(
           DataColumn("RecordNumber", true, StringType),
           DataColumn("Size", true, StringType),
           DataColumn("Type", true, StringType)
-        )
+        ),
+        kafkaBootstrapServers = "",
+        topicName = "",
+        topicConfigs = Map.empty,
+        numberOfPartitions = 10,
+        numberOfReplicas = 1,
+        cleanSource = "delete",
+        recursiveFile = "true",
+        archivePath = ""
       )
-      .buildFromCsv()
+    )
 
     df.dataFrame()
       .writeStream
@@ -93,20 +99,26 @@ class DataFrameProcessorBuilderTest {
     val checkoutDir = Files.createTempDirectory("checkpoint").toFile
     val dataDir = Files.createTempDirectory("data").toFile
 
-    val csvDF = DataFrameProcessorBuilder(
-      SparkSession.builder().master("local[4]").appName("test").getOrCreate()
-    )
-      .source(sourceDir.getPath)
-      .cleanSource("delete")
-      .recursiveFileLookup("true")
-      .columns(
-        Seq(
+    val csvDF = DataFrameProcessor.fromMetadata(
+      createSpark(),
+      Metadata(
+        sourcePath = sourceDir.getPath,
+        checkpoint = "",
+        columns = Seq(
           DataColumn("RecordNumber", true, StringType),
           DataColumn("Size", true, StringType),
           DataColumn("Type", true, StringType)
-        )
+        ),
+        kafkaBootstrapServers = "",
+        topicName = "",
+        topicConfigs = Map.empty,
+        numberOfPartitions = 10,
+        numberOfReplicas = 1,
+        cleanSource = "delete",
+        recursiveFile = "true",
+        archivePath = ""
       )
-      .buildFromCsv()
+    )
 
     assertTrue(
       csvDF.dataFrame().isStreaming,
@@ -290,5 +302,13 @@ class DataFrameProcessorBuilderTest {
         List(a, b, c) +: acc
       }
       .reverse
+  }
+
+  private def createSpark(): SparkSession = {
+    SparkSession
+      .builder()
+      .master("local[2]")
+      .appName("Astraea ETL")
+      .getOrCreate()
   }
 }

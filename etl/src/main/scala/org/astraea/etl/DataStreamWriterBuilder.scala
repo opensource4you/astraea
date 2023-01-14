@@ -20,6 +20,7 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
 
+//TODO Put the builder into the companion object of the built object
 object DataStreamWriterBuilder {
   def apply(dataFrameProcessor: DataFrameProcessor) =
     new DataStreamWriterBuilder(dataFrameProcessor)

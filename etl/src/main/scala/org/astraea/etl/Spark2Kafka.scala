@@ -41,13 +41,8 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = DataFrameProcessorBuilder()
-      .source(metadata.sourcePath)
-      .columns(metadata.columns)
-      .cleanSource(metadata.cleanSource)
-      .recursiveFileLookup(metadata.recursiveFile)
-      .sourceArchiveDir(metadata.archivePath)
-      .buildFromCsv()
+    val df = DataFrameProcessor
+      .fromMetadata(sparkSession, metadata)
       .csvToJSON(metadata.columns)
 
     DataStreamWriterBuilder(df)

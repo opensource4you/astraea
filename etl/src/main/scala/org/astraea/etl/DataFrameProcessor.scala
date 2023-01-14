@@ -23,6 +23,8 @@ import org.astraea.common.json.JsonConverter
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{StructField, StructType}
 
 class DataFrameProcessor(dataFrame: DataFrame) {
 
@@ -88,5 +90,88 @@ class DataFrameProcessor(dataFrame: DataFrame) {
 
   def dataFrame(): DataFrame = {
     dataFrame
+  }
+}
+
+object DataFrameProcessor {
+  def fromMetadata(
+      sparkSession: SparkSession,
+      metadata: Metadata
+  ): DataFrameProcessor = {
+    new DataFrameProcessorBuilder(sparkSession)
+      .source(metadata.sourcePath)
+      .columns(metadata.columns)
+      .cleanSource(metadata.cleanSource)
+      .recursiveFileLookup(metadata.recursiveFile)
+      .sourceArchiveDir(metadata.archivePath)
+      .buildFromCsv()
+  }
+  class DataFrameProcessorBuilder(
+      private val sparkSession: SparkSession
+  ) {
+    private val SOURCE_ARCHIVE_DIR = "sourceArchiveDir"
+    private val CLEAN_SOURCE = "cleanSource"
+    private val RECURSIVE_FILE_LOOK_UP = "recursiveFileLookup"
+
+    private var _recursiveFileLookup: String = ""
+    private var _cleanSource: String = ""
+    private var _source: String = ""
+    private var _sourceArchiveDir: String = ""
+    private var _columns: Seq[DataColumn] = Seq.empty
+
+    def recursiveFileLookup(r: String): DataFrameProcessorBuilder = {
+      _recursiveFileLookup = r
+      this
+    }
+
+    def cleanSource(c: String): DataFrameProcessorBuilder = {
+      _cleanSource = c
+      this
+    }
+
+    def source(s: String): DataFrameProcessorBuilder = {
+      _source = s
+      this
+    }
+
+    def columns(c: Seq[DataColumn]): DataFrameProcessorBuilder = {
+      _columns = c
+      this
+    }
+
+    def sourceArchiveDir(a: String): DataFrameProcessorBuilder = {
+      _sourceArchiveDir = a
+      this
+    }
+
+    def buildFromCsv(): DataFrameProcessor = {
+      if (_cleanSource == "archive") {
+        if (_sourceArchiveDir.isBlank)
+          throw new IllegalArgumentException(
+            s"$SOURCE_ARCHIVE_DIR is blank.When you set cleanSource to 'archive', you must configure ArchiveDir in spark2kafka config"
+          )
+      }
+
+      val df = sparkSession.readStream
+        .option(CLEAN_SOURCE, _cleanSource)
+        .option(SOURCE_ARCHIVE_DIR, _sourceArchiveDir)
+        .option(RECURSIVE_FILE_LOOK_UP, _recursiveFileLookup)
+        .schema(schema(_columns))
+        .csv(_source)
+        .filter(row => {
+          val bool = (0 until row.length).exists(i => !row.isNullAt(i))
+          bool
+        })
+      new DataFrameProcessor(df)
+    }
+
+    private def schema(columns: Seq[DataColumn]): StructType =
+      StructType(columns.map { col =>
+        if (col.dataType != DataType.StringType)
+          throw new IllegalArgumentException(
+            "Sorry, only string type is currently supported.Because a problem(astraea #1286) has led to the need to wrap the non-nullable type."
+          )
+        StructField(col.name, col.dataType.sparkType)
+      })
   }
 }
