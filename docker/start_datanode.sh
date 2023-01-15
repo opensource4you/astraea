@@ -40,7 +40,6 @@ function showHelp() {
   echo "    VERSION=3.3.4              set version of hadoop distribution"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
-  echo "    DATA_FOLDER=/tmp/folder1   set host folders used by name node"
 }
 
 function generateDockerfile() {
