@@ -140,25 +140,4 @@ public class AssignorTest {
     Assertions.assertEquals(1, unregisterNode.size());
     Assertions.assertEquals("192.168.103.2", unregisterNode.get(1001));
   }
-<<<<<<< HEAD
-
-  @Test
-  void testParseCostFunctionWeight() {
-    var costFunction =
-        Assignor.parseCostFunctionWeight(
-            Configuration.of(Map.of("org.astraea.common.cost.ReplicaLeaderSizeCost", "100")));
-    Assertions.assertEquals(1, costFunction.size());
-    for (var e : costFunction.entrySet()) {
-      Assertions.assertEquals(
-          "org.astraea.common.cost.ReplicaLeaderSizeCost", e.getKey().getClass().getName());
-      Assertions.assertEquals(100, e.getValue());
-    }
-
-    var negativeConfig =
-        Configuration.of(Map.of("org.astraea.common.cost.ReplicaLeaderSizeCost", "-1"));
-    Assertions.assertThrows(
-        IllegalArgumentException.class, () -> Assignor.parseCostFunctionWeight(negativeConfig));
-  }
-=======
->>>>>>> ddfb07afc7ea82cf2bf6348664f59de3621d33a9
 }

@@ -38,10 +38,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-<<<<<<< HEAD:common/src/test/java/org/astraea/common/cost/ReplicaLeaderSizeCostTest.java
-class ReplicaLeaderSizeCostTest extends RequireBrokerCluster {
-=======
-class ReplicaSizeCostTest {
+class ReplicaLeaderSizeCostTest {
 
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
@@ -50,7 +47,6 @@ class ReplicaSizeCostTest {
     SERVICE.close();
   }
 
->>>>>>> ddfb07afc7ea82cf2bf6348664f59de3621d33a9:common/src/test/java/org/astraea/common/cost/ReplicaSizeCostTest.java
   private static final BeanObject bean1 =
       new BeanObject(
           "domain",
