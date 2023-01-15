@@ -519,6 +519,8 @@ class AdminImpl implements Admin {
                     groupId ->
                         new ConsumerGroup(
                             groupId,
+                            consumerGroupDescriptions.get(groupId).partitionAssignor(),
+                            consumerGroupDescriptions.get(groupId).state().name(),
                             NodeInfo.of(consumerGroupDescriptions.get(groupId).coordinator()),
                             consumerGroupMetadata.get(groupId).entrySet().stream()
                                 .collect(
