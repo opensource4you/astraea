@@ -53,7 +53,7 @@ curl -X POST http://localhost:8001/balancer \
         { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],
       "maxMigratedSize": "300MB",
-      "maxMigratedLeader": "3"
+      "maxMigratedLeader": 3
     }'
 ```
 

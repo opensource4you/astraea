@@ -19,13 +19,13 @@ package org.astraea.app.web;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -38,8 +38,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.app.argument.DataSizeField;
 import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -108,7 +108,7 @@ class BalancerHandler implements Handler {
     var planId = channel.target().get();
     if (!planCalculation.containsKey(planId))
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
-    var timeout = requestHistory.get(planId).executionTime.toMillis();
+    var timeout = requestHistory.get(planId).executionTime;
     var balancer = requestHistory.get(planId).balancerClasspath;
     var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
 
@@ -294,108 +294,85 @@ class BalancerHandler implements Handler {
   // visible for test
   static PostRequestWrapper parsePostRequestWrapper(
       BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
-
-    var balancerClasspath = balancerPostRequest.balancer;
-    var balancerConfig = Configuration.of(balancerPostRequest.balancerConfig);
-    var clusterCostFunction = getClusterCost(balancerPostRequest);
-    var timeout = Utils.toDuration(balancerPostRequest.timeout);
-
     var topics =
-        balancerPostRequest
-            .topics
-            .map(
-                s ->
-                    Arrays.stream(s.split(","))
-                        .filter(x -> !x.isEmpty())
-                        .collect(Collectors.toSet()))
-            .orElseGet(currentClusterInfo::topics);
+        balancerPostRequest.topics.isEmpty()
+            ? currentClusterInfo.topics()
+            : balancerPostRequest.topics;
 
-    if (balancerPostRequest.topics.isPresent() && topics.isEmpty())
+    if (topics.isEmpty())
       throw new IllegalArgumentException(
           "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
-    if (timeout.isZero() || timeout.isNegative())
+    if (balancerPostRequest.timeout.isZero() || balancerPostRequest.timeout.isNegative())
       throw new IllegalArgumentException(
-          "Illegal timeout, value should be positive integer: " + timeout.getSeconds());
+          "Illegal timeout, value should be positive integer: "
+              + balancerPostRequest.timeout.getSeconds());
 
     return new PostRequestWrapper(
-        balancerClasspath,
-        timeout,
+        balancerPostRequest.balancer,
+        balancerPostRequest.timeout,
         AlgorithmConfig.builder()
-            .clusterCost(clusterCostFunction)
+            .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
             .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
-            .config(balancerConfig)
+            .config(Configuration.of(balancerPostRequest.balancerConfig))
             .build(),
         currentClusterInfo);
   }
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
-    var converter = new DataSizeField();
-    var replicaSizeLimit = request.maxMigratedSize.map(x -> converter.convert(x).bytes());
-    var leaderNumLimit = request.maxMigratedLeader.map(Integer::parseInt);
-    return cost ->
-        replicaSizeLimit
-                .filter(
-                    limit ->
-                        limit
-                            <= cost.movedReplicaSize().values().stream()
-                                .mapToLong(s -> Math.abs(s.bytes()))
-                                .sum())
-                .isEmpty()
-            && leaderNumLimit
-                .filter(
-                    limit ->
-                        limit
-                            <= cost.changedReplicaLeaderCount().values().stream()
-                                .mapToLong(s -> s)
-                                .sum())
-                .isEmpty();
-  }
-
-  static HasClusterCost getClusterCost(BalancerPostRequest request) {
-    var costWeights = request.costWeights;
-    if (costWeights.isEmpty()) throw new IllegalArgumentException("costWeights is not specified");
-    var costWeightMap =
-        costWeights.stream()
-            .flatMap(cw -> cw.cost.map(c -> Map.entry(c, cw.weight.orElse(1D))).stream())
-            .collect(
-                Collectors.toMap(
-                    e -> {
-                      try {
-                        var clz = Class.forName(e.getKey());
-                        if (!HasClusterCost.class.isAssignableFrom(clz))
-                          throw new IllegalArgumentException(
-                              "the class: " + e.getKey() + " is not sub class of HasClusterCost");
-                        return (HasClusterCost) Utils.construct(clz, Configuration.EMPTY);
-                      } catch (ClassNotFoundException error) {
-                        throw new IllegalArgumentException(error.getMessage());
-                      }
-                    },
-                    Map.Entry::getValue));
-    return HasClusterCost.of(costWeightMap);
+    return cost -> {
+      if (request.maxMigratedSize.bytes()
+          < cost.movedReplicaSize().values().stream().mapToLong(DataSize::bytes).sum())
+        return false;
+      if (request.maxMigratedLeader
+          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
+        return false;
+      return true;
+    };
   }
 
   static class BalancerPostRequest implements Request {
 
-    private String balancer = GreedyBalancer.class.getName();
+    String balancer = GreedyBalancer.class.getName();
 
     Map<String, String> balancerConfig = Map.of();
 
-    String timeout = "3s";
-    Optional<String> topics = Optional.empty();
+    Duration timeout = Duration.ofSeconds(3);
+    Set<String> topics = Set.of();
 
-    private Optional<String> maxMigratedSize = Optional.empty();
+    DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
 
-    private Optional<String> maxMigratedLeader = Optional.empty();
+    long maxMigratedLeader = Long.MAX_VALUE;
 
     List<CostWeight> costWeights = List.of();
+
+    HasClusterCost clusterCost() {
+      if (costWeights.isEmpty()) throw new IllegalArgumentException("costWeights is not specified");
+      var config =
+          Configuration.of(
+              costWeights.stream()
+                  .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))));
+      var fs = Utils.costFunctions(config, HasClusterCost.class);
+      if (fs.size() != costWeights.size())
+        throw new IllegalArgumentException(
+            "Has invalid costs: "
+                + costWeights.stream()
+                    .filter(
+                        e ->
+                            fs.keySet().stream()
+                                .map(c -> c.getClass().getName())
+                                .noneMatch(n -> e.cost.equals(n)))
+                    .map(e -> e.cost)
+                    .collect(Collectors.joining(",")));
+      return HasClusterCost.of(fs);
+    }
   }
 
   static class CostWeight implements Request {
-    Optional<String> cost = Optional.empty();
-    Optional<Double> weight = Optional.empty();
+    String cost;
+    double weight = 1.D;
   }
 
   static class BalancerPutRequest implements Request {
@@ -681,7 +658,7 @@ class BalancerHandler implements Handler {
     PlanExecutionProgress(
         String id,
         PlanPhase phase,
-        long timeoutMs,
+        Duration timeout,
         String balancer,
         String function,
         String exception,
@@ -690,7 +667,7 @@ class BalancerHandler implements Handler {
       this.phase = phase;
       this.exception = exception;
       this.plan = plan;
-      this.config = new PlanConfiguration(balancer, function, timeoutMs);
+      this.config = new PlanConfiguration(balancer, function, timeout);
     }
   }
 
@@ -724,12 +701,12 @@ class BalancerHandler implements Handler {
 
     final String function;
 
-    final long timeoutMs;
+    final Duration timeout;
 
-    PlanConfiguration(String balancer, String function, long timeoutMs) {
+    PlanConfiguration(String balancer, String function, Duration timeout) {
       this.balancer = balancer;
       this.function = function;
-      this.timeoutMs = timeoutMs;
+      this.timeout = timeout;
     }
   }
 }

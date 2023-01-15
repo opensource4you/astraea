@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -38,7 +39,9 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.management.InstanceNotFoundException;
+import org.astraea.common.cost.CostFunction;
 
 public final class Utils {
 
@@ -390,6 +393,31 @@ public final class Utils {
     return input.stream()
         .collect(Collectors.groupingBy(s -> counter.getAndIncrement() % numberOfChunks))
         .values();
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T extends CostFunction> Map<T, Double> costFunctions(
+      Configuration config, Class<T> costClz) {
+    return config.entrySet().stream()
+        .flatMap(
+            nameAndWeight -> {
+              try {
+                var clz = Class.forName(nameAndWeight.getKey());
+                if (!costClz.isAssignableFrom(clz)) return Stream.of();
+                var weight = Double.parseDouble(nameAndWeight.getValue());
+                if (weight < 0.0)
+                  throw new IllegalArgumentException(
+                      "the weight of cost function should be bigger than zero");
+                return Stream.of(Map.entry((Class<T>) clz, weight));
+              } catch (ClassNotFoundException ignore) {
+                // this config is not cost function, so we just skip it.
+                return Stream.of();
+              } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                    "the weight of cost function must be positive number", e);
+              }
+            })
+        .collect(Collectors.toMap(e -> Utils.construct(e.getKey(), config), Map.Entry::getValue));
   }
 
   private Utils() {}
