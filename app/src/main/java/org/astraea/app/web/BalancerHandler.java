@@ -354,7 +354,19 @@ class BalancerHandler implements Handler {
           Configuration.of(
               costWeights.stream()
                   .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))));
-      return HasClusterCost.of(Utils.costFunctions(config, HasClusterCost.class));
+      var fs = Utils.costFunctions(config, HasClusterCost.class);
+      if (fs.size() != costWeights.size())
+        throw new IllegalArgumentException(
+            "Has invalid costs: "
+                + costWeights.stream()
+                    .filter(
+                        e ->
+                            fs.keySet().stream()
+                                .map(c -> c.getClass().getName())
+                                .noneMatch(n -> e.cost.equals(n)))
+                    .map(e -> e.cost)
+                    .collect(Collectors.joining(",")));
+      return HasClusterCost.of(fs);
     }
   }
 

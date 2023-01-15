@@ -917,16 +917,24 @@ public class BalancerHandlerTest {
 
   @Test
   void testParsePostRequest() {
-    try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      // create a topic to avoid empty cluster
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(3)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(2));
+
       var clusterInfo =
           admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
-      {
-        // no cost weight
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo),
-            "CostWeights must be specified");
-      }
+      // no cost weight
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo),
+          "CostWeights must be specified");
       {
         // minimal
         var request = new BalancerPostRequest();
@@ -946,6 +954,7 @@ public class BalancerHandlerTest {
         var randomTopic0 = Utils.randomString();
         var randomTopic1 = Utils.randomString();
         var request = new BalancerPostRequest();
+        request.timeout = Duration.ofSeconds(32);
         request.topics = Set.of(randomTopic0, randomTopic1);
         request.balancerConfig = Map.of("KEY", "VALUE");
         request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
