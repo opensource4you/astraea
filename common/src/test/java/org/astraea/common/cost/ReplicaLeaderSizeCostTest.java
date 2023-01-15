@@ -16,23 +16,15 @@
  */
 package org.astraea.common.cost;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.collector.MetricCollector;
-import org.astraea.common.producer.Producer;
-import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -290,7 +282,7 @@ class ReplicaLeaderSizeCostTest {
   @Test
   void testPartitionCost() {
     var cost = new ReplicaLeaderSizeCost();
-    var result = cost.partitionCost(clusterInfo(), clusterBean()).value();
+    var result = cost.partitionCost(clusterInfo(), ClusterBean.EMPTY).value();
 
     Assertions.assertEquals(3, result.size());
     Assertions.assertEquals(777.0, result.get(TopicPartition.of("t", 10)));
@@ -306,24 +298,28 @@ class ReplicaLeaderSizeCostTest {
                 .partition(10)
                 .isLeader(true)
                 .nodeInfo(NodeInfo.of(0, "", -1))
+                .size(777)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(11)
                 .isLeader(true)
                 .nodeInfo(NodeInfo.of(1, "", -1))
+                .size(700)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(true)
                 .nodeInfo(NodeInfo.of(2, "", -1))
+                .size(500)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(false)
                 .nodeInfo(NodeInfo.of(0, "", -1))
+                .size(499)
                 .build());
     return ClusterInfo.of(
         "fake",
@@ -349,65 +345,12 @@ class ReplicaLeaderSizeCostTest {
   void testMaxPartitionSize() {
     var cost = new ReplicaLeaderSizeCost();
     var tp = TopicPartition.of("t", 0);
-    var overFlowSize = List.of(100.0, 200.0, 300.0);
-    var size = List.of(100.0, 110.0, 120.0);
+    var overFlowSize = List.of(100L, 200L, 300L);
+    var size = List.of(100L, 110L, 120L);
     Assertions.assertThrows(
         NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, List.of()));
     Assertions.assertThrows(
         NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, overFlowSize));
     Assertions.assertEquals(120.0, cost.maxPartitionSize(tp, size));
-  }
-
-  @Test
-  void testFetcher() throws InterruptedException {
-    var interval = Duration.ofMillis(300);
-    var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      try (var collector = MetricCollector.builder().interval(interval).build()) {
-        var costFunction = new ReplicaLeaderSizeCost();
-        // when cluster has partitions,each partition will correspond to a statistical bean
-        Assertions.assertThrows(
-            NoSufficientMetricsException.class,
-            () -> costFunction.clusterCost(clusterInfo(), ClusterBean.EMPTY));
-        Assertions.assertDoesNotThrow(
-            () -> costFunction.clusterCost(ClusterInfo.empty(), ClusterBean.EMPTY));
-
-        // create come partition to get metric
-        admin
-            .creator()
-            .topic(topicName)
-            .numberOfPartitions(4)
-            .numberOfReplicas((short) 1)
-            .run()
-            .toCompletableFuture()
-            .get();
-        var producer = Producer.of(SERVICE.bootstrapServers());
-        producer
-            .send(Record.builder().topic(topicName).partition(0).key(new byte[100]).build())
-            .toCompletableFuture()
-            .join();
-        collector.addFetcher(
-            costFunction.fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
-        collector.registerLocalJmx(0);
-        costFunction.sensors().forEach(collector::addMetricSensors);
-        var tpr =
-            List.of(
-                TopicPartitionReplica.of(topicName, 0, 0),
-                TopicPartitionReplica.of(topicName, 1, 0),
-                TopicPartitionReplica.of(topicName, 2, 0),
-                TopicPartitionReplica.of(topicName, 3, 0));
-        Utils.sleep(interval);
-        Assertions.assertEquals(
-            170 * 0.5,
-            collector
-                .clusterBean()
-                .replicaMetrics(tpr.get(0), ReplicaLeaderSizeCost.SizeStatisticalBean.class)
-                .findFirst()
-                .orElseThrow()
-                .value());
-      } catch (ExecutionException e) {
-        throw new RuntimeException(e);
-      }
-    }
   }
 }

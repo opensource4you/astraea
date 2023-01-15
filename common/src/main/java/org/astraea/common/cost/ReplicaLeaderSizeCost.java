@@ -34,7 +34,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -111,8 +110,8 @@ public class ReplicaLeaderSizeCost
                     Function.identity(),
                     id ->
                         DataSize.Byte.of(
-                            after.replicaStream(id).mapToLong(r -> r.size()).sum()
-                                - before.replicaStream(id).mapToLong(r -> r.size()).sum()))));
+                            after.replicaStream(id).mapToLong(Replica::size).sum()
+                                - before.replicaStream(id).mapToLong(Replica::size).sum()))));
   }
 
   /**
@@ -121,23 +120,6 @@ public class ReplicaLeaderSizeCost
    */
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var logSize =
-        clusterBean.replicas().stream()
-            .map(
-                p ->
-                    clusterBean
-                        .replicaMetrics(p, SizeStatisticalBean.class)
-                        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-                        .orElseThrow(
-                            () ->
-                                new NoSufficientMetricsException(
-                                    this, Duration.ofSeconds(1), "No metric for " + p)))
-            .collect(
-                Collectors.groupingBy(
-                    bean ->
-                        TopicPartition.of(
-                            bean.topicIndex().get(), bean.partitionIndex().get().partition()),
-                    Collectors.mapping(HasGauge::value, Collectors.toList())));
     var result =
         clusterInfo.replicas().stream()
             .collect(
@@ -145,23 +127,20 @@ public class ReplicaLeaderSizeCost
                     r -> r.nodeInfo().id(),
                     Collectors.mapping(
                         r ->
-                            statistReplicaSizeCount(
-                                    r.isLeader()
-                                        ? r.topicPartitionReplica()
-                                        : clusterInfo
-                                            .replicaLeader(r.topicPartition())
-                                            .map(Replica::topicPartitionReplica)
-                                            .orElse(r.topicPartitionReplica()),
-                                    clusterBean)
+                            clusterInfo
+                                .replicaLeader(r.topicPartition())
+                                .map(Replica::size)
                                 .orElse(
                                     maxPartitionSize(
                                         r.topicPartition(),
-                                        logSize.getOrDefault(r.topicPartition(), List.of()))),
+                                        clusterInfo.replicas(r.topicPartition()).stream()
+                                            .map(Replica::size)
+                                            .collect(Collectors.toList()))),
                         Collectors.summingDouble(x -> x))));
     return () -> result;
   }
 
-  double maxPartitionSize(TopicPartition tp, List<Double> size) {
+  long maxPartitionSize(TopicPartition tp, List<Long> size) {
     if (size.isEmpty())
       throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric for " + tp);
     checkSizeDiff(tp, size, 0.2);
@@ -181,7 +160,7 @@ public class ReplicaLeaderSizeCost
    * @param percentage the percentage of the maximum acceptable partition data volume difference
    *     between replicas
    */
-  private void checkSizeDiff(TopicPartition tp, List<Double> size, double percentage) {
+  private void checkSizeDiff(TopicPartition tp, List<Long> size, double percentage) {
     var max = size.stream().max(Comparator.comparing(Function.identity())).get();
     var min = size.stream().min(Comparator.comparing(Function.identity())).get();
     if ((max - min) / min > percentage)
@@ -189,14 +168,6 @@ public class ReplicaLeaderSizeCost
           this,
           Duration.ofSeconds(1),
           "The log size gap of partition" + tp + "is too large, more than" + percentage);
-  }
-
-  private Optional<Double> statistReplicaSizeCount(
-      TopicPartitionReplica tpr, ClusterBean clusterBean) {
-    return clusterBean
-        .replicaMetrics(tpr, SizeStatisticalBean.class)
-        .max(Comparator.comparing(HasBeanObject::createdTimestamp))
-        .map(SizeStatisticalBean::value);
   }
 
   @Override
@@ -213,15 +184,17 @@ public class ReplicaLeaderSizeCost
             .collect(
                 Collectors.toMap(
                     Replica::topicPartition,
-                    leaderReplica ->
-                        statistReplicaSizeCount(leaderReplica.topicPartitionReplica(), clusterBean)
-                            .orElseThrow(
-                                () ->
-                                    new NoSufficientMetricsException(
-                                        this,
-                                        Duration.ofSeconds(1),
-                                        "No metric for "
-                                            + leaderReplica.topicPartitionReplica()))));
+                    r ->
+                        (double)
+                            clusterInfo
+                                .replicaLeader(r.topicPartition())
+                                .map(Replica::size)
+                                .orElse(
+                                    maxPartitionSize(
+                                        r.topicPartition(),
+                                        clusterInfo.replicas(r.topicPartition()).stream()
+                                            .map(Replica::size)
+                                            .collect(Collectors.toList())))));
     return () -> result;
   }
 }
