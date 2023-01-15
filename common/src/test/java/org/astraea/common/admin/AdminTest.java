@@ -440,7 +440,7 @@ public class AdminTest {
       var original = info0.replicas(thePartition).get(0).path();
       var dest = folders1.get(ThreadLocalRandom.current().nextInt(folders1.size()));
       admin
-          .moveOrSetPreferredFolders(Map.of(TopicPartitionReplica.of(topicName, 0, 1), dest))
+          .declarePreferredDataFolders(Map.of(TopicPartitionReplica.of(topicName, 0, 1), dest))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(1));
@@ -465,6 +465,7 @@ public class AdminTest {
   void testMoveToPreferredFoldersException() {
     try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
       var topic = Utils.randomString();
+      var folders = List.copyOf(SERVICE.dataFolders().get(0));
       admin
           .creator()
           .topic(topic)
@@ -473,31 +474,50 @@ public class AdminTest {
           .run()
           .toCompletableFuture()
           .join();
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(topic, 0), List.of(1)))
+          .toCompletableFuture()
+          .join();
+      admin
+          .declarePreferredDataFolders(
+              Map.of(TopicPartitionReplica.of(topic, 0, 0), folders.get(0)))
+          .toCompletableFuture()
+          .join();
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(topic, 0), List.of(0)))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(1));
+
       Assertions.assertDoesNotThrow(
-          () -> admin.moveOrSetPreferredFolders(Map.of()).toCompletableFuture().join());
-      SERVICE
-          .dataFolders()
+          () -> admin.declarePreferredDataFolders(Map.of()).toCompletableFuture().join());
+      folders.stream()
+          .skip(1)
           .forEach(
-              (broker, folders) ->
-                  folders.forEach(
-                      folder ->
-                          Assertions.assertDoesNotThrow(
-                              () ->
-                                  admin
-                                      .moveOrSetPreferredFolders(
-                                          Map.of(
-                                              TopicPartitionReplica.of(topic, 0, broker), folder))
-                                      .toCompletableFuture()
-                                      .join(),
-                              "Declaration or movement should not raise a exception")));
+              folder -> {
+                Assertions.assertDoesNotThrow(
+                    () ->
+                        admin.declarePreferredDataFolders(
+                            Map.of(TopicPartitionReplica.of(topic, 0, 0), folder)),
+                    "No folder-to-folder movement");
+                Assertions.assertEquals(
+                    folders.get(0),
+                    admin
+                        .clusterInfo(Set.of(topic))
+                        .toCompletableFuture()
+                        .join()
+                        .replicas(TopicPartitionReplica.of(topic, 0, 0))
+                        .get(0)
+                        .path());
+              });
       Assertions.assertInstanceOf(
           LogDirNotFoundException.class,
           Assertions.assertThrows(
                   CompletionException.class,
                   () ->
                       admin
-                          .moveOrSetPreferredFolders(
-                              Map.of(TopicPartitionReplica.of(topic, 0, 0), "/no/such/folder"))
+                          .declarePreferredDataFolders(
+                              Map.of(TopicPartitionReplica.of(topic, 0, 1), "/no/such/folder"))
                           .toCompletableFuture()
                           .join())
               .getCause(),
@@ -508,9 +528,9 @@ public class AdminTest {
                   CompletionException.class,
                   () ->
                       admin
-                          .moveOrSetPreferredFolders(
+                          .declarePreferredDataFolders(
                               Map.of(
-                                  TopicPartitionReplica.of("NO_TOPIC" + Utils.randomString(), 0, 0),
+                                  TopicPartitionReplica.of("NO_TOPIC" + Utils.randomString(), 0, 2),
                                   SERVICE.dataFolders().get(0).iterator().next()))
                           .toCompletableFuture()
                           .join())

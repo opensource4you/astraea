@@ -59,24 +59,16 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                 tps.stream()
                     .flatMap(tp -> logAllocation.replicas(tp).stream())
                     .collect(Collectors.toList()))
-        // step.1 move replicas to specify folders or declare preferred folders
+        // step 0: declare preferred data dir
         .thenCompose(
             replicas ->
-                CompletableFuture.supplyAsync(
-                    () -> {
-                      // temporarily disable data-directory migration, there are some Kafka bug
-                      // related to it.
-                      // see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
-                      if (!disableDataDirectoryMigration) {
-                        admin.moveOrSetPreferredFolders(
-                            replicas.stream()
-                                .collect(
-                                    Collectors.toMap(
-                                        Replica::topicPartitionReplica, Replica::path)));
-                      }
-                      return replicas;
-                    }))
-        // step 2: move replicas to designated brokers
+                admin
+                    .declarePreferredDataFolders(
+                        replicas.stream()
+                            .collect(
+                                Collectors.toMap(Replica::topicPartitionReplica, Replica::path)))
+                    .thenApply((ignore) -> replicas))
+        // step 1: move replicas to specify brokers
         .thenCompose(
             replicas ->
                 admin
@@ -89,10 +81,43 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                                     Collectors.mapping(
                                         r -> r.nodeInfo().id(), Collectors.toList()))))
                     .thenApply(ignored -> replicas))
-        // step.3 wait replicas get synced
+        // step 2: wait replicas get reassigned
+        .thenCompose(
+            replicas ->
+                admin
+                    .waitCluster(
+                        logAllocation.topics(),
+                        clusterInfo ->
+                            clusterInfo
+                                .topicPartitionReplicas()
+                                .containsAll(logAllocation.topicPartitionReplicas()),
+                        timeout,
+                        5)
+                    .thenApply(
+                        done -> {
+                          if (!done)
+                            throw new IllegalStateException(
+                                "Failed to move "
+                                    + replicas.stream()
+                                        .map(Replica::topicPartitionReplica)
+                                        .collect(Collectors.toSet()));
+                          return replicas;
+                        }))
+        // step.3 move replicas to specify folders
+        .thenCompose(
+            replicas -> {
+              // temporarily disable data-directory migration, there are some Kafka bug related to
+              // it. see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
+              if (disableDataDirectoryMigration) return CompletableFuture.completedFuture(null);
+              else
+                return admin.moveToFolders(
+                    replicas.stream()
+                        .collect(Collectors.toMap(Replica::topicPartitionReplica, Replica::path)));
+            })
+        // step.4 wait replicas get synced
         .thenCompose(
             replicas -> admin.waitReplicasSynced(logAllocation.topicPartitionReplicas(), timeout))
-        // step.4 re-elect leaders
+        // step.5 re-elect leaders
         .thenCompose(
             topicPartitions ->
                 admin

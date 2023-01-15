@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -983,15 +984,33 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<Void> moveOrSetPreferredFolders(
+  public CompletionStage<Void> declarePreferredDataFolders(
       Map<TopicPartitionReplica, String> assignments) {
+    if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
+
     var wrapper = new CompletableFuture<Void>();
-    moveToFolders(assignments)
+    clusterInfo(
+            assignments.keySet().stream()
+                .map(TopicPartitionReplica::topic)
+                .collect(Collectors.toUnmodifiableSet()))
+        .thenApply(
+            cluster ->
+                assignments.entrySet().stream()
+                    .filter(e -> cluster.replicas(e.getKey()).isEmpty())
+                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .thenCompose(this::moveToFolders)
         .whenComplete(
             (r, e) -> {
-              if (e instanceof ReplicaNotAvailableException) wrapper.complete(null);
-              else if (e != null) wrapper.completeExceptionally(e);
-              else wrapper.complete(null);
+              if (e instanceof CompletionException) {
+                if (e.getCause() instanceof ReplicaNotAvailableException) wrapper.complete(null);
+                else wrapper.completeExceptionally(e.getCause());
+              } else if (e == null) {
+                wrapper.completeExceptionally(
+                    new RuntimeException(
+                        "Fail to expect a ReplicaNotAvailableException return from the API. "
+                            + "A data folder movement might just triggered. "
+                            + "Is there another Admin Client manipulating the cluster state?"));
+              }
             });
     return wrapper;
   }

@@ -283,12 +283,22 @@ public interface Admin extends AutoCloseable {
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
-   * Move the replica to the specific data folder at their corresponding broker. If the specified
-   * replica doesn't exist, then declare the data folder as a preferred data folder. That being
-   * said, once the replica is moved to this broker, it will use this folder as its data folder.
-   * Instead of following the Kafka implementation detail to decide which folder it should use.
+   * Declare the desired data folder for the designated partition at a specific broker.
+   *
+   * <p>When a partition is being placed to a broker. The Kafka implementation picks a data folder
+   * to store this partition. This API allows you to demand which data folder a partition should use
+   * when the Kafka internal is making this decision. This API can come in handy when you want to
+   * place a replica in a specific data folder under a specific broker in one go. One way to do this
+   * is: use this method to declare preferred data folder at specific broker for the partition. Then
+   * use {@link Admin#moveToBrokers(Map)} to trigger the actual movement for that partition.
+   *
+   * <p>This API should not trigger an actual data folder movement. To perform a folder-to-folder
+   * movement under the same broker. Use {@link Admin#moveToFolders(Map)} instead. Although this API
+   * might accidentally trigger a data folder movement when there is another Kafka admin client
+   * changing the state of the cluster. To avoid such problem, one should ensure there is no other
+   * client manipulating the state of the cluster, chen calling this method.
    */
-  CompletionStage<Void> moveOrSetPreferredFolders(Map<TopicPartitionReplica, String> assignments);
+  CompletionStage<Void> declarePreferredDataFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
