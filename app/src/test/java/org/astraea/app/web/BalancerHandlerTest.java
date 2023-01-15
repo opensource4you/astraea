@@ -21,7 +21,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -66,6 +65,7 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
@@ -118,21 +118,14 @@ public class BalancerHandlerTest {
           .replicaStream()
           .forEach(r -> Assertions.assertNotEquals(0, r.size()));
       var handler = new BalancerHandler(admin);
-      var progress =
-          submitPlanGeneration(
-              handler,
-              Map.of(
-                  BALANCER_IMPLEMENTATION_KEY,
-                  GreedyBalancer.class.getName(),
-                  BALANCER_CONFIGURATION_KEY,
-                  Map.of("a", "b"),
-                  TIMEOUT_KEY,
-                  "1234ms",
-                  COST_WEIGHT_KEY,
-                  defaultDecreasing));
+      var request = new BalancerPostRequest();
+      request.balancer = GreedyBalancer.class.getName();
+      request.balancerConfig = Map.of("a", "b");
+      request.timeout = Duration.ofMillis(1234);
+      var progress = submitPlanGeneration(handler, request);
       var report = progress.plan;
       Assertions.assertNotNull(progress.id);
-      Assertions.assertEquals(1234, progress.config.timeoutMs);
+      Assertions.assertEquals(Duration.ofMillis(1234), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
       Assertions.assertTrue(report.cost >= report.newCost.get());
@@ -169,18 +162,11 @@ public class BalancerHandlerTest {
       var handler = new BalancerHandler(admin);
       // For all 5 topics, we only allow the first two topics can be altered.
       // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
-      var allowedTopics = topicNames.subList(0, 2);
-      var report =
-          submitPlanGeneration(
-                  handler,
-                  Map.of(
-                      BALANCER_CONFIGURATION_KEY,
-                      Map.of("iteration", "30"),
-                      TOPICS_KEY,
-                      String.join(",", allowedTopics),
-                      COST_WEIGHT_KEY,
-                      defaultDecreasing))
-              .plan;
+      var allowedTopics = List.copyOf(topicNames).subList(0, 2);
+      var request = new BalancerPostRequest();
+      request.balancerConfig = Map.of("iteration", "30");
+      request.topics = Set.copyOf(allowedTopics);
+      var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
@@ -200,17 +186,17 @@ public class BalancerHandlerTest {
     }
   }
 
-  private static List<String> createAndProduceTopic(int topicCount) {
+  private static Set<String> createAndProduceTopic(int topicCount) {
     return createAndProduceTopic(topicCount, 3, (short) 1, true);
   }
 
-  private static List<String> createAndProduceTopic(
+  private static Set<String> createAndProduceTopic(
       int topicCount, int partitions, short replicas, boolean skewed) {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var topics =
           IntStream.range(0, topicCount)
               .mapToObj(ignored -> Utils.randomString(10))
-              .collect(Collectors.toUnmodifiableList());
+              .collect(Collectors.toUnmodifiableSet());
       topics.forEach(
           topic -> {
             admin
@@ -364,17 +350,10 @@ public class BalancerHandlerTest {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
-      var report =
-          submitPlanGeneration(
-                  handler,
-                  Map.of(
-                      MAX_MIGRATE_LEADER_KEY,
-                      leaderLimit,
-                      MAX_MIGRATE_SIZE_KEY,
-                      sizeLimit,
-                      COST_WEIGHT_KEY,
-                      defaultDecreasing))
-              .plan;
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.maxMigratedSize = DataSize.of(sizeLimit);
+      request.maxMigratedLeader = Long.parseLong(leaderLimit);
+      var report = submitPlanGeneration(handler, request).plan;
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
@@ -423,7 +402,7 @@ public class BalancerHandlerTest {
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertNotNull(post.id);
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertEquals(996, progress.config.timeoutMs);
+      Assertions.assertEquals(Duration.ofMillis(996), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "search done");
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
@@ -451,14 +430,9 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
-      var progress =
-          submitPlanGeneration(
-              handler,
-              Map.of(
-                  COST_WEIGHT_KEY,
-                  defaultDecreasing,
-                  BALANCER_CONFIGURATION_KEY,
-                  Map.of("iteration", "100")));
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.balancerConfig = Map.of("iteration", "100");
+      var progress = submitPlanGeneration(handler, request);
       var thePlanId = progress.id;
 
       // act
@@ -512,7 +486,7 @@ public class BalancerHandlerTest {
       Utils.sleep(Duration.ofSeconds(3));
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
-      var progress = submitPlanGeneration(handler, Map.of());
+      var progress = submitPlanGeneration(handler, new BalancerPostRequest());
 
       // use many threads to increase the chance to trigger a data race
       final int threadCount = Runtime.getRuntime().availableProcessors() * 3;
@@ -566,8 +540,8 @@ public class BalancerHandlerTest {
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
-      var plan0 = submitPlanGeneration(handler, Map.of());
-      var plan1 = submitPlanGeneration(handler, Map.of());
+      var plan0 = submitPlanGeneration(handler, new BalancerPostRequest());
+      var plan1 = submitPlanGeneration(handler, new BalancerPostRequest());
 
       Assertions.assertDoesNotThrow(
           () -> handler.put(httpRequest(Map.of("id", plan0.id))).toCompletableFuture().join());
@@ -596,12 +570,9 @@ public class BalancerHandlerTest {
       }
 
       var handler = new BalancerHandler(admin, new NoOpExecutor());
-      var theReport =
-          submitPlanGeneration(
-              handler,
-              Map.of(
-                  TOPICS_KEY, theTopic,
-                  COST_WEIGHT_KEY, defaultDecreasing));
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.topics = Set.of(theTopic);
+      var theReport = submitPlanGeneration(handler, request);
 
       // create an ongoing reassignment
       Assertions.assertEquals(
@@ -695,16 +666,13 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testPutSanityCheck() {
-    var topic = createAndProduceTopic(1).get(0);
+    var topic = createAndProduceTopic(1).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theExecutor = new NoOpExecutor();
       var handler = new BalancerHandler(admin, theExecutor);
-      var theProgress =
-          submitPlanGeneration(
-              handler,
-              Map.of(
-                  COST_WEIGHT_KEY, defaultDecreasing,
-                  TOPICS_KEY, topic));
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.topics = Set.of(topic);
+      var theProgress = submitPlanGeneration(handler, request);
 
       // pick a partition and alter its placement
       var theChange = theProgress.plan.changes.stream().findAny().orElseThrow();
@@ -753,7 +721,7 @@ public class BalancerHandlerTest {
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
-      var progress = submitPlanGeneration(handler, Map.of());
+      var progress = submitPlanGeneration(handler, new BalancerPostRequest());
       Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
 
       // not scheduled yet
@@ -883,10 +851,9 @@ public class BalancerHandlerTest {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, new StraightPlanExecutor());
-      var progress =
-          submitPlanGeneration(
-              handler,
-              Map.of(COST_WEIGHT_KEY, defaultDecreasing, TOPICS_KEY, String.join(",", topics)));
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.topics = topics;
+      var progress = submitPlanGeneration(handler, request);
 
       Assertions.assertDoesNotThrow(
           () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
@@ -935,18 +902,12 @@ public class BalancerHandlerTest {
             newInvoked.set(true);
           });
 
-      var progress =
-          submitPlanGeneration(
-              handler,
-              Map.of(
-                  BALANCER_IMPLEMENTATION_KEY,
-                  balancer,
-                  BALANCER_CONFIGURATION_KEY,
-                  balancerConfig,
-                  COST_WEIGHT_KEY,
-                  defaultDecreasing,
-                  TOPICS_KEY,
-                  String.join(",", topics)));
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.balancer = balancer;
+      request.balancerConfig = balancerConfig;
+      request.topics = topics;
+
+      var progress = submitPlanGeneration(handler, request);
 
       Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "Plan is here");
       Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
@@ -985,8 +946,7 @@ public class BalancerHandlerTest {
         var randomTopic0 = Utils.randomString();
         var randomTopic1 = Utils.randomString();
         var request = new BalancerPostRequest();
-        request.topics = Optional.of(randomTopic0 + "," + randomTopic1);
-        request.timeout = "32";
+        request.topics = Set.of(randomTopic0, randomTopic1);
         request.balancerConfig = Map.of("KEY", "VALUE");
         request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
 
@@ -1019,14 +979,12 @@ public class BalancerHandlerTest {
                 COST_WEIGHT_KEY,
                 defaultDecreasing);
         var balancerRequest = new BalancerPostRequest();
-        balancerRequest.topics = Optional.of("");
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> BalancerHandler.parsePostRequestWrapper(balancerRequest, clusterInfo),
             "Empty topic filter, nothing to rebalance");
 
         var balancerRequest3 = new BalancerPostRequest();
-        balancerRequest3.timeout = "-5566";
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> BalancerHandler.parsePostRequestWrapper(balancerRequest3, clusterInfo),
@@ -1034,7 +992,7 @@ public class BalancerHandlerTest {
 
         var balancerRequest4 = new BalancerPostRequest();
         var costWeight = new CostWeight();
-        costWeight.cost = Optional.of("yes");
+        costWeight.cost = "yes";
         balancerRequest4.costWeights = List.of(costWeight);
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -1085,18 +1043,13 @@ public class BalancerHandlerTest {
             metrics.forEach(i -> Assertions.assertInstanceOf(JvmMemory.class, i));
             invoked.set(true);
           });
-      var fetcherAndCost = Collections.singleton(costWeight(FetcherAndCost.class.getName(), 1));
+      var fetcherAndCost = List.of(costWeight(FetcherAndCost.class.getName(), 1));
 
-      var progress =
-          submitPlanGeneration(
-              handler,
-              Map.of(
-                  TIMEOUT_KEY,
-                  "8",
-                  COST_WEIGHT_KEY,
-                  fetcherAndCost,
-                  TOPICS_KEY,
-                  String.join(",", topics)));
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.timeout = Duration.ofSeconds(8);
+      request.costWeights = fetcherAndCost;
+      request.topics = topics;
+      var progress = submitPlanGeneration(handler, request);
 
       Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
       Assertions.assertTrue(invoked.get());
@@ -1245,14 +1198,14 @@ public class BalancerHandlerTest {
 
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
-      BalancerHandler handler, Map<String, Object> requestBody) {
-    if (!requestBody.containsKey(COST_WEIGHT_KEY)) {
-      requestBody = new HashMap<>(requestBody);
-      requestBody.put(COST_WEIGHT_KEY, defaultDecreasing);
-    }
+      BalancerHandler handler, BalancerPostRequest request) {
+    if (request.costWeights.isEmpty()) request.costWeights = defaultDecreasing;
     var post =
         (BalancerHandler.PostPlanResponse)
-            handler.post(httpRequest(requestBody)).toCompletableFuture().join();
+            handler
+                .post(Channel.ofRequest(JsonConverter.defaultConverter().toJson(request)))
+                .toCompletableFuture()
+                .join();
     Utils.waitFor(
         () -> {
           var progress =
@@ -1365,12 +1318,37 @@ public class BalancerHandlerTest {
 
   private static BalancerHandler.CostWeight costWeight(String cost, double weight) {
     var cw = new BalancerHandler.CostWeight();
-    cw.cost = Optional.of(cost);
-    cw.weight = Optional.of(weight);
+    cw.cost = cost;
+    cw.weight = weight;
     return cw;
   }
 
   private static Channel httpRequest(Map<String, ?> payload) {
     return Channel.ofRequest(JsonConverter.defaultConverter().toJson(payload));
+  }
+
+  @Test
+  void testJsonToBalancerPostRequest() {
+    var json =
+        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\", \"topics\":[\"aa\"], \"costWeights\":[{\"cost\":\"aaa\"}]}";
+    var request =
+        JsonConverter.defaultConverter().fromJson(json, TypeRef.of(BalancerPostRequest.class));
+    Assertions.assertEquals(
+        "org.astraea.common.balancer.algorithms.GreedyBalancer", request.balancer);
+    Assertions.assertNotNull(request.balancerConfig);
+    Assertions.assertNotNull(request.timeout);
+    Assertions.assertEquals(Set.of("aa"), request.topics);
+    Assertions.assertNotNull(request.maxMigratedSize);
+    Assertions.assertEquals(1, request.costWeights.size());
+    Assertions.assertEquals("aaa", request.costWeights.get(0).cost);
+    Assertions.assertEquals(1D, request.costWeights.get(0).weight);
+
+    var noCostRequest =
+        JsonConverter.defaultConverter()
+            .fromJson(
+                "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\"}",
+                TypeRef.of(BalancerPostRequest.class));
+
+    Assertions.assertThrows(IllegalArgumentException.class, noCostRequest::clusterCost);
   }
 }

@@ -20,7 +20,6 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -115,38 +114,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     }
   }
 
-  /**
-   * Parse cost function names and weight. you can specify multiple cost function with assignor. The
-   * format of key and value pair is "<CostFunction name>"="<weight>". For instance,
-   * {"org.astraea.common.cost.ReplicaSizeCost","1"} will be parsed to {(HasPartitionCost object),
-   * 1.0}.
-   *
-   * @param config the configuration of the user setting, contain cost function and its weight.
-   * @return Map from cost function object to its weight
-   */
-  static Map<HasPartitionCost, Double> parseCostFunctionWeight(Configuration config) {
-    return config.entrySet().stream()
-        .map(
-            nameAndWeight -> {
-              Class<?> clz;
-              try {
-                clz = Class.forName(nameAndWeight.getKey());
-              } catch (ClassNotFoundException ignore) {
-                return null;
-              }
-              var weight = Double.parseDouble(nameAndWeight.getValue());
-              if (weight < 0.0)
-                throw new IllegalArgumentException("Cost function weight should not be negative");
-              return Map.entry(clz, weight);
-            })
-        .filter(Objects::nonNull)
-        .filter(e -> HasPartitionCost.class.isAssignableFrom(e.getKey()))
-        .collect(
-            Collectors.toMap(
-                e -> Utils.construct((Class<HasPartitionCost>) e.getKey(), config),
-                Map.Entry::getValue));
-  }
-
   // -----------------------[kafka method]-----------------------//
 
   @Override
@@ -178,7 +145,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
-    var costFunctions = parseCostFunctionWeight(config);
+    var costFunctions = Utils.costFunctions(config, HasPartitionCost.class);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =
