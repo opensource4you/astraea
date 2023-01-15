@@ -312,6 +312,7 @@ public class ExporterTest {
         Assertions.assertEquals(record.timestamp(), records1.timestamp());
         Assertions.assertEquals(record.offset(), records1.offset());
       }
+      task.close();
     }
   }
 
@@ -380,13 +381,13 @@ public class ExporterTest {
               .build();
 
       task.put(List.of(record1));
-      Utils.sleep(Duration.ofMillis(50));
+      Utils.sleep(Duration.ofMillis(500));
 
       task.put(List.of(record2));
-      Utils.sleep(Duration.ofMillis(600));
+      Utils.sleep(Duration.ofMillis(1000));
 
       task.put(List.of(record3));
-      Utils.sleep(Duration.ofMillis(600));
+      Utils.sleep(Duration.ofMillis(1000));
 
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
@@ -418,6 +419,7 @@ public class ExporterTest {
                   Assertions.assertEquals(record.offset(), sinkRecord.offset());
                 }
               });
+      task.close();
     }
   }
 }
