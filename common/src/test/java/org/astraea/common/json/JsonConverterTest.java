@@ -448,6 +448,13 @@ class JsonConverterTest {
     assertEquals(List.of(DataSize.MB.of(10), DataSize.MB.of(11)), v1.list);
     assertEquals(Map.of("a", DataSize.MB.of(5)), v1.map);
 
+    var v2 =
+        JsonConverter.defaultConverter()
+            .fromJson(JsonConverter.defaultConverter().toJson(v1), TypeRef.of(TestDataSize.class));
+    assertEquals(v1.value, v2.value);
+    assertEquals(v1.list, v2.list);
+    assertEquals(v1.map, v2.map);
+
     assertThrows(
         IllegalArgumentException.class,
         () -> JsonConverter.defaultConverter().fromJson("{}", TypeRef.of(TestDataSize.class)));
@@ -478,6 +485,13 @@ class JsonConverterTest {
     assertEquals(Duration.ofSeconds(11), v1.value);
     assertEquals(List.of(Duration.ofSeconds(13), Duration.ofSeconds(12)), v1.list);
     assertEquals(Map.of("a", Duration.ofSeconds(7)), v1.map);
+
+    var v2 =
+        JsonConverter.defaultConverter()
+            .fromJson(JsonConverter.defaultConverter().toJson(v1), TypeRef.of(TestDuration.class));
+    assertEquals(v1.value, v2.value);
+    assertEquals(v1.list, v2.list);
+    assertEquals(v1.map, v2.map);
 
     assertThrows(
         IllegalArgumentException.class,
