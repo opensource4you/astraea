@@ -87,10 +87,10 @@ class ReplicaLeaderSizeCostTest {
     var moveCost = cost.moveCost(originClusterInfo(), newClusterInfo(), ClusterBean.EMPTY);
 
     Assertions.assertEquals(
-        3, moveCost.movedReplicaSize().size(), moveCost.movedReplicaSize().toString());
-    Assertions.assertEquals(700000, moveCost.movedReplicaSize().get(0).bytes());
-    Assertions.assertEquals(-6700000, moveCost.movedReplicaSize().get(1).bytes());
-    Assertions.assertEquals(6000000, moveCost.movedReplicaSize().get(2).bytes());
+        3, moveCost.movedRecordSize().size(), moveCost.movedRecordSize().toString());
+    Assertions.assertEquals(700000, moveCost.movedRecordSize().get(0).bytes());
+    Assertions.assertEquals(-6700000, moveCost.movedRecordSize().get(1).bytes());
+    Assertions.assertEquals(6000000, moveCost.movedRecordSize().get(2).bytes());
   }
 
   /*

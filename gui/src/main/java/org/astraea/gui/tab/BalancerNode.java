@@ -105,7 +105,7 @@ public class BalancerNode {
 
     process.accept("changed replicas", plan.moveCost().changedReplicaCount());
     process.accept("changed leaders", plan.moveCost().changedReplicaLeaderCount());
-    process.accept("changed size", plan.moveCost().movedReplicaSize());
+    process.accept("changed size", plan.moveCost().movedRecordSize());
 
     return List.copyOf(map.values());
   }
@@ -165,7 +165,7 @@ public class BalancerNode {
                 .filter(
                     limit ->
                         limit
-                            <= cost.movedReplicaSize().values().stream()
+                            <= cost.movedRecordSize().values().stream()
                                 .mapToLong(s -> Math.abs(s.bytes()))
                                 .sum())
                 .isEmpty()

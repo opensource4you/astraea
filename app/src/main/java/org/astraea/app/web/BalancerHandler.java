@@ -240,7 +240,7 @@ class BalancerHandler implements Handler {
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
                 MOVED_SIZE,
-                cost.movedReplicaSize().entrySet().stream()
+                cost.movedRecordSize().entrySet().stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
@@ -324,8 +324,7 @@ class BalancerHandler implements Handler {
   static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
     return cost -> {
       if (request.maxMigratedSize.bytes()
-          < cost.movedReplicaSize().values().stream().mapToLong(DataSize::bytes).sum())
-        return false;
+          < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
       if (request.maxMigratedLeader
           < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
         return false;
