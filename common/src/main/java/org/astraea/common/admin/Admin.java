@@ -283,6 +283,14 @@ public interface Admin extends AutoCloseable {
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
+   * Move the replica to the specific data folder at their corresponding broker. If the specified
+   * replica doesn't exist, then declare the data folder as a preferred data folder. That being
+   * said, once the replica is moved to this broker, it will use this folder as its data folder.
+   * Instead of following the Kafka implementation detail to decide which folder it should use.
+   */
+  CompletionStage<Void> moveOrSetPreferredFolders(Map<TopicPartitionReplica, String> assignments);
+
+  /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
    * preferred leader) in the partition replica list becomes the leader of its corresponding
    * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.

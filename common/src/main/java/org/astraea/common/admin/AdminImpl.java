@@ -50,6 +50,7 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.ReplicaNotAvailableException;
 import org.apache.kafka.common.errors.UnsupportedVersionException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
@@ -979,6 +980,20 @@ class AdminImpl implements Admin {
                         Collectors.toMap(
                             e -> TopicPartitionReplica.to(e.getKey()), Map.Entry::getValue)))
             .all());
+  }
+
+  @Override
+  public CompletionStage<Void> moveOrSetPreferredFolders(
+      Map<TopicPartitionReplica, String> assignments) {
+    var wrapper = new CompletableFuture<Void>();
+    moveToFolders(assignments)
+        .whenComplete(
+            (r, e) -> {
+              if (e instanceof ReplicaNotAvailableException) wrapper.complete(null);
+              else if (e != null) wrapper.completeExceptionally(e);
+              else wrapper.complete(null);
+            });
+    return wrapper;
   }
 
   @Override
