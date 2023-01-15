@@ -16,13 +16,17 @@
  */
 package org.astraea.common.cost;
 
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
-public class NodeSizeCost implements HasBrokerCost {
+public class RecordSizeCost
+    implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
@@ -31,6 +35,40 @@ public class NodeSizeCost implements HasBrokerCost {
                 Collectors.toMap(
                     NodeInfo::id,
                     n -> clusterInfo.replicaStream(n.id()).mapToDouble(Replica::size).sum()));
+    return () -> result;
+  }
+
+  @Override
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+    return MoveCost.movedRecordSize(
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .distinct()
+            .parallel()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    id ->
+                        DataSize.Byte.of(
+                            after.replicaStream(id).mapToLong(Replica::size).sum()
+                                - before.replicaStream(id).mapToLong(Replica::size).sum()))));
+  }
+
+  @Override
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var result =
+        clusterInfo.replicaLeaders().stream()
+            .collect(
+                Collectors.groupingBy(
+                    Replica::topicPartition,
+                    Collectors.mapping(
+                        r -> (double) r.size(), Collectors.reducing(0D, Math::max))));
+    return () -> result;
+  }
+
+  @Override
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var result = clusterInfo.replicaStream().mapToLong(Replica::size).sum();
     return () -> result;
   }
 }
