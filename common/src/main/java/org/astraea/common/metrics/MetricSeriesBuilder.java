@@ -18,14 +18,11 @@ package org.astraea.common.metrics;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,14 +31,12 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.metrics.broker.LogMetrics;
-import org.astraea.common.metrics.broker.ServerMetrics;
 
 /**
- * A utility for generating a series of metric objects, where the measured metric value might be
- * highly correlated to specific variables. For example broker id, calendar time, or unknown noise.
- * This class offers a way to construct large-scale metric sources of a fake cluster, which will be
- * useful for testing and experiment purposes.
+ * A utility for generating a seriesByBrokerTopic of metric objects, where the measured metric value
+ * might be highly correlated to specific variables. For example broker id, calendar time, or
+ * unknown noise. This class offers a way to construct large-scale metric sources of a fake cluster,
+ * which will be useful for testing and experiment purposes.
  */
 public interface MetricSeriesBuilder {
 
@@ -55,10 +50,35 @@ public interface MetricSeriesBuilder {
 
   MetricSeriesBuilder sampleInterval(Duration interval);
 
-  MetricSeriesBuilder series(
-      BiFunction<MetricGenerator, Integer, Stream<? extends HasBeanObject>> seriesGenerator);
+  MetricSeriesBuilder seriesByBroker(BrokerSeries seriesGenerator);
+
+  MetricSeriesBuilder seriesByBrokerTopic(BrokerTopicSeries seriesGenerator);
+
+  MetricSeriesBuilder seriesByBrokerPartition(BrokerPartitionSeries seriesGenerator);
+
+  MetricSeriesBuilder seriesByBrokerReplica(BrokerReplicaSeries seriesGenerator);
 
   ClusterBean build();
+
+  @FunctionalInterface
+  interface BrokerSeries {
+    Stream<? extends HasBeanObject> series(LocalDateTime time, int broker);
+  }
+
+  @FunctionalInterface
+  interface BrokerTopicSeries {
+    HasBeanObject series(LocalDateTime time, int broker, String topic);
+  }
+
+  @FunctionalInterface
+  interface BrokerPartitionSeries {
+    HasBeanObject series(LocalDateTime time, int broker, TopicPartition partition);
+  }
+
+  @FunctionalInterface
+  interface BrokerReplicaSeries {
+    HasBeanObject series(LocalDateTime time, int broker, Replica replica);
+  }
 
   final class MetricSeriesBuilderImpl implements MetricSeriesBuilder {
 
@@ -92,9 +112,7 @@ public interface MetricSeriesBuilder {
     }
 
     @Override
-    public MetricSeriesBuilder series(
-        BiFunction<MetricGenerator, Integer, Stream<? extends HasBeanObject>> seriesGenerator) {
-      // the series state is decided at the call time, instead of build time.
+    public MetricSeriesBuilder seriesByBroker(BrokerSeries seriesGenerator) {
       final var cluster = clusterInfo;
       final var start = timeStart;
       final var end = timeStart.plus(timeRange);
@@ -106,12 +124,100 @@ public interface MetricSeriesBuilder {
                   .flatMap(
                       time ->
                           cluster.nodes().stream()
-                              .map(node -> new MetricGenerator(cluster, node, time)))
+                              .map(
+                                  node ->
+                                      Map.entry(
+                                          node.id(), seriesGenerator.series(time, node.id()))))
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          gen -> gen.node().id(),
-                          gen -> seriesGenerator.apply(gen, gen.node().id()),
-                          Stream::concat)));
+                          Map.Entry::getKey, Map.Entry::getValue, Stream::concat)));
+      return this;
+    }
+
+    @Override
+    public MetricSeriesBuilder seriesByBrokerTopic(BrokerTopicSeries seriesGenerator) {
+      final var cluster = clusterInfo;
+      final var start = timeStart;
+      final var end = timeStart.plus(timeRange);
+      final var interval = sampleInterval;
+      this.series.add(
+          () ->
+              cluster.nodes().stream()
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          NodeInfo::id,
+                          node ->
+                              Stream.iterate(
+                                      start,
+                                      (t) -> t.isBefore(end) || t.isEqual(end),
+                                      (t) -> t.plus(interval))
+                                  .flatMap(
+                                      time ->
+                                          cluster
+                                              .replicaStream(node.id())
+                                              .map(Replica::topic)
+                                              .distinct()
+                                              .map(
+                                                  topic ->
+                                                      seriesGenerator.series(
+                                                          time, node.id(), topic))))));
+      return this;
+    }
+
+    @Override
+    public MetricSeriesBuilder seriesByBrokerPartition(BrokerPartitionSeries seriesGenerator) {
+      final var cluster = clusterInfo;
+      final var start = timeStart;
+      final var end = timeStart.plus(timeRange);
+      final var interval = sampleInterval;
+      this.series.add(
+          () ->
+              cluster.nodes().stream()
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          NodeInfo::id,
+                          node ->
+                              Stream.iterate(
+                                      start,
+                                      (t) -> t.isBefore(end) || t.isEqual(end),
+                                      (t) -> t.plus(interval))
+                                  .flatMap(
+                                      time ->
+                                          cluster
+                                              .replicaStream(node.id())
+                                              .map(Replica::topicPartition)
+                                              .map(
+                                                  partition ->
+                                                      seriesGenerator.series(
+                                                          time, node.id(), partition))))));
+      return this;
+    }
+
+    @Override
+    public MetricSeriesBuilder seriesByBrokerReplica(BrokerReplicaSeries seriesGenerator) {
+      final var cluster = clusterInfo;
+      final var start = timeStart;
+      final var end = timeStart.plus(timeRange);
+      final var interval = sampleInterval;
+      this.series.add(
+          () ->
+              cluster.nodes().stream()
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          NodeInfo::id,
+                          node ->
+                              Stream.iterate(
+                                      start,
+                                      (t) -> t.isBefore(end) || t.isEqual(end),
+                                      (t) -> t.plus(interval))
+                                  .flatMap(
+                                      time ->
+                                          cluster
+                                              .replicaStream(node.id())
+                                              .map(
+                                                  replica ->
+                                                      seriesGenerator.series(
+                                                          time, node.id(), replica))))));
       return this;
     }
 
@@ -127,66 +233,6 @@ public interface MetricSeriesBuilder {
                       Collectors.flatMapping(
                           Map.Entry::getValue, Collectors.toCollection(ArrayList::new))));
       return ClusterBean.of(allMetrics);
-    }
-  }
-
-  final class MetricGenerator {
-
-    private final ClusterInfo clusterInfo;
-    private final NodeInfo node;
-    private final LocalDateTime time;
-
-    MetricGenerator(ClusterInfo clusterInfo, NodeInfo node, LocalDateTime time) {
-      this.clusterInfo = clusterInfo;
-      this.node = node;
-      this.time = time;
-    }
-
-    public LocalDateTime now() {
-      return time;
-    }
-
-    public ClusterInfo cluster() {
-      return clusterInfo;
-    }
-
-    public NodeInfo node() {
-      return node;
-    }
-
-    public <T extends HasBeanObject> Stream<T> perBrokerTopic(Function<String, T> mapper) {
-      return clusterInfo.replicaStream(node.id()).map(Replica::topic).distinct().map(mapper);
-    }
-
-    public <T extends HasBeanObject> Stream<T> perBrokerPartition(
-        Function<TopicPartition, T> mapper) {
-      return clusterInfo.replicaStream(node.id()).map(Replica::topicPartition).map(mapper);
-    }
-
-    public <T extends HasBeanObject> Stream<T> perBrokerReplica(Function<Replica, T> mapper) {
-      return clusterInfo.replicaStream(node.id()).map(mapper);
-    }
-
-    public ServerMetrics.Topic.Meter topic(
-        ServerMetrics.Topic metric, String topic, Map<String, Object> attributes) {
-      var domainName = ServerMetrics.DOMAIN_NAME;
-      var properties =
-          Map.of("type", "BrokerTopicMetric", "topic", topic, "name", metric.metricName());
-      return new ServerMetrics.Topic.Meter(
-          new BeanObject(domainName, properties, attributes, time.toEpochSecond(ZoneOffset.UTC)));
-    }
-
-    public LogMetrics.Log.Gauge logSize(TopicPartition topicPartition, long size) {
-      var domainName = LogMetrics.DOMAIN_NAME;
-      var properties =
-          Map.of(
-              "type", LogMetrics.LOG_TYPE,
-              "topic", topicPartition.topic(),
-              "partition", String.valueOf(topicPartition.partition()),
-              "name", LogMetrics.Log.SIZE.metricName());
-      var attributes = Map.<String, Object>of("Value", size);
-      return new LogMetrics.Log.Gauge(
-          new BeanObject(domainName, properties, attributes, time.toEpochSecond(ZoneOffset.UTC)));
     }
   }
 }

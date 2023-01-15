@@ -17,9 +17,12 @@
 package org.astraea.common.metrics.broker;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.AppInfo;
@@ -393,6 +396,73 @@ public final class ServerMetrics {
           .stream()
           .map(Topic.Meter::new)
           .collect(Collectors.toList());
+    }
+
+    public Builder builder() {
+      return new Builder(this);
+    }
+
+    public static class Builder {
+
+      private final ServerMetrics.Topic metric;
+      private String topic;
+      private long time;
+      private final Map<String, Object> attributes = new HashMap<>();
+
+      public Builder(Topic metric) {
+        this.metric = metric;
+      }
+
+      public Builder topic(String topic) {
+        this.topic = topic;
+        return this;
+      }
+
+      public Builder time(long time) {
+        this.time = time;
+        return this;
+      }
+
+      public Builder meanRate(double value) {
+        this.attributes.put("MeanRate", value);
+        return this;
+      }
+
+      public Builder oneMinuteRate(double value) {
+        this.attributes.put("OneMinuteRate", value);
+        return this;
+      }
+
+      public Builder fiveMinuteRate(double value) {
+        this.attributes.put("FiveMinuteRate", value);
+        return this;
+      }
+
+      public Builder fifteenMinuteRate(double value) {
+        this.attributes.put("FifteenMinuteRate", value);
+        return this;
+      }
+
+      public Builder rateUnit(TimeUnit timeUnit) {
+        this.attributes.put("RateUnit", timeUnit);
+        return this;
+      }
+
+      public Builder count(long count) {
+        this.attributes.put("Count", count);
+        return this;
+      }
+
+      public Meter build() {
+        return new Meter(
+            new BeanObject(
+                ServerMetrics.DOMAIN_NAME,
+                Map.ofEntries(
+                    Map.entry("type", "BrokerTopicMetrics"),
+                    Map.entry("topic", topic),
+                    Map.entry("name", metric.metricName())),
+                Map.copyOf(attributes)));
+      }
     }
 
     public static class Meter implements HasMeter {

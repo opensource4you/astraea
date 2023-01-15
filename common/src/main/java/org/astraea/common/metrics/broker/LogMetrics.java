@@ -18,6 +18,7 @@ package org.astraea.common.metrics.broker;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
@@ -157,6 +158,48 @@ public final class LogMetrics {
           .stream()
           .map(Gauge::new)
           .collect(Collectors.toUnmodifiableList());
+    }
+
+    public Builder builder() {
+      return new Builder(this);
+    }
+
+    public static class Builder {
+      private final LogMetrics.Log metric;
+      private String topic;
+      private int partition;
+      private long value;
+
+      public Builder(Log metric) {
+        this.metric = metric;
+      }
+
+      public Builder topic(String topic) {
+        this.topic = topic;
+        return this;
+      }
+
+      public Builder partition(int partition) {
+        this.partition = partition;
+        return this;
+      }
+
+      public Builder logSize(long value) {
+        this.value = value;
+        return this;
+      }
+
+      public Gauge build() {
+        return new Gauge(
+            new BeanObject(
+                LogMetrics.DOMAIN_NAME,
+                Map.ofEntries(
+                    Map.entry("type", LOG_TYPE),
+                    Map.entry("name", metric.metricName()),
+                    Map.entry("topic", topic),
+                    Map.entry("partition", String.valueOf(partition))),
+                Map.of("Value", value)));
+      }
     }
 
     public static class Gauge implements HasGauge<Long> {

@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -608,48 +609,55 @@ class NetworkCostTest {
           MetricSeriesBuilder.builder()
               .cluster(clusterInfo)
               .timeRange(LocalDateTime.now(), Duration.ZERO)
-              .series(
-                  (Gen, broker) ->
-                      Gen.perBrokerTopic(
-                          topic ->
-                              Gen.topic(
-                                  ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                  topic,
-                                  Map.of(
-                                      "FifteenMinuteRate",
-                                      clusterInfo
-                                          .replicaStream(BrokerTopic.of(broker, topic))
-                                          .filter(Replica::isLeader)
-                                          .filter(Replica::isOnline)
-                                          .mapToDouble(r -> rate.get(r.topicPartition()))
-                                          .sum()))))
-              .series(
-                  (Gen, broker) ->
-                      Gen.perBrokerTopic(
-                          topic ->
-                              Gen.topic(
-                                  ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                  topic,
-                                  Map.of(
-                                      "FifteenMinuteRate",
-                                      clusterInfo
-                                          .replicaStream(BrokerTopic.of(broker, topic))
-                                          .filter(Replica::isLeader)
-                                          .filter(Replica::isOnline)
-                                          .mapToDouble(
-                                              r ->
-                                                  rate.get(r.topicPartition())
-                                                      * consumerFanout.get(r.topicPartition()))
-                                          .sum()))))
-              .series(
-                  (Gen, broker) ->
+              .seriesByBrokerTopic(
+                  (time, broker, topic) ->
+                      ServerMetrics.Topic.BYTES_IN_PER_SEC
+                          .builder()
+                          .topic(topic)
+                          .time(time.toEpochSecond(ZoneOffset.UTC))
+                          .fifteenMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(r -> rate.get(r.topicPartition()))
+                                  .sum())
+                          .build())
+              .seriesByBrokerTopic(
+                  (time, broker, topic) ->
+                      ServerMetrics.Topic.BYTES_OUT_PER_SEC
+                          .builder()
+                          .topic(topic)
+                          .time(time.toEpochSecond(ZoneOffset.UTC))
+                          .fifteenMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(
+                                      r ->
+                                          rate.get(r.topicPartition())
+                                              * consumerFanout.get(r.topicPartition()))
+                                  .sum())
+                          .build())
+              .seriesByBroker(
+                  (time, broker) ->
                       IntStream.range(0, 10)
                           .mapToObj(
                               i ->
-                                  Gen.topic(
-                                      ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC,
-                                      "Noise_" + i,
-                                      Map.of())))
+                                  ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC
+                                      .builder()
+                                      .topic("Noise_" + i)
+                                      .time(time.toEpochSecond(ZoneOffset.UTC))
+                                      .build()))
+              .seriesByBrokerReplica(
+                  (time, broker, replica) ->
+                      LogMetrics.Log.SIZE
+                          .builder()
+                          .topic(replica.topic())
+                          .partition(replica.partition())
+                          .logSize(replica.size())
+                          .build())
               .build();
     }
 
