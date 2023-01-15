@@ -478,6 +478,7 @@ public class AdminTest {
           .moveToBrokers(Map.of(TopicPartition.of(topic, 0), List.of(1)))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(1));
       admin
           .declarePreferredDataFolders(
               Map.of(TopicPartitionReplica.of(topic, 0, 0), folders.get(0)))
