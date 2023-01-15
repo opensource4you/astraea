@@ -20,21 +20,34 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker.Std;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.StdScalarSerializer;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import java.io.IOException;
 import java.lang.reflect.Type;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
 
 public interface JsonConverter {
 
@@ -47,10 +60,39 @@ public interface JsonConverter {
     return jackson();
   }
 
+  static <T> JsonDeserializer<T> deserializer(Class<T> clz, Function<String, T> function) {
+    return new FromStringDeserializer<>(clz) {
+      @Override
+      protected T _deserialize(String value, DeserializationContext ctxt) {
+        return function.apply(value);
+      }
+    };
+  }
+
+  static <T> JsonSerializer<T> serialzer(Class<T> clz, Function<T, String> function) {
+    return new StdScalarSerializer<>(clz) {
+      @Override
+      public void serialize(T value, JsonGenerator gen, SerializerProvider provider)
+          throws IOException {
+        gen.writeString(function.apply(value));
+      }
+    };
+  }
+
   static JsonConverter jackson() {
+    var module = new SimpleModule();
+    // DataSize
+    module.addDeserializer(DataSize.class, deserializer(DataSize.class, DataSize::of));
+    module.addSerializer(DataSize.class, serialzer(DataSize.class, DataSize::toString));
+    // Duration
+    module.addDeserializer(Duration.class, deserializer(Duration.class, Utils::toDuration));
+    // TODO: how to support ns?
+    // https://github.com/skiptests/astraea/issues/1430
+    module.addSerializer(Duration.class, serialzer(Duration.class, d -> d.toMillis() + "ms"));
     var objectMapper =
         JsonMapper.builder()
             .addModule(new Jdk8Module())
+            .addModule(module)
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
 
             // When we put json as key into kafka, we want to pass the same json to the same
@@ -143,7 +185,9 @@ public interface JsonConverter {
         || objClass == Byte.class
         || objClass == Boolean.class
         || objClass == String.class
-        || objClass == Object.class) {
+        || objClass == Object.class
+        || objClass == DataSize.class
+        || objClass == Duration.class) {
       return;
     }
     Arrays.stream(objClass.getDeclaredFields())
@@ -151,6 +195,7 @@ public interface JsonConverter {
         .forEach(
             x -> {
               try {
+                System.out.println("name: " + x.getName() + " isSynthetic: " + x.isSynthetic());
                 preventNull(name + "." + x.getName(), x.get(obj));
               } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);

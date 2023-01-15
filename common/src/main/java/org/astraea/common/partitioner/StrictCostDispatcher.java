@@ -19,7 +19,6 @@ package org.astraea.common.partitioner;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -134,7 +133,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
   @Override
   public void configure(Configuration config) {
-    var configuredFunctions = parseCostFunctionWeight(config);
+    var configuredFunctions = Utils.costFunctions(config, HasBrokerCost.class);
     if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);
@@ -149,39 +148,6 @@ public class StrictCostDispatcher extends Dispatcher {
 
     this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
-  }
-
-  /**
-   * Helps parse cost-function names and weights. The format of the key and value is "<CostFunction
-   * name>"="<weight>". For example, {"org.astraea.cost.broker.BrokerInputCost", "20"} will be
-   * parsed to {(BrokerInputCost object), 20.0}.
-   *
-   * @param config that contains cost-function names and its corresponding weight
-   * @return pairs of cost-function object and its corresponding weight
-   */
-  @SuppressWarnings("unchecked")
-  public static Map<HasBrokerCost, Double> parseCostFunctionWeight(Configuration config) {
-    return config.entrySet().stream()
-        .map(
-            nameAndWeight -> {
-              Class<?> clz;
-              try {
-                clz = Class.forName(nameAndWeight.getKey());
-              } catch (ClassNotFoundException ignore) {
-                // this config is not cost function, so we just skip it.
-                return null;
-              }
-              var weight = Double.parseDouble(nameAndWeight.getValue());
-              if (weight < 0.0)
-                throw new IllegalArgumentException("Cost-function weight should not be negative");
-              return Map.entry(clz, weight);
-            })
-        .filter(Objects::nonNull)
-        .filter(e -> HasBrokerCost.class.isAssignableFrom(e.getKey()))
-        .collect(
-            Collectors.toMap(
-                e -> Utils.construct((Class<HasBrokerCost>) e.getKey(), config),
-                Map.Entry::getValue));
   }
 
   @Override

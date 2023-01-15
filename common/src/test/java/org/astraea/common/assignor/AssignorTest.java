@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.TopicPartition;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.NodeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -141,6 +140,7 @@ public class AssignorTest {
     Assertions.assertEquals(1, unregisterNode.size());
     Assertions.assertEquals("192.168.103.2", unregisterNode.get(1001));
   }
+<<<<<<< HEAD
 
   @Test
   void testParseCostFunctionWeight() {
@@ -159,4 +159,6 @@ public class AssignorTest {
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> Assignor.parseCostFunctionWeight(negativeConfig));
   }
+=======
+>>>>>>> ddfb07afc7ea82cf2bf6348664f59de3621d33a9
 }

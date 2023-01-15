@@ -21,19 +21,27 @@ import java.util.Map;
 import java.util.Optional;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BeanHandlerTest extends RequireBrokerCluster {
+public class BeanHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testBeans() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var handler = new BeanHandler(admin, name -> Optional.of(jmxServiceURL().getPort()));
+      var handler = new BeanHandler(admin, name -> Optional.of(SERVICE.jmxServiceURL().getPort()));
       var response =
           Assertions.assertInstanceOf(
               BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());

@@ -18,11 +18,21 @@ package org.astraea.common.metrics.broker;
 
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-public class ServerTopicMetricsTest extends RequireSingleBrokerCluster {
+public class ServerTopicMetricsTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @BeforeAll
+  static void createBroker() {
+    // call broker-related method to initialize broker cluster
+    Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
+  }
 
   @ParameterizedTest
   @EnumSource(value = ServerMetrics.BrokerTopic.class)

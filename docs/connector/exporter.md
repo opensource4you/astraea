@@ -13,15 +13,16 @@
 
 執行 Exporter 時所需要的參數及說明如下
 
-| 參數名稱                      | 說明                                                                                          | 預設值   |
-|:--------------------------|---------------------------------------------------------------------------------------------|-------|
-| fs.schema                 | (必填) 決定儲存目標為何種檔案系統，例如: `local`, `ftp`等                                                      | 無     |
-| fs.{file System}.hostname | (選填) 如果最初的 `fs.schema` 選定為非 `local` 之項目，需要填入目標 `host name`， `file System` 取決於前者之內容          | 無     |
-| fs.{file System}.port     | (選填) 填入目標檔案系統之 `port`                                                                       | 無     |
-| fs.{file System}.user     | (選填)  填入目標檔案系統之登入 `user`                                                                    | 無     |
-| fs.{file System}.password | (選填)  填入目標檔案系統之登入 `password`                                                                | 無     |
-| path                      | (選填)   填入目標檔案系統要儲存的資料夾目錄之目標位置                                                               | 無     |
-| size                      | (選填)   寫入檔案目標超過此設定之大小上限時會創見新檔案，並且寫入目標改為新創建之檔案。  <br/>檔案大小之單位可以設定為 `Bit`, `Kb`, `KiB`, `Mb`等 | 100MB |     |
+| 參數名稱                      | 說明                                                                                                           | 預設值   |
+|:--------------------------|--------------------------------------------------------------------------------------------------------------|-------|
+| fs.schema                 | (必填) 決定儲存目標為何種檔案系統，例如: `local`, `ftp`等                                                                       | 無     |
+| fs.{file System}.hostname | (選填) 如果最初的 `fs.schema` 選定為非 `local` 之項目，需要填入目標 `host name`， `file System` 取決於前者之內容                           | 無     |
+| fs.{file System}.port     | (選填) 填入目標檔案系統之 `port`                                                                                        | 無     |
+| fs.{file System}.user     | (選填) 填入目標檔案系統之登入 `user`                                                                                      | 無     |
+| fs.{file System}.password | (選填) 填入目標檔案系統之登入 `password`                                                                                  | 無     |
+| path                      | (選填) 填入目標檔案系統要儲存的資料夾目錄之目標位置                                                                                  | 無     |
+| size                      | (選填) 寫入檔案目標超過此設定之大小上限時會創見新檔案，並且寫入目標改為新創建之檔案。  <br/>檔案大小單位: `Bit`, `Kb`, `KiB`, `Mb`, etc.                    | 100MB |
+| roll.duration             | (選填) 如果 `connector` 在超過此時間沒有任何資料流入，會把當下所有已創建之檔案關閉，並在之後有新資料時會創建新檔案並寫入。  <br/>時間單位: `s`, `m`, `h`, `day`, etc. | 3s    |
 
 
 ##### 注意
@@ -51,7 +52,8 @@ Caused by: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'te
 
 ```shell
 # 在 worker 中創建 exporter 把 kafka 中的資料寫入到 ftp server 之中，
-# 每筆資料大小上限為 10MB，topic name 是 test
+# 每筆資料大小上限為 10MB，topic name 是 test，
+# 並且如果超過3秒沒有新資料流入，會結束所有正在寫入之檔案，等有新資料流入時會創建新的檔案來寫入
 
 curl -X POST http://localhost:13575/connectors \
      -H "Content-Type: application/json" \
@@ -66,7 +68,8 @@ curl -X POST http://localhost:13575/connectors \
             "fs.ftp.user": "user",
             "fs.ftp.password": "password",
             "size": "10MB",
-            "path": "/test/10MB"
+            "roll.duration": "3s"
+            "path": "/test/10MB",
           }
         }'
 ```

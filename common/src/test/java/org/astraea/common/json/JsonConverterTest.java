@@ -18,12 +18,15 @@ package org.astraea.common.json;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.astraea.common.DataSize;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -425,5 +428,79 @@ class JsonConverterTest {
     private String stringValue;
     private int intValue;
     private Double doubleValue;
+  }
+
+  @Test
+  void testDataSize() {
+    var v =
+        JsonConverter.defaultConverter()
+            .fromJson("{\"value\":\"30Byte\"}", TypeRef.of(TestDataSize.class));
+    assertEquals(DataSize.Byte.of(30), v.value);
+    assertEquals(List.of(), v.list);
+    assertEquals(Map.of(), v.map);
+
+    var v1 =
+        JsonConverter.defaultConverter()
+            .fromJson(
+                "{\"value\":\"31Byte\", \"list\":[\"10MB\",\"11MB\"], \"map\":{\"a\":\"5MB\"}}",
+                TypeRef.of(TestDataSize.class));
+    assertEquals(DataSize.Byte.of(31), v1.value);
+    assertEquals(List.of(DataSize.MB.of(10), DataSize.MB.of(11)), v1.list);
+    assertEquals(Map.of("a", DataSize.MB.of(5)), v1.map);
+
+    var v2 =
+        JsonConverter.defaultConverter()
+            .fromJson(JsonConverter.defaultConverter().toJson(v1), TypeRef.of(TestDataSize.class));
+    assertEquals(v1.value, v2.value);
+    assertEquals(v1.list, v2.list);
+    assertEquals(v1.map, v2.map);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> JsonConverter.defaultConverter().fromJson("{}", TypeRef.of(TestDataSize.class)));
+  }
+
+  private static class TestDataSize {
+
+    DataSize value;
+    List<DataSize> list = List.of();
+
+    Map<String, DataSize> map = Map.of();
+  }
+
+  @Test
+  void testDuration() {
+    var v =
+        JsonConverter.defaultConverter()
+            .fromJson("{\"value\":\"10s\"}", TypeRef.of(TestDuration.class));
+    assertEquals(Duration.ofSeconds(10), v.value);
+    assertEquals(List.of(), v.list);
+    assertEquals(Map.of(), v.map);
+
+    var v1 =
+        JsonConverter.defaultConverter()
+            .fromJson(
+                "{\"value\":\"11s\", \"list\":[\"13s\",\"12s\"], \"map\":{\"a\":\"7s\"}}",
+                TypeRef.of(TestDuration.class));
+    assertEquals(Duration.ofSeconds(11), v1.value);
+    assertEquals(List.of(Duration.ofSeconds(13), Duration.ofSeconds(12)), v1.list);
+    assertEquals(Map.of("a", Duration.ofSeconds(7)), v1.map);
+
+    var v2 =
+        JsonConverter.defaultConverter()
+            .fromJson(JsonConverter.defaultConverter().toJson(v1), TypeRef.of(TestDuration.class));
+    assertEquals(v1.value, v2.value);
+    assertEquals(v1.list, v2.list);
+    assertEquals(v1.map, v2.map);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> JsonConverter.defaultConverter().fromJson("{}", TypeRef.of(TestDuration.class)));
+  }
+
+  private static class TestDuration {
+    Duration value;
+    List<Duration> list = List.of();
+    Map<String, Duration> map = Map.of();
   }
 }

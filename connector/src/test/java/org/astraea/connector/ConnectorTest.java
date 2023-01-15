@@ -30,15 +30,24 @@ import org.astraea.common.Utils;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ConnectorTest extends RequireWorkerCluster {
+public class ConnectorTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testPlugin() {
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var plugins = connectorClient.plugins().toCompletableFuture().join();
     assertNotEquals(0, plugins.size());
     plugins.forEach(p -> assertNotEquals(0, p.definitions().size()));
@@ -46,7 +55,7 @@ public class ConnectorTest extends RequireWorkerCluster {
 
   @Test
   void testCustomConnectorPlugins() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var plugins = client.plugins().toCompletableFuture().join();
     Assertions.assertNotEquals(0, plugins.size());
     Assertions.assertTrue(
@@ -57,7 +66,7 @@ public class ConnectorTest extends RequireWorkerCluster {
 
   @Test
   void testRunCustomConnector() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var name = Utils.randomString();
     var topic = Utils.randomString();
     var info =

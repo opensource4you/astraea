@@ -30,14 +30,22 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.IteratorLimit;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class TestReaderWriter extends RequireSingleBrokerCluster {
+public class TestReaderWriter {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   private static void produceData(String topic, int size) {
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
       IntStream.range(0, size)
           .forEach(
               i ->
@@ -58,7 +66,7 @@ public class TestReaderWriter extends RequireSingleBrokerCluster {
     try (var writer = RecordWriter.builder(file).build()) {
       var records =
           Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-              .bootstrapServers(bootstrapServers())
+              .bootstrapServers(SERVICE.bootstrapServers())
               .seek(DISTANCE_FROM_BEGINNING, 0)
               .iterator(List.of(IteratorLimit.count(10)));
       while (records.hasNext()) {

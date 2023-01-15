@@ -121,44 +121,6 @@ public class StrictCostDispatcherTest {
     }
   }
 
-  @Test
-  void testParseCostFunctionWeight() {
-    var config =
-        Configuration.of(
-            Map.of(
-                "org.astraea.common.cost.BrokerInputCost",
-                "20",
-                "org.astraea.common.cost.BrokerOutputCost",
-                "1.25"));
-    var ans = StrictCostDispatcher.parseCostFunctionWeight(config);
-    Assertions.assertEquals(2, ans.size());
-    for (var entry : ans.entrySet()) {
-      if (entry.getKey().getClass().getName().equals("org.astraea.common.cost.BrokerInputCost")) {
-        Assertions.assertEquals(20.0, entry.getValue());
-      } else if (entry
-          .getKey()
-          .getClass()
-          .getName()
-          .equals("org.astraea.common.cost.BrokerOutputCost")) {
-        Assertions.assertEquals(1.25, entry.getValue());
-      } else {
-        Assertions.assertEquals(0.0, entry.getValue());
-      }
-    }
-
-    // test negative weight
-    var config2 =
-        Configuration.of(
-            Map.of(
-                "org.astraea.common.cost.BrokerInputCost",
-                "-20",
-                "org.astraea.common.cost.BrokerOutputCost",
-                "1.25"));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> StrictCostDispatcher.parseCostFunctionWeight(config2));
-  }
-
   public static class DumbHasBrokerCost implements HasBrokerCost {
 
     @Override

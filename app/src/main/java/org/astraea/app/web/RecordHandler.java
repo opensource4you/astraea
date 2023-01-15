@@ -221,8 +221,7 @@ public class RecordHandler implements Handler {
         Utils.packException(
             () ->
                 new PostResponse(
-                    result.get(
-                        Utils.toDuration(postRequest.timeout()).toNanos(), TimeUnit.NANOSECONDS))));
+                    result.get(postRequest.timeout().toNanos(), TimeUnit.NANOSECONDS))));
   }
 
   @Override
@@ -352,7 +351,7 @@ public class RecordHandler implements Handler {
 
   static class RecordPostRequest implements Request {
     private boolean async = false;
-    private String timeout = "5s";
+    private Duration timeout = Duration.ofSeconds(5);
     private List<PostRecord> records = List.of();
 
     private Optional<String> transactionId = Optional.empty();
@@ -363,7 +362,7 @@ public class RecordHandler implements Handler {
       return async;
     }
 
-    public String timeout() {
+    public Duration timeout() {
       return timeout;
     }
 

@@ -22,21 +22,30 @@ import java.util.Set;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class TopicCheckerTest extends RequireBrokerCluster {
+public class TopicCheckerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testLatestTimestamp() throws InterruptedException {
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
       producer
           .send(Record.builder().topic("produce").value("1".getBytes()).build())
           .toCompletableFuture()
           .join();
     }
 
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var checkers =
           List.of(TopicChecker.latestTimestamp(Duration.ofSeconds(3), Duration.ofSeconds(3)));
       Assertions.assertEquals(Set.of(), admin.idleTopic(checkers).toCompletableFuture().join());
@@ -49,10 +58,10 @@ public class TopicCheckerTest extends RequireBrokerCluster {
   @Test
   void testNoAssignment() throws InterruptedException {
     var consumer =
-        Consumer.forTopics(Set.of("produce")).bootstrapServers(bootstrapServers()).build();
+        Consumer.forTopics(Set.of("produce")).bootstrapServers(SERVICE.bootstrapServers()).build();
     var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
     consumerThread.start();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Thread.sleep(5000);
 
       Assertions.assertEquals(
