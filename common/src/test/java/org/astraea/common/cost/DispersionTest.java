@@ -33,4 +33,16 @@ class DispersionTest {
     Assertions.assertFalse(Double.isNaN(score));
     Assertions.assertEquals(0.0, score);
   }
+
+  @Test
+  void standardDeviation() {
+    var dispersion = Dispersion.standardDeviation();
+    var scores = List.of(8, 8, 4, 4);
+    Assertions.assertEquals(2, dispersion.calculate(scores));
+
+    var zeroScores = List.of(0.0, 0.0, 0.0);
+    var score = dispersion.calculate(zeroScores);
+    Assertions.assertFalse(Double.isNaN(score));
+    Assertions.assertEquals(0.0, score);
+  }
 }

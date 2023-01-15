@@ -19,17 +19,14 @@ package org.astraea.common.partitioner;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
@@ -52,24 +49,16 @@ import org.astraea.common.metrics.collector.MetricCollector;
  */
 public class StrictCostDispatcher extends Dispatcher {
   static final int ROUND_ROBIN_LENGTH = 400;
-
-  public static final String JMX_PORT = "jmx.port";
-  public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
-
+  static final String JMX_PORT = "jmx.port";
+  static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
   final MetricCollector metricCollector =
       MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
 
-  Duration roundRobinLease = Duration.ofSeconds(4);
-
+  private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
-
-  final int[] roundRobin = new int[ROUND_ROBIN_LENGTH];
-
-  final AtomicInteger next = new AtomicInteger(0);
-
-  volatile long timeToUpdateRoundRobin = -1;
+  RoundRobinKeeper roundRobinKeeper;
 
   void tryToUpdateFetcher(ClusterInfo clusterInfo) {
     // register new nodes to metric collector
@@ -104,31 +93,19 @@ public class StrictCostDispatcher extends Dispatcher {
 
     tryToUpdateFetcher(clusterInfo);
 
-    tryToUpdateRoundRobin(clusterInfo);
+    roundRobinKeeper.tryToUpdate(
+        clusterInfo,
+        Lazy.of(
+            () ->
+                costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean()))));
 
-    var target =
-        roundRobin[
-            next.getAndUpdate(previous -> previous >= roundRobin.length - 1 ? 0 : previous + 1)];
+    var target = roundRobinKeeper.next();
 
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
     var candidate =
         target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
     return candidate.get((int) (Math.random() * candidate.size())).partition();
-  }
-
-  synchronized void tryToUpdateRoundRobin(ClusterInfo clusterInfo) {
-    if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
-      var roundRobin =
-          RoundRobin.smooth(
-              costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean())));
-      var ids =
-          clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-      // TODO: make ROUND_ROBIN_LENGTH configurable ???
-      IntStream.range(0, ROUND_ROBIN_LENGTH)
-          .forEach(index -> this.roundRobin[index] = roundRobin.next(ids).orElse(-1));
-      timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
-    }
   }
 
   /**
@@ -139,20 +116,24 @@ public class StrictCostDispatcher extends Dispatcher {
    * @return weights
    */
   static Map<Integer, Double> costToScore(BrokerCost cost) {
+    // reduce the both zero and negative number
+    var shift =
+        cost.value().values().stream()
+            .min(Double::compare)
+            .map(Math::abs)
+            .filter(v -> v > 0)
+            .orElse(0.01);
     var max = cost.value().values().stream().max(Double::compare);
-    var min = cost.value().values().stream().min(Double::compare);
     return max.map(
             m ->
                 cost.value().entrySet().stream()
-                    .collect(
-                        Collectors.toMap(
-                            Map.Entry::getKey, e -> m - e.getValue() + min.orElse(0.0))))
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> m - e.getValue() + shift)))
         .orElse(cost.value());
   }
 
   @Override
   public void configure(Configuration config) {
-    var configuredFunctions = parseCostFunctionWeight(config);
+    var configuredFunctions = Utils.costFunctions(config, HasBrokerCost.class);
     if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);
@@ -166,39 +147,7 @@ public class StrictCostDispatcher extends Dispatcher {
     if (!metricCollector.listIdentities().contains(-1)) metricCollector.registerLocalJmx(-1);
 
     this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
-  }
-
-  /**
-   * Helps parse cost-function names and weights. The format of the key and value is "<CostFunction
-   * name>"="<weight>". For example, {"org.astraea.cost.broker.BrokerInputCost", "20"} will be
-   * parsed to {(BrokerInputCost object), 20.0}.
-   *
-   * @param config that contains cost-function names and its corresponding weight
-   * @return pairs of cost-function object and its corresponding weight
-   */
-  @SuppressWarnings("unchecked")
-  public static Map<HasBrokerCost, Double> parseCostFunctionWeight(Configuration config) {
-    return config.entrySet().stream()
-        .map(
-            nameAndWeight -> {
-              Class<?> clz;
-              try {
-                clz = Class.forName(nameAndWeight.getKey());
-              } catch (ClassNotFoundException ignore) {
-                // this config is not cost function, so we just skip it.
-                return null;
-              }
-              var weight = Double.parseDouble(nameAndWeight.getValue());
-              if (weight < 0.0)
-                throw new IllegalArgumentException("Cost-function weight should not be negative");
-              return Map.entry(clz, weight);
-            })
-        .filter(Objects::nonNull)
-        .filter(e -> HasBrokerCost.class.isAssignableFrom(e.getKey()))
-        .collect(
-            Collectors.toMap(
-                e -> Utils.construct((Class<HasBrokerCost>) e.getKey(), config),
-                Map.Entry::getValue));
+    this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
 
   @Override

@@ -27,13 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.metrics.stats.Value;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.astraea.common.Configuration;
@@ -41,66 +39,30 @@ import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-public class DispatcherTest extends RequireSingleBrokerCluster {
+public class DispatcherTest {
 
-  @Test
-  void testNoTopicInCachedClusterInfo() {
-    var topicName = Utils.randomString();
-    var count = new AtomicInteger(0);
-    try (var dispatcher =
-        new Dispatcher() {
-          @Override
-          public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
-            Assertions.assertNotNull(clusterInfo);
-            return 0;
-          }
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
-          @Override
-          boolean tryToUpdate(String topic) {
-            if (topic != null) Assertions.assertEquals(topicName, topic);
-            var rval = super.tryToUpdate(topic);
-            if (rval) count.incrementAndGet();
-            return rval;
-          }
-        }) {
-
-      dispatcher.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()));
-
-      // the topic is nonexistent in cluster, so it always request to update cluster info
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(2, count.get());
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(3, count.get());
-
-      // create the topic
-      dispatcher.admin.creator().topic(topicName).run().toCompletableFuture().join();
-      Utils.sleep(Duration.ofSeconds(2));
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(4, count.get());
-
-      // ok, the topic exists now, and it should not request to update
-      Utils.sleep(Duration.ofSeconds(2));
-      Assertions.assertEquals(
-          0,
-          dispatcher.partition(topicName, "xx", new byte[0], "xx", new byte[0], Cluster.empty()));
-      Assertions.assertEquals(4, count.get());
-    }
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
   }
+
+  private final String SMOOTH_ROUND_ROBIN =
+      "org.astraea.common.partitioner.SmoothWeightRoundRobinDispatcher";
+  private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostDispatcher";
 
   @Test
   void testUpdateClusterInfo() {
@@ -114,7 +76,8 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
           }
         }) {
 
-      dispatcher.configure(Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers()));
+      dispatcher.configure(
+          Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
       Assertions.assertNotNull(dispatcher.admin);
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertNotEquals(0, dispatcher.clusterInfo.nodes().size());
@@ -124,7 +87,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   @Test
   void testNullKey() {
     var count = new AtomicInteger();
-    var dispatcher =
+    Dispatcher dispatcher =
         new Dispatcher() {
           @Override
           public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
@@ -143,12 +106,13 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     dispatcher.configure(Map.of("a", "b"));
 
     Assertions.assertEquals(1, count.get());
-    dispatcher.partition(
-        "t", null, null, null, null, new Cluster("aa", List.of(), List.of(), Set.of(), Set.of()));
+    dispatcher.partition("t", null, null, ClusterInfoBuilder.builder().build());
+    Assertions.assertEquals(2, count.get());
   }
 
-  @RepeatedTest(5)
-  void multipleThreadTest() throws IOException {
+  @ParameterizedTest
+  @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
+  void multipleThreadTest(String className) throws IOException {
     var topicName = "address";
     createTopic(topicName);
     var key = "tainan";
@@ -159,7 +123,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         Producer.builder()
             .keySerializer(Serializer.STRING)
             .configs(
-                initProConfig().entrySet().stream()
+                put(initProConfig(), className).entrySet().stream()
                     .collect(
                         Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
             .build()) {
@@ -202,8 +166,9 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
     }
   }
 
-  @Test
-  void interdependentTest() throws IOException {
+  @ParameterizedTest
+  @ValueSource(strings = {SMOOTH_ROUND_ROBIN, STRICT_ROUND_ROBIN})
+  void interdependentTest(String className) throws IOException {
     var topicName = "address";
     createTopic(topicName);
     var key = "tainan";
@@ -214,7 +179,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         Producer.builder()
             .keySerializer(Serializer.STRING)
             .configs(
-                initProConfig().entrySet().stream()
+                put(initProConfig(), className).entrySet().stream()
                     .collect(
                         Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString())))
             .build()) {
@@ -264,7 +229,7 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
   }
 
   private void createTopic(String topic) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(9).run().toCompletableFuture().join();
     }
   }
@@ -297,24 +262,29 @@ public class DispatcherTest extends RequireSingleBrokerCluster {
         : null;
   }
 
+  private Properties put(Properties properties, String name) {
+    properties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, name);
+    return properties;
+  }
+
   private Properties initProConfig() throws IOException {
     Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers());
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
-    // TODO: add smooth dispatch to this test
-    props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, StrictCostDispatcher.class.getName());
+    props.put(
+        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
     props.put("producerID", 1);
     var file =
         new File(
             Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
                 + "PartitionerConfigTest");
     try (var fileWriter = new FileWriter(file)) {
-      fileWriter.write("jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.0.jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.1.jmx.port=" + jmxServiceURL().getPort() + "\n");
-      fileWriter.write("broker.2.jmx.port=" + jmxServiceURL().getPort());
+      fileWriter.write("jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.0.jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.1.jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
+      fileWriter.write("broker.2.jmx.port=" + SERVICE.jmxServiceURL().getPort());
       fileWriter.flush();
     }
     props.put(

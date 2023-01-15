@@ -25,15 +25,23 @@ import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ReplicaNumberCost;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 
-public class BalancerAlgorithmTest extends RequireBrokerCluster {
+public class BalancerAlgorithmTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @RepeatedTest(5)
   void test() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(Utils.randomString())
@@ -78,7 +86,9 @@ public class BalancerAlgorithmTest extends RequireBrokerCluster {
                   .join()
                   .stream()
                   .collect(
-                      Collectors.toMap(tp -> tp, tp -> List.of(brokerIds().iterator().next()))))
+                      Collectors.toMap(
+                          tp -> tp,
+                          tp -> List.of(SERVICE.dataFolders().keySet().iterator().next()))))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));

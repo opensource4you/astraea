@@ -17,7 +17,9 @@
 package org.astraea.app.performance;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerFetchMetrics;
@@ -93,6 +95,22 @@ public interface Report {
                   }
 
                   @Override
+                  public Optional<Double> e2eLatency() {
+                    return Optional.ofNullable(
+                            MBeanClient.local()
+                                .queryBean(
+                                    BeanQuery.builder()
+                                        .domainName(ProducerThread.DOMAIN_NAME)
+                                        .property(
+                                            ProducerThread.TYPE_PROPERTY, ProducerThread.TYPE_VALUE)
+                                        .property(ProducerThread.ID_PROPERTY, m.clientId())
+                                        .build())
+                                .attributes()
+                                .get(ProducerThread.AVG_PROPERTY))
+                        .map(v -> (double) v);
+                  }
+
+                  @Override
                   public long totalBytes() {
                     return (long) m.outgoingByteTotal();
                   }
@@ -123,6 +141,14 @@ public interface Report {
    * @return Get the average latency.
    */
   double avgLatency();
+
+  /**
+   * @return the full path of client-to-server latency. Currently, only producer thread offers this
+   *     metrics
+   */
+  default Optional<Double> e2eLatency() {
+    return Optional.empty();
+  }
 
   /**
    * @return total send/received bytes

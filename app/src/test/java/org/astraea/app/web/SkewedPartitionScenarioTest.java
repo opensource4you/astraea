@@ -21,13 +21,21 @@ import java.util.Set;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class SkewedPartitionScenarioTest extends RequireBrokerCluster {
+class SkewedPartitionScenarioTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @CsvSource(
       value = {
@@ -49,7 +57,7 @@ class SkewedPartitionScenarioTest extends RequireBrokerCluster {
   void test(int partitions, short replicas) {
     var topicName = Utils.randomString();
     var scenario = new SkewedPartitionScenario(topicName, partitions, replicas, 0.5);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var result = scenario.apply(admin).toCompletableFuture().join();
       Assertions.assertEquals(topicName, result.topicName());
       Assertions.assertEquals(partitions, result.numberOfPartitions());

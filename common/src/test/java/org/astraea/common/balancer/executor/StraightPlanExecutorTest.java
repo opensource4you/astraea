@@ -30,15 +30,23 @@ import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class StraightPlanExecutorTest extends RequireBrokerCluster {
+class StraightPlanExecutorTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testAsyncRun() {
-    try (Admin admin = Admin.of(bootstrapServers())) {
+    try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
       final var topicName = "StraightPlanExecutorTest_" + Utils.randomString(8);
 
       admin
@@ -58,8 +66,8 @@ class StraightPlanExecutorTest extends RequireBrokerCluster {
 
       final var broker0 = 0;
       final var broker1 = 1;
-      final var logFolder0 = logFolders().get(broker0).stream().findAny().orElseThrow();
-      final var logFolder1 = logFolders().get(broker1).stream().findAny().orElseThrow();
+      final var logFolder0 = SERVICE.dataFolders().get(broker0).stream().findAny().orElseThrow();
+      final var logFolder1 = SERVICE.dataFolders().get(broker1).stream().findAny().orElseThrow();
       final var onlyPlacement =
           (Function<TopicPartition, List<Replica>>)
               (TopicPartition tp) ->

@@ -29,17 +29,30 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class PerformanceTest extends RequireBrokerCluster {
+public class PerformanceTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testTransactionalProducer() {
     var topic = "testTransactionalProducer";
     String[] arguments1 = {
-      "--bootstrap.servers", bootstrapServers(), "--topics", topic, "--transaction.size", "2"
+      "--bootstrap.servers",
+      SERVICE.bootstrapServers(),
+      "--topics",
+      topic,
+      "--transaction.size",
+      "2"
     };
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
@@ -50,7 +63,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   @Test
   void testProducerExecutor() {
     var topic = "testProducerExecutor";
-    String[] arguments1 = {"--bootstrap.servers", bootstrapServers(), "--topics", topic};
+    String[] arguments1 = {"--bootstrap.servers", SERVICE.bootstrapServers(), "--topics", topic};
     var argument = Argument.parse(new Performance.Argument(), arguments1);
     try (var producer = argument.createProducer()) {
       Assertions.assertFalse(producer.transactional());
@@ -64,7 +77,7 @@ public class PerformanceTest extends RequireBrokerCluster {
         () ->
             Argument.parse(
                 new Performance.Argument(),
-                new String[] {"--bootstrap.servers", bootstrapServers()}));
+                new String[] {"--bootstrap.servers", SERVICE.bootstrapServers()}));
   }
 
   @Test
@@ -73,10 +86,10 @@ public class PerformanceTest extends RequireBrokerCluster {
     var args =
         Argument.parse(
             new Performance.Argument(),
-            new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topic});
+            new String[] {"--bootstrap.servers", SERVICE.bootstrapServers(), "--topics", topic});
     Assertions.assertThrows(IllegalArgumentException.class, args::checkTopics);
 
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).run().toCompletableFuture().join();
     }
 
@@ -92,7 +105,7 @@ public class PerformanceTest extends RequireBrokerCluster {
             new Performance.Argument(),
             new String[] {
               "--bootstrap.servers",
-              bootstrapServers(),
+              SERVICE.bootstrapServers(),
               "--topics",
               Utils.randomString() + "," + existentTopic
             });
@@ -151,7 +164,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testPartitionSupplier() {
     var topicName = Utils.randomString(10);
     var NUMBER_OF_PARTITIONS = 6;
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
@@ -166,7 +179,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
-                bootstrapServers(),
+                SERVICE.bootstrapServers(),
                 "--topics",
                 topicName,
                 "--specify.brokers",
@@ -184,7 +197,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               .collect(Collectors.toUnmodifiableSet());
 
       // assert there are 3 brokers, the 6 partitions are divided
-      Assertions.assertEquals(3, brokerIds().size());
+      Assertions.assertEquals(3, SERVICE.dataFolders().keySet().size());
       Assertions.assertEquals(2, expectedLeaders.size());
 
       var selector = args.topicPartitionSelector();
@@ -211,7 +224,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
-                bootstrapServers(),
+                SERVICE.bootstrapServers(),
                 "--topics",
                 topicName + "," + topicName2,
                 "--specify.brokers",
@@ -238,7 +251,9 @@ public class PerformanceTest extends RequireBrokerCluster {
       var partition =
           Argument.parse(
                   new Performance.Argument(),
-                  new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName})
+                  new String[] {
+                    "--bootstrap.servers", SERVICE.bootstrapServers(), "--topics", topicName
+                  })
               .topicPartitionSelector()
               .get()
               .partition();
@@ -265,7 +280,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
-                bootstrapServers(),
+                SERVICE.bootstrapServers(),
                 "--topics",
                 topicName3,
                 "--specify.brokers",
@@ -289,7 +304,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
-                bootstrapServers(),
+                SERVICE.bootstrapServers(),
                 "--specify.partitions",
                 targets.stream().map(TopicPartition::toString).collect(Collectors.joining(",")),
                 "--topics",
@@ -312,7 +327,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                       new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
-                        bootstrapServers(),
+                        SERVICE.bootstrapServers(),
                         "--specify.partitions",
                         targets.stream()
                             .map(TopicPartition::toString)
@@ -332,7 +347,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                       new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
-                        bootstrapServers(),
+                        SERVICE.bootstrapServers(),
                         "--topics",
                         initTopic(),
                         "--specify.partitions",
@@ -348,7 +363,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                   new Performance.Argument(),
                   new String[] {
                     "--bootstrap.servers",
-                    bootstrapServers(),
+                    SERVICE.bootstrapServers(),
                     "--topics",
                     initTopic(),
                     "--specify.partitions",
@@ -373,7 +388,7 @@ public class PerformanceTest extends RequireBrokerCluster {
                       new Performance.Argument(),
                       new String[] {
                         "--bootstrap.servers",
-                        bootstrapServers(),
+                        SERVICE.bootstrapServers(),
                         "--topics",
                         initTopic(),
                         "--specify.partitions",
@@ -397,7 +412,7 @@ public class PerformanceTest extends RequireBrokerCluster {
               new Performance.Argument(),
               new String[] {
                 "--bootstrap.servers",
-                bootstrapServers(),
+                SERVICE.bootstrapServers(),
                 "--topics",
                 "throttle",
                 "--throttle",
@@ -413,7 +428,7 @@ public class PerformanceTest extends RequireBrokerCluster {
   void testLastOffsets() {
     var partitionCount = 40;
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       // large partitions
       admin
           .creator()
@@ -426,7 +441,9 @@ public class PerformanceTest extends RequireBrokerCluster {
       var args =
           Argument.parse(
               new Performance.Argument(),
-              new String[] {"--bootstrap.servers", bootstrapServers(), "--topics", topicName});
+              new String[] {
+                "--bootstrap.servers", SERVICE.bootstrapServers(), "--topics", topicName
+              });
       try (var producer = args.createProducer()) {
         IntStream.range(0, 250)
             .forEach(
@@ -445,7 +462,7 @@ public class PerformanceTest extends RequireBrokerCluster {
 
   private static String initTopic() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).run().toCompletableFuture().join();
     }
     return topic;

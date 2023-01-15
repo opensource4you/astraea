@@ -23,20 +23,28 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
+public class ClusterInfoIntegratedTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testUpdate() {
     var topicName = Utils.randomString(5);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
 
-      try (var producer = Producer.of(bootstrapServers())) {
+      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
         IntStream.range(0, 100)
             .forEach(
                 ignored ->
@@ -48,7 +56,10 @@ public class ClusterInfoIntegratedTest extends RequireBrokerCluster {
 
       var replica = clusterInfo.replicas().iterator().next();
       var newBrokerId =
-          brokerIds().stream().filter(id -> id != replica.nodeInfo().id()).findFirst().get();
+          SERVICE.dataFolders().keySet().stream()
+              .filter(id -> id != replica.nodeInfo().id())
+              .findFirst()
+              .get();
 
       var randomSizeValue = ThreadLocalRandom.current().nextInt();
       var merged =

@@ -32,14 +32,24 @@ import org.astraea.common.consumer.Record;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
-import org.astraea.it.RequireWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ImporterTest extends RequireWorkerCluster {
+public class ImporterTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testRequireConfigs() {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var validation =
         client.validate(Importer.class.getName(), Map.of("name", "b")).toCompletableFuture().join();
     Assertions.assertNotEquals(0, validation.errorCount());
@@ -55,7 +65,7 @@ public class ImporterTest extends RequireWorkerCluster {
 
   @Test
   void testCreateFtpSourceConnector() {
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     Map<String, String> connectorConfigs =
         Map.of(
             "fs.schema",

@@ -26,17 +26,25 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class HasConsumerCoordinatorMetricsTest extends RequireSingleBrokerCluster {
+public class HasConsumerCoordinatorMetricsTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testClientId() {
     var topic = Utils.randomString(10);
 
-    try (var producer = Producer.of(bootstrapServers())) {
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       IntStream.range(0, 10)
           .forEach(
               index ->
@@ -48,7 +56,7 @@ public class HasConsumerCoordinatorMetricsTest extends RequireSingleBrokerCluste
     }
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)

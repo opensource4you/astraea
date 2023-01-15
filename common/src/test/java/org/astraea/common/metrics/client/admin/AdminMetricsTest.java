@@ -21,21 +21,32 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class AdminMetricsTest extends RequireBrokerCluster {
+public class AdminMetricsTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testMultiBrokers() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics = AdminMetrics.nodes(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
-          metrics.stream().map(HasNodeMetrics::brokerId).anyMatch(id -> brokerIds().contains(id)));
+          metrics.stream()
+              .map(HasNodeMetrics::brokerId)
+              .anyMatch(id -> SERVICE.dataFolders().containsKey(id)));
       metrics.forEach(AdminMetricsTest::check);
     }
   }
@@ -58,7 +69,7 @@ public class AdminMetricsTest extends RequireBrokerCluster {
   @Test
   void testMetrics() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics =

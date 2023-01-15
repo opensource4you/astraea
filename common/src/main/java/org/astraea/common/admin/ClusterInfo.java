@@ -354,20 +354,14 @@ public interface ClusterInfo {
    *     then an empty set will be associated with that node.
    */
   default Map<Integer, Set<String>> brokerFolders() {
-    return nodes().stream()
+    return brokers().stream()
         .collect(
             Collectors.toUnmodifiableMap(
                 NodeInfo::id,
-                node -> {
-                  if (node instanceof Broker) {
-                    return ((Broker) node)
-                        .dataFolders().stream()
-                            .map(Broker.DataFolder::path)
-                            .collect(Collectors.toUnmodifiableSet());
-                  } else {
-                    return Set.of();
-                  }
-                }));
+                node ->
+                    node.dataFolders().stream()
+                        .map(Broker.DataFolder::path)
+                        .collect(Collectors.toUnmodifiableSet())));
   }
 
   // ---------------------[streams methods]---------------------//
@@ -402,6 +396,13 @@ public interface ClusterInfo {
    */
   List<NodeInfo> nodes();
 
+  default List<Broker> brokers() {
+    return nodes().stream()
+        .filter(n -> n instanceof Broker)
+        .map(n -> (Broker) n)
+        .collect(Collectors.toUnmodifiableList());
+  }
+
   /**
    * @return replica stream to offer effective way to operate a bunch of replicas
    */
@@ -414,8 +415,12 @@ public interface ClusterInfo {
     private final List<Replica> all;
 
     private final Lazy<Map<BrokerTopic, List<Replica>>> byBrokerTopic;
+
+    private final Lazy<Map<BrokerTopic, List<Replica>>> byBrokerTopicForLeader;
     private final Lazy<Map<Integer, List<Replica>>> byBroker;
     private final Lazy<Map<String, List<Replica>>> byTopic;
+
+    private final Lazy<Map<String, List<Replica>>> byTopicForLeader;
     private final Lazy<Map<TopicPartition, List<Replica>>> byPartition;
     private final Lazy<Map<TopicPartitionReplica, List<Replica>>> byReplica;
 
@@ -431,6 +436,17 @@ public interface ClusterInfo {
                           Collectors.groupingBy(
                               r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
                               Collectors.toUnmodifiableList())));
+      this.byBrokerTopicForLeader =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .filter(Replica::isOnline)
+                      .filter(Replica::isLeader)
+                      .collect(
+                          Collectors.groupingBy(
+                              r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
+                              Collectors.toUnmodifiableList())));
+
       this.byBroker =
           Lazy.of(
               () ->
@@ -443,6 +459,15 @@ public interface ClusterInfo {
           Lazy.of(
               () ->
                   all.stream()
+                      .collect(
+                          Collectors.groupingBy(Replica::topic, Collectors.toUnmodifiableList())));
+
+      this.byTopicForLeader =
+          Lazy.of(
+              () ->
+                  all.stream()
+                      .filter(Replica::isOnline)
+                      .filter(Replica::isLeader)
                       .collect(
                           Collectors.groupingBy(Replica::topic, Collectors.toUnmodifiableList())));
 
@@ -516,6 +541,16 @@ public interface ClusterInfo {
     @Override
     public Stream<Replica> replicaStream() {
       return all.stream();
+    }
+
+    @Override
+    public List<Replica> replicaLeaders(String topic) {
+      return byTopicForLeader.get().getOrDefault(topic, List.of());
+    }
+
+    @Override
+    public List<Replica> replicaLeaders(BrokerTopic brokerTopic) {
+      return byBrokerTopicForLeader.get().getOrDefault(brokerTopic, List.of());
     }
   }
 }
