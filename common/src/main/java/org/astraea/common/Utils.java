@@ -406,7 +406,8 @@ public final class Utils {
                 if (!costClz.isAssignableFrom(clz)) return Stream.of();
                 var weight = Double.parseDouble(nameAndWeight.getValue());
                 if (weight < 0.0)
-                  throw new IllegalArgumentException("Cost-function weight should not be negative");
+                  throw new IllegalArgumentException(
+                      "the weight of cost function should be bigger than zero");
                 return Stream.of(Map.entry((Class<T>) clz, weight));
               } catch (ClassNotFoundException ignore) {
                 // this config is not cost function, so we just skip it.
