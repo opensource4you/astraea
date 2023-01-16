@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -49,7 +50,7 @@ public class NeutralIntegratedCostTest {
     var outputBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 500.0, 1, 1000.0, 2, 1500.0)));
     var cpuBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 0.05, 1, 0.1, 2, 0.15)));
     var memoryBrokerCost = getBrokerCost(new HashMap<>(Map.of(0, 0.1, 1, 0.3, 2, 0.5)));
-    var clusterInfo = ClusterInfo.empty();
+    var clusterInfo = ClusterInfo.<Replica>empty();
     var clusterBean = ClusterBean.EMPTY;
     Mockito.when(input.brokerCost(clusterInfo, clusterBean)).thenReturn(inputBrokerCost);
     Mockito.when(output.brokerCost(clusterInfo, clusterBean)).thenReturn(outputBrokerCost);

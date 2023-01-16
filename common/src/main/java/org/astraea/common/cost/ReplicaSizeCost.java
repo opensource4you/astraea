@@ -30,8 +30,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
@@ -96,8 +94,7 @@ public class ReplicaSizeCost
   public interface SizeStatisticalBean extends HasGauge<Double> {}
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo<Replica> before, ClusterInfo<Replica> after, ClusterBean clusterBean) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     return MoveCost.movedReplicaSize(
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -117,8 +114,7 @@ public class ReplicaSizeCost
    * @return a BrokerCost contains the used space for each broker
    */
   @Override
-  public BrokerCost brokerCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.topicPartitionReplicas().stream()
             .collect(
@@ -139,15 +135,14 @@ public class ReplicaSizeCost
   }
 
   @Override
-  public ClusterCost clusterCost(ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+  public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
     return () -> value;
   }
 
   @Override
-  public PartitionCost partitionCost(
-      ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.replicaLeaders().stream()
             .map(

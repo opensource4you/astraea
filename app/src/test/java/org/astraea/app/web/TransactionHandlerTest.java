@@ -22,18 +22,26 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class TransactionHandlerTest extends RequireBrokerCluster {
+public class TransactionHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testListTransactions() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
         var producer =
-            Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
+            Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
       producer
           .send(Record.builder().topic(topicName).value(new byte[1]).build())
@@ -60,9 +68,9 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
   @Test
   void testQueryTransactionId() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
         var producer =
-            Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
+            Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
       producer
           .send(Record.builder().topic(topicName).value(new byte[1]).build())
@@ -87,9 +95,9 @@ public class TransactionHandlerTest extends RequireBrokerCluster {
   @Test
   void queryNonexistentTransactionId() {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
         var producer =
-            Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional()) {
+            Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).buildTransactional()) {
       var handler = new TransactionHandler(admin);
       producer
           .send(Record.builder().topic(topicName).value(new byte[1]).build())

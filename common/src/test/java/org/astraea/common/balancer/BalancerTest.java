@@ -35,7 +35,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -49,7 +48,8 @@ import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -57,12 +57,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
-class BalancerTest extends RequireBrokerCluster {
+class BalancerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
   void testLeaderCountRebalance(Class<? extends Balancer> theClass) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var topicName = Utils.randomString();
       var currentLeaders =
           (Supplier<Map<Integer, Long>>)
@@ -79,7 +86,7 @@ class BalancerTest extends RequireBrokerCluster {
                             n ->
                                 clusterInfo
                                     .replicaStream(n.id())
-                                    .filter(ReplicaInfo::isLeader)
+                                    .filter(Replica::isLeader)
                                     .count()));
               };
       var currentImbalanceFactor =
@@ -99,7 +106,8 @@ class BalancerTest extends RequireBrokerCluster {
                   .mapToObj(i -> TopicPartition.of(topicName, i))
                   .collect(
                       Collectors.toMap(
-                          Function.identity(), ignored -> List.of(brokerIds().iterator().next()))))
+                          Function.identity(),
+                          ignored -> List.of(SERVICE.dataFolders().keySet().iterator().next()))))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -123,7 +131,7 @@ class BalancerTest extends RequireBrokerCluster {
                   Duration.ofSeconds(10))
               .solution()
               .orElseThrow();
-      new StraightPlanExecutor()
+      new StraightPlanExecutor(true)
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
           .toCompletableFuture()
           .join();
@@ -141,7 +149,7 @@ class BalancerTest extends RequireBrokerCluster {
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
   void testFilter(Class<? extends Balancer> theClass) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
@@ -155,8 +163,7 @@ class BalancerTest extends RequireBrokerCluster {
       var randomScore =
           new HasClusterCost() {
             @Override
-            public ClusterCost clusterCost(
-                ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+            public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
               return () -> ThreadLocalRandom.current().nextDouble();
             }
           };
@@ -188,26 +195,26 @@ class BalancerTest extends RequireBrokerCluster {
 
       Assertions.assertEquals(
           currentCluster.replicas(topic1).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           newCluster.replicas(topic1).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
       Assertions.assertEquals(
           currentCluster.replicas(topic2).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           newCluster.replicas(topic2).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
       Assertions.assertEquals(
           currentCluster.replicas(topic3).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           newCluster.replicas(topic3).stream()
-              .map(ReplicaInfo::topicPartitionReplica)
+              .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
     }
@@ -216,7 +223,7 @@ class BalancerTest extends RequireBrokerCluster {
   @ParameterizedTest
   @ValueSource(classes = {SingleStepBalancer.class, GreedyBalancer.class})
   void testExecutionTime(Class<? extends Balancer> theClass) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var theTopic = Utils.randomString();
       var topic1 = Utils.randomString();
       var topic2 = Utils.randomString();
@@ -271,8 +278,7 @@ class BalancerTest extends RequireBrokerCluster {
           var theCostFunction =
               new HasClusterCost() {
                 @Override
-                public ClusterCost clusterCost(
-                    ClusterInfo<Replica> clusterInfo, ClusterBean clusterBean) {
+                public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
                   Assertions.assertEquals(1, clusterBean.all().get(0).size());
                   Assertions.assertEquals(
                       expected,
@@ -318,7 +324,7 @@ class BalancerTest extends RequireBrokerCluster {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+          public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
               throw new NoSufficientMetricsException(
                   costFunction,
@@ -344,7 +350,7 @@ class BalancerTest extends RequireBrokerCluster {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(ClusterInfo<Replica> currentClusterInfo, Duration timeout) {
+          public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
           }

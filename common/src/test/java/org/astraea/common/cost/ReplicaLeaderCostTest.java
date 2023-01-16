@@ -24,7 +24,6 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -39,11 +38,27 @@ public class ReplicaLeaderCostTest {
   void testNoMetrics() {
     var replicas =
         List.of(
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(10, "broker0", 1111), true, true, false),
-            ReplicaInfo.of("topic", 0, NodeInfo.of(11, "broker1", 1111), true, true, false));
+            Replica.builder()
+                .topic("topic")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("topic")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("topic")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(11, "broker1", 1111))
+                .path("/tmp/aa")
+                .buildLeader());
     var clusterInfo =
         ClusterInfo.of(
+            "fake",
             List.of(
                 NodeInfo.of(10, "host1", 8080),
                 NodeInfo.of(11, "host1", 8080),
@@ -94,7 +109,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -107,7 +122,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -120,7 +135,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -133,7 +148,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -148,7 +163,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -161,7 +176,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -174,7 +189,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(true)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)
@@ -187,7 +202,7 @@ public class ReplicaLeaderCostTest {
                 .lag(-1)
                 .size(-1)
                 .isLeader(false)
-                .inSync(true)
+                .isSync(true)
                 .isFuture(false)
                 .isOffline(false)
                 .isPreferredLeader(false)

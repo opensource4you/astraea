@@ -22,9 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.automation.Automation;
-import org.astraea.app.backup.Exporter;
-import org.astraea.app.backup.ImportCsv;
-import org.astraea.app.backup.Importer;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.publisher.MetricPublisher;
 import org.astraea.app.version.Version;
@@ -41,12 +38,6 @@ public class App {
           WebService.class,
           "version",
           Version.class,
-          "export",
-          Exporter.class,
-          "import",
-          Importer.class,
-          "import_csv",
-          ImportCsv.class,
           "metric_publisher",
           MetricPublisher.class);
 

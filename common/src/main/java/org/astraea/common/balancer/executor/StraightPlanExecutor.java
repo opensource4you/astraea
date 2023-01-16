@@ -20,21 +20,28 @@ import static org.astraea.common.admin.ClusterInfo.findNonFulfilledAllocation;
 
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 
 /** Execute every possible migration immediately. */
 public class StraightPlanExecutor implements RebalancePlanExecutor {
 
-  public StraightPlanExecutor() {}
+  private final boolean disableDataDirectoryMigration;
+
+  public StraightPlanExecutor() {
+    this(false);
+  }
+
+  public StraightPlanExecutor(boolean disableDataDirectoryMigration) {
+    this.disableDataDirectoryMigration = disableDataDirectoryMigration;
+  }
 
   @Override
-  public CompletionStage<Void> run(
-      Admin admin, ClusterInfo<Replica> logAllocation, Duration timeout) {
+  public CompletionStage<Void> run(Admin admin, ClusterInfo logAllocation, Duration timeout) {
     return admin
         .topicNames(true)
         .thenCompose(admin::clusterInfo)
@@ -61,7 +68,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                             .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
                             .collect(
                                 Collectors.groupingBy(
-                                    ReplicaInfo::topicPartition,
+                                    Replica::topicPartition,
                                     Collectors.mapping(
                                         r -> r.nodeInfo().id(), Collectors.toList()))))
                     .thenApply(ignored -> replicas))
@@ -83,17 +90,22 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                             throw new IllegalStateException(
                                 "Failed to move "
                                     + replicas.stream()
-                                        .map(ReplicaInfo::topicPartitionReplica)
+                                        .map(Replica::topicPartitionReplica)
                                         .collect(Collectors.toSet()));
                           return replicas;
                         }))
         // step.3 move replicas to specify folders
         .thenCompose(
-            replicas ->
-                admin.moveToFolders(
+            replicas -> {
+              // temporarily disable data-directory migration, there are some Kafka bug related to
+              // it.
+              // see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
+              if (disableDataDirectoryMigration) return CompletableFuture.completedFuture(null);
+              else
+                return admin.moveToFolders(
                     replicas.stream()
-                        .collect(
-                            Collectors.toMap(ReplicaInfo::topicPartitionReplica, Replica::path))))
+                        .collect(Collectors.toMap(Replica::topicPartitionReplica, Replica::path)));
+            })
         // step.4 wait replicas get synced
         .thenCompose(
             replicas -> admin.waitReplicasSynced(logAllocation.topicPartitionReplicas(), timeout))

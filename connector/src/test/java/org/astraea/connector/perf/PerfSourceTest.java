@@ -33,11 +33,20 @@ import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.connector.MetadataStorage;
-import org.astraea.it.RequireSingleWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class PerfSourceTest extends RequireSingleWorkerCluster {
+public class PerfSourceTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testTaskConfiguration() {
@@ -59,7 +68,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   @Test
   void testDefaultConfig() {
     var name = Utils.randomString();
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     client
         .createConnector(
             name,
@@ -101,7 +110,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
 
     var name = Utils.randomString();
     var topicName = Utils.randomString();
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     client
         .createConnector(
             name,
@@ -119,7 +128,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
 
     Utils.sleep(Duration.ofSeconds(3));
 
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var offsets =
           admin.latestOffsets(Set.of(TopicPartition.of(topicName, 0))).toCompletableFuture().join();
       Assertions.assertEquals(1, offsets.size());
@@ -160,10 +169,10 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
 
     var name = Utils.randomString();
     var topicName = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
-      var client = ConnectorClient.builder().url(workerUrl()).build();
+      var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
       client
           .createConnector(
               name,
@@ -197,7 +206,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   }
 
   private void testConfig(String name, String errorValue) {
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var validation =
         client
             .validate(
@@ -231,7 +240,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   void testCreatePerf() {
     var name = Utils.randomString();
     var topicName = Utils.randomString();
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     client
         .createConnector(
             name,
@@ -253,7 +262,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
         .forEach(t -> Assertions.assertEquals("RUNNING", t.state(), t.error().toString()));
 
     // make sure there are some data
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       Assertions.assertTrue(
           admin.topicNames(false).toCompletableFuture().join().contains(topicName));
       Assertions.assertNotEquals(
@@ -268,7 +277,7 @@ public class PerfSourceTest extends RequireSingleWorkerCluster {
   void testMetrics() {
     var name = Utils.randomString();
     var topicName = Utils.randomString();
-    var client = ConnectorClient.builder().url(workerUrl()).build();
+    var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     client
         .createConnector(
             name,

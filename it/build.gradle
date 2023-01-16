@@ -59,6 +59,6 @@ tasks.named('test') {
         exceptionFormat = 'full'
     }
 
-    minHeapSize = "512m"
+    minHeapSize = "1024m"
     maxHeapSize = "2048m"
 }

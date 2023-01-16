@@ -31,7 +31,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -41,14 +40,24 @@ import org.astraea.common.Utils;
 import org.astraea.common.connector.impl.TestErrorSourceConnector;
 import org.astraea.common.connector.impl.TestTextSourceConnector;
 import org.astraea.common.http.HttpRequestException;
-import org.astraea.it.RequireWorkerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class ConnectorClientTest extends RequireWorkerCluster {
+class ConnectorClientTest {
+
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void testValidate() {
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var validation =
         connectorClient
             .validate(TestTextSourceConnector.class.getName(), Map.of())
@@ -59,7 +68,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
   @Test
   void testWorkerStatus() {
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     // make all workers busy
     connectorClient
         .createConnector(Utils.randomString(), getExampleConnector())
@@ -76,14 +85,14 @@ class ConnectorClientTest extends RequireWorkerCluster {
                     Utils.packException(
                         () -> new URL("http://" + w.hostname() + ":" + w.port() + "/")))
             .collect(Collectors.toSet()),
-        Set.copyOf(workerUrls()));
+        Set.copyOf(SERVICE.workerUrls()));
     workers.forEach(w -> Assertions.assertNotEquals(0, w.numberOfConnectors() + w.numberOfTasks()));
   }
 
   @Test
   void testConnectors() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var connectors = connectorClient.connectorNames().toCompletableFuture().join();
     assertFalse(connectors.stream().anyMatch(x -> x.equals(connectorName)));
 
@@ -98,7 +107,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
   @Test
   void testCreateConnector() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().urls(Set.copyOf(SERVICE.workerUrls())).build();
     var exampleConnector = new HashMap<>(getExampleConnector());
     exampleConnector.put("tasks.max", "3");
 
@@ -115,9 +124,11 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
     assertTrue(
         connectorClient
-            .waitConnector(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(10))
+            .waitConnector(connectorName, x -> x.tasks().size() > 0, Duration.ofSeconds(30))
             .toCompletableFuture()
-            .join());
+            .join(),
+        "connector: "
+            + connectorClient.connectorStatus(connectorName).toCompletableFuture().join());
     var connectorInfo = connectorClient.connectorStatus(connectorName).toCompletableFuture().join();
     assertEquals(3, connectorInfo.tasks().size());
     assertTrue(
@@ -129,7 +140,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
   @Test
   void testUpdateConnector() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var exampleConnector = getExampleConnector();
 
     var connector =
@@ -166,7 +177,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
   @Test
   void testDeleteConnector() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var exampleConnector = getExampleConnector();
 
     connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().join();
@@ -190,7 +201,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
 
   @Test
   void testPlugin() {
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var plugins = connectorClient.plugins().toCompletableFuture().join();
     assertNotEquals(0, plugins.size());
     assertTrue(
@@ -202,7 +213,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
   @Test
   void testUrls() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().urls(new HashSet<>(workerUrls())).build();
+    var connectorClient = ConnectorClient.builder().urls(Set.copyOf(SERVICE.workerUrls())).build();
     connectorClient
         .createConnector(connectorName, getExampleConnector())
         .toCompletableFuture()
@@ -258,7 +269,7 @@ class ConnectorClientTest extends RequireWorkerCluster {
   @Test
   void testWaitConnectorInfo() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().url(workerUrl()).build();
+    var connectorClient = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
     var exampleConnector = new HashMap<>(getExampleConnector());
 
     connectorClient.createConnector(connectorName, exampleConnector).toCompletableFuture().join();

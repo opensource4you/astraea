@@ -16,7 +16,7 @@
  */
 package org.astraea.common.admin;
 
-public interface Replica extends ReplicaInfo {
+public interface Replica {
 
   static ReplicaBuilder builder() {
     return new ReplicaBuilder();
@@ -25,6 +25,78 @@ public interface Replica extends ReplicaInfo {
   static ReplicaBuilder builder(Replica replica) {
     return Replica.builder().replica(replica);
   }
+
+  /**
+   * a helper to build TopicPartitionReplica quickly
+   *
+   * @return TopicPartitionReplica
+   */
+  default TopicPartitionReplica topicPartitionReplica() {
+    return TopicPartitionReplica.of(topic(), partition(), nodeInfo().id());
+  }
+
+  /**
+   * a helper to build TopicPartition quickly
+   *
+   * @return TopicPartition
+   */
+  default TopicPartition topicPartition() {
+    return TopicPartition.of(topic(), partition());
+  }
+
+  /**
+   * @return topic name
+   */
+  String topic();
+
+  /**
+   * @return partition id
+   */
+  int partition();
+
+  /**
+   * @return information of the node hosts this replica
+   */
+  NodeInfo nodeInfo();
+
+  /**
+   * @return true if this replica is a leader replica
+   */
+  boolean isLeader();
+
+  /**
+   * @return true if this replica is a follower replica
+   */
+  default boolean isFollower() {
+    return !isLeader();
+  }
+
+  /**
+   * @return true if this replica is synced
+   */
+  boolean isSync();
+
+  /**
+   * @return true if this replica is offline
+   */
+  boolean isOffline();
+
+  /**
+   * @return true if this replica is online
+   */
+  default boolean isOnline() {
+    return !isOffline();
+  }
+
+  /**
+   * @return true if this replica is adding and syncing data
+   */
+  boolean isAdding();
+
+  /**
+   * @return true if this replica will be deleted in the future.
+   */
+  boolean isRemoving();
 
   /**
    * Whether this replica has been created by a AlterReplicaLogDirsRequest but not yet replaced the

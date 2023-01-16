@@ -35,11 +35,19 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class BalancerNodeTest extends RequireBrokerCluster {
+class BalancerNodeTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testClusterCost() {
@@ -65,7 +73,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
   @Test
   void testGenerator() {
     var topicName = Utils.randomString();
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topicName)
@@ -151,7 +159,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of(List.of(), beforeReplicas);
+    var beforeClusterInfo = ClusterInfo.of("fake", List.of(), beforeReplicas);
 
     var results =
         BalancerNode.assignmentResult(
@@ -159,7 +167,7 @@ class BalancerNodeTest extends RequireBrokerCluster {
             new Balancer.Solution(
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 MoveCost.EMPTY,
-                ClusterInfo.of(allNodes, afterReplicas)));
+                ClusterInfo.of("fake", allNodes, afterReplicas)));
     Assertions.assertEquals(results.size(), 1);
     Assertions.assertEquals(results.get(0).get("topic"), topic);
     Assertions.assertEquals(results.get(0).get("partition"), 0);

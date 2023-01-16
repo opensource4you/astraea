@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.metrics.collector.Fetcher;
 
 @FunctionalInterface
@@ -44,8 +43,7 @@ public interface HasBrokerCost extends CostFunction {
                 .collect(Collectors.toUnmodifiableList()));
     return new HasBrokerCost() {
       @Override
-      public BrokerCost brokerCost(
-          ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean) {
+      public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
         var result = new HashMap<Integer, Double>();
         costAndWeight.forEach(
             (f, w) ->
@@ -74,5 +72,5 @@ public interface HasBrokerCost extends CostFunction {
    * @param clusterBean cluster metrics
    * @return the score of each broker.
    */
-  BrokerCost brokerCost(ClusterInfo<? extends ReplicaInfo> clusterInfo, ClusterBean clusterBean);
+  BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
 }

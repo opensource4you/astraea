@@ -20,16 +20,25 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SomePartitionOfflineTest extends RequireBrokerCluster {
+public class SomePartitionOfflineTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   void somePartitionsOffline() {
     String topicName1 = "testOfflineTopic-1";
     String topicName2 = "testOfflineTopic-2";
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topicName1)
@@ -59,10 +68,10 @@ public class SomePartitionOfflineTest extends RequireBrokerCluster {
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())));
       replicaOnBroker0.forEach((tp, replica) -> Assertions.assertFalse(replica.get(0).isOffline()));
-      closeBroker(0);
-      Assertions.assertNull(logFolders().get(0));
-      Assertions.assertNotNull(logFolders().get(1));
-      Assertions.assertNotNull(logFolders().get(2));
+      SERVICE.close(0);
+      Assertions.assertNull(SERVICE.dataFolders().get(0));
+      Assertions.assertNotNull(SERVICE.dataFolders().get(1));
+      Assertions.assertNotNull(SERVICE.dataFolders().get(2));
       var offlineReplicaOnBroker0 =
           admin
               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())

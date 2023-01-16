@@ -17,9 +17,14 @@
 package org.astraea.common.metrics.stats;
 
 public class Max<V extends Comparable<V>> implements Stat<V> {
+
+  public static <V extends Comparable<V>> Max<V> of() {
+    return new Max<>();
+  }
+
   private V max;
 
-  public Max() {
+  private Max() {
     max = null;
   }
 

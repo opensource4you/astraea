@@ -43,7 +43,7 @@ class ClusterInfoBuilderTest {
             .isPreferredLeader(true)
             .isLeader(true)
             .build();
-    var cluster = ClusterInfo.of(List.of(host1000, host2000, host3000), List.of(replica));
+    var cluster = ClusterInfo.of("fake", List.of(host1000, host2000, host3000), List.of(replica));
 
     Assertions.assertEquals(
         List.of(host1000, host2000, host3000), ClusterInfoBuilder.builder(cluster).build().nodes());
@@ -144,12 +144,12 @@ class ClusterInfoBuilderTest {
     Assertions.assertTrue(cluster.replicaStream().allMatch(i -> i.topic().equals("topic")));
     Assertions.assertEquals(
         Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
-        cluster.replicaStream().map(ReplicaInfo::partition).collect(Collectors.toSet()),
+        cluster.replicaStream().map(Replica::partition).collect(Collectors.toSet()),
         "Correct number of partitions");
     Assertions.assertTrue(
         cluster
             .replicaStream()
-            .collect(Collectors.groupingBy(ReplicaInfo::partition, Collectors.counting()))
+            .collect(Collectors.groupingBy(Replica::partition, Collectors.counting()))
             .values()
             .stream()
             .allMatch(count -> count == 2),

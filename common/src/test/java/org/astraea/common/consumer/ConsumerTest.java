@@ -48,18 +48,27 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.assignor.RandomAssignor;
 import org.astraea.common.producer.Producer;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public class ConsumerTest extends RequireBrokerCluster {
+public class ConsumerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   private static void produceData(String topic, int size) {
-    try (var producer = Producer.builder().bootstrapServers(bootstrapServers()).build()) {
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
       IntStream.range(0, size)
           .forEach(
               i ->
@@ -80,7 +89,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     produceData(topic, recordCount);
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -97,7 +106,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     produceData(topic, 1);
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG, ConsumerConfigs.AUTO_OFFSET_RESET_LATEST)
             .build()) {
@@ -112,7 +121,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topic = "testWakeup";
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG, ConsumerConfigs.AUTO_OFFSET_RESET_LATEST)
             .build()) {
@@ -140,7 +149,7 @@ public class ConsumerTest extends RequireBrokerCluster {
         (id, expectedSize) -> {
           try (var consumer =
               Consumer.forTopics(Set.of(topic))
-                  .bootstrapServers(bootstrapServers())
+                  .bootstrapServers(SERVICE.bootstrapServers())
                   .config(
                       ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                       ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -168,7 +177,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var staticId = Utils.randomString(10);
     try (var consumer =
         Consumer.forTopics(Set.of(Utils.randomString(10)))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(ConsumerConfigs.GROUP_INSTANCE_ID_CONFIG, staticId)
             .build()) {
       Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(2)).size());
@@ -180,7 +189,7 @@ public class ConsumerTest extends RequireBrokerCluster {
   void testDistanceFromLatest() {
     var count = 10;
     var topic = Utils.randomString(10);
-    try (var producer = Producer.of(bootstrapServers())) {
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       IntStream.range(0, count)
           .forEach(
               i ->
@@ -193,7 +202,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     }
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 3)
             .build()) {
       Assertions.assertEquals(3, consumer.poll(4, Duration.ofSeconds(5)).size());
@@ -201,7 +210,7 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 1000)
             .build()) {
       Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
@@ -214,7 +223,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topic = "testPollingTime";
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -230,8 +239,8 @@ public class ConsumerTest extends RequireBrokerCluster {
   @Test
   void testAssignment() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var partitionNum = 2;
       admin
           .creator()
@@ -257,7 +266,7 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, "1")))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
       var records = consumer.poll(20, Duration.ofSeconds(5));
@@ -268,7 +277,7 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, "0"), TopicPartition.of(topic, "1")))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
       var records = consumer.poll(20, Duration.ofSeconds(5));
@@ -282,8 +291,8 @@ public class ConsumerTest extends RequireBrokerCluster {
   @Test
   void testCommitOffset() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       producer.send(
@@ -294,7 +303,7 @@ public class ConsumerTest extends RequireBrokerCluster {
       try (var consumer =
           Consumer.forTopics(Set.of(topic))
               .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-              .bootstrapServers(bootstrapServers())
+              .bootstrapServers(SERVICE.bootstrapServers())
               .config(
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -342,7 +351,7 @@ public class ConsumerTest extends RequireBrokerCluster {
         (distanceFromBeginning, expectedSize) -> {
           try (var consumer =
               Consumer.forTopics(Set.of(topic))
-                  .bootstrapServers(bootstrapServers())
+                  .bootstrapServers(SERVICE.bootstrapServers())
                   .seek(DISTANCE_FROM_BEGINNING, distanceFromBeginning)
                   .build()) {
             Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
@@ -362,7 +371,7 @@ public class ConsumerTest extends RequireBrokerCluster {
         (seekTo, expectedSize) -> {
           try (var consumer =
               Consumer.forTopics(Set.of(topic))
-                  .bootstrapServers(bootstrapServers())
+                  .bootstrapServers(SERVICE.bootstrapServers())
                   .seek(SEEK_TO, seekTo)
                   .build()) {
             Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
@@ -379,7 +388,7 @@ public class ConsumerTest extends RequireBrokerCluster {
         IllegalArgumentException.class,
         () ->
             Consumer.forTopics(Set.of("test"))
-                .bootstrapServers(bootstrapServers())
+                .bootstrapServers(SERVICE.bootstrapServers())
                 .seek(SEEK_TO, -1)
                 .build(),
         "seek value should >= 0");
@@ -391,7 +400,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     produceData(topic, 100);
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -421,7 +430,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     produceData(topic, 100);
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -449,7 +458,7 @@ public class ConsumerTest extends RequireBrokerCluster {
   void testCreateConsumersConcurrent() {
     var partitions = 3;
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
           .creator()
           .topic(topic)
@@ -475,7 +484,7 @@ public class ConsumerTest extends RequireBrokerCluster {
                               try (var consumer =
                                   Consumer.forTopics(Set.of(topic))
                                       .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
-                                      .bootstrapServers(bootstrapServers())
+                                      .bootstrapServers(SERVICE.bootstrapServers())
                                       .seek(SEEK_TO, 0)
                                       .consumerRebalanceListener(ps -> log.put(index, ps.size()))
                                       .build()) {
@@ -496,7 +505,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var clientId0 = Utils.randomString();
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -508,7 +517,7 @@ public class ConsumerTest extends RequireBrokerCluster {
     var clientId1 = Utils.randomString();
     try (var consumer =
         Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -531,11 +540,11 @@ public class ConsumerTest extends RequireBrokerCluster {
           var iter =
               isAssigned
                   ? Consumer.forPartitions(Set.of(TopicPartition.of(topic, 0)))
-                      .bootstrapServers(bootstrapServers())
+                      .bootstrapServers(SERVICE.bootstrapServers())
                       .seek(DISTANCE_FROM_BEGINNING, 0)
                       .iterator(List.of(limit))
                   : Consumer.forTopics(Set.of(topic))
-                      .bootstrapServers(bootstrapServers())
+                      .bootstrapServers(SERVICE.bootstrapServers())
                       .config(
                           ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                           ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -563,8 +572,8 @@ public class ConsumerTest extends RequireBrokerCluster {
   @Test
   void testRandomAssignorWithSingleConsumer() {
     var topic = "testAssignor";
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var partitionNum = 3;
       admin
           .creator()
@@ -590,10 +599,10 @@ public class ConsumerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                org.astraea.common.consumer.assignor.RandomAssignor.class.getName())
+                RandomAssignor.class.getName())
             .seek(DISTANCE_FROM_BEGINNING, 0)
             .build()) {
       var records = consumer.poll(30, Duration.ofSeconds(5));
@@ -609,8 +618,8 @@ public class ConsumerTest extends RequireBrokerCluster {
     var topics = Set.of(topic1, topic2);
     var partitions = 0;
     var random = new Random();
-    try (var admin = Admin.of(bootstrapServers());
-        var producer = Producer.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers())) {
       var partitionNum = random.nextInt(15) + 1;
       admin
           .creator()
@@ -660,9 +669,8 @@ public class ConsumerTest extends RequireBrokerCluster {
                                       .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                                       .config(
                                           ConsumerConfigs.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                                          org.astraea.common.consumer.assignor.RandomAssignor.class
-                                              .getName())
-                                      .bootstrapServers(bootstrapServers())
+                                          RandomAssignor.class.getName())
+                                      .bootstrapServers(SERVICE.bootstrapServers())
                                       .seek(SEEK_TO, 0)
                                       .consumerRebalanceListener(
                                           ps -> {

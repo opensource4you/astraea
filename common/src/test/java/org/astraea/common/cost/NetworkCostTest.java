@@ -34,7 +34,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -43,11 +42,13 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class NetworkCostTest {
 
@@ -55,9 +56,7 @@ class NetworkCostTest {
     return new NetworkIngressCost() {
       @Override
       void updateCurrentCluster(
-          ClusterInfo<Replica> clusterInfo,
-          ClusterBean clusterBean,
-          AtomicReference<ClusterInfo<Replica>> ref) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
         ref.compareAndSet(null, clusterInfo);
       }
     };
@@ -67,9 +66,7 @@ class NetworkCostTest {
     return new NetworkEgressCost() {
       @Override
       void updateCurrentCluster(
-          ClusterInfo<Replica> clusterInfo,
-          ClusterBean clusterBean,
-          AtomicReference<ClusterInfo<Replica>> ref) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
         ref.compareAndSet(null, clusterInfo);
       }
     };
@@ -302,9 +299,126 @@ class NetworkCostTest {
         "Should raise a exception since we don't know if first sample is performed or not");
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {0xfee1dead, 1, 100, 500, -5566, 0xcafebabe, 0x5566, 0x996, 0xABCDEF})
+  @Disabled
+  void testExpectedImprovement(int seed) {
+    var testCase = new LargeTestCase(6, 100, seed);
+    var clusterInfo = testCase.clusterInfo();
+    var clusterBean = testCase.clusterBean();
+    var smallShuffle = new ShuffleTweaker(1, 6);
+    var largeShuffle = new ShuffleTweaker(1, 31);
+    var costFunction = HasClusterCost.of(Map.of(ingressCost(), 1.0, egressCost(), 1.0));
+    var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
+
+    Function<ShuffleTweaker, Double> experiment =
+        (tweaker) -> {
+          return IntStream.range(0, 10)
+              .mapToDouble(
+                  (ignore) -> {
+                    var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
+                    var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
+                    var counting = 0;
+                    var next = clusterInfo;
+                    while (!timeUp.get()) {
+                      next =
+                          tweaker
+                              .generate(next)
+                              .parallel()
+                              .limit(30)
+                              .takeWhile(i -> !timeUp.get())
+                              .map(
+                                  cluster ->
+                                      Map.entry(
+                                          cluster,
+                                          costFunction.clusterCost(cluster, clusterBean).value()))
+                              .filter(e -> originalCost.value() > e.getValue())
+                              .min(Map.Entry.comparingByValue())
+                              .map(Map.Entry::getKey)
+                              .orElse(next);
+                      counting++;
+                    }
+                    var a = originalCost.value();
+                    var b = costFunction.clusterCost(next, clusterBean).value();
+                    System.out.println(counting);
+                    return a - b;
+                  })
+              .average()
+              .orElseThrow();
+        };
+
+    long s0 = System.currentTimeMillis();
+    double small = experiment.apply(smallShuffle);
+    long s1 = System.currentTimeMillis();
+    double large = experiment.apply(largeShuffle);
+    long s2 = System.currentTimeMillis();
+
+    double largeTime = (s2 - s1) / 1000.0;
+    double smallTime = (s1 - s0) / 1000.0;
+    System.out.println("[Use seed " + seed + "]");
+    System.out.println(small + " (takes " + largeTime + "s)");
+    System.out.println(large + " (takes " + smallTime + "s)");
+    System.out.println("Small step is better: " + (small > large));
+    System.out.println();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0xfee1dead, 1, 100, 500, -5566, 0xcafebabe, 0x5566, 0x996, 0xABCDEF})
+  @Disabled
+  void testSingleStepImprovement(int seed) {
+    var random = new Random(seed);
+
+    Map<Boolean, Long> counting =
+        IntStream.range(0, 100)
+            .map(i -> random.nextInt())
+            .mapToObj(
+                cSeed -> {
+                  var testCase = new LargeTestCase(6, 100, cSeed);
+                  var clusterInfo = testCase.clusterInfo();
+                  var clusterBean = testCase.clusterBean();
+                  var smallShuffle = new ShuffleTweaker(5, 6);
+                  var largeShuffle = new ShuffleTweaker(30, 31);
+                  var costFunction =
+                      HasClusterCost.of(Map.of(ingressCost(), 1.0, egressCost(), 1.0));
+                  var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
+
+                  double improve30 =
+                      largeShuffle
+                          .generate(clusterInfo)
+                          .limit(50)
+                          .parallel()
+                          .map(cluster -> costFunction.clusterCost(cluster, clusterBean))
+                          .mapToDouble(ClusterCost::value)
+                          .map(score -> originalCost.value() - score)
+                          .max()
+                          .orElseThrow();
+                  double improve5 =
+                      smallShuffle
+                          .generate(clusterInfo)
+                          .limit(300)
+                          .parallel()
+                          .map(cluster -> costFunction.clusterCost(cluster, clusterBean))
+                          .mapToDouble(ClusterCost::value)
+                          .map(score -> originalCost.value() - score)
+                          .max()
+                          .orElseThrow();
+
+                  System.out.println("Step 30 Improvement: " + improve30);
+                  System.out.println("Step  5 Improvement: " + improve5);
+                  System.out.println("Is small step better: " + (improve5 > improve30));
+                  System.out.println();
+                  return improve5 > improve30;
+                })
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+
+    System.out.println("[Summary]");
+    System.out.println("True  test: " + counting.get(true));
+    System.out.println("False test: " + counting.get(false));
+  }
+
   interface TestCase {
 
-    ClusterInfo<Replica> clusterInfo();
+    ClusterInfo clusterInfo();
 
     ClusterBean clusterBean();
   }
@@ -366,7 +480,7 @@ class NetworkCostTest {
                       .collect(Collectors.toUnmodifiableList())));
     }
 
-    final ClusterInfo<Replica> base =
+    final ClusterInfo base =
         ClusterInfoBuilder.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(Map.of(1, Set.of("/ssd1", "/ssd2", "/ssd3")))
@@ -406,7 +520,7 @@ class NetworkCostTest {
                 .size(expectedRate.get(replica.topicPartition()) * 100)
                 .nodeInfo(base.node(1 + replica.partition() % 3))
                 .build();
-    final ClusterInfo<Replica> clusterInfo =
+    final ClusterInfo clusterInfo =
         ClusterInfoBuilder.builder(base)
             .addTopic("Beef", 4, (short) 1, modPlacement)
             .addTopic("Pork", 4, (short) 1, modPlacement)
@@ -418,7 +532,7 @@ class NetworkCostTest {
     }
 
     @Override
-    public ClusterInfo<Replica> clusterInfo() {
+    public ClusterInfo clusterInfo() {
       return clusterInfo;
     }
 
@@ -431,7 +545,7 @@ class NetworkCostTest {
   /** A large cluster */
   private static class LargeTestCase implements TestCase {
 
-    private final ClusterInfo<Replica> clusterInfo;
+    private final ClusterInfo clusterInfo;
     private final ClusterBean clusterBean;
     private final Map<TopicPartition, Long> rate;
     private final Supplier<DataRate> dataRateSupplier;
@@ -506,8 +620,8 @@ class NetworkCostTest {
                                       clusterInfo
                                           .replicaStream()
                                           .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(ReplicaInfo::isLeader)
-                                          .filter(ReplicaInfo::isOnline)
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
                                           .mapToLong(r -> rate.get(r.topicPartition()))
                                           .sum()),
                                   noise(random.nextInt()),
@@ -518,8 +632,8 @@ class NetworkCostTest {
                                       clusterInfo
                                           .replicaStream()
                                           .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(ReplicaInfo::isLeader)
-                                          .filter(ReplicaInfo::isOnline)
+                                          .filter(Replica::isLeader)
+                                          .filter(Replica::isOnline)
                                           .mapToLong(
                                               r ->
                                                   rate.get(r.topicPartition())
@@ -529,7 +643,7 @@ class NetworkCostTest {
     }
 
     @Override
-    public ClusterInfo<Replica> clusterInfo() {
+    public ClusterInfo clusterInfo() {
       return clusterInfo;
     }
 

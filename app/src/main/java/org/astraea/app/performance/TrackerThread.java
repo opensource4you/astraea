@@ -19,13 +19,11 @@ package org.astraea.app.performance;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
-import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
@@ -81,6 +79,12 @@ public interface TrackerThread extends AbstractThread {
           .mapToDouble(Report::avgLatency)
           .average()
           .ifPresent(i -> System.out.printf("  publish average latency: %.3f ms%n", i));
+      reports.stream()
+          .flatMap(r -> r.e2eLatency().stream())
+          .mapToDouble(v -> v)
+          .filter(v -> !Double.isNaN(v))
+          .average()
+          .ifPresent(i -> System.out.printf("  publish e2e-average latency: %.3f ms%n", i));
       for (int i = 0; i < reports.size(); ++i) {
         System.out.printf(
             "  producer[%d] average throughput: %s%n",
@@ -143,22 +147,19 @@ public interface TrackerThread extends AbstractThread {
       for (var i = 0; i < reports.size(); ++i) {
         var report = reports.get(i);
         var clientId = report.clientId();
-        var ms = metrics.stream().filter(m -> m.clientId().equals(report.clientId())).findFirst();
-        var assignedPartitions =
-            ConsumerThread.CLIENT_ID_ASSIGNED_PARTITIONS.getOrDefault(clientId, Set.of());
-        var revokedPartitions =
-            ConsumerThread.CLIENT_ID_REVOKED_PARTITIONS.getOrDefault(clientId, Set.of());
-        var nonStickyPartitions =
-            assignedPartitions.stream()
-                .filter(tp -> !revokedPartitions.contains(tp))
-                .collect(Collectors.toSet());
+        var ms = metrics.stream().filter(m -> m.clientId().equals(clientId)).findFirst();
+
         if (ms.isPresent()) {
+          var nonStickySensor = ConsumerThread.NON_STICKY_SENSOR.get(clientId);
+          var diffSensor = ConsumerThread.DIFFERENCE_SENSOR.get(clientId);
           System.out.printf(
-              "  consumer[%d] has %d partitions. Among them, there are %d non-sticky partitions and was assigned %d more partitions than before re-balancing%n",
+              "  consumer[%d] has %d partitions.%n"
+                  + "    %.1f non-sticky partitions in average,%n"
+                  + "    assigned %.1f more partitions than before re-balancing in average%n",
               i,
               (int) ms.get().assignedPartitions(),
-              nonStickyPartitions.size(),
-              (assignedPartitions.size() - revokedPartitions.size()));
+              nonStickySensor == null ? 0.0 : nonStickySensor.measure("exp-avg"),
+              diffSensor == null ? 0.0 : diffSensor.measure("exp-avg"));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",

@@ -25,18 +25,28 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.metrics.client.HasNodeMetrics;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ConsumerMetricsTest extends RequireBrokerCluster {
+public class ConsumerMetricsTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testAppInfo() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
         var consumer =
-            Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
+            Consumer.forTopics(Set.of(topic))
+                .bootstrapServers(SERVICE.bootstrapServers())
+                .build()) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
@@ -47,9 +57,11 @@ public class ConsumerMetricsTest extends RequireBrokerCluster {
   @Test
   void testMultiBrokers() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers());
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
         var consumer =
-            Consumer.forTopics(Set.of(topic)).bootstrapServers(bootstrapServers()).build()) {
+            Consumer.forTopics(Set.of(topic))
+                .bootstrapServers(SERVICE.bootstrapServers())
+                .build()) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
@@ -59,7 +71,7 @@ public class ConsumerMetricsTest extends RequireBrokerCluster {
           metrics.stream()
               .map(HasNodeMetrics::brokerId)
               .collect(Collectors.toUnmodifiableList())
-              .containsAll(brokerIds()));
+              .containsAll(SERVICE.dataFolders().keySet()));
       metrics.forEach(ConsumerMetricsTest::check);
     }
   }

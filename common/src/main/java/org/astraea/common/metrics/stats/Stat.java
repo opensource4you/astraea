@@ -24,7 +24,7 @@ public interface Stat<V> {
 
   /** Make a readonly copy of this object. */
   default Stat<V> snapshot() {
-    var value = measure();
+    var statistics = measure();
     return new Stat<>() {
       @Override
       public void record(V ignore) {
@@ -33,7 +33,7 @@ public interface Stat<V> {
 
       @Override
       public V measure() {
-        return value;
+        return statistics;
       }
     };
   }

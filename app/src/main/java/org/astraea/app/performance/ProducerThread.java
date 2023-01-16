@@ -17,7 +17,7 @@
 package org.astraea.app.performance;
 
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -27,14 +27,25 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.common.metrics.MBeanRegister;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.stats.Avg;
 import org.astraea.common.partitioner.Dispatcher;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 
 public interface ProducerThread extends AbstractThread {
 
+  String DOMAIN_NAME = "org.astraea";
+  String TYPE_PROPERTY = "type";
+
+  String TYPE_VALUE = "producer";
+
+  String AVG_PROPERTY = "avg";
+  String ID_PROPERTY = "client-id";
+
   static List<ProducerThread> create(
-      BlockingQueue<List<Record<byte[], byte[]>>> queue,
+      List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
       int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
@@ -60,6 +71,15 @@ public interface ProducerThread extends AbstractThread {
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
               var producer = producerSupplier.get();
+              var queue = queues.get(index);
+              var sensor = Sensor.builder().addStat(AVG_PROPERTY, Avg.of()).build();
+              // export the custom jmx for report thread
+              MBeanRegister.local()
+                  .domainName(DOMAIN_NAME)
+                  .property(TYPE_PROPERTY, TYPE_VALUE)
+                  .property(ID_PROPERTY, producer.clientId())
+                  .attribute(AVG_PROPERTY, Double.class, () -> sensor.measure(AVG_PROPERTY))
+                  .register();
               executors.execute(
                   () -> {
                     try {
@@ -74,7 +94,18 @@ public interface ProducerThread extends AbstractThread {
                           Dispatcher.beginInterdependent(producer);
                           interdependentCounter += data.size();
                         }
-                        if (data != null) producer.send(data);
+                        var now = System.currentTimeMillis();
+                        if (data != null)
+                          producer
+                              .send(data)
+                              .forEach(
+                                  f ->
+                                      f.whenComplete(
+                                          (r, e) -> {
+                                            if (e == null)
+                                              sensor.record(
+                                                  (double) (System.currentTimeMillis() - now));
+                                          }));
 
                         // End interdependent
                         if (interdependent > 1 && interdependentCounter >= interdependent) {

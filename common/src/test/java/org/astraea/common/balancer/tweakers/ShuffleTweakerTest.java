@@ -195,7 +195,7 @@ class ShuffleTweakerTest {
             .lag(0)
             .size(0)
             .isLeader(false)
-            .inSync(true)
+            .isSync(true)
             .isFuture(false)
             .isOffline(false)
             .isPreferredLeader(false)

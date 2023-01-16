@@ -34,12 +34,12 @@ import java.util.stream.Stream;
 /** A builder with utility functions for modifying a {@link ClusterInfo}. */
 public class ClusterInfoBuilder {
 
-  private final ClusterInfo<Replica> sourceCluster;
+  private final ClusterInfo sourceCluster;
   private final List<
           BiFunction<List<NodeInfo>, List<Replica>, Map.Entry<List<NodeInfo>, List<Replica>>>>
       alterations;
 
-  private ClusterInfoBuilder(ClusterInfo<Replica> source) {
+  private ClusterInfoBuilder(ClusterInfo source) {
     this.sourceCluster = source;
     this.alterations = new ArrayList<>();
   }
@@ -48,7 +48,7 @@ public class ClusterInfoBuilder {
     return builder(ClusterInfo.empty());
   }
 
-  public static ClusterInfoBuilder builder(ClusterInfo<Replica> source) {
+  public static ClusterInfoBuilder builder(ClusterInfo source) {
     return new ClusterInfoBuilder(source);
   }
 
@@ -216,7 +216,7 @@ public class ClusterInfoBuilder {
                                         .lag(0)
                                         .internal(false)
                                         .isLeader(index == 0)
-                                        .inSync(true)
+                                        .isSync(true)
                                         .isFuture(false)
                                         .isOffline(false)
                                         .isPreferredLeader(index == 0)
@@ -316,7 +316,7 @@ public class ClusterInfoBuilder {
    * Apply the pending alteration to the source cluster, and return the transformed {@link
    * ClusterInfo}.
    */
-  public ClusterInfo<Replica> build() {
+  public ClusterInfo build() {
     var nodes = sourceCluster.nodes();
     var replicas = sourceCluster.replicas();
     for (var alteration : alterations) {
@@ -324,7 +324,7 @@ public class ClusterInfoBuilder {
       nodes = e.getKey();
       replicas = e.getValue();
     }
-    return ClusterInfo.of(nodes, replicas);
+    return ClusterInfo.of(sourceCluster.clusterId(), nodes, replicas);
   }
 
   private static Broker fakeNode(int brokerId) {

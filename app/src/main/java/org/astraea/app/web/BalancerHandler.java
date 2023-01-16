@@ -19,13 +19,13 @@ package org.astraea.app.web;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -38,8 +38,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.app.argument.DataSizeField;
 import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -47,7 +47,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.ReplicaInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -67,8 +66,6 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
-  static final HasClusterCost DEFAULT_CLUSTER_COST_FUNCTION =
-      HasClusterCost.of(Map.of(new ReplicaSizeCost(), 1.0, new ReplicaLeaderCost(), 1.0));
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
           List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
@@ -85,11 +82,11 @@ class BalancerHandler implements Handler {
   private final Duration sampleInterval = Duration.ofSeconds(1);
 
   BalancerHandler(Admin admin) {
-    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor());
+    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
   }
 
   BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
-    this(admin, jmxPortMapper, new StraightPlanExecutor());
+    this(admin, jmxPortMapper, new StraightPlanExecutor(true));
   }
 
   BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
@@ -111,7 +108,7 @@ class BalancerHandler implements Handler {
     var planId = channel.target().get();
     if (!planCalculation.containsKey(planId))
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
-    var timeout = requestHistory.get(planId).executionTime.toMillis();
+    var timeout = requestHistory.get(planId).executionTime;
     var balancer = requestHistory.get(planId).balancerClasspath;
     var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
 
@@ -296,109 +293,86 @@ class BalancerHandler implements Handler {
 
   // visible for test
   static PostRequestWrapper parsePostRequestWrapper(
-      BalancerPostRequest balancerPostRequest, ClusterInfo<Replica> currentClusterInfo) {
-
-    var balancerClasspath = balancerPostRequest.balancer;
-    var balancerConfig = Configuration.of(balancerPostRequest.balancerConfig);
-    var clusterCostFunction = getClusterCost(balancerPostRequest);
-    var timeout = Utils.toDuration(balancerPostRequest.timeout);
-
+      BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
     var topics =
-        balancerPostRequest
-            .topics
-            .map(
-                s ->
-                    Arrays.stream(s.split(","))
-                        .filter(x -> !x.isEmpty())
-                        .collect(Collectors.toSet()))
-            .orElseGet(currentClusterInfo::topics);
+        balancerPostRequest.topics.isEmpty()
+            ? currentClusterInfo.topics()
+            : balancerPostRequest.topics;
 
-    if (balancerPostRequest.topics.isPresent() && topics.isEmpty())
+    if (topics.isEmpty())
       throw new IllegalArgumentException(
           "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
-    if (timeout.isZero() || timeout.isNegative())
+    if (balancerPostRequest.timeout.isZero() || balancerPostRequest.timeout.isNegative())
       throw new IllegalArgumentException(
-          "Illegal timeout, value should be positive integer: " + timeout.getSeconds());
+          "Illegal timeout, value should be positive integer: "
+              + balancerPostRequest.timeout.getSeconds());
 
     return new PostRequestWrapper(
-        balancerClasspath,
-        timeout,
+        balancerPostRequest.balancer,
+        balancerPostRequest.timeout,
         AlgorithmConfig.builder()
-            .clusterCost(clusterCostFunction)
+            .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
             .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
-            .config(balancerConfig)
+            .config(Configuration.of(balancerPostRequest.balancerConfig))
             .build(),
         currentClusterInfo);
   }
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
   static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
-    var converter = new DataSizeField();
-    var replicaSizeLimit = request.maxMigratedSize.map(x -> converter.convert(x).bytes());
-    var leaderNumLimit = request.maxMigratedLeader.map(Integer::parseInt);
-    return cost ->
-        replicaSizeLimit
-                .filter(
-                    limit ->
-                        limit
-                            <= cost.movedReplicaSize().values().stream()
-                                .mapToLong(s -> Math.abs(s.bytes()))
-                                .sum())
-                .isEmpty()
-            && leaderNumLimit
-                .filter(
-                    limit ->
-                        limit
-                            <= cost.changedReplicaLeaderCount().values().stream()
-                                .mapToLong(s -> s)
-                                .sum())
-                .isEmpty();
-  }
-
-  static HasClusterCost getClusterCost(BalancerPostRequest request) {
-    var costWeights = request.costWeights;
-    if (costWeights.isEmpty()) return DEFAULT_CLUSTER_COST_FUNCTION;
-    var costWeightMap =
-        costWeights.stream()
-            .flatMap(cw -> cw.cost.map(c -> Map.entry(c, cw.weight.orElse(1D))).stream())
-            .collect(
-                Collectors.toMap(
-                    e -> {
-                      try {
-                        var clz = Class.forName(e.getKey());
-                        if (!HasClusterCost.class.isAssignableFrom(clz))
-                          throw new IllegalArgumentException(
-                              "the class: " + e.getKey() + " is not sub class of HasClusterCost");
-                        return (HasClusterCost) Utils.construct(clz, Configuration.EMPTY);
-                      } catch (ClassNotFoundException error) {
-                        throw new IllegalArgumentException(error.getMessage());
-                      }
-                    },
-                    Map.Entry::getValue));
-    return HasClusterCost.of(costWeightMap);
+    return cost -> {
+      if (request.maxMigratedSize.bytes()
+          < cost.movedReplicaSize().values().stream().mapToLong(DataSize::bytes).sum())
+        return false;
+      if (request.maxMigratedLeader
+          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
+        return false;
+      return true;
+    };
   }
 
   static class BalancerPostRequest implements Request {
 
-    private String balancer = GreedyBalancer.class.getName();
+    String balancer = GreedyBalancer.class.getName();
 
     Map<String, String> balancerConfig = Map.of();
 
-    String timeout = "3s";
-    Optional<String> topics = Optional.empty();
+    Duration timeout = Duration.ofSeconds(3);
+    Set<String> topics = Set.of();
 
-    private Optional<String> maxMigratedSize = Optional.empty();
+    DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
 
-    private Optional<String> maxMigratedLeader = Optional.empty();
+    long maxMigratedLeader = Long.MAX_VALUE;
 
     List<CostWeight> costWeights = List.of();
+
+    HasClusterCost clusterCost() {
+      if (costWeights.isEmpty()) throw new IllegalArgumentException("costWeights is not specified");
+      var config =
+          Configuration.of(
+              costWeights.stream()
+                  .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))));
+      var fs = Utils.costFunctions(config, HasClusterCost.class);
+      if (fs.size() != costWeights.size())
+        throw new IllegalArgumentException(
+            "Has invalid costs: "
+                + costWeights.stream()
+                    .filter(
+                        e ->
+                            fs.keySet().stream()
+                                .map(c -> c.getClass().getName())
+                                .noneMatch(n -> e.cost.equals(n)))
+                    .map(e -> e.cost)
+                    .collect(Collectors.joining(",")));
+      return HasClusterCost.of(fs);
+    }
   }
 
   static class CostWeight implements Request {
-    Optional<String> cost = Optional.empty();
-    Optional<Double> weight = Optional.empty();
+    String cost;
+    double weight = 1.D;
   }
 
   static class BalancerPutRequest implements Request {
@@ -471,7 +445,7 @@ class BalancerHandler implements Handler {
                 clusterInfo ->
                     clusterInfo
                         .replicaStream()
-                        .collect(Collectors.groupingBy(ReplicaInfo::topicPartition)))
+                        .collect(Collectors.groupingBy(Replica::topicPartition)))
             .toCompletableFuture()
             .join();
 
@@ -524,7 +498,7 @@ class BalancerHandler implements Handler {
     var ongoingMigration =
         replicas.stream()
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
-            .map(ReplicaInfo::topicPartitionReplica)
+            .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
     if (!ongoingMigration.isEmpty())
       throw new IllegalStateException(
@@ -537,13 +511,13 @@ class BalancerHandler implements Handler {
     final String balancerClasspath;
     final Duration executionTime;
     final AlgorithmConfig algorithmConfig;
-    final ClusterInfo<Replica> clusterInfo;
+    final ClusterInfo clusterInfo;
 
     PostRequestWrapper(
         String balancerClasspath,
         Duration executionTime,
         AlgorithmConfig algorithmConfig,
-        ClusterInfo<Replica> clusterInfo) {
+        ClusterInfo clusterInfo) {
       this.balancerClasspath = balancerClasspath;
       this.executionTime = executionTime;
       this.algorithmConfig = algorithmConfig;
@@ -554,7 +528,10 @@ class BalancerHandler implements Handler {
   static class Placement {
 
     final int brokerId;
-    final String directory;
+
+    // temporarily disable data-directory migration, there are some Kafka bug related to it.
+    // see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
+    @JsonIgnore final String directory;
 
     final Optional<Long> size;
 
@@ -640,13 +617,10 @@ class BalancerHandler implements Handler {
 
   static class PlanInfo {
     private final PlanReport report;
-    private final ClusterInfo<Replica> associatedClusterInfo;
+    private final ClusterInfo associatedClusterInfo;
     private final Balancer.Plan associatedPlan;
 
-    PlanInfo(
-        PlanReport report,
-        ClusterInfo<Replica> associatedClusterInfo,
-        Balancer.Plan associatedPlan) {
+    PlanInfo(PlanReport report, ClusterInfo associatedClusterInfo, Balancer.Plan associatedPlan) {
       this.report = report;
       this.associatedClusterInfo = associatedClusterInfo;
       this.associatedPlan = associatedPlan;
@@ -684,7 +658,7 @@ class BalancerHandler implements Handler {
     PlanExecutionProgress(
         String id,
         PlanPhase phase,
-        long timeoutMs,
+        Duration timeout,
         String balancer,
         String function,
         String exception,
@@ -693,7 +667,7 @@ class BalancerHandler implements Handler {
       this.phase = phase;
       this.exception = exception;
       this.plan = plan;
-      this.config = new PlanConfiguration(balancer, function, timeoutMs);
+      this.config = new PlanConfiguration(balancer, function, timeout);
     }
   }
 
@@ -727,12 +701,12 @@ class BalancerHandler implements Handler {
 
     final String function;
 
-    final long timeoutMs;
+    final Duration timeout;
 
-    PlanConfiguration(String balancer, String function, long timeoutMs) {
+    PlanConfiguration(String balancer, String function, Duration timeout) {
       this.balancer = balancer;
       this.function = function;
-      this.timeoutMs = timeoutMs;
+      this.timeout = timeout;
     }
   }
 }

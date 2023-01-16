@@ -444,9 +444,14 @@ class AdminImpl implements Admin {
 
   @Override
   public CompletionStage<List<Broker>> brokers() {
+    return clusterIdAndBrokers().thenApply(Map.Entry::getValue);
+  }
+
+  private CompletionStage<Map.Entry<String, List<Broker>>> clusterIdAndBrokers() {
     var cluster = kafkaAdmin.describeCluster();
     var nodeFuture = to(cluster.nodes());
     return FutureUtils.combine(
+        to(cluster.clusterId()),
         to(cluster.controller()),
         topicNames(true).thenCompose(names -> to(kafkaAdmin.describeTopics(names).all())),
         nodeFuture.thenCompose(
@@ -465,18 +470,20 @@ class AdminImpl implements Admin {
                                     ConfigResource.Type.BROKER, String.valueOf(n.id())))
                         .collect(Collectors.toList()))),
         nodeFuture,
-        (controller, topics, logDirs, configs, nodes) ->
-            nodes.stream()
-                .map(
-                    node ->
-                        Broker.of(
-                            node.id() == controller.id(),
-                            node,
-                            configs.get(String.valueOf(node.id())),
-                            logDirs.get(node.id()),
-                            topics.values()))
-                .sorted(Comparator.comparing(NodeInfo::id))
-                .collect(Collectors.toList()));
+        (id, controller, topics, logDirs, configs, nodes) ->
+            Map.entry(
+                id,
+                nodes.stream()
+                    .map(
+                        node ->
+                            Broker.of(
+                                node.id() == controller.id(),
+                                node,
+                                configs.get(String.valueOf(node.id())),
+                                logDirs.get(node.id()),
+                                topics.values()))
+                    .sorted(Comparator.comparing(NodeInfo::id))
+                    .collect(Collectors.toList())));
   }
 
   @Override
@@ -603,16 +610,17 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<ClusterInfo<Replica>> clusterInfo(Set<String> topics) {
+  public CompletionStage<ClusterInfo> clusterInfo(Set<String> topics) {
     return FutureUtils.combine(
-        brokers()
-            .thenApply(
-                brokers ->
-                    brokers.stream()
-                        .map(x -> (NodeInfo) x)
-                        .collect(Collectors.toUnmodifiableList())),
+        clusterIdAndBrokers(),
         replicas(topics),
-        ClusterInfo::of);
+        (clusterIdAndBrokers, replicas) ->
+            ClusterInfo.of(
+                clusterIdAndBrokers.getKey(),
+                clusterIdAndBrokers.getValue().stream()
+                    .map(x -> (NodeInfo) x)
+                    .collect(Collectors.toUnmodifiableList()),
+                replicas));
   }
 
   private CompletionStage<List<Replica>> replicas(Set<String> topics) {
@@ -678,7 +686,7 @@ class AdminImpl implements Admin {
                                                       partition.leader() != null
                                                           && !partition.leader().isEmpty()
                                                           && partition.leader().id() == node.id())
-                                                  .inSync(partition.isr().contains(node))
+                                                  .isSync(partition.isr().contains(node))
                                                   .isFuture(pathAndReplica.getValue().isFuture())
                                                   .isOffline(
                                                       node.isEmpty()
