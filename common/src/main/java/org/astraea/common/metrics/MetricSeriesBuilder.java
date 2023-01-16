@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -31,6 +32,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.function.Bi3Function;
 
 /**
  * A utility for generating a seriesByBrokerTopic of metric objects, where the measured metric value
@@ -50,35 +52,19 @@ public interface MetricSeriesBuilder {
 
   MetricSeriesBuilder sampleInterval(Duration interval);
 
-  MetricSeriesBuilder seriesByBroker(BrokerSeries seriesGenerator);
+  MetricSeriesBuilder seriesByBroker(
+      BiFunction<LocalDateTime, Integer, Stream<? extends HasBeanObject>> seriesGenerator);
 
-  MetricSeriesBuilder seriesByBrokerTopic(BrokerTopicSeries seriesGenerator);
+  MetricSeriesBuilder seriesByBrokerTopic(
+      Bi3Function<LocalDateTime, Integer, String, HasBeanObject> seriesGenerator);
 
-  MetricSeriesBuilder seriesByBrokerPartition(BrokerPartitionSeries seriesGenerator);
+  MetricSeriesBuilder seriesByBrokerPartition(
+      Bi3Function<LocalDateTime, Integer, TopicPartition, HasBeanObject> seriesGenerator);
 
-  MetricSeriesBuilder seriesByBrokerReplica(BrokerReplicaSeries seriesGenerator);
+  MetricSeriesBuilder seriesByBrokerReplica(
+      Bi3Function<LocalDateTime, Integer, Replica, HasBeanObject> seriesGenerator);
 
   ClusterBean build();
-
-  @FunctionalInterface
-  interface BrokerSeries {
-    Stream<? extends HasBeanObject> series(LocalDateTime time, int broker);
-  }
-
-  @FunctionalInterface
-  interface BrokerTopicSeries {
-    HasBeanObject series(LocalDateTime time, int broker, String topic);
-  }
-
-  @FunctionalInterface
-  interface BrokerPartitionSeries {
-    HasBeanObject series(LocalDateTime time, int broker, TopicPartition partition);
-  }
-
-  @FunctionalInterface
-  interface BrokerReplicaSeries {
-    HasBeanObject series(LocalDateTime time, int broker, Replica replica);
-  }
 
   final class MetricSeriesBuilderImpl implements MetricSeriesBuilder {
 
@@ -112,7 +98,8 @@ public interface MetricSeriesBuilder {
     }
 
     @Override
-    public MetricSeriesBuilder seriesByBroker(BrokerSeries seriesGenerator) {
+    public MetricSeriesBuilder seriesByBroker(
+        BiFunction<LocalDateTime, Integer, Stream<? extends HasBeanObject>> seriesGenerator) {
       final var cluster = clusterInfo;
       final var start = timeStart;
       final var end = timeStart.plus(timeRange);
@@ -126,8 +113,7 @@ public interface MetricSeriesBuilder {
                           cluster.nodes().stream()
                               .map(
                                   node ->
-                                      Map.entry(
-                                          node.id(), seriesGenerator.series(time, node.id()))))
+                                      Map.entry(node.id(), seriesGenerator.apply(time, node.id()))))
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Map.Entry::getKey, Map.Entry::getValue, Stream::concat)));
@@ -135,7 +121,8 @@ public interface MetricSeriesBuilder {
     }
 
     @Override
-    public MetricSeriesBuilder seriesByBrokerTopic(BrokerTopicSeries seriesGenerator) {
+    public MetricSeriesBuilder seriesByBrokerTopic(
+        Bi3Function<LocalDateTime, Integer, String, HasBeanObject> seriesGenerator) {
       final var cluster = clusterInfo;
       final var start = timeStart;
       final var end = timeStart.plus(timeRange);
@@ -159,13 +146,14 @@ public interface MetricSeriesBuilder {
                                               .distinct()
                                               .map(
                                                   topic ->
-                                                      seriesGenerator.series(
+                                                      seriesGenerator.apply(
                                                           time, node.id(), topic))))));
       return this;
     }
 
     @Override
-    public MetricSeriesBuilder seriesByBrokerPartition(BrokerPartitionSeries seriesGenerator) {
+    public MetricSeriesBuilder seriesByBrokerPartition(
+        Bi3Function<LocalDateTime, Integer, TopicPartition, HasBeanObject> seriesGenerator) {
       final var cluster = clusterInfo;
       final var start = timeStart;
       final var end = timeStart.plus(timeRange);
@@ -188,13 +176,14 @@ public interface MetricSeriesBuilder {
                                               .map(Replica::topicPartition)
                                               .map(
                                                   partition ->
-                                                      seriesGenerator.series(
+                                                      seriesGenerator.apply(
                                                           time, node.id(), partition))))));
       return this;
     }
 
     @Override
-    public MetricSeriesBuilder seriesByBrokerReplica(BrokerReplicaSeries seriesGenerator) {
+    public MetricSeriesBuilder seriesByBrokerReplica(
+        Bi3Function<LocalDateTime, Integer, Replica, HasBeanObject> seriesGenerator) {
       final var cluster = clusterInfo;
       final var start = timeStart;
       final var end = timeStart.plus(timeRange);
@@ -216,7 +205,7 @@ public interface MetricSeriesBuilder {
                                               .replicaStream(node.id())
                                               .map(
                                                   replica ->
-                                                      seriesGenerator.series(
+                                                      seriesGenerator.apply(
                                                           time, node.id(), replica))))));
       return this;
     }
