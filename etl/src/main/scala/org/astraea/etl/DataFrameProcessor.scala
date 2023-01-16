@@ -16,15 +16,16 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.astraea.common.json.JsonConverter
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.astraea.etl.SparkStreamWriter.SparkStreamWriterBuilder
 
 class DataFrameProcessor(dataFrame: DataFrame) {
 
@@ -90,6 +91,10 @@ class DataFrameProcessor(dataFrame: DataFrame) {
 
   def dataFrame(): DataFrame = {
     dataFrame
+  }
+
+  def toKafkaWriterBuilder(metadata: Metadata): DataStreamWriter[Row] ={
+    SparkStreamWriter.writeToKafka(this, metadata)
   }
 }
 

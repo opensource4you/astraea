@@ -20,12 +20,17 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
 
-//TODO Put the builder into the companion object of the built object
-object DataStreamWriterBuilder {
+object SparkStreamWriter {
   def apply(dataFrameProcessor: DataFrameProcessor) =
-    new DataStreamWriterBuilder(dataFrameProcessor)
+    new SparkStreamWriterBuilder(dataFrameProcessor)
 
-  class DataStreamWriterBuilder(
+  def writeToKafka(dataFrameProcessor: DataFrameProcessor, metadata: Metadata): DataStreamWriter[Row] ={
+    SparkStreamWriter(dataFrameProcessor)
+      .target(metadata.topicName)
+      .checkpoint(metadata.checkpoint)
+      .buildToKafka(metadata.kafkaBootstrapServers)
+  }
+  class SparkStreamWriterBuilder(
       var dataFrameProcessor: DataFrameProcessor
   ) {
     private var _target: String = ""
@@ -68,14 +73,14 @@ object DataStreamWriterBuilder {
       * @return
       *   Writer
       */
-    def target(target: String): DataStreamWriterBuilder = {
+    def target(target: String): SparkStreamWriterBuilder = {
       _target = target
       this
     }
 
     def checkpoint(
         checkpoint: String
-    ): DataStreamWriterBuilder = {
+    ): SparkStreamWriterBuilder = {
       _checkpoint = checkpoint
       this
     }

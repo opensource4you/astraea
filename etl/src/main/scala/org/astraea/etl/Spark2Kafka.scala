@@ -41,14 +41,10 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = DataFrameProcessor
+      DataFrameProcessor
       .fromMetadata(sparkSession, metadata)
       .csvToJSON(metadata.columns)
-
-    DataStreamWriterBuilder(df)
-      .target(metadata.topicName)
-      .checkpoint(metadata.checkpoint)
-      .buildToKafka(metadata.kafkaBootstrapServers)
+      .toKafkaWriterBuilder(metadata)
       .start()
       .awaitTermination(duration.toMillis)
   }
