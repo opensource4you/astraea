@@ -17,11 +17,8 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -32,14 +29,8 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
-import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.HasGauge;
-import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.Fetcher;
-import org.astraea.common.metrics.collector.MetricSensor;
-import org.astraea.common.metrics.stats.Avg;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -49,51 +40,13 @@ import org.astraea.common.metrics.stats.Avg;
 public class ReplicaLeaderSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
   private final Dispersion dispersion = Dispersion.cov();
-  private static final String LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY = "log_size_exp_weight_by_time";
-  final Map<TopicPartitionReplica, Sensor<Double>> sensors = new HashMap<>();
 
   /**
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
   @Override
   public Optional<Fetcher> fetcher() {
-    return Optional.of(LogMetrics.Log.SIZE::fetch);
-  }
-
-  @Override
-  public Collection<MetricSensor> sensors() {
-    return List.of(
-        (identity, beans) ->
-            Map.of(
-                identity,
-                beans.stream()
-                    .filter(b -> b instanceof LogMetrics.Log.Gauge)
-                    .map(b -> (LogMetrics.Log.Gauge) b)
-                    .filter(g -> g.type() == LogMetrics.Log.SIZE)
-                    .map(
-                        g -> {
-                          var tpr = TopicPartitionReplica.of(g.topic(), g.partition(), identity);
-                          var sensor =
-                              sensors.computeIfAbsent(
-                                  tpr,
-                                  ignored ->
-                                      Sensor.builder()
-                                          .addStat(
-                                              LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY,
-                                              Avg.expWeightByTime(Duration.ofSeconds(1)))
-                                          .build());
-                          sensor.record(g.value().doubleValue());
-                          return (SizeStatisticalBean)
-                              () ->
-                                  new BeanObject(
-                                      g.beanObject().domainName(),
-                                      g.beanObject().properties(),
-                                      Map.of(
-                                          HasGauge.VALUE_KEY,
-                                          sensor.measure(LOG_SIZE_EXP_WEIGHT_BY_TIME_KEY)),
-                                      System.currentTimeMillis());
-                        })
-                    .collect(Collectors.toList())));
+    return Optional.empty();
   }
 
   public interface SizeStatisticalBean extends HasGauge<Double> {}
