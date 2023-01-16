@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -77,7 +76,7 @@ public class Performance {
         IntStream.range(0, param.producers)
             .mapToObj(i -> new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000))
             .collect(Collectors.toUnmodifiableList());
-    // always try to init topic even though it may be existent already.
+    // ensure topics are existent
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
 
@@ -102,18 +101,16 @@ public class Performance {
             () -> producerThreads.stream().allMatch(AbstractThread::closed),
             () -> consumerThreads.stream().allMatch(AbstractThread::closed));
 
-    Optional<Runnable> fileWriter =
-        param.CSVPath == null
-            ? Optional.empty()
-            : Optional.of(
-                ReportFormat.createFileWriter(
-                    param.reportFormat,
-                    param.CSVPath,
-                    () -> consumerThreads.stream().allMatch(AbstractThread::closed),
-                    () -> producerThreads.stream().allMatch(AbstractThread::closed)));
-
-    var fileWriterFuture =
-        fileWriter.map(CompletableFuture::runAsync).orElse(CompletableFuture.completedFuture(null));
+    var fileWriterTask =
+        CompletableFuture.completedFuture(
+                param.CSVPath == null
+                    ? (Runnable) (() -> {})
+                    : ReportFormat.createFileWriter(
+                        param.reportFormat,
+                        param.CSVPath,
+                        () -> consumerThreads.stream().allMatch(AbstractThread::closed),
+                        () -> producerThreads.stream().allMatch(AbstractThread::closed)))
+            .thenAcceptAsync(Runnable::run);
 
     var monkeys = MonkeyThread.play(consumerThreads, param);
 
@@ -151,7 +148,7 @@ public class Performance {
     monkeys.forEach(AbstractThread::waitForDone);
     consumerThreads.forEach(AbstractThread::waitForDone);
     tracker.waitForDone();
-    fileWriterFuture.join();
+    fileWriterTask.join();
     return param.topics;
   }
 
