@@ -35,10 +35,10 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.function.Bi3Function;
 
 /**
- * A utility for generating a seriesByBrokerTopic of metric objects, where the measured metric value
- * might be highly correlated to specific variables. For example broker id, calendar time, or
- * unknown noise. This class offers a way to construct large-scale metric sources of a fake cluster,
- * which will be useful for testing and experiment purposes.
+ * A utility for generating a series of metric objects, where the measured metric value might be
+ * highly correlated to specific variables. For example broker id, calendar time, or unknown noise.
+ * This class offers a way to construct large-scale metric sources of a fake cluster, which will be
+ * useful for testing and experiment purposes.
  */
 public interface MetricSeriesBuilder {
 

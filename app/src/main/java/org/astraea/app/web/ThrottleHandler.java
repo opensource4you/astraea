@@ -322,9 +322,9 @@ public class ThrottleHandler implements Handler {
   }
 
   /**
-   * Given a seriesByBrokerTopic of leader/follower throttle config, this method attempts to reduce
-   * its size into the simplest form by merging any targets with a common topic/partition/replica
-   * scope throttle target.
+   * Given a series of leader/follower throttle config, this method attempts to reduce its size into
+   * the simplest form by merging any targets with a common topic/partition/replica scope throttle
+   * target.
    */
   private Set<TopicThrottle> simplify(
       Set<TopicPartitionReplica> leaders, Set<TopicPartitionReplica> followers) {

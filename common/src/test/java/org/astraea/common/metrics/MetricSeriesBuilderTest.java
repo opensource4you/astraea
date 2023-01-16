@@ -87,7 +87,7 @@ class MetricSeriesBuilderTest {
 
   @Test
   @DisplayName(
-      "By change the setting between seriesByBrokerTopic calls, we can have difference sample rate for each seriesByBrokerTopic")
+      "By change the setting between series calls, we can have difference sample rate for each series")
   void testFlexibility() {
     var beans =
         MetricSeriesBuilder.builder()
