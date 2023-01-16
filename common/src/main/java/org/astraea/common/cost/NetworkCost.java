@@ -56,7 +56,7 @@ import org.astraea.common.metrics.collector.Fetcher;
  *       replica, see <a href="https://cwiki.apache.org/confluence/x/go_zBQ">KIP-392<a>.
  * </ol>
  */
-public abstract class NetworkCost implements HasClusterCost {
+public abstract class NetworkCost implements HasClusterCost, HasPartitionCost {
 
   private final AtomicReference<ClusterInfo> currentCluster = new AtomicReference<>();
   private final BandwidthType bandwidthType;
@@ -147,6 +147,18 @@ public abstract class NetworkCost implements HasClusterCost {
     if (summary.getMax() == 0) return () -> 0; // edge case to avoid divided by zero error
     double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
     return () -> score;
+  }
+
+  @Override
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    noMetricCheck(clusterBean);
+    if (bandwidthType == BandwidthType.Egress)
+      throw new IllegalArgumentException("assignor doesn't use egress as load");
+    return () ->
+        estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
+            .entrySet()
+            .stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> Double.valueOf(e.getValue())));
   }
 
   @Override
