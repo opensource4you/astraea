@@ -46,7 +46,6 @@ public class MetricPublisher {
                 .configs()
                 .getOrDefault(MetricPublisherConfig.CLUSTER_INFO_UPDATE_DURATION.alias(), "1m"));
 
-    System.out.println(clusterInfoUpdate.toMillis());
     try (var admin = Admin.of(arguments.bootstrapServers())) {
       var nodeInfos = admin.nodeInfos().toCompletableFuture().get();
 
