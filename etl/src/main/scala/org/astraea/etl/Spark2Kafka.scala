@@ -41,7 +41,7 @@ object Spark2Kafka {
         .join()
     )
 
-      DataFrameProcessor
+    DataFrameProcessor
       .fromMetadata(sparkSession, metadata)
       .csvToJSON(metadata.columns)
       .toKafkaWriterBuilder(metadata)

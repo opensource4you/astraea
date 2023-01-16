@@ -24,7 +24,10 @@ object SparkStreamWriter {
   def apply(dataFrameProcessor: DataFrameProcessor) =
     new SparkStreamWriterBuilder(dataFrameProcessor)
 
-  def writeToKafka(dataFrameProcessor: DataFrameProcessor, metadata: Metadata): DataStreamWriter[Row] ={
+  def writeToKafka(
+      dataFrameProcessor: DataFrameProcessor,
+      metadata: Metadata
+  ): DataStreamWriter[Row] = {
     SparkStreamWriter(dataFrameProcessor)
       .target(metadata.topicName)
       .checkpoint(metadata.checkpoint)

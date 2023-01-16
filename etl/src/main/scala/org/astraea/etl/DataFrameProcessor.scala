@@ -93,7 +93,7 @@ class DataFrameProcessor(dataFrame: DataFrame) {
     dataFrame
   }
 
-  def toKafkaWriterBuilder(metadata: Metadata): DataStreamWriter[Row] ={
+  def toKafkaWriterBuilder(metadata: Metadata): DataStreamWriter[Row] = {
     SparkStreamWriter.writeToKafka(this, metadata)
   }
 }
