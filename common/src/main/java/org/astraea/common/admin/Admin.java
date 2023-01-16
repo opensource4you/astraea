@@ -283,20 +283,15 @@ public interface Admin extends AutoCloseable {
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
-   * Declare the desired data folder for the designated partition at a specific broker.
+   * Declare the preferred data folder for the designated partition at a specific broker.
    *
-   * <p>When a partition is being placed to a broker. The Kafka implementation picks a data folder
-   * to store this partition. This API allows you to demand which data folder a partition should use
-   * when the Kafka internal is making this decision. This API can come in handy when you want to
-   * place a replica in a specific data folder under a specific broker in one go. One way to do this
-   * is: use this method to declare preferred data folder at specific broker for the partition. Then
-   * use {@link Admin#moveToBrokers(Map)} to trigger the actual movement for that partition.
+   * <p>Preferred data folder is the data folder a partition will use when it is being placed on the
+   * specific broker({@link Admin#moveToBrokers(Map)}). This API won't trigger a folder-to-folder
+   * replica movement. To Perform folder-to-folder movement, consider use {@link
+   * Admin#moveToFolders(Map)}.
    *
-   * <p>This API should not trigger an actual data folder movement. To perform a folder-to-folder
-   * movement under the same broker. Use {@link Admin#moveToFolders(Map)} instead. Although this API
-   * might accidentally trigger a data folder movement when there is another Kafka admin client
-   * changing the state of the cluster. To avoid such problem, one should ensure there is no other
-   * client manipulating the state of the cluster, chen calling this method.
+   * <p>This API is not transactional. It won't work properly when there are concurrent changes to
+   * the cluster state.
    */
   CompletionStage<Void> declarePreferredDataFolders(Map<TopicPartitionReplica, String> assignments);
 

@@ -518,7 +518,10 @@ public class AdminTest {
                   () ->
                       admin
                           .declarePreferredDataFolders(
-                              Map.of(TopicPartitionReplica.of(topic, 0, 1), "/no/such/folder"))
+                              Map.ofEntries(
+                                  Map.entry(
+                                      TopicPartitionReplica.of(topic, 0, 1), "/no/such/folder"),
+                                  Map.entry(TopicPartitionReplica.of(topic, 0, 0), folders.get(2))))
                           .toCompletableFuture()
                           .join())
               .getCause(),
