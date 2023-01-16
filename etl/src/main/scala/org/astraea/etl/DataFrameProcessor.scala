@@ -99,7 +99,7 @@ class DataFrameProcessor(dataFrame: DataFrame) {
 }
 
 object DataFrameProcessor {
-  def fromMetadata(
+  def fromLocalCsv(
       sparkSession: SparkSession,
       metadata: Metadata
   ): DataFrameProcessor = {

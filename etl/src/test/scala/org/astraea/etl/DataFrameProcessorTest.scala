@@ -53,7 +53,7 @@ class DataFrameProcessorTest {
 
     createCSV(sourceDir, row, 0)
 
-    val df = DataFrameProcessor.fromMetadata(
+    val df = DataFrameProcessor.fromLocalCsv(
       createSpark(),
       Metadata(
         sourcePath = sourceDir.getPath,
@@ -99,7 +99,7 @@ class DataFrameProcessorTest {
     val checkoutDir = Files.createTempDirectory("checkpoint").toFile
     val dataDir = Files.createTempDirectory("data").toFile
 
-    val csvDF = DataFrameProcessor.fromMetadata(
+    val csvDF = DataFrameProcessor.fromLocalCsv(
       createSpark(),
       Metadata(
         sourcePath = sourceDir.getPath,
