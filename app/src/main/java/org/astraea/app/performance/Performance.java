@@ -18,7 +18,6 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -69,11 +68,11 @@ import org.astraea.common.producer.Record;
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
   /** Used in Automation, to achieve the end of one Performance and then start another. */
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     execute(Performance.Argument.parse(new Argument(), args));
   }
 
-  public static List<String> execute(final Argument param) throws IOException {
+  public static List<String> execute(final Argument param) {
     var blockingQueues =
         IntStream.range(0, param.producers)
             .mapToObj(i -> new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000))
