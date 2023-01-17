@@ -290,8 +290,8 @@ public interface Admin extends AutoCloseable {
    * replica movement. To Perform folder-to-folder movement, consider use {@link
    * Admin#moveToFolders(Map)}.
    *
-   * <p>This API is not transactional. It won't work properly when there are concurrent changes to
-   * the cluster state.
+   * <p>This API is not transactional. It may alter folders if the target broker has out-of-date
+   * metadata or running reassignments
    */
   CompletionStage<Void> declarePreferredDataFolders(Map<TopicPartitionReplica, String> assignments);
 
