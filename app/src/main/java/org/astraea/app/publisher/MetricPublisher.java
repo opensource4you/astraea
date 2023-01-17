@@ -19,14 +19,10 @@ package org.astraea.app.publisher;
 import com.beust.jcommander.Parameter;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
@@ -46,44 +42,11 @@ public class MetricPublisher {
                 .configs()
                 .getOrDefault(MetricPublisherConfig.CLUSTER_INFO_UPDATE_DURATION.alias(), "1m"));
 
-    try (var admin = Admin.of(arguments.bootstrapServers())) {
-      var nodeInfos = admin.nodeInfos().toCompletableFuture().get();
-
-      System.out.println("Fetching node information from " + arguments.bootstrapServers() + " ...");
-      var jmxPublisher =
-          new JMXPublisher(arguments.bootstrapServers(), nodeInfos, arguments.idToJmxPort());
-      var scheduler = Executors.newScheduledThreadPool(2);
-
-      // Update node infos to all publisher
-      scheduler.scheduleAtFixedRate(
-          () -> {
-            try {
-              admin
-                  .nodeInfos()
-                  .thenAccept(jmxPublisher::updateNodeInfo)
-                  .toCompletableFuture()
-                  .get();
-            } catch (InterruptedException | ExecutionException e) {
-              // could not fetch node info, don't throw, keep running
-              e.printStackTrace();
-            }
-          },
-          clusterInfoUpdate.toMillis(),
-          clusterInfoUpdate.toMillis(),
-          TimeUnit.MILLISECONDS);
-
-      // Put all publisher to scheduler
-      scheduler.scheduleAtFixedRate(
-          jmxPublisher,
-          arguments.duration.toMillis(),
-          arguments.duration.toMillis(),
-          TimeUnit.MILLISECONDS);
-
-      System.out.println("Publisher started.");
-      scheduler.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
-    } catch (ExecutionException | InterruptedException e) {
-      // node info fetching exception, don't throw, keep running
-      e.printStackTrace();
+    try (var publisher =
+        new JMXPublisher(
+            arguments.bootstrapServers(), arguments.idToJmxPort(), clusterInfoUpdate)) {
+      System.out.println("Metric publisher started, Ctrl+c to terminate");
+      publisher.waitForDone();
     }
   }
 

@@ -16,12 +16,20 @@
  */
 package org.astraea.app.publisher;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.app.performance.AbstractThread;
+import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
@@ -29,29 +37,36 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 
-public class JMXPublisher implements Publisher, AutoCloseable {
+public class JMXPublisher implements AbstractThread {
 
   // Broker id and mbean client
   private final Map<Integer, MBeanClient> idMBeanClient = new ConcurrentHashMap<>();
 
+  private final Admin admin;
   private final Producer<byte[], String> producer;
 
   private final Function<Integer, Integer> idToJmxPort;
 
+  private final ScheduledFuture<?> future;
+
   public JMXPublisher(
-      String bootstrapServer, List<NodeInfo> clusterInfo, Function<Integer, Integer> idToJmxPort) {
-    producer =
+      String bootstrapServer, Function<Integer, Integer> idToJmxPort, Duration interval) {
+    this.admin = Admin.of(bootstrapServer);
+    this.producer =
         Producer.builder()
             .bootstrapServers(bootstrapServer)
             .valueSerializer(Serializer.STRING)
             .build();
     this.idToJmxPort = idToJmxPort;
-    updateNodeInfo(clusterInfo);
+    this.future =
+        Executors.newScheduledThreadPool(1)
+            .scheduleAtFixedRate(this::run, 0, interval.toMillis(), TimeUnit.MILLISECONDS);
   }
 
   // Fetch from mbeanClient and send to inner topic
-  @Override
+
   public void run() {
+    updateNodeInfo(admin.nodeInfos());
     // Synchronously fetch metrics from jmx and produce to internal-topic
     idMBeanClient.forEach(
         (id, client) ->
@@ -69,21 +84,35 @@ public class JMXPublisher implements Publisher, AutoCloseable {
                             .forEach(producer::send)));
   }
 
-  @Override
-  public void updateNodeInfo(List<NodeInfo> nodeInfos) {
-    // Create jmx client when new node detected
-    nodeInfos.forEach(
-        node -> this.idMBeanClient.computeIfAbsent(node.id(), id -> createMBeanClient(node)));
-    // Delete non-exist node and close those MBeanClients
-    var idSet = nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-    this.idMBeanClient.keySet().stream()
-        .filter(id -> !idSet.contains(id))
-        .forEach(id -> this.idMBeanClient.remove(id).close());
+  public void updateNodeInfo(CompletionStage<List<NodeInfo>> nodeInfos) {
+    nodeInfos.thenAccept(
+        infos -> {
+          // Create jmx client when new node detected
+          infos.forEach(
+              node -> this.idMBeanClient.computeIfAbsent(node.id(), id -> createMBeanClient(node)));
+          // Delete non-exist node and close those MBeanClients
+          var idSet = infos.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+          this.idMBeanClient.keySet().stream()
+              .filter(id -> !idSet.contains(id))
+              .forEach(id -> this.idMBeanClient.remove(id).close());
+        });
   }
 
   @Override
+  public void waitForDone() {
+    Utils.swallowException(this.future::get);
+  }
+
+  @Override
+  public boolean closed() {
+    return future.isDone();
+  }
+
   public void close() {
+    future.cancel(false);
+    waitForDone();
     idMBeanClient.forEach((id, client) -> client.close());
+    admin.close();
   }
 
   private MBeanClient createMBeanClient(NodeInfo nodeInfo) {
