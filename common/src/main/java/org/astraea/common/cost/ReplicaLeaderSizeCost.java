@@ -16,9 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.time.Duration;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -28,8 +25,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.collector.Fetcher;
 
 /**
@@ -48,8 +43,6 @@ public class ReplicaLeaderSizeCost
   public Optional<Fetcher> fetcher() {
     return Optional.empty();
   }
-
-  public interface SizeStatisticalBean extends HasGauge<Double> {}
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
@@ -83,44 +76,9 @@ public class ReplicaLeaderSizeCost
                             clusterInfo
                                 .replicaLeader(r.topicPartition())
                                 .map(Replica::size)
-                                .orElse(
-                                    maxPartitionSize(
-                                        r.topicPartition(),
-                                        clusterInfo.replicas(r.topicPartition()).stream()
-                                            .map(Replica::size)
-                                            .collect(Collectors.toList()))),
+                                .orElseThrow(),
                         Collectors.summingDouble(x -> x))));
     return () -> result;
-  }
-
-  long maxPartitionSize(TopicPartition tp, List<Long> size) {
-    if (size.isEmpty())
-      throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric for " + tp);
-    checkSizeDiff(tp, size, 0.2);
-    return size.stream()
-        .max(Comparator.comparing(Function.identity()))
-        .orElseThrow(
-            () ->
-                new NoSufficientMetricsException(
-                    this, Duration.ofSeconds(1), "No metric for " + tp));
-  }
-
-  /**
-   * Check whether the partition log size difference of all replicas is within a certain percentage
-   *
-   * @param tp topicPartition
-   * @param size log size list of partition tp
-   * @param percentage the percentage of the maximum acceptable partition data volume difference
-   *     between replicas
-   */
-  private void checkSizeDiff(TopicPartition tp, List<Long> size, double percentage) {
-    var max = size.stream().max(Comparator.comparing(Function.identity())).get();
-    var min = size.stream().min(Comparator.comparing(Function.identity())).get();
-    if ((max - min) / min > percentage)
-      throw new NoSufficientMetricsException(
-          this,
-          Duration.ofSeconds(1),
-          "The log size gap of partition" + tp + "is too large, more than" + percentage);
   }
 
   @Override
@@ -142,12 +100,7 @@ public class ReplicaLeaderSizeCost
                             clusterInfo
                                 .replicaLeader(r.topicPartition())
                                 .map(Replica::size)
-                                .orElse(
-                                    maxPartitionSize(
-                                        r.topicPartition(),
-                                        clusterInfo.replicas(r.topicPartition()).stream()
-                                            .map(Replica::size)
-                                            .collect(Collectors.toList())))));
+                                .orElseThrow()));
     return () -> result;
   }
 }

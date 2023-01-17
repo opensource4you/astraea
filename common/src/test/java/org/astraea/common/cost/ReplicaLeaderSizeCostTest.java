@@ -301,17 +301,4 @@ class ReplicaLeaderSizeCostTest {
         List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
         replicas);
   }
-
-  @Test
-  void testMaxPartitionSize() {
-    var cost = new ReplicaLeaderSizeCost();
-    var tp = TopicPartition.of("t", 0);
-    var overFlowSize = List.of(100L, 200L, 300L);
-    var size = List.of(100L, 110L, 120L);
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, List.of()));
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.maxPartitionSize(tp, overFlowSize));
-    Assertions.assertEquals(120.0, cost.maxPartitionSize(tp, size));
-  }
 }
