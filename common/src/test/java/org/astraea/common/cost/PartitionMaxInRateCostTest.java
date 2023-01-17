@@ -33,11 +33,12 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class PartitionMaxInRateCostTest extends RequireBrokerCluster {
+class PartitionMaxInRateCostTest {
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
   private static final BeanObject bean1 =
       new BeanObject("domain", Map.of("topic", "t", "partition", "10"), Map.of("Value", 777.0));
   private static final BeanObject bean2 =
@@ -141,7 +142,7 @@ class PartitionMaxInRateCostTest extends RequireBrokerCluster {
   void testFetcher() throws InterruptedException {
     var interval = Duration.ofSeconds(1);
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       try (var collector = MetricCollector.builder().interval(interval).build()) {
         var costFunction = new PartitionMaxInRateCost();
         // create come partition to get metrics
@@ -153,7 +154,7 @@ class PartitionMaxInRateCostTest extends RequireBrokerCluster {
             .run()
             .toCompletableFuture()
             .get();
-        var producer = Producer.of(bootstrapServers());
+        var producer = Producer.of(SERVICE.bootstrapServers());
         producer
             .send(Record.builder().topic(topicName).partition(0).key(new byte[100]).build())
             .toCompletableFuture()
