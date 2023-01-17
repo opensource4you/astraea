@@ -20,20 +20,29 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, OutputMode}
 
+import scala.concurrent.duration.Duration
+class SparkStreamWriter[T](dataStreamWriter: DataStreamWriter[T]) {
+  def start(duration: Duration): Boolean = {
+    dataStreamWriter
+      .start()
+      .awaitTermination(duration.toMillis)
+  }
+}
+
 object SparkStreamWriter {
-  def apply(dataFrameProcessor: DataFrameProcessor) =
-    new SparkStreamWriterBuilder(dataFrameProcessor)
+  def builder(dataFrameProcessor: DataFrameProcessor) =
+    new Builder(dataFrameProcessor)
 
   def writeToKafka(
       dataFrameProcessor: DataFrameProcessor,
       metadata: Metadata
-  ): DataStreamWriter[Row] = {
-    SparkStreamWriter(dataFrameProcessor)
+  ): SparkStreamWriter[Row] = {
+    builder(dataFrameProcessor)
       .target(metadata.topicName)
       .checkpoint(metadata.checkpoint)
       .buildToKafka(metadata.kafkaBootstrapServers)
   }
-  class SparkStreamWriterBuilder(
+  class Builder(
       var dataFrameProcessor: DataFrameProcessor
   ) {
     private var _target: String = ""
@@ -41,31 +50,33 @@ object SparkStreamWriter {
 
     def buildToKafka(
         bootstrap: String
-    ): DataStreamWriter[Row] = {
-      dataFrameProcessor
-        .dataFrame()
-        .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
-        .writeStream
-        .outputMode(OutputMode.Append())
-        .format("kafka")
-        .option(
-          "kafka." +
-            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-          bootstrap
-        )
-        // Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
-        .option(
-          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-          "org.apache.kafka.common.serialization.StringSerializer"
-        )
-        .option(
-          ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-          "org.apache.kafka.common.serialization.StringSerializer"
-        )
-        .option("topic", _target)
-        .option(ProducerConfig.ACKS_CONFIG, "all")
-        .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
-        .option("checkpointLocation", _checkpoint)
+    ): SparkStreamWriter[Row] = {
+      new SparkStreamWriter[Row](
+        dataFrameProcessor
+          .dataFrame()
+          .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
+          .writeStream
+          .outputMode(OutputMode.Append())
+          .format("kafka")
+          .option(
+            "kafka." +
+              ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+            bootstrap
+          )
+          // Spark to kafka transfer support for StringSerializer and ByteSerializer in spark 3.3.0 .
+          .option(
+            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringSerializer"
+          )
+          .option(
+            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringSerializer"
+          )
+          .option("topic", _target)
+          .option(ProducerConfig.ACKS_CONFIG, "all")
+          .option(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
+          .option("checkpointLocation", _checkpoint)
+      )
     }
 
     /** Target represents the destination of the data, for Kafka it represents
@@ -76,14 +87,14 @@ object SparkStreamWriter {
       * @return
       *   Writer
       */
-    def target(target: String): SparkStreamWriterBuilder = {
+    def target(target: String): Builder = {
       _target = target
       this
     }
 
     def checkpoint(
         checkpoint: String
-    ): SparkStreamWriterBuilder = {
+    ): Builder = {
       _checkpoint = checkpoint
       this
     }

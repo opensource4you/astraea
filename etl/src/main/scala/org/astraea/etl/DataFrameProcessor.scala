@@ -16,16 +16,14 @@
  */
 package org.astraea.etl
 
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.astraea.common.json.JsonConverter
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
-import org.apache.spark.sql.streaming.DataStreamWriter
-import org.apache.spark.sql.types.{StructField, StructType}
-import org.astraea.etl.SparkStreamWriter.SparkStreamWriterBuilder
 
 class DataFrameProcessor(dataFrame: DataFrame) {
 
@@ -93,17 +91,18 @@ class DataFrameProcessor(dataFrame: DataFrame) {
     dataFrame
   }
 
-  def toKafkaWriterBuilder(metadata: Metadata): DataStreamWriter[Row] = {
+  def toKafkaWriterBuilder(metadata: Metadata): SparkStreamWriter[Row] = {
     SparkStreamWriter.writeToKafka(this, metadata)
   }
 }
 
 object DataFrameProcessor {
+  def builder(sparkSession: SparkSession) = new Builder(sparkSession)
   def fromLocalCsv(
       sparkSession: SparkSession,
       metadata: Metadata
   ): DataFrameProcessor = {
-    new DataFrameProcessorBuilder(sparkSession)
+    builder(sparkSession)
       .source(metadata.sourcePath)
       .columns(metadata.columns)
       .cleanSource(metadata.cleanSource)
@@ -111,7 +110,7 @@ object DataFrameProcessor {
       .sourceArchiveDir(metadata.archivePath)
       .buildFromCsv()
   }
-  class DataFrameProcessorBuilder(
+  class Builder(
       private val sparkSession: SparkSession
   ) {
     private val SOURCE_ARCHIVE_DIR = "sourceArchiveDir"
@@ -124,27 +123,27 @@ object DataFrameProcessor {
     private var _sourceArchiveDir: String = ""
     private var _columns: Seq[DataColumn] = Seq.empty
 
-    def recursiveFileLookup(r: String): DataFrameProcessorBuilder = {
+    def recursiveFileLookup(r: String): Builder = {
       _recursiveFileLookup = r
       this
     }
 
-    def cleanSource(c: String): DataFrameProcessorBuilder = {
+    def cleanSource(c: String): Builder = {
       _cleanSource = c
       this
     }
 
-    def source(s: String): DataFrameProcessorBuilder = {
+    def source(s: String): Builder = {
       _source = s
       this
     }
 
-    def columns(c: Seq[DataColumn]): DataFrameProcessorBuilder = {
+    def columns(c: Seq[DataColumn]): Builder = {
       _columns = c
       this
     }
 
-    def sourceArchiveDir(a: String): DataFrameProcessorBuilder = {
+    def sourceArchiveDir(a: String): Builder = {
       _sourceArchiveDir = a
       this
     }

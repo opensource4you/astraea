@@ -45,8 +45,7 @@ object Spark2Kafka {
       .fromLocalCsv(sparkSession, metadata)
       .csvToJSON(metadata.columns)
       .toKafkaWriterBuilder(metadata)
-      .start()
-      .awaitTermination(duration.toMillis)
+      .start(duration)
   }
 
   def main(args: Array[String]): Unit = {
