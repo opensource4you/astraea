@@ -36,6 +36,8 @@ def versions = [
         spark                 : project.properties['spark.version'] ?: "3.3.1",
         "wix-embedded-mysql"  : project.properties['wix-embedded-mysql.version'] ?: "4.6.2",
         zookeeper             : project.properties['zookeeper.version'] ?: "3.8.0",
+        "hadoop-hdfs"         : project.properties['hadoop-hdfs.version'] ?: "3.3.4",
+        "hadoop-minicluster"  : project.properties['hadoop-minicluster.version'] ?: "3.3.4",
 ]
 
 libs += [
@@ -61,6 +63,8 @@ libs += [
         "spark-kafka"          : "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark"]}",
         "spark-sql"            : "org.apache.spark:spark-sql_2.13:${versions["spark"]}",
         "wix-embedded-mysql"   : "com.wix:wix-embedded-mysql:${versions["wix-embedded-mysql"]}",
-        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
+        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}",
+        "hadoop-hdfs"          : "org.apache.hadoop:hadoop-hdfs:${versions["hadoop-hdfs"]}",
+        "hadoop-minicluster"   : "org.apache.hadoop:hadoop-minicluster:${versions["hadoop-minicluster"]}",
 
 ]
