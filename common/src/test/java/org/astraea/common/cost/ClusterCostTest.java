@@ -23,7 +23,6 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -55,21 +54,13 @@ class ClusterCostTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().join();
     }
-    var cost1 = new ReplicaLeaderSizeCost();
+    var cost1 = new RecordSizeCost();
     var cost2 = new ReplicaLeaderCost();
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =
         mergeCost.fetcher().stream()
             .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL())))
             .collect(Collectors.toSet());
-    Assertions.assertTrue(
-        metrics.iterator().next().stream()
-            .anyMatch(
-                x ->
-                    x.beanObject()
-                        .properties()
-                        .get("name")
-                        .equals(LogMetrics.Log.SIZE.metricName())));
     Assertions.assertTrue(
         metrics.iterator().next().stream()
             .anyMatch(
