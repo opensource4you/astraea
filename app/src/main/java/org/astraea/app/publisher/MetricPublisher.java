@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.function.Function;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
-import org.astraea.common.Utils;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
@@ -36,15 +35,9 @@ public class MetricPublisher {
   }
 
   private static void execute(Arguments arguments) {
-    var clusterInfoUpdate =
-        Utils.toDuration(
-            arguments
-                .configs()
-                .getOrDefault(MetricPublisherConfig.CLUSTER_INFO_UPDATE_DURATION.alias(), "1m"));
-
     try (var publisher =
-        new JMXPublisher(
-            arguments.bootstrapServers(), arguments.idToJmxPort(), clusterInfoUpdate)) {
+        JMXPublisher.create(
+            arguments.bootstrapServers(), arguments.idToJmxPort(), arguments.period)) {
       System.out.println("Metric publisher started, Ctrl+c to terminate");
       publisher.waitForDone();
     }
@@ -68,11 +61,11 @@ public class MetricPublisher {
     public String defaultPort = null;
 
     @Parameter(
-        names = {"--duration"},
+        names = {"--period"},
         description = "Duration: The rate to fetch and publish metrics. Default: 10s",
         validateWith = DurationField.class,
         converter = DurationField.class)
-    public Duration duration = Duration.ofSeconds(10);
+    public Duration period = Duration.ofSeconds(10);
 
     public Function<Integer, Integer> idToJmxPort() {
       return id -> Integer.parseInt(jmxAddress.getOrDefault(id.toString(), defaultPort));
