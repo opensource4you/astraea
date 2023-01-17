@@ -20,11 +20,20 @@ import java.util.Map;
 import org.astraea.app.web.QuotaHandler.QuotaKeys;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.json.JsonConverter;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class QuotaHandlerTest extends RequireBrokerCluster {
+public class QuotaHandlerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   private static final String CONNECTION = "connection";
   private static final String PRODUCER = "producer";
   private static final String CREATION_RATE = "creationRate";
@@ -33,7 +42,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
   @Test
   void testCreateIPQuota() {
     var ip = "192.168.10.11";
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new QuotaHandler(admin);
       var result =
           Assertions.assertInstanceOf(
@@ -59,7 +68,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testCreateProducerQuota() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new QuotaHandler(admin);
       var result =
           Assertions.assertInstanceOf(
@@ -92,7 +101,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
   void testQuery() {
     var ip0 = "192.168.10.11";
     var ip1 = "192.168.10.12";
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new QuotaHandler(admin);
 
       handler
@@ -134,7 +143,7 @@ public class QuotaHandlerTest extends RequireBrokerCluster {
 
   @Test
   void testQueryNonexistentQuota() {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new QuotaHandler(admin);
       Assertions.assertEquals(
           0,

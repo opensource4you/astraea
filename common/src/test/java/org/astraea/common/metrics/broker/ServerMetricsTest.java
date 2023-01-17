@@ -35,13 +35,23 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-public class ServerMetricsTest extends RequireSingleBrokerCluster {
+public class ServerMetricsTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @BeforeAll
+  static void createBroker() {
+    // call broker-related method to initialize broker cluster
+    Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
+  }
+
   @Test
   void testAppInfo() {
     ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
@@ -212,7 +222,7 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(ServerMetrics.Topic.class)
   void testTopic(ServerMetrics.Topic topic) {
     var name = Utils.randomString();
-    try (var producer = Producer.of(bootstrapServers())) {
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer
           .send(Record.builder().topic(name).key(new byte[10]).build())
           .toCompletableFuture()
@@ -223,7 +233,7 @@ public class ServerMetricsTest extends RequireSingleBrokerCluster {
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .build()) {
       var records = consumer.poll(1, Duration.ofSeconds(5));
       Assertions.assertEquals(1, records.size());

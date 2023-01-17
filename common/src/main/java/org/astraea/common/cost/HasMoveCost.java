@@ -36,7 +36,7 @@ public interface HasMoveCost extends CostFunction {
               .collect(Collectors.toList());
       var movedReplicaSize =
           costs.stream()
-              .flatMap(c -> c.movedReplicaSize().entrySet().stream())
+              .flatMap(c -> c.movedRecordSize().entrySet().stream())
               .collect(
                   Collectors.toUnmodifiableMap(
                       Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
@@ -55,7 +55,7 @@ public interface HasMoveCost extends CostFunction {
 
       return new MoveCost() {
         @Override
-        public Map<Integer, DataSize> movedReplicaSize() {
+        public Map<Integer, DataSize> movedRecordSize() {
           return movedReplicaSize;
         }
 

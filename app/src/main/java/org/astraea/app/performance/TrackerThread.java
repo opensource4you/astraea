@@ -150,15 +150,16 @@ public interface TrackerThread extends AbstractThread {
         var ms = metrics.stream().filter(m -> m.clientId().equals(clientId)).findFirst();
 
         if (ms.isPresent()) {
-
+          var nonStickySensor = ConsumerThread.NON_STICKY_SENSOR.get(clientId);
+          var diffSensor = ConsumerThread.DIFFERENCE_SENSOR.get(clientId);
           System.out.printf(
               "  consumer[%d] has %d partitions.%n"
                   + "    %.1f non-sticky partitions in average,%n"
                   + "    assigned %.1f more partitions than before re-balancing in average%n",
               i,
               (int) ms.get().assignedPartitions(),
-              ConsumerThread.NON_STICKY_SENSOR.get(clientId).measure("exp-avg"),
-              ConsumerThread.DIFFERENCE_SENSOR.get(clientId).measure("exp-avg"));
+              nonStickySensor == null ? 0.0 : nonStickySensor.measure("exp-avg"),
+              diffSensor == null ? 0.0 : diffSensor.measure("exp-avg"));
         }
         System.out.printf(
             "  consumed[%d] average throughput: %s%n",

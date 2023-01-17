@@ -27,27 +27,35 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
-import org.astraea.it.RequireSingleBrokerCluster;
+import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
-public class LogMetricsTest extends RequireSingleBrokerCluster {
+public class LogMetricsTest {
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  @BeforeAll
+  static void createBroker() {
+    // call broker-related method to initialize broker cluster
+    Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
+  }
 
   @ParameterizedTest
   @EnumSource(LogMetrics.LogCleanerManager.class)
   void testLogCleanerManager(LogMetrics.LogCleanerManager log) {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var beans =
           log.fetch(MBeanClient.local()).stream()
               .collect(Collectors.groupingBy(LogMetrics.LogCleanerManager.Gauge::path));
       Assertions.assertEquals(
-          dataFolders().values().stream().flatMap(Collection::stream).distinct().count(),
+          SERVICE.dataFolders().values().stream().flatMap(Collection::stream).distinct().count(),
           beans.size());
-      dataFolders().values().stream()
+      SERVICE.dataFolders().values().stream()
           .flatMap(Collection::stream)
           .distinct()
           .forEach(
@@ -61,7 +69,7 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
   @EnumSource(LogMetrics.Log.class)
   void testMetrics(LogMetrics.Log log) {
     var topicName = Utils.randomString(10);
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var beans =
@@ -102,7 +110,7 @@ public class LogMetricsTest extends RequireSingleBrokerCluster {
   @ParameterizedTest()
   @EnumSource(value = LogMetrics.Log.class)
   void testTopicPartitionMetrics(LogMetrics.Log request) {
-    try (var admin = Admin.of(bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       // there are only 3 brokers, so 10 partitions can make each broker has some partitions
       admin
           .creator()

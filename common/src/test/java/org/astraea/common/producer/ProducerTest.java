@@ -29,7 +29,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.it.RequireBrokerCluster;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public class ProducerTest extends RequireBrokerCluster {
+public class ProducerTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testSender() {
@@ -48,7 +56,7 @@ public class ProducerTest extends RequireBrokerCluster {
     var header = Header.of("a", "b".getBytes());
     try (var producer =
         Producer.builder()
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .keySerializer(Serializer.STRING)
             .build()) {
       Assertions.assertFalse(producer.transactional());
@@ -69,7 +77,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -95,7 +103,7 @@ public class ProducerTest extends RequireBrokerCluster {
     var header = Header.of("a", "b".getBytes());
     try (var producer =
         Producer.builder()
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .keySerializer(Serializer.STRING)
             .buildTransactional()) {
       Assertions.assertTrue(producer.transactional());
@@ -114,7 +122,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topicName))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -139,7 +147,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -170,7 +178,7 @@ public class ProducerTest extends RequireBrokerCluster {
 
     try (var consumer =
         Consumer.forTopics(Set.of(topic))
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
@@ -189,18 +197,20 @@ public class ProducerTest extends RequireBrokerCluster {
         Arguments.of(
             Named.of(
                 "normal producer",
-                Producer.builder().bootstrapServers(bootstrapServers()).build())),
+                Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build())),
         Arguments.of(
             Named.of(
                 "transactional producer",
-                Producer.builder().bootstrapServers(bootstrapServers()).buildTransactional())));
+                Producer.builder()
+                    .bootstrapServers(SERVICE.bootstrapServers())
+                    .buildTransactional())));
   }
 
   @Test
   void testSetTransactionIdManually() {
     try (var producer =
         Producer.builder()
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(ProducerConfigs.TRANSACTIONAL_ID_CONFIG, "chia")
             .build()) {
       Assertions.assertTrue(producer.transactional());
@@ -213,7 +223,7 @@ public class ProducerTest extends RequireBrokerCluster {
     var clientId = Utils.randomString();
     try (var producer =
         Producer.builder()
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(ProducerConfigs.CLIENT_ID_CONFIG, clientId)
             .build()) {
       Assertions.assertEquals(clientId, producer.clientId());
@@ -232,7 +242,7 @@ public class ProducerTest extends RequireBrokerCluster {
   void testCompression(String compression) {
     try (var producer =
         Producer.builder()
-            .bootstrapServers(bootstrapServers())
+            .bootstrapServers(SERVICE.bootstrapServers())
             .config(ProducerConfigs.COMPRESSION_TYPE_NONE, compression)
             .build()) {
       producer

@@ -156,7 +156,7 @@ public class ClientNode {
         .build();
   }
 
-  private static List<Map<String, Object>> consumerResult(
+  static List<Map<String, Object>> consumerResult(
       List<ConsumerGroup> cgs, List<Partition> partitions) {
     var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
     return cgs.stream()
@@ -165,10 +165,13 @@ public class ClientNode {
                 Stream.concat(
                         cg.consumeProgress().keySet().stream(),
                         cg.assignment().values().stream().flatMap(Collection::stream))
+                    .distinct()
                     .map(
                         tp -> {
                           var result = new LinkedHashMap<String, Object>();
                           result.put("group", cg.groupId());
+                          result.put("assignor", cg.assignor());
+                          result.put("state", cg.state());
                           result.put("coordinator", cg.coordinator().id());
                           result.put("topic", tp.topic());
                           result.put("partition", tp.partition());

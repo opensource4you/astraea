@@ -25,10 +25,10 @@ public interface MoveCost {
 
   MoveCost EMPTY = new MoveCost() {};
 
-  static MoveCost movedReplicaSize(Map<Integer, DataSize> value) {
+  static MoveCost movedRecordSize(Map<Integer, DataSize> value) {
     return new MoveCost() {
       @Override
-      public Map<Integer, DataSize> movedReplicaSize() {
+      public Map<Integer, DataSize> movedRecordSize() {
         return value;
       }
     };
@@ -64,7 +64,7 @@ public interface MoveCost {
   /**
    * @return the data size of moving replicas. Noted that the "removing" replicas are excluded.
    */
-  default Map<Integer, DataSize> movedReplicaSize() {
+  default Map<Integer, DataSize> movedRecordSize() {
     return Map.of();
   }
 
