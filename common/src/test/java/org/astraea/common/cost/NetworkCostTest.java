@@ -17,6 +17,8 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.DataRate;
+import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
@@ -39,6 +42,7 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
@@ -602,44 +606,59 @@ class NetworkCostTest {
                   Collectors.toUnmodifiableMap(
                       p -> TopicPartition.of("Pipeline", p), p -> random.nextInt(10)));
       this.clusterBean =
-          ClusterBean.of(
-              IntStream.range(0, brokers)
-                  .boxed()
-                  .collect(
-                      Collectors.toUnmodifiableMap(
-                          id -> id,
-                          id ->
-                              List.of(
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                      "Pipeline",
-                                      clusterInfo
-                                          .replicaStream()
-                                          .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(Replica::isLeader)
-                                          .filter(Replica::isOnline)
-                                          .mapToLong(r -> rate.get(r.topicPartition()))
-                                          .sum()),
-                                  noise(random.nextInt()),
-                                  noise(random.nextInt()),
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                      "Pipeline",
-                                      clusterInfo
-                                          .replicaStream()
-                                          .filter(r -> r.nodeInfo().id() == id)
-                                          .filter(Replica::isLeader)
-                                          .filter(Replica::isOnline)
-                                          .mapToLong(
-                                              r ->
-                                                  rate.get(r.topicPartition())
-                                                      * consumerFanout.get(r.topicPartition()))
-                                          .sum()),
-                                  noise(random.nextInt())))));
+          MetricSeriesBuilder.builder()
+              .cluster(clusterInfo)
+              .timeRange(LocalDateTime.now(), Duration.ZERO)
+              .seriesByBrokerTopic(
+                  (time, broker, topic) ->
+                      ServerMetrics.Topic.BYTES_IN_PER_SEC
+                          .builder()
+                          .topic(topic)
+                          .time(time.toEpochSecond(ZoneOffset.UTC))
+                          .fifteenMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(r -> rate.get(r.topicPartition()))
+                                  .sum())
+                          .build())
+              .seriesByBrokerTopic(
+                  (time, broker, topic) ->
+                      ServerMetrics.Topic.BYTES_OUT_PER_SEC
+                          .builder()
+                          .topic(topic)
+                          .time(time.toEpochSecond(ZoneOffset.UTC))
+                          .fifteenMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(
+                                      r ->
+                                          rate.get(r.topicPartition())
+                                              * consumerFanout.get(r.topicPartition()))
+                                  .sum())
+                          .build())
+              .seriesByBroker(
+                  (time, broker) ->
+                      IntStream.range(0, 10)
+                          .mapToObj(
+                              i ->
+                                  ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC
+                                      .builder()
+                                      .topic("Noise_" + i)
+                                      .time(time.toEpochSecond(ZoneOffset.UTC))
+                                      .build()))
+              .seriesByBrokerReplica(
+                  (time, broker, replica) ->
+                      LogMetrics.Log.SIZE
+                          .builder()
+                          .topic(replica.topic())
+                          .partition(replica.partition())
+                          .logSize(replica.size())
+                          .build())
+              .build();
     }
 
     @Override
@@ -677,11 +696,11 @@ class NetworkCostTest {
     var domainName = LogMetrics.DOMAIN_NAME;
     var properties =
         Map.of(
-            "type", "BrokerTopicMetric",
+            "type", "Log",
             "topic", topicPartition.topic(),
             "partition", String.valueOf(topicPartition.partition()),
             "name", LogMetrics.Log.SIZE.metricName());
-    var attributes = Map.<String, Object>of("value", size);
+    var attributes = Map.<String, Object>of("Value", size);
     return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, attributes));
   }
 }

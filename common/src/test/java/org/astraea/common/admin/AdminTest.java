@@ -762,6 +762,18 @@ public class AdminTest {
           Assertions.assertEquals(
               1, admin.consumerGroups(Set.of("abc")).toCompletableFuture().join().size());
 
+          admin
+              .consumerGroups(admin.consumerGroupIds().toCompletableFuture().join())
+              .toCompletableFuture()
+              .join()
+              .forEach(
+                  c -> {
+                    Assertions.assertNotNull(c.groupId());
+                    Assertions.assertNotNull(c.coordinator());
+                    Assertions.assertNotNull(c.assignor());
+                    Assertions.assertNotNull(c.state());
+                  });
+
           // test internal
           Assertions.assertNotEquals(
               0,

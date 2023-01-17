@@ -109,7 +109,8 @@ public interface Record<Key, Value> {
       return new Record<>() {
         private final Key key = (Key) Builder.this.key;
         private final Value value = (Value) Builder.this.value;
-        private final String topic = Objects.requireNonNull(Builder.this.topic);
+        private final String topic =
+            Objects.requireNonNull(Builder.this.topic, "topic must be defined");
         private final Optional<Integer> partition = Builder.this.partition;
         private final Optional<Long> timestamp = Builder.this.timestamp;
         private final List<Header> headers = Objects.requireNonNull(Builder.this.headers);
