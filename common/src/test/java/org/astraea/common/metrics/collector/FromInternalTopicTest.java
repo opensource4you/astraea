@@ -18,6 +18,7 @@ package org.astraea.common.metrics.collector;
 
 import java.util.Map;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.BeanQuery;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +27,25 @@ public class FromInternalTopicTest {
   void testStringToBean() {
     var bean =
         new BeanObject("domain", Map.of("name", "name1", "type", "type1"), Map.of("value", "v1"));
-    Assertions.assertEquals(bean, FromInternalTopic.stringToBean(bean.toString()).beanObject());
+    Assertions.assertEquals(bean, FromInternalTopic.stringToBean(bean.toString()));
+  }
+
+  @Test
+  void testMetricStoreQuery() {
+    var metricStore = new FromInternalTopic.MetricStore();
+    var bean1 =
+        new BeanObject("kafka", Map.of("name", "name1", "type", "type1"), Map.of("value", "v1"));
+    var bean2 = new BeanObject("kafka", Map.of("name", "no", "type", "no"), Map.of("value", "v2"));
+    metricStore.put(
+        new FromInternalTopic.BeanProperties(bean1.domainName(), bean1.properties()), bean1);
+    metricStore.put(
+        new FromInternalTopic.BeanProperties(bean2.domainName(), bean2.properties()), bean2);
+
+    Assertions.assertEquals(
+        2, metricStore.queryBeans(BeanQuery.builder().property("name", "*").build()).size());
+    Assertions.assertEquals(
+        bean1, metricStore.queryBean(BeanQuery.builder().property("name", "name1").build()));
+    Assertions.assertEquals(
+        bean2, metricStore.queryBean(BeanQuery.builder().property("name", "no").build()));
   }
 }
