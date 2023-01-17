@@ -60,6 +60,10 @@ public interface MoveCost {
     };
   }
 
+  /**
+   * @return the leader data size of moving replicas. Noted that the "removing" replicas are
+   *     excluded.
+   */
   default Map<Integer, DataSize> movedReplicaLeaderSize() {
     return Map.of();
   }

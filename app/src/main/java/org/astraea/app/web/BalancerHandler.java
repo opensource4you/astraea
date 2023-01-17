@@ -56,6 +56,7 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.RecordSizeCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
@@ -68,7 +69,11 @@ class BalancerHandler implements Handler {
 
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
-          List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaLeaderSizeCost()));
+          List.of(
+              new ReplicaNumberCost(),
+              new ReplicaLeaderCost(),
+              new RecordSizeCost(),
+              new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
