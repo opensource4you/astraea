@@ -780,7 +780,6 @@ public class BalancerHandlerTest {
             }
           };
       var handler = new BalancerHandler(admin, theExecutor);
-
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,

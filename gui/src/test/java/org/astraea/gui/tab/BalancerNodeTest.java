@@ -32,7 +32,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaSizeCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
 import org.astraea.it.Service;
@@ -56,7 +56,8 @@ class BalancerNodeTest {
 
     var costs = BalancerNode.clusterCosts(List.of(BalancerNode.Cost.SIZE.name()));
     Assertions.assertEquals(1, costs.size());
-    Assertions.assertInstanceOf(ReplicaSizeCost.class, costs.entrySet().iterator().next().getKey());
+    Assertions.assertInstanceOf(
+        ReplicaLeaderSizeCost.class, costs.entrySet().iterator().next().getKey());
   }
 
   @Test
