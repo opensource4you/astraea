@@ -1004,12 +1004,8 @@ class AdminImpl implements Admin {
                     "Fail to expect a ReplicaNotAvailableException return from the API. "
                         + "A data folder movement might just triggered. "
                         + "Is there another Admin Client manipulating the cluster state?");
-              if (e instanceof CompletionException) {
-                if (e.getCause() instanceof ReplicaNotAvailableException) return null;
-                else {
-                  throw (RuntimeException) e.getCause();
-                }
-              }
+              if (e instanceof CompletionException
+                  && (e.getCause()) instanceof ReplicaNotAvailableException) return null;
               throw (RuntimeException) e;
             });
   }
