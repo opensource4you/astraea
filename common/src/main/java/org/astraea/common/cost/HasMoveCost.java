@@ -19,6 +19,7 @@ package org.astraea.common.cost;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -52,6 +53,16 @@ public interface HasMoveCost extends CostFunction {
               .collect(
                   Collectors.toUnmodifiableMap(
                       Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+      var changedReplicaMaxInRate =
+          costs.stream()
+              .flatMap(c -> c.changedReplicaMaxInRate().entrySet().stream())
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey,
+                      Map.Entry::getValue,
+                      (l, r) ->
+                          DataRate.Byte.of(Double.doubleToLongBits(l.byteRate() + r.byteRate()))
+                              .perSecond()));
 
       return new MoveCost() {
         @Override
@@ -67,6 +78,11 @@ public interface HasMoveCost extends CostFunction {
         @Override
         public Map<Integer, Integer> changedReplicaLeaderCount() {
           return changedReplicaLeaderCount;
+        }
+
+        @Override
+        public Map<Integer, DataRate> changedReplicaMaxInRate() {
+          return changedReplicaMaxInRate;
         }
       };
     };

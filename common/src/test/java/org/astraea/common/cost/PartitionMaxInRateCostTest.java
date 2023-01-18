@@ -52,11 +52,15 @@ class PartitionMaxInRateCostTest {
 
   @Test
   void testMoveCost() {
+    // before(partition-broker): p10-1, p11-2, p12-0, p12-0
+    // after(partition-broker):  p10-0, p11-1, p12-2, p12-0
+    // p10:777.0, p11:700.0, p12:500.0
     var cf = new PartitionMaxInRateCost();
     var mc = cf.moveCost(clusterInfo(), afterClusterInfo(), clusterBean());
-    Assertions.assertEquals(-777.0 + 500.0, mc.changedReplicaMaxInRate().get(0).byteRate());
-    Assertions.assertEquals(-700.0 + 777.0, mc.changedReplicaMaxInRate().get(1).byteRate());
-    Assertions.assertEquals(-500.0 + 700.0, mc.changedReplicaMaxInRate().get(2).byteRate());
+    Assertions.assertEquals(
+        Math.max(500.0 + 500.0, 777.0 + 500.0), mc.changedReplicaMaxInRate().get(0).byteRate());
+    Assertions.assertEquals(Math.max(777.0, 700.0), mc.changedReplicaMaxInRate().get(1).byteRate());
+    Assertions.assertEquals(Math.max(700.0, 500.0), mc.changedReplicaMaxInRate().get(2).byteRate());
   }
 
   private ClusterInfo afterClusterInfo() {

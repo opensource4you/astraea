@@ -85,8 +85,7 @@ public interface MoveCost {
   }
 
   /**
-   * @return broker id and changed max replica write rate. changed rate = (max replica write rate of
-   *     adding replicas - max replica write rate of removing replicas)
+   * @return broker id and total maximum replica write rate in the broker during migration
    */
   default Map<Integer, DataRate> changedReplicaMaxInRate() {
     return Map.of();

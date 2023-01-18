@@ -53,11 +53,11 @@ public class PartitionMaxInRateCost implements HasMoveCost {
   static final Map<TopicPartitionReplica, Sensor<Double>> expWeightSensors = new HashMap<>();
   static final Map<TopicPartitionReplica, Debounce<Double>> denounces = new HashMap<>();
 
-  PartitionMaxInRateCost() {
+  public PartitionMaxInRateCost() {
     this.duration = DEFAULT_DURATION;
   }
 
-  PartitionMaxInRateCost(Duration duration) {
+  public PartitionMaxInRateCost(Duration duration) {
     this.duration = duration;
   }
 
@@ -183,7 +183,7 @@ public class PartitionMaxInRateCost implements HasMoveCost {
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var partitionIn = partitionCost(before, clusterBean);
-    return MoveCost.changedReplicaMaxInRate(
+    var value =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -194,15 +194,17 @@ public class PartitionMaxInRateCost implements HasMoveCost {
                     id ->
                         DataRate.Byte.of(
                                 Math.round(
-                                    after
+                                    Math.max(
+                                        before
                                             .replicaStream(id)
                                             .mapToDouble(r -> partitionIn.get(r.topicPartition()))
-                                            .sum()
-                                        - before
+                                            .sum(),
+                                        after
                                             .replicaStream(id)
                                             .mapToDouble(r -> partitionIn.get(r.topicPartition()))
-                                            .sum()))
-                            .perSecond())));
+                                            .sum())))
+                            .perSecond()));
+    return MoveCost.changedReplicaMaxInRate(value);
   }
 
   public interface WorseLogRateStatisticalBean extends HasGauge<Double> {}
