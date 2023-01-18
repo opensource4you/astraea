@@ -35,6 +35,7 @@ dependencies {
         exclude group: "org.slf4j"
     }
     implementation libs["commons-net"]
+    implementation libs["hadoop-common"]
 }
 
 java {

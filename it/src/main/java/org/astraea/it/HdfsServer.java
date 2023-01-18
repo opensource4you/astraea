@@ -24,7 +24,7 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
 
 public interface HdfsServer extends AutoCloseable {
 
-  static HdfsServer local() throws IOException {
+  static HdfsServer local() {
     return builder().build();
   }
 
