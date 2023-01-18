@@ -987,9 +987,7 @@ class AdminImpl implements Admin {
   public CompletionStage<Void> declarePreferredDataFolders(
       Map<TopicPartitionReplica, String> assignments) {
     if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
-
-    var wrapper = new CompletableFuture<Void>();
-    clusterInfo(
+    return clusterInfo(
             assignments.keySet().stream()
                 .map(TopicPartitionReplica::topic)
                 .collect(Collectors.toUnmodifiableSet()))
@@ -999,20 +997,21 @@ class AdminImpl implements Admin {
                     .filter(e -> cluster.replicas(e.getKey()).isEmpty())
                     .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
         .thenCompose(this::moveToFolders)
-        .whenComplete(
+        .handle(
             (r, e) -> {
+              if (e == null)
+                throw new RuntimeException(
+                    "Fail to expect a ReplicaNotAvailableException return from the API. "
+                        + "A data folder movement might just triggered. "
+                        + "Is there another Admin Client manipulating the cluster state?");
               if (e instanceof CompletionException) {
-                if (e.getCause() instanceof ReplicaNotAvailableException) wrapper.complete(null);
-                else wrapper.completeExceptionally(e.getCause());
-              } else if (e == null) {
-                wrapper.completeExceptionally(
-                    new RuntimeException(
-                        "Fail to expect a ReplicaNotAvailableException return from the API. "
-                            + "A data folder movement might just triggered. "
-                            + "Is there another Admin Client manipulating the cluster state?"));
+                if (e.getCause() instanceof ReplicaNotAvailableException) return null;
+                else {
+                  throw (RuntimeException) e.getCause();
+                }
               }
+              throw (RuntimeException) e;
             });
-    return wrapper;
   }
 
   @Override
