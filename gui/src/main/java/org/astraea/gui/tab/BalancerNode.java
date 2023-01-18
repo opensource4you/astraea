@@ -43,8 +43,8 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
-import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
@@ -71,7 +71,7 @@ public class BalancerNode {
   enum Cost {
     REPLICA("replica", new ReplicaNumberCost()),
     LEADER("leader", new ReplicaLeaderCost()),
-    SIZE("size", new ReplicaSizeCost());
+    SIZE("size", new ReplicaLeaderSizeCost());
 
     private final HasClusterCost costFunction;
     private final String display;
@@ -207,7 +207,9 @@ public class BalancerNode {
                                       HasClusterCost.of(clusterCosts(argument.selectedKeys())))
                                   .moveCost(
                                       HasMoveCost.of(
-                                          List.of(new ReplicaSizeCost(), new ReplicaLeaderCost())))
+                                          List.of(
+                                              new ReplicaLeaderSizeCost(),
+                                              new ReplicaLeaderCost())))
                                   .movementConstraint(movementConstraint(argument.nonEmptyTexts()))
                                   .topicFilter(
                                       topic ->

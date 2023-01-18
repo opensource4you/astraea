@@ -24,6 +24,15 @@ public interface MoveCost {
 
   MoveCost EMPTY = new MoveCost() {};
 
+  static MoveCost movedReplicaLeaderSize(Map<Integer, DataSize> value) {
+    return new MoveCost() {
+      @Override
+      public Map<Integer, DataSize> movedReplicaLeaderSize() {
+        return value;
+      }
+    };
+  }
+
   static MoveCost movedRecordSize(Map<Integer, DataSize> value) {
     return new MoveCost() {
       @Override
@@ -49,6 +58,14 @@ public interface MoveCost {
         return value;
       }
     };
+  }
+
+  /**
+   * @return the leader data size of moving replicas. Noted that the "removing" replicas are
+   *     excluded.
+   */
+  default Map<Integer, DataSize> movedReplicaLeaderSize() {
+    return Map.of();
   }
 
   /**

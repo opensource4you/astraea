@@ -34,6 +34,12 @@ public interface HasMoveCost extends CostFunction {
           hasMoveCosts.stream()
               .map(c -> c.moveCost(before, after, clusterBean))
               .collect(Collectors.toList());
+      var movedReplicaLeaderSize =
+          costs.stream()
+              .flatMap(c -> c.movedReplicaLeaderSize().entrySet().stream())
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
       var movedReplicaSize =
           costs.stream()
               .flatMap(c -> c.movedRecordSize().entrySet().stream())
@@ -54,6 +60,11 @@ public interface HasMoveCost extends CostFunction {
                       Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
 
       return new MoveCost() {
+        @Override
+        public Map<Integer, DataSize> movedReplicaLeaderSize() {
+          return movedReplicaLeaderSize;
+        }
+
         @Override
         public Map<Integer, DataSize> movedRecordSize() {
           return movedReplicaSize;
