@@ -26,12 +26,12 @@ import java.util.stream.Collectors;
 import org.astraea.common.FutureUtils;
 
 /**
- * Argument for {@link Admin#idleTopic(List)}. This interface will check for the given set of topic
+ * Argument for {@link Admin#topicNames(List)}. This interface will check for the given set of topic
  * names, and filter out the "idle" topics.
  *
  * <p>For example, the definition of "idle" can be "the topic that is not consumed by any consumer".
- * Like {@link #ASSIGNMENT} filter out the topics that/(whose partitions) are not assigned by any
- * consumer group.
+ * Like {@link #NO_CONSUMER_GROUP} filter out the topics that/(whose partitions) are not assigned by
+ * any consumer group.
  */
 @FunctionalInterface
 public interface TopicChecker {
@@ -41,34 +41,79 @@ public interface TopicChecker {
    * @param topics names of topics this checker will check
    * @return the set of topic names that is not idle
    */
-  CompletionStage<Set<String>> usedTopics(Admin admin, Set<String> topics);
+  CompletionStage<Set<String>> test(Admin admin, Set<String> topics);
+
+  TopicChecker NO_DATA =
+      (admin, topics) ->
+          admin
+              .clusterInfo(topics)
+              .thenApply(
+                  clusterInfo ->
+                      clusterInfo.topics().stream()
+                          .filter(
+                              t -> clusterInfo.replicaStream(t).mapToLong(Replica::size).sum() <= 0)
+                          .collect(Collectors.toSet()));
 
   /** Find topics which is assigned by any consumer. */
-  TopicChecker ASSIGNMENT =
-      (admin, topics) -> {
-        var consumerGroups = admin.consumerGroupIds().thenCompose(admin::consumerGroups);
+  TopicChecker NO_CONSUMER_GROUP =
+      (admin, topics) ->
+          admin
+              .consumerGroupIds()
+              .thenCompose(admin::consumerGroups)
+              .thenApply(
+                  groups -> {
+                    // TODO: consumer may not belong to any consumer group
+                    var hasReadTopics =
+                        groups.stream()
+                            .flatMap(
+                                group ->
+                                    group.assignment().values().stream()
+                                        .flatMap(Collection::stream)
+                                        .map(TopicPartition::topic))
+                            .collect(Collectors.toSet());
+                    return topics.stream()
+                        .filter(t -> !hasReadTopics.contains(t))
+                        .collect(Collectors.toSet());
+                  });
 
-        return consumerGroups.thenApply(
-            groups ->
-                // TODO: consumer may not belong to any consumer group
-                groups.stream()
-                    .flatMap(
-                        group ->
-                            group.assignment().values().stream()
-                                .flatMap(Collection::stream)
-                                .map(TopicPartition::topic)
-                                .filter(topics::contains))
-                    .collect(Collectors.toUnmodifiableSet()));
-      };
+  /**
+   * Find out the topic has skew partition size.
+   *
+   * @param factor the threshold of skew (min size / max size)
+   * @return topics having skew partition
+   */
+  static TopicChecker skewPartition(double factor) {
+    return (admin, topics) ->
+        admin
+            .clusterInfo(topics)
+            .thenApply(
+                clusterInfo ->
+                    clusterInfo.topics().stream()
+                        .filter(
+                            topic -> {
+                              var max =
+                                  clusterInfo.replicaLeaders(topic).stream()
+                                      .mapToLong(Replica::size)
+                                      .max();
+                              var min =
+                                  clusterInfo.replicaLeaders(topic).stream()
+                                      .mapToLong(Replica::size)
+                                      .max();
+                              return max.isPresent()
+                                  && min.isPresent()
+                                  && ((double) min.getAsLong() / max.getAsLong() >= factor);
+                            })
+                        .collect(Collectors.toSet()));
+  }
 
   /**
    * Find topics whose max(the latest record timestamp, producer timestamp, max timestamp of
-   * records) is not older than the given duration.
+   * records) is older than the given duration.
    *
    * @param expired to search expired topics
    * @param timeout to wait the latest record
    */
-  static TopicChecker latestTimestamp(Duration expired, Duration timeout) {
+  static TopicChecker noWriteAfter(Duration expired, Duration timeout) {
     return (admin, topics) -> {
       long end = System.currentTimeMillis() - expired.toMillis();
       var tpsFuture = admin.topicPartitions(topics);
@@ -105,7 +150,7 @@ public interface TopicChecker {
           .thenApply(
               ts ->
                   ts.entrySet().stream()
-                      .filter(e -> e.getValue() >= end)
+                      .filter(e -> e.getValue() < end)
                       .map(e -> e.getKey().topic())
                       .collect(Collectors.toSet()));
     };
