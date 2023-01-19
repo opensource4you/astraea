@@ -153,12 +153,18 @@ public abstract class NetworkCost implements HasClusterCost, HasPartitionCost {
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
     if (bandwidthType == BandwidthType.Egress)
-      throw new IllegalArgumentException("assignor doesn't use egress as load");
+      return () ->
+          clusterInfo.topicPartitions().stream().collect(Collectors.toMap(tp -> tp, ignore -> 0.0));
+    // The value of cost is: the ingress of partition converted to GB
+    // For example, if the ingress of the partition is 1 GB/s, the value of cost is 1.
+    // Return 0 is don't care
     return () ->
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
             .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> Double.valueOf(e.getValue())));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, e -> Double.valueOf(e.getValue()) / 1024 / 1024 / 1024));
   }
 
   @Override
