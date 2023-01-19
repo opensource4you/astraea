@@ -19,58 +19,129 @@ package org.astraea.common.admin;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
+import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TopicCheckerTest {
 
-  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+  private final Service service = Service.builder().numberOfBrokers(3).build();
 
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
+  @AfterEach
+  void closeService() {
+    service.close();
   }
 
   @Test
-  void testLatestTimestamp() throws InterruptedException {
-    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
-      producer
-          .send(Record.builder().topic("produce").value("1".getBytes()).build())
-          .toCompletableFuture()
-          .join();
-    }
+  void testNoWrite() {
+    var topic = Utils.randomString();
+    try (var admin = Admin.of(service.bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
 
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var checkers =
-          List.of(TopicChecker.latestTimestamp(Duration.ofSeconds(3), Duration.ofSeconds(3)));
-      Assertions.assertEquals(Set.of(), admin.idleTopic(checkers).toCompletableFuture().join());
-      Thread.sleep(3000);
       Assertions.assertEquals(
-          Set.of("produce"), admin.idleTopic(checkers).toCompletableFuture().join());
+          Set.of(topic),
+          admin
+              .topicNames(
+                  List.of(TopicChecker.noWriteAfter(Duration.ofSeconds(3), Duration.ofSeconds(3))))
+              .toCompletableFuture()
+              .join());
+
+      try (var producer = Producer.builder().bootstrapServers(service.bootstrapServers()).build()) {
+        producer
+            .send(Record.builder().topic(topic).value("1".getBytes()).build())
+            .toCompletableFuture()
+            .join();
+      }
+      Assertions.assertEquals(
+          Set.of(),
+          admin
+              .topicNames(
+                  List.of(TopicChecker.noWriteAfter(Duration.ofSeconds(3), Duration.ofSeconds(3))))
+              .toCompletableFuture()
+              .join());
     }
   }
 
   @Test
-  void testNoAssignment() throws InterruptedException {
-    var consumer =
-        Consumer.forTopics(Set.of("produce")).bootstrapServers(SERVICE.bootstrapServers()).build();
-    var consumerThread = new Thread(() -> consumer.poll(Duration.ofSeconds(5)));
-    consumerThread.start();
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      Thread.sleep(5000);
+  void testNoConsumerGroup() {
+    var topic = Utils.randomString();
+    try (var admin = Admin.of(service.bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
 
       Assertions.assertEquals(
-          Set.of(), admin.idleTopic(List.of(TopicChecker.ASSIGNMENT)).toCompletableFuture().join());
-      consumerThread.join();
-      consumer.close();
+          Set.of(topic),
+          admin.topicNames(List.of(TopicChecker.NO_CONSUMER_GROUP)).toCompletableFuture().join());
+
+      try (var consumer =
+          Consumer.forTopics(Set.of(topic)).bootstrapServers(service.bootstrapServers()).build()) {
+        consumer.poll(Duration.ofSeconds(5));
+        Assertions.assertEquals(
+            Set.of(),
+            admin.topicNames(List.of(TopicChecker.NO_CONSUMER_GROUP)).toCompletableFuture().join());
+      }
+    }
+  }
+
+  @Test
+  void testNoData() {
+    var topic = Utils.randomString();
+    try (var admin = Admin.of(service.bootstrapServers())) {
+      admin.creator().topic(topic).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
+
       Assertions.assertEquals(
-          Set.of("produce"),
-          admin.idleTopic(List.of(TopicChecker.ASSIGNMENT)).toCompletableFuture().join());
+          Set.of(topic),
+          admin.topicNames(List.of(TopicChecker.NO_DATA)).toCompletableFuture().join());
+
+      try (var producer = Producer.builder().bootstrapServers(service.bootstrapServers()).build()) {
+        producer
+            .send(Record.builder().topic(topic).value("1".getBytes()).build())
+            .toCompletableFuture()
+            .join();
+      }
+
+      Assertions.assertEquals(
+          Set.of(), admin.topicNames(List.of(TopicChecker.NO_DATA)).toCompletableFuture().join());
+    }
+  }
+
+  @Test
+  void testSkewPartition() {
+    var topic = Utils.randomString();
+    try (var admin = Admin.of(service.bootstrapServers())) {
+      admin.creator().topic(topic).numberOfPartitions(2).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      Assertions.assertEquals(
+          Set.of(),
+          admin.topicNames(List.of(TopicChecker.skewPartition(0.5))).toCompletableFuture().join());
+
+      try (var producer = Producer.builder().bootstrapServers(service.bootstrapServers()).build()) {
+        IntStream.range(0, 100)
+            .forEach(
+                ignored ->
+                    producer
+                        .send(
+                            Record.builder()
+                                .topic(topic)
+                                .value("1".getBytes())
+                                .partition(0)
+                                .build())
+                        .toCompletableFuture()
+                        .join());
+      }
+
+      Assertions.assertEquals(
+          Set.of(topic),
+          admin.topicNames(List.of(TopicChecker.skewPartition(0.5))).toCompletableFuture().join());
     }
   }
 }

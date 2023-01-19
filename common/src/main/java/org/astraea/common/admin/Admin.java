@@ -66,6 +66,30 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Set<String>> internalTopicNames();
 
+  /**
+   * Find out the topic names matched to input checkers.
+   *
+   * @param checkers used to predicate topic
+   * @return topic names accepted by all given checkers
+   */
+  default CompletionStage<Set<String>> topicNames(List<TopicChecker> checkers) {
+    if (checkers.isEmpty()) return topicNames(false);
+    return topicNames(false)
+        .thenCompose(
+            topicNames ->
+                FutureUtils.sequence(
+                        checkers.stream()
+                            .map(checker -> checker.test(this, topicNames).toCompletableFuture())
+                            .collect(Collectors.toUnmodifiableList()))
+                    .thenApply(
+                        all ->
+                            all.stream()
+                                .flatMap(Collection::stream)
+                                // return topics accepted by all checkers
+                                .filter(t -> all.stream().allMatch(ts -> ts.contains(t)))
+                                .collect(Collectors.toUnmodifiableSet())));
+  }
+
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
   /**
@@ -181,32 +205,6 @@ public interface Admin extends AutoCloseable {
   CompletionStage<List<Transaction>> transactions(Set<String> transactionIds);
 
   CompletionStage<ClusterInfo> clusterInfo(Set<String> topics);
-
-  default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
-    if (checkers.isEmpty()) {
-      throw new RuntimeException("Can not check for idle topics because of no checkers!");
-    }
-
-    return topicNames(false)
-        .thenCompose(
-            topicNames ->
-                FutureUtils.sequence(
-                        checkers.stream()
-                            .map(
-                                checker ->
-                                    checker.usedTopics(this, topicNames).toCompletableFuture())
-                            .collect(Collectors.toUnmodifiableList()))
-                    .thenApply(
-                        s ->
-                            s.stream()
-                                .flatMap(Collection::stream)
-                                .collect(Collectors.toUnmodifiableSet()))
-                    .thenApply(
-                        usedTopics ->
-                            topicNames.stream()
-                                .filter(name -> !usedTopics.contains(name))
-                                .collect(Collectors.toUnmodifiableSet())));
-  }
 
   /**
    * get the quotas associated to given target keys and target values. The available target types
