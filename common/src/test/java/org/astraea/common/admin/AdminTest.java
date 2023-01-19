@@ -30,12 +30,15 @@ import java.util.SortedSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.errors.LogDirNotFoundException;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
@@ -408,6 +411,135 @@ public class AdminTest {
 
       var newReplica = newReplicas.get(0);
       Assertions.assertEquals(idAndFolder.get(newReplica.nodeInfo().id()), newReplica.path());
+    }
+  }
+
+  @Test
+  void testMoveToPreferredFolder() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var topicName = Utils.randomString();
+      var thePartition = TopicPartition.of(topicName, 0);
+      var folders1 = List.copyOf(SERVICE.dataFolders().get(1));
+      // arrange: Test Preferred Declaration
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(topicName, 0), List.of(0)))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // act
+      var info0 = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
+      var original = info0.replicas(thePartition).get(0).path();
+      var dest = folders1.get(ThreadLocalRandom.current().nextInt(folders1.size()));
+      admin
+          .declarePreferredDataFolders(Map.of(TopicPartitionReplica.of(topicName, 0, 1), dest))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // assert no actual movement until actual movement
+      var info1 = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
+      Assertions.assertEquals(1, info1.replicas(thePartition).size());
+      Assertions.assertEquals(original, info1.replicas(thePartition).get(0).path());
+
+      // act
+      admin.moveToBrokers(Map.of(thePartition, List.of(1))).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      // assert actual movement
+      var info = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
+      Assertions.assertEquals(1, info.replicas(thePartition).size());
+      Assertions.assertEquals(dest, info.replicas(thePartition).get(0).path());
+    }
+  }
+
+  @Test
+  void testMoveToPreferredFoldersException() {
+    try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
+      var topic = Utils.randomString();
+      var folders = List.copyOf(SERVICE.dataFolders().get(0));
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(topic, 0), List.of(1)))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(1));
+      admin
+          .declarePreferredDataFolders(
+              Map.of(TopicPartitionReplica.of(topic, 0, 0), folders.get(0)))
+          .toCompletableFuture()
+          .join();
+      admin
+          .moveToBrokers(Map.of(TopicPartition.of(topic, 0), List.of(0)))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(1));
+
+      Assertions.assertDoesNotThrow(
+          () -> admin.declarePreferredDataFolders(Map.of()).toCompletableFuture().join());
+      folders.stream()
+          .skip(1)
+          .forEach(
+              folder -> {
+                Assertions.assertDoesNotThrow(
+                    () ->
+                        admin.declarePreferredDataFolders(
+                            Map.of(TopicPartitionReplica.of(topic, 0, 0), folder)),
+                    "No folder-to-folder movement");
+                Assertions.assertEquals(
+                    folders.get(0),
+                    admin
+                        .clusterInfo(Set.of(topic))
+                        .toCompletableFuture()
+                        .join()
+                        .replicas(TopicPartitionReplica.of(topic, 0, 0))
+                        .get(0)
+                        .path());
+              });
+      Assertions.assertInstanceOf(
+          LogDirNotFoundException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      admin
+                          .declarePreferredDataFolders(
+                              Map.ofEntries(
+                                  Map.entry(
+                                      TopicPartitionReplica.of(topic, 0, 1), "/no/such/folder"),
+                                  Map.entry(TopicPartitionReplica.of(topic, 0, 0), folders.get(2))))
+                          .toCompletableFuture()
+                          .join())
+              .getCause(),
+          "Normal exception still propagated");
+      Assertions.assertInstanceOf(
+          UnknownTopicOrPartitionException.class,
+          Assertions.assertThrows(
+                  CompletionException.class,
+                  () ->
+                      admin
+                          .declarePreferredDataFolders(
+                              Map.of(
+                                  TopicPartitionReplica.of("NO_TOPIC" + Utils.randomString(), 0, 2),
+                                  SERVICE.dataFolders().get(0).iterator().next()))
+                          .toCompletableFuture()
+                          .join())
+              .getCause(),
+          "Normal exception still propagated");
     }
   }
 

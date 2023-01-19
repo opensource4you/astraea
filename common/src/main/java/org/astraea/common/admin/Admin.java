@@ -283,6 +283,19 @@ public interface Admin extends AutoCloseable {
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
+   * Declare the preferred data folder for the designated partition at a specific broker.
+   *
+   * <p>Preferred data folder is the data folder a partition will use when it is being placed on the
+   * specific broker({@link Admin#moveToBrokers(Map)}). This API won't trigger a folder-to-folder
+   * replica movement. To Perform folder-to-folder movement, consider use {@link
+   * Admin#moveToFolders(Map)}.
+   *
+   * <p>This API is not transactional. It may alter folders if the target broker has out-of-date
+   * metadata or running reassignments
+   */
+  CompletionStage<Void> declarePreferredDataFolders(Map<TopicPartitionReplica, String> assignments);
+
+  /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the
    * preferred leader) in the partition replica list becomes the leader of its corresponding
    * topic/partition. Noted that the first replica(the preferred leader) must be in-sync state.
