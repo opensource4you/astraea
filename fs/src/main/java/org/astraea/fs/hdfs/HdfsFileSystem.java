@@ -112,72 +112,22 @@ public class HdfsFileSystem implements FileSystem {
 
   @Override
   public InputStream read(String path) {
-    return Utils.packException(
-        () -> {
-          if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
-          var inputStream = fs.open(new Path(path));
-          if (inputStream == null) {
-            fs.close();
-            throw new IllegalArgumentException("failed to open file on " + path);
-          }
-
-          return new InputStream() {
-            @Override
-            public int read() throws IOException {
-              return inputStream.read();
-            }
-
-            @Override
-            public int read(byte b[], int off, int len) throws IOException {
-              return inputStream.read(b, off, len);
-            }
-
-            @Override
-            public int readNBytes(byte[] b, int off, int len) throws IOException {
-              return inputStream.readNBytes(b, off, len);
-            }
-
-            @Override
-            public void close() throws IOException {
-              inputStream.close();
-            }
-          };
-        });
+    if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
+    try {
+      return fs.open(new Path(path));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public OutputStream write(String path) {
-    return Utils.packException(
-        () -> {
-          if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
-          var outputStream = fs.create(new Path(path), true);
-          if (outputStream == null) {
-            fs.close();
-            throw new IllegalArgumentException("failed to create file on " + path);
-          }
-
-          return new OutputStream() {
-            @Override
-            public void write(int b) throws IOException {
-              outputStream.write(b);
-            }
-
-            @Override
-            public void write(byte b[], int off, int len) throws IOException {
-              outputStream.write(b, off, len);
-            }
-
-            @Override
-            public void flush() throws IOException {
-              outputStream.flush();
-            }
-
-            @Override
-            public void close() throws IOException {
-              outputStream.close();
-            }
-          };
-        });
+    if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
+    try {
+      return fs.create(new Path(path), true);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
