@@ -34,7 +34,6 @@ dependencies {
     implementation libs["kafka-core"]
     implementation libs["kafka-connect-runtime"]
     implementation libs["kafka-connect-json"]
-    implementation libs["hadoop-common"]
     implementation libs["hadoop-minicluster"]
     implementation libs["mockito-core"]
 }
