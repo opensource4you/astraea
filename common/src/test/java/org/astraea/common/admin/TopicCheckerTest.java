@@ -115,8 +115,16 @@ public class TopicCheckerTest {
 
   @Test
   void testSkewPartition() {
+    var singlePartitionTopic = Utils.randomString();
     var topic = Utils.randomString();
     try (var admin = Admin.of(service.bootstrapServers())) {
+      admin
+          .creator()
+          .topic(singlePartitionTopic)
+          .numberOfPartitions(1)
+          .run()
+          .toCompletableFuture()
+          .join();
       admin.creator().topic(topic).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
 
@@ -128,15 +136,19 @@ public class TopicCheckerTest {
         IntStream.range(0, 100)
             .forEach(
                 ignored ->
-                    producer
-                        .send(
+                    producer.send(
+                        List.of(
+                            Record.builder()
+                                .topic(singlePartitionTopic)
+                                .value("1".getBytes())
+                                .partition(0)
+                                .build(),
                             Record.builder()
                                 .topic(topic)
                                 .value("1".getBytes())
                                 .partition(0)
-                                .build())
-                        .toCompletableFuture()
-                        .join());
+                                .build())));
+        producer.flush();
       }
 
       Assertions.assertEquals(
