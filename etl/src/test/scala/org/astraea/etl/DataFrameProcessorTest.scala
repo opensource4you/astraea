@@ -30,8 +30,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 
-class ReaderStreamsTest {
-
+class DataFrameProcessorTest {
   @Test
   def skipBlankLineTest(): Unit = {
     val sourceDir = Files.createTempDirectory("source").toFile
@@ -54,23 +53,29 @@ class ReaderStreamsTest {
 
     createCSV(sourceDir, row, 0)
 
-    val df = ReadStreams
-      .create(
-        session = SparkSession
-          .builder()
-          .master("local[2]")
-          .appName("Astraea ETL")
-          .getOrCreate(),
-        source = sourceDir.getPath,
+    val df = DataFrameProcessor.fromLocalCsv(
+      createSpark(),
+      Metadata(
+        sourcePath = sourceDir.getPath,
+        checkpoint = "",
         columns = Seq(
           DataColumn("RecordNumber", true, StringType),
           DataColumn("Size", true, StringType),
           DataColumn("Type", true, StringType)
-        )
+        ),
+        kafkaBootstrapServers = "",
+        topicName = "",
+        topicConfigs = Map.empty,
+        numberOfPartitions = 10,
+        numberOfReplicas = 1,
+        cleanSource = "delete",
+        recursiveFile = "true",
+        archivePath = ""
       )
-      .dataFrame()
+    )
 
-    df.writeStream
+    df.dataFrame()
+      .writeStream
       .format("csv")
       .option("path", dataDir.getPath)
       .option("checkpointLocation", checkoutDir.getPath)
@@ -84,7 +89,6 @@ class ReaderStreamsTest {
     assertEquals(br.readLine, "A1,52,fghgh")
     assertEquals(br.readLine, "B1,36,gjgbn")
     assertEquals(br.readLine, "D1,25,dfjf")
-
   }
 
   @Test
@@ -95,20 +99,27 @@ class ReaderStreamsTest {
     val checkoutDir = Files.createTempDirectory("checkpoint").toFile
     val dataDir = Files.createTempDirectory("data").toFile
 
-    val csvDF = ReadStreams
-      .create(
-        session = SparkSession
-          .builder()
-          .master("local[2]")
-          .appName("Astraea ETL")
-          .getOrCreate(),
-        source = sourceDir.getPath,
+    val csvDF = DataFrameProcessor.fromLocalCsv(
+      createSpark(),
+      Metadata(
+        sourcePath = sourceDir.getPath,
+        checkpoint = "",
         columns = Seq(
           DataColumn("RecordNumber", true, StringType),
           DataColumn("Size", true, StringType),
           DataColumn("Type", true, StringType)
-        )
+        ),
+        kafkaBootstrapServers = "",
+        topicName = "",
+        topicConfigs = Map.empty,
+        numberOfPartitions = 10,
+        numberOfReplicas = 1,
+        cleanSource = "delete",
+        recursiveFile = "true",
+        archivePath = ""
       )
+    )
+
     assertTrue(
       csvDF.dataFrame().isStreaming,
       "sessions must be a streaming Dataset"
@@ -147,7 +158,7 @@ class ReaderStreamsTest {
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
 
-    val result = new DataFrameOp(
+    val result = new DataFrameProcessor(
       Seq(("Michael", 29)).toDF().toDF("name", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -162,7 +173,7 @@ class ReaderStreamsTest {
       result("{\"name\":\"Michael\"}")
     )
 
-    val resultExchange = new DataFrameOp(
+    val resultExchange = new DataFrameProcessor(
       Seq((29, "Michael")).toDF().toDF("age", "name")
     ).csvToJSON(columns)
       .dataFrame()
@@ -191,7 +202,7 @@ class ReaderStreamsTest {
       DataColumn("secondName", isPk = true, DataType.StringType),
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
-    val result = new DataFrameOp(
+    val result = new DataFrameProcessor(
       Seq(("Michael", "A", 29)).toDF().toDF("firstName", "secondName", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -219,7 +230,7 @@ class ReaderStreamsTest {
       DataColumn("secondName", isPk = true, DataType.StringType),
       DataColumn("age", isPk = false, dataType = IntegerType)
     )
-    val result = new DataFrameOp(
+    val result = new DataFrameProcessor(
       Seq(("Michael", "A", null)).toDF().toDF("firstName", "secondName", "age")
     ).csvToJSON(columns)
       .dataFrame()
@@ -267,7 +278,7 @@ class ReaderStreamsTest {
       DataColumn("fInt", isPk = false, dataType = IntegerType)
     )
 
-    val json = new DataFrameOp(
+    val json = new DataFrameProcessor(
       spark.createDataFrame(spark.sparkContext.parallelize(data), structType)
     ).csvToJSON(columns)
       .dataFrame()
@@ -291,5 +302,13 @@ class ReaderStreamsTest {
         List(a, b, c) +: acc
       }
       .reverse
+  }
+
+  private def createSpark(): SparkSession = {
+    SparkSession
+      .builder()
+      .master("local[2]")
+      .appName("Astraea ETL")
+      .getOrCreate()
   }
 }

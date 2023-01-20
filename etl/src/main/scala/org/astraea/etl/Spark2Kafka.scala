@@ -17,7 +17,6 @@
 package org.astraea.etl
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.StructType
 import org.astraea.common.admin.Admin
 
 import java.io.File
@@ -42,22 +41,11 @@ object Spark2Kafka {
         .join()
     )
 
-    val df = ReadStreams
-      .create(
-        session = sparkSession,
-        source = metadata.sourcePath,
-        columns = metadata.columns
-      )
+    DataFrameProcessor
+      .fromLocalCsv(sparkSession, metadata)
       .csvToJSON(metadata.columns)
-
-    Writer
-      .of()
-      .dataFrameOp(df)
-      .target(metadata.topicName)
-      .checkpoint(metadata.checkpoint)
-      .writeToKafka(metadata.kafkaBootstrapServers)
-      .start()
-      .awaitTermination(duration.toMillis)
+      .toKafkaWriterBuilder(metadata)
+      .start(duration)
   }
 
   def main(args: Array[String]): Unit = {
