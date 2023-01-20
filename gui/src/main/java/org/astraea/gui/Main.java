@@ -23,12 +23,12 @@ import javafx.stage.Stage;
 import org.astraea.common.MapUtils;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.tab.AboutNode;
-import org.astraea.gui.tab.BalancerNode;
 import org.astraea.gui.tab.BrokerNode;
 import org.astraea.gui.tab.ClientNode;
 import org.astraea.gui.tab.ConnectorNode;
 import org.astraea.gui.tab.QuotaNode;
 import org.astraea.gui.tab.SettingNode;
+import org.astraea.gui.tab.health.HealthNode;
 import org.astraea.gui.tab.topic.TopicNode;
 
 /**
@@ -69,8 +69,8 @@ public class Main {
                           ConnectorNode.of(context),
                           "quota",
                           QuotaNode.of(context),
-                          "balancer",
-                          BalancerNode.of(context),
+                          "health",
+                          HealthNode.of(context),
                           "about",
                           AboutNode.of(context)))
                   .node(),

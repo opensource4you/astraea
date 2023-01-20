@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.tab;
+package org.astraea.gui.tab.health;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -56,7 +56,7 @@ import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
-public class BalancerNode {
+class BalancerNode {
 
   static final AtomicReference<Balancer.Solution> LAST_PLAN = new AtomicReference<>();
   static final String TOPIC_NAME_KEY = "topic";

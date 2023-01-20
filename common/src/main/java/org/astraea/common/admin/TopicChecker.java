@@ -98,7 +98,7 @@ public interface TopicChecker {
                               var min =
                                   clusterInfo.replicaLeaders(topic).stream()
                                       .mapToLong(Replica::size)
-                                      .max();
+                                      .min();
                               return max.isPresent()
                                   && min.isPresent()
                                   && ((double) min.getAsLong() / max.getAsLong() >= factor);
