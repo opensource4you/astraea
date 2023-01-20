@@ -101,7 +101,7 @@ public interface TopicChecker {
                                       .min();
                               return max.isPresent()
                                   && min.isPresent()
-                                  && ((double) min.getAsLong() / max.getAsLong() >= factor);
+                                  && ((double) min.getAsLong() / max.getAsLong() < factor);
                             })
                         .collect(Collectors.toSet()));
   }
