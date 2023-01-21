@@ -24,20 +24,23 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /** Data size class */
 public class DataSize implements Comparable<DataSize> {
 
-  /** Parse number and DataUnit */
-  private static final Pattern DATA_SIZE_PATTERN =
-      Pattern.compile("(?<measurement>[0-9]+)\\s?(?<dataUnit>[a-zA-Z]+)");
-
   public static DataSize of(String argument) {
-    var matcher = DATA_SIZE_PATTERN.matcher(argument);
-    if (matcher.matches())
-      return DataUnit.valueOf(matcher.group("dataUnit"))
-          .of(Long.parseLong(matcher.group("measurement")));
+    var splits = argument.split("(?<=\\d)\\s?(?=[a-zA-Z])");
+    if (splits.length == 2) {
+      var unit = DataUnit.valueOf(splits[1]);
+      var value = Double.parseDouble(splits[0]);
+      var index = DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.indexOf(unit);
+      if (index <= 0) return unit.of((long) value);
+      var smaller = DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.get(index - 1);
+      var newValue = unit.bits.divide(smaller.bits).doubleValue() * value;
+      System.out.println(
+          "unit: " + unit + " smaller: " + smaller + " value: " + value + " new: " + newValue);
+      return smaller.of((long) newValue);
+    }
     throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
   }
 
@@ -277,10 +280,8 @@ public class DataSize implements Comparable<DataSize> {
 
   /** Return a string represent current size in given data unit. */
   public String toString(DataUnit unit) {
-    // DataSize#of does not support double value, so we don't generate double value.
-    // Otherwise, we can't convert the string back to DataSize
     var divide =
-        new BigDecimal(this.bits).divide(new BigDecimal(unit.bits), 0, RoundingMode.HALF_EVEN);
+        new BigDecimal(this.bits).divide(new BigDecimal(unit.bits), 2, RoundingMode.HALF_EVEN);
     return String.format("%s %s", divide, unit.name());
   }
 
