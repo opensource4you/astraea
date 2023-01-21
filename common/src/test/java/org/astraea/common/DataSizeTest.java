@@ -26,13 +26,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -40,10 +40,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 class DataSizeTest {
 
   @Test
-  @Disabled // enable this https://github.com/skiptests/astraea/issues/1451
   void testToString() {
-    var size = DataSize.Byte.of(50);
-    Assertions.assertEquals(size, DataSize.of(size.toString()));
+    Arrays.stream(DataUnit.values()).forEach(unit -> DataSize.of(unit.of(50).toString()));
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
