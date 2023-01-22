@@ -56,7 +56,7 @@ public abstract class Dispatcher implements Partitioner {
    */
   protected void configure(Configuration config) {}
 
-  protected void onNewBatch(String topic, int prevPartition) {}
+  protected void onNewBatch(String topic, int prevPartition, ClusterInfo clusterInfo) {}
 
   @Override
   public void close() {
@@ -170,11 +170,7 @@ public abstract class Dispatcher implements Partitioner {
     if (admin == null) return false;
     var now = System.nanoTime();
     // need to refresh cluster info if lease expires
-    if (lastUpdated.updateAndGet(
-            last -> {
-              if (now - last >= CLUSTER_INFO_LEASE.toNanos()) return now;
-              return last;
-            })
+    if (lastUpdated.updateAndGet(last -> now - last >= CLUSTER_INFO_LEASE.toNanos() ? now : last)
         == now) {
       admin
           .topicNames(true)
@@ -193,6 +189,6 @@ public abstract class Dispatcher implements Partitioner {
 
   @Override
   public final void onNewBatch(String topic, Cluster cluster, int prevPartition) {
-    onNewBatch(topic, prevPartition);
+    onNewBatch(topic, prevPartition, clusterInfo);
   }
 }
