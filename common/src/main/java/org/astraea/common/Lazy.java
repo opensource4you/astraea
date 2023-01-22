@@ -16,8 +16,6 @@
  */
 package org.astraea.common;
 
-import java.time.Duration;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -29,7 +27,7 @@ public interface Lazy<T> {
 
   static <T> Lazy<T> of(Supplier<T> supplier) {
     return new Lazy<>() {
-      private volatile Map.Entry<Long, T> timestampAndObj;
+      private volatile T obj;
 
       @Override
       public T get() {
@@ -38,26 +36,15 @@ public interface Lazy<T> {
 
       @Override
       public T get(Supplier<T> supplier) {
-        return get(supplier, null);
-      }
-
-      @Override
-      public T get(Supplier<T> supplier, Duration timeout) {
-        if (needUpdate(timeout)) {
+        if (obj == null) {
           synchronized (this) {
-            if (needUpdate(timeout)) {
+            if (obj == null) {
               Objects.requireNonNull((supplier));
-              timestampAndObj =
-                  Map.entry(System.currentTimeMillis(), Objects.requireNonNull(supplier.get()));
+              obj = Objects.requireNonNull(supplier.get());
             }
           }
         }
-        return timestampAndObj.getValue();
-      }
-
-      private boolean needUpdate(Duration timeout) {
-        return timestampAndObj == null
-            || (timeout != null && Utils.isExpired(timestampAndObj.getKey(), timeout));
+        return obj;
       }
     };
   }
@@ -77,12 +64,4 @@ public interface Lazy<T> {
    * @return object
    */
   T get(Supplier<T> supplier);
-  /**
-   * the object will get created when this the creation condition is reached.
-   *
-   * @param supplier to update internal value. it can't be null
-   * @param timeout to update current value even if it is not null
-   * @return object
-   */
-  T get(Supplier<T> supplier, Duration timeout);
 }

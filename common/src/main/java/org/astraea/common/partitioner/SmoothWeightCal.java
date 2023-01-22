@@ -20,20 +20,19 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.common.Lazy;
 import org.astraea.common.cost.Dispersion;
 
 public final class SmoothWeightCal<E> {
   private final double UPPER_LIMIT_OFFSET_RATIO = 0.1;
   private final Dispersion dispersion = Dispersion.standardDeviation();
   private Map<E, Double> currentEffectiveWeightResult;
-  Lazy<Map<E, Double>> effectiveWeightResult = Lazy.of();
+  Supplier<Map<E, Double>> effectiveWeightResult;
 
   SmoothWeightCal(Map<E, Double> effectiveWeight) {
-    this.effectiveWeightResult.get(
+    this.effectiveWeightResult =
         () ->
             effectiveWeight.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0)));
+                .collect(Collectors.toMap(Map.Entry::getKey, ignored -> 1.0));
     this.currentEffectiveWeightResult = effectiveWeightResult.get();
   }
 
@@ -44,36 +43,32 @@ public final class SmoothWeightCal<E> {
    */
   synchronized void refresh(Supplier<Map<E, Double>> brokerScore) {
     this.effectiveWeightResult =
-        Lazy.of(
-            () -> {
-              var score = brokerScore.get();
-              var avgScore = score.values().stream().mapToDouble(i -> i).average().orElse(1.0);
-              var offsetRatioOfBroker =
-                  score.entrySet().stream()
-                      .collect(
-                          Collectors.toMap(
-                              Map.Entry::getKey,
-                              entry -> (entry.getValue() - avgScore) / avgScore));
-              // If the average offset of all brokers from the cluster is greater than 0.1, it is
-              // unbalanced.
-              var balance =
-                  dispersion.calculate(new ArrayList<>(score.values()))
-                      > UPPER_LIMIT_OFFSET_RATIO * avgScore;
-              this.currentEffectiveWeightResult =
-                  this.currentEffectiveWeightResult.entrySet().stream()
-                      .collect(
-                          Collectors.toUnmodifiableMap(
-                              Map.Entry::getKey,
-                              entry -> {
-                                var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
-                                var weight =
-                                    balance
-                                        ? entry.getValue() * (1 - offsetRatio)
-                                        : entry.getValue();
-                                return Math.max(weight, 0.1);
-                              }));
+        () -> {
+          var score = brokerScore.get();
+          var avgScore = score.values().stream().mapToDouble(i -> i).average().orElse(1.0);
+          var offsetRatioOfBroker =
+              score.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(
+                          Map.Entry::getKey, entry -> (entry.getValue() - avgScore) / avgScore));
+          // If the average offset of all brokers from the cluster is greater than 0.1, it is
+          // unbalanced.
+          var balance =
+              dispersion.calculate(new ArrayList<>(score.values()))
+                  > UPPER_LIMIT_OFFSET_RATIO * avgScore;
+          this.currentEffectiveWeightResult =
+              this.currentEffectiveWeightResult.entrySet().stream()
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          Map.Entry::getKey,
+                          entry -> {
+                            var offsetRatio = offsetRatioOfBroker.get(entry.getKey());
+                            var weight =
+                                balance ? entry.getValue() * (1 - offsetRatio) : entry.getValue();
+                            return Math.max(weight, 0.1);
+                          }));
 
-              return this.currentEffectiveWeightResult;
-            });
+          return this.currentEffectiveWeightResult;
+        };
   }
 }

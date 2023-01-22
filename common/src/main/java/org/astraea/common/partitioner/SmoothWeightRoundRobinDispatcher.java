@@ -107,7 +107,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   }
 
   @Override
-  public void onNewBatch(String topic, int prevPartition) {
+  public void onNewBatch(String topic, int prevPartition, ClusterInfo clusterInfo) {
     unusedPartitions.add(prevPartition);
   }
 

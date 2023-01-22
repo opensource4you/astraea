@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
-import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
@@ -95,9 +94,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
     roundRobinKeeper.tryToUpdate(
         clusterInfo,
-        Lazy.of(
-            () ->
-                costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean()))));
+        () -> costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean())));
 
     var target = roundRobinKeeper.next();
 
