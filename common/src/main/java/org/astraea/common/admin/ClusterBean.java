@@ -17,7 +17,6 @@
 package org.astraea.common.admin;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,7 +31,7 @@ import org.astraea.common.metrics.HasBeanObject;
 public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
-  static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
+  static ClusterBean of(Map<Integer, ? extends Collection<? extends HasBeanObject>> allBeans) {
     return new ClusterBean() {
       final Lazy<Map<String, List<HasBeanObject>>> topicCache =
           Lazy.of(() -> map((id, bean) -> bean.topicIndex()));
@@ -43,9 +42,16 @@ public interface ClusterBean {
       final Lazy<Map<BrokerTopic, List<HasBeanObject>>> brokerTopicCache =
           Lazy.of(() -> map((id, bean) -> bean.brokerTopicIndex(id)));
 
+      final Lazy<Map<Integer, Collection<HasBeanObject>>> all =
+          Lazy.of(
+              () ->
+                  allBeans.entrySet().stream()
+                      .collect(
+                          Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
-        return Collections.unmodifiableMap(allBeans);
+        return all.get();
       }
 
       @Override
