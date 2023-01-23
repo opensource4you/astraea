@@ -47,7 +47,8 @@ public interface ClusterBean {
               () ->
                   allBeans.entrySet().stream()
                       .collect(
-                          Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+                          Collectors.toUnmodifiableMap(
+                              Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
 
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
