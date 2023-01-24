@@ -42,7 +42,12 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
+import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.HasPercentiles;
+import org.astraea.common.metrics.broker.HasRate;
+import org.astraea.common.metrics.broker.HasStatistics;
 import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.NetworkMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.gui.Context;
@@ -91,13 +96,19 @@ public class BrokerNode {
         client ->
             Arrays.stream(ServerMetrics.ZooKeeperClientMetrics.values())
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.percentile50()))),
+                .collect(
+                    Collectors.toMap(
+                        ServerMetrics.ZooKeeperClientMetrics.Histogram::metricsName,
+                        HasPercentiles::percentile50))),
     ZOOKEEPER_SESSION(
         "zookeeper session",
         client ->
             Arrays.stream(ServerMetrics.SessionExpireListener.values())
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.fiveMinuteRate()))),
+                .collect(
+                    Collectors.toMap(
+                        ServerMetrics.SessionExpireListener.Meter::metricsName,
+                        HasRate::fiveMinuteRate))),
     HOST(
         "host",
         client ->
@@ -109,14 +120,26 @@ public class BrokerNode {
         client ->
             Arrays.stream(ControllerMetrics.Controller.values())
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
+                .collect(
+                    Collectors.toMap(
+                        ControllerMetrics.Controller.Gauge::metricsName,
+                        ControllerMetrics.Controller.Gauge::value))),
 
     CONTROLLER_STATE(
         "controller state",
         client ->
             Arrays.stream(ControllerMetrics.ControllerState.values())
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.fiveMinuteRate()))),
+                .collect(
+                    Collectors.toMap(
+                        ControllerMetrics.ControllerState.Timer::metricsName,
+                        HasRate::fiveMinuteRate))),
+    PRODUCE(
+        "request",
+        client ->
+            Arrays.stream(NetworkMetrics.Request.values())
+                .flatMap(m -> tryToFetch(() -> m.totalTimeMs(client)).stream())
+                .collect(Collectors.toMap(m -> m.type().name(), HasStatistics::stdDev))),
     NETWORK(
         "network",
         client ->
@@ -149,14 +172,19 @@ public class BrokerNode {
         client ->
             Arrays.stream(ServerMetrics.DelayedOperationPurgatory.values())
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
+                .collect(
+                    Collectors.toMap(
+                        ServerMetrics.DelayedOperationPurgatory.Gauge::metricsName,
+                        HasGauge::value))),
 
     REPLICA(
         "replica",
         client ->
             Arrays.stream(ServerMetrics.ReplicaManager.values())
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(Collectors.toMap(m -> m.metricsName(), m -> m.value()))),
+                .collect(
+                    Collectors.toMap(
+                        ServerMetrics.ReplicaManager.Gauge::metricsName, HasGauge::value))),
     BROKER_TOPIC(
         "broker topic",
         client ->
@@ -164,7 +192,7 @@ public class BrokerNode {
                 .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(
                     Collectors.toMap(
-                        m -> m.metricsName(),
+                        ServerMetrics.BrokerTopic.Meter::metricsName,
                         m -> {
                           switch (m.type()) {
                             case BYTES_IN_PER_SEC:

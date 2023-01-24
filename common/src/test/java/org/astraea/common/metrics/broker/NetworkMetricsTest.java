@@ -38,7 +38,7 @@ public class NetworkMetricsTest {
   @ParameterizedTest()
   @EnumSource(value = NetworkMetrics.Request.class)
   void testRequestTotalTimeMs(NetworkMetrics.Request request) {
-    var histogram = request.fetch(MBeanClient.local());
+    var histogram = request.totalTimeMs(MBeanClient.local());
     MetricsTestUtil.validate(histogram);
   }
 
