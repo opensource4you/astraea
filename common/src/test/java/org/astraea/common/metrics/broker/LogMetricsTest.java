@@ -28,6 +28,7 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,11 @@ public class LogMetricsTest {
   static void createBroker() {
     // call broker-related method to initialize broker cluster
     Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
+  }
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
   }
 
   @ParameterizedTest
