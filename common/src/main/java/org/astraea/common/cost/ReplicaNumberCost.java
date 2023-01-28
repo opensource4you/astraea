@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -68,22 +67,27 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    // there is no better plan for single node
-    if (clusterInfo.nodes().size() == 1) return () -> 0;
+    var totalReplicas = clusterInfo.replicas().size();
 
-    var group =
-        clusterInfo.replicas().stream().collect(Collectors.groupingBy(r -> r.nodeInfo().id()));
+    // no need to rebalance
+    if (totalReplicas == 0) return () -> 0;
 
-    // worst case: all partitions are hosted by single node
-    if (clusterInfo.nodes().size() > 1 && group.size() <= 1) return () -> Long.MAX_VALUE;
+    var replicaPerBroker =
+        clusterInfo
+            .replicaStream()
+            .collect(Collectors.groupingBy(r -> r.nodeInfo().id(), Collectors.counting()));
+    var summary = replicaPerBroker.values().stream().mapToLong(x -> x).summaryStatistics();
 
-    // there is a node having zero replica!
-    if (clusterInfo.nodes().stream().anyMatch(node -> !group.containsKey(node.id())))
-      return () -> Long.MAX_VALUE;
-
-    // normal case
-    var max = group.values().stream().mapToLong(List::size).max().orElse(0);
-    var min = group.values().stream().mapToLong(List::size).min().orElse(0);
-    return () -> max - min;
+    var anyBrokerEmpty =
+        clusterInfo.brokers().stream()
+            .map(NodeInfo::id)
+            .anyMatch(alive -> !replicaPerBroker.containsKey(alive));
+    var max = summary.getMax();
+    var min = anyBrokerEmpty ? 0 : summary.getMin();
+    // complete balance
+    if (max - min == 0) return () -> 0;
+    // complete balance in terms of integer
+    if (max - min == 1) return () -> 0;
+    return () -> (double) (max - min) / (totalReplicas);
   }
 }
