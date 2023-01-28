@@ -36,6 +36,8 @@ dependencies {
     }
     implementation libs["commons-net"]
     implementation(libs["hadoop-common"]) {
+        // connector uses org.glassfish.jersey. This is the higher version of com.sun.jersey.
+        // excluding com.sun.jersey can make SERVICE.workerUrl() work.
         exclude group: "com.sun.jersey"
     }
 }
