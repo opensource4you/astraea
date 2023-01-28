@@ -36,7 +36,7 @@ dependencies {
     }
     implementation libs["commons-net"]
     implementation(libs["hadoop-common"]) {
-        transitive false
+        exclude group: "com.sun.jersey"
     }
 }
 
