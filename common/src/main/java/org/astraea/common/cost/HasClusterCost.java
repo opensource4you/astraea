@@ -67,8 +67,8 @@ public interface HasClusterCost extends CostFunction {
           @Override
           public String toString() {
             Bi3Function<HasClusterCost, Double, Double, String> descriptiveName =
-                (cost, score, weight) ->
-                    "{\"" + cost.toString() + "\" cost " + score + " weight " + weight + "}";
+                (function, cost, weight) ->
+                    "{\"" + function.toString() + "\" cost " + cost + " weight " + weight + "}";
             return "WeightCompositeClusterCost["
                 + costAndWeight.entrySet().stream()
                     .sorted(
