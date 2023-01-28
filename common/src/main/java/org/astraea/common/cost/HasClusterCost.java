@@ -53,9 +53,10 @@ public interface HasClusterCost extends CostFunction {
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey,
                         e -> e.getKey().clusterCost(clusterInfo, clusterBean).value()));
+        var totalWeight = costAndWeight.values().stream().mapToDouble(x -> x).sum();
         var compositeScore =
             costAndWeight.keySet().stream()
-                .mapToDouble(cost -> costAndWeight.get(cost) * scores.get(cost))
+                .mapToDouble(cost -> scores.get(cost) * costAndWeight.get(cost) / totalWeight)
                 .sum();
 
         return new ClusterCost() {
