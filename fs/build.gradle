@@ -36,8 +36,8 @@ dependencies {
     }
     implementation libs["commons-net"]
     implementation(libs["hadoop-common"]) {
-        // connector uses org.glassfish.jersey(2.34). This is the higher version of com.sun.jersey(1.19).
-        // excluding com.sun.jersey can make SERVICE.workerUrl() work.
+        // Kafka connector uses org.glassfish.jersey(2.34) which is conflict with com.sun.jersey(1.19).
+        // Hence, the later must be excluded from hadoop dependencies to make embedded Kafka worker work
         exclude group: "com.sun.jersey"
     }
 }
