@@ -87,6 +87,11 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
     // complete balance
     if (max - min == 0) return () -> 0;
     // complete balance in terms of integer
+    // The following case will trigger if the number of replicas is not integer times of brokers.
+    // For example: allocate 4 replicas to 3 brokers. The ideal placement state will be (2,1,1),
+    // (1,2,1) or (1,1,2). All these cases should be considered as optimal solution since the number
+    // of replica must be integer. And this case will be trigger if the (max - min) equals 1. If
+    // such case is detected, return 0 as the optimal state of this cost function was found.
     if (max - min == 1) return () -> 0;
     return () -> (double) (max - min) / (totalReplicas);
   }
