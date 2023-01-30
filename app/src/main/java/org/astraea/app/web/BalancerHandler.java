@@ -135,6 +135,38 @@ class BalancerHandler implements Handler {
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
+  @Override
+  public CompletionStage<Response> put(Channel channel) {
+    final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
+    final var thePlanId = request.id;
+
+    if (!taskHistory.containsKey(thePlanId))
+      throw new IllegalArgumentException("No such rebalance plan id: " + thePlanId);
+    final var thePlan = taskHistory.get(thePlanId);
+
+    switch (thePlan.phase()) {
+      case Searching:
+        throw new IllegalStateException("The rebalance plan hasn't generated: " + thePlanId);
+      case Searched:
+        break;
+      case Executing:
+      case Executed:
+        return CompletableFuture.completedFuture(PutPlanResponse.ACCEPT);
+    }
+
+    thePlan.executePlan();
+    thePlan
+        .planExecution()
+        .whenComplete(
+            (ignore, err) -> {
+              if (err != null)
+                new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
+                    .printStackTrace();
+            });
+
+    return CompletableFuture.completedFuture(new PutPlanResponse(thePlan.taskId));
+  }
+
   private static List<MigrationCost> migrationCosts(MoveCost cost) {
     return Stream.of(
             new MigrationCost(
@@ -157,20 +189,6 @@ class BalancerHandler implements Handler {
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
-  }
-
-  private Balancer.Plan metricContext(
-      Collection<Fetcher> fetchers,
-      Collection<MetricSensor> metricSensors,
-      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
-    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
-    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
-      freshJmxAddresses().forEach(collector::registerJmx);
-      fetchers.forEach(collector::addFetcher);
-      metricSensors.forEach(collector::addMetricSensors);
-      return execution.apply(collector::clusterBean);
-    }
   }
 
   // visible for test
@@ -287,89 +305,6 @@ class BalancerHandler implements Handler {
 
   static class BalancerPutRequest implements Request {
     private String id;
-  }
-
-  @Override
-  public CompletionStage<Response> put(Channel channel) {
-    final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
-    final var thePlanId = request.id;
-
-    if (!taskHistory.containsKey(thePlanId))
-      throw new IllegalArgumentException("No such rebalance plan id: " + thePlanId);
-    final var thePlan = taskHistory.get(thePlanId);
-
-    switch (thePlan.phase()) {
-      case Searching:
-        throw new IllegalStateException("The rebalance plan hasn't generated: " + thePlanId);
-      case Searched:
-        break;
-      case Executing:
-      case Executed:
-        return CompletableFuture.completedFuture(PutPlanResponse.ACCEPT);
-    }
-
-    thePlan.executePlan();
-    thePlan
-        .planExecution()
-        .whenComplete(
-            (ignore, err) -> {
-              if (err != null)
-                new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
-                    .printStackTrace();
-            });
-
-    return CompletableFuture.completedFuture(new PutPlanResponse(thePlan.taskId));
-  }
-
-  private void checkPlanConsistency(PlanInfo thePlanInfo) {
-    final var replicas =
-        admin
-            .clusterInfo(
-                thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
-            .thenApply(
-                clusterInfo ->
-                    clusterInfo
-                        .replicaStream()
-                        .collect(Collectors.groupingBy(Replica::topicPartition)))
-            .toCompletableFuture()
-            .join();
-
-    var mismatchPartitions =
-        thePlanInfo.report.changes.stream()
-            .filter(
-                change -> {
-                  var currentReplicaList =
-                      replicas
-                          .getOrDefault(
-                              TopicPartition.of(change.topic, change.partition), List.of())
-                          .stream()
-                          .sorted(
-                              Comparator.comparing(Replica::isPreferredLeader)
-                                  .reversed()
-                                  .thenComparing(x -> x.nodeInfo().id()))
-                          .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
-                          .collect(Collectors.toUnmodifiableList());
-                  var expectedReplicaList =
-                      thePlanInfo
-                          .associatedClusterInfo
-                          .replicas(TopicPartition.of(change.topic, change.partition))
-                          .stream()
-                          // have to compare by isLeader instead of isPreferredLeader.
-                          // since the leadership is what affects the direction of traffic load.
-                          // Any bandwidth related cost function should calculate load by leadership
-                          // instead of preferred leadership
-                          .sorted(Comparator.comparing(Replica::isLeader).reversed())
-                          .map(replica -> Map.entry(replica.nodeInfo().id(), replica.path()))
-                          .collect(Collectors.toUnmodifiableList());
-                  return !expectedReplicaList.equals(currentReplicaList);
-                })
-            .map(change -> TopicPartition.of(change.topic, change.partition))
-            .collect(Collectors.toUnmodifiableSet());
-    if (!mismatchPartitions.isEmpty())
-      throw new IllegalStateException(
-          "The cluster state has been changed significantly. "
-              + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
-              + mismatchPartitions);
   }
 
   private void checkNoOngoingMigration() {
@@ -610,6 +545,20 @@ class BalancerHandler implements Handler {
       this.planGeneration = launchPlan();
     }
 
+    private Balancer.Plan metricContext(
+        Collection<Fetcher> fetchers,
+        Collection<MetricSensor> metricSensors,
+        Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
+      // TODO: use a global metric collector when we are ready to enable long-run metric sampling
+      //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
+      try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
+        freshJmxAddresses().forEach(collector::registerJmx);
+        fetchers.forEach(collector::addFetcher);
+        metricSensors.forEach(collector::addMetricSensors);
+        return execution.apply(collector::clusterBean);
+      }
+    }
+
     private CompletableFuture<PlanInfo> launchPlan() {
       return CompletableFuture.supplyAsync(
           () -> {
@@ -660,6 +609,58 @@ class BalancerHandler implements Handler {
 
     synchronized CompletableFuture<Void> planExecution() {
       return planExecution;
+    }
+
+    private void checkPlanConsistency(PlanInfo thePlanInfo) {
+      final var replicas =
+          admin
+              .clusterInfo(
+                  thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
+              .thenApply(
+                  clusterInfo ->
+                      clusterInfo
+                          .replicaStream()
+                          .collect(Collectors.groupingBy(Replica::topicPartition)))
+              .toCompletableFuture()
+              .join();
+
+      var mismatchPartitions =
+          thePlanInfo.report.changes.stream()
+              .filter(
+                  change -> {
+                    var currentReplicaList =
+                        replicas
+                            .getOrDefault(
+                                TopicPartition.of(change.topic, change.partition), List.of())
+                            .stream()
+                            .sorted(
+                                Comparator.comparing(Replica::isPreferredLeader)
+                                    .reversed()
+                                    .thenComparing(x -> x.nodeInfo().id()))
+                            .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
+                            .collect(Collectors.toUnmodifiableList());
+                    var expectedReplicaList =
+                        thePlanInfo
+                            .associatedClusterInfo
+                            .replicas(TopicPartition.of(change.topic, change.partition))
+                            .stream()
+                            // have to compare by isLeader instead of isPreferredLeader.
+                            // since the leadership is what affects the direction of traffic load.
+                            // Any bandwidth related cost function should calculate load by
+                            // leadership
+                            // instead of preferred leadership
+                            .sorted(Comparator.comparing(Replica::isLeader).reversed())
+                            .map(replica -> Map.entry(replica.nodeInfo().id(), replica.path()))
+                            .collect(Collectors.toUnmodifiableList());
+                    return !expectedReplicaList.equals(currentReplicaList);
+                  })
+              .map(change -> TopicPartition.of(change.topic, change.partition))
+              .collect(Collectors.toUnmodifiableSet());
+      if (!mismatchPartitions.isEmpty())
+        throw new IllegalStateException(
+            "The cluster state has been changed significantly. "
+                + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+                + mismatchPartitions);
     }
 
     synchronized void executePlan() {
