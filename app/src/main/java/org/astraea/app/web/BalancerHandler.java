@@ -30,8 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -76,15 +74,10 @@ class BalancerHandler implements Handler {
               new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
-  private final RebalancePlanExecutor executor;
-  private final Map<String, PostRequestWrapper> requestHistory = new ConcurrentHashMap<>();
-  private final Map<String, CompletableFuture<PlanInfo>> planCalculation =
-      new ConcurrentHashMap<>();
-  private final Map<String, CompletableFuture<Void>> executedPlans = new ConcurrentHashMap<>();
-  private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
-  private final Executor schedulingExecutor = Executors.newSingleThreadExecutor();
   private final Function<Integer, Optional<Integer>> jmxPortMapper;
+  private final RebalancePlanExecutor executor;
   private final Duration sampleInterval = Duration.ofSeconds(1);
+  private final Map<String, BalanceTask> taskHistory = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
@@ -111,51 +104,9 @@ class BalancerHandler implements Handler {
   public CompletionStage<Response> get(Channel channel) {
     if (channel.target().isEmpty()) return CompletableFuture.completedFuture(Response.NOT_FOUND);
     var planId = channel.target().get();
-    if (!planCalculation.containsKey(planId))
+    if (!taskHistory.containsKey(planId))
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
-    var timeout = requestHistory.get(planId).executionTime;
-    var balancer = requestHistory.get(planId).balancerClasspath;
-    var functions = requestHistory.get(planId).algorithmConfig.clusterCostFunction().toString();
-
-    if (executedPlans.containsKey(planId)) {
-      var f = executedPlans.get(planId);
-      return CompletableFuture.completedFuture(
-          new PlanExecutionProgress(
-              planId,
-              f.isDone() ? PlanPhase.Executed : PlanPhase.Executing,
-              timeout,
-              balancer,
-              functions,
-              f.handle((result, err) -> err != null ? err.toString() : null).getNow(null),
-              planCalculation.get(planId).join().report));
-    }
-
-    var f = planCalculation.get(planId);
-    return CompletableFuture.completedFuture(
-        new PlanExecutionProgress(
-            planId,
-            f.isDone() ? PlanPhase.Searched : PlanPhase.Searching,
-            timeout,
-            balancer,
-            functions,
-            f.handle(
-                    (result, err) ->
-                        err != null
-                            ? err.toString()
-                            : result.associatedPlan.solution().isEmpty()
-                                ? "Unable to propose a suitable rebalance plan"
-                                : null)
-                .getNow(null),
-            f.handle(
-                    (result, err) ->
-                        err != null
-                            ? null
-                            : result
-                                .associatedPlan
-                                .solution()
-                                .map(ignore -> result.report)
-                                .orElse(null))
-                .getNow(null)));
+    return CompletableFuture.completedFuture(taskHistory.get(planId).progress());
   }
 
   @Override
@@ -172,60 +123,15 @@ class BalancerHandler implements Handler {
                     parsePostRequestWrapper(balancerPostRequest, currentClusterInfo))
             .toCompletableFuture()
             .join();
-    requestHistory.put(newPlanId, request);
-    var planGeneration =
-        CompletableFuture.supplyAsync(
-                () -> {
-                  var currentClusterInfo = request.clusterInfo;
-                  var fetchers =
-                      Stream.concat(
-                              request.algorithmConfig.clusterCostFunction().fetcher().stream(),
-                              request.algorithmConfig.moveCostFunction().fetcher().stream())
-                          .collect(Collectors.toUnmodifiableList());
-                  var bestPlan =
-                      metricContext(
-                          fetchers,
-                          request.algorithmConfig.clusterCostFunction().sensors(),
-                          (metricSource) ->
-                              Balancer.create(
-                                      request.balancerClasspath,
-                                      AlgorithmConfig.builder(request.algorithmConfig)
-                                          .metricSource(metricSource)
-                                          .build())
-                                  .retryOffer(currentClusterInfo, request.executionTime));
-                  var changes =
-                      bestPlan
-                          .solution()
-                          .map(
-                              p ->
-                                  ClusterInfo.findNonFulfilledAllocation(
-                                          currentClusterInfo, p.proposal())
-                                      .stream()
-                                      .map(
-                                          tp ->
-                                              Change.from(
-                                                  currentClusterInfo.replicas(tp),
-                                                  p.proposal().replicas(tp)))
-                                      .collect(Collectors.toUnmodifiableList()))
-                          .orElse(List.of());
-                  var report =
-                      new PlanReport(
-                          bestPlan.initialClusterCost().value(),
-                          bestPlan.solution().map(p -> p.proposalClusterCost().value()),
-                          changes,
-                          bestPlan
-                              .solution()
-                              .map(p -> migrationCosts(p.moveCost()))
-                              .orElseGet(List::of));
-                  return new PlanInfo(report, currentClusterInfo, bestPlan);
-                })
-            .whenComplete(
-                (result, error) -> {
-                  if (error != null)
-                    new RuntimeException("Failed to generate balance plan: " + newPlanId, error)
-                        .printStackTrace();
-                });
-    planCalculation.put(newPlanId, planGeneration.toCompletableFuture());
+    var task = new BalanceTask(newPlanId, request);
+    task.planGeneration()
+        .whenComplete(
+            (result, error) -> {
+              if (error != null)
+                new RuntimeException("Failed to generate balance plan: " + newPlanId, error)
+                    .printStackTrace();
+            });
+    taskHistory.put(newPlanId, task);
     return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
   }
 
@@ -385,59 +291,34 @@ class BalancerHandler implements Handler {
 
   @Override
   public CompletionStage<Response> put(Channel channel) {
-    var request = channel.request(TypeRef.of(BalancerPutRequest.class));
-
+    final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var thePlanId = request.id;
-    final var future =
-        Optional.ofNullable(planCalculation.get(thePlanId))
-            .orElseThrow(
-                () -> new IllegalArgumentException("No such rebalance plan id: " + thePlanId));
-    if (!future.isDone()) throw new IllegalStateException("No usable plan found: " + thePlanId);
-    final var thePlanInfo = future.join();
 
-    return CompletableFuture.runAsync(() -> {})
-        .thenCompose(
-            (ignore0) -> {
-              // already scheduled, nothing to do
-              if (executedPlans.containsKey(thePlanId))
-                return CompletableFuture.completedFuture(new PutPlanResponse(thePlanId));
+    if (!taskHistory.containsKey(thePlanId))
+      throw new IllegalArgumentException("No such rebalance plan id: " + thePlanId);
+    final var thePlan = taskHistory.get(thePlanId);
 
-              return CompletableFuture.supplyAsync(
-                      () -> {
-                        checkPlanConsistency(thePlanInfo);
-                        checkNoOngoingMigration();
-                        // already scheduled, nothing to do
-                        if (executedPlans.containsKey(thePlanId))
-                          return new PutPlanResponse(thePlanId);
-                        // one plan at a time
-                        if (lastExecutionId.get() != null
-                            && !executedPlans.get(lastExecutionId.get()).isDone())
-                          throw new IllegalStateException(
-                              "There is another on-going rebalance: " + lastExecutionId.get());
-                        // the plan exists but no plan generated
-                        if (thePlanInfo.associatedPlan.solution().isEmpty())
-                          throw new IllegalStateException(
-                              "The specified balancer plan didn't generate a useful plan: "
-                                  + thePlanId);
-                        // schedule the actual execution
-                        var proposedPlan = thePlanInfo.associatedPlan.solution().get();
-                        executedPlans.put(
-                            thePlanId,
-                            executor
-                                .run(admin, proposedPlan.proposal(), Duration.ofHours(1))
-                                .toCompletableFuture());
-                        lastExecutionId.set(thePlanId);
-                        return new PutPlanResponse(thePlanId);
-                      },
-                      schedulingExecutor)
-                  .thenApply(x -> (Response) x)
-                  .whenComplete(
-                      (ignore, err) -> {
-                        if (err != null)
-                          new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
-                              .printStackTrace();
-                      });
+    switch (thePlan.phase()) {
+      case Searching:
+        throw new IllegalStateException("The rebalance plan hasn't generated: " + thePlanId);
+      case Searched:
+        break;
+      case Executing:
+      case Executed:
+        return CompletableFuture.completedFuture(PutPlanResponse.ACCEPT);
+    }
+
+    thePlan.executePlan();
+    thePlan
+        .planExecution()
+        .whenComplete(
+            (ignore, err) -> {
+              if (err != null)
+                new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
+                    .printStackTrace();
             });
+
+    return CompletableFuture.completedFuture(new PutPlanResponse(thePlan.taskId));
   }
 
   private void checkPlanConsistency(PlanInfo thePlanInfo) {
@@ -711,6 +592,156 @@ class BalancerHandler implements Handler {
       this.balancer = balancer;
       this.function = function;
       this.timeout = timeout;
+    }
+  }
+
+  private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
+
+  class BalanceTask {
+
+    private final String taskId;
+    private final PostRequestWrapper taskRequest;
+    private final CompletableFuture<PlanInfo> planGeneration;
+    private CompletableFuture<Void> planExecution;
+
+    BalanceTask(String taskId, PostRequestWrapper taskRequest) {
+      this.taskId = taskId;
+      this.taskRequest = taskRequest;
+      this.planGeneration = launchPlan();
+    }
+
+    private CompletableFuture<PlanInfo> launchPlan() {
+      return CompletableFuture.supplyAsync(
+          () -> {
+            var currentClusterInfo = taskRequest.clusterInfo;
+            var fetchers =
+                Stream.concat(
+                        taskRequest.algorithmConfig.clusterCostFunction().fetcher().stream(),
+                        taskRequest.algorithmConfig.moveCostFunction().fetcher().stream())
+                    .collect(Collectors.toUnmodifiableList());
+            var bestPlan =
+                metricContext(
+                    fetchers,
+                    taskRequest.algorithmConfig.clusterCostFunction().sensors(),
+                    (metricSource) ->
+                        Balancer.create(
+                                taskRequest.balancerClasspath,
+                                AlgorithmConfig.builder(taskRequest.algorithmConfig)
+                                    .metricSource(metricSource)
+                                    .build())
+                            .retryOffer(currentClusterInfo, taskRequest.executionTime));
+            var changes =
+                bestPlan
+                    .solution()
+                    .map(
+                        p ->
+                            ClusterInfo.findNonFulfilledAllocation(currentClusterInfo, p.proposal())
+                                .stream()
+                                .map(
+                                    tp ->
+                                        Change.from(
+                                            currentClusterInfo.replicas(tp),
+                                            p.proposal().replicas(tp)))
+                                .collect(Collectors.toUnmodifiableList()))
+                    .orElse(List.of());
+            var report =
+                new PlanReport(
+                    bestPlan.initialClusterCost().value(),
+                    bestPlan.solution().map(p -> p.proposalClusterCost().value()),
+                    changes,
+                    bestPlan.solution().map(p -> migrationCosts(p.moveCost())).orElseGet(List::of));
+            return new PlanInfo(report, currentClusterInfo, bestPlan);
+          });
+    }
+
+    synchronized CompletableFuture<PlanInfo> planGeneration() {
+      return planGeneration;
+    }
+
+    synchronized CompletableFuture<Void> planExecution() {
+      return planExecution;
+    }
+
+    synchronized void executePlan() {
+      if (planExecution != null) throw new IllegalStateException("Already executed");
+
+      var thePlanInfo = planGeneration().getNow(null);
+      checkPlanConsistency(thePlanInfo);
+      checkNoOngoingMigration();
+      // one plan at a time
+      if (lastExecutionId.get() != null
+          && taskHistory.get(lastExecutionId.get()).phase() != PlanPhase.Executed)
+        throw new IllegalStateException(
+            "There is another on-going rebalance: " + lastExecutionId.get());
+      // the plan exists but no plan generated
+      if (thePlanInfo.associatedPlan.solution().isEmpty())
+        throw new IllegalStateException(
+            "The specified balancer plan didn't generate a useful plan: " + taskId);
+      // schedule the actual execution
+      var proposedPlan = thePlanInfo.associatedPlan.solution().get();
+      this.planExecution =
+          executor.run(admin, proposedPlan.proposal(), Duration.ofHours(1)).toCompletableFuture();
+      lastExecutionId.set(taskId);
+    }
+
+    synchronized PlanExecutionProgress progress() {
+      var timeout = this.taskRequest.executionTime;
+      var balancer = this.taskRequest.balancerClasspath;
+      var functions = this.taskRequest.algorithmConfig.clusterCostFunction().toString();
+
+      switch (phase()) {
+        case Searched:
+        case Searching:
+          {
+            var f = planGeneration();
+            return new PlanExecutionProgress(
+                taskId,
+                phase(),
+                timeout,
+                balancer,
+                functions,
+                f.handle(
+                        (result, err) ->
+                            err != null
+                                ? err.toString()
+                                : result.associatedPlan.solution().isEmpty()
+                                    ? "Unable to propose a suitable rebalance plan"
+                                    : null)
+                    .getNow(null),
+                f.handle(
+                        (result, err) ->
+                            err != null
+                                ? null
+                                : result
+                                    .associatedPlan
+                                    .solution()
+                                    .map(ignore -> result.report)
+                                    .orElse(null))
+                    .getNow(null));
+          }
+        case Executing:
+        case Executed:
+          {
+            var f = planExecution();
+            return new PlanExecutionProgress(
+                taskId,
+                phase(),
+                timeout,
+                balancer,
+                functions,
+                f.handle((result, err) -> err != null ? err.toString() : null).getNow(null),
+                planGeneration().join().report);
+          }
+        default:
+          throw new RuntimeException();
+      }
+    }
+
+    synchronized PlanPhase phase() {
+      if (planExecution != null && planExecution.isDone()) return PlanPhase.Executed;
+      if (planExecution != null && !planExecution.isDone()) return PlanPhase.Executing;
+      if (planGeneration.isDone()) return PlanPhase.Searched;
+      return PlanPhase.Searching;
     }
   }
 }

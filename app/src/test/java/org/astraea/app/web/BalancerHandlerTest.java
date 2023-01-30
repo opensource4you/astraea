@@ -27,7 +27,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -408,16 +407,9 @@ public class BalancerHandlerTest {
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
       Assertions.assertNotNull(progress.config.function);
       Assertions.assertNull(progress.plan, "no proposal");
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler
-                          .put(httpRequest(Map.of("id", progress.id)))
-                          .toCompletableFuture()
-                          .join())
-              .getCause(),
+          () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
           "Cannot execute a plan with no proposal available");
     }
   }
@@ -545,13 +537,9 @@ public class BalancerHandlerTest {
 
       Assertions.assertDoesNotThrow(
           () -> handler.put(httpRequest(Map.of("id", plan0.id))).toCompletableFuture().join());
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler.put(httpRequest(Map.of("id", plan1.id))).toCompletableFuture().join())
-              .getCause());
+          () -> handler.put(httpRequest(Map.of("id", plan1.id))).toCompletableFuture().join());
     }
   }
 
@@ -597,16 +585,9 @@ public class BalancerHandlerTest {
               .toCompletableFuture()
               .join());
 
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler
-                          .put(httpRequest(Map.of("id", theReport.id)))
-                          .toCompletableFuture()
-                          .join())
-              .getCause());
+          () -> handler.put(httpRequest(Map.of("id", theReport.id))).toCompletableFuture().join());
     }
   }
 
@@ -684,17 +665,10 @@ public class BalancerHandlerTest {
       Utils.sleep(Duration.ofSeconds(10));
 
       // assert
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler
-                          .put(httpRequest(Map.of("id", theProgress.id)))
-                          .toCompletableFuture()
-                          .join(),
-                  "The cluster state has changed, prevent the plan from execution")
-              .getCause());
+          () -> handler.put(httpRequest(Map.of("id", theProgress.id))).toCompletableFuture().join(),
+          "The cluster state has changed, prevent the plan from execution");
     }
   }
 
