@@ -24,7 +24,7 @@ declare -r SPARK_VERSION=${SPARK_VERSION:-3.3.1}
 declare -r LOCAL_PATH=$(cd -- "$(dirname -- "${DOCKER_FOLDER}")" &>/dev/null && pwd)
 # ===============================[properties keys]=================================
 declare -r SOURCE_KEY="source.path"
-declare -r CHECKPOINT_KEY="checkpoint"
+declare -r CHECKPOINT_KEY="checkpoint.path"
 # ===============================[spark driver/executor resource]==================
 declare -r RESOURCES_CONFIGS="${RESOURCES_CONFIGS:-"--conf spark.driver.memory=4g --conf spark.executor.memory=4g"}"
 # ===================================[functions]===================================
@@ -89,7 +89,7 @@ function runContainer() {
 
   if [[ "$master" == "spark:"* ]] || [[ "$master" == "local"* ]]; then
     docker run -d --init \
-      --name "csv-kafka-${source_name}" \
+      --name "csv-kafka${source_name}" \
       $network_config \
       -v "$propertiesPath":"$propertiesPath":ro \
       -v "$jar_path":/tmp/astraea-etl.jar:ro \

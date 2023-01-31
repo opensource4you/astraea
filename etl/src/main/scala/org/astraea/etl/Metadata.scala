@@ -71,7 +71,7 @@ object Metadata {
 
   private[etl] val DEFAULT_PARTITIONS = 15
   private[etl] val DEFAULT_REPLICAS = 1.toShort
-  private[etl] val DEFAULT_RECURSIVE = "ture"
+  private[etl] val DEFAULT_RECURSIVE = "true"
   private[etl] val DEFAULT_CLEAN_SOURCE = "delete"
 
   // Parameters needed to configure ETL.

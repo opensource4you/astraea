@@ -64,13 +64,29 @@ class DataFrameProcessor(dataFrame: DataFrame) {
     * @return
     *   json df
     */
+//  def csvToJSON(cols: Seq[DataColumn]): DataFrameProcessor = {
+//    new DataFrameProcessor(
+//      dataFrame
+//        .withColumn(
+//          "value",
+//          defaultConverter(
+//            map(cols.flatMap(c => List(lit(c.name), col(c.name))): _*)
+//          )
+//        )
   def csvToJSON(cols: Seq[DataColumn]): DataFrameProcessor = {
     new DataFrameProcessor(
       dataFrame
         .withColumn(
           "value",
           defaultConverter(
-            map(cols.flatMap(c => List(lit(c.name), col(c.name))): _*)
+            map(
+              cols.flatMap(c =>
+                List(
+                  lit(c.name),
+                  when(col(c.name).isNotNull, col(c.name)).otherwise(lit(null))
+                )
+              ): _*
+            )
           )
         )
         .withColumn(
@@ -171,10 +187,6 @@ object DataFrameProcessor {
 
     private def schema(columns: Seq[DataColumn]): StructType =
       StructType(columns.map { col =>
-        if (col.dataType != DataType.StringType)
-          throw new IllegalArgumentException(
-            "Sorry, only string type is currently supported.Because a problem(astraea #1286) has led to the need to wrap the non-nullable type."
-          )
         StructField(col.name, col.dataType.sparkType)
       })
   }
