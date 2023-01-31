@@ -24,4 +24,9 @@ public class NetworkIngressCost extends NetworkCost {
   public NetworkIngressCost() {
     super(BandwidthType.Ingress);
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

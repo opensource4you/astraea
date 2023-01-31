@@ -17,8 +17,12 @@
 package org.astraea.common.cost;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.collector.Fetcher;
@@ -56,5 +60,17 @@ public interface CostFunction {
    */
   default Collection<MetricSensor> sensors() {
     return List.of();
+  }
+
+  static String toStringComposite(Map<? extends CostFunction, Double> costWeights) {
+    BiFunction<CostFunction, Double, String> descriptiveName =
+        (cost, value) -> "{\"" + cost.toString() + "\" weight " + value + "}";
+    return "["
+        + costWeights.entrySet().stream()
+            .sorted(
+                Comparator.<Map.Entry<?, Double>>comparingDouble(Map.Entry::getValue).reversed())
+            .map(e -> descriptiveName.apply(e.getKey(), e.getValue()))
+            .collect(Collectors.joining(", "))
+        + "]";
   }
 }

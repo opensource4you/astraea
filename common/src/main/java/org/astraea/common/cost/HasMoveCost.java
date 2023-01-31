@@ -97,6 +97,15 @@ public interface HasMoveCost extends CostFunction {
       public Optional<Fetcher> fetcher() {
         return fetcher;
       }
+
+      @Override
+      public String toString() {
+        return "MoveCosts["
+            + hasMoveCosts.stream()
+                .map(cost -> "\"" + cost.toString() + "\"")
+                .collect(Collectors.joining(", "))
+            + "]";
+      }
     };
   }
 

@@ -23,4 +23,9 @@ public class NodeLatencyCost extends NodeMetricsCost {
   protected double value(HasNodeMetrics hasNodeMetrics) {
     return hasNodeMetrics.requestLatencyAvg();
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

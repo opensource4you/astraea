@@ -95,4 +95,9 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
     if (max - min == 1) return () -> 0;
     return () -> (double) (max - min) / (totalReplicas);
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

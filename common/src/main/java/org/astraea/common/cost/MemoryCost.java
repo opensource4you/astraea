@@ -59,4 +59,9 @@ public class MemoryCost implements HasBrokerCost {
   public Optional<Fetcher> fetcher() {
     return Optional.of(client -> List.of(HostMetrics.jvmMemory(client)));
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

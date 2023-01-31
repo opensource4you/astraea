@@ -174,6 +174,11 @@ public class NeutralIntegratedCost implements HasBrokerCost {
             .collect(Collectors.toUnmodifiableList()));
   }
 
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
+
   static class BrokerMetrics {
     double inputScore = 0.0;
     double outputScore = 0.0;
