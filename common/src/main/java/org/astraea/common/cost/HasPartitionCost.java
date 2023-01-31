@@ -61,6 +61,12 @@ public interface HasPartitionCost extends CostFunction {
       public Optional<Fetcher> fetcher() {
         return fetcher;
       }
+
+      @Override
+      public String toString() {
+        return "WeightCompositePartitionCostFunction"
+            + CostFunction.toStringComposite(costAndWeight);
+      }
     };
   }
 

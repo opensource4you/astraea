@@ -156,6 +156,11 @@ public class LoadCost implements HasBrokerCost {
                 ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));
   }
 
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
+
   private static class BrokerMetric {
     // mbean data. They are:
     // ("BytesInPerSec", BytesInPerSec.count), ("BytesOutPerSec", ByteOutPerSec.count)

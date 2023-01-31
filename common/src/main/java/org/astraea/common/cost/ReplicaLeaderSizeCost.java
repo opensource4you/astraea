@@ -103,4 +103,9 @@ public class ReplicaLeaderSizeCost
                                 .orElseThrow()));
     return () -> result;
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

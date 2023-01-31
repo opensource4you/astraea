@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -97,17 +96,7 @@ public interface HasClusterCost extends CostFunction {
 
       @Override
       public String toString() {
-        BiFunction<HasClusterCost, Double, String> descriptiveName =
-            (cost, value) -> "{\"" + cost.toString() + "\" weight " + value + "}";
-        return "WeightCompositeClusterCostFunction["
-            + costAndWeight.entrySet().stream()
-                .sorted(
-                    Comparator.<Map.Entry<HasClusterCost, Double>>comparingDouble(
-                            Map.Entry::getValue)
-                        .reversed())
-                .map(e -> descriptiveName.apply(e.getKey(), e.getValue()))
-                .collect(Collectors.joining(", "))
-            + "]";
+        return "WeightCompositeClusterCostFunction" + CostFunction.toStringComposite(costAndWeight);
       }
     };
   }
