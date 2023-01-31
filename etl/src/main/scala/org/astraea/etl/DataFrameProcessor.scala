@@ -64,15 +64,6 @@ class DataFrameProcessor(dataFrame: DataFrame) {
     * @return
     *   json df
     */
-//  def csvToJSON(cols: Seq[DataColumn]): DataFrameProcessor = {
-//    new DataFrameProcessor(
-//      dataFrame
-//        .withColumn(
-//          "value",
-//          defaultConverter(
-//            map(cols.flatMap(c => List(lit(c.name), col(c.name))): _*)
-//          )
-//        )
   def csvToJSON(cols: Seq[DataColumn]): DataFrameProcessor = {
     new DataFrameProcessor(
       dataFrame
