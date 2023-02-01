@@ -56,9 +56,10 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.RecordSizeCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
-import org.astraea.common.cost.ReplicaSizeCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -68,7 +69,11 @@ class BalancerHandler implements Handler {
 
   static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
       HasMoveCost.of(
-          List.of(new ReplicaNumberCost(), new ReplicaLeaderCost(), new ReplicaSizeCost()));
+          List.of(
+              new ReplicaNumberCost(),
+              new ReplicaLeaderCost(),
+              new RecordSizeCost(),
+              new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
   private final RebalancePlanExecutor executor;
@@ -240,7 +245,7 @@ class BalancerHandler implements Handler {
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
                 MOVED_SIZE,
-                cost.movedReplicaSize().entrySet().stream()
+                cost.movedRecordSize().entrySet().stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
@@ -324,8 +329,7 @@ class BalancerHandler implements Handler {
   static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
     return cost -> {
       if (request.maxMigratedSize.bytes()
-          < cost.movedReplicaSize().values().stream().mapToLong(DataSize::bytes).sum())
-        return false;
+          < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
       if (request.maxMigratedLeader
           < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
         return false;

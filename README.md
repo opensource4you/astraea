@@ -40,3 +40,9 @@
 [2022 年度](https://github.com/skiptests/astraea/issues/238)
 
 上述報告和測試所使用的硬體詳細資訊：[Astraea 測試用硬體](https://github.com/skiptests/astraea/issues/130)
+
+# 社群活動
+
+`Astraea` 定時舉辦線下活動，各年度活動請見下方連結
+
+[2022 聖誕節](https://github.com/skiptests/astraea/issues/830)

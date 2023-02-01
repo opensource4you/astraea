@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.tab.topic;
+package org.astraea.gui.tab.health;
 
 import java.time.Duration;
 import java.util.List;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class TopicNodeTest {
+public class HealthNodeTest {
 
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
@@ -43,15 +43,10 @@ public class TopicNodeTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var result =
-          TopicNode.emptyTopics(
-              admin
-                  .partitions(admin.topicNames(false).toCompletableFuture().join())
-                  .toCompletableFuture()
-                  .join());
+      var result = HealthNode.badTopics(admin).toCompletableFuture().join();
       Assertions.assertNotEquals(0, result.size());
       Assertions.assertEquals(topic, result.get(0).get("topic"));
-      Assertions.assertEquals(0L, result.get(0).get("records"));
+      Assertions.assertTrue((Boolean) result.get(0).get("empty"));
     }
   }
 
@@ -81,16 +76,7 @@ public class TopicNodeTest {
 
       Utils.sleep(Duration.ofSeconds(2));
 
-      var result =
-          TopicNode.unavailablePartitions(
-              admin
-                  .topics(admin.topicNames(false).toCompletableFuture().join())
-                  .toCompletableFuture()
-                  .join(),
-              admin
-                  .partitions(admin.topicNames(false).toCompletableFuture().join())
-                  .toCompletableFuture()
-                  .join());
+      var result = HealthNode.unavailablePartitions(admin).toCompletableFuture().join();
       Assertions.assertEquals(1, result.size());
       Assertions.assertEquals(topic, result.get(0).get("topic"));
       Assertions.assertFalse((boolean) result.get(0).get("writable"));

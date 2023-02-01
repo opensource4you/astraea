@@ -54,4 +54,9 @@ public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
     var value = dispersion.calculate(brokerCost.values());
     return () -> value;
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

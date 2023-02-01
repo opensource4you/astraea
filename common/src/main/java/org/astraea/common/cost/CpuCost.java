@@ -59,4 +59,9 @@ public class CpuCost implements HasBrokerCost {
   public Optional<Fetcher> fetcher() {
     return Optional.of(client -> List.of(HostMetrics.operatingSystem(client)));
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

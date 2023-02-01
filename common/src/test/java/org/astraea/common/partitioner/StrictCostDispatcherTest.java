@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
-import org.astraea.common.Lazy;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -240,22 +239,22 @@ public class StrictCostDispatcherTest {
           Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
       Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinKeeper.roundRobinLease);
 
-      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
-      var t = dispatcher.roundRobinKeeper.timeToUpdateRoundRobin;
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
+      var t = dispatcher.roundRobinKeeper.lastUpdated.get();
       var rr =
           Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
               .boxed()
               .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(StrictCostDispatcher.ROUND_ROBIN_LENGTH, rr.size());
       // the rr is not updated yet
-      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       IntStream.range(0, rr.size())
           .forEach(
               i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobinKeeper.roundRobin[i]));
       Utils.sleep(Duration.ofSeconds(3));
-      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Lazy.of(Map::of));
+      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       // rr is updated already
-      Assertions.assertNotEquals(t, dispatcher.roundRobinKeeper.timeToUpdateRoundRobin);
+      Assertions.assertNotEquals(t, dispatcher.roundRobinKeeper.lastUpdated.get());
     }
   }
 

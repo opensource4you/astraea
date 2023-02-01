@@ -223,6 +223,9 @@ public abstract class NetworkCost implements HasClusterCost {
     throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), reason);
   }
 
+  @Override
+  public abstract String toString();
+
   enum BandwidthType implements EnumInfo {
     Ingress,
     Egress;

@@ -39,7 +39,7 @@ import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
-public class PartitionNode {
+class PartitionNode {
 
   private static final String TOPIC_NAME_KEY = "topic";
   private static final String PARTITION_KEY = "partition";

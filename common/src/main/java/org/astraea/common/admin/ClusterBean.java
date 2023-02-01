@@ -17,7 +17,6 @@
 package org.astraea.common.admin;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,7 +31,7 @@ import org.astraea.common.metrics.HasBeanObject;
 public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
 
-  static ClusterBean of(Map<Integer, Collection<HasBeanObject>> allBeans) {
+  static ClusterBean of(Map<Integer, ? extends Collection<? extends HasBeanObject>> allBeans) {
     return new ClusterBean() {
       final Lazy<Map<String, List<HasBeanObject>>> topicCache =
           Lazy.of(() -> map((id, bean) -> bean.topicIndex()));
@@ -43,9 +42,17 @@ public interface ClusterBean {
       final Lazy<Map<BrokerTopic, List<HasBeanObject>>> brokerTopicCache =
           Lazy.of(() -> map((id, bean) -> bean.brokerTopicIndex(id)));
 
+      final Lazy<Map<Integer, Collection<HasBeanObject>>> all =
+          Lazy.of(
+              () ->
+                  allBeans.entrySet().stream()
+                      .collect(
+                          Collectors.toUnmodifiableMap(
+                              Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+
       @Override
       public Map<Integer, Collection<HasBeanObject>> all() {
-        return Collections.unmodifiableMap(allBeans);
+        return all.get();
       }
 
       @Override
@@ -81,6 +88,14 @@ public interface ClusterBean {
       }
 
       @Override
+      public <Bean extends HasBeanObject> Stream<Bean> brokerMetrics(
+          int brokerId, Class<Bean> metricClass) {
+        return all.get().getOrDefault(brokerId, List.of()).stream()
+            .filter(bean -> metricClass.isAssignableFrom(bean.getClass()))
+            .map(metricClass::cast);
+      }
+
+      @Override
       public Set<String> topics() {
         return topicCache.get().keySet();
       }
@@ -98,6 +113,11 @@ public interface ClusterBean {
       @Override
       public Set<BrokerTopic> brokerTopics() {
         return brokerTopicCache.get().keySet();
+      }
+
+      @Override
+      public Set<Integer> brokerIds() {
+        return all.get().keySet();
       }
 
       private <Key> Map<Key, List<HasBeanObject>> map(
@@ -170,6 +190,8 @@ public interface ClusterBean {
   <Bean extends HasBeanObject> Stream<Bean> brokerTopicMetrics(
       BrokerTopic brokerTopic, Class<Bean> metricClass);
 
+  <Bean extends HasBeanObject> Stream<Bean> brokerMetrics(int brokerId, Class<Bean> metricClass);
+
   /**
    * @return the set of topic that has some related metrics within the internal storage.
    */
@@ -189,4 +211,9 @@ public interface ClusterBean {
    * @return the set of broker/topic pair that has some related metrics within the internal storage.
    */
   Set<BrokerTopic> brokerTopics();
+
+  /**
+   * @return the broker ids which have metrics
+   */
+  Set<Integer> brokerIds();
 }

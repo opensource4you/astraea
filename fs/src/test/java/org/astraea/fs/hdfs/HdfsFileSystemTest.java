@@ -14,23 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost;
+package org.astraea.fs.hdfs;
 
-import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
+import java.util.Map;
+import org.astraea.common.Configuration;
+import org.astraea.fs.AbstractFileSystemTest;
+import org.astraea.fs.FileSystem;
+import org.astraea.it.HdfsServer;
+import org.junit.jupiter.api.AfterEach;
 
-public class NodeSizeCost implements HasBrokerCost {
+public class HdfsFileSystemTest extends AbstractFileSystemTest {
+
+  private final HdfsServer server = HdfsServer.local();
+
   @Override
-  public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var result =
-        clusterInfo.nodes().stream()
-            .collect(
-                Collectors.toMap(
-                    NodeInfo::id,
-                    n -> clusterInfo.replicaStream(n.id()).mapToDouble(Replica::size).sum()));
-    return () -> result;
+  protected FileSystem fileSystem() {
+    return FileSystem.of(
+        "hdfs",
+        Configuration.of(
+            Map.of(
+                HdfsFileSystem.HOSTNAME_KEY,
+                server.hostname(),
+                HdfsFileSystem.PORT_KEY,
+                String.valueOf(server.port()),
+                HdfsFileSystem.USER_KEY,
+                server.user())));
+  }
+
+  @AfterEach
+  void close() {
+    server.close();
   }
 }

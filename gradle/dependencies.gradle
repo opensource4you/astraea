@@ -26,16 +26,18 @@ def versions = [
         "ftp-server"          : project.properties['ftp-server.version'] ?: "1.2.0",
         jackson               : project.properties['jackson.version'] ?: "2.14.1",
         jcommander            : project.properties['jcommander.version'] ?: "1.82",
-        junit                 : project.properties['junit.version'] ?: "5.9.1",
-        kafka                 : project.properties['kafka.version'] ?: "3.3.1",
-        mockito               : project.properties['mockito.version'] ?: "4.10.0",
-        "mysql-connector-java": project.properties['mysql-connector-java.version'] ?: "8.0.31",
+        junit                 : project.properties['junit.version'] ?: "5.9.2",
+        kafka                 : project.properties['kafka.version'] ?: "3.3.2",
+        mockito               : project.properties['mockito.version'] ?: "5.0.0",
+        "mysql-connector-java": project.properties['mysql-connector-java.version'] ?: "8.0.32",
         "opencsv"             : project.properties['opencsv.version'] ?: "5.7.1",
         scala                 : project.properties['scala.version'] ?: "2.13.10",
         slf4j                 : project.properties['slf4j.version'] ?: "2.0.6",
         spark                 : project.properties['spark.version'] ?: "3.3.1",
         "wix-embedded-mysql"  : project.properties['wix-embedded-mysql.version'] ?: "4.6.2",
         zookeeper             : project.properties['zookeeper.version'] ?: "3.8.0",
+        "hadoop-common"       : project.properties['hadoop-common.version'] ?: "3.3.4",
+        "hadoop-minicluster"  : project.properties['hadoop-minicluster.version'] ?: "3.3.4",
 ]
 
 libs += [
@@ -61,6 +63,8 @@ libs += [
         "spark-kafka"          : "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark"]}",
         "spark-sql"            : "org.apache.spark:spark-sql_2.13:${versions["spark"]}",
         "wix-embedded-mysql"   : "com.wix:wix-embedded-mysql:${versions["wix-embedded-mysql"]}",
-        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}"
+        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}",
+        "hadoop-common"        : "org.apache.hadoop:hadoop-common:${versions["hadoop-common"]}",
+        "hadoop-minicluster"   : "org.apache.hadoop:hadoop-minicluster:${versions["hadoop-minicluster"]}",
 
 ]

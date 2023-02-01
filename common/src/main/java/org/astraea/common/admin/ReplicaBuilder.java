@@ -141,6 +141,24 @@ public class ReplicaBuilder {
             .lag(0));
   }
 
+  /**
+   * a helper used to set all flags for a in-sync replica follower.
+   *
+   * @return a replica leader
+   */
+  public Replica buildInSyncFollower() {
+    Objects.requireNonNull(path);
+    return new ReplicaImpl(
+        this.isLeader(false)
+            .isPreferredLeader(false)
+            .isSync(true)
+            .isFuture(false)
+            .isOffline(false)
+            .isRemoving(false)
+            .isAdding(false)
+            .lag(0));
+  }
+
   public Replica build() {
     return new ReplicaImpl(this);
   }

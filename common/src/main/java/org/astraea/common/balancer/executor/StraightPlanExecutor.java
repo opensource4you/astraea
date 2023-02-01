@@ -59,6 +59,15 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                 tps.stream()
                     .flatMap(tp -> logAllocation.replicas(tp).stream())
                     .collect(Collectors.toList()))
+        // step 0: declare preferred data dir
+        .thenCompose(
+            replicas ->
+                admin
+                    .declarePreferredDataFolders(
+                        replicas.stream()
+                            .collect(
+                                Collectors.toMap(Replica::topicPartitionReplica, Replica::path)))
+                    .thenApply((ignore) -> replicas))
         // step 1: move replicas to specify brokers
         .thenCompose(
             replicas ->
@@ -98,8 +107,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
         .thenCompose(
             replicas -> {
               // temporarily disable data-directory migration, there are some Kafka bug related to
-              // it.
-              // see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
+              // it. see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
               if (disableDataDirectoryMigration) return CompletableFuture.completedFuture(null);
               else
                 return admin.moveToFolders(

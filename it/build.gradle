@@ -34,6 +34,9 @@ dependencies {
     implementation libs["kafka-core"]
     implementation libs["kafka-connect-runtime"]
     implementation libs["kafka-connect-json"]
+    implementation libs["hadoop-minicluster"]
+    // this is required by MiniDFSCluster. So we add it to the dependencies.
+    implementation libs["mockito-core"]
 }
 
 java {

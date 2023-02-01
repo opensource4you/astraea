@@ -23,4 +23,9 @@ public class NodeThroughputCost extends NodeMetricsCost {
   protected double value(HasNodeMetrics hasNodeMetrics) {
     return hasNodeMetrics.incomingByteRate() + hasNodeMetrics.outgoingByteRate();
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

@@ -41,7 +41,6 @@ import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
-import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -401,85 +400,6 @@ public class TopicNode {
         .collect(Collectors.toList());
   }
 
-  static List<Map<String, Object>> emptyTopics(List<Partition> partitions) {
-    return partitions.stream()
-        .collect(
-            Collectors.groupingBy(
-                Partition::topic,
-                Collectors.mapping(Partition::latestOffset, Collectors.reducing(0L, Long::sum))))
-        .entrySet()
-        .stream()
-        .filter(e -> e.getValue() <= 0)
-        .map(
-            e ->
-                (Map<String, Object>)
-                    MapUtils.of("topic", (Object) e.getKey(), "records", e.getValue()))
-        .collect(Collectors.toList());
-  }
-
-  static List<Map<String, Object>> unavailablePartitions(
-      List<Topic> topics, List<Partition> partitions) {
-    var minInSync =
-        topics.stream()
-            .collect(
-                Collectors.toMap(
-                    Topic::name,
-                    t ->
-                        t.config()
-                            .value(TopicConfigs.MIN_IN_SYNC_REPLICAS_CONFIG)
-                            .map(Integer::parseInt)
-                            .orElse(1)));
-
-    return partitions.stream()
-        .filter(p -> p.isr().size() < minInSync.getOrDefault(p.topic(), 1) || p.leader().isEmpty())
-        .map(
-            p -> {
-              var r = new LinkedHashMap<String, Object>();
-              r.put("topic", p.topic());
-              r.put("partition", p.partition());
-              r.put("leader", p.leader().map(n -> String.valueOf(n.id())).orElse("null"));
-              r.put(
-                  "in-sync replicas",
-                  p.isr().stream()
-                      .map(n -> String.valueOf(n.id()))
-                      .collect(Collectors.joining(",")));
-              r.put(TopicConfigs.MIN_IN_SYNC_REPLICAS_CONFIG, minInSync.getOrDefault(p.topic(), 1));
-              r.put("readable", p.leader().isPresent());
-              r.put(
-                  "writable",
-                  p.leader().isPresent() && p.isr().size() >= minInSync.getOrDefault(p.topic(), 1));
-              return (Map<String, Object>) r;
-            })
-        .collect(Collectors.toList());
-  }
-
-  public static Node healthNode(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            null,
-            List.of(),
-            "CHECK",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .topicNames(true)
-                    .thenCompose(
-                        names ->
-                            FutureUtils.combine(
-                                context.admin().topics(names),
-                                context.admin().partitions(names),
-                                (topics, partitions) -> {
-                                  var result =
-                                      new LinkedHashMap<String, List<Map<String, Object>>>();
-                                  result.put("empty topics", emptyTopics(partitions));
-                                  result.put(
-                                      "unavailable partitions",
-                                      unavailablePartitions(topics, partitions));
-                                  return result;
-                                })))
-        .build();
-  }
-
   public static Node of(Context context) {
     return Slide.of(
             Side.TOP,
@@ -489,7 +409,6 @@ public class TopicNode {
                 "replica", ReplicaNode.of(context),
                 "config", configNode(context),
                 "metrics", metricsNode(context),
-                "health", healthNode(context),
                 "create", createNode(context)))
         .node();
   }

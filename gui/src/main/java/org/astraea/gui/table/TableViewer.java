@@ -150,7 +150,7 @@ public interface TableViewer {
         allFilteredData =
             allData.entrySet().stream()
                 .collect(
-                    Collectors.toMap(
+                    MapUtils.toLinkedHashMap(
                         Map.Entry::getKey,
                         e ->
                             e.getValue().stream()
@@ -174,9 +174,9 @@ public interface TableViewer {
                                 .collect(Collectors.toUnmodifiableList())));
 
         var allTables =
-            allData.keySet().stream()
+            allFilteredData.keySet().stream()
                 .collect(
-                    Collectors.toMap(
+                    MapUtils.toLinkedHashMap(
                         Function.identity(),
                         name -> {
                           var table = new TableView<Map<String, Object>>();

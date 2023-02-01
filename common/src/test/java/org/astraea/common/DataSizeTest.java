@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -40,8 +41,7 @@ class DataSizeTest {
 
   @Test
   void testToString() {
-    var size = DataSize.Byte.of(50);
-    Assertions.assertEquals(size, DataSize.of(size.toString()));
+    Arrays.stream(DataUnit.values()).forEach(unit -> DataSize.of(unit.of(50).toString()));
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")

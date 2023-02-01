@@ -19,6 +19,7 @@ package org.astraea.common.metrics.broker;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricsTestUtil;
 import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,10 +36,15 @@ public class NetworkMetricsTest {
     Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
   }
 
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
+
   @ParameterizedTest()
   @EnumSource(value = NetworkMetrics.Request.class)
   void testRequestTotalTimeMs(NetworkMetrics.Request request) {
-    var histogram = request.fetch(MBeanClient.local());
+    var histogram = request.totalTimeMs(MBeanClient.local());
     MetricsTestUtil.validate(histogram);
   }
 
