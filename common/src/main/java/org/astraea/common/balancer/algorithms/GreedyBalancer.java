@@ -195,4 +195,9 @@ public class GreedyBalancer implements Balancer {
     }
     return new Plan(initialCost, currentSolution.orElse(null));
   }
+
+  @Override
+  public AlgorithmConfig config() {
+    return config;
+  }
 }

@@ -47,9 +47,7 @@ public interface BalancerConsole extends AutoCloseable {
 
     Generation setBalancer(Balancer balancer);
 
-    Generation setBalancer(Class<? extends Balancer> balancer);
-
-    Generation setBalancerConfig(AlgorithmConfig algorithmConfig);
+    Generation setBalancer(Class<? extends Balancer> balancer, AlgorithmConfig algorithmConfig);
 
     Generation setGenerationTimeout(Duration timeout);
 
@@ -78,8 +76,6 @@ public interface BalancerConsole extends AutoCloseable {
     Phase phase();
 
     Balancer usedBalancer();
-
-    AlgorithmConfig usedBalancerConfig();
 
     RebalancePlanExecutor usedExecutor();
 

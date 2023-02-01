@@ -66,6 +66,8 @@ public interface Balancer {
    */
   Plan offer(ClusterInfo currentClusterInfo, Duration timeout);
 
+  AlgorithmConfig config();
+
   @SuppressWarnings("unchecked")
   static Balancer create(String classpath, AlgorithmConfig config) {
     var theClass = Utils.packException(() -> Class.forName(classpath));

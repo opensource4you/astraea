@@ -331,6 +331,11 @@ class BalancerTest {
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return new Plan(() -> 0, new Solution(() -> 0, MoveCost.EMPTY, currentClusterInfo));
           }
+
+          @Override
+          public AlgorithmConfig config() {
+            return null;
+          }
         };
 
     Assertions.assertDoesNotThrow(() -> balancer.retryOffer(fake, Duration.ofSeconds(10)));
@@ -353,6 +358,11 @@ class BalancerTest {
           public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
+          }
+
+          @Override
+          public AlgorithmConfig config() {
+            return null;
           }
         };
 

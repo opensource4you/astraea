@@ -95,4 +95,9 @@ public class SingleStepBalancer implements Balancer {
         .map(solution -> new Plan(currentCost, solution))
         .orElse(new Plan(currentCost));
   }
+
+  @Override
+  public AlgorithmConfig config() {
+    return config;
+  }
 }
