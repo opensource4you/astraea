@@ -22,9 +22,9 @@
    ```
    `[OPTIONS]`為一或多組`hdfs-site.xml` name=value 參數，可以參考[官方docs](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-hdfs/hdfs-default.xml)提供的各項參數及預設值
 
-   - 如下例所示，將 name table 儲存位置設定為`/opt/data/hdfs/name`：
+   - 如下例所示，將 replication 數量設為2：
       ```bash
-      /docker/start_namenode.sh dfs.namenode.name.dir=file:///opt/data/hdfs/name
+      /docker/start_namenode.sh dfs.replication=2
       ```
     
    若成功啟動 NameNode，腳本會輸出下列命令：

@@ -98,14 +98,21 @@ WORKDIR /opt/hadoop
 " >"$DOCKERFILE"
 }
 
-function setPropertyIfEmpty() {
-  local name=$1
-  local value=$2
+function rejectProperty() {
+  local key=$1
+  local file=$2
+  if grep -q "<name>$key</name>" $file; then
+    echo "$key is NOT configurable"
+    exit 2
+  fi
+}
 
-  if ! grep -q "<name>$name</name>" $HDFS_SITE_XML; then
-      local entry="<property><name>$name</name><value>$value</value></property>"
-      local escapedEntry=$(echo $entry | sed 's/\//\\\//g')
-      sed -i "/<\/configuration>/ s/.*/${escapedEntry}\n&/" $HDFS_SITE_XML
+function requireProperty() {
+  local key=$1
+  local file=$2
+  if ! grep -q "<name>$key</name>" $file; then
+    echo "$key is required"
+    exit 2
   fi
 }
 
@@ -132,6 +139,7 @@ checkNetwork
 
 echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
 echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $CORE_SITE_XML
+
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
@@ -141,19 +149,29 @@ while [[ $# -gt 0 ]]; do
   value=${1#*=}
   if [[ "$name" == "fs.defaultFS" ]]; then
     setProperty $name $value $CORE_SITE_XML
-    namenode=$(echo $value | grep -o 'namenode-[0-9]*')
   else
-    setPropertyIfEmpty $name $value
+    setProperty $name $value $HDFS_SITE_XML
   fi
   shift
 done
 
+rejectProperty dfs.datanode.address $HDFS_SITE_XML
+rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
+rejectProperty dfs.client.use.datanode.hostname $HDFS_SITE_XML
+requireProperty fs.defaultFS $CORE_SITE_XML
+
+setProperty dfs.datanode.address 0.0.0.0:$DATANODE_PORT $HDFS_SITE_XML
+setProperty dfs.datanode.use.datanode.hostname true $HDFS_SITE_XML
+setProperty dfs.client.use.datanode.hostname true $HDFS_SITE_XML
+
 docker run -d --init \
   --name $CONTAINER_NAME \
+  -h ${ADDRESS} \
   -e HDFS_DATANODE_OPTS="$JMX_OPTS" \
   -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
   -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
   -p $DATANODE_HTTP_ADDRESS:9864 \
+  -p $DATANODE_PORT:$DATANODE_PORT \
   -p $DATANODE_JMX_PORT:$DATANODE_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
   "$IMAGE_NAME" /bin/bash -c "./bin/hdfs datanode"

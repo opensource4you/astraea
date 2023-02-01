@@ -98,14 +98,12 @@ WORKDIR /opt/hadoop
 " >"$DOCKERFILE"
 }
 
-function setPropertyIfEmpty() {
-  local name=$1
-  local value=$2
-
-  if ! grep -q "<name>$name</name>" $HDFS_SITE_XML; then
-      local entry="<property><name>$name</name><value>$value</value></property>"
-      local escapedEntry=$(echo $entry | sed 's/\//\\\//g')
-      sed -i "/<\/configuration>/ s/.*/${escapedEntry}\n&/" $HDFS_SITE_XML
+function rejectProperty() {
+  local key=$1
+  local file=$2
+  if grep -q "<name>$key</name>" $file; then
+    echo "$key is NOT configurable"
+    exit 2
   fi
 }
 
@@ -131,7 +129,7 @@ fi
 checkNetwork
 
 echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
-setProperty dfs.namenode.datanode.registration.ip-hostname-check false $HDFS_SITE_XML
+echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > "$CORE_SITE_XML"
 
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
@@ -140,17 +138,19 @@ while [[ $# -gt 0 ]]; do
   fi
   name=${1%=*}
   value=${1#*=}
-  setPropertyIfEmpty name value
+  setProperty $name $value $HDFS_SITE_XML
   shift
 done
 
-echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > "$CORE_SITE_XML"
+rejectProperty dfs.namenode.datanode.registration.ip-hostname-check $HDFS_SITE_XML
+
+setProperty dfs.namenode.datanode.registration.ip-hostname-check false $HDFS_SITE_XML
 setProperty fs.defaultFS hdfs://$CONTAINER_NAME:8020 $CORE_SITE_XML
 
 docker run -d --init \
   --name $CONTAINER_NAME \
-  -e HDFS_NAMENODE_OPTS="$JMX_OPTS" \
   -h $CONTAINER_NAME \
+  -e HDFS_NAMENODE_OPTS="$JMX_OPTS" \
   -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
   -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
   -p $NAMENODE_HTTP_ADDRESS:9870 \
