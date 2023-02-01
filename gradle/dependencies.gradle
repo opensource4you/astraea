@@ -35,7 +35,7 @@ def versions = [
         slf4j                 : project.properties['slf4j.version'] ?: "2.0.6",
         spark                 : project.properties['spark.version'] ?: "3.3.1",
         "wix-embedded-mysql"  : project.properties['wix-embedded-mysql.version'] ?: "4.6.2",
-        zookeeper             : project.properties['zookeeper.version'] ?: "3.8.0",
+        zookeeper             : project.properties['zookeeper.version'] ?: "3.8.1",
         "hadoop-common"       : project.properties['hadoop-common.version'] ?: "3.3.4",
         "hadoop-minicluster"  : project.properties['hadoop-minicluster.version'] ?: "3.3.4",
 ]
