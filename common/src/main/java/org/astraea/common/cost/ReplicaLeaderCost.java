@@ -49,7 +49,12 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerScore.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerScore.values().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   private static Map<Integer, Integer> leaderCount(

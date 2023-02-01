@@ -18,6 +18,7 @@ package org.astraea.common.balancer.algorithms;
 
 import java.util.Map;
 import org.astraea.common.Configuration;
+import org.astraea.common.cost.ClusterCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ public class AlgorithmConfigTest {
   void testCopy() {
     var config0 =
         AlgorithmConfig.builder()
-            .clusterCost((i, j) -> () -> 100)
+            .clusterCost((i, j) -> ClusterCost.of(1))
             .config(Configuration.of(Map.of()))
             .build();
     var config1 = AlgorithmConfig.builder(config0).build();

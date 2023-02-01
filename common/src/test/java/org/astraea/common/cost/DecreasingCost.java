@@ -31,9 +31,10 @@ public class DecreasingCost implements HasClusterCost {
   @Override
   public synchronized ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     if (original == null) original = clusterInfo;
-    if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
+    if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty())
+      return ClusterCost.of(1);
     double theCost = value0;
     value0 = value0 * 0.998;
-    return () -> theCost;
+    return ClusterCost.of(theCost);
   }
 }

@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,39 +49,39 @@ public interface HasClusterCost extends CostFunction {
             costAndWeight.entrySet().stream()
                 .collect(
                     Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey,
-                        e -> e.getKey().clusterCost(clusterInfo, clusterBean).value()));
+                        Map.Entry::getKey, e -> e.getKey().clusterCost(clusterInfo, clusterBean)));
         var totalWeight = costAndWeight.values().stream().mapToDouble(x -> x).sum();
         var compositeScore =
             costAndWeight.keySet().stream()
-                .mapToDouble(cost -> scores.get(cost) * costAndWeight.get(cost) / totalWeight)
+                .mapToDouble(
+                    cost -> scores.get(cost).value() * costAndWeight.get(cost) / totalWeight)
                 .sum();
 
-        return new ClusterCost() {
-          @Override
-          public double value() {
-            return compositeScore;
-          }
-
-          @Override
-          public String toString() {
-            Bi3Function<HasClusterCost, Double, Double, String> descriptiveName =
-                (function, cost, weight) ->
-                    "{\"" + function.toString() + "\" cost " + cost + " weight " + weight + "}";
-            return "WeightCompositeClusterCost["
-                + costAndWeight.entrySet().stream()
-                    .sorted(
-                        Comparator.<Map.Entry<HasClusterCost, Double>>comparingDouble(
-                                Map.Entry::getValue)
-                            .reversed())
-                    .map(
-                        e ->
-                            descriptiveName.apply(e.getKey(), scores.get(e.getKey()), e.getValue()))
-                    .collect(Collectors.joining(", "))
-                + "] = "
-                + compositeScore;
-          }
-        };
+        return ClusterCost.of(
+            compositeScore,
+            () -> {
+              Bi3Function<HasClusterCost, ClusterCost, Double, String> descriptiveName =
+                  (function, cost, weight) ->
+                      "{\""
+                          + function.toString()
+                          + "\" cost "
+                          + cost.value()
+                          + " weight "
+                          + weight
+                          + " description "
+                          + cost
+                          + " }";
+              return "WeightCompositeClusterCost["
+                  + costAndWeight.entrySet().stream()
+                      .sorted(Map.Entry.<HasClusterCost, Double>comparingByValue().reversed())
+                      .map(
+                          e ->
+                              descriptiveName.apply(
+                                  e.getKey(), scores.get(e.getKey()), e.getValue()))
+                      .collect(Collectors.joining(", "))
+                  + "] = "
+                  + compositeScore;
+            });
       }
 
       @Override

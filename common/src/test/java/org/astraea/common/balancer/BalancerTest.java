@@ -164,7 +164,7 @@ class BalancerTest {
           new HasClusterCost() {
             @Override
             public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-              return () -> ThreadLocalRandom.current().nextDouble();
+              return ClusterCost.of(ThreadLocalRandom.current().nextDouble());
             }
           };
 
@@ -239,7 +239,7 @@ class BalancerTest {
                   Balancer.create(
                           theClass,
                           AlgorithmConfig.builder()
-                              .clusterCost((clusterInfo, bean) -> Math::random)
+                              .clusterCost((clusterInfo, bean) -> ClusterCost.of(Math.random()))
                               .build())
                       .offer(
                           admin
@@ -288,7 +288,7 @@ class BalancerTest {
                           .createdTimestamp(),
                       "The metric counter increased");
                   called.set(true);
-                  return () -> 0;
+                  return ClusterCost.of(0);
                 }
               };
           Balancer.create(
@@ -329,7 +329,9 @@ class BalancerTest {
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return new Plan(() -> 0, new Solution(() -> 0, MoveCost.EMPTY, currentClusterInfo));
+            return new Plan(
+                ClusterCost.of(0),
+                new Solution(ClusterCost.of(0), MoveCost.EMPTY, currentClusterInfo));
           }
         };
 

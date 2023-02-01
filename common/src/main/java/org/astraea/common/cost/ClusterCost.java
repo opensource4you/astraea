@@ -16,8 +16,40 @@
  */
 package org.astraea.common.cost;
 
-/** Return type of cost function, `HasMoveCost`. It returns the score of brokers. */
-public interface ClusterCost {
+import java.util.function.Supplier;
+
+public final class ClusterCost {
+
+  private final double value;
+  private final Supplier<String> toString;
+
+  private ClusterCost(double value, Supplier<String> description) {
+    this.value = value;
+    this.toString = description;
+  }
+
+  /**
+   * Build a {@link ClusterCost} instance.
+   *
+   * @param costValue The cost value of a Kafka cluster. The provided cost value should be within
+   *     the range of [0, 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
+   */
+  public static ClusterCost of(double costValue) {
+    return of(costValue, () -> "none");
+  }
+
+  /**
+   * Build a {@link ClusterCost} instance. The provided cost value must be within the range of [0,
+   * 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
+   *
+   * @param costValue The cost value of a Kafka cluster. The provided cost value should be within
+   *     the range of [0, 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
+   * @param description a descriptive text about the background story of this cost value. This value
+   *     might be displayed on a user interface.
+   */
+  public static ClusterCost of(double costValue, Supplier<String> description) {
+    return new ClusterCost(costValue, description);
+  }
 
   /**
    * The cost score of a Kafka cluster. This value represents the idealness of a Kafka cluster in
@@ -32,5 +64,12 @@ public interface ClusterCost {
    * @return a number represents the idealness of a cluster state in terms of specific performance
    *     aspect.
    */
-  double value();
+  public double value() {
+    return this.value;
+  }
+
+  @Override
+  public String toString() {
+    return toString.get();
+  }
 }
