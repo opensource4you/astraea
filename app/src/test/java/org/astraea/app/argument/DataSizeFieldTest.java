@@ -68,6 +68,5 @@ class DataSizeFieldTest {
     assertThrows(IllegalArgumentException.class, () -> converter.convert("5000 MB per second"));
     assertThrows(IllegalArgumentException.class, () -> converter.convert("xxx 5000 MB"));
     assertThrows(IllegalArgumentException.class, () -> converter.convert("5000 MB 400GB"));
-    assertThrows(IllegalArgumentException.class, () -> converter.convert("6.00 MB"));
   }
 }

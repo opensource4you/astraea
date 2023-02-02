@@ -16,12 +16,13 @@
  */
 package org.astraea.common.cost;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -30,48 +31,82 @@ import org.junit.jupiter.api.Test;
 
 class ReplicaNumberCostTest {
 
-  @Test
-  void testClusterCostWhenNodeHavingNothing() {
-    var nodeInfo = NodeInfo.of(10, "h", 100);
-    var replica = Replica.builder().nodeInfo(nodeInfo).topic("t").build();
-    var clusterInfo =
-        ClusterInfo.of("fake", List.of(nodeInfo, NodeInfo.of(100, "h", 100)), List.of(replica));
-    var cost = new ReplicaNumberCost();
-    Assertions.assertEquals(
-        Long.MAX_VALUE, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
-  }
-
-  @Test
-  void testClusterCostForSingleNode() {
-    var nodeInfo = NodeInfo.of(10, "h", 100);
-    var clusterInfo = ClusterInfo.of("fake", List.of(nodeInfo), List.<Replica>of());
-    var cost = new ReplicaNumberCost();
-    Assertions.assertEquals(0, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
-  }
-
-  @Test
-  void testClusterCostForAllInSingleNode() {
-    var nodeInfo = NodeInfo.of(10, "h", 100);
-    var replica = Replica.builder().nodeInfo(nodeInfo).topic("t").build();
-    var clusterInfo =
-        ClusterInfo.of("fake", List.of(nodeInfo, NodeInfo.of(11, "j", 100)), List.of(replica));
-    var cost = new ReplicaNumberCost();
-    Assertions.assertEquals(
-        Long.MAX_VALUE, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
-  }
+  private static final ClusterInfo BASE =
+      ClusterInfoBuilder.builder()
+          .addNode(Set.of(1, 2, 3, 4, 5, 6))
+          .addFolders(
+              Map.ofEntries(
+                  Map.entry(1, Set.of("/folder0", "/folder1", "/folder2")),
+                  Map.entry(2, Set.of("/folder0", "/folder1", "/folder2")),
+                  Map.entry(3, Set.of("/folder0", "/folder1", "/folder2")),
+                  Map.entry(4, Set.of("/folder0", "/folder1", "/folder2")),
+                  Map.entry(5, Set.of("/folder0", "/folder1", "/folder2")),
+                  Map.entry(6, Set.of("/folder0", "/folder1", "/folder2"))))
+          .build();
+  private static final ClusterInfo BASE_1 =
+      ClusterInfoBuilder.builder()
+          .addNode(Set.of(1))
+          .addFolders(Map.of(1, Set.of("/folder0", "/folder1", "/folder2")))
+          .build();
 
   @Test
   void testClusterCost() {
-    var nodeInfo = NodeInfo.of(10, "h", 100);
-    var replicas =
-        IntStream.range(0, 10)
-            .mapToObj(i -> Replica.builder().nodeInfo(nodeInfo).topic("t").build())
-            .collect(Collectors.toCollection(ArrayList::new));
-    replicas.add(Replica.builder().nodeInfo(NodeInfo.of(11, "j", 100)).topic("t").build());
-    var clusterInfo =
-        ClusterInfo.of("fake", List.of(nodeInfo, NodeInfo.of(11, "j", 100)), replicas);
     var cost = new ReplicaNumberCost();
-    Assertions.assertEquals(9, cost.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
+
+    // (1,1,1,1,1,1)
+    var evenCluster = ClusterInfoBuilder.builder(BASE).addTopic("topic", 6, (short) 1).build();
+    Assertions.assertEquals(0, cost.clusterCost(evenCluster, ClusterBean.EMPTY).value());
+
+    // (0)
+    Assertions.assertEquals(0, cost.clusterCost(BASE_1, ClusterBean.EMPTY).value());
+
+    // (0,0,0,0,0,0)
+    Assertions.assertEquals(0, cost.clusterCost(BASE, ClusterBean.EMPTY).value());
+
+    // (any)
+    var singleNodeCluster =
+        ClusterInfoBuilder.builder(BASE_1)
+            .addTopic("topic", ThreadLocalRandom.current().nextInt(1, 100), (short) 1)
+            .build();
+    Assertions.assertEquals(0, cost.clusterCost(singleNodeCluster, ClusterBean.EMPTY).value());
+
+    // (all, 0, 0, 0, 0, 0)
+    var expandedCluster =
+        ClusterInfoBuilder.builder(BASE_1)
+            .addTopic("topic", ThreadLocalRandom.current().nextInt(1, 100), (short) 1)
+            .addNode(Set.of(2, 3, 4, 5, 6))
+            .build();
+    Assertions.assertEquals(1, cost.clusterCost(expandedCluster, ClusterBean.EMPTY).value());
+
+    // (40, 30, 20, 10)
+    var skewCluster0 =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1))
+            .addFolders(Map.of(1, Set.of("/folder")))
+            .addTopic("topicA", 10, (short) 1)
+            .addNode(Set.of(2))
+            .addFolders(Map.of(2, Set.of("/folder")))
+            .addTopic("topicB", 20, (short) 1)
+            .addNode(Set.of(3))
+            .addFolders(Map.of(3, Set.of("/folder")))
+            .addTopic("topicC", 30, (short) 1)
+            .addNode(Set.of(4))
+            .addFolders(Map.of(4, Set.of("/folder")))
+            .addTopic("topicD", 40, (short) 1)
+            .build();
+    var expected = (double) (40 - 10) / (40 + 30 + 20 + 10);
+    Assertions.assertEquals(expected, cost.clusterCost(skewCluster0, ClusterBean.EMPTY).value());
+  }
+
+  @Test
+  void testIntegerBalanceClusterCost() {
+    // Allocate 7 replicas to 6 brokers, there is always a broker have an extra replica.
+    // Given a (1,1,1,1,1,2) this should be considered as a balance case, so 0 should be return.
+    for (int i = 7; i <= 11; i++) {
+      var cost = new ReplicaNumberCost();
+      var evenCluster = ClusterInfoBuilder.builder(BASE).addTopic("topic", i, (short) 1).build();
+      Assertions.assertEquals(0, cost.clusterCost(evenCluster, ClusterBean.EMPTY).value());
+    }
   }
 
   @Test

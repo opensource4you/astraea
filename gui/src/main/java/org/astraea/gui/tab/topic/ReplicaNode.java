@@ -40,7 +40,7 @@ import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
-public class ReplicaNode {
+class ReplicaNode {
 
   static final String TOPIC_NAME_KEY = "topic";
   static final String PARTITION_KEY = "partition";

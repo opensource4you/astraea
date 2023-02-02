@@ -19,9 +19,9 @@ package org.astraea.common.partitioner;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 
@@ -29,10 +29,10 @@ public class RoundRobinKeeper {
   private final AtomicInteger next = new AtomicInteger(0);
   final int[] roundRobin;
   final Duration roundRobinLease;
-  volatile long timeToUpdateRoundRobin = -1;
+  final AtomicLong lastUpdated = new AtomicLong(-1);
 
-  private RoundRobinKeeper(int preLength, Duration roundRobinLease) {
-    this.roundRobin = new int[preLength];
+  private RoundRobinKeeper(int length, Duration roundRobinLease) {
+    this.roundRobin = new int[length];
     this.roundRobinLease = roundRobinLease;
   }
 
@@ -40,15 +40,16 @@ public class RoundRobinKeeper {
     return new RoundRobinKeeper(preLength, roundRobinLease);
   }
 
-  synchronized void tryToUpdate(ClusterInfo clusterInfo, Lazy<Map<Integer, Double>> costToScore) {
-    if (System.currentTimeMillis() >= timeToUpdateRoundRobin) {
+  void tryToUpdate(ClusterInfo clusterInfo, Supplier<Map<Integer, Double>> costToScore) {
+    var now = System.nanoTime();
+    if (lastUpdated.updateAndGet(last -> now - roundRobinLease.toNanos() >= last ? now : last)
+        == now) {
       var roundRobin = RoundRobin.smooth(costToScore.get());
       var ids =
           clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
       // TODO: make ROUND_ROBIN_LENGTH configurable ???
-      IntStream.range(0, this.roundRobin.length)
-          .forEach(index -> this.roundRobin[index] = roundRobin.next(ids).orElse(-1));
-      timeToUpdateRoundRobin = System.currentTimeMillis() + roundRobinLease.toMillis();
+      for (var index = 0; index < this.roundRobin.length; ++index)
+        this.roundRobin[index] = roundRobin.next(ids).orElse(-1);
     }
   }
 

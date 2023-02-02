@@ -66,6 +66,30 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Set<String>> internalTopicNames();
 
+  /**
+   * Find out the topic names matched to input checkers.
+   *
+   * @param checkers used to predicate topic
+   * @return topic names accepted by all given checkers
+   */
+  default CompletionStage<Set<String>> topicNames(List<TopicChecker> checkers) {
+    if (checkers.isEmpty()) return topicNames(false);
+    return topicNames(false)
+        .thenCompose(
+            topicNames ->
+                FutureUtils.sequence(
+                        checkers.stream()
+                            .map(checker -> checker.test(this, topicNames).toCompletableFuture())
+                            .collect(Collectors.toUnmodifiableList()))
+                    .thenApply(
+                        all ->
+                            all.stream()
+                                .flatMap(Collection::stream)
+                                // return topics accepted by all checkers
+                                .filter(t -> all.stream().allMatch(ts -> ts.contains(t)))
+                                .collect(Collectors.toUnmodifiableSet())));
+  }
+
   CompletionStage<List<Topic>> topics(Set<String> topics);
 
   /**
@@ -182,32 +206,6 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<ClusterInfo> clusterInfo(Set<String> topics);
 
-  default CompletionStage<Set<String>> idleTopic(List<TopicChecker> checkers) {
-    if (checkers.isEmpty()) {
-      throw new RuntimeException("Can not check for idle topics because of no checkers!");
-    }
-
-    return topicNames(false)
-        .thenCompose(
-            topicNames ->
-                FutureUtils.sequence(
-                        checkers.stream()
-                            .map(
-                                checker ->
-                                    checker.usedTopics(this, topicNames).toCompletableFuture())
-                            .collect(Collectors.toUnmodifiableList()))
-                    .thenApply(
-                        s ->
-                            s.stream()
-                                .flatMap(Collection::stream)
-                                .collect(Collectors.toUnmodifiableSet()))
-                    .thenApply(
-                        usedTopics ->
-                            topicNames.stream()
-                                .filter(name -> !usedTopics.contains(name))
-                                .collect(Collectors.toUnmodifiableSet())));
-  }
-
   /**
    * get the quotas associated to given target keys and target values. The available target types
    * include {@link QuotaConfigs#IP}, {@link QuotaConfigs#CLIENT_ID}, and {@link QuotaConfigs#USER}
@@ -281,6 +279,19 @@ public interface Admin extends AutoCloseable {
   CompletionStage<Void> moveToBrokers(Map<TopicPartition, List<Integer>> assignments);
 
   CompletionStage<Void> moveToFolders(Map<TopicPartitionReplica, String> assignments);
+
+  /**
+   * Declare the preferred data folder for the designated partition at a specific broker.
+   *
+   * <p>Preferred data folder is the data folder a partition will use when it is being placed on the
+   * specific broker({@link Admin#moveToBrokers(Map)}). This API won't trigger a folder-to-folder
+   * replica movement. To Perform folder-to-folder movement, consider use {@link
+   * Admin#moveToFolders(Map)}.
+   *
+   * <p>This API is not transactional. It may alter folders if the target broker has out-of-date
+   * metadata or running reassignments
+   */
+  CompletionStage<Void> declarePreferredDataFolders(Map<TopicPartitionReplica, String> assignments);
 
   /**
    * Perform preferred leader election for the specified topic/partitions. Let the first replica(the

@@ -71,4 +71,9 @@ public class RecordSizeCost
     var result = clusterInfo.replicaStream().mapToLong(Replica::size).sum();
     return () -> result;
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

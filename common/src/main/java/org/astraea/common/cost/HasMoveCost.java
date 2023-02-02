@@ -18,10 +18,12 @@ package org.astraea.common.cost;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.collector.Fetcher;
 
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
@@ -29,46 +31,81 @@ public interface HasMoveCost extends CostFunction {
   HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.EMPTY;
 
   static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts) {
-    return (before, after, clusterBean) -> {
-      var costs =
-          hasMoveCosts.stream()
-              .map(c -> c.moveCost(before, after, clusterBean))
-              .collect(Collectors.toList());
-      var movedReplicaSize =
-          costs.stream()
-              .flatMap(c -> c.movedRecordSize().entrySet().stream())
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
-      var changedReplicaCount =
-          costs.stream()
-              .flatMap(c -> c.changedReplicaCount().entrySet().stream())
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
-      var changedReplicaLeaderCount =
-          costs.stream()
-              .flatMap(c -> c.changedReplicaLeaderCount().entrySet().stream())
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+    var fetcher =
+        Fetcher.of(
+            hasMoveCosts.stream()
+                .map(CostFunction::fetcher)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toUnmodifiableList()));
+    return new HasMoveCost() {
+      @Override
+      public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+        var costs =
+            hasMoveCosts.stream()
+                .map(c -> c.moveCost(before, after, clusterBean))
+                .collect(Collectors.toList());
 
-      return new MoveCost() {
-        @Override
-        public Map<Integer, DataSize> movedRecordSize() {
-          return movedReplicaSize;
-        }
+        var movedReplicaLeaderSize =
+            costs.stream()
+                .flatMap(c -> c.movedReplicaLeaderSize().entrySet().stream())
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+        var movedReplicaSize =
+            costs.stream()
+                .flatMap(c -> c.movedRecordSize().entrySet().stream())
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
+        var changedReplicaCount =
+            costs.stream()
+                .flatMap(c -> c.changedReplicaCount().entrySet().stream())
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+        var changedReplicaLeaderCount =
+            costs.stream()
+                .flatMap(c -> c.changedReplicaLeaderCount().entrySet().stream())
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+        return new MoveCost() {
+          @Override
+          public Map<Integer, DataSize> movedReplicaLeaderSize() {
+            return movedReplicaLeaderSize;
+          }
 
-        @Override
-        public Map<Integer, Integer> changedReplicaCount() {
-          return changedReplicaCount;
-        }
+          @Override
+          public Map<Integer, DataSize> movedRecordSize() {
+            return movedReplicaSize;
+          }
 
-        @Override
-        public Map<Integer, Integer> changedReplicaLeaderCount() {
-          return changedReplicaLeaderCount;
-        }
-      };
+          @Override
+          public Map<Integer, Integer> changedReplicaCount() {
+            return changedReplicaCount;
+          }
+
+          @Override
+          public Map<Integer, Integer> changedReplicaLeaderCount() {
+            return changedReplicaLeaderCount;
+          }
+        };
+      }
+
+      @Override
+      public Optional<Fetcher> fetcher() {
+        return fetcher;
+      }
+
+      @Override
+      public String toString() {
+        return "MoveCosts["
+            + hasMoveCosts.stream()
+                .map(cost -> "\"" + cost.toString() + "\"")
+                .collect(Collectors.joining(", "))
+            + "]";
+      }
     };
   }
 

@@ -24,4 +24,9 @@ public class NetworkEgressCost extends NetworkCost {
   public NetworkEgressCost() {
     super(BandwidthType.Egress);
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }

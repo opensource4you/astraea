@@ -62,6 +62,11 @@ public interface HasBrokerCost extends CostFunction {
       public Optional<Fetcher> fetcher() {
         return fetcher;
       }
+
+      @Override
+      public String toString() {
+        return "WeightCompositeBrokerCostFunction" + CostFunction.toStringComposite(costAndWeight);
+      }
     };
   }
 

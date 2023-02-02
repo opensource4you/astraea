@@ -69,8 +69,7 @@ public enum ReportFormat implements EnumInfo {
       ReportFormat reportFormat,
       Path path,
       Supplier<Boolean> consumerDone,
-      Supplier<Boolean> producerDone)
-      throws IOException {
+      Supplier<Boolean> producerDone) {
     var filePath =
         FileSystems.getDefault()
             .getPath(
@@ -79,7 +78,7 @@ public enum ReportFormat implements EnumInfo {
                     + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())
                     + "."
                     + reportFormat);
-    var writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+    var writer = new BufferedWriter(Utils.packException(() -> new FileWriter(filePath.toFile())));
     switch (reportFormat) {
       case CSV:
         initCSVFormat(writer, latencyAndIO());
@@ -94,7 +93,7 @@ public enum ReportFormat implements EnumInfo {
           }
         };
       case JSON:
-        writer.write("{");
+        Utils.packException(() -> writer.write("{"));
         return () -> {
           try {
             while (!(producerDone.get() && consumerDone.get())) {
@@ -110,10 +109,9 @@ public enum ReportFormat implements EnumInfo {
     }
   }
 
-  static void initCSVFormat(BufferedWriter writer, List<CSVContentElement> elements)
-      throws IOException {
+  static void initCSVFormat(BufferedWriter writer, List<CSVContentElement> elements) {
     elements.forEach(element -> Utils.packException(() -> writer.write(element.title() + ", ")));
-    writer.newLine();
+    Utils.packException(writer::newLine);
   }
 
   static void logToCSV(BufferedWriter writer, List<CSVContentElement> elements) {
@@ -195,6 +193,11 @@ public enum ReportFormat implements EnumInfo {
                   CSVContentElement.create(
                       "Producer[" + i + "] average publish latency (ms)",
                       () -> Double.toString(producerReports.get(i).avgLatency())));
+              elements.add(
+                  CSVContentElement.create(
+                      "Producer[" + i + "] average e2e latency (ms)",
+                      () ->
+                          Double.toString(producerReports.get(i).e2eLatency().orElse(Double.NaN))));
             });
     IntStream.range(0, consumerReports.size())
         .forEach(

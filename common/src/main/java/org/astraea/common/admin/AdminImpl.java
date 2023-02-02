@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -50,6 +51,7 @@ import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
+import org.apache.kafka.common.errors.ReplicaNotAvailableException;
 import org.apache.kafka.common.errors.UnsupportedVersionException;
 import org.apache.kafka.common.quota.ClientQuotaAlteration;
 import org.apache.kafka.common.quota.ClientQuotaEntity;
@@ -981,6 +983,33 @@ class AdminImpl implements Admin {
                         Collectors.toMap(
                             e -> TopicPartitionReplica.to(e.getKey()), Map.Entry::getValue)))
             .all());
+  }
+
+  @Override
+  public CompletionStage<Void> declarePreferredDataFolders(
+      Map<TopicPartitionReplica, String> assignments) {
+    if (assignments.isEmpty()) return CompletableFuture.completedFuture(null);
+    return clusterInfo(
+            assignments.keySet().stream()
+                .map(TopicPartitionReplica::topic)
+                .collect(Collectors.toUnmodifiableSet()))
+        .thenApply(
+            cluster ->
+                assignments.entrySet().stream()
+                    .filter(e -> cluster.replicas(e.getKey()).isEmpty())
+                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .thenCompose(this::moveToFolders)
+        .handle(
+            (r, e) -> {
+              if (e == null)
+                throw new RuntimeException(
+                    "Fail to expect a ReplicaNotAvailableException return from the API. "
+                        + "A data folder movement might just triggered. "
+                        + "Is there another Admin Client manipulating the cluster state?");
+              if (e instanceof CompletionException
+                  && (e.getCause()) instanceof ReplicaNotAvailableException) return null;
+              throw (RuntimeException) e;
+            });
   }
 
   @Override

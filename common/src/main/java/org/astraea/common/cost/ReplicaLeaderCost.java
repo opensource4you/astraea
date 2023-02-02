@@ -123,4 +123,9 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                       return newLeaders - removedLeaders;
                     })));
   }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
+  }
 }
