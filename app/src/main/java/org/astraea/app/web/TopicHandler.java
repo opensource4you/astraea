@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -175,7 +176,7 @@ class TopicHandler implements Handler {
                             .numberOfReplicas(numberOfReplicas)
                             .binomialProbability(topic.probability.get())
                             .build()
-                            .apply(admin)
+                            .apply(admin, Configuration.EMPTY)
                             .thenApply(ignored -> null)
                             .toCompletableFuture();
                       }

@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import java.util.List;
 import java.util.Set;
 import org.apache.commons.math3.distribution.BinomialDistribution;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
@@ -58,7 +59,7 @@ class SkewedPartitionScenarioTest {
     var topicName = Utils.randomString();
     var scenario = new SkewedPartitionScenario(topicName, partitions, replicas, 0.5);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var result = scenario.apply(admin).toCompletableFuture().join();
+      var result = scenario.apply(admin, Configuration.EMPTY).toCompletableFuture().join();
       Assertions.assertEquals(topicName, result.topicName());
       Assertions.assertEquals(partitions, result.numberOfPartitions());
       Assertions.assertEquals(replicas, result.numberOfReplicas());
