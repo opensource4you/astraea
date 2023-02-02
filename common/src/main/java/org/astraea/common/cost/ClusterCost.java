@@ -21,16 +21,6 @@ import java.util.function.Supplier;
 public interface ClusterCost {
 
   /**
-   * Build a {@link ClusterCost} instance.
-   *
-   * @param costValue The cost value of a Kafka cluster. The provided cost value should be within
-   *     the range of [0, 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
-   */
-  static ClusterCost of(double costValue) {
-    return of(costValue, () -> "none");
-  }
-
-  /**
    * Build a {@link ClusterCost} instance. The provided cost value must be within the range of [0,
    * 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
    *
