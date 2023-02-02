@@ -27,7 +27,7 @@ public class AlgorithmConfigTest {
   void testCopy() {
     var config0 =
         AlgorithmConfig.builder()
-            .clusterCost((i, j) -> () -> 1)
+            .clusterCost((i, j) -> () -> 100)
             .config(Configuration.of(Map.of()))
             .build();
     var config1 = AlgorithmConfig.builder(config0).build();

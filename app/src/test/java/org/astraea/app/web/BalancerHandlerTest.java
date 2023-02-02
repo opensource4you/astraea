@@ -262,7 +262,7 @@ public class BalancerHandlerTest {
                       .build()));
 
       HasClusterCost clusterCostFunction =
-          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 1D : 0D;
+          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
 
       var balancerHandler = new BalancerHandler(admin);
@@ -1265,15 +1265,14 @@ public class BalancerHandlerTest {
 
     public IncreasingCost(Configuration configuration) {}
 
-    private double value0 = 0.0001;
+    private double value0 = 1.0;
 
     @Override
     public synchronized ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       if (original == null) original = clusterInfo;
-      if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty())
-        return () -> 0.0001;
+      if (ClusterInfo.findNonFulfilledAllocation(original, clusterInfo).isEmpty()) return () -> 1;
       double theCost = value0;
-      value0 = value0 * 1.00002;
+      value0 = value0 * 1.002;
       return () -> theCost;
     }
   }

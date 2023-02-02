@@ -239,7 +239,7 @@ class BalancerTest {
                   Balancer.create(
                           theClass,
                           AlgorithmConfig.builder()
-                              .clusterCost((clusterInfo, bean) -> () -> Math.random())
+                              .clusterCost((clusterInfo, bean) -> Math::random)
                               .build())
                       .offer(
                           admin
