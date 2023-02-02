@@ -193,6 +193,11 @@ public enum ReportFormat implements EnumInfo {
                   CSVContentElement.create(
                       "Producer[" + i + "] average publish latency (ms)",
                       () -> Double.toString(producerReports.get(i).avgLatency())));
+              elements.add(
+                  CSVContentElement.create(
+                      "Producer[" + i + "] average e2e latency (ms)",
+                      () ->
+                          Double.toString(producerReports.get(i).e2eLatency().orElse(Double.NaN))));
             });
     IntStream.range(0, consumerReports.size())
         .forEach(
