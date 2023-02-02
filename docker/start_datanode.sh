@@ -21,7 +21,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 declare -r VERSION=${VERSION:-3.3.4}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/hadoop}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r DOCKERFILE=$DOCKER_FOLDER/datanode.dockerfile
+declare -r DOCKERFILE=$DOCKER_FOLDER/hadoop.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
 declare -r DATANODE_PORT=${DATANODE_PORT:-"$(getRandomPort)"}
