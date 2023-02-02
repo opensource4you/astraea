@@ -69,7 +69,7 @@ public class RecordSizeCost
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result = clusterInfo.replicaStream().mapToLong(Replica::size).sum();
-    return ClusterCost.of(result);
+    return () -> result;
   }
 
   @Override
