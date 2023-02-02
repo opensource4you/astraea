@@ -162,9 +162,11 @@ public abstract class NetworkCost implements HasClusterCost, HasPartitionCost {
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
             .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey, e -> Double.valueOf(e.getValue()) / 1024 / 1024 / 1024));
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> convertToGiB(e.getValue())));
+  }
+
+  private double convertToGiB(long bytes) {
+    return (double) bytes / 1024 / 1024 / 1024;
   }
 
   @Override
