@@ -18,13 +18,13 @@
 1. 啟動 `NameNode`
    ##### 腳本
    ```bash
-   ./docker/start_namenode.sh [OPTIONS]
+   ./docker/start_hadoop.sh namenode [OPTIONS]
    ```
    `[OPTIONS]`為一或多組`hdfs-site.xml` name=value 參數，可以參考[官方docs](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-hdfs/hdfs-default.xml)提供的各項參數及預設值
 
    - 如下例所示，將 replication 數量設為2：
       ```bash
-      /docker/start_namenode.sh dfs.replication=2
+      /docker/start_hadoop.sh namenode dfs.replication=2
       ```
     
    若成功啟動 NameNode，腳本會輸出下列命令：
@@ -35,7 +35,7 @@
    http address: 192.168.103.44:14273
    jmx address: 192.168.103.44:15411
    exporter address: 192.168.103.44:15862
-   run /home/chaoheng/IdeaProjects/astraea/docker/start_datanode.sh fs.defaultFS=hdfs://192.168.103.44:16462 to join datanode
+   run /home/chaoheng/IdeaProjects/astraea/docker/start_hadoop.sh datanode fs.defaultFS=hdfs://192.168.103.44:16462 to join datanode
    =================================================
    ```
    可以根據輸出的 `http address` 進入官方提供的 WebUI 介面
@@ -45,7 +45,7 @@
    成功建置 NameNode 後，腳本會輸出部署 DataNode 的命令，後面的參數`fs.defaultFS`就是 NameNode 的 hostname 及 port
    ##### 腳本
    ```bash
-   ./docker/start_datanode.sh fs.defaultFS=hdfs://192.168.103.44:16462 [OPTIONS]
+   ./docker/start_hadoop.sh datanode fs.defaultFS=hdfs://192.168.103.44:16462 [OPTIONS]
    ```
    `[OPTIONS]`為一或多組`hdfs-site.xml` name=value 參數，可以參考[官方docs](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-hdfs/hdfs-default.xml)提供的各項參數及預設值
 

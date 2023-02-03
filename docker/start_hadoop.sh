@@ -24,30 +24,24 @@ declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/hadoop.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
-declare -r DATANODE_PORT=${DATANODE_PORT:-"$(getRandomPort)"}
-declare -r DATANODE_JMX_PORT="${DATANODE_JMX_PORT:-"$(getRandomPort)"}"
-declare -r DATANODE_HTTP_ADDRESS="${DATANODE_HTTP_ADDRESS:-"$(getRandomPort)"}"
+declare -r HADOOP_PORT=${HADOOP_PORT:-"$(getRandomPort)"}
+declare -r HADOOP_JMX_PORT="${HADOOP_JMX_PORT:-"$(getRandomPort)"}"
+declare -r HADOOP_HTTP_ADDRESS="${HADOOP_HTTP_ADDRESS:-"$(getRandomPort)"}"
 declare -r JMX_CONFIG_FILE_IN_CONTAINER_PATH="/opt/jmx_exporter/jmx_exporter_config.yml"
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
-  -Dcom.sun.management.jmxremote.port=$DATANODE_JMX_PORT \
-  -Dcom.sun.management.jmxremote.rmi.port=$DATANODE_JMX_PORT \
+  -Dcom.sun.management.jmxremote.port=$HADOOP_JMX_PORT \
+  -Dcom.sun.management.jmxremote.rmi.port=$HADOOP_JMX_PORT \
   -Djava.rmi.server.hostname=$ADDRESS \
   -javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
-declare -r CONTAINER_NAME="datanode-$DATANODE_PORT"
-declare -r HDFS_SITE_XML="/tmp/datanode-${DATANODE_PORT}-hdfs.xml"
-declare -r CORE_SITE_XML="/tmp/datanode-${DATANODE_PORT}-core.xml"
-# cleanup the file if it is existent
-[[ -f "$HDFS_SITE_XML" ]] && rm -f "$HDFS_SITE_XML"
-[[ -f "$CORE_SITE_XML" ]] && rm -f "$CORE_SITE_XML"
 
 # ===================================[functions]===================================
 
 function showHelp() {
   echo "Usage: [ENV] start_hadoop.sh"
   echo "ENV: "
-  echo "    REPO=astraea/datanode     set the docker repo"
+  echo "    REPO=astraea/hadoop        set the docker repo"
   echo "    VERSION=3.3.4              set version of hadoop distribution"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
@@ -126,6 +120,85 @@ function setProperty() {
   sed -i "/<\/configuration>/ s/.*/${escapedEntry}\n&/" $path
 }
 
+function setNode() {
+  node=$1
+
+  if [[ "$node" != "namenode" && "$node" != "datanode" ]]; then
+    echo "need to specific namenode or datanode at first argument"
+    exit 0
+  fi
+  NODE=${NODE:-"$node"}
+  CONTAINER_NAME="$NODE-$HADOOP_PORT"
+  HDFS_SITE_XML="/tmp/$NODE-${HADOOP_PORT}-hdfs.xml"
+  CORE_SITE_XML="/tmp/$NODE-${HADOOP_PORT}-core.xml"
+  # cleanup the file if it is existent
+  [[ -f "$HDFS_SITE_XML" ]] && rm -f "$HDFS_SITE_XML"
+  [[ -f "$CORE_SITE_XML" ]] && rm -f "$CORE_SITE_XML"
+
+  echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
+  echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > "$CORE_SITE_XML"
+}
+
+# ===================================[namenode]===================================
+
+function startNamenode() {
+  rejectProperty fs.defaultFS $CORE_SITE_XML
+  rejectProperty dfs.namenode.datanode.registration.ip-hostname-check $HDFS_SITE_XML
+
+  setProperty dfs.namenode.datanode.registration.ip-hostname-check false $HDFS_SITE_XML
+  setProperty fs.defaultFS hdfs://$CONTAINER_NAME:8020 $CORE_SITE_XML
+
+  docker run -d --init \
+    --name $CONTAINER_NAME \
+    -h $CONTAINER_NAME \
+    -e HDFS_NAMENODE_OPTS="$JMX_OPTS" \
+    -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
+    -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
+    -p $HADOOP_HTTP_ADDRESS:9870 \
+    -p $HADOOP_JMX_PORT:$HADOOP_JMX_PORT \
+    -p $HADOOP_PORT:8020 \
+    -p $EXPORTER_PORT:$EXPORTER_PORT \
+    "$IMAGE_NAME" /bin/bash -c "./bin/hdfs namenode -format && ./bin/hdfs namenode"
+
+  echo "================================================="
+  echo "http address: ${ADDRESS}:$HADOOP_HTTP_ADDRESS"
+  echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"
+  echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
+  echo "run $DOCKER_FOLDER/start_hadoop.sh datanode fs.defaultFS=hdfs://${ADDRESS}:$HADOOP_PORT to join datanode"
+  echo "================================================="
+}
+
+# ===================================[datanode]===================================
+
+function startDatanode() {
+  rejectProperty dfs.datanode.address $HDFS_SITE_XML
+  rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
+  rejectProperty dfs.client.use.datanode.hostname $HDFS_SITE_XML
+  requireProperty fs.defaultFS $CORE_SITE_XML
+
+  setProperty dfs.datanode.address 0.0.0.0:$HADOOP_PORT $HDFS_SITE_XML
+  setProperty dfs.datanode.use.datanode.hostname true $HDFS_SITE_XML
+  setProperty dfs.client.use.datanode.hostname true $HDFS_SITE_XML
+
+  docker run -d --init \
+    --name $CONTAINER_NAME \
+    -h ${ADDRESS} \
+    -e HDFS_DATANODE_OPTS="$JMX_OPTS" \
+    -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
+    -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
+    -p $HADOOP_HTTP_ADDRESS:9864 \
+    -p $HADOOP_PORT:$HADOOP_PORT \
+    -p $HADOOP_JMX_PORT:$HADOOP_JMX_PORT \
+    -p $EXPORTER_PORT:$EXPORTER_PORT \
+    "$IMAGE_NAME" /bin/bash -c "./bin/hdfs datanode"
+
+  echo "================================================="
+  echo "http address: ${ADDRESS}:$HADOOP_HTTP_ADDRESS"
+  echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"
+  echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
+  echo "================================================="
+}
+
 # ===================================[main]===================================
 
 checkDocker
@@ -137,8 +210,13 @@ fi
 
 checkNetwork
 
-echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
-echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $CORE_SITE_XML
+if [[ $# -gt 0 ]]; then
+  setNode "$1"
+  shift
+else
+  echo "need to specific namenode or datanode"
+  exit 0
+fi
 
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
@@ -155,29 +233,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-rejectProperty dfs.datanode.address $HDFS_SITE_XML
-rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
-rejectProperty dfs.client.use.datanode.hostname $HDFS_SITE_XML
-requireProperty fs.defaultFS $CORE_SITE_XML
-
-setProperty dfs.datanode.address 0.0.0.0:$DATANODE_PORT $HDFS_SITE_XML
-setProperty dfs.datanode.use.datanode.hostname true $HDFS_SITE_XML
-setProperty dfs.client.use.datanode.hostname true $HDFS_SITE_XML
-
-docker run -d --init \
-  --name $CONTAINER_NAME \
-  -h ${ADDRESS} \
-  -e HDFS_DATANODE_OPTS="$JMX_OPTS" \
-  -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
-  -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
-  -p $DATANODE_HTTP_ADDRESS:9864 \
-  -p $DATANODE_PORT:$DATANODE_PORT \
-  -p $DATANODE_JMX_PORT:$DATANODE_JMX_PORT \
-  -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" /bin/bash -c "./bin/hdfs datanode"
-
-echo "================================================="
-echo "http address: ${ADDRESS}:$DATANODE_HTTP_ADDRESS"
-echo "jmx address: ${ADDRESS}:$DATANODE_JMX_PORT"
-echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
-echo "================================================="
+if [[ "$NODE" == "namenode" ]]; then
+  startNamenode
+else
+  startDatanode
+fi
