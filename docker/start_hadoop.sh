@@ -124,7 +124,7 @@ function setNode() {
   node=$1
 
   if [[ "$node" != "namenode" && "$node" != "datanode" ]]; then
-    echo "need to specific namenode or datanode at first argument"
+    echo "Please specify namenode or datanode at first argument."
     exit 0
   fi
   NODE=${NODE:-"$node"}
@@ -214,7 +214,7 @@ if [[ $# -gt 0 ]]; then
   setNode "$1"
   shift
 else
-  echo "need to specific namenode or datanode"
+  echo "Please specify namenode or datanode as argument."
   exit 0
 fi
 
