@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
@@ -51,7 +52,12 @@ public class BrokerInputCost implements HasBrokerCost, HasClusterCost {
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerCost.values().stream()
+                .map(Objects::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   @Override

@@ -40,12 +40,16 @@ class ClusterCostTest {
 
   @Test
   void testMerge() {
-    HasClusterCost cost0 = (c, b) -> () -> 0.2;
-    HasClusterCost cost1 = (c, b) -> () -> 0.5;
-    HasClusterCost cost2 = (c, b) -> () -> 0.8;
+    HasClusterCost cost0 = (c, b) -> ClusterCost.of(0.2, () -> "description0");
+    HasClusterCost cost1 = (c, b) -> ClusterCost.of(0.5, () -> "description1");
+    HasClusterCost cost2 = (c, b) -> ClusterCost.of(0.8, () -> "description2");
     var merged = HasClusterCost.of(Map.of(cost0, 1D, cost1, 2D, cost2, 2D));
-    var result = merged.clusterCost(null, null).value();
+    var clusterCost = merged.clusterCost(null, null);
+    var result = clusterCost.value();
     Assertions.assertEquals(0.56, Math.round(result * 100.0) / 100.0);
+    Assertions.assertTrue(clusterCost.toString().contains("description0"));
+    Assertions.assertTrue(clusterCost.toString().contains("description1"));
+    Assertions.assertTrue(clusterCost.toString().contains("description2"));
   }
 
   @Test

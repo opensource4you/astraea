@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
@@ -144,9 +145,17 @@ public abstract class NetworkCost implements HasClusterCost {
     if (summary.getMin() < 0)
       throw new IllegalStateException(
           "Corrupted min rate: " + summary.getMin() + ", brokers: " + brokerRate);
-    if (summary.getMax() == 0) return () -> 0; // edge case to avoid divided by zero error
+    if (summary.getMax() == 0)
+      return ClusterCost.of(
+          0, () -> "network load zero"); // edge case to avoid divided by zero error
     double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
-    return () -> score;
+    return ClusterCost.of(
+        score,
+        () ->
+            brokerRate.values().stream()
+                .map(x -> DataRate.Byte.of(x.longValue()).perSecond())
+                .map(DataRate::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   @Override

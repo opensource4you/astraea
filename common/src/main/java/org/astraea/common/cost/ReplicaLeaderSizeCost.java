@@ -85,7 +85,12 @@ public class ReplicaLeaderSizeCost
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerCost.values().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   @Override
