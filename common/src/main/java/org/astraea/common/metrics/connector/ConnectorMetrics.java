@@ -25,7 +25,7 @@ public class ConnectorMetrics {
 
   public static List<SourceTaskInfo> sourceTaskInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "source-task-metrics")
@@ -39,7 +39,7 @@ public class ConnectorMetrics {
 
   public static List<SinkTaskInfo> sinkTaskInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "sink-task-metrics")
@@ -53,7 +53,7 @@ public class ConnectorMetrics {
 
   public static List<TaskError> taskError(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "task-error-metrics")
@@ -67,7 +67,7 @@ public class ConnectorMetrics {
 
   public static List<ConnectorInfo> connectorInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.connect")
                 .property("type", "connector-task-metrics")

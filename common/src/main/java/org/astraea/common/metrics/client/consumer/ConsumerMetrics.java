@@ -30,7 +30,7 @@ public class ConsumerMetrics {
 
   public static List<AppInfo> appInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "app-info")
@@ -78,7 +78,7 @@ public class ConsumerMetrics {
    */
   public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-node-metrics")
@@ -92,7 +92,7 @@ public class ConsumerMetrics {
 
   public static Collection<HasConsumerCoordinatorMetrics> coordinators(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-coordinator-metrics")
@@ -105,7 +105,7 @@ public class ConsumerMetrics {
 
   public static Collection<HasConsumerFetchMetrics> fetches(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-fetch-manager-metrics")
@@ -118,7 +118,7 @@ public class ConsumerMetrics {
 
   public static Collection<HasConsumerMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-metrics")

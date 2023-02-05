@@ -23,7 +23,7 @@ public final class HostMetrics {
 
   public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
     return new OperatingSystemInfo(
-        mBeanClient.queryBean(
+        mBeanClient.bean(
             BeanQuery.builder()
                 .domainName("java.lang")
                 .property("type", "OperatingSystem")
@@ -32,7 +32,7 @@ public final class HostMetrics {
 
   public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
     return new JvmMemory(
-        mBeanClient.queryBean(
+        mBeanClient.bean(
             BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
   }
 

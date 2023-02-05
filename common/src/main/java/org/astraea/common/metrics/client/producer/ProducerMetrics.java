@@ -30,7 +30,7 @@ public final class ProducerMetrics {
 
   public static List<AppInfo> appInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.producer")
                 .property("type", "app-info")
@@ -78,7 +78,7 @@ public final class ProducerMetrics {
    */
   public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.producer")
                 .property("type", "producer-node-metrics")
@@ -98,7 +98,7 @@ public final class ProducerMetrics {
    */
   public static Collection<HasProducerTopicMetrics> topics(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.producer")
                 .property("type", "producer-topic-metrics")
@@ -112,7 +112,7 @@ public final class ProducerMetrics {
 
   public static Collection<HasProducerMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.producer")
                 .property("type", "producer-metrics")

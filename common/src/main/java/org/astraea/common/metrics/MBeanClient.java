@@ -37,8 +37,8 @@ import org.astraea.common.Utils;
  * A MBeanClient used to retrieve mbean value from remote Jmx server.
  *
  * <pre>{@code
- * try(MBeanClient client = new MBeanClient(jmxConnectorServer.getAddress())) {
- *   BeanObject bean = client.queryBean(BeanQuery.builder("java.lang")
+ * try(var client = new MBeanClient(jmxConnectorServer.getAddress())) {
+ *   var bean = client.bean(BeanQuery.builder("java.lang")
  *            .property("type", "MemoryManager")
  *            .property("name", "CodeCacheManager")
  *            .build());
@@ -67,17 +67,10 @@ public interface MBeanClient extends AutoCloseable {
     return Utils.packException(
         () -> {
           var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-          return new AbstractMBeanClient(jmxConnector.getMBeanServerConnection()) {
-            @Override
-            public String host() {
-              return jmxServiceURL.getHost();
-            }
-
-            @Override
-            public int port() {
-              return jmxServiceURL.getPort();
-            }
-
+          return new AbstractMBeanClient(
+              jmxConnector.getMBeanServerConnection(),
+              jmxServiceURL.getHost(),
+              jmxServiceURL.getPort()) {
             @Override
             public void close() {
               Utils.packException(jmxConnector::close);
@@ -87,17 +80,8 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient local() {
-    return new AbstractMBeanClient(ManagementFactory.getPlatformMBeanServer()) {
-      @Override
-      public String host() {
-        return Utils.hostname();
-      }
-
-      @Override
-      public int port() {
-        return -1;
-      }
-
+    return new AbstractMBeanClient(
+        ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1) {
       @Override
       public void close() {}
     };
@@ -112,19 +96,7 @@ public interface MBeanClient extends AutoCloseable {
    * @param beanQuery the non-pattern BeanQuery
    * @return A {@link BeanObject} contain all attributes if target resolved successfully.
    */
-  BeanObject queryBean(BeanQuery beanQuery);
-
-  /**
-   * Fetch given attributes of target mbean
-   *
-   * <p>Note that when exception is raised during the attribute fetching process, the exact
-   * exception will be placed into the attribute field.
-   *
-   * @param beanQuery the non-pattern BeanQuery
-   * @param attributeNameCollection a list of attribute you want to retrieve
-   * @return A {@link BeanObject} contain given specific attributes if target resolved successfully.
-   */
-  BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection);
+  BeanObject bean(BeanQuery beanQuery);
 
   /**
    * Query mBeans by pattern.
@@ -138,26 +110,7 @@ public interface MBeanClient extends AutoCloseable {
    * @param beanQuery the pattern to query
    * @return A {@link Set} of {@link BeanObject}, all BeanObject has its own attributes resolved.
    */
-  Collection<BeanObject> queryBeans(BeanQuery beanQuery);
-
-  /**
-   * Returns the list of domains in which any MBean is currently registered.
-   *
-   * <p>The order of strings within the returned array is not defined.
-   *
-   * @return a {@link List} of domain name {@link String}
-   */
-  List<String> listDomains();
-
-  /**
-   * @return the host address of jmx server
-   */
-  String host();
-
-  /**
-   * @return the port listened by jmx server
-   */
-  int port();
+  Collection<BeanObject> beans(BeanQuery beanQuery);
 
   @Override
   void close();
@@ -165,13 +118,18 @@ public interface MBeanClient extends AutoCloseable {
   abstract class AbstractMBeanClient implements MBeanClient {
 
     private final MBeanServerConnection connection;
+    final String host;
 
-    AbstractMBeanClient(MBeanServerConnection connection) {
+    final int port;
+
+    AbstractMBeanClient(MBeanServerConnection connection, String host, int port) {
       this.connection = connection;
+      this.host = host;
+      this.port = port;
     }
 
     @Override
-    public BeanObject queryBean(BeanQuery beanQuery) {
+    public BeanObject bean(BeanQuery beanQuery) {
       return Utils.packException(
           () -> {
             // ask for MBeanInfo
@@ -188,8 +146,7 @@ public interface MBeanClient extends AutoCloseable {
           });
     }
 
-    @Override
-    public BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
+    BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
       return Utils.packException(
           () -> {
             // fetch attribute value from mbean server
@@ -231,18 +188,24 @@ public interface MBeanClient extends AutoCloseable {
     }
 
     @Override
-    public Collection<BeanObject> queryBeans(BeanQuery beanQuery) {
+    public Collection<BeanObject> beans(BeanQuery beanQuery) {
       return Utils.packException(
           () ->
               connection.queryMBeans(beanQuery.objectName(), null).stream()
                   .map(ObjectInstance::getObjectName)
                   .map(BeanQuery::fromObjectName)
-                  .map(this::queryBean)
+                  .map(this::bean)
                   .collect(Collectors.toSet()));
     }
 
-    @Override
-    public List<String> listDomains() {
+    /**
+     * Returns the list of domains in which any MBean is currently registered.
+     *
+     * <p>The order of strings within the returned array is not defined.
+     *
+     * @return a {@link List} of domain name {@link String}
+     */
+    List<String> domains() {
       return Utils.packException(() -> Arrays.asList(connection.getDomains()));
     }
   }
