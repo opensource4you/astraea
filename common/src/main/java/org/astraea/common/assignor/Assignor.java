@@ -153,7 +153,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
+    this.costFunction.metricSensor().ifPresent(metricCollector::addMetricSensor);
     configure(config);
   }
 }

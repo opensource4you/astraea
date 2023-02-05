@@ -18,7 +18,6 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -46,9 +45,8 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class MetricCollectorImpl implements MetricCollector {
   private final Map<Integer, MBeanClient> mBeanClients = new ConcurrentHashMap<>();
-  private final Collection<MetricSensor> metricSensors = new CopyOnWriteArrayList<>();
-  private final CopyOnWriteArrayList<Map.Entry<Fetcher, BiConsumer<Integer, Exception>>> fetchers =
-      new CopyOnWriteArrayList<>();
+  private final CopyOnWriteArrayList<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>>
+      sensors = new CopyOnWriteArrayList<>();
   private final ScheduledExecutorService executorService;
   private final DelayQueue<DelayedIdentity> delayedWorks;
 
@@ -91,26 +89,20 @@ public class MetricCollectorImpl implements MetricCollector {
                           // see
                           // https://github.com/skiptests/astraea/pull/1035#discussion_r1011079711
 
-                          // for each fetcher, perform the fetching and store the metrics
-                          for (var fetcher : fetchers) {
+                          // for each sensor, perform the fetching and store the metrics
+                          var clusterBean = clusterBean();
+                          for (var sensor : sensors) {
                             try {
-                              var beans = fetcher.getKey().fetch(mBeanClients.get(identity.id));
-                              this.beans
+                              var newBeans =
+                                  sensor.getKey().fetch(mBeanClients.get(identity.id), clusterBean);
+                              beans
                                   .computeIfAbsent(
                                       identity.id, ignored -> new ConcurrentLinkedQueue<>())
-                                  .addAll(beans);
-                              for (var metricSensor : metricSensors)
-                                metricSensor
-                                    .record(identity.id, beans)
-                                    .forEach(
-                                        (key, value) ->
-                                            this.beans
-                                                .computeIfAbsent(key, ignore -> new ArrayList<>())
-                                                .addAll(value));
+                                  .addAll(newBeans);
                             } catch (NoSuchElementException e) {
                               // MBeanClient can throw NoSuchElementException if the result of query
                               // is empty
-                              fetcher.getValue().accept(identity.id, e);
+                              sensor.getValue().accept(identity.id, e);
                             }
                           }
                         } catch (InterruptedException e) {
@@ -126,13 +118,9 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void addFetcher(Fetcher fetcher, BiConsumer<Integer, Exception> noSuchMetricHandler) {
-    this.fetchers.add(Map.entry(fetcher, noSuchMetricHandler));
-  }
-
-  @Override
-  public void addMetricSensors(MetricSensor metricSensor) {
-    this.metricSensors.add(metricSensor);
+  public void addMetricSensor(
+      MetricSensor metricSensor, BiConsumer<Integer, Exception> noSuchMetricHandler) {
+    this.sensors.add(Map.entry(metricSensor, noSuchMetricHandler));
   }
 
   @Override
@@ -160,13 +148,8 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public Collection<MetricSensor> listMetricsSensors() {
-    return this.metricSensors;
-  }
-
-  @Override
-  public Collection<Fetcher> listFetchers() {
-    return fetchers.stream().map(Map.Entry::getKey).collect(Collectors.toList());
+  public Collection<MetricSensor> metricSensors() {
+    return sensors.stream().map(Map.Entry::getKey).collect(Collectors.toList());
   }
 
   @Override
@@ -202,7 +185,8 @@ public class MetricCollectorImpl implements MetricCollector {
   public ClusterBean clusterBean() {
     return ClusterBean.of(
         beans.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+            .collect(
+                Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
   }
 
   public Stream<HasBeanObject> metrics() {

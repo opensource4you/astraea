@@ -25,7 +25,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -40,7 +40,7 @@ public class ReplicaLeaderSizeCost
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
   @Override
-  public Optional<Fetcher> fetcher() {
+  public Optional<MetricSensor> metricSensor() {
     return Optional.empty();
   }
 

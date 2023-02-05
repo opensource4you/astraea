@@ -16,31 +16,25 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.function.Bi3Function;
-import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasClusterCost extends CostFunction {
 
   static HasClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
-    var fetcher =
-        Fetcher.of(
+    var sensor =
+        MetricSensor.of(
             costAndWeight.keySet().stream()
-                .map(CostFunction::fetcher)
+                .map(CostFunction::metricSensor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
-    var sensors =
-        costAndWeight.keySet().stream()
-            .flatMap(x -> x.sensors().stream())
-            .collect(Collectors.toList());
 
     return new HasClusterCost() {
       @Override
@@ -85,13 +79,8 @@ public interface HasClusterCost extends CostFunction {
       }
 
       @Override
-      public Optional<Fetcher> fetcher() {
-        return fetcher;
-      }
-
-      @Override
-      public Collection<MetricSensor> sensors() {
-        return sensors;
+      public Optional<MetricSensor> metricSensor() {
+        return sensor;
       }
 
       @Override
