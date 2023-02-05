@@ -396,8 +396,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                         config.performanceExtraArgs());
                 return Map.ofEntries(
                     Map.entry("args", args),
-                    Map.entry("ingress", ingress.toString()),
-                    Map.entry("egress", egress.toString()));
+                    Map.entry("perfEgress", ingress.toString()),
+                    Map.entry("perfIngress", egress.toString()));
               })
           .collect(Collectors.toUnmodifiableList());
     }
