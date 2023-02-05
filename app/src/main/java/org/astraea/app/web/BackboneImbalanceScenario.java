@@ -43,6 +43,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 
 /**
  * This class build up an imbalance scenario that one of the topic has significant more produce load
@@ -137,6 +138,30 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                               ? backboneDataRateDistribution.sample()
                                               : topicDataRateDistribution.sample()))
                                   .perSecond()));
+          var topicPartitionDataRate =
+              clusterInfo.topics().stream()
+                  .flatMap(
+                      topic -> {
+                        var partitionWeight =
+                            clusterInfo.replicas(topic).stream()
+                                .map(Replica::topicPartition)
+                                .distinct()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(tp -> tp, tp -> rng.nextDouble()));
+                        var totalDataRate = topicDataRate.get(topic).byteRate();
+                        var totalWeight =
+                            partitionWeight.values().stream().mapToDouble(x -> x).sum();
+
+                        return partitionWeight.entrySet().stream()
+                            .map(
+                                e ->
+                                    Map.entry(
+                                        e.getKey(),
+                                        DataRate.Byte.of(
+                                                (long) (totalDataRate * e.getValue() / totalWeight))
+                                            .perSecond()));
+                      })
+                  .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
           var consumerFanoutMap =
               allTopics.stream()
                   .collect(
@@ -147,7 +172,13 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                   ? 1
                                   : topicConsumerFanoutDistribution.sample()));
 
-          return new Result(config, clusterInfo, allTopics, topicDataRate, consumerFanoutMap);
+          return new Result(
+              config,
+              clusterInfo,
+              allTopics,
+              topicDataRate,
+              topicPartitionDataRate,
+              consumerFanoutMap);
         });
   }
 
@@ -157,6 +188,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     @JsonIgnore private final ClusterInfo clusterInfo;
     @JsonIgnore private final Set<String> topics;
     @JsonIgnore private final Map<String, DataRate> topicDataRates;
+    @JsonIgnore private final Map<TopicPartition, DataRate> topicPartitionDataRates;
     @JsonIgnore private final Map<String, Integer> topicConsumerFanout;
 
     public Result(
@@ -164,11 +196,13 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         ClusterInfo clusterInfo,
         Set<String> topics,
         Map<String, DataRate> topicDataRates,
+        Map<TopicPartition, DataRate> topicPartitionDataRates,
         Map<String, Integer> topicConsumerFanout) {
       this.config = config;
       this.clusterInfo = clusterInfo;
       this.topics = topics;
       this.topicDataRates = topicDataRates;
+      this.topicPartitionDataRates = topicPartitionDataRates;
       this.topicConsumerFanout = topicConsumerFanout;
     }
 
@@ -262,19 +296,14 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     }
 
     @JsonProperty
-    public Map<Integer, String> brokerIngressAvg() {
-      // Currently we don't have a reliable way to estimate the skew distribution of performance
-      // tool command output. So we use an average value here. This broker throughput value might
-      // not reflect from the performance tool command result.
+    public Map<Integer, String> brokerIngress() {
       return clusterInfo
           .replicaStream()
           .collect(
               Collectors.groupingBy(
                   x -> x.nodeInfo().id(),
                   Collectors.mapping(
-                      x ->
-                          topicDataRates.get(x.topic()).byteRate()
-                              / clusterInfo.replicas(x.topic()).size(),
+                      x -> topicPartitionDataRates.get(x.topicPartition()).byteRate(),
                       Collectors.summingDouble(x -> x))))
           .entrySet()
           .stream()
@@ -285,10 +314,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     }
 
     @JsonProperty
-    public Map<Integer, String> brokerEgressAvg() {
-      // Currently we don't have a reliable way to estimate the skew distribution of performance
-      // tool command output. So we use an average value here. This broker throughput value might
-      // not reflect from the performance tool command result.
+    public Map<Integer, String> brokerEgress() {
       return clusterInfo
           .replicaStream()
           .filter(Replica::isLeader)
@@ -297,8 +323,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                   x -> x.nodeInfo().id(),
                   Collectors.mapping(
                       x ->
-                          topicDataRates.get(x.topic()).byteRate()
-                              / clusterInfo.replicas(x.topic()).size()
+                          topicPartitionDataRates.get(x.topicPartition()).byteRate()
                               * topicConsumerFanout.get(x.topic()),
                       Collectors.summingDouble(x -> x))))
           .entrySet()
@@ -348,7 +373,25 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                         "--topics %s --throttle %s %s",
                         String.join(",", client.topics),
                         client.topics.stream()
-                            .map(topic -> topic + "=" + topicDataRates.get(topic).toString())
+                            .flatMap(
+                                topic ->
+                                    clusterInfo
+                                        .replicaStream(topic)
+                                        .map(Replica::topicPartition)
+                                        .distinct())
+                            .map(
+                                tp -> {
+                                  var bytes =
+                                      topicPartitionDataRates
+                                          .get(tp)
+                                          .dataSize()
+                                          .divide(topicConsumerFanout.get(tp.topic()))
+                                          .bytes();
+                                  // TopicPartitionDataRateMapField support only integer measurement
+                                  // and no space allowed. So we can't just toString the DataRate
+                                  // object :(
+                                  return String.format("%s:%sByte/second", tp, bytes);
+                                })
                             .collect(Collectors.joining(",")),
                         config.performanceExtraArgs());
                 return Map.ofEntries(
@@ -361,6 +404,13 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
   }
 
   public static class Config {
+
+    public static final String DEFAULT_PERF_ARGS =
+        "--producers 16 "
+            + "--consumers 24 "
+            + "--run.until 1day "
+            + "--key.size 10KiB "
+            + "--key.distribution zipfian";
 
     private final Configuration scenarioConfig;
     private final int defaultRandomSeed = ThreadLocalRandom.current().nextInt();
@@ -434,14 +484,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     }
 
     String performanceExtraArgs() {
-      return scenarioConfig
-          .string(CONFIG_PERF_EXTRA_ARGS)
-          .orElse(
-              "--producers 16 "
-                  + "--consumers 24 "
-                  + "--run.until 1day "
-                  + "--key.size 10KiB "
-                  + "--key.distribution zipfian");
+      return scenarioConfig.string(CONFIG_PERF_EXTRA_ARGS).orElse(DEFAULT_PERF_ARGS);
     }
   }
 }
