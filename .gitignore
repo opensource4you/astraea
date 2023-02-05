@@ -18,6 +18,7 @@ spark.dockerfile
 deps.dockerfile
 worker.dockerfile
 etl.dockerfile
+hdfs-fuse.dockerfile
 # we don't put binary file to git repo
 gradle-wrapper.jar
 VersionUtils.java
