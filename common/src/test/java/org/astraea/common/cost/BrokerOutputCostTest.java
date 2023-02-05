@@ -56,11 +56,11 @@ public class BrokerOutputCostTest {
   }
 
   @Test
-  void testFetcher() {
+  void testSensor() {
     var interval = Duration.ofMillis(300);
     try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.addFetcher(
-          new BrokerOutputCost().fetcher().orElseThrow(),
+      collector.addMetricSensor(
+          new BrokerOutputCost().metricSensor().orElseThrow(),
           (id, err) -> Assertions.fail(err.getMessage()));
       collector.registerJmx(
           0,

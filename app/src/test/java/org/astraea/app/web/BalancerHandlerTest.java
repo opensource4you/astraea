@@ -66,7 +66,7 @@ import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.producer.Producer;
@@ -1032,13 +1032,13 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testCostWithFetcher() {
+  void testCostWithSensor() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var invoked = new AtomicBoolean();
       var handler =
           new BalancerHandler(admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()));
-      FetcherAndCost.callback.set(
+      SensorAndCost.callback.set(
           (clusterBean) -> {
             var metrics =
                 clusterBean.all().values().stream()
@@ -1047,15 +1047,15 @@ public class BalancerHandlerTest {
                     .collect(Collectors.toUnmodifiableSet());
             if (metrics.size() < 3)
               throw new NoSufficientMetricsException(
-                  new FetcherAndCost(null), Duration.ofSeconds(3));
+                  new SensorAndCost(null), Duration.ofSeconds(3));
             metrics.forEach(i -> Assertions.assertInstanceOf(JvmMemory.class, i));
             invoked.set(true);
           });
-      var fetcherAndCost = List.of(costWeight(FetcherAndCost.class.getName(), 1));
+      var function = List.of(costWeight(SensorAndCost.class.getName(), 1));
 
       var request = new BalancerHandler.BalancerPostRequest();
       request.timeout = Duration.ofSeconds(8);
-      request.costWeights = fetcherAndCost;
+      request.costWeights = function;
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
 
@@ -1277,17 +1277,17 @@ public class BalancerHandlerTest {
     }
   }
 
-  public static class FetcherAndCost extends DecreasingCost {
+  public static class SensorAndCost extends DecreasingCost {
 
     static AtomicReference<Consumer<ClusterBean>> callback = new AtomicReference<>();
 
-    public FetcherAndCost(Configuration configuration) {
+    public SensorAndCost(Configuration configuration) {
       super(configuration);
     }
 
     @Override
-    public Optional<Fetcher> fetcher() {
-      return Optional.of((c) -> List.of(HostMetrics.jvmMemory(c)));
+    public Optional<MetricSensor> metricSensor() {
+      return Optional.of((c, ignored) -> List.of(HostMetrics.jvmMemory(c)));
     }
 
     @Override

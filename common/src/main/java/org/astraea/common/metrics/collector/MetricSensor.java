@@ -17,18 +17,37 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
-import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
 
 @FunctionalInterface
 public interface MetricSensor {
+  /**
+   * merge all sensors into single one.
+   *
+   * @param metricSensors cost function
+   * @return sensor if there is available sensor. Otherwise, empty is returned
+   */
+  static Optional<MetricSensor> of(Collection<MetricSensor> metricSensors) {
+    if (metricSensors.isEmpty()) return Optional.empty();
+    return Optional.of(
+        (client, clusterBean) ->
+            metricSensors.stream()
+                .flatMap(f -> f.fetch(client, clusterBean).stream())
+                .collect(Collectors.toUnmodifiableList()));
+  }
 
   /**
-   * @param identity broker id or producer/consumer id
-   * @param beans a collection of {@link HasBeanObject}
-   * @return The collection of "HasBeanObject" generated after the custom statistical method of
-   *     CostFunction.
+   * generate the metrics to stored by metrics collector. The implementation can use MBeanClient to
+   * fetch metrics from remote/local mbean server. Or the implementation can generate custom metrics
+   * according to existent cluster bean
+   *
+   * @param client mbean client (don't close it!)
+   * @param bean current cluster bean
+   * @return java metrics
    */
-  Map<Integer, Collection<? extends HasBeanObject>> record(
-      int identity, Collection<? extends HasBeanObject> beans);
+  Collection<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean);
 }

@@ -59,12 +59,12 @@ public class StrictCostDispatcher extends Dispatcher {
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   RoundRobinKeeper roundRobinKeeper;
 
-  void tryToUpdateFetcher(ClusterInfo clusterInfo) {
+  void tryToUpdateSensor(ClusterInfo clusterInfo) {
     // register new nodes to metric collector
     costFunction
-        .fetcher()
+        .metricSensor()
         .ifPresent(
-            fetcher ->
+            ignored ->
                 clusterInfo
                     .nodes()
                     .forEach(
@@ -90,7 +90,7 @@ public class StrictCostDispatcher extends Dispatcher {
     // just return the only one available partition
     if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
 
-    tryToUpdateFetcher(clusterInfo);
+    tryToUpdateSensor(clusterInfo);
 
     roundRobinKeeper.tryToUpdate(
         clusterInfo,
@@ -143,7 +143,7 @@ public class StrictCostDispatcher extends Dispatcher {
     // put local mbean client first
     if (!metricCollector.listIdentities().contains(-1)) metricCollector.registerLocalJmx(-1);
 
-    this.costFunction.fetcher().ifPresent(metricCollector::addFetcher);
+    this.costFunction.metricSensor().ifPresent(metricCollector::addMetricSensor);
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
 

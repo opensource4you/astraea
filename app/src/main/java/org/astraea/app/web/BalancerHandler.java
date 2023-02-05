@@ -61,7 +61,6 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.collector.Fetcher;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -177,15 +176,14 @@ class BalancerHandler implements Handler {
         CompletableFuture.supplyAsync(
                 () -> {
                   var currentClusterInfo = request.clusterInfo;
-                  var fetchers =
+                  var sensors =
                       Stream.concat(
-                              request.algorithmConfig.clusterCostFunction().fetcher().stream(),
-                              request.algorithmConfig.moveCostFunction().fetcher().stream())
+                              request.algorithmConfig.clusterCostFunction().metricSensor().stream(),
+                              request.algorithmConfig.moveCostFunction().metricSensor().stream())
                           .collect(Collectors.toUnmodifiableList());
                   var bestPlan =
                       metricContext(
-                          fetchers,
-                          request.algorithmConfig.clusterCostFunction().sensors(),
+                          sensors,
                           (metricSource) ->
                               Balancer.create(
                                       request.balancerClasspath,
@@ -254,15 +252,13 @@ class BalancerHandler implements Handler {
   }
 
   private Balancer.Plan metricContext(
-      Collection<Fetcher> fetchers,
       Collection<MetricSensor> metricSensors,
       Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
     try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
       freshJmxAddresses().forEach(collector::registerJmx);
-      fetchers.forEach(collector::addFetcher);
-      metricSensors.forEach(collector::addMetricSensors);
+      metricSensors.forEach(collector::addMetricSensor);
       return execution.apply(collector::clusterBean);
     }
   }

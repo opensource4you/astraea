@@ -27,7 +27,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /** Calculate the cost by client-node-metrics. */
 public abstract class NodeMetricsCost implements HasBrokerCost {
@@ -71,7 +71,7 @@ public abstract class NodeMetricsCost implements HasBrokerCost {
   protected abstract double value(HasNodeMetrics hasNodeMetrics);
 
   @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(ProducerMetrics::nodes);
+  public Optional<MetricSensor> metricSensor() {
+    return Optional.of((client, clusterBean) -> ProducerMetrics.nodes(client));
   }
 }
