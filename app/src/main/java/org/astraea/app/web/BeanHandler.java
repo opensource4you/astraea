@@ -50,11 +50,11 @@ public class BeanHandler implements Handler {
                                 .apply(b.id())
                                 .map(port -> Map.entry(b.host(), MBeanClient.jndi(b.host(), port)))
                                 .stream())
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
+                    .collect(Collectors.toUnmodifiableList()))
         .thenApply(
             clients ->
                 new NodeBeans(
-                    clients.entrySet().stream()
+                    clients.stream()
                         .map(
                             entry -> {
                               try {
