@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
   private final Dispersion dispersion = Dispersion.cov();
@@ -43,15 +43,25 @@ public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
   }
 
   @Override
-  public Optional<Fetcher> fetcher() {
+  public Optional<MetricSensor> metricSensor() {
     return Optional.of(
-        client -> List.of(ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));
+        (client, ignored) -> List.of(ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));
   }
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerCost.values().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 }

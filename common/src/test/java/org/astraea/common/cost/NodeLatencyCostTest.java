@@ -100,16 +100,16 @@ public class NodeLatencyCostTest {
   }
 
   @Test
-  void testFetcher() {
+  void testSensor() {
     var function = new NodeLatencyCost();
     var client = Mockito.mock(MBeanClient.class);
-    Mockito.when(client.queryBeans(Mockito.any()))
+    Mockito.when(client.beans(Mockito.any()))
         .thenReturn(
             List.of(
                 new BeanObject("a", Map.of("node-id", "node-10"), Map.of()),
                 new BeanObject("a", Map.of("node-id", "node-10"), Map.of()),
                 new BeanObject("a", Map.of("node-id", "node-11"), Map.of())));
-    var result = function.fetcher().get().fetch(client);
+    var result = function.metricSensor().get().fetch(client, ClusterBean.EMPTY);
     Assertions.assertEquals(3, result.size());
   }
 }

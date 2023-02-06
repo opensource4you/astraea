@@ -73,7 +73,7 @@ class GreedyBalancerTest {
                 var bean =
                     Assertions.assertDoesNotThrow(
                         () ->
-                            client.queryBean(
+                            client.bean(
                                 BeanQuery.builder()
                                     .domainName("astraea.balancer")
                                     .property("id", id)

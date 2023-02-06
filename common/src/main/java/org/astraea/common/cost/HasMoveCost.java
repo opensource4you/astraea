@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
@@ -31,10 +31,10 @@ public interface HasMoveCost extends CostFunction {
   HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.EMPTY;
 
   static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts) {
-    var fetcher =
-        Fetcher.of(
+    var sensor =
+        MetricSensor.of(
             hasMoveCosts.stream()
-                .map(CostFunction::fetcher)
+                .map(CostFunction::metricSensor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
@@ -94,8 +94,17 @@ public interface HasMoveCost extends CostFunction {
       }
 
       @Override
-      public Optional<Fetcher> fetcher() {
-        return fetcher;
+      public Optional<MetricSensor> metricSensor() {
+        return sensor;
+      }
+
+      @Override
+      public String toString() {
+        return "MoveCosts["
+            + hasMoveCosts.stream()
+                .map(cost -> "\"" + cost.toString() + "\"")
+                .collect(Collectors.joining(", "))
+            + "]";
       }
     };
   }

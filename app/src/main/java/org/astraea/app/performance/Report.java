@@ -98,7 +98,7 @@ public interface Report {
                   public Optional<Double> e2eLatency() {
                     return Optional.ofNullable(
                             MBeanClient.local()
-                                .queryBean(
+                                .bean(
                                     BeanQuery.builder()
                                         .domainName(ProducerThread.DOMAIN_NAME)
                                         .property(

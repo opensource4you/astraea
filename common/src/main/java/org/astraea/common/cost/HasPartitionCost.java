@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
 public interface HasPartitionCost extends CostFunction {
@@ -32,10 +32,10 @@ public interface HasPartitionCost extends CostFunction {
   HasPartitionCost EMPTY = (clusterInfo, clusterBean) -> Map::of;
 
   static HasPartitionCost of(Map<HasPartitionCost, Double> costAndWeight) {
-    var fetcher =
-        Fetcher.of(
+    var sensor =
+        MetricSensor.of(
             costAndWeight.keySet().stream()
-                .map(CostFunction::fetcher)
+                .map(CostFunction::metricSensor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
@@ -58,8 +58,14 @@ public interface HasPartitionCost extends CostFunction {
       }
 
       @Override
-      public Optional<Fetcher> fetcher() {
-        return fetcher;
+      public Optional<MetricSensor> metricSensor() {
+        return sensor;
+      }
+
+      @Override
+      public String toString() {
+        return "WeightCompositePartitionCostFunction"
+            + CostFunction.toStringComposite(costAndWeight);
       }
     };
   }

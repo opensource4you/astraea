@@ -29,7 +29,7 @@ public class BrokerCostTest {
   void testEmpty() {
     var empty = HasBrokerCost.EMPTY;
     Assertions.assertEquals(0, empty.brokerCost(null, null).value().size());
-    Assertions.assertEquals(Optional.empty(), empty.fetcher());
+    Assertions.assertEquals(Optional.empty(), empty.metricSensor());
     Assertions.assertEquals(HasBrokerCost.EMPTY, empty);
   }
 

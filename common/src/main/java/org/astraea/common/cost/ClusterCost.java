@@ -16,8 +16,32 @@
  */
 package org.astraea.common.cost;
 
-/** Return type of cost function, `HasMoveCost`. It returns the score of brokers. */
+import java.util.function.Supplier;
+
 public interface ClusterCost {
+
+  /**
+   * Build a {@link ClusterCost} instance. The provided cost value must be within the range of [0,
+   * 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
+   *
+   * @param costValue The cost value of a Kafka cluster. The provided cost value should be within
+   *     the range of [0, 1]. See the javadoc of {@link ClusterCost#value()} for further detail.
+   * @param description a descriptive text about the background story of this cost value. This value
+   *     might be displayed on a user interface.
+   */
+  static ClusterCost of(double costValue, Supplier<String> description) {
+    return new ClusterCost() {
+      @Override
+      public double value() {
+        return costValue;
+      }
+
+      @Override
+      public String toString() {
+        return description.get();
+      }
+    };
+  }
 
   /**
    * The cost score of a Kafka cluster. This value represents the idealness of a Kafka cluster in

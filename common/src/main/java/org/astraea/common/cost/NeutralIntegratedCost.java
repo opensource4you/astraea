@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * The result is computed by four cost function.There are "BrokerInputCost", "BrokerOutputCost",
@@ -165,13 +165,18 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   }
 
   @Override
-  public Optional<Fetcher> fetcher() {
-    return Fetcher.of(
+  public Optional<MetricSensor> metricSensor() {
+    return MetricSensor.of(
         metricsCost.stream()
-            .map(CostFunction::fetcher)
+            .map(CostFunction::metricSensor)
             .filter(Optional::isPresent)
             .map(Optional::get)
             .collect(Collectors.toUnmodifiableList()));
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 
   static class BrokerMetrics {

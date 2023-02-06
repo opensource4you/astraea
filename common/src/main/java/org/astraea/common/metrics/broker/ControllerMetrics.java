@@ -63,7 +63,7 @@ public class ControllerMetrics {
 
     public Gauge fetch(MBeanClient mBeanClient) {
       return new Gauge(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName("kafka.controller")
                   .property("type", "KafkaController")
@@ -148,7 +148,7 @@ public class ControllerMetrics {
 
     public static Meter getUncleanLeaderElectionsPerSec(MBeanClient mBeanClient) {
       return new Meter(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName("kafka.controller")
                   .property("type", "ControllerStats")
@@ -158,7 +158,7 @@ public class ControllerMetrics {
 
     public Timer fetch(MBeanClient mBeanClient) {
       return new Timer(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName("kafka.controller")
                   .property("type", "ControllerStats")
