@@ -47,7 +47,10 @@ public interface BalancerConsole extends AutoCloseable {
 
     Generation setBalancer(Balancer balancer);
 
-    Generation setBalancer(Class<? extends Balancer> balancer, AlgorithmConfig algorithmConfig);
+    default Generation setBalancer(
+        Class<? extends Balancer> balancer, AlgorithmConfig algorithmConfig) {
+      return setBalancer(Balancer.create(balancer, algorithmConfig));
+    }
 
     Generation setGenerationTimeout(Duration timeout);
 
