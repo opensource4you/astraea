@@ -406,8 +406,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
   public static class Config {
 
     public static final String DEFAULT_PERF_ARGS =
-        "--producers 16 "
-            + "--consumers 24 "
+        "--producers 8 "
+            + "--consumers 8 "
             + "--run.until 1day "
             + "--key.size 10KiB "
             + "--key.distribution zipfian";
