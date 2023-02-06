@@ -551,7 +551,7 @@ class BalancerHandler implements Handler {
       //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
       try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
         freshJmxAddresses().forEach(collector::registerJmx);
-        metricSensors.forEach(collector::addMetricSensors);
+        metricSensors.forEach(collector::addMetricSensor);
         return execution.apply(collector::clusterBean);
       }
     }
@@ -562,8 +562,8 @@ class BalancerHandler implements Handler {
             var currentClusterInfo = taskRequest.clusterInfo;
             var sensors =
                 Stream.concat(
-                        taskRequest.algorithmConfig.clusterCostFunction().sensors().stream(),
-                        taskRequest.algorithmConfig.moveCostFunction().sensors().stream())
+                        taskRequest.algorithmConfig.clusterCostFunction().metricSensor().stream(),
+                        taskRequest.algorithmConfig.moveCostFunction().metricSensor().stream())
                     .collect(Collectors.toUnmodifiableList());
             var bestPlan =
                 metricContext(
