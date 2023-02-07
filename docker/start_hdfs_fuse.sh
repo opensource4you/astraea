@@ -147,6 +147,4 @@ docker run -d --init \
   --security-opt apparmor:unconfined \
   "$IMAGE_NAME" /bin/bash -c "./fuse_dfs_wrapper.sh -d $HDFS /mnt/hdfs"
 
-echo "================================================="
-echo "run docker exec -it -w /mnt/hdfs $CONTAINER_NAME-$HDFS_PORT /bin/bash to access fuse"
-echo "================================================="
+docker exec -it -w /mnt/hdfs $CONTAINER_NAME-$HDFS_PORT /bin/bash
