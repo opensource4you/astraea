@@ -23,7 +23,12 @@ public class MetricPublisherTest {
   @Test
   void testParse() {
     String[] args = {
-      "--bootstrap.servers", "localhost:9092", "--jmxAddress", "1001=localhost:8000", "--jmxPort", "7091"
+      "--bootstrap.servers",
+      "localhost:9092",
+      "--jmxAddress",
+      "1001=localhost:8000",
+      "--jmxPort",
+      "7091"
     };
     var arguments = MetricPublisher.Arguments.parse(new MetricPublisher.Arguments(), args);
     Assertions.assertEquals("localhost:8000", arguments.jmxAddress.get("1001"));
