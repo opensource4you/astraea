@@ -31,7 +31,7 @@ public class AdminMetrics {
    */
   public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.admin.client")
                 .property("type", "admin-client-node-metrics")
@@ -45,7 +45,7 @@ public class AdminMetrics {
 
   public static Collection<HasAdminMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.admin.client")
                 .property("type", "admin-client-metrics")

@@ -18,24 +18,25 @@ package org.astraea.common.metrics.collector;
 
 import java.util.List;
 import java.util.Optional;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class FetcherTest {
+public class MetricSensorTest {
 
   @Test
-  void testMultipleFetchers() {
+  void testMultipleSensors() {
     var mbean0 = Mockito.mock(HasBeanObject.class);
-    Fetcher fetcher0 = client -> List.of(mbean0);
+    MetricSensor metricSensor0 = (client, ignored) -> List.of(mbean0);
     var mbean1 = Mockito.mock(HasBeanObject.class);
-    Fetcher fetcher1 = client -> List.of(mbean1);
+    MetricSensor metricSensor1 = (client, ignored) -> List.of(mbean1);
 
-    var fetcher = Fetcher.of(List.of(fetcher0, fetcher1)).get();
+    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
 
-    var result = fetcher.fetch(Mockito.mock(MBeanClient.class));
+    var result = sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY);
 
     Assertions.assertEquals(2, result.size());
     Assertions.assertTrue(result.contains(mbean0));
@@ -44,19 +45,20 @@ public class FetcherTest {
 
   @Test
   void testEmpty() {
-    Assertions.assertEquals(Optional.empty(), Fetcher.of(List.of()));
+    Assertions.assertEquals(Optional.empty(), MetricSensor.of(List.of()));
   }
 
   @Test
   void testNoSwallowException() {
     var result = List.of(Mockito.mock(HasBeanObject.class));
-    Fetcher goodFetcher = client -> result;
-    Fetcher badFetcher =
-        client -> {
+    MetricSensor goodMetricSensor = (client, ignored) -> result;
+    MetricSensor badMetricSensor =
+        (client, ignored) -> {
           throw new RuntimeException("xxx");
         };
-    var fetcher = Fetcher.of(List.of(badFetcher, goodFetcher)).get();
+    var sensor = MetricSensor.of(List.of(badMetricSensor, goodMetricSensor)).get();
     Assertions.assertThrows(
-        RuntimeException.class, () -> fetcher.fetch(Mockito.mock(MBeanClient.class)));
+        RuntimeException.class,
+        () -> sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
   }
 }

@@ -98,7 +98,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
       Map<Integer, Integer> customJmxPort,
       Duration roundRobinLease) {
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
-    this.neutralIntegratedCost.fetcher().ifPresent(metricCollector::addFetcher);
+    this.neutralIntegratedCost.metricSensor().ifPresent(metricCollector::addMetricSensor);
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
     this.smoothWeightCal =
         new SmoothWeightCal<>(

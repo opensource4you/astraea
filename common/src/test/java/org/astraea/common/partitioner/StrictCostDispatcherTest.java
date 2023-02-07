@@ -36,7 +36,7 @@ import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeThroughputCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -129,7 +129,7 @@ public class StrictCostDispatcherTest {
   }
 
   @Test
-  void testCostFunctionWithoutFetcher() {
+  void testCostFunctionWithoutSensor() {
     HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
     var replicaInfo0 =
         Replica.builder()
@@ -152,7 +152,7 @@ public class StrictCostDispatcherTest {
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
-      Assertions.assertEquals(0, dispatcher.metricCollector.listFetchers().size());
+      Assertions.assertEquals(0, dispatcher.metricCollector.metricSensors().size());
     }
   }
 
@@ -208,7 +208,7 @@ public class StrictCostDispatcherTest {
     try (var dispatcher = new StrictCostDispatcher()) {
       dispatcher.configure(Configuration.of(Map.of()));
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
-      Assertions.assertEquals(1, dispatcher.metricCollector.listFetchers().size());
+      Assertions.assertEquals(1, dispatcher.metricCollector.metricSensors().size());
     }
   }
 
@@ -259,7 +259,7 @@ public class StrictCostDispatcherTest {
   }
 
   @Test
-  void testTryToUpdateFetcher() {
+  void testTryToUpdateSensor() {
     try (MBeanClient local = MBeanClient.local()) {
       try (var ignore =
           Mockito.mockStatic(
@@ -288,15 +288,15 @@ public class StrictCostDispatcherTest {
                 }
 
                 @Override
-                public Optional<Fetcher> fetcher() {
-                  return Optional.of(Mockito.mock(Fetcher.class));
+                public Optional<MetricSensor> metricSensor() {
+                  return Optional.of(Mockito.mock(MetricSensor.class));
                 }
               };
           dispatcher.jmxPortGetter = id -> Optional.of(1111);
-          dispatcher.tryToUpdateFetcher(clusterInfo);
+          dispatcher.tryToUpdateSensor(clusterInfo);
           Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
 
-          dispatcher.tryToUpdateFetcher(clusterInfo);
+          dispatcher.tryToUpdateSensor(clusterInfo);
           Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
         }
       }
