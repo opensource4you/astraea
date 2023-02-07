@@ -16,121 +16,71 @@
  */
 package org.astraea.app.publisher;
 
-import java.time.Duration;
-import java.util.Map;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import org.astraea.app.performance.AbstractThread;
+import java.util.stream.IntStream;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 
-public class JMXPublisher implements AbstractThread {
-  public static JMXPublisher create(
-      String bootstrapServer, Function<Integer, Integer> idToJmxPort, Duration period) {
-    var publisher = new JMXPublisher(bootstrapServer, idToJmxPort);
-    publisher.runPeriodic(period);
-    return publisher;
+public interface JMXPublisher {
+
+  static List<JMXPublisher> create(
+      int threads, String bootstrapServer, BlockingQueue<JMXFetcher.IdAndBean> idAndBeans) {
+    var service = Executors.newFixedThreadPool(threads);
+    var latches =
+        IntStream.range(0, threads)
+            .mapToObj(i -> new CountDownLatch(1))
+            .collect(Collectors.toList());
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            latches.forEach(l -> Utils.swallowException(l::await));
+          } finally {
+            service.shutdown();
+          }
+        });
+    return IntStream.range(0, threads)
+        .mapToObj(
+            i -> {
+              var producer =
+                  Producer.builder()
+                      .bootstrapServers(bootstrapServer)
+                      .valueSerializer(Serializer.STRING)
+                      .build();
+              var closed = new AtomicBoolean(false);
+              var latch = latches.get(i);
+              service.execute(
+                  () -> {
+                    while (!closed.get()) {
+                      try {
+                        var idAndBean = idAndBeans.poll(1, TimeUnit.SECONDS);
+                        if (idAndBean == null) continue;
+                        // Send mbean to internal topic.
+                        Record<byte[], String> record =
+                            Record.builder()
+                                .topic(MetricPublisher.internalTopicName(idAndBean.id()))
+                                .key((byte[]) null)
+                                .value(idAndBean.bean().toString())
+                                .build();
+                        producer.send(record);
+                      } catch (InterruptedException ie) {
+                        ie.printStackTrace();
+                      }
+                    }
+                    latch.countDown();
+                  });
+              return (JMXPublisher) () -> closed.set(true);
+            })
+        .collect(Collectors.toList());
   }
 
-  // Broker id and mbean client
-  private final Map<Integer, MBeanClient> idMBeanClient = new ConcurrentHashMap<>();
-
-  private final Admin admin;
-  private final Producer<byte[], String> producer;
-
-  private final Function<Integer, Integer> idToJmxPort;
-
-  private ScheduledFuture<?> future = null;
-
-  public JMXPublisher(String bootstrapServer, Function<Integer, Integer> idToJmxPort) {
-    this.admin = Admin.of(bootstrapServer);
-    this.producer =
-        Producer.builder()
-            .bootstrapServers(bootstrapServer)
-            .valueSerializer(Serializer.STRING)
-            .build();
-    this.idToJmxPort = idToJmxPort;
-  }
-
-  /**
-   * Periodically fetch jmx mbeans and publish to topics.
-   *
-   * @param period the period to fetch and publish mbeans
-   */
-  public void runPeriodic(Duration period) {
-    this.future =
-        Executors.newScheduledThreadPool(1)
-            .scheduleAtFixedRate(this::execute, 0, period.toMillis(), TimeUnit.MILLISECONDS);
-  }
-
-  // Fetch from mbeanClient and send to inner topic
-
-  public void execute() {
-    updateNodeInfo();
-    // Synchronously fetch metrics from jmx and produce to internal-topic
-    idMBeanClient.forEach(
-        (id, client) ->
-            CompletableFuture.supplyAsync(() -> client.beans(BeanQuery.all()))
-                .thenAccept(
-                    beans ->
-                        beans.stream()
-                            .map(
-                                bean ->
-                                    Record.builder()
-                                        .topic(MetricPublisher.internalTopicName(id))
-                                        .key((byte[]) null)
-                                        .value(bean.toString())
-                                        .build())
-                            .forEach(producer::send)));
-  }
-
-  public void updateNodeInfo() {
-    admin
-        .nodeInfos()
-        .thenAccept(
-            infos -> {
-              // Create jmx client when new node detected
-              infos.forEach(
-                  node ->
-                      this.idMBeanClient.computeIfAbsent(node.id(), id -> createMBeanClient(node)));
-              // Delete non-exist node and close those MBeanClients
-              var idSet = infos.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
-              this.idMBeanClient.keySet().stream()
-                  .filter(id -> !idSet.contains(id))
-                  .forEach(id -> this.idMBeanClient.remove(id).close());
-            });
-  }
-
-  @Override
-  public void waitForDone() {
-    Utils.swallowException(this.future::get);
-  }
-
-  @Override
-  public boolean closed() {
-    return future.isDone();
-  }
-
-  public void close() {
-    future.cancel(false);
-    waitForDone();
-    idMBeanClient.forEach((id, client) -> client.close());
-    admin.close();
-  }
-
-  private MBeanClient createMBeanClient(NodeInfo nodeInfo) {
-    var jmxPort = idToJmxPort.apply(nodeInfo.id());
-    return MBeanClient.jndi(nodeInfo.host(), jmxPort);
-  }
+  void close();
 }

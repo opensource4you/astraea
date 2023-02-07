@@ -19,9 +19,13 @@ package org.astraea.app.publisher;
 import com.beust.jcommander.Parameter;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
+import org.astraea.common.admin.Admin;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
@@ -35,11 +39,30 @@ public class MetricPublisher {
   }
 
   private static void execute(Arguments arguments) {
-    try (var publisher =
-        JMXPublisher.create(
-            arguments.bootstrapServers(), arguments.idToJmxPort(), arguments.period)) {
-      System.out.println("Metric publisher started, Ctrl+c to terminate");
-      publisher.waitForDone();
+    var idQueue = new ArrayBlockingQueue<Integer>(2000);
+    var beanQueue = new ArrayBlockingQueue<JMXFetcher.IdAndBean>(2000);
+    var jmxFetchers =
+        JMXFetcher.create(
+            3, arguments.bootstrapServers(), arguments.idToJmxPort(), idQueue, beanQueue);
+    var jmxPublishers = JMXPublisher.create(2, arguments.bootstrapServers(), beanQueue);
+    var executor = Executors.newScheduledThreadPool(1);
+
+    try (var admin = Admin.of(arguments.bootstrapServers())) {
+      // Periodically add targets to let the jmxFetchers fetch targets' mbean.
+      executor.scheduleAtFixedRate(
+          () ->
+              admin
+                  .nodeInfos()
+                  .thenAccept(nodeInfos -> nodeInfos.forEach(node -> idQueue.offer(node.id()))),
+          0,
+          arguments.period.toMillis(),
+          TimeUnit.MILLISECONDS);
+      Thread.sleep(Long.MAX_VALUE);
+    } catch (InterruptedException ie) {
+      ie.printStackTrace();
+    } finally {
+      jmxFetchers.forEach(JMXFetcher::close);
+      jmxPublishers.forEach(JMXPublisher::close);
     }
   }
 
@@ -57,7 +80,8 @@ public class MetricPublisher {
         description =
             "String: The default port of jmx server of the brokers. For those brokers that"
                 + " jmx server addresses are not set in \"--jmxAddress\", this port will be used"
-                + " to connect that broker's jmx server.")
+                + " to connect that broker's jmx server.",
+        required = true)
     public String defaultPort = null;
 
     @Parameter(
