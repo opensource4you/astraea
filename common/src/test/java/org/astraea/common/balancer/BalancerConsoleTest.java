@@ -94,7 +94,7 @@ class BalancerConsoleTest {
     var theConfig = AlgorithmConfig.builder().clusterCost((c, b) -> () -> 0D).build();
 
     // launch rebalance plan generation
-    var console = BalancerConsole.create(theAdmin, () -> null);
+    var console = BalancerConsole.create(theAdmin, (x) -> Optional.empty());
     var balanceTask0 =
         console
             .launchRebalancePlanGeneration()
