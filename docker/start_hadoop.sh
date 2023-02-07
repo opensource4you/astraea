@@ -35,6 +35,11 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.rmi.port=$HADOOP_JMX_PORT \
   -Djava.rmi.server.hostname=$ADDRESS \
   -javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
+declare -r HDFS_SITE_XML="/tmp/${HADOOP_PORT}-hdfs.xml"
+declare -r CORE_SITE_XML="/tmp/${HADOOP_PORT}-core.xml"
+# cleanup the file if it is existent
+[[ -f "$HDFS_SITE_XML" ]] && rm -f "$HDFS_SITE_XML"
+[[ -f "$CORE_SITE_XML" ]] && rm -f "$CORE_SITE_XML"
 
 # ===================================[functions]===================================
 
@@ -59,7 +64,7 @@ RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 RUN touch $JMX_CONFIG_FILE_IN_CONTAINER_PATH
-RUN echo "rules:\n- pattern: ".*"" >> $JMX_CONFIG_FILE_IN_CONTAINER_PATH
+RUN echo \"rules:\\n- pattern: \\\".*\\\"\" >> $JMX_CONFIG_FILE_IN_CONTAINER_PATH
 
 #download hadoop
 WORKDIR /tmp
@@ -129,14 +134,9 @@ function setNode() {
   fi
   NODE=${NODE:-"$node"}
   CONTAINER_NAME="$NODE-$HADOOP_PORT"
-  HDFS_SITE_XML="/tmp/$NODE-${HADOOP_PORT}-hdfs.xml"
-  CORE_SITE_XML="/tmp/$NODE-${HADOOP_PORT}-core.xml"
-  # cleanup the file if it is existent
-  [[ -f "$HDFS_SITE_XML" ]] && rm -f "$HDFS_SITE_XML"
-  [[ -f "$CORE_SITE_XML" ]] && rm -f "$CORE_SITE_XML"
 
   echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
-  echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > "$CORE_SITE_XML"
+  echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $CORE_SITE_XML
 }
 
 # ===================================[namenode]===================================
@@ -211,6 +211,10 @@ fi
 checkNetwork
 
 if [[ $# -gt 0 ]]; then
+  if [[ "$1" == "help" ]]; then
+    showHelp
+    exit 0
+  fi
   setNode "$1"
   shift
 else
@@ -219,10 +223,6 @@ else
 fi
 
 while [[ $# -gt 0 ]]; do
-  if [[ "$1" == "help" ]]; then
-    showHelp
-    exit 0
-  fi
   name=${1%=*}
   value=${1#*=}
   if [[ "$name" == "fs.defaultFS" ]]; then
