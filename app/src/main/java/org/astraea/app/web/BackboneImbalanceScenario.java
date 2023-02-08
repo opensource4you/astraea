@@ -60,7 +60,6 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
   public static final String CONFIG_PARTITION_COUNT_MAX = "partitionCountMax";
   public static final String CONFIG_BACKBONE_DATA_RATE = "backboneDataRate";
   public static final String CONFIG_PERF_CLIENT_COUNT = "performanceClientCount";
-  public static final String CONFIG_PERF_EXTRA_ARGS = "performanceClientExtraArgs";
 
   private static final String backboneTopicName = "backbone";
 
@@ -368,45 +367,44 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
               client -> {
                 var ingress = DataRate.Byte.of(client.ingress).perSecond();
                 var egress = DataRate.Byte.of(client.egress).perSecond();
-                var args =
-                    String.format(
-                        "--topics %s --throttle %s %s",
-                        String.join(",", client.topics),
-                        client.topics.stream()
-                            .flatMap(
-                                topic ->
-                                    clusterInfo
-                                        .replicaStream(topic)
-                                        .map(Replica::topicPartition)
-                                        .distinct())
-                            .map(
-                                tp -> {
-                                  var bytes =
-                                      topicPartitionDataRates
-                                          .get(tp)
-                                          .dataSize()
-                                          .divide(topicConsumerFanout.get(tp.topic()))
-                                          .bytes();
-                                  // TopicPartitionDataRateMapField support only integer measurement
-                                  // and no space allowed. So we can't just toString the DataRate
-                                  // object :(
-                                  return String.format("%s:%sByte/second", tp, bytes);
-                                })
-                            .collect(Collectors.joining(",")),
-                        config.performanceExtraArgs());
+                var throttle =
+                    client.topics.stream()
+                        .flatMap(
+                            topic ->
+                                clusterInfo
+                                    .replicaStream(topic)
+                                    .map(Replica::topicPartition)
+                                    .distinct())
+                        .map(
+                            tp -> {
+                              var bytes =
+                                  topicPartitionDataRates
+                                      .get(tp)
+                                      .dataSize()
+                                      .divide(topicConsumerFanout.get(tp.topic()))
+                                      .bytes();
+                              // TopicPartitionDataRateMapField support only integer measurement
+                              // and no space allowed. So we can't just toString the DataRate
+                              // object :(
+                              return String.format("%s:%sByte/second", tp, bytes);
+                            })
+                        .collect(Collectors.joining(","));
                 return Map.ofEntries(
-                    Map.entry("args", args),
+                    Map.entry("topics", String.join(",", client.topics)),
+                    Map.entry("throttle", throttle),
                     Map.entry("perfEgress", ingress.toString()),
                     Map.entry("perfIngress", egress.toString()));
               })
           .collect(Collectors.toUnmodifiableList());
     }
+
+    @JsonProperty
+    public int seed() {
+      return config.seed();
+    }
   }
 
   public static class Config {
-
-    public static final String DEFAULT_PERF_ARGS =
-        "--producers 8 --consumers 8 --run.until 1day --key.size 10KiB";
 
     private final Configuration scenarioConfig;
     private final int defaultRandomSeed = ThreadLocalRandom.current().nextInt();
@@ -477,10 +475,6 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
 
     int performanceClientCount() {
       return scenarioConfig.string(CONFIG_PERF_CLIENT_COUNT).map(Integer::parseInt).orElse(7);
-    }
-
-    String performanceExtraArgs() {
-      return scenarioConfig.string(CONFIG_PERF_EXTRA_ARGS).orElse(DEFAULT_PERF_ARGS);
     }
   }
 }
