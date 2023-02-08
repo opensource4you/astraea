@@ -16,8 +16,8 @@
  */
 package org.astraea.common;
 
-import java.util.ArrayList;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -62,22 +62,16 @@ public enum DistributionType implements EnumInfo {
   ZIPFIAN {
     @Override
     public Supplier<Long> supplier(int n) {
-      var cumulativeDensityTable = new ArrayList<Double>();
-      var rand = new Random();
+      var cumulativeDensityTable = new TreeMap<Double, Long>();
       var H_N = IntStream.range(1, n + 1).mapToDouble(k -> 1D / k).sum();
-      cumulativeDensityTable.add(1D / H_N);
-      IntStream.range(1, n)
-          .forEach(
-              i ->
-                  cumulativeDensityTable.add(
-                      cumulativeDensityTable.get(i - 1) + 1D / (i + 1) / H_N));
-      return () -> {
-        final double randNum = rand.nextDouble();
-        for (int i = 0; i < cumulativeDensityTable.size(); ++i) {
-          if (randNum < cumulativeDensityTable.get(i)) return (long) i;
-        }
-        return (long) cumulativeDensityTable.size() - 1L;
-      };
+      var sum = 0D;
+      for (var i = 1L; i <= n; ++i) {
+        double current = 1D / i / H_N;
+        sum += current;
+        cumulativeDensityTable.put(sum, i - 1);
+      }
+      var rand = new Random();
+      return () -> cumulativeDensityTable.ceilingEntry(rand.nextDouble()).getValue() + 1;
     }
   };
 
