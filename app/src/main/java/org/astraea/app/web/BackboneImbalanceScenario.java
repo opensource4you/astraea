@@ -340,8 +340,10 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         long egress = 0;
         Set<String> topics = new HashSet<>();
       }
+      var clientCount = config.performanceClientCount();
+      if (clientCount < 2) throw new IllegalArgumentException("At least two clients are required");
       var clients =
-          IntStream.range(0, config.performanceClientCount())
+          IntStream.range(0, clientCount)
               .mapToObj(i -> new PerfClient())
               .collect(Collectors.toUnmodifiableList());
 
@@ -351,10 +353,13 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         var fanout = (int) topicConsumerFanout.get(topic);
         for (int i = 0; i < fanout; i++) {
           var nextClient =
-              clients.stream()
-                  .filter(x -> !x.topics.contains(topic))
-                  .min(Comparator.comparing(x -> x.ingress))
-                  .orElseThrow();
+              topic.equals(BackboneImbalanceScenario.backboneTopicName)
+                  ? clients.get(0)
+                  : clients.stream()
+                      .skip(1)
+                      .filter(x -> !x.topics.contains(topic))
+                      .min(Comparator.comparing(x -> x.ingress))
+                      .orElseThrow();
           nextClient.ingress += dataRate / fanout;
           nextClient.egress += dataRate;
           nextClient.topics.add(topic);
