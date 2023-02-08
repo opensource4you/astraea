@@ -18,7 +18,7 @@ package org.astraea.app.performance;
 
 import java.io.Closeable;
 
-public interface AbstractThread extends Closeable {
+interface AbstractThread extends Closeable {
 
   /** wait this thread to be completed. */
   void waitForDone();
