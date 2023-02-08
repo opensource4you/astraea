@@ -125,23 +125,47 @@ function setProperty() {
   sed -i "/<\/configuration>/ s/.*/${escapedEntry}\n&/" $path
 }
 
-function setNode() {
-  node=$1
-
-  if [[ "$node" != "namenode" && "$node" != "datanode" ]]; then
-    echo "Please specify namenode or datanode at first argument."
-    exit 0
-  fi
-  NODE=${NODE:-"$node"}
-  CONTAINER_NAME="$NODE-$HADOOP_PORT"
+function initArg() {
+  local node
 
   echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
   echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $CORE_SITE_XML
+
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "help" ]]; then
+      showHelp
+      exit 0
+    fi
+    if [[ "$1" == "namenode" || "$1" == "datanode" ]]; then
+      node=$1
+      shift
+      continue
+    fi
+    local name=${1%=*}
+    local value=${1#*=}
+    if [[ "$name" == "fs.defaultFS" ]]; then
+      setProperty $name $value $CORE_SITE_XML
+    else
+      setProperty $name $value $HDFS_SITE_XML
+    fi
+    shift
+    done
+
+    if [[ "$node" == "namenode" ]]; then
+      startNamenode
+    elif [[ "$node" == "datanode" ]]; then
+      startDatanode
+    else
+      echo "Please specify namenode or datanode as argument."
+      exit 0
+    fi
 }
 
 # ===================================[namenode]===================================
 
 function startNamenode() {
+  declare -r CONTAINER_NAME=namenode-$HADOOP_PORT
+
   rejectProperty fs.defaultFS $CORE_SITE_XML
   rejectProperty dfs.namenode.datanode.registration.ip-hostname-check $HDFS_SITE_XML
 
@@ -171,6 +195,8 @@ function startNamenode() {
 # ===================================[datanode]===================================
 
 function startDatanode() {
+  declare -r CONTAINER_NAME=datanode-$HADOOP_PORT
+
   rejectProperty dfs.datanode.address $HDFS_SITE_XML
   rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
   rejectProperty dfs.client.use.datanode.hostname $HDFS_SITE_XML
@@ -210,31 +236,4 @@ fi
 
 checkNetwork
 
-if [[ $# -gt 0 ]]; then
-  if [[ "$1" == "help" ]]; then
-    showHelp
-    exit 0
-  fi
-  setNode "$1"
-  shift
-else
-  echo "Please specify namenode or datanode as argument."
-  exit 0
-fi
-
-while [[ $# -gt 0 ]]; do
-  name=${1%=*}
-  value=${1#*=}
-  if [[ "$name" == "fs.defaultFS" ]]; then
-    setProperty $name $value $CORE_SITE_XML
-  else
-    setProperty $name $value $HDFS_SITE_XML
-  fi
-  shift
-done
-
-if [[ "$NODE" == "namenode" ]]; then
-  startNamenode
-else
-  startDatanode
-fi
+initArg "$@"
