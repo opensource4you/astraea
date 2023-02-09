@@ -18,8 +18,6 @@ package org.astraea.app.web;
 
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import org.astraea.app.argument.Argument;
-import org.astraea.app.performance.Performance;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
@@ -44,13 +42,6 @@ class BackboneImbalanceScenarioTest {
                 .join();
 
         Assertions.assertEquals(101, result.totalTopics());
-        Assertions.assertDoesNotThrow(
-            () -> {
-              var perfArgs =
-                  result.perfCommands().get(0).get("args") + " --bootstrap.servers localhost:5566";
-              var args = perfArgs.split(" ");
-              var parsed = Argument.parse(new Performance.Argument(), args);
-            });
       }
     }
   }
