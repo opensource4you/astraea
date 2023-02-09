@@ -121,17 +121,28 @@ function setProperty() {
   local value=$2
   local path=$3
 
-  local entry="<property><name>$name</name><value>$value</value></property>"
-  local escapedEntry=$(echo $entry | sed 's/\//\\\//g')
-  sed -i "/<\/configuration>/ s/.*/${escapedEntry}\n&/" $path
+  echo "<property>" >> "$path"
+  echo "<name>$name</name>" >> "$path"
+  echo "<value>$value</value>" >> "$path"
+  echo "</property>" >> "$path"
+}
+
+function completeConfigFile() {
+  echo "</configuration>" >> "$HDFS_SITE_XML"
+  echo "</configuration>" >> "$CORE_SITE_XML"
 }
 
 function initArg() {
+
+  echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > "$HDFS_SITE_XML"
+  echo "<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>" >> "$HDFS_SITE_XML"
+  echo "<configuration>" >> "$HDFS_SITE_XML"
+
+  echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > "$CORE_SITE_XML"
+  echo "<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>" >> "$CORE_SITE_XML"
+  echo "<configuration>" >> "$CORE_SITE_XML"
+
   node=""
-
-  echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
-  echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $CORE_SITE_XML
-
   while [[ $# -gt 0 ]]; do
     if [[ "$1" == "help" ]]; then
       showHelp
@@ -156,17 +167,18 @@ function initArg() {
 # ===================================[namenode]===================================
 
 function startNamenode() {
-  declare -r CONTAINER_NAME=namenode-$HADOOP_PORT
+  local container_name=namenode-$HADOOP_PORT
 
   rejectProperty fs.defaultFS $CORE_SITE_XML
   rejectProperty dfs.namenode.datanode.registration.ip-hostname-check $HDFS_SITE_XML
 
   setProperty dfs.namenode.datanode.registration.ip-hostname-check false $HDFS_SITE_XML
-  setProperty fs.defaultFS hdfs://$CONTAINER_NAME:8020 $CORE_SITE_XML
+  setProperty fs.defaultFS hdfs://$container_name:8020 $CORE_SITE_XML
 
+  completeConfigFile
   docker run -d --init \
-    --name $CONTAINER_NAME \
-    -h $CONTAINER_NAME \
+    --name $container_name \
+    -h $container_name \
     -e HDFS_NAMENODE_OPTS="$JMX_OPTS" \
     -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
     -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
@@ -177,6 +189,7 @@ function startNamenode() {
     "$IMAGE_NAME" /bin/bash -c "./bin/hdfs namenode -format && ./bin/hdfs namenode"
 
   echo "================================================="
+  echo "configs: ${CORE_SITE_XML} ${HDFS_SITE_XML}"
   echo "http address: ${ADDRESS}:$HADOOP_HTTP_ADDRESS"
   echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"
   echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
@@ -187,7 +200,7 @@ function startNamenode() {
 # ===================================[datanode]===================================
 
 function startDatanode() {
-  declare -r CONTAINER_NAME=datanode-$HADOOP_PORT
+  local container_name=namenode-$HADOOP_PORT
 
   rejectProperty dfs.datanode.address $HDFS_SITE_XML
   rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
@@ -198,8 +211,9 @@ function startDatanode() {
   setProperty dfs.datanode.use.datanode.hostname true $HDFS_SITE_XML
   setProperty dfs.client.use.datanode.hostname true $HDFS_SITE_XML
 
+  completeConfigFile
   docker run -d --init \
-    --name $CONTAINER_NAME \
+    --name $container_name \
     -h ${ADDRESS} \
     -e HDFS_DATANODE_OPTS="$JMX_OPTS" \
     -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
@@ -211,6 +225,7 @@ function startDatanode() {
     "$IMAGE_NAME" /bin/bash -c "./bin/hdfs datanode"
 
   echo "================================================="
+  echo "configs: ${CORE_SITE_XML} ${HDFS_SITE_XML}"
   echo "http address: ${ADDRESS}:$HADOOP_HTTP_ADDRESS"
   echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"
   echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
