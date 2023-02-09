@@ -200,7 +200,7 @@ function startNamenode() {
 # ===================================[datanode]===================================
 
 function startDatanode() {
-  local container_name=namenode-$HADOOP_PORT
+  local container_name=datanode-$HADOOP_PORT
 
   rejectProperty dfs.datanode.address $HDFS_SITE_XML
   rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
