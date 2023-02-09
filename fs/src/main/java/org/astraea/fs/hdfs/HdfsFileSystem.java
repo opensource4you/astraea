@@ -48,7 +48,9 @@ public class HdfsFileSystem implements FileSystem {
                       + ":"
                       + config.requireString(PORT_KEY));
 
-          fs = org.apache.hadoop.fs.FileSystem.get(uri, new org.apache.hadoop.conf.Configuration());
+          var conf = new org.apache.hadoop.conf.Configuration();
+          conf.set("dfs.client.use.datanode.hostname", "true");
+          fs = org.apache.hadoop.fs.FileSystem.get(uri, conf, config.requireString(USER_KEY));
         });
   }
 
