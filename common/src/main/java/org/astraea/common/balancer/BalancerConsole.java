@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 
 /** Offer a uniform interface to schedule/manage/execute balance plan to an actual Kafka cluster. */
@@ -46,11 +45,6 @@ public interface BalancerConsole extends AutoCloseable {
   interface Generation {
 
     Generation setBalancer(Balancer balancer);
-
-    default Generation setBalancer(
-        Class<? extends Balancer> balancer, AlgorithmConfig algorithmConfig) {
-      return setBalancer(Balancer.create(balancer, algorithmConfig));
-    }
 
     Generation setGenerationTimeout(Duration timeout);
 
@@ -77,10 +71,6 @@ public interface BalancerConsole extends AutoCloseable {
     String taskId();
 
     Phase phase();
-
-    Balancer usedBalancer();
-
-    RebalancePlanExecutor usedExecutor();
 
     CompletionStage<Balancer.Plan> planGeneration();
 

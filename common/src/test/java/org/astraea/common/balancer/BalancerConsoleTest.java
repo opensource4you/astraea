@@ -43,7 +43,7 @@ class BalancerConsoleTest {
     var balanceTask =
         console
             .launchRebalancePlanGeneration()
-            .setBalancer(CustomBalancer.class, theConfig)
+            .setBalancer(new CustomBalancer(theConfig))
             .setGenerationTimeout(Duration.ofSeconds(1))
             .generate();
     Assertions.assertInstanceOf(CustomBalancer.class, balanceTask.usedBalancer());
@@ -98,19 +98,19 @@ class BalancerConsoleTest {
     var balanceTask0 =
         console
             .launchRebalancePlanGeneration()
-            .setBalancer(CustomBalancer.class, theConfig)
+            .setBalancer(new CustomBalancer(theConfig))
             .setGenerationTimeout(Duration.ofSeconds(1))
             .generate();
     var balanceTask1 =
         console
             .launchRebalancePlanGeneration()
-            .setBalancer(CustomBalancer.class, theConfig)
+            .setBalancer(new CustomBalancer(theConfig))
             .setGenerationTimeout(Duration.ofSeconds(1))
             .generate();
     var balanceTask2 =
         console
             .launchRebalancePlanGeneration()
-            .setBalancer(CustomBalancer.class, theConfig)
+            .setBalancer(new CustomBalancer(theConfig))
             .setGenerationTimeout(Duration.ofSeconds(1))
             .generate();
 
