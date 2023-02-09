@@ -44,7 +44,8 @@ declare -r CORE_SITE_XML="/tmp/${HADOOP_PORT}-core.xml"
 # ===================================[functions]===================================
 
 function showHelp() {
-  echo "Usage: [ENV] start_hadoop.sh"
+  echo "Usage: [ENV] start_hadoop.sh namenode"
+  echo "       or [ENV] start_hadoop.sh datanode"
   echo "ENV: "
   echo "    REPO=astraea/hadoop        set the docker repo"
   echo "    VERSION=3.3.4              set version of hadoop distribution"
@@ -126,7 +127,7 @@ function setProperty() {
 }
 
 function initArg() {
-  local node
+  node=""
 
   echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $HDFS_SITE_XML
   echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>\n</configuration>" > $CORE_SITE_XML
@@ -149,16 +150,7 @@ function initArg() {
       setProperty $name $value $HDFS_SITE_XML
     fi
     shift
-    done
-
-    if [[ "$node" == "namenode" ]]; then
-      startNamenode
-    elif [[ "$node" == "datanode" ]]; then
-      startDatanode
-    else
-      echo "Please specify namenode or datanode as argument."
-      exit 0
-    fi
+  done
 }
 
 # ===================================[namenode]===================================
@@ -237,3 +229,12 @@ fi
 checkNetwork
 
 initArg "$@"
+
+if [[ "$node" == "namenode" ]]; then
+  startNamenode
+elif [[ "$node" == "datanode" ]]; then
+  startDatanode
+else
+  showHelp
+  exit 0
+fi
