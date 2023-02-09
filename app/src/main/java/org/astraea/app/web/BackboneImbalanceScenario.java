@@ -18,6 +18,7 @@ package org.astraea.app.web;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -40,6 +41,7 @@ import org.apache.commons.math3.util.Pair;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -105,7 +107,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                           admin
                               .creator()
                               .topic(backboneTopicName)
-                              .numberOfPartitions(1)
+                              .numberOfPartitions(24)
                               .numberOfReplicas((short) 1)
                               .run())
                   .limit(1);
@@ -119,6 +121,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                             if (err != null) err.printStackTrace();
                           }))
               .forEach(CompletableFuture::join);
+          Utils.sleep(Duration.ofSeconds(1));
 
           // gather info and generate necessary variables
           var allTopics =
@@ -139,6 +142,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                   .perSecond()));
           var topicPartitionDataRate =
               clusterInfo.topics().stream()
+                  .filter(topic -> !topic.equals(backboneTopicName))
                   .flatMap(
                       topic -> {
                         var partitionWeight =
@@ -160,7 +164,32 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                                 (long) (totalDataRate * e.getValue() / totalWeight))
                                             .perSecond()));
                       })
-                  .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+          var backboneTopicBandwidth = topicDataRate.get(backboneTopicName);
+          var nodeWeight =
+              IntStream.range(1, clusterInfo.nodes().size())
+                  .boxed()
+                  .collect(
+                      Collectors.toMap(
+                          index -> clusterInfo.nodes().get(index).id(), index -> rng.nextInt(100)));
+          nodeWeight.put(
+              clusterInfo.nodes().get(0).id(), nodeWeight.values().stream().mapToInt(x -> x).sum());
+
+          clusterInfo.replicas(backboneTopicName).stream()
+              .collect(Collectors.groupingBy(x -> x.nodeInfo().id()))
+              .forEach(
+                  (nodeId, replicas) -> {
+                    var weight = nodeWeight.get(nodeId);
+                    var weightSum = nodeWeight.values().stream().mapToInt(x -> x).sum();
+                    var nodeDataRate = backboneTopicBandwidth.byteRate() * weight / weightSum;
+                    var replicaDataRate = nodeDataRate / replicas.size();
+                    replicas.forEach(
+                        replica ->
+                            topicPartitionDataRate.put(
+                                replica.topicPartition(),
+                                DataRate.Byte.of((long) replicaDataRate).perSecond()));
+                  });
+
           var consumerFanoutMap =
               allTopics.stream()
                   .collect(
@@ -336,8 +365,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     @JsonProperty
     public List<Map<String, String>> perfCommands() {
       class PerfClient {
-        long ingress = 0;
-        long egress = 0;
+        long consumeRate = 0;
+        long produceRate = 0;
         Set<String> topics = new HashSet<>();
       }
       var clientCount = config.performanceClientCount();
@@ -358,10 +387,10 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                   : clients.stream()
                       .skip(1)
                       .filter(x -> !x.topics.contains(topic))
-                      .min(Comparator.comparing(x -> x.ingress))
+                      .min(Comparator.comparing(x -> x.consumeRate))
                       .orElseThrow();
-          nextClient.ingress += dataRate / fanout;
-          nextClient.egress += dataRate;
+          nextClient.consumeRate += dataRate;
+          nextClient.produceRate += dataRate / fanout;
           nextClient.topics.add(topic);
         }
       }
@@ -370,8 +399,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       return clients.stream()
           .map(
               client -> {
-                var ingress = DataRate.Byte.of(client.ingress).perSecond();
-                var egress = DataRate.Byte.of(client.egress).perSecond();
+                var consumeRate = DataRate.Byte.of(client.consumeRate).perSecond();
+                var produceRate = DataRate.Byte.of(client.produceRate).perSecond();
                 var throttle =
                     client.topics.stream()
                         .flatMap(
@@ -397,8 +426,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                 return Map.ofEntries(
                     Map.entry("topics", String.join(",", client.topics)),
                     Map.entry("throttle", throttle),
-                    Map.entry("perfEgress", ingress.toString()),
-                    Map.entry("perfIngress", egress.toString()));
+                    Map.entry("consumeRate", consumeRate.toString()),
+                    Map.entry("produceRate", produceRate.toString()));
               })
           .collect(Collectors.toUnmodifiableList());
     }
@@ -454,7 +483,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                   Arrays.stream(seriesString.split(","))
                       .map(Integer::parseInt)
                       .collect(Collectors.toUnmodifiableList()))
-          .orElse(List.of(0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3));
+          .orElse(List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3));
     }
 
     double topicRateParetoScale() {
