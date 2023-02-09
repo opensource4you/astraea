@@ -80,7 +80,7 @@ public class HdfsFileSystem implements FileSystem {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FOLDER)
-            throw new IllegalArgumentException(path + " is nto a folder");
+            throw new IllegalArgumentException(path + " is not a folder");
           return Arrays.stream(fs.listStatus(new Path(path)))
               .filter(FileStatus::isFile)
               .map(f -> f.getPath().toUri().getPath())
@@ -93,7 +93,7 @@ public class HdfsFileSystem implements FileSystem {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FOLDER)
-            throw new IllegalArgumentException(path + " is nto a folder");
+            throw new IllegalArgumentException(path + " is not a folder");
           return Arrays.stream(fs.listStatus(new Path(path)))
               .filter(FileStatus::isDirectory)
               .map(f -> f.getPath().getName())
