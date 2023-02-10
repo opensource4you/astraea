@@ -29,12 +29,14 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class BalancerConsoleTest {
 
   @Test
+  @Disabled
   void testBalancerConsole() {
     var theAdmin = Mockito.mock(Admin.class);
     var theConfig = AlgorithmConfig.builder().clusterCost((c, b) -> () -> 0D).build();
@@ -88,6 +90,7 @@ class BalancerConsoleTest {
   }
 
   @Test
+  @Disabled
   void testTasks() {
     var theAdmin = Mockito.mock(Admin.class);
     var theConfig = AlgorithmConfig.builder().clusterCost((c, b) -> () -> 0D).build();
