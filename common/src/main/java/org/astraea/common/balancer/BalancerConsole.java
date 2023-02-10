@@ -21,6 +21,8 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
+
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 
@@ -33,7 +35,7 @@ public interface BalancerConsole extends AutoCloseable {
 
   Collection<BalanceTask> tasks();
 
-  BalanceTask task(String taskId);
+  Optional<BalanceTask> task(String taskId);
 
   Generation launchRebalancePlanGeneration();
 
@@ -76,11 +78,26 @@ public interface BalancerConsole extends AutoCloseable {
 
     CompletionStage<Void> planExecution();
 
-    enum Phase {
+    enum Phase implements EnumInfo {
       Searching,
       Searched,
       Executing,
-      Executed
+      Executed;
+
+
+      static Phase ofAlias(String alias) {
+        return EnumInfo.ignoreCaseEnum(Phase.class, alias);
+      }
+
+      @Override
+      public String alias() {
+        return name();
+      }
+
+      @Override
+      public String toString() {
+        return alias();
+      }
     }
   }
 }
