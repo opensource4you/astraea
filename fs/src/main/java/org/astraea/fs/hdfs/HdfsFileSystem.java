@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
@@ -50,7 +51,11 @@ public class HdfsFileSystem implements FileSystem {
                       + config.requireString(PORT_KEY));
 
           var conf = new org.apache.hadoop.conf.Configuration();
-          config.requireMap(OVERRIDE_KEY).forEach(conf::set);
+          try {
+            config.requireMap(OVERRIDE_KEY).forEach(conf::set);
+          } catch (NoSuchElementException ignored) {
+
+          }
           fs = org.apache.hadoop.fs.FileSystem.get(uri, conf, config.requireString(USER_KEY));
         });
   }
