@@ -77,33 +77,6 @@ public interface Balancer {
       Duration timeout,
       AlgorithmConfig config);
 
-  @SuppressWarnings("unchecked")
-  static Balancer create(String classpath, Configuration config) {
-    var theClass = Utils.packException(() -> Class.forName(classpath));
-    if (Balancer.class.isAssignableFrom(theClass)) {
-      return create(((Class<? extends Balancer>) theClass), config);
-    } else
-      throw new IllegalArgumentException("Given class is not a balancer: " + theClass.getName());
-  }
-
-  /**
-   * Initialize an instance of specific Balancer implementation
-   *
-   * @param balancerClass the class of the balancer implementation
-   * @param config the algorithm configuration for the new instance
-   * @return a {@link Balancer} instance of the given class
-   */
-  static <T extends Balancer> T create(Class<T> balancerClass, Configuration config) {
-    try {
-      // case 0: create the class by the given configuration
-      var constructor = balancerClass.getConstructor(Configuration.class);
-      return Utils.packException(() -> constructor.newInstance(config));
-    } catch (NoSuchMethodException e) {
-      // case 1: create the class by empty constructor
-      return Utils.packException(() -> balancerClass.getConstructor().newInstance());
-    }
-  }
-
   class Plan {
     final ClusterCost initialClusterCost;
     final Solution solution;
@@ -172,7 +145,7 @@ public interface Balancer {
     }
 
     public Balancer create(Configuration config) {
-      return Balancer.create(theClass(), config);
+      return Utils.construct(theClass(), config);
     }
 
     @Override

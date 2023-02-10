@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
-
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
@@ -83,7 +82,6 @@ public interface BalancerConsole extends AutoCloseable {
       Searched,
       Executing,
       Executed;
-
 
       static Phase ofAlias(String alias) {
         return EnumInfo.ignoreCaseEnum(Phase.class, alias);

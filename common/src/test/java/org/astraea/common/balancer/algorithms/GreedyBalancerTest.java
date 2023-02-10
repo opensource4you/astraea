@@ -23,7 +23,6 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
@@ -57,7 +56,7 @@ class GreedyBalancerTest {
     var id = "TestJmx-" + UUID.randomUUID();
     var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
     var balancer =
-        Balancer.create(
+        Utils.construct(
             GreedyBalancer.class, Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")));
 
     try (MBeanClient client = MBeanClient.local()) {

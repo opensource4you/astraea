@@ -53,7 +53,6 @@ import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -266,7 +265,7 @@ public class BalancerHandlerTest {
 
       var balancerHandler = new BalancerHandler(admin);
       var Best =
-          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -287,7 +286,7 @@ public class BalancerHandlerTest {
       Assertions.assertThrows(
           Exception.class,
           () ->
-              Balancer.create(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
+              Utils.construct(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
                   .offer(
                       admin
                           .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -305,7 +304,7 @@ public class BalancerHandlerTest {
       // test cluster cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -324,7 +323,7 @@ public class BalancerHandlerTest {
       // test move cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())

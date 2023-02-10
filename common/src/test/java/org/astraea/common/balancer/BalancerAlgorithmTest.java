@@ -96,7 +96,7 @@ public class BalancerAlgorithmTest {
       Utils.sleep(Duration.ofSeconds(2));
 
       var planOfGreedy =
-          Balancer.create(GreedyBalancer.class, Configuration.EMPTY)
+          Utils.construct(GreedyBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -109,7 +109,7 @@ public class BalancerAlgorithmTest {
               .get();
 
       var plan =
-          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())

@@ -117,7 +117,7 @@ class BalancerTest {
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
 
       var plan =
-          Balancer.create(theClass, Configuration.EMPTY)
+          Utils.construct(theClass, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -174,7 +174,7 @@ class BalancerTest {
               .toCompletableFuture()
               .join();
       var newAllocation =
-          Balancer.create(theClass, Configuration.of(Map.of("iteration", "500")))
+          Utils.construct(theClass, Configuration.of(Map.of("iteration", "500")))
               .offer(
                   clusterInfo,
                   ClusterBean.EMPTY,
@@ -237,7 +237,7 @@ class BalancerTest {
       var future =
           CompletableFuture.supplyAsync(
               () ->
-                  Balancer.create(theClass, Configuration.EMPTY)
+                  Utils.construct(theClass, Configuration.EMPTY)
                       .offer(
                           admin
                               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
@@ -292,7 +292,7 @@ class BalancerTest {
                   return () -> 0;
                 }
               };
-          Balancer.create(theClass, Configuration.of(Map.of("iteration", "500")))
+          Utils.construct(theClass, Configuration.of(Map.of("iteration", "500")))
               .offer(
                   ClusterInfo.empty(),
                   metricSource.get(),

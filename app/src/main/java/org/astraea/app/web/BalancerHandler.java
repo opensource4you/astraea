@@ -572,7 +572,10 @@ class BalancerHandler implements Handler {
                 metricContext(
                     sensors,
                     (metricSource) ->
-                        Balancer.create(taskRequest.balancerClasspath, taskRequest.balancerConfig)
+                        Utils.construct(
+                                taskRequest.balancerClasspath,
+                                Balancer.class,
+                                taskRequest.balancerConfig)
                             .retryOffer(
                                 currentClusterInfo,
                                 taskRequest.executionTime,
