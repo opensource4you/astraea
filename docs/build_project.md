@@ -40,7 +40,7 @@
 
     ./gradlew shadowJar
 
-可在 GUI 模組下找到可執行的 jar 檔案 (`build/libs/astraea-gui-[VERSION]-all.jar`)
+可在 GUI 模組下找到可執行的 jar 檔案 (`astraea/gui/build/libs/astraea-gui-[VERSION]-all.jar`)
 
     java -jar astraea-gui-[VERSION]-all.jar
 
