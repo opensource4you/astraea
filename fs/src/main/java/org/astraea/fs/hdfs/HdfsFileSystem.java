@@ -35,6 +35,7 @@ public class HdfsFileSystem implements FileSystem {
   public static final String HOSTNAME_KEY = "fs.hdfs.hostname";
   public static final String PORT_KEY = "fs.hdfs.port";
   public static final String USER_KEY = "fs.hdfs.user";
+  public static final String OVERRIDE_KEY = "fs.hdfs.override";
 
   private org.apache.hadoop.fs.FileSystem fs;
 
@@ -49,7 +50,7 @@ public class HdfsFileSystem implements FileSystem {
                       + config.requireString(PORT_KEY));
 
           var conf = new org.apache.hadoop.conf.Configuration();
-          conf.set("dfs.client.use.datanode.hostname", "true");
+          config.requireMap(OVERRIDE_KEY).forEach(conf::set);
           fs = org.apache.hadoop.fs.FileSystem.get(uri, conf, config.requireString(USER_KEY));
         });
   }
