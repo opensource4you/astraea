@@ -18,8 +18,10 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.Optional;
+import org.astraea.common.Configuration;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -31,14 +33,19 @@ import org.astraea.common.cost.NoSufficientMetricsException;
 public interface Balancer {
 
   /**
-   * Execute {@link Balancer#offer(ClusterInfo, Duration)}. Retry the plan generation if a {@link
-   * NoSufficientMetricsException} exception occurred.
+   * Execute {@link Balancer#offer(ClusterInfo, ClusterBean, Duration, AlgorithmConfig)}. Retry the
+   * plan generation if a {@link NoSufficientMetricsException} exception occurred.
    */
-  default Plan retryOffer(ClusterInfo currentClusterInfo, Duration timeout) {
+  default Plan retryOffer(
+      ClusterInfo currentClusterInfo, Duration timeout, AlgorithmConfig config) {
     final var timeoutMs = System.currentTimeMillis() + timeout.toMillis();
     while (System.currentTimeMillis() < timeoutMs) {
       try {
-        return offer(currentClusterInfo, Duration.ofMillis(timeoutMs - System.currentTimeMillis()));
+        return offer(
+            currentClusterInfo,
+            config.metricSource().get(),
+            Duration.ofMillis(timeoutMs - System.currentTimeMillis()),
+            config);
       } catch (NoSufficientMetricsException e) {
         e.printStackTrace();
         var remainTimeout = timeoutMs - System.currentTimeMillis();
@@ -64,12 +71,14 @@ public interface Balancer {
   /**
    * @return a rebalance plan
    */
-  Plan offer(ClusterInfo currentClusterInfo, Duration timeout);
-
-  AlgorithmConfig config();
+  Plan offer(
+      ClusterInfo currentClusterInfo,
+      ClusterBean clusterBean,
+      Duration timeout,
+      AlgorithmConfig config);
 
   @SuppressWarnings("unchecked")
-  static Balancer create(String classpath, AlgorithmConfig config) {
+  static Balancer create(String classpath, Configuration config) {
     var theClass = Utils.packException(() -> Class.forName(classpath));
     if (Balancer.class.isAssignableFrom(theClass)) {
       return create(((Class<? extends Balancer>) theClass), config);
@@ -84,10 +93,10 @@ public interface Balancer {
    * @param config the algorithm configuration for the new instance
    * @return a {@link Balancer} instance of the given class
    */
-  static <T extends Balancer> T create(Class<T> balancerClass, AlgorithmConfig config) {
+  static <T extends Balancer> T create(Class<T> balancerClass, Configuration config) {
     try {
       // case 0: create the class by the given configuration
-      var constructor = balancerClass.getConstructor(AlgorithmConfig.class);
+      var constructor = balancerClass.getConstructor(Configuration.class);
       return Utils.packException(() -> constructor.newInstance(config));
     } catch (NoSuchMethodException e) {
       // case 1: create the class by empty constructor
@@ -162,7 +171,7 @@ public interface Balancer {
       return balancerClass;
     }
 
-    public Balancer create(AlgorithmConfig config) {
+    public Balancer create(Configuration config) {
       return Balancer.create(theClass(), config);
     }
 

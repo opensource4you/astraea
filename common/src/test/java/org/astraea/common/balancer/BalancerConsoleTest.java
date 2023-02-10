@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
@@ -46,8 +47,6 @@ class BalancerConsoleTest {
             .setBalancer(new CustomBalancer(theConfig))
             .setGenerationTimeout(Duration.ofSeconds(1))
             .generate();
-    Assertions.assertInstanceOf(CustomBalancer.class, balanceTask.usedBalancer());
-    Assertions.assertEquals(theConfig, balanceTask.usedBalancer().config());
     Assertions.assertInstanceOf(String.class, balanceTask.taskId());
     Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Searching, balanceTask.phase());
     Assertions.assertFalse(balanceTask.planGeneration().toCompletableFuture().isDone());
@@ -130,14 +129,13 @@ class BalancerConsoleTest {
     }
 
     @Override
-    public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
+    public Plan offer(
+        ClusterInfo currentClusterInfo,
+        ClusterBean clusterBean,
+        Duration timeout,
+        AlgorithmConfig config) {
       Utils.sleep(timeout);
       return new Plan(() -> 0);
-    }
-
-    @Override
-    public AlgorithmConfig config() {
-      return config;
     }
   }
 }

@@ -19,8 +19,10 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -94,28 +96,28 @@ public class BalancerAlgorithmTest {
       Utils.sleep(Duration.ofSeconds(2));
 
       var planOfGreedy =
-          Balancer.create(
-                  GreedyBalancer.class,
-                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
+          Balancer.create(GreedyBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(5))
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(5),
+                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
               .solution()
               .get();
 
       var plan =
-          Balancer.create(
-                  SingleStepBalancer.class,
-                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
+          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(5))
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(5),
+                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
               .solution()
               .get();
 

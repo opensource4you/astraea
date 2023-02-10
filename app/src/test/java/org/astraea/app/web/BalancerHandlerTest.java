@@ -266,20 +266,20 @@ public class BalancerHandlerTest {
 
       var balancerHandler = new BalancerHandler(admin);
       var Best =
-          Balancer.create(
-                  SingleStepBalancer.class,
-                  AlgorithmConfig.builder()
-                      .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> after.value() <= before.value())
-                      .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
-                      .build())
+          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(3));
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> after.value() <= before.value())
+                      .moveCost(moveCostFunction)
+                      .movementConstraint(moveCosts -> true)
+                      .build());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -287,58 +287,57 @@ public class BalancerHandlerTest {
       Assertions.assertThrows(
           Exception.class,
           () ->
-              Balancer.create(
-                      SingleStepBalancer.class,
-                      AlgorithmConfig.builder()
-                          .clusterCost(clusterCostFunction)
-                          .clusterConstraint((before, after) -> true)
-                          .moveCost(moveCostFunction)
-                          .movementConstraint(moveCosts -> true)
-                          .config(Configuration.of(Map.of("iteration", "0")))
-                          .build())
+              Balancer.create(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
                   .offer(
                       admin
                           .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                           .toCompletableFuture()
                           .join(),
-                      Duration.ofSeconds(3)));
+                      ClusterBean.EMPTY,
+                      Duration.ofSeconds(3),
+                      AlgorithmConfig.builder()
+                          .clusterCost(clusterCostFunction)
+                          .clusterConstraint((before, after) -> true)
+                          .moveCost(moveCostFunction)
+                          .movementConstraint(moveCosts -> true)
+                          .build()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.create(
-                  SingleStepBalancer.class,
+          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> true)
                       .build())
-              .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  Duration.ofSeconds(3))
               .solution());
 
       // test move cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.create(
-                  SingleStepBalancer.class,
+          Balancer.create(SingleStepBalancer.class, Configuration.EMPTY)
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
                       .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> false)
                       .build())
-              .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  Duration.ofSeconds(3))
               .solution());
     }
   }
@@ -868,10 +867,10 @@ public class BalancerHandlerTest {
       var offerInvoked = new AtomicBoolean(false);
       SpyBalancer.offerCallbacks.add(() -> offerInvoked.set(true));
       SpyBalancer.newCallbacks.add(
-          (algorithmConfig) -> {
-            Assertions.assertEquals("value0", algorithmConfig.config().requireString("key0"));
-            Assertions.assertEquals("value1", algorithmConfig.config().requireString("key1"));
-            Assertions.assertEquals("value2", algorithmConfig.config().requireString("key2"));
+          (config) -> {
+            Assertions.assertEquals("value0", config.requireString("key0"));
+            Assertions.assertEquals("value1", config.requireString("key1"));
+            Assertions.assertEquals("value2", config.requireString("key2"));
             newInvoked.set(true);
           });
 
@@ -1280,21 +1279,25 @@ public class BalancerHandlerTest {
 
   public static class SpyBalancer extends SingleStepBalancer {
 
-    public static List<Consumer<AlgorithmConfig>> newCallbacks =
+    public static List<Consumer<Configuration>> newCallbacks =
         Collections.synchronizedList(new ArrayList<>());
     public static List<Runnable> offerCallbacks = Collections.synchronizedList(new ArrayList<>());
 
-    public SpyBalancer(AlgorithmConfig algorithmConfig) {
-      super(algorithmConfig);
-      newCallbacks.forEach(c -> c.accept(algorithmConfig));
+    public SpyBalancer(Configuration config) {
+      super(config);
+      newCallbacks.forEach(c -> c.accept(config));
       newCallbacks.clear();
     }
 
     @Override
-    public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
+    public Plan offer(
+        ClusterInfo currentClusterInfo,
+        ClusterBean clusterBean,
+        Duration timeout,
+        AlgorithmConfig config) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
-      return super.offer(currentClusterInfo, timeout);
+      return super.offer(currentClusterInfo, clusterBean, timeout, config);
     }
   }
 

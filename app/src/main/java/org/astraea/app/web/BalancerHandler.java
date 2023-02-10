@@ -570,11 +570,13 @@ class BalancerHandler implements Handler {
                     sensors,
                     (metricSource) ->
                         Balancer.create(
-                                taskRequest.balancerClasspath,
+                                taskRequest.balancerClasspath, taskRequest.algorithmConfig.config())
+                            .retryOffer(
+                                currentClusterInfo,
+                                taskRequest.executionTime,
                                 AlgorithmConfig.builder(taskRequest.algorithmConfig)
                                     .metricSource(metricSource)
-                                    .build())
-                            .retryOffer(currentClusterInfo, taskRequest.executionTime));
+                                    .build()));
             var changes =
                 bestPlan
                     .solution()

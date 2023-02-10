@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
@@ -55,20 +56,23 @@ class GreedyBalancerTest {
     var cost = new DecreasingCost(Configuration.of(Map.of()));
     var id = "TestJmx-" + UUID.randomUUID();
     var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
-    var balancer =
-        Balancer.create(
-            GreedyBalancer.class,
-            AlgorithmConfig.builder()
-                .executionId(id)
-                .clusterCost(cost)
-                .config(Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")))
-                .build());
+    var balancer = Balancer.create(GreedyBalancer.class, Configuration.EMPTY);
 
     try (MBeanClient client = MBeanClient.local()) {
       IntStream.range(0, 10)
           .forEach(
               run -> {
-                var plan = balancer.offer(clusterInfo, Duration.ofMillis(300));
+                var plan =
+                    balancer.offer(
+                        clusterInfo,
+                        ClusterBean.EMPTY,
+                        Duration.ofMillis(300),
+                        AlgorithmConfig.builder()
+                            .executionId(id)
+                            .clusterCost(cost)
+                            .config(
+                                Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")))
+                            .build());
                 Assertions.assertTrue(plan.solution().isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(
