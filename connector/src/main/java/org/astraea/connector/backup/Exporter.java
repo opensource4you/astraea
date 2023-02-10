@@ -97,10 +97,9 @@ public class Exporter extends SinkConnector {
 
   static Definition OVERRIDE_KEY =
       Definition.builder()
-          .name("fs.<schema>.override")
+          .name("fs.<schema>.override.<property_name>")
           .type(Definition.Type.STRING)
-          .documentation(
-              "a string that needs to be overridden in the file system should have a format of \"k1:v1,k2:v2\".")
+          .documentation("a value that needs to be overridden in the file system.")
           .build();
   private Configuration configs;
 

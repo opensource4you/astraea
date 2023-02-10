@@ -103,15 +103,6 @@ public interface Configuration {
   }
 
   /**
-   * @param key the key whose associated value is to be returned should have a corresponding value
-   *     in the format of "k1:v1,k2:v2"
-   * @return string map object, never null
-   */
-  default Map<String, String> requireMap(String key) {
-    return map(key, ",", ":", k -> k.replaceAll("\n", ""), String::valueOf);
-  }
-
-  /**
    * @param key the key whose associated value is to be returned
    * @param separator to split string to multiple strings
    * @return string list. never null

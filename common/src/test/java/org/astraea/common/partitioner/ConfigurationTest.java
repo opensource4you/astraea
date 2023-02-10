@@ -43,6 +43,5 @@ public class ConfigurationTest {
     var config = Configuration.of(Map.of("key", "v0:0,v1:1"));
     Assertions.assertEquals(
         Map.of("v0", 0, "v1", 1), config.map("key", ",", ":", Integer::valueOf));
-    Assertions.assertEquals(Map.of("v0", "0", "v1", "1"), config.requireMap("key"));
   }
 }

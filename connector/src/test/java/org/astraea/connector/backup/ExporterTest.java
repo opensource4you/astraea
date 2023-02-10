@@ -451,8 +451,8 @@ public class ExporterTest {
               "1",
               "roll.duration",
               "100m",
-              "fs.hdfs.override",
-              "dfs.client.use.datanode.hostname:true");
+              "fs.hdfs.override.dfs.client.use.datanode.hostname",
+              "true");
 
       task.start(configs);
 
