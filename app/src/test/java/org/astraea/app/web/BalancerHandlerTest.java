@@ -913,7 +913,6 @@ public class BalancerHandlerTest {
         request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
-        Assertions.assertTrue(config.config().entrySet().isEmpty());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
@@ -933,7 +932,6 @@ public class BalancerHandlerTest {
 
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
-        Assertions.assertEquals(Set.of(Map.entry("KEY", "VALUE")), config.config().entrySet());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertEquals(
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());

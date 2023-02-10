@@ -237,13 +237,13 @@ class BalancerHandler implements Handler {
 
     return new PostRequestWrapper(
         balancerPostRequest.balancer,
+        Configuration.of(balancerPostRequest.balancerConfig),
         balancerPostRequest.timeout,
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
             .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
-            .config(Configuration.of(balancerPostRequest.balancerConfig))
             .build(),
         currentClusterInfo);
   }
@@ -328,16 +328,19 @@ class BalancerHandler implements Handler {
 
   static class PostRequestWrapper {
     final String balancerClasspath;
+    final Configuration balancerConfig;
     final Duration executionTime;
     final AlgorithmConfig algorithmConfig;
     final ClusterInfo clusterInfo;
 
     PostRequestWrapper(
         String balancerClasspath,
+        Configuration balancerConfig,
         Duration executionTime,
         AlgorithmConfig algorithmConfig,
         ClusterInfo clusterInfo) {
       this.balancerClasspath = balancerClasspath;
+      this.balancerConfig = balancerConfig;
       this.executionTime = executionTime;
       this.algorithmConfig = algorithmConfig;
       this.clusterInfo = clusterInfo;
@@ -569,8 +572,7 @@ class BalancerHandler implements Handler {
                 metricContext(
                     sensors,
                     (metricSource) ->
-                        Balancer.create(
-                                taskRequest.balancerClasspath, taskRequest.algorithmConfig.config())
+                        Balancer.create(taskRequest.balancerClasspath, taskRequest.balancerConfig)
                             .retryOffer(
                                 currentClusterInfo,
                                 taskRequest.executionTime,

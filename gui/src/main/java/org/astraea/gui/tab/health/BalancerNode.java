@@ -201,7 +201,9 @@ class BalancerNode {
                   logger.log("searching better assignments ... ");
                   return Map.entry(
                       clusterInfo,
-                      Balancer.create(GreedyBalancer.class, Configuration.EMPTY)
+                      Balancer.create(
+                              GreedyBalancer.class,
+                              Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                           .offer(
                               clusterInfo,
                               ClusterBean.EMPTY,
@@ -220,9 +222,6 @@ class BalancerNode {
                                           patterns.isEmpty()
                                               || patterns.stream()
                                                   .anyMatch(p -> p.matcher(topic).matches()))
-                                  .config(
-                                      Configuration.of(
-                                          Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                                   .build()));
                 })
             .thenApply(
