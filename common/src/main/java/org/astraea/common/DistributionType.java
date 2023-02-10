@@ -17,6 +17,7 @@
 package org.astraea.common;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -65,18 +66,20 @@ public enum DistributionType implements EnumInfo {
       var cumulativeDensityTable = new ArrayList<Double>();
       var rand = new Random();
       var H_N = IntStream.range(1, n + 1).mapToDouble(k -> 1D / k).sum();
-      cumulativeDensityTable.add(1D / H_N);
-      IntStream.range(1, n)
-          .forEach(
-              i ->
-                  cumulativeDensityTable.add(
-                      cumulativeDensityTable.get(i - 1) + 1D / (i + 1) / H_N));
+      var sum = 0D;
+      // In theory, the last entry of cumulative density table is 1.0. But due to the precision of
+      // floating point addition, the resulting last entry may not be 1.0. Here, we manually fix the
+      // last entry to 1.0. Then, the binary search afterward will not return the index out of
+      // expected range.
+      for (var i = 1L; i < n; ++i) {
+        sum += 1D / i / H_N;
+        cumulativeDensityTable.add(sum);
+      }
+      cumulativeDensityTable.add(1.0);
       return () -> {
-        final double randNum = rand.nextDouble();
-        for (int i = 0; i < cumulativeDensityTable.size(); ++i) {
-          if (randNum < cumulativeDensityTable.get(i)) return (long) i;
-        }
-        return (long) cumulativeDensityTable.size() - 1L;
+        var randNum = rand.nextDouble();
+        var ret = (long) Collections.binarySearch(cumulativeDensityTable, randNum);
+        return (ret >= 0) ? ret : (-ret - 1);
       };
     }
   };
