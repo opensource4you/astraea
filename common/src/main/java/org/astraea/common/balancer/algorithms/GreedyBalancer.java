@@ -109,10 +109,6 @@ public class GreedyBalancer implements Balancer {
   private final int iteration;
   private final AtomicInteger run = new AtomicInteger();
 
-  public GreedyBalancer() {
-    this(Configuration.EMPTY);
-  }
-
   public GreedyBalancer(Configuration config) {
     minStep =
         config
