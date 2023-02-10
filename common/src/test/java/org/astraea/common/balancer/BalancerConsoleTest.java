@@ -28,12 +28,21 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class BalancerConsoleTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   @Disabled
@@ -49,7 +58,7 @@ class BalancerConsoleTest {
             .setBalancer(new CustomBalancer(theConfig))
             .setGenerationTimeout(Duration.ofSeconds(1))
             .generate();
-    Assertions.assertInstanceOf(String.class, balanceTask.taskId());
+    Assertions.assertInstanceOf(String.class, balanceTask.id());
     Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Searching, balanceTask.phase());
     Assertions.assertFalse(balanceTask.planGeneration().toCompletableFuture().isDone());
     Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
@@ -59,7 +68,7 @@ class BalancerConsoleTest {
     Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
 
     // this task is there
-    Assertions.assertEquals(balanceTask, console.task(balanceTask.taskId()));
+    Assertions.assertEquals(balanceTask, console.task(balanceTask.id()).orElseThrow());
     Assertions.assertEquals(Collections.singleton(balanceTask), console.tasks());
 
     // launch rebalance plan execution
@@ -118,9 +127,24 @@ class BalancerConsoleTest {
 
     Assertions.assertEquals(
         Set.of(balanceTask0, balanceTask1, balanceTask2), Set.copyOf(console.tasks()));
-    Assertions.assertEquals(balanceTask0, console.task(balanceTask0.taskId()));
-    Assertions.assertEquals(balanceTask1, console.task(balanceTask1.taskId()));
-    Assertions.assertEquals(balanceTask2, console.task(balanceTask2.taskId()));
+    Assertions.assertEquals(balanceTask0, console.task(balanceTask0.id()).orElseThrow());
+    Assertions.assertEquals(balanceTask1, console.task(balanceTask1.id()).orElseThrow());
+    Assertions.assertEquals(balanceTask2, console.task(balanceTask2.id()).orElseThrow());
+  }
+
+  @Test
+  void testFreshJmxAddress() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var noJmx = (BalancerConsoleImpl) BalancerConsole.create(admin, (id) -> Optional.empty());
+      var withJmx = (BalancerConsoleImpl) BalancerConsole.create(admin, (id) -> Optional.of(5566));
+      var partialJmx =
+          (BalancerConsoleImpl)
+              BalancerConsole.create(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
+
+      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
+      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
+      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
+    }
   }
 
   public static class CustomBalancer implements Balancer {

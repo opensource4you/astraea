@@ -23,13 +23,14 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 
 /** Offer a uniform interface to schedule/manage/execute balance plan to an actual Kafka cluster. */
 public interface BalancerConsole extends AutoCloseable {
 
   static BalancerConsole create(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
-    throw new UnsupportedOperationException();
+    return new BalancerConsoleImpl(admin, jmxPortMapper);
   }
 
   Collection<BalanceTask> tasks();
@@ -49,6 +50,10 @@ public interface BalancerConsole extends AutoCloseable {
 
     Generation setGenerationTimeout(Duration timeout);
 
+    Generation setAlgorithmConfig(AlgorithmConfig config);
+
+    Generation checkNoOngoingMigration(boolean enable);
+
     BalanceTask generate();
   }
 
@@ -56,12 +61,14 @@ public interface BalancerConsole extends AutoCloseable {
 
     Execution setExecutor(RebalancePlanExecutor executor);
 
-    Execution setExecutor(Class<? extends RebalancePlanExecutor> executor);
-
     Execution setExecutionTimeout(Duration timeout);
 
+    Execution checkPlanConsistency(boolean enable);
+
+    Execution checkNoOngoingMigration(boolean enable);
+
     default BalanceTask execute(BalanceTask theTask) {
-      return execute(theTask.taskId());
+      return execute(theTask.id());
     }
 
     BalanceTask execute(String taskId);
@@ -69,7 +76,7 @@ public interface BalancerConsole extends AutoCloseable {
 
   interface BalanceTask {
 
-    String taskId();
+    String id();
 
     Phase phase();
 
