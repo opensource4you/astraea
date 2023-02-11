@@ -86,8 +86,8 @@ COPY --from=build /opt/hadoop /opt/hadoop
 #add user
 RUN groupadd $USER && useradd -ms /bin/bash -g $USER $USER
 
-#edit hadoop-env.sh
-RUN echo "export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> /opt/hadoop/etc/hadoop/hadoop-env.sh
+# expose JAVA_HOME for hadoop
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 
 #change user
 RUN chown -R $USER:$USER /opt/hadoop
