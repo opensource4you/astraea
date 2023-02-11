@@ -440,7 +440,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
             planGeneration.handle((ignore, err) -> err).getNow(null));
       if (planGeneration.getNow(null).solution().isEmpty())
         throw new IllegalStateException(
-            "This plan failed to find any usable balance plan that will improve this cluster");
+            "This plan generation failed to find any usable balance plan that will improve this cluster");
       if (latch.started())
         throw new IllegalStateException("This rebalance execution already started");
 

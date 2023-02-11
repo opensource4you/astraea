@@ -82,7 +82,7 @@ class BalancerConsoleTest {
       Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Searching, balanceTask.phase());
       Assertions.assertFalse(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
-      Utils.sleep(Duration.ofSeconds(1).plusMillis(100));
+      balanceTask.planGeneration().toCompletableFuture().join();
       Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Searched, balanceTask.phase());
       Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
@@ -110,7 +110,7 @@ class BalancerConsoleTest {
       Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Executing, balanceTask.phase());
       Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
-      Utils.sleep(Duration.ofSeconds(1).plusMillis(100));
+      balancerTaskSame.planExecution().toCompletableFuture().join();
       Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Executed, balanceTask.phase());
       Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertTrue(balanceTask.planExecution().toCompletableFuture().isDone());
@@ -174,7 +174,6 @@ class BalancerConsoleTest {
 
   @Test
   void testCheckPlanConsistency() {
-    // TODO: implement this
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var console = BalancerConsole.create(admin, (x) -> Optional.empty())) {
       var topic = Utils.randomString();
@@ -192,7 +191,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofMillis(100))
+              .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
               .generate();
@@ -204,6 +203,7 @@ class BalancerConsoleTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofMillis(500));
+      task.planGeneration().toCompletableFuture().join();
 
       Assertions.assertThrows(
           IllegalStateException.class,
