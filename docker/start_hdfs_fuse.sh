@@ -19,10 +19,13 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${VERSION:-3.3.4}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/hdfs_fuse}
+declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/hdfs-fuse}
 declare -r IMAGE_NAME="$REPO:$VERSION"
-declare -r DOCKERFILE=$DOCKER_FOLDER/hdfs-fuse.dockerfile
+declare -r TMP_DOCKER_FOLDER=/tmp/docker
+declare -r DOCKERFILE=$TMP_DOCKER_FOLDER/hdfs-fuse.dockerfile
 declare -r CONTAINER_NAME="hdfs-fuse"
+declare -r HADOOP_SRC_PATH=$TMP_DOCKER_FOLDER/hadoop-src
+declare -r FUSE_DFS_WRAPPER_SH=$HADOOP_SRC_PATH/fuse_dfs_wrapper.sh
 
 # ===================================[functions]===================================
 
@@ -37,80 +40,19 @@ function showHelp() {
 
 function generateDockerfile() {
   echo "#this dockerfile is generated dynamically
-FROM ubuntu:22.04 AS build
-
-#install tools
-RUN apt-get update && apt-get install -y wget
-
-#download hadoop
-WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/hadoop/common/hadoop-${VERSION}/hadoop-${VERSION}-src.tar.gz
-RUN mkdir /opt/hadoop-src
-RUN tar -zxvf hadoop-${VERSION}-src.tar.gz -C /opt/hadoop-src --strip-components=1
-RUN wget https://archive.apache.org/dist/hadoop/common/hadoop-${VERSION}/hadoop-${VERSION}.tar.gz
-RUN mkdir /opt/hadoop
-RUN tar -zxvf hadoop-${VERSION}.tar.gz -C /opt/hadoop --strip-components=1
-
-FROM ubuntu:22.04 AS buildsrc
-
-#install tools
-RUN apt-get update \\
-    && apt-get install -y openjdk-11-jdk \\
-        maven \\
-        build-essential \\
-        autoconf \\
-        automake \\
-        libtool \\
-        cmake \\
-        zlib1g-dev \\
-        pkg-config \\
-        libssl-dev \\
-        libsasl2-dev \\
-        g++ \\
-        curl \\
-        libfuse-dev
-
-WORKDIR /tmp
-RUN curl -L -s -S https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/protobuf-java-3.7.1.tar.gz -o protobuf-3.7.1.tar.gz \\
-    && mkdir /opt/protobuf-3.7-src \\
-    && tar -zxf protobuf-3.7.1.tar.gz --strip-components 1 -C /opt/protobuf-3.7-src && cd /opt/protobuf-3.7-src \\
-    && ./configure --prefix=/usr/ \\
-    && make -j\$(nproc) \\
-    && make install
-
-WORKDIR /tmp
-RUN curl -L https://sourceforge.net/projects/boost/files/boost/1.80.0/boost_1_80_0.tar.bz2/download > boost_1_80_0.tar.bz2 \\
-    && tar --bzip2 -xf boost_1_80_0.tar.bz2 -C /opt && cd /opt/boost_1_80_0 \\
-    && ./bootstrap.sh --prefix=/usr/ \\
-    && ./b2 --without-python \\
-    && ./b2 --without-python install
-
-ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64
+FROM ubuntu:22.04
 
 #copy hadoop
-COPY --from=build /opt/hadoop-src /opt/hadoop
-WORKDIR /opt/hadoop
-RUN mvn clean package -pl hadoop-hdfs-project/hadoop-hdfs-native-client -Pnative -DskipTests -Drequire.fuse=true
-
-FROM ubuntu:22.04
+COPY hadoop-src/ /opt/hadoop/
 
 #install tools
 RUN apt-get update && apt-get install -y openjdk-11-jre fuse
 
-#copy hadoop
-COPY --from=build /opt/hadoop /opt/hadoop
-COPY --from=buildsrc /opt/hadoop /opt/hadoop
-
-ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64
-ENV HADOOP_HOME /opt/hadoop
-
 RUN echo \"user_allow_other\" >> /etc/fuse.conf
 
-WORKDIR /opt/hadoop/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs
-RUN sed -i -e '18aexport CLASSPATH=\\\${HADOOP_HOME}/etc/hadoop:\`find \\\${HADOOP_HOME}/share/hadoop/ | awk '\"'\"'{path=path\":\"\\\$0}END{print path}'\"'\"'\`' \\
-    -i -e '18aexport LD_LIBRARY_PATH=\\\${HADOOP_HOME}/lib/native:\\\$LD_LIBRARY_PATH' \\
-    -i -e 's#export LIBHDFS_PATH=.*#export LIBHDFS_PATH=\\\${HADOOP_HOME}/hadoop-hdfs-project/hadoop-hdfs-native-client/target/native/target/usr/local/lib#' \\
-    -i -e 's/find \"\\\$HADOOP_HOME\/hadoop-client\" -name \"\\*.jar\"/find \"\\\$HADOOP_HOME\/hadoop-client-modules\/hadoop-client\" -name \"\\*.jar\"/g' fuse_dfs_wrapper.sh
+ENV HADOOP_HOME /opt/hadoop
+ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64
+WORKDIR /opt/hadoop
 
 #add user
 RUN groupadd astraea && useradd -ms /bin/bash -g astraea astraea
@@ -119,9 +61,86 @@ RUN mkdir /mnt/hdfs
 
 #change user
 RUN chown -R $USER:$USER /opt/hadoop /mnt/hdfs
+RUN chmod 755 fuse_dfs_wrapper.sh
 USER $USER
 
 " >"$DOCKERFILE"
+}
+
+function checkGit() {
+  if [[ "$(which git)" == "" ]]; then
+    echo "you have to install git"
+    exit 2
+  fi
+}
+
+function cloneSrcIfNeed() {
+  if [[ ! -d "$HADOOP_SRC_PATH" ]]; then
+    mkdir -p $HADOOP_SRC_PATH
+    git clone https://github.com/apache/hadoop.git $HADOOP_SRC_PATH
+  fi
+}
+
+function replaceLine() {
+  local line_number=$1
+  local text=$2
+  local file=$3
+
+  if [[ "$(uname)" == "Darwin" ]]; then
+    sed -i "" "${line_number}s/.*/${text}/" $file
+  else
+    sed -i "${line_number}s/.*/${text}/" $file
+  fi
+}
+
+function buildSrc() {
+  checkGit
+  cloneSrcIfNeed
+  cd $HADOOP_SRC_PATH
+  git checkout rel/release-${VERSION}
+  replaceLine 17 USER=\$\(whoami\) start-build-env.sh
+  ./start-build-env.sh mvn clean package -Pnative -DskipTests -Drequire.fuse=true -Dmaven.javadoc.skip=true
+}
+
+function generateFuseDfsWrapper() {
+  cat > "$FUSE_DFS_WRAPPER_SH" << 'EOF'
+#!/usr/bin/env bash
+
+export FUSEDFS_PATH="$HADOOP_HOME/hadoop-hdfs-project/hadoop-hdfs-native-client/target/main/native/fuse-dfs"
+export LIBHDFS_PATH="$HADOOP_HOME/hadoop-hdfs-project/hadoop-hdfs-native-client/target/native/target/usr/local/lib"
+export PATH=$FUSEDFS_PATH:$PATH
+export LD_LIBRARY_PATH=$LIBHDFS_PATH:$JAVA_HOME/lib/server
+while IFS= read -r -d '' file
+do
+  export CLASSPATH=$CLASSPATH:$file
+done < <(find "$HADOOP_HOME/hadoop-tools" -name "*.jar" -print0)
+
+fuse_dfs "$@"
+EOF
+}
+
+function buildImageIfNeed() {
+  local imageName="$1"
+  if [[ "$(docker images -q "$imageName" 2>/dev/null)" == "" ]]; then
+    local needToBuild="true"
+    if [[ "$BUILD" == "false" ]]; then
+      docker pull "$imageName" 2>/dev/null
+      if [[ "$?" == "0" ]]; then
+        needToBuild="false"
+      else
+        echo "Can't find $imageName from repo. Will build $imageName on the local"
+      fi
+    fi
+    if [[ "$needToBuild" == "true" ]]; then
+      buildSrc
+      generateFuseDfsWrapper
+      generateDockerfile
+      docker build --no-cache -t "$imageName" -f "$DOCKERFILE" "$TMP_DOCKER_FOLDER"
+      if [[ "$?" != "0" ]]; then
+        exit 2
+      fi
+    fi
+  fi
 }
 
 # ===================================[main]===================================
