@@ -131,7 +131,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
                           metricContext(
                               sensors,
                               (clusterBeanSupplier -> {
-                                // TODO: embedded the retry offer login into BalancerConsoleImpl
+                                // TODO: embedded the retry offer logic into BalancerConsoleImpl
                                 return balancer.retryOffer(
                                     sourceCluster,
                                     timeout,
@@ -380,18 +380,21 @@ public class BalancerConsoleImpl implements BalancerConsole {
       this.sourceCluster = sourceCluster;
       this.planGeneration = planGeneration;
       this.planExecution =
-          this.planGeneration.thenCompose(
-              balancePlan ->
-                  balancePlan
-                      .solution()
-                      .map(Balancer.Solution::proposal)
-                      .map(
-                          cluster ->
-                              Utils.packException(this.latch::awaitExecutionStart).apply(cluster))
-                      .orElse(
-                          CompletableFuture.failedFuture(
-                              new NoSuchElementException(
-                                  "Unable to execute this balance plan since no cluster improvement solution found"))));
+          CompletableFuture.runAsync(() -> Utils.packException(this.latch::awaitExecutionStart))
+              .thenCompose(ignore -> this.planGeneration)
+              .thenCompose(
+                  balancePlan ->
+                      balancePlan
+                          .solution()
+                          .map(Balancer.Solution::proposal)
+                          .map(
+                              cluster ->
+                                  Utils.packException(this.latch::awaitExecutionStart)
+                                      .apply(cluster))
+                          .orElse(
+                              CompletableFuture.failedFuture(
+                                  new NoSuchElementException(
+                                      "Unable to execute this balance plan since no cluster improvement solution found"))));
     }
 
     @Override

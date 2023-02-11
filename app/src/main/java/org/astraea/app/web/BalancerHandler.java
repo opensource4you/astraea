@@ -142,7 +142,7 @@ class BalancerHandler implements Handler {
     if (balancerConsole.task(taskId).isEmpty())
       throw new IllegalArgumentException("No such rebalance plan id: " + taskId);
 
-    if(balancerConsole.task(taskId).get().phase() == BalancerConsole.BalanceTask.Phase.Executed)
+    if (balancerConsole.task(taskId).get().phase() == BalancerConsole.BalanceTask.Phase.Executed)
       return CompletableFuture.completedFuture(Response.ACCEPT);
 
     // this method will fail if plan cannot be executed (lack of plan)
