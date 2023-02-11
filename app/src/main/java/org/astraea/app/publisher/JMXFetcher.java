@@ -16,105 +16,51 @@
  */
 package org.astraea.app.publisher;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.astraea.common.Utils;
-import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
 /** A pool of threads keep fetching MBeans of target brokerIds. */
-public interface JMXFetcher {
-  static List<JMXFetcher> create(
-      int threads,
-      String bootstrapServer,
-      Function<Integer, Integer> idToJmxPort,
-      BlockingQueue<Integer> targets,
-      BlockingQueue<IdAndBean> idAndBeans) {
-    var admin = Admin.of(bootstrapServer);
-    Map<Integer, MBeanClient> idMBeanClient = new HashMap<>();
-    var service = Executors.newFixedThreadPool(threads);
-    var latches =
-        IntStream.range(0, threads)
-            .mapToObj(i -> new CountDownLatch(1))
+public interface JMXFetcher extends AutoCloseable {
+  static JMXFetcher create(String address, int port) {
+    var client = MBeanClient.jndi(address, port);
+    // Query all beans by default
+    var queryList = new ArrayList<>(List.of(BeanQuery.all()));
+    return new JMXFetcher() {
+      @Override
+      public Collection<BeanObject> fetch() {
+        return queryList.stream()
+            .map(client::beans)
+            .flatMap(Collection::stream)
             .collect(Collectors.toList());
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            latches.forEach(l -> Utils.swallowException(l::await));
-          } finally {
-            service.shutdown();
-          }
-        });
+      }
 
-    return IntStream.range(0, threads)
-        .mapToObj(
-            i -> {
-              var closed = new AtomicBoolean(false);
-              var latch = latches.get(i);
-              service.execute(
-                  () -> {
-                    while (!closed.get()) {
-                      try {
-                        var id = targets.poll(1, TimeUnit.SECONDS);
-                        if (id == null) continue;
-                        if (!idMBeanClient.containsKey(id)) {
-                          // synchronize on creating(/updating) jmx connection
-                          // TODO: The bootstrap server address may be different with jmx server
-                          // address.
-                          synchronized (idMBeanClient) {
-                            if (!idMBeanClient.containsKey(id)) {
-                              try {
-                                admin
-                                    .nodeInfos()
-                                    .thenAccept(
-                                        nodeInfos ->
-                                            nodeInfos.stream()
-                                                .filter(nodeInfo -> nodeInfo.id() == id)
-                                                .findAny()
-                                                .ifPresent(
-                                                    nodeInfo ->
-                                                        idMBeanClient.putIfAbsent(
-                                                            id,
-                                                            MBeanClient.jndi(
-                                                                nodeInfo.host(),
-                                                                idToJmxPort.apply(id)))))
-                                    .toCompletableFuture()
-                                    .get();
-                              } catch (InterruptedException | ExecutionException e) {
-                                // MBeanClient creation failed
-                                e.printStackTrace();
-                                continue;
-                              }
-                            }
-                          }
-                        }
-                        idMBeanClient.get(id).beans(BeanQuery.all()).stream()
-                            .map(bean -> new IdAndBean(id, bean))
-                            .forEach(idAndBeans::add);
-                      } catch (InterruptedException ie) {
-                        // Blocking queue take() interrupted, print message and ignore.
-                        ie.printStackTrace();
-                      }
-                    }
-                    latch.countDown();
-                  });
-              return (JMXFetcher) () -> closed.set(true);
-            })
-        .collect(Collectors.toList());
+      @Override
+      public void addQuery(BeanQuery beanQuery) {
+        queryList.add(beanQuery);
+      }
+
+      @Override
+      public void clearQuery() {
+        queryList.clear();
+      }
+
+      @Override
+      public void close() {
+        client.close();
+      }
+    };
   }
+
+  Collection<BeanObject> fetch();
+
+  void addQuery(BeanQuery beanQuery);
+
+  void clearQuery();
 
   void close();
 
