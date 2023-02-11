@@ -171,8 +171,8 @@ function startNamenode() {
   local container_name=namenode-$HADOOP_PORT
 
   rejectProperty fs.defaultFS $CORE_SITE_XML
-  rejectProperty dfs.permissions $CORE_SITE_XML
-  rejectProperty dfs.namenode.http-address $CORE_SITE_XML
+  rejectProperty dfs.permissions $HDFS_SITE_XML
+  rejectProperty dfs.namenode.http-address $HDFS_SITE_XML
   rejectProperty dfs.namenode.datanode.registration.ip-hostname-check $HDFS_SITE_XML
   rejectProperty dfs.namenode.rpc-bind-host $HDFS_SITE_XML
 
