@@ -117,18 +117,18 @@ class BalancerTest {
           0, imbalanceFactor0, "This cluster is completely balanced in terms of leader count");
 
       var plan =
-          Balancer.create(
-                  theClass,
-                  AlgorithmConfig.builder()
-                      .clusterCost(new ReplicaLeaderCost())
-                      .topicFilter(topic -> topic.equals(topicName))
-                      .build())
+          Utils.construct(theClass, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(10))
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(10),
+                  AlgorithmConfig.builder()
+                      .clusterCost(new ReplicaLeaderCost())
+                      .topicFilter(topic -> topic.equals(topicName))
+                      .build())
               .solution()
               .orElseThrow();
       new StraightPlanExecutor(true)
@@ -174,14 +174,15 @@ class BalancerTest {
               .toCompletableFuture()
               .join();
       var newAllocation =
-          Balancer.create(
-                  theClass,
+          Utils.construct(theClass, Configuration.of(Map.of("iteration", "500")))
+              .offer(
+                  clusterInfo,
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
                       .topicFilter(t -> t.equals(theTopic))
                       .clusterCost(randomScore)
-                      .config(Configuration.of(Map.of("iteration", "500")))
                       .build())
-              .offer(clusterInfo, Duration.ofSeconds(3))
               .solution()
               .get()
               .proposal();
@@ -236,17 +237,17 @@ class BalancerTest {
       var future =
           CompletableFuture.supplyAsync(
               () ->
-                  Balancer.create(
-                          theClass,
-                          AlgorithmConfig.builder()
-                              .clusterCost((clusterInfo, bean) -> Math::random)
-                              .build())
+                  Utils.construct(theClass, Configuration.EMPTY)
                       .offer(
                           admin
                               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                               .toCompletableFuture()
                               .join(),
-                          Duration.ofSeconds(3))
+                          ClusterBean.EMPTY,
+                          Duration.ofSeconds(3),
+                          AlgorithmConfig.builder()
+                              .clusterCost((clusterInfo, bean) -> Math::random)
+                              .build())
                       .solution()
                       .get()
                       .proposal());
@@ -291,14 +292,12 @@ class BalancerTest {
                   return () -> 0;
                 }
               };
-          Balancer.create(
-                  theClass,
-                  AlgorithmConfig.builder()
-                      .clusterCost(theCostFunction)
-                      .metricSource(metricSource)
-                      .config(Configuration.of(Map.of("iteration", "500")))
-                      .build())
-              .offer(ClusterInfo.empty(), Duration.ofSeconds(3));
+          Utils.construct(theClass, Configuration.of(Map.of("iteration", "500")))
+              .offer(
+                  ClusterInfo.empty(),
+                  metricSource.get(),
+                  Duration.ofSeconds(3),
+                  AlgorithmConfig.builder().clusterCost(theCostFunction).build());
           Assertions.assertTrue(called.get(), "The cost function has been invoked");
         };
 
@@ -319,12 +318,16 @@ class BalancerTest {
   @Timeout(10)
   void testRetryOffer(int sampleTimeMs) {
     var startMs = System.currentTimeMillis();
-    var costFunction = new DecreasingCost(null);
+    var costFunction = new DecreasingCost(Configuration.EMPTY);
     var fake = FakeClusterInfo.of(3, 3, 3, 3);
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
+          public Plan offer(
+              ClusterInfo currentClusterInfo,
+              ClusterBean clusterBean,
+              Duration timeout,
+              AlgorithmConfig config) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
               throw new NoSufficientMetricsException(
                   costFunction,
@@ -333,7 +336,15 @@ class BalancerTest {
           }
         };
 
-    Assertions.assertDoesNotThrow(() -> balancer.retryOffer(fake, Duration.ofSeconds(10)));
+    Assertions.assertDoesNotThrow(
+        () ->
+            balancer.retryOffer(
+                fake,
+                Duration.ofSeconds(10),
+                AlgorithmConfig.builder()
+                    .clusterCost(costFunction)
+                    .metricSource(() -> ClusterBean.EMPTY)
+                    .build()));
     var endMs = System.currentTimeMillis();
 
     Assertions.assertTrue(
@@ -350,14 +361,20 @@ class BalancerTest {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
+          public Plan offer(
+              ClusterInfo currentClusterInfo,
+              ClusterBean clusterBean,
+              Duration timeout,
+              AlgorithmConfig config) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
           }
         };
 
     // start
-    Assertions.assertThrows(RuntimeException.class, () -> balancer.retryOffer(fake, timeout))
+    Assertions.assertThrows(
+            RuntimeException.class,
+            () -> balancer.retryOffer(fake, timeout, AlgorithmConfig.builder().build()))
         .printStackTrace();
   }
 }

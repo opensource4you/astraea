@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
@@ -158,12 +159,12 @@ class NetworkCostTest {
   @DisplayName("Run with Balancer")
   void testOptimization(HasClusterCost costFunction, TestCase testcase) {
     var newPlan =
-        Balancer.Official.Greedy.create(
-                AlgorithmConfig.builder()
-                    .clusterCost(costFunction)
-                    .metricSource(testcase::clusterBean)
-                    .build())
-            .offer(testcase.clusterInfo(), Duration.ofSeconds(1));
+        Balancer.Official.Greedy.create(Configuration.EMPTY)
+            .offer(
+                testcase.clusterInfo(),
+                testcase.clusterBean(),
+                Duration.ofSeconds(1),
+                AlgorithmConfig.builder().clusterCost(costFunction).build());
 
     Assertions.assertTrue(newPlan.solution().isPresent());
     System.out.println("Initial cost: " + newPlan.initialClusterCost().value());

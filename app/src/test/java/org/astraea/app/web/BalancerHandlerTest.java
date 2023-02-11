@@ -27,7 +27,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -54,7 +53,6 @@ import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
@@ -267,20 +265,20 @@ public class BalancerHandlerTest {
 
       var balancerHandler = new BalancerHandler(admin);
       var Best =
-          Balancer.create(
-                  SingleStepBalancer.class,
-                  AlgorithmConfig.builder()
-                      .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> after.value() <= before.value())
-                      .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
-                      .build())
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   admin
                       .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                       .toCompletableFuture()
                       .join(),
-                  Duration.ofSeconds(3));
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
+                  AlgorithmConfig.builder()
+                      .clusterCost(clusterCostFunction)
+                      .clusterConstraint((before, after) -> after.value() <= before.value())
+                      .moveCost(moveCostFunction)
+                      .movementConstraint(moveCosts -> true)
+                      .build());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
 
@@ -288,58 +286,57 @@ public class BalancerHandlerTest {
       Assertions.assertThrows(
           Exception.class,
           () ->
-              Balancer.create(
-                      SingleStepBalancer.class,
-                      AlgorithmConfig.builder()
-                          .clusterCost(clusterCostFunction)
-                          .clusterConstraint((before, after) -> true)
-                          .moveCost(moveCostFunction)
-                          .movementConstraint(moveCosts -> true)
-                          .config(Configuration.of(Map.of("iteration", "0")))
-                          .build())
+              Utils.construct(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
                   .offer(
                       admin
                           .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                           .toCompletableFuture()
                           .join(),
-                      Duration.ofSeconds(3)));
+                      ClusterBean.EMPTY,
+                      Duration.ofSeconds(3),
+                      AlgorithmConfig.builder()
+                          .clusterCost(clusterCostFunction)
+                          .clusterConstraint((before, after) -> true)
+                          .moveCost(moveCostFunction)
+                          .movementConstraint(moveCosts -> true)
+                          .build()));
 
       // test cluster cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.create(
-                  SingleStepBalancer.class,
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> true)
                       .build())
-              .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  Duration.ofSeconds(3))
               .solution());
 
       // test move cost predicate
       Assertions.assertEquals(
           Optional.empty(),
-          Balancer.create(
-                  SingleStepBalancer.class,
+          Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
+              .offer(
+                  admin
+                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                      .toCompletableFuture()
+                      .join(),
+                  ClusterBean.EMPTY,
+                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
                       .moveCost(moveCostFunction)
                       .movementConstraint(moveCosts -> false)
                       .build())
-              .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  Duration.ofSeconds(3))
               .solution());
     }
   }
@@ -408,16 +405,9 @@ public class BalancerHandlerTest {
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
       Assertions.assertNotNull(progress.config.function);
       Assertions.assertNull(progress.plan, "no proposal");
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler
-                          .put(httpRequest(Map.of("id", progress.id)))
-                          .toCompletableFuture()
-                          .join())
-              .getCause(),
+          () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
           "Cannot execute a plan with no proposal available");
     }
   }
@@ -545,13 +535,9 @@ public class BalancerHandlerTest {
 
       Assertions.assertDoesNotThrow(
           () -> handler.put(httpRequest(Map.of("id", plan0.id))).toCompletableFuture().join());
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler.put(httpRequest(Map.of("id", plan1.id))).toCompletableFuture().join())
-              .getCause());
+          () -> handler.put(httpRequest(Map.of("id", plan1.id))).toCompletableFuture().join());
     }
   }
 
@@ -597,16 +583,9 @@ public class BalancerHandlerTest {
               .toCompletableFuture()
               .join());
 
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler
-                          .put(httpRequest(Map.of("id", theReport.id)))
-                          .toCompletableFuture()
-                          .join())
-              .getCause());
+          () -> handler.put(httpRequest(Map.of("id", theReport.id))).toCompletableFuture().join());
     }
   }
 
@@ -684,17 +663,10 @@ public class BalancerHandlerTest {
       Utils.sleep(Duration.ofSeconds(10));
 
       // assert
-      Assertions.assertInstanceOf(
+      Assertions.assertThrows(
           IllegalStateException.class,
-          Assertions.assertThrows(
-                  CompletionException.class,
-                  () ->
-                      handler
-                          .put(httpRequest(Map.of("id", theProgress.id)))
-                          .toCompletableFuture()
-                          .join(),
-                  "The cluster state has changed, prevent the plan from execution")
-              .getCause());
+          () -> handler.put(httpRequest(Map.of("id", theProgress.id))).toCompletableFuture().join(),
+          "The cluster state has changed, prevent the plan from execution");
     }
   }
 
@@ -894,10 +866,10 @@ public class BalancerHandlerTest {
       var offerInvoked = new AtomicBoolean(false);
       SpyBalancer.offerCallbacks.add(() -> offerInvoked.set(true));
       SpyBalancer.newCallbacks.add(
-          (algorithmConfig) -> {
-            Assertions.assertEquals("value0", algorithmConfig.config().requireString("key0"));
-            Assertions.assertEquals("value1", algorithmConfig.config().requireString("key1"));
-            Assertions.assertEquals("value2", algorithmConfig.config().requireString("key2"));
+          (config) -> {
+            Assertions.assertEquals("value0", config.requireString("key0"));
+            Assertions.assertEquals("value1", config.requireString("key1"));
+            Assertions.assertEquals("value2", config.requireString("key2"));
             newInvoked.set(true);
           });
 
@@ -940,7 +912,6 @@ public class BalancerHandlerTest {
         request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
-        Assertions.assertTrue(config.config().entrySet().isEmpty());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
@@ -960,7 +931,6 @@ public class BalancerHandlerTest {
 
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
-        Assertions.assertEquals(Set.of(Map.entry("KEY", "VALUE")), config.config().entrySet());
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertEquals(
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
@@ -1306,21 +1276,25 @@ public class BalancerHandlerTest {
 
   public static class SpyBalancer extends SingleStepBalancer {
 
-    public static List<Consumer<AlgorithmConfig>> newCallbacks =
+    public static List<Consumer<Configuration>> newCallbacks =
         Collections.synchronizedList(new ArrayList<>());
     public static List<Runnable> offerCallbacks = Collections.synchronizedList(new ArrayList<>());
 
-    public SpyBalancer(AlgorithmConfig algorithmConfig) {
-      super(algorithmConfig);
-      newCallbacks.forEach(c -> c.accept(algorithmConfig));
+    public SpyBalancer(Configuration config) {
+      super(config);
+      newCallbacks.forEach(c -> c.accept(config));
       newCallbacks.clear();
     }
 
     @Override
-    public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
+    public Plan offer(
+        ClusterInfo currentClusterInfo,
+        ClusterBean clusterBean,
+        Duration timeout,
+        AlgorithmConfig config) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
-      return super.offer(currentClusterInfo, timeout);
+      return super.offer(currentClusterInfo, clusterBean, timeout, config);
     }
   }
 
