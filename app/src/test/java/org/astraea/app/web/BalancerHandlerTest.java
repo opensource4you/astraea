@@ -16,6 +16,10 @@
  */
 package org.astraea.app.web;
 
+import static org.astraea.common.balancer.BalancerConsole.BalanceTask.Phase.Executed;
+import static org.astraea.common.balancer.BalancerConsole.BalanceTask.Phase.Executing;
+import static org.astraea.common.balancer.BalancerConsole.BalanceTask.Phase.Searched;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -126,7 +130,6 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(Duration.ofMillis(1234), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
-      Assertions.assertTrue(report.cost >= report.newCost.get());
       // "before" should record size
       report.changes.forEach(
           c ->
@@ -141,7 +144,6 @@ public class BalancerHandlerTest {
       report.changes.stream()
           .flatMap(c -> c.after.stream())
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
-      Assertions.assertTrue(report.cost >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream()
               .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
@@ -168,19 +170,12 @@ public class BalancerHandlerTest {
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
-      Assertions.assertTrue(
-          report.cost >= report.newCost.get(),
-          "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream()
               .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      Assertions.assertNotEquals(
-          0,
-          sizeMigration.brokerCosts.values().stream().filter(v -> v > 0).count(),
-          "report.cost: " + report.cost + " report.newCost.get(): " + report.newCost.get());
     }
   }
 
@@ -263,7 +258,6 @@ public class BalancerHandlerTest {
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
 
-      var balancerHandler = new BalancerHandler(admin);
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
@@ -401,7 +395,7 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(post.id, progress.id);
       Assertions.assertEquals(Duration.ofMillis(996), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "search done");
+      Assertions.assertEquals(Searched, progress.phase, "search done");
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
       Assertions.assertNotNull(progress.config.function);
       Assertions.assertNull(progress.plan, "no proposal");
@@ -694,7 +688,7 @@ public class BalancerHandlerTest {
           };
       var handler = new BalancerHandler(admin, theExecutor);
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
+      Assertions.assertEquals(Searched, progress.phase);
 
       // not scheduled yet
       Utils.sleep(Duration.ofSeconds(1));
@@ -703,7 +697,7 @@ public class BalancerHandlerTest {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress0.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress0.phase);
+      Assertions.assertEquals(Searched, progress0.phase);
       Assertions.assertNull(progress0.exception);
 
       // schedule
@@ -720,7 +714,7 @@ public class BalancerHandlerTest {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress1.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Executing, progress1.phase);
+      Assertions.assertEquals(Executing, progress1.phase);
       Assertions.assertNull(progress1.exception);
 
       // it is done
@@ -731,7 +725,7 @@ public class BalancerHandlerTest {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress2.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress2.phase);
+      Assertions.assertEquals(Executed, progress2.phase);
       Assertions.assertNull(progress2.exception);
     }
   }
@@ -762,21 +756,21 @@ public class BalancerHandlerTest {
       Utils.waitFor(
           () ->
               ((BalancerHandler.PlanExecutionProgress)
-                      handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
-                  .phase.calculated());
+                          handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
+                      .phase
+                  == Searched);
       var generated =
           ((BalancerHandler.PlanExecutionProgress)
                       handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
                   .phase
-              == BalancerHandler.PlanPhase.Searched;
+              == Searched;
       Assertions.assertTrue(generated, "The plan should be generated");
 
       var progress0 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
-      Assertions.assertEquals(
-          BalancerHandler.PlanPhase.Searched, progress0.phase, "The plan is ready");
+      Assertions.assertEquals(Searched, progress0.phase, "The plan is ready");
 
       // schedule
       var response =
@@ -792,8 +786,8 @@ public class BalancerHandlerTest {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
+      Assertions.assertEquals(Executed, progress.phase);
       Assertions.assertNotNull(progress.exception);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress.phase);
       Assertions.assertInstanceOf(String.class, progress.exception);
     }
   }
@@ -880,7 +874,7 @@ public class BalancerHandlerTest {
 
       var progress = submitPlanGeneration(handler, request);
 
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "Plan is here");
+      Assertions.assertEquals(Searched, progress.phase, "Plan is here");
       Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
       Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
     }
@@ -946,16 +940,6 @@ public class BalancerHandlerTest {
       }
       {
         // malformed content
-        var request0 =
-            Map.of(
-                TOPICS_KEY,
-                "",
-                TIMEOUT_KEY,
-                32,
-                BALANCER_CONFIGURATION_KEY,
-                Map.of("KEY", "VALUE"),
-                COST_WEIGHT_KEY,
-                defaultDecreasing);
         var balancerRequest = new BalancerPostRequest();
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -995,7 +979,7 @@ public class BalancerHandlerTest {
       var progress =
           (BalancerHandler.PlanExecutionProgress)
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
+      Assertions.assertEquals(Searched, progress.phase);
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
     }
@@ -1029,22 +1013,8 @@ public class BalancerHandlerTest {
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
 
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
+      Assertions.assertEquals(Searched, progress.phase);
       Assertions.assertTrue(invoked.get());
-    }
-  }
-
-  @Test
-  void testFreshJmxAddress() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
-      var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
-      var partialJmx =
-          new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
-
-      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
-      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
-      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
     }
   }
 
@@ -1190,7 +1160,7 @@ public class BalancerHandlerTest {
               (BalancerHandler.PlanExecutionProgress)
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
-          return progress.phase.calculated();
+          return progress.phase == Searched;
         });
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();

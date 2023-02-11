@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -26,11 +25,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -38,15 +35,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerConsole;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
@@ -59,8 +53,6 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.collector.MetricCollector;
-import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
@@ -73,10 +65,9 @@ class BalancerHandler implements Handler {
               new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
-  private final Function<Integer, Optional<Integer>> jmxPortMapper;
+  private final BalancerConsole balancerConsole;
   private final RebalancePlanExecutor executor;
-  private final Duration sampleInterval = Duration.ofSeconds(1);
-  private final Map<String, BalanceTask> taskHistory = new ConcurrentHashMap<>();
+  private final Map<String, PostRequestWrapper> taskMetadata = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
@@ -95,24 +86,22 @@ class BalancerHandler implements Handler {
       Function<Integer, Optional<Integer>> jmxPortMapper,
       RebalancePlanExecutor executor) {
     this.admin = admin;
-    this.jmxPortMapper = jmxPortMapper;
     this.executor = executor;
+    this.balancerConsole = BalancerConsole.create(admin, jmxPortMapper);
   }
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
     if (channel.target().isEmpty()) return CompletableFuture.completedFuture(Response.NOT_FOUND);
-    var planId = channel.target().get();
-    if (!taskHistory.containsKey(planId))
+    var taskId = channel.target().get();
+    if (balancerConsole.task(taskId).isEmpty())
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
-    return CompletableFuture.completedFuture(taskHistory.get(planId).progress());
+    return CompletableFuture.completedFuture(progress(taskId));
   }
 
   @Override
   public CompletionStage<Response> post(Channel channel) {
-    checkNoOngoingMigration();
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
-    var newPlanId = UUID.randomUUID().toString();
     var request =
         admin
             .topicNames(false)
@@ -122,48 +111,125 @@ class BalancerHandler implements Handler {
                     parsePostRequestWrapper(balancerPostRequest, currentClusterInfo))
             .toCompletableFuture()
             .join();
-    var task = new BalanceTask(newPlanId, request);
-    task.planGeneration()
-        .whenComplete(
-            (result, error) -> {
-              if (error != null)
-                new RuntimeException("Failed to generate balance plan: " + newPlanId, error)
-                    .printStackTrace();
-            });
-    taskHistory.put(newPlanId, task);
-    return CompletableFuture.completedFuture(new PostPlanResponse(newPlanId));
+    var balancer =
+        Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
+    synchronized (this) {
+      var task =
+          balancerConsole
+              .launchRebalancePlanGeneration()
+              .setBalancer(balancer)
+              .setAlgorithmConfig(request.algorithmConfig)
+              .setGenerationTimeout(request.executionTime)
+              .checkNoOngoingMigration(true)
+              .generate();
+      task.planGeneration()
+          .whenComplete(
+              (result, error) -> {
+                if (error != null)
+                  new RuntimeException("Failed to generate balance plan: " + task.id(), error)
+                      .printStackTrace();
+              });
+      taskMetadata.put(task.id(), request);
+      return CompletableFuture.completedFuture(new PostPlanResponse(task.id()));
+    }
   }
 
   @Override
   public CompletionStage<Response> put(Channel channel) {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
-    final var thePlanId = request.id;
+    final var taskId = request.id;
 
-    if (!taskHistory.containsKey(thePlanId))
-      throw new IllegalArgumentException("No such rebalance plan id: " + thePlanId);
-    final var thePlan = taskHistory.get(thePlanId);
+    if (balancerConsole.task(taskId).isEmpty())
+      throw new IllegalArgumentException("No such rebalance plan id: " + taskId);
 
-    switch (thePlan.phase()) {
-      case Searching:
-        throw new IllegalStateException("The rebalance plan hasn't generated: " + thePlanId);
-      case Searched:
-        break;
-      case Executing:
-      case Executed:
-        return CompletableFuture.completedFuture(PutPlanResponse.ACCEPT);
-    }
+    if(balancerConsole.task(taskId).get().phase() == BalancerConsole.BalanceTask.Phase.Executed)
+      return CompletableFuture.completedFuture(Response.ACCEPT);
 
-    thePlan.executePlan();
-    thePlan
-        .planExecution()
+    // this method will fail if plan cannot be executed (lack of plan)
+    var task =
+        balancerConsole
+            .launchRebalancePlanExecution()
+            .setExecutor(executor)
+            .setExecutionTimeout(Duration.ofHours(1))
+            .checkNoOngoingMigration(true)
+            .checkPlanConsistency(true)
+            .execute(taskId);
+    task.planExecution()
         .whenComplete(
-            (ignore, err) -> {
-              if (err != null)
-                new RuntimeException("Failed to execute balance plan: " + thePlanId, err)
+            (ignore, error) -> {
+              if (error != null)
+                new RuntimeException("Failed to execute balance plan: " + taskId, error)
                     .printStackTrace();
             });
 
-    return CompletableFuture.completedFuture(new PutPlanResponse(thePlan.taskId));
+    return CompletableFuture.completedFuture(new PutPlanResponse(taskId));
+  }
+
+  private PlanExecutionProgress progress(String taskId) {
+    var task = balancerConsole.task(taskId).orElseThrow();
+    var contextCluster = taskMetadata.get(taskId).clusterInfo;
+    var exception =
+        (Function<BalancerConsole.BalanceTask.Phase, String>)
+            (phase) -> {
+              switch (phase) {
+                case Searching:
+                case Executing:
+                  // No error message during the search & execution
+                  return null;
+                case Searched:
+                  return task.planGeneration()
+                      .handle(
+                          (plan, err) ->
+                              err != null
+                                  ? err.toString()
+                                  : plan.solution().isEmpty()
+                                      ? "Unable to find a balance plan that can improve the cluster"
+                                      : null)
+                      .toCompletableFuture()
+                      .getNow(null);
+                case Executed:
+                  return task.planExecution()
+                      .handle((ignore, err) -> err != null ? err.toString() : null)
+                      .toCompletableFuture()
+                      .getNow(null);
+                default:
+                  throw new IllegalStateException("Unknown state: " + task.phase());
+              }
+            };
+    var changes =
+        (Function<Balancer.Solution, List<Change>>)
+            (solution) ->
+                ClusterInfo.findNonFulfilledAllocation(contextCluster, solution.proposal()).stream()
+                    .map(
+                        tp ->
+                            Change.from(
+                                contextCluster.replicas(tp), solution.proposal().replicas(tp)))
+                    .collect(Collectors.toUnmodifiableList());
+    var moveCosts =
+        (Function<Balancer.Solution, List<MigrationCost>>)
+            (solution) -> migrationCosts(solution.moveCost());
+    var report =
+        (Supplier<PlanReport>)
+            () ->
+                Optional.ofNullable(
+                        task.planGeneration()
+                            .toCompletableFuture()
+                            .handle((res, err) -> res)
+                            .getNow(null))
+                    .flatMap(Balancer.Plan::solution)
+                    .map(
+                        solution ->
+                            new PlanReport(changes.apply(solution), moveCosts.apply(solution)))
+                    .orElse(null);
+    var phaseSeen = task.phase();
+    return new PlanExecutionProgress(
+        task.id(),
+        phaseSeen,
+        taskMetadata.get(task.id()).executionTime,
+        taskMetadata.get(task.id()).balancerClasspath,
+        taskMetadata.get(task.id()).algorithmConfig.clusterCostFunction().toString(),
+        exception.apply(phaseSeen),
+        report.get());
   }
 
   private static List<MigrationCost> migrationCosts(MoveCost cost) {
@@ -188,35 +254,6 @@ class BalancerHandler implements Handler {
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
-  }
-
-  // visible for test
-  Map<Integer, InetSocketAddress> freshJmxAddresses() {
-    var brokers = admin.brokers().toCompletableFuture().join();
-    var jmxAddresses =
-        brokers.stream()
-            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
-            .filter(entry -> entry.getValue().isPresent())
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    e -> e.getKey().id(),
-                    e ->
-                        InetSocketAddress.createUnresolved(
-                            e.getKey().host(), e.getValue().orElseThrow())));
-
-    // JMX is disabled
-    if (jmxAddresses.size() == 0) return Map.of();
-
-    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
-    if (brokers.size() != jmxAddresses.size())
-      throw new IllegalArgumentException(
-          "Some brokers has no JMX port specified in the web service argument: "
-              + brokers.stream()
-                  .map(NodeInfo::id)
-                  .filter(id -> !jmxAddresses.containsKey(id))
-                  .collect(Collectors.toUnmodifiableSet()));
-
-    return jmxAddresses;
   }
 
   // visible for test
@@ -304,26 +341,6 @@ class BalancerHandler implements Handler {
 
   static class BalancerPutRequest implements Request {
     private String id;
-  }
-
-  private void checkNoOngoingMigration() {
-    var replicas =
-        admin
-            .topicNames(false)
-            .thenCompose(admin::clusterInfo)
-            .toCompletableFuture()
-            .join()
-            .replicas();
-    var ongoingMigration =
-        replicas.stream()
-            .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
-            .map(Replica::topicPartitionReplica)
-            .collect(Collectors.toUnmodifiableSet());
-    if (!ongoingMigration.isEmpty())
-      throw new IllegalStateException(
-          "Another rebalance task might be working on. "
-              + "The following topic/partition has ongoing migration: "
-              + ongoingMigration);
   }
 
   static class PostRequestWrapper {
@@ -417,35 +434,13 @@ class BalancerHandler implements Handler {
   }
 
   static class PlanReport implements Response {
-    @JsonIgnore final double cost;
-
-    // don't generate new cost if there is no best plan
-    @JsonIgnore final Optional<Double> newCost;
 
     final List<Change> changes;
     final List<MigrationCost> migrationCosts;
 
-    PlanReport(
-        double initialCost,
-        Optional<Double> newCost,
-        List<Change> changes,
-        List<MigrationCost> migrationCosts) {
-      this.cost = initialCost;
-      this.newCost = newCost;
+    PlanReport(List<Change> changes, List<MigrationCost> migrationCosts) {
       this.changes = changes;
       this.migrationCosts = migrationCosts;
-    }
-  }
-
-  static class PlanInfo {
-    private final PlanReport report;
-    private final ClusterInfo associatedClusterInfo;
-    private final Balancer.Plan associatedPlan;
-
-    PlanInfo(PlanReport report, ClusterInfo associatedClusterInfo, Balancer.Plan associatedPlan) {
-      this.report = report;
-      this.associatedClusterInfo = associatedClusterInfo;
-      this.associatedPlan = associatedPlan;
     }
   }
 
@@ -472,14 +467,14 @@ class BalancerHandler implements Handler {
 
   static class PlanExecutionProgress implements Response {
     final String id;
-    final PlanPhase phase;
+    final BalancerConsole.BalanceTask.Phase phase;
     final String exception;
     final PlanReport plan;
     final PlanConfiguration config;
 
     PlanExecutionProgress(
         String id,
-        PlanPhase phase,
+        BalancerConsole.BalanceTask.Phase phase,
         Duration timeout,
         String balancer,
         String function,
@@ -490,31 +485,6 @@ class BalancerHandler implements Handler {
       this.exception = exception;
       this.plan = plan;
       this.config = new PlanConfiguration(balancer, function, timeout);
-    }
-  }
-
-  enum PlanPhase implements EnumInfo {
-    Searching,
-    Searched,
-    Executing,
-    Executed;
-
-    static PlanPhase ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(PlanPhase.class, alias);
-    }
-
-    @Override
-    public String alias() {
-      return name();
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
-
-    public Boolean calculated() {
-      return this == Searched;
     }
   }
 
@@ -529,223 +499,6 @@ class BalancerHandler implements Handler {
       this.balancer = balancer;
       this.function = function;
       this.timeout = timeout;
-    }
-  }
-
-  private final AtomicReference<String> lastExecutionId = new AtomicReference<>();
-
-  class BalanceTask {
-
-    private final String taskId;
-    private final PostRequestWrapper taskRequest;
-    private final CompletableFuture<PlanInfo> planGeneration;
-    private CompletableFuture<Void> planExecution;
-
-    BalanceTask(String taskId, PostRequestWrapper taskRequest) {
-      this.taskId = taskId;
-      this.taskRequest = taskRequest;
-      this.planGeneration = launchPlan();
-    }
-
-    private Balancer.Plan metricContext(
-        Collection<MetricSensor> metricSensors,
-        Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
-      // TODO: use a global metric collector when we are ready to enable long-run metric sampling
-      //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-      try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
-        freshJmxAddresses().forEach(collector::registerJmx);
-        metricSensors.forEach(collector::addMetricSensor);
-        return execution.apply(collector::clusterBean);
-      }
-    }
-
-    private CompletableFuture<PlanInfo> launchPlan() {
-      return CompletableFuture.supplyAsync(
-          () -> {
-            var currentClusterInfo = taskRequest.clusterInfo;
-            var sensors =
-                Stream.concat(
-                        taskRequest.algorithmConfig.clusterCostFunction().metricSensor().stream(),
-                        taskRequest.algorithmConfig.moveCostFunction().metricSensor().stream())
-                    .collect(Collectors.toUnmodifiableList());
-            var bestPlan =
-                metricContext(
-                    sensors,
-                    (metricSource) ->
-                        Utils.construct(
-                                taskRequest.balancerClasspath,
-                                Balancer.class,
-                                taskRequest.balancerConfig)
-                            .retryOffer(
-                                currentClusterInfo,
-                                taskRequest.executionTime,
-                                AlgorithmConfig.builder(taskRequest.algorithmConfig)
-                                    .metricSource(metricSource)
-                                    .build()));
-            var changes =
-                bestPlan
-                    .solution()
-                    .map(
-                        p ->
-                            ClusterInfo.findNonFulfilledAllocation(currentClusterInfo, p.proposal())
-                                .stream()
-                                .map(
-                                    tp ->
-                                        Change.from(
-                                            currentClusterInfo.replicas(tp),
-                                            p.proposal().replicas(tp)))
-                                .collect(Collectors.toUnmodifiableList()))
-                    .orElse(List.of());
-            var report =
-                new PlanReport(
-                    bestPlan.initialClusterCost().value(),
-                    bestPlan.solution().map(p -> p.proposalClusterCost().value()),
-                    changes,
-                    bestPlan.solution().map(p -> migrationCosts(p.moveCost())).orElseGet(List::of));
-            return new PlanInfo(report, currentClusterInfo, bestPlan);
-          });
-    }
-
-    synchronized CompletableFuture<PlanInfo> planGeneration() {
-      return planGeneration;
-    }
-
-    synchronized CompletableFuture<Void> planExecution() {
-      return planExecution;
-    }
-
-    private void checkPlanConsistency(PlanInfo thePlanInfo) {
-      final var replicas =
-          admin
-              .clusterInfo(
-                  thePlanInfo.report.changes.stream().map(c -> c.topic).collect(Collectors.toSet()))
-              .thenApply(
-                  clusterInfo ->
-                      clusterInfo
-                          .replicaStream()
-                          .collect(Collectors.groupingBy(Replica::topicPartition)))
-              .toCompletableFuture()
-              .join();
-
-      var mismatchPartitions =
-          thePlanInfo.report.changes.stream()
-              .filter(
-                  change -> {
-                    var currentReplicaList =
-                        replicas
-                            .getOrDefault(
-                                TopicPartition.of(change.topic, change.partition), List.of())
-                            .stream()
-                            .sorted(
-                                Comparator.comparing(Replica::isPreferredLeader)
-                                    .reversed()
-                                    .thenComparing(x -> x.nodeInfo().id()))
-                            .map(x -> Map.entry(x.nodeInfo().id(), x.path()))
-                            .collect(Collectors.toUnmodifiableList());
-                    var expectedReplicaList =
-                        thePlanInfo
-                            .associatedClusterInfo
-                            .replicas(TopicPartition.of(change.topic, change.partition))
-                            .stream()
-                            // have to compare by isLeader instead of isPreferredLeader.
-                            // since the leadership is what affects the direction of traffic load.
-                            // Any bandwidth related cost function should calculate load by
-                            // leadership
-                            // instead of preferred leadership
-                            .sorted(Comparator.comparing(Replica::isLeader).reversed())
-                            .map(replica -> Map.entry(replica.nodeInfo().id(), replica.path()))
-                            .collect(Collectors.toUnmodifiableList());
-                    return !expectedReplicaList.equals(currentReplicaList);
-                  })
-              .map(change -> TopicPartition.of(change.topic, change.partition))
-              .collect(Collectors.toUnmodifiableSet());
-      if (!mismatchPartitions.isEmpty())
-        throw new IllegalStateException(
-            "The cluster state has been changed significantly. "
-                + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
-                + mismatchPartitions);
-    }
-
-    synchronized void executePlan() {
-      if (planExecution != null) throw new IllegalStateException("Already executed");
-
-      var thePlanInfo = planGeneration().getNow(null);
-      checkPlanConsistency(thePlanInfo);
-      checkNoOngoingMigration();
-      // one plan at a time
-      if (lastExecutionId.get() != null
-          && taskHistory.get(lastExecutionId.get()).phase() != PlanPhase.Executed)
-        throw new IllegalStateException(
-            "There is another on-going rebalance: " + lastExecutionId.get());
-      // the plan exists but no plan generated
-      if (thePlanInfo.associatedPlan.solution().isEmpty())
-        throw new IllegalStateException(
-            "The specified balancer plan didn't generate a useful plan: " + taskId);
-      // schedule the actual execution
-      var proposedPlan = thePlanInfo.associatedPlan.solution().get();
-      this.planExecution =
-          executor.run(admin, proposedPlan.proposal(), Duration.ofHours(1)).toCompletableFuture();
-      lastExecutionId.set(taskId);
-    }
-
-    synchronized PlanExecutionProgress progress() {
-      var timeout = this.taskRequest.executionTime;
-      var balancer = this.taskRequest.balancerClasspath;
-      var functions = this.taskRequest.algorithmConfig.clusterCostFunction().toString();
-
-      switch (phase()) {
-        case Searched:
-        case Searching:
-          {
-            var f = planGeneration();
-            return new PlanExecutionProgress(
-                taskId,
-                phase(),
-                timeout,
-                balancer,
-                functions,
-                f.handle(
-                        (result, err) ->
-                            err != null
-                                ? err.toString()
-                                : result.associatedPlan.solution().isEmpty()
-                                    ? "Unable to propose a suitable rebalance plan"
-                                    : null)
-                    .getNow(null),
-                f.handle(
-                        (result, err) ->
-                            err != null
-                                ? null
-                                : result
-                                    .associatedPlan
-                                    .solution()
-                                    .map(ignore -> result.report)
-                                    .orElse(null))
-                    .getNow(null));
-          }
-        case Executing:
-        case Executed:
-          {
-            var f = planExecution();
-            return new PlanExecutionProgress(
-                taskId,
-                phase(),
-                timeout,
-                balancer,
-                functions,
-                f.handle((result, err) -> err != null ? err.toString() : null).getNow(null),
-                planGeneration().join().report);
-          }
-        default:
-          throw new RuntimeException();
-      }
-    }
-
-    synchronized PlanPhase phase() {
-      if (planExecution != null && planExecution.isDone()) return PlanPhase.Executed;
-      if (planExecution != null && !planExecution.isDone()) return PlanPhase.Executing;
-      if (planGeneration.isDone()) return PlanPhase.Searched;
-      return PlanPhase.Searching;
     }
   }
 }
