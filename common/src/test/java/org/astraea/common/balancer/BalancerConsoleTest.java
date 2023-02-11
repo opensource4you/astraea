@@ -192,7 +192,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
+              .setGenerationTimeout(Duration.ofMillis(100))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
               .generate();
