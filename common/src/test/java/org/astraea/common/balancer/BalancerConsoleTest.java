@@ -18,24 +18,32 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
+import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class BalancerConsoleTest {
 
@@ -164,6 +172,133 @@ class BalancerConsoleTest {
     }
   }
 
+  @Test
+  void testCheckPlanConsistency() {
+    // TODO: implement this
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var console = BalancerConsole.create(admin, (x) -> Optional.empty())) {
+      var topic = Utils.randomString();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 2)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(500));
+
+      var task =
+          console
+              .launchRebalancePlanGeneration()
+              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+              .setGenerationTimeout(Duration.ofSeconds(1))
+              .setAlgorithmConfig(
+                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+              .generate();
+
+      // change the cluster state via moving things
+      admin
+          .moveToBrokers(
+              Map.of(TopicPartition.of(topic, 0), List.copyOf(SERVICE.dataFolders().keySet())))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(500));
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () ->
+              console
+                  .launchRebalancePlanExecution()
+                  .setExecutor(new StraightPlanExecutor())
+                  .checkPlanConsistency(true)
+                  .execute(task),
+          "Cluster state has been changed");
+      Assertions.assertDoesNotThrow(
+          () ->
+              console
+                  .launchRebalancePlanExecution()
+                  .setExecutor(new NoOpExecutor())
+                  .checkPlanConsistency(false)
+                  .execute(task),
+          "Cluster state has been changed, but no check perform");
+    }
+  }
+
+  @Test
+  void testCheckNoOngoingMigration() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var spy = Mockito.spy(admin);
+        var console = BalancerConsole.create(spy, (x) -> Optional.empty())) {
+      var topic = Utils.randomString();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 2)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(500));
+
+      Assertions.assertDoesNotThrow(
+          () ->
+              console
+                  .launchRebalancePlanGeneration()
+                  .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+                  .setAlgorithmConfig(
+                      AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                  .setGenerationTimeout(Duration.ofMillis(100))
+                  .checkNoOngoingMigration(true)
+                  .generate(),
+          "No change occurred");
+
+      var cluster =
+          admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
+      Stream.<Function<Replica, Replica>>of(
+              (r) -> Replica.builder(r).isAdding(true).build(),
+              (r) -> Replica.builder(r).isRemoving(true).build(),
+              (r) -> Replica.builder(r).isFuture(true).build())
+          .forEach(
+              mapper -> {
+                Mockito.doReturn(
+                        CompletableFuture.completedFuture(
+                            ClusterInfo.of(
+                                cluster.clusterId(),
+                                cluster.nodes(),
+                                cluster
+                                    .replicaStream()
+                                    .map(mapper)
+                                    .collect(Collectors.toUnmodifiableList()))))
+                    .when(spy)
+                    .clusterInfo(Mockito.anySet());
+                Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () ->
+                        console
+                            .launchRebalancePlanGeneration()
+                            .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+                            .setAlgorithmConfig(
+                                AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                            .setGenerationTimeout(Duration.ofMillis(100))
+                            .checkNoOngoingMigration(true)
+                            .generate(),
+                    "Some Adding/Removing/Future replica here");
+                Assertions.assertDoesNotThrow(
+                    () ->
+                        console
+                            .launchRebalancePlanGeneration()
+                            .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+                            .setAlgorithmConfig(
+                                AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                            .setGenerationTimeout(Duration.ofMillis(100))
+                            .checkNoOngoingMigration(false)
+                            .generate(),
+                    "Some Adding/Removing/Future replica here, but no check performed");
+              });
+    }
+  }
+
   public static class DecreasingCost implements HasClusterCost {
 
     private ClusterInfo original;
@@ -178,6 +313,14 @@ class BalancerConsoleTest {
       double theCost = value0;
       value0 = value0 * 0.998;
       return () -> theCost;
+    }
+  }
+
+  public static class NoOpExecutor implements RebalancePlanExecutor {
+
+    @Override
+    public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
+      return CompletableFuture.completedFuture(null);
     }
   }
 }
