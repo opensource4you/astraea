@@ -44,4 +44,10 @@ public class ConfigurationTest {
     Assertions.assertEquals(
         Map.of("v0", 0, "v1", 1), config.map("key", ",", ":", Integer::valueOf));
   }
+
+  @Test
+  void testFilteredConfigs() {
+    var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2"));
+    Assertions.assertEquals(Map.of("key", "v2"), config.filteredConfigs("filtered").raw());
+  }
 }

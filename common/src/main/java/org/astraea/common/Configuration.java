@@ -103,6 +103,20 @@ public interface Configuration {
   }
 
   /**
+   * @param filteredString the string to be filtered and removed
+   * @return new Configuration only contains which the key value includes the filteredString, and
+   *     the filteredString and the following dot will be removed from the key
+   */
+  default Configuration filteredConfigs(String filteredString) {
+    return of(
+        entrySet().stream()
+            .filter(k -> k.getKey().contains(filteredString))
+            .collect(
+                Collectors.toMap(
+                    i -> i.getKey().replaceAll(filteredString + '.', ""), Map.Entry::getValue)));
+  }
+
+  /**
    * @param key the key whose associated value is to be returned
    * @param separator to split string to multiple strings
    * @return string list. never null
