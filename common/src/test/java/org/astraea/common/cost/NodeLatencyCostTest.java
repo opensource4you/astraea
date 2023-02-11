@@ -103,7 +103,7 @@ public class NodeLatencyCostTest {
   void testSensor() {
     var function = new NodeLatencyCost();
     var client = Mockito.mock(MBeanClient.class);
-    Mockito.when(client.queryBeans(Mockito.any()))
+    Mockito.when(client.beans(Mockito.any()))
         .thenReturn(
             List.of(
                 new BeanObject("a", Map.of("node-id", "node-10"), Map.of()),

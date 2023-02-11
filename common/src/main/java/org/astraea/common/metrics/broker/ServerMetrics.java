@@ -36,7 +36,7 @@ public final class ServerMetrics {
 
   public static List<AppInfo> appInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName(DOMAIN_NAME)
                 .property("type", "app-info")
@@ -106,7 +106,7 @@ public final class ServerMetrics {
 
     public Histogram fetch(MBeanClient mBeanClient) {
       return new Histogram(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "ZooKeeperClientMetrics")
@@ -172,7 +172,7 @@ public final class ServerMetrics {
 
     public Meter fetch(MBeanClient mBeanClient) {
       return new Meter(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "SessionExpireListener")
@@ -225,7 +225,7 @@ public final class ServerMetrics {
 
     public static HasGauge<String> clusterId(MBeanClient mBeanClient) {
       return () ->
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "KafkaServer")
@@ -243,7 +243,7 @@ public final class ServerMetrics {
 
     public Gauge fetch(MBeanClient mBeanClient) {
       return new Gauge(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "KafkaServer")
@@ -322,7 +322,7 @@ public final class ServerMetrics {
 
     public Gauge fetch(MBeanClient mBeanClient) {
       return new Gauge(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "DelayedOperationPurgatory")
@@ -386,7 +386,7 @@ public final class ServerMetrics {
 
     public List<Topic.Meter> fetch(MBeanClient mBeanClient) {
       return mBeanClient
-          .queryBeans(
+          .beans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "BrokerTopicMetrics")
@@ -586,7 +586,7 @@ public final class ServerMetrics {
 
     public Meter fetch(MBeanClient mBeanClient) {
       return new Meter(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "BrokerTopicMetrics")
@@ -647,7 +647,7 @@ public final class ServerMetrics {
 
     public Gauge fetch(MBeanClient mBeanClient) {
       return new Gauge(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "ReplicaManager")
@@ -702,13 +702,13 @@ public final class ServerMetrics {
 
     public static SocketMetric socket(MBeanClient mBeanClient) {
       return new SocketMetric(
-          mBeanClient.queryBean(
+          mBeanClient.bean(
               BeanQuery.builder().domainName(DOMAIN_NAME).property("type", METRIC_TYPE).build()));
     }
 
     public static List<SocketListenerMetric> socketListener(MBeanClient mBeanClient) {
       return mBeanClient
-          .queryBeans(
+          .beans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", METRIC_TYPE)
@@ -722,7 +722,7 @@ public final class ServerMetrics {
     public static List<SocketNetworkProcessorMetric> socketNetworkProcessor(
         MBeanClient mBeanClient) {
       return mBeanClient
-          .queryBeans(
+          .beans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", METRIC_TYPE)
@@ -736,7 +736,7 @@ public final class ServerMetrics {
 
     public static List<Client> client(MBeanClient mBeanClient) {
       return mBeanClient
-          .queryBeans(
+          .beans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", METRIC_TYPE)

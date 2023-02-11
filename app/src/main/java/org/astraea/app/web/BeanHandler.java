@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
@@ -47,21 +48,23 @@ public class BeanHandler implements Handler {
                         b ->
                             jmxPorts
                                 .apply(b.id())
-                                .map(port -> MBeanClient.jndi(b.host(), port))
+                                .map(port -> Map.entry(b.host(), MBeanClient.jndi(b.host(), port)))
                                 .stream())
-                    .collect(Collectors.toList()))
+                    .collect(Collectors.toUnmodifiableList()))
         .thenApply(
             clients ->
                 new NodeBeans(
                     clients.stream()
                         .map(
-                            c -> {
-                              try (c) {
+                            entry -> {
+                              try {
                                 return new NodeBean(
-                                    c.host(),
-                                    c.queryBeans(builder.build()).stream()
+                                    entry.getKey(),
+                                    entry.getValue().beans(builder.build()).stream()
                                         .map(Bean::new)
                                         .collect(Collectors.toUnmodifiableList()));
+                              } finally {
+                                entry.getValue().close();
                               }
                             })
                         .collect(Collectors.toUnmodifiableList())));

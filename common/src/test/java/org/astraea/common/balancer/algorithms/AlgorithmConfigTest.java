@@ -16,8 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.util.Map;
-import org.astraea.common.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -25,11 +23,7 @@ public class AlgorithmConfigTest {
 
   @Test
   void testCopy() {
-    var config0 =
-        AlgorithmConfig.builder()
-            .clusterCost((i, j) -> () -> 100)
-            .config(Configuration.of(Map.of()))
-            .build();
+    var config0 = AlgorithmConfig.builder().clusterCost((i, j) -> () -> 100).build();
     var config1 = AlgorithmConfig.builder(config0).build();
     Assertions.assertSame(config0.executionId(), config1.executionId());
     Assertions.assertSame(config0.clusterCostFunction(), config1.clusterCostFunction());
@@ -38,6 +32,5 @@ public class AlgorithmConfigTest {
     Assertions.assertSame(config0.movementConstraint(), config1.movementConstraint());
     Assertions.assertSame(config0.topicFilter(), config1.topicFilter());
     Assertions.assertSame(config0.metricSource(), config1.metricSource());
-    Assertions.assertSame(config0.config(), config1.config());
   }
 }

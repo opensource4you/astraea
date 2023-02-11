@@ -215,7 +215,7 @@ class MetricCollectorTest {
     MetricSensor noSuchMetricSensor =
         (client, ignored) -> {
           BeanObject beanObject =
-              client.queryBean(
+              client.bean(
                   BeanQuery.builder().domainName("no.such.metric").property("k", "v").build());
           return List.of(() -> beanObject);
         };

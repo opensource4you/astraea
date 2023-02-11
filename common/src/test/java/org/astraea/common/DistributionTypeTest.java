@@ -69,5 +69,14 @@ public class DistributionTypeTest {
     var distribution = DistributionType.ZIPFIAN.create(5);
     Assertions.assertTrue(distribution.get() < 5);
     Assertions.assertTrue(distribution.get() >= 0);
+
+    // The last cumulative probability should not less than 1.0
+    for (int i = 1000; i < 2000; ++i) {
+      distribution = DistributionType.ZIPFIAN.create(i);
+      for (int j = 0; j < 1000; ++j) {
+        Assertions.assertTrue(distribution.get() < i);
+        Assertions.assertTrue(distribution.get() >= 0);
+      }
+    }
   }
 }

@@ -10,7 +10,7 @@ Kafka Cluster由多個brokers組成，一個broker內儲存多個topics，一個
 
 此專案提供了一鍵部署Kafka broker的腳本，利用Docker將Kafka容器化，讓使用者在建置上能夠更容易、簡單，省去大量安裝環境的時間。腳本內還整合了JMX以及Prometheus exporter，讓使用者可以監控Mbeans、hardware、OS的metrics。
 
-部署broker前請先確認Zookeeper已經部署成功，因為需要取得Zookeeper的host與port當作啟動broker腳本的參數。
+部署broker前請先確認Zookeeper已經部署成功，因為需要取得Zookeeper的host與port當作啟動broker腳本的參數。詳情請見 [快速啟動 Zookeeper](./run_zookeeper.md)
 
 #### 一般版本的broker
 
