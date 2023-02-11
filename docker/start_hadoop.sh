@@ -26,7 +26,8 @@ declare -r EXPORTER_VERSION="0.16.1"
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
 declare -r HADOOP_PORT=${HADOOP_PORT:-"$(getRandomPort)"}
 declare -r HADOOP_JMX_PORT="${HADOOP_JMX_PORT:-"$(getRandomPort)"}"
-declare -r HADOOP_HTTP_ADDRESS="${HADOOP_HTTP_ADDRESS:-"$(getRandomPort)"}"
+declare -r HADOOP_IPC_PORT="${HADOOP_IPC_PORT:-"$(getRandomPort)"}"
+declare -r HADOOP_HTTP_PORT="${HADOOP_HTTP_PORT:-"$(getRandomPort)"}"
 declare -r JMX_CONFIG_FILE_IN_CONTAINER_PATH="/opt/jmx_exporter/jmx_exporter_config.yml"
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
@@ -170,27 +171,33 @@ function startNamenode() {
   local container_name=namenode-$HADOOP_PORT
 
   rejectProperty fs.defaultFS $CORE_SITE_XML
+  rejectProperty dfs.permissions $HDFS_SITE_XML
+  rejectProperty dfs.namenode.http-address $HDFS_SITE_XML
   rejectProperty dfs.namenode.datanode.registration.ip-hostname-check $HDFS_SITE_XML
+  rejectProperty dfs.namenode.rpc-bind-host $HDFS_SITE_XML
 
+  setProperty dfs.namenode.http-address 0.0.0.0:$HADOOP_HTTP_PORT $HDFS_SITE_XML
+  setProperty dfs.permissions false $HDFS_SITE_XML
   setProperty dfs.namenode.datanode.registration.ip-hostname-check false $HDFS_SITE_XML
-  setProperty fs.defaultFS hdfs://$container_name:8020 $CORE_SITE_XML
+  setProperty fs.defaultFS hdfs://$ADDRESS:$HADOOP_PORT $CORE_SITE_XML
+  setProperty dfs.namenode.rpc-bind-host 0.0.0.0 $HDFS_SITE_XML
 
   completeConfigFile
   docker run -d --init \
     --name $container_name \
-    -h $container_name \
+    -h $ADDRESS \
     -e HDFS_NAMENODE_OPTS="$JMX_OPTS" \
     -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
     -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
-    -p $HADOOP_HTTP_ADDRESS:9870 \
+    -p $HADOOP_HTTP_PORT:$HADOOP_HTTP_PORT \
     -p $HADOOP_JMX_PORT:$HADOOP_JMX_PORT \
-    -p $HADOOP_PORT:8020 \
+    -p $HADOOP_PORT:$HADOOP_PORT \
     -p $EXPORTER_PORT:$EXPORTER_PORT \
     "$IMAGE_NAME" /bin/bash -c "./bin/hdfs namenode -format && ./bin/hdfs namenode"
 
   echo "================================================="
   echo "configs: ${CORE_SITE_XML} ${HDFS_SITE_XML}"
-  echo "http address: ${ADDRESS}:$HADOOP_HTTP_ADDRESS"
+  echo "http address: ${ADDRESS}:$HADOOP_HTTP_PORT"
   echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"
   echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
   echo "run $DOCKER_FOLDER/start_hadoop.sh datanode fs.defaultFS=hdfs://${ADDRESS}:$HADOOP_PORT to join datanode"
@@ -203,22 +210,29 @@ function startDatanode() {
   local container_name=datanode-$HADOOP_PORT
 
   rejectProperty dfs.datanode.address $HDFS_SITE_XML
+  rejectProperty dfs.datanode.ipc.address $HDFS_SITE_XML
+  rejectProperty dfs.datanode.http.address $HDFS_SITE_XML
   rejectProperty dfs.datanode.use.datanode.hostname $HDFS_SITE_XML
   rejectProperty dfs.client.use.datanode.hostname $HDFS_SITE_XML
+  rejectProperty dfs.datanode.hostname $HDFS_SITE_XML
   requireProperty fs.defaultFS $CORE_SITE_XML
 
   setProperty dfs.datanode.address 0.0.0.0:$HADOOP_PORT $HDFS_SITE_XML
+  setProperty dfs.datanode.ipc.address 0.0.0.0:$HADOOP_IPC_PORT $HDFS_SITE_XML
+  setProperty dfs.datanode.http.address 0.0.0.0:$HADOOP_HTTP_PORT $HDFS_SITE_XML
   setProperty dfs.datanode.use.datanode.hostname true $HDFS_SITE_XML
   setProperty dfs.client.use.datanode.hostname true $HDFS_SITE_XML
+  setProperty dfs.datanode.hostname $ADDRESS $HDFS_SITE_XML
 
   completeConfigFile
   docker run -d --init \
     --name $container_name \
-    -h ${ADDRESS} \
+    -h $ADDRESS \
     -e HDFS_DATANODE_OPTS="$JMX_OPTS" \
     -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
     -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
-    -p $HADOOP_HTTP_ADDRESS:9864 \
+    -p $HADOOP_HTTP_PORT:$HADOOP_HTTP_PORT \
+    -p $HADOOP_IPC_PORT:$HADOOP_IPC_PORT \
     -p $HADOOP_PORT:$HADOOP_PORT \
     -p $HADOOP_JMX_PORT:$HADOOP_JMX_PORT \
     -p $EXPORTER_PORT:$EXPORTER_PORT \
@@ -226,7 +240,7 @@ function startDatanode() {
 
   echo "================================================="
   echo "configs: ${CORE_SITE_XML} ${HDFS_SITE_XML}"
-  echo "http address: ${ADDRESS}:$HADOOP_HTTP_ADDRESS"
+  echo "http address: ${ADDRESS}:$HADOOP_HTTP_PORT"
   echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"
   echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
   echo "================================================="
