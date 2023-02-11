@@ -103,17 +103,17 @@ public interface Configuration {
   }
 
   /**
-   * @param filteredString the string to be filtered and removed
-   * @return new Configuration only contains which the key value includes the filteredString, and
-   *     the filteredString and the following dot will be removed from the key
+   * @param prefix the string to be filtered and removed
+   * @return new Configuration only contains which the key value starts with the prefix, and the
+   *     prefix string and the following dot will be removed from the key
    */
-  default Configuration filteredConfigs(String filteredString) {
+  default Configuration filteredConfigs(String prefix) {
     return of(
         entrySet().stream()
-            .filter(k -> k.getKey().contains(filteredString))
+            .filter(k -> k.getKey().startsWith(prefix))
             .collect(
                 Collectors.toMap(
-                    i -> i.getKey().replaceAll(filteredString + '.', ""), Map.Entry::getValue)));
+                    i -> i.getKey().replaceFirst(prefix + '.', ""), Map.Entry::getValue)));
   }
 
   /**
