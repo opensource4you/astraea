@@ -73,7 +73,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         new ParetoDistribution(rng, config.topicRateParetoScale(), config.topicRateParetoShape());
     final var backboneDataRateDistribution =
         new UniformRealDistribution(
-            rng, config.backboneDataRate() * 0.9, config.backboneDataRate() * 1.1);
+            rng, config.backboneDataRate() * 0.8, config.backboneDataRate() * 1.2);
     final var topicPartitionCountDistribution =
         new UniformIntegerDistribution(rng, config.partitionMin(), config.partitionMax());
     final var topicConsumerFanoutDistribution =
@@ -399,6 +399,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       return clients.stream()
           .map(
               client -> {
+                var isBackbone = client.topics.equals(Set.of(backboneTopicName));
                 var consumeRate = DataRate.Byte.of(client.consumeRate).perSecond();
                 var produceRate = DataRate.Byte.of(client.produceRate).perSecond();
                 var throttle =
@@ -423,9 +424,13 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                               return String.format("%s:%sByte/second", tp, bytes);
                             })
                         .collect(Collectors.joining(","));
+                var throughput = String.format("%dByte/second", (long) produceRate.byteRate());
                 return Map.ofEntries(
+                    Map.entry("backbone", Boolean.toString(isBackbone)),
                     Map.entry("topics", String.join(",", client.topics)),
+                    Map.entry("throughput", throughput),
                     Map.entry("throttle", throttle),
+                    Map.entry("key_distribution", isBackbone ? "zipfian" : "uniform"),
                     Map.entry("consumeRate", consumeRate.toString()),
                     Map.entry("produceRate", produceRate.toString()));
               })
@@ -483,14 +488,14 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                   Arrays.stream(seriesString.split(","))
                       .map(Integer::parseInt)
                       .collect(Collectors.toUnmodifiableList()))
-          .orElse(List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3));
+          .orElse(List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 6));
     }
 
     double topicRateParetoScale() {
       return scenarioConfig
           .string(CONFIG_TOPIC_DATA_RATE_PARETO_SCALE)
           .map(Double::parseDouble)
-          .orElse(DataRate.MB.of(2).perSecond().byteRate());
+          .orElse(DataRate.MB.of(1).perSecond().byteRate());
     }
 
     double topicRateParetoShape() {
@@ -504,7 +509,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       return scenarioConfig
           .string(CONFIG_BACKBONE_DATA_RATE)
           .map(Long::parseLong)
-          .orElse(DataSize.MB.of(500).bytes());
+          .orElse(DataSize.MB.of(950).bytes());
     }
 
     int performanceClientCount() {
