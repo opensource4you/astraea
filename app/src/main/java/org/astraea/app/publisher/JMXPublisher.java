@@ -16,13 +16,12 @@
  */
 package org.astraea.app.publisher;
 
+import java.util.concurrent.CompletionStage;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
-
-import java.util.concurrent.CompletionStage;
 
 public interface JMXPublisher extends AutoCloseable {
   static JMXPublisher create(String bootstrap) {

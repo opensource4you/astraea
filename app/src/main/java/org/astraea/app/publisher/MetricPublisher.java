@@ -30,6 +30,9 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.MBeanClient;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
@@ -43,8 +46,8 @@ public class MetricPublisher {
   }
 
   private static void execute(Arguments arguments) {
-    var beanQueue = new ArrayBlockingQueue<JMXFetcher.IdAndBean>(2000);
-    var jmxFetchers = new ConcurrentHashMap<String, JMXFetcher>();
+    var beanQueue = new ArrayBlockingQueue<IdAndBean>(2000);
+    var jmxFetchers = new ConcurrentHashMap<String, MBeanClient>();
     var publisherThreads =
         IntStream.range(0, 2)
             .mapToObj(i -> JMXPublisher.create(arguments.bootstrapServers()))
@@ -71,13 +74,13 @@ public class MetricPublisher {
                     (id, f) ->
                         threadPool.execute(
                             () ->
-                                f.fetch()
+                                f.beans(BeanQuery.all())
                                     .forEach(
                                         bean ->
                                             Utils.swallowException(
                                                 () ->
                                                     beanQueue.put(
-                                                        new JMXFetcher.IdAndBean(
+                                                        new IdAndBean(
                                                             Integer.parseInt(id), bean)))))),
             0,
             arguments.period.toMillis(),
@@ -95,7 +98,7 @@ public class MetricPublisher {
                                 node ->
                                     jmxFetchers.putIfAbsent(
                                         String.valueOf(node.id()),
-                                        JMXFetcher.create(
+                                        MBeanClient.jndi(
                                             node.host(),
                                             arguments.idToJmxPort().apply(node.id()))))),
             0,
@@ -118,6 +121,24 @@ public class MetricPublisher {
       Utils.swallowException(() -> periodicJobPool.awaitTermination(1, TimeUnit.MINUTES));
       Utils.swallowException(() -> threadPool.awaitTermination(1, TimeUnit.MINUTES));
       admin.close();
+    }
+  }
+
+  private static class IdAndBean {
+    private final int id;
+    private final BeanObject bean;
+
+    public IdAndBean(int id, BeanObject bean) {
+      this.id = id;
+      this.bean = bean;
+    }
+
+    public int id() {
+      return this.id;
+    }
+
+    public BeanObject bean() {
+      return bean;
     }
   }
 
