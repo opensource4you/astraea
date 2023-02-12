@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -63,8 +64,8 @@ public class ReplicaLeaderCostTest {
                 NodeInfo.of(10, "host1", 8080),
                 NodeInfo.of(11, "host1", 8080),
                 NodeInfo.of(12, "host1", 8080)),
-            Map.of(),
-            replicas);
+            replicas,
+            t -> Optional.empty());
     var brokerCost = ReplicaLeaderCost.leaderCount(clusterInfo);
     var clusterCost =
         dispersion.calculate(

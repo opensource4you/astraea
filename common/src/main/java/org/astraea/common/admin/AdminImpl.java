@@ -619,15 +619,17 @@ class AdminImpl implements Admin {
         clusterIdAndBrokers(),
         topics(topics),
         replicas(topics),
-        (clusterIdAndBrokers, topicList, replicas) ->
-            ClusterInfo.of(
-                clusterIdAndBrokers.getKey(),
-                clusterIdAndBrokers.getValue().stream()
-                    .map(x -> (NodeInfo) x)
-                    .collect(Collectors.toUnmodifiableList()),
-                topicList.stream()
-                    .collect(Collectors.toUnmodifiableMap(Topic::name, Topic::config)),
-                replicas));
+        (clusterIdAndBrokers, topicList, replicas) -> {
+          var topicMap =
+              topicList.stream().collect(Collectors.toUnmodifiableMap(Topic::name, t -> t));
+          return ClusterInfo.of(
+              clusterIdAndBrokers.getKey(),
+              clusterIdAndBrokers.getValue().stream()
+                  .map(x -> (NodeInfo) x)
+                  .collect(Collectors.toUnmodifiableList()),
+              replicas,
+              t -> Optional.of(topicMap.get(t)));
+        });
   }
 
   private CompletionStage<List<Replica>> replicas(Set<String> topics) {

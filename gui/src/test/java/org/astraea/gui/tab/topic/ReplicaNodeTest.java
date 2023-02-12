@@ -168,7 +168,8 @@ public class ReplicaNodeTest {
                 .nodeInfo(nodes.get(2))
                 .size(30)
                 .build());
-    var results = ReplicaNode.allResult(ClusterInfo.of("fake", nodes, Map.of(), replicas));
+    var results =
+        ReplicaNode.allResult(ClusterInfo.of("fake", nodes, replicas, t -> Optional.empty()));
     Assertions.assertEquals(3, results.size());
     Assertions.assertEquals(
         1,

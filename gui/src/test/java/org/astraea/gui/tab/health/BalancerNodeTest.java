@@ -160,7 +160,8 @@ class BalancerNodeTest {
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
-    var beforeClusterInfo = ClusterInfo.of("fake", List.of(), Map.of(), beforeReplicas);
+    var beforeClusterInfo =
+        ClusterInfo.of("fake", List.of(), beforeReplicas, (t) -> Optional.empty());
 
     var results =
         BalancerNode.assignmentResult(
@@ -168,7 +169,7 @@ class BalancerNodeTest {
             new Balancer.Solution(
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 MoveCost.EMPTY,
-                ClusterInfo.of("fake", allNodes, Map.of(), afterReplicas)));
+                ClusterInfo.of("fake", allNodes, afterReplicas, t -> Optional.empty())));
     Assertions.assertEquals(results.size(), 1);
     Assertions.assertEquals(results.get(0).get("topic"), topic);
     Assertions.assertEquals(results.get(0).get("partition"), 0);

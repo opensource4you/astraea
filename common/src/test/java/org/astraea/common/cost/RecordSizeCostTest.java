@@ -17,7 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -36,7 +36,6 @@ public class RecordSizeCostTest {
       ClusterInfo.of(
           "fake",
           List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
-          Map.of(),
           List.of(
               Replica.builder()
                   .topic("topic")
@@ -58,7 +57,8 @@ public class RecordSizeCostTest {
                   .nodeInfo(NodeInfo.of(1, "aa", 22))
                   .size(11)
                   .path("/tmp/aa")
-                  .buildLeader()));
+                  .buildLeader()),
+          t -> Optional.empty());
 
   @Test
   void testMoveCost() {
@@ -66,11 +66,11 @@ public class RecordSizeCostTest {
         ClusterInfo.of(
             "fake",
             clusterInfo.nodes(),
-            Map.of(),
             clusterInfo.replicas().stream()
                 .filter(r -> !r.isLeader())
                 .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList()),
+            t -> Optional.empty());
 
     var result = function.moveCost(before, clusterInfo, ClusterBean.EMPTY);
     Assertions.assertEquals(3, result.movedRecordSize().size());

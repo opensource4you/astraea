@@ -18,6 +18,7 @@ package org.astraea.common.balancer;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
@@ -170,6 +171,6 @@ public class FakeClusterInfo {
                                     .build()))
             .collect(Collectors.toUnmodifiableList());
 
-    return ClusterInfo.of("fake", List.copyOf(nodes), Map.of(), replicas);
+    return ClusterInfo.of("fake", List.copyOf(nodes), replicas, t -> Optional.empty());
   }
 }

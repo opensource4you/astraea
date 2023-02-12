@@ -219,13 +219,13 @@ public class AdminTest {
 
       Assertions.assertEquals(
           Optional.of("1111111111"),
-          clusterInfo.topicConfigs().get(topic0).value(TopicConfig.RETENTION_BYTES_CONFIG));
+          clusterInfo.topics().get(topic0).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
       Assertions.assertEquals(
           Optional.of("2222222222"),
-          clusterInfo.topicConfigs().get(topic1).value(TopicConfig.RETENTION_BYTES_CONFIG));
+          clusterInfo.topics().get(topic1).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
       Assertions.assertEquals(
           Optional.of("3333333333"),
-          clusterInfo.topicConfigs().get(topic2).value(TopicConfig.RETENTION_BYTES_CONFIG));
+          clusterInfo.topics().get(topic2).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
     }
   }
 

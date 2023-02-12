@@ -18,6 +18,7 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -44,7 +45,8 @@ class ClusterInfoBuilderTest {
             .isLeader(true)
             .build();
     var cluster =
-        ClusterInfo.of("fake", List.of(host1000, host2000, host3000), Map.of(), List.of(replica));
+        ClusterInfo.of(
+            "fake", List.of(host1000, host2000, host3000), List.of(replica), t -> Optional.empty());
 
     Assertions.assertEquals(
         List.of(host1000, host2000, host3000), ClusterInfoBuilder.builder(cluster).build().nodes());

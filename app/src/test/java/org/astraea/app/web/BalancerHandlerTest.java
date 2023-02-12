@@ -244,7 +244,6 @@ public class BalancerHandlerTest {
           ClusterInfo.of(
               "fake",
               List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
-              Map.of(),
               List.of(
                   Replica.builder()
                       .topic("topic")
@@ -258,7 +257,8 @@ public class BalancerHandlerTest {
                       .isOffline(false)
                       .isPreferredLeader(true)
                       .path("/tmp/aa")
-                      .build()));
+                      .build()),
+              (t) -> Optional.empty());
 
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
