@@ -244,6 +244,7 @@ public class BalancerHandlerTest {
           ClusterInfo.of(
               "fake",
               List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              Map.of(),
               List.of(
                   Replica.builder()
                       .topic("topic")

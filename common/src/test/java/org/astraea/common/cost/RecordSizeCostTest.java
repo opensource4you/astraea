@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -35,6 +36,7 @@ public class RecordSizeCostTest {
       ClusterInfo.of(
           "fake",
           List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
+          Map.of(),
           List.of(
               Replica.builder()
                   .topic("topic")
@@ -64,6 +66,7 @@ public class RecordSizeCostTest {
         ClusterInfo.of(
             "fake",
             clusterInfo.nodes(),
+            Map.of(),
             clusterInfo.replicas().stream()
                 .filter(r -> !r.isLeader())
                 .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())

@@ -63,6 +63,7 @@ public class ReplicaLeaderCostTest {
                 NodeInfo.of(10, "host1", 8080),
                 NodeInfo.of(11, "host1", 8080),
                 NodeInfo.of(12, "host1", 8080)),
+            Map.of(),
             replicas);
     var brokerCost = ReplicaLeaderCost.leaderCount(clusterInfo);
     var clusterCost =

@@ -617,13 +617,16 @@ class AdminImpl implements Admin {
   public CompletionStage<ClusterInfo> clusterInfo(Set<String> topics) {
     return FutureUtils.combine(
         clusterIdAndBrokers(),
+        topics(topics),
         replicas(topics),
-        (clusterIdAndBrokers, replicas) ->
+        (clusterIdAndBrokers, topicList, replicas) ->
             ClusterInfo.of(
                 clusterIdAndBrokers.getKey(),
                 clusterIdAndBrokers.getValue().stream()
                     .map(x -> (NodeInfo) x)
                     .collect(Collectors.toUnmodifiableList()),
+                topicList.stream()
+                    .collect(Collectors.toUnmodifiableMap(Topic::name, Topic::config)),
                 replicas));
   }
 

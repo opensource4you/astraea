@@ -324,7 +324,7 @@ public class ClusterInfoBuilder {
       nodes = e.getKey();
       replicas = e.getValue();
     }
-    return ClusterInfo.of(sourceCluster.clusterId(), nodes, replicas);
+    return ClusterInfo.of(sourceCluster.clusterId(), nodes, sourceCluster.topicConfigs(), replicas);
   }
 
   private static Broker fakeNode(int brokerId) {
