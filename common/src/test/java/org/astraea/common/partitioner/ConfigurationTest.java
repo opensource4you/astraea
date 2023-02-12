@@ -48,6 +48,6 @@ public class ConfigurationTest {
   @Test
   void testFilteredConfigs() {
     var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
-    Assertions.assertEquals(Map.of("key", "v2"), config.filteredConfigs("filtered").raw());
+    Assertions.assertEquals(Map.of("key", "v2"), config.filteredPrefixConfigs("filtered").raw());
   }
 }

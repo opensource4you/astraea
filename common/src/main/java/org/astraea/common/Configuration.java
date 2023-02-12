@@ -107,7 +107,7 @@ public interface Configuration {
    * @return new Configuration only contains which the key value starts with the prefix, and the
    *     prefix string and the following dot will be removed from the key
    */
-  default Configuration filteredConfigs(String prefix) {
+  default Configuration filteredPrefixConfigs(String prefix) {
     return of(
         entrySet().stream()
             .filter(k -> k.getKey().startsWith(prefix))
