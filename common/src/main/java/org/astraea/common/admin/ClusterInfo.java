@@ -332,7 +332,7 @@ public interface ClusterInfo {
    *
    * @return return a set of topic names
    */
-  default Set<String> topics() {
+  default Set<String> topicNames() {
     return replicaStream().map(Replica::topic).collect(Collectors.toUnmodifiableSet());
   }
 
@@ -551,7 +551,7 @@ public interface ClusterInfo {
     }
 
     @Override
-    public Set<String> topics() {
+    public Set<String> topicNames() {
       return byTopic.get().keySet();
     }
 

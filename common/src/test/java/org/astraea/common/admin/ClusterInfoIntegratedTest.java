@@ -84,7 +84,7 @@ public class ClusterInfoIntegratedTest {
                       : Set.of());
 
       Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
-      Assertions.assertEquals(clusterInfo.topics().size(), merged.topics().size());
+      Assertions.assertEquals(clusterInfo.topicNames().size(), merged.topicNames().size());
       merged.replicas().forEach(r -> Assertions.assertEquals(randomSizeValue, r.size()));
       Assertions.assertEquals(1, merged.replicas(topicName).size());
       Assertions.assertEquals(newBrokerId, merged.replicas(topicName).get(0).nodeInfo().id());
