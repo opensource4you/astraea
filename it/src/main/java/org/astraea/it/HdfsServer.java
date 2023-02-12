@@ -101,7 +101,7 @@ public interface HdfsServer extends AutoCloseable {
 
         @Override
         public String user() {
-          return "root";
+          return System.getProperty("user.name");
         }
 
         @Override
