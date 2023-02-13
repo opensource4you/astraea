@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -326,11 +325,7 @@ public class ClusterInfoBuilder {
       replicas = e.getValue();
     }
     // TODO: support adding custom topic config to ClusterInfoBuilder
-    return ClusterInfo.of(
-        sourceCluster.clusterId(),
-        nodes,
-        replicas,
-        (name) -> Optional.ofNullable(sourceCluster.topics().get(name)));
+    return ClusterInfo.of(sourceCluster.clusterId(), nodes, sourceCluster.topics(), replicas);
   }
 
   private static Broker fakeNode(int brokerId) {

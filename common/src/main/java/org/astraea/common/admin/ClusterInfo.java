@@ -34,7 +34,7 @@ import org.astraea.common.Lazy;
 
 public interface ClusterInfo {
   static ClusterInfo empty() {
-    return of("unknown", List.of(), List.of(), (t) -> Optional.empty());
+    return of("unknown", List.of(), Map.of(), List.of());
   }
 
   // ---------------------[helpers]---------------------//
@@ -42,17 +42,16 @@ public interface ClusterInfo {
   /** Mask specific topics from a {@link ClusterInfo}. */
   static ClusterInfo masked(ClusterInfo clusterInfo, Predicate<String> topicFilter) {
     final var nodes = List.copyOf(clusterInfo.nodes());
+    final var topics =
+        clusterInfo.topics().entrySet().stream()
+            .filter(e -> topicFilter.test(e.getKey()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     final var replicas =
         clusterInfo
             .replicaStream()
             .filter(replica -> topicFilter.test(replica.topic()))
             .collect(Collectors.toUnmodifiableList());
-    return of(
-        clusterInfo.clusterId(),
-        nodes,
-        replicas,
-        (name) ->
-            Optional.of(clusterInfo.topics().get(name)).filter(t -> topicFilter.test(t.name())));
+    return of(clusterInfo.clusterId(), nodes, topics, replicas);
   }
 
   /**
@@ -85,10 +84,7 @@ public interface ClusterInfo {
             .collect(Collectors.toUnmodifiableList());
 
     return ClusterInfo.of(
-        clusterInfo.clusterId(),
-        clusterInfo.nodes(),
-        newReplicas,
-        (t) -> Optional.of(clusterInfo.topics().get(t)));
+        clusterInfo.clusterId(), clusterInfo.nodes(), clusterInfo.topics(), newReplicas);
   }
 
   /**
@@ -190,16 +186,13 @@ public interface ClusterInfo {
    *
    * @param clusterId the id of the Kafka cluster
    * @param nodes the node information of the cluster info
+   * @param topics topics
    * @param replicas used to build cluster info
-   * @param topicSource the source of topic description
    * @return cluster info
    */
   static ClusterInfo of(
-      String clusterId,
-      List<NodeInfo> nodes,
-      List<Replica> replicas,
-      Function<String, Optional<Topic>> topicSource) {
-    return new Optimized(clusterId, nodes, replicas, topicSource);
+      String clusterId, List<NodeInfo> nodes, Map<String, Topic> topics, List<Replica> replicas) {
+    return new Optimized(clusterId, nodes, topics, replicas);
   }
 
   // ---------------------[for leader]---------------------//
@@ -449,8 +442,8 @@ public interface ClusterInfo {
     protected Optimized(
         String clusterId,
         List<NodeInfo> nodeInfos,
-        List<Replica> replicas,
-        Function<String, Optional<Topic>> topicSource) {
+        Map<String, Topic> topics,
+        List<Replica> replicas) {
       this.clusterId = clusterId;
       this.nodeInfos = nodeInfos;
       this.all = replicas;
@@ -463,14 +456,6 @@ public interface ClusterInfo {
                       .map(
                           topic ->
                               new Topic() {
-                                final Config config =
-                                    topicSource
-                                        .apply(topic)
-                                        .map(Topic::config)
-                                        .orElse(Config.EMPTY);
-                                final boolean internal =
-                                    topicSource.apply(topic).map(Topic::internal).orElse(false);
-
                                 @Override
                                 public String name() {
                                   return topic;
@@ -478,12 +463,16 @@ public interface ClusterInfo {
 
                                 @Override
                                 public Config config() {
-                                  return config;
+                                  return Optional.ofNullable(topics.get(name()))
+                                      .map(Topic::config)
+                                      .orElse(Config.EMPTY);
                                 }
 
                                 @Override
                                 public boolean internal() {
-                                  return internal;
+                                  return Optional.ofNullable(topics.get(name()))
+                                      .map(Topic::internal)
+                                      .orElse(false);
                                 }
 
                                 @Override

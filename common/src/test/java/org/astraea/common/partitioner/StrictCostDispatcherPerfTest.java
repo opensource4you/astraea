@@ -21,7 +21,6 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -58,6 +57,7 @@ public class StrictCostDispatcherPerfTest {
         ClusterInfo.of(
             "fake",
             List.of(node0, node1, node2),
+            Map.of(),
             List.of(
                 Replica.builder()
                     .topic("topic")
@@ -76,8 +76,7 @@ public class StrictCostDispatcherPerfTest {
                     .partition(2)
                     .nodeInfo(node2)
                     .path("/tmp/aa")
-                    .buildLeader()),
-            t -> Optional.empty());
+                    .buildLeader()));
 
     var node0Latency = createMetric(0);
     var node1Latency = createMetric(1);

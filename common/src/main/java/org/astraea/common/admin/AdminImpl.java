@@ -627,8 +627,8 @@ class AdminImpl implements Admin {
               clusterIdAndBrokers.getValue().stream()
                   .map(x -> (NodeInfo) x)
                   .collect(Collectors.toUnmodifiableList()),
-              replicas,
-              t -> Optional.of(topicMap.get(t)));
+              topicMap,
+              replicas);
         });
   }
 

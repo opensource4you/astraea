@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assertions;
@@ -48,8 +49,8 @@ public class ClusterInfoTest {
             .stream()
             .flatMap(Optional::stream)
             .collect(Collectors.toUnmodifiableList()),
-        replicas,
-        t -> Optional.empty());
+        Map.of(),
+        replicas);
   }
 
   @Test
