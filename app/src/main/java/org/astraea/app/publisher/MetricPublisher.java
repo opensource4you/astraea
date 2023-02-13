@@ -46,8 +46,33 @@ public class MetricPublisher {
   }
 
   private static void execute(Arguments arguments) {
-    var beanQueue = new ArrayBlockingQueue<IdAndBean>(2000);
-    var jmxFetchers = new ConcurrentHashMap<String, MBeanClient>();
+    // queue of ID of the target to fetch
+    var targetIDQueue = new ArrayBlockingQueue<String>(2000);
+    // queue of fetched beans
+    var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
+    var idMBeanClient = new ConcurrentHashMap<String, MBeanClient>();
+    var JMXFetcherThreads =
+        IntStream.range(0, 3)
+            .mapToObj(
+                i ->
+                    new RepeatedThread(
+                        () -> {
+                          try {
+                            var targetID = targetIDQueue.poll(5, TimeUnit.SECONDS);
+                            // Nothing to fetch
+                            if (targetID == null) return;
+                            var targetClient = idMBeanClient.getOrDefault(targetID, null);
+                            // targetClient not exist currently
+                            if (targetClient == null) return;
+                            beanQueue.addAll(
+                                targetClient.beans(BeanQuery.all()).stream()
+                                    .map(bean -> new IdBean(targetID, bean))
+                                    .collect(Collectors.toList()));
+                          } catch (InterruptedException ie) {
+                            // Queue polling was interrupted, print and ignore.
+                            ie.printStackTrace();
+                          }
+                        }));
     var publisherThreads =
         IntStream.range(0, 2)
             .mapToObj(i -> JMXPublisher.create(arguments.bootstrapServers()))
@@ -58,35 +83,25 @@ public class MetricPublisher {
                             Utils.swallowException(
                                 () -> {
                                   var idAndBean = beanQueue.take();
-                                  publisher.publish(
-                                      Integer.toString(idAndBean.id()), idAndBean.bean());
+                                  publisher.publish(idAndBean.id(), idAndBean.bean());
                                 })))
             .collect(Collectors.toList());
     var periodicJobPool = Executors.newScheduledThreadPool(2);
     var threadPool = Executors.newFixedThreadPool(5);
     var admin = Admin.of(arguments.bootstrapServers());
 
-    // Periodically submit "fetch job" on all jmxFetchers
+    // Periodically submit "fetch job" on all targets
     var periodicFetch =
         periodicJobPool.scheduleAtFixedRate(
+            // Block until target put into queue. To ensure all targets can be put into queue
             () ->
-                jmxFetchers.forEach(
-                    (id, f) ->
-                        threadPool.execute(
-                            () ->
-                                f.beans(BeanQuery.all())
-                                    .forEach(
-                                        bean ->
-                                            Utils.swallowException(
-                                                () ->
-                                                    beanQueue.put(
-                                                        new IdAndBean(
-                                                            Integer.parseInt(id), bean)))))),
+                idMBeanClient.forEach(
+                    (id, bean) -> Utils.swallowException(() -> targetIDQueue.put(id))),
             0,
             arguments.period.toMillis(),
             TimeUnit.MILLISECONDS);
 
-    // Periodically update jmxFetchers. (jmxFetchers may change when broker added into cluster)
+    // Periodically update MBeanClient. (MBeanClients may change when broker added into cluster)
     var periodicUpdate =
         periodicJobPool.scheduleAtFixedRate(
             () ->
@@ -96,7 +111,7 @@ public class MetricPublisher {
                         nodes ->
                             nodes.forEach(
                                 node ->
-                                    jmxFetchers.putIfAbsent(
+                                    idMBeanClient.putIfAbsent(
                                         String.valueOf(node.id()),
                                         MBeanClient.jndi(
                                             node.host(),
@@ -105,6 +120,8 @@ public class MetricPublisher {
             5,
             TimeUnit.MINUTES);
 
+    // All JMXFetchers keep fetching on targets
+    JMXFetcherThreads.forEach(threadPool::execute);
     // All publishers keep publish mbeans
     publisherThreads.forEach(threadPool::execute);
 
@@ -114,7 +131,7 @@ public class MetricPublisher {
     } catch (InterruptedException ie) {
       ie.printStackTrace();
     } finally {
-      jmxFetchers.forEach((id, f) -> f.close());
+      idMBeanClient.forEach((id, f) -> f.close());
       publisherThreads.forEach(RepeatedThread::close);
       periodicFetch.cancel(false);
       periodicUpdate.cancel(false);
@@ -124,16 +141,16 @@ public class MetricPublisher {
     }
   }
 
-  private static class IdAndBean {
-    private final int id;
+  private static class IdBean {
+    private final String id;
     private final BeanObject bean;
 
-    public IdAndBean(int id, BeanObject bean) {
+    public IdBean(String id, BeanObject bean) {
       this.id = id;
       this.bean = bean;
     }
 
-    public int id() {
+    public String id() {
       return this.id;
     }
 
