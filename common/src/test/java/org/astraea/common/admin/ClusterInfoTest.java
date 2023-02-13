@@ -128,7 +128,7 @@ public class ClusterInfoTest {
             .boxed()
             .collect(Collectors.toUnmodifiableSet());
     var topics =
-        IntStream.range(0, ThreadLocalRandom.current().nextInt(1, 100))
+        IntStream.range(0, ThreadLocalRandom.current().nextInt(0, 100))
             .mapToObj(x -> Utils.randomString())
             .collect(Collectors.toUnmodifiableSet());
     var builder =
