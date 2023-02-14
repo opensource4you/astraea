@@ -16,9 +16,9 @@
  */
 package org.astraea.app.web;
 
-import static org.astraea.common.balancer.BalancerConsole.BalanceTask.Phase.Executed;
-import static org.astraea.common.balancer.BalancerConsole.BalanceTask.Phase.Executing;
-import static org.astraea.common.balancer.BalancerConsole.BalanceTask.Phase.Searched;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executed;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;

@@ -79,11 +79,11 @@ class BalancerConsoleTest {
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
               .generate();
       Assertions.assertInstanceOf(String.class, balanceTask.id());
-      Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Searching, balanceTask.phase());
+      Assertions.assertEquals(BalancerConsole.TaskPhase.Searching, balanceTask.phase());
       Assertions.assertFalse(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
       balanceTask.planGeneration().toCompletableFuture().join();
-      Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Searched, balanceTask.phase());
+      Assertions.assertEquals(BalancerConsole.TaskPhase.Searched, balanceTask.phase());
       Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
 
@@ -107,11 +107,11 @@ class BalancerConsoleTest {
               .setExecutor(customExecutor)
               .execute(balanceTask);
       Assertions.assertEquals(balanceTask, balancerTaskSame);
-      Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Executing, balanceTask.phase());
+      Assertions.assertEquals(BalancerConsole.TaskPhase.Executing, balanceTask.phase());
       Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
       balancerTaskSame.planExecution().toCompletableFuture().join();
-      Assertions.assertEquals(BalancerConsole.BalanceTask.Phase.Executed, balanceTask.phase());
+      Assertions.assertEquals(BalancerConsole.TaskPhase.Executed, balanceTask.phase());
       Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
       Assertions.assertTrue(balanceTask.planExecution().toCompletableFuture().isDone());
 

@@ -187,11 +187,11 @@ public class BalancerConsoleImpl implements BalancerConsole {
         synchronized (this) {
           checkNotClosed();
           // If this plan already executed, does nothing
-          if (task.phase() == BalanceTask.Phase.Executing
-              || task.phase() == BalanceTask.Phase.Executed) return task;
+          if (task.phase() == TaskPhase.Executing || task.phase() == TaskPhase.Executed)
+            return task;
           // another task is still running
           if (lastExecutingTask.get() != null
-              && lastExecutingTask.get().phase() != BalanceTask.Phase.Executed)
+              && lastExecutingTask.get().phase() != TaskPhase.Executed)
             throw new IllegalStateException(
                 "Another task is executing: " + lastExecutingTask.get().id());
           // start the execution. this should fail if the plan is not ready
@@ -217,7 +217,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
       // stop generation
       var taskToStop =
           tasks.values().stream()
-              .filter(task -> task.phase() == BalanceTask.Phase.Searching)
+              .filter(task -> task.phase() == TaskPhase.Searching)
               .peek(task -> task.planGeneration.cancel(true))
               .collect(Collectors.toUnmodifiableSet());
       Utils.sleep(Duration.ofSeconds(1));
@@ -403,12 +403,12 @@ public class BalancerConsoleImpl implements BalancerConsole {
     }
 
     @Override
-    public Phase phase() {
+    public TaskPhase phase() {
       // Note: this method is not transactional
-      if (planExecution.isDone() && latch.started()) return Phase.Executed;
-      if (planGeneration.isDone() && latch.started()) return Phase.Executing;
-      if (planGeneration.isDone() && !latch.started()) return Phase.Searched;
-      if (!planGeneration.isDone()) return Phase.Searching;
+      if (planExecution.isDone() && latch.started()) return TaskPhase.Executed;
+      if (planGeneration.isDone() && latch.started()) return TaskPhase.Executing;
+      if (planGeneration.isDone() && !latch.started()) return TaskPhase.Searched;
+      if (!planGeneration.isDone()) return TaskPhase.Searching;
       throw new IllegalStateException("This should never happened");
     }
 

@@ -17,8 +17,8 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import org.astraea.common.EnumInfo;
@@ -33,9 +33,9 @@ public interface BalancerConsole extends AutoCloseable {
     return new BalancerConsoleImpl(admin, jmxPortMapper);
   }
 
-  Collection<BalanceTask> tasks();
+  Set<String> tasks();
 
-  Optional<BalanceTask> task(String taskId);
+  TaskPhase taskPhase(String taskId);
 
   Generation launchRebalancePlanGeneration();
 
@@ -46,6 +46,8 @@ public interface BalancerConsole extends AutoCloseable {
 
   interface Generation {
 
+    Generation setTaskId(String taskId);
+
     Generation setBalancer(Balancer balancer);
 
     Generation setGenerationTimeout(Duration timeout);
@@ -54,7 +56,7 @@ public interface BalancerConsole extends AutoCloseable {
 
     Generation checkNoOngoingMigration(boolean enable);
 
-    BalanceTask generate();
+    CompletionStage<Balancer.Plan> generate();
   }
 
   interface Execution {
@@ -67,42 +69,27 @@ public interface BalancerConsole extends AutoCloseable {
 
     Execution checkNoOngoingMigration(boolean enable);
 
-    default BalanceTask execute(BalanceTask theTask) {
-      return execute(theTask.id());
-    }
-
-    BalanceTask execute(String taskId);
+    CompletionStage<Void> execute(String taskId);
   }
 
-  interface BalanceTask {
+  enum TaskPhase implements EnumInfo {
+    Searching,
+    Searched,
+    Executing,
+    Executed;
 
-    String id();
+    static TaskPhase ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(TaskPhase.class, alias);
+    }
 
-    Phase phase();
+    @Override
+    public String alias() {
+      return name();
+    }
 
-    CompletionStage<Balancer.Plan> planGeneration();
-
-    CompletionStage<Void> planExecution();
-
-    enum Phase implements EnumInfo {
-      Searching,
-      Searched,
-      Executing,
-      Executed;
-
-      static Phase ofAlias(String alias) {
-        return EnumInfo.ignoreCaseEnum(Phase.class, alias);
-      }
-
-      @Override
-      public String alias() {
-        return name();
-      }
-
-      @Override
-      public String toString() {
-        return alias();
-      }
+    @Override
+    public String toString() {
+      return alias();
     }
   }
 }

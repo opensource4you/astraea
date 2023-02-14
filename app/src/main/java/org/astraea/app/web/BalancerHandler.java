@@ -142,7 +142,7 @@ class BalancerHandler implements Handler {
     if (balancerConsole.task(taskId).isEmpty())
       throw new IllegalArgumentException("No such rebalance plan id: " + taskId);
 
-    if (balancerConsole.task(taskId).get().phase() == BalancerConsole.BalanceTask.Phase.Executed)
+    if (balancerConsole.task(taskId).get().phase() == BalancerConsole.TaskPhase.Executed)
       return CompletableFuture.completedFuture(Response.ACCEPT);
 
     // this method will fail if plan cannot be executed (lack of plan)
@@ -169,7 +169,7 @@ class BalancerHandler implements Handler {
     var task = balancerConsole.task(taskId).orElseThrow();
     var contextCluster = taskMetadata.get(taskId).clusterInfo;
     var exception =
-        (Function<BalancerConsole.BalanceTask.Phase, String>)
+        (Function<BalancerConsole.TaskPhase, String>)
             (phase) -> {
               switch (phase) {
                 case Searching:
@@ -467,14 +467,14 @@ class BalancerHandler implements Handler {
 
   static class PlanExecutionProgress implements Response {
     final String id;
-    final BalancerConsole.BalanceTask.Phase phase;
+    final BalancerConsole.TaskPhase phase;
     final String exception;
     final PlanReport plan;
     final PlanConfiguration config;
 
     PlanExecutionProgress(
         String id,
-        BalancerConsole.BalanceTask.Phase phase,
+        BalancerConsole.TaskPhase phase,
         Duration timeout,
         String balancer,
         String function,
