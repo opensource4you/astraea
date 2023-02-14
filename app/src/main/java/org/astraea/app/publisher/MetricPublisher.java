@@ -23,7 +23,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.app.argument.DurationField;
@@ -50,12 +52,14 @@ public class MetricPublisher {
     var targetIDQueue = new ArrayBlockingQueue<String>(2000);
     // queue of fetched beans
     var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
+    var close = new AtomicBoolean(false);
     var idMBeanClient = new ConcurrentHashMap<String, MBeanClient>();
     var JMXFetcherThreads =
         IntStream.range(0, 3)
             .mapToObj(
                 i ->
-                    new RepeatedThread(
+                    repeatedRun(
+                        close::get,
                         () -> {
                           try {
                             var targetID = targetIDQueue.poll(5, TimeUnit.SECONDS);
@@ -78,7 +82,8 @@ public class MetricPublisher {
             .mapToObj(i -> JMXPublisher.create(arguments.bootstrapServers()))
             .map(
                 publisher ->
-                    new RepeatedThread(
+                    repeatedRun(
+                        close::get,
                         () ->
                             Utils.swallowException(
                                 () -> {
@@ -87,7 +92,7 @@ public class MetricPublisher {
                                 })))
             .collect(Collectors.toList());
     var periodicJobPool = Executors.newScheduledThreadPool(2);
-    var threadPool = Executors.newFixedThreadPool(5);
+    var threadPool = Executors.newFixedThreadPool(3 + 2);
     var admin = Admin.of(arguments.bootstrapServers());
 
     // Periodically submit "fetch job" on all targets
@@ -131,14 +136,22 @@ public class MetricPublisher {
     } catch (InterruptedException ie) {
       ie.printStackTrace();
     } finally {
+      close.set(true);
       idMBeanClient.forEach((id, f) -> f.close());
-      publisherThreads.forEach(RepeatedThread::close);
       periodicFetch.cancel(false);
       periodicUpdate.cancel(false);
       Utils.swallowException(() -> periodicJobPool.awaitTermination(1, TimeUnit.MINUTES));
       Utils.swallowException(() -> threadPool.awaitTermination(1, TimeUnit.MINUTES));
       admin.close();
     }
+  }
+
+  static Runnable repeatedRun(Supplier<Boolean> close, Runnable job) {
+    return () -> {
+      while (!close.get()) {
+        job.run();
+      }
+    };
   }
 
   private static class IdBean {
