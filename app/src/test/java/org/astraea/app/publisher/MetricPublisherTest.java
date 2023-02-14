@@ -16,6 +16,7 @@
  */
 package org.astraea.app.publisher;
 
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
@@ -54,7 +55,10 @@ public class MetricPublisherTest {
     try (var admin = Admin.of(service.bootstrapServers())) {
       // No topic before publish
       Assertions.assertEquals(0, admin.topicNames(true).toCompletableFuture().get().size());
-      MetricPublisher.execute(arguments);
+
+      // The time-to-live is 20 second, this service should terminate after 20 second
+      Assertions.assertTimeout(Duration.ofSeconds(40), () -> MetricPublisher.execute(arguments));
+
       // Topics after publish
       Assertions.assertTrue(1 <= admin.topicNames(true).toCompletableFuture().get().size());
       var partitions =
