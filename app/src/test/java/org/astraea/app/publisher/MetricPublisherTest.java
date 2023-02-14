@@ -16,10 +16,15 @@
  */
 package org.astraea.app.publisher;
 
+import java.util.concurrent.ExecutionException;
+import org.astraea.common.admin.Admin;
+import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class MetricPublisherTest {
+  Service service = Service.builder().numberOfWorkers(0).numberOfBrokers(2).build();
+
   @Test
   void testParse() {
     String[] args = {
@@ -32,5 +37,30 @@ public class MetricPublisherTest {
     };
     var arguments = MetricPublisher.Arguments.parse(new MetricPublisher.Arguments(), args);
     Assertions.assertEquals("localhost:8000", arguments.jmxAddress.get("1001"));
+  }
+
+  @Test
+  void testExecute() throws InterruptedException, ExecutionException {
+    String[] args = {
+      "--bootstrap.servers",
+      service.bootstrapServers(),
+      "--jmxPort",
+      String.valueOf(service.jmxServiceURL().getPort()),
+      "--ttl",
+      "20s"
+    };
+    var arguments = MetricPublisher.Arguments.parse(new MetricPublisher.Arguments(), args);
+
+    try (var admin = Admin.of(service.bootstrapServers())) {
+      // No topic before publish
+      Assertions.assertEquals(0, admin.topicNames(true).toCompletableFuture().get().size());
+      MetricPublisher.execute(arguments);
+      // Topics after publish
+      Assertions.assertTrue(1 <= admin.topicNames(true).toCompletableFuture().get().size());
+      var partitions =
+          admin.topicNames(true).thenCompose(admin::partitions).toCompletableFuture().get();
+      // There must be some metric in those topics
+      Assertions.assertTrue(partitions.stream().anyMatch(p -> p.latestOffset() > 0));
+    }
   }
 }

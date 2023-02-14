@@ -47,7 +47,8 @@ public class MetricPublisher {
     execute(arguments);
   }
 
-  private static void execute(Arguments arguments) {
+  // Valid for testing
+  static void execute(Arguments arguments) {
     // queue of ID of the target to fetch
     var targetIDQueue = new ArrayBlockingQueue<String>(2000);
     // queue of fetched beans
@@ -87,8 +88,10 @@ public class MetricPublisher {
                         () ->
                             Utils.swallowException(
                                 () -> {
-                                  var idAndBean = beanQueue.take();
-                                  publisher.publish(idAndBean.id(), idAndBean.bean());
+                                  var idAndBean = beanQueue.poll(5, TimeUnit.SECONDS);
+                                  if (idAndBean != null) {
+                                    publisher.publish(idAndBean.id(), idAndBean.bean());
+                                  }
                                 })))
             .collect(Collectors.toList());
     var periodicJobPool = Executors.newScheduledThreadPool(2);
@@ -130,18 +133,20 @@ public class MetricPublisher {
     // All publishers keep publish mbeans
     publisherThreads.forEach(threadPool::execute);
 
-    // Run forever
+    // Run until the given time-to-live passed
     try {
-      Thread.sleep(Long.MAX_VALUE);
+      Thread.sleep(arguments.ttl.toMillis());
     } catch (InterruptedException ie) {
       ie.printStackTrace();
     } finally {
       close.set(true);
-      idMBeanClient.forEach((id, f) -> f.close());
       periodicFetch.cancel(false);
       periodicUpdate.cancel(false);
+      periodicJobPool.shutdown();
+      threadPool.shutdown();
       Utils.swallowException(() -> periodicJobPool.awaitTermination(1, TimeUnit.MINUTES));
       Utils.swallowException(() -> threadPool.awaitTermination(1, TimeUnit.MINUTES));
+      idMBeanClient.forEach((id, f) -> f.close());
       admin.close();
     }
   }
@@ -196,6 +201,13 @@ public class MetricPublisher {
         validateWith = DurationField.class,
         converter = DurationField.class)
     public Duration period = Duration.ofSeconds(10);
+
+    @Parameter(
+        names = {"--ttl"},
+        description = "Duration: Time to live. Default: about 10^10 days.",
+        validateWith = DurationField.class,
+        converter = DurationField.class)
+    public Duration ttl = Duration.ofMillis(Long.MAX_VALUE);
 
     public Function<Integer, Integer> idToJmxPort() {
       return id -> Integer.parseInt(jmxAddress.getOrDefault(id.toString(), defaultPort));
