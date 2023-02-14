@@ -22,14 +22,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,8 +50,11 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
   private final Admin admin;
   private final Function<Integer, Optional<Integer>> jmxPortMapper;
+
+  private final Map<String, TaskPhase> taskPhases = new ConcurrentHashMap<>();
   private final Map<String, BalanceTaskImpl> tasks = new ConcurrentHashMap<>();
   private final AtomicReference<BalanceTaskImpl> lastExecutingTask = new AtomicReference<>();
+
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
   public BalancerConsoleImpl(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
@@ -62,22 +63,29 @@ public class BalancerConsoleImpl implements BalancerConsole {
   }
 
   @Override
-  public Collection<BalanceTask> tasks() {
-    return Collections.unmodifiableCollection(tasks.values());
+  public Set<String> tasks() {
+    return Collections.unmodifiableSet(taskPhases.keySet());
   }
 
   @Override
-  public Optional<BalanceTask> task(String taskId) {
-    return Optional.ofNullable(tasks.get(taskId));
+  public Optional<TaskPhase> taskPhase(String taskId) {
+    return Optional.ofNullable(taskPhases.get(taskId));
   }
 
   @Override
   public Generation launchRebalancePlanGeneration() {
     return new Generation() {
+      private String taskId;
       private Balancer balancer;
       private AlgorithmConfig algorithmConfig;
       private Duration timeout = Duration.ofSeconds(1);
       private boolean checkNoOngoingMigration = true;
+
+      @Override
+      public Generation setTaskId(String taskId) {
+        this.taskId = taskId;
+        return this;
+      }
 
       @Override
       public Generation setBalancer(Balancer balancer) {
@@ -104,7 +112,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
       }
 
       @Override
-      public BalanceTask generate() {
+      public CompletionStage<Balancer.Plan> generate() {
+        final var taskId = Objects.requireNonNull(this.taskId);
         final var balancer = Objects.requireNonNull(this.balancer);
         final var timeout = Objects.requireNonNull(this.timeout);
         final var config = Objects.requireNonNull(this.algorithmConfig);
@@ -113,34 +122,35 @@ public class BalancerConsoleImpl implements BalancerConsole {
                     config.clusterCostFunction().metricSensor().stream(),
                     config.moveCostFunction().metricSensor().stream())
                 .collect(Collectors.toUnmodifiableList());
-        final var taskId = UUID.randomUUID().toString();
+        if (this.checkNoOngoingMigration) BalancerConsoleImpl.this.checkNoOngoingMigration();
         synchronized (this) {
           checkNotClosed();
-          if (this.checkNoOngoingMigration) BalancerConsoleImpl.this.checkNoOngoingMigration();
-          if (tasks.containsKey(taskId))
+          if (tasks().contains(taskId))
             throw new IllegalStateException("Conflict task ID: " + taskId);
           var sourceCluster =
               admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
+          taskPhases.put(taskId, TaskPhase.Searching);
           tasks.put(
               taskId,
               new BalanceTaskImpl(
                   taskId,
                   sourceCluster,
                   CompletableFuture.supplyAsync(
-                      () ->
-                          metricContext(
-                              sensors,
-                              (clusterBeanSupplier -> {
-                                // TODO: embedded the retry offer logic into BalancerConsoleImpl
-                                return balancer.retryOffer(
-                                    sourceCluster,
-                                    timeout,
-                                    AlgorithmConfig.builder(config)
-                                        .metricSource(clusterBeanSupplier)
-                                        .build());
-                              })))));
+                          () ->
+                              metricContext(
+                                  sensors,
+                                  (clusterBeanSupplier -> {
+                                    // TODO: embedded the retry offer logic into BalancerConsoleImpl
+                                    return balancer.retryOffer(
+                                        sourceCluster,
+                                        timeout,
+                                        AlgorithmConfig.builder(config)
+                                            .metricSource(clusterBeanSupplier)
+                                            .build());
+                                  })))
+                      .whenComplete((plan, err) -> taskPhases.put(taskId, TaskPhase.Searched))));
         }
-        return tasks.get(taskId);
+        return tasks.get(taskId).planGeneration.minimalCompletionStage();
       }
     };
   }
@@ -178,7 +188,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
       }
 
       @Override
-      public BalanceTask execute(String taskId) {
+      public CompletionStage<Void> execute(String taskId) {
         if (!tasks.containsKey(taskId))
           throw new IllegalArgumentException("No such balance task: " + taskId);
         var task = tasks.get(taskId);
@@ -186,20 +196,31 @@ public class BalancerConsoleImpl implements BalancerConsole {
         if (this.checkPlanConsistency) BalancerConsoleImpl.this.checkPlanConsistency(task);
         synchronized (this) {
           checkNotClosed();
-          // If this plan already executed, does nothing
-          if (task.phase() == TaskPhase.Executing || task.phase() == TaskPhase.Executed)
-            return task;
+          // If this plan already executed, raise an exception
+          if (taskPhases.get(taskId) == TaskPhase.Executing
+              || taskPhases.get(taskId) == TaskPhase.Executed)
+            throw new IllegalStateException("This task has been executed: " + taskId);
           // another task is still running
-          if (lastExecutingTask.get() != null
-              && lastExecutingTask.get().phase() != TaskPhase.Executed)
+          if (lastExecutingTask.get() != null && taskPhases.get(taskId) != TaskPhase.Executed)
             throw new IllegalStateException(
-                "Another task is executing: " + lastExecutingTask.get().id());
+                "Another task is executing: " + lastExecutingTask.get().taskId);
           // start the execution. this should fail if the plan is not ready
           task.startExecution(
-              (targetClusterInfo) -> executor.run(admin, targetClusterInfo, timeout));
+              (targetClusterInfo) -> {
+                taskPhases.put(taskId, TaskPhase.Executing);
+                return executor
+                    .run(admin, targetClusterInfo, timeout)
+                    .whenComplete(
+                        (ignore, err) -> {
+                          // intentionally remove this task from internal, so it might be GC later.
+                          tasks.remove(taskId);
+                          // mark this task as executed
+                          taskPhases.put(taskId, TaskPhase.Executed);
+                        });
+              });
           lastExecutingTask.set(task);
         }
-        return task;
+        return task.planExecution.minimalCompletionStage();
       }
     };
   }
@@ -217,7 +238,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
       // stop generation
       var taskToStop =
           tasks.values().stream()
-              .filter(task -> task.phase() == TaskPhase.Searching)
+              .filter(task -> taskPhases.get(task.taskId) == TaskPhase.Searching)
               .peek(task -> task.planGeneration.cancel(true))
               .collect(Collectors.toUnmodifiableSet());
       Utils.sleep(Duration.ofSeconds(1));
@@ -232,7 +253,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
       // wait until execution stop
       try {
         if (lastExecutingTask.get() != null)
-          lastExecutingTask.get().planExecution().toCompletableFuture().get();
+          lastExecutingTask.get().planExecution.toCompletableFuture().get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
       }
@@ -365,61 +386,21 @@ public class BalancerConsoleImpl implements BalancerConsole {
     return jmxAddresses;
   }
 
-  private static final class BalanceTaskImpl implements BalanceTask {
+  private static final class BalanceTaskImpl {
 
     private final String taskId;
     private final CompletableFuture<Balancer.Plan> planGeneration;
+    private final CompletableFuture<CompletionStage<Void>> executionLatch;
     private final CompletableFuture<Void> planExecution;
-    private final ExecutionLatch latch;
     private final ClusterInfo sourceCluster;
 
     private BalanceTaskImpl(
         String taskId, ClusterInfo sourceCluster, CompletableFuture<Balancer.Plan> planGeneration) {
       this.taskId = taskId;
-      this.latch = new ExecutionLatch();
       this.sourceCluster = sourceCluster;
       this.planGeneration = planGeneration;
-      this.planExecution =
-          CompletableFuture.runAsync(() -> Utils.packException(this.latch::awaitExecutionStart))
-              .thenCompose(ignore -> this.planGeneration)
-              .thenCompose(
-                  balancePlan ->
-                      balancePlan
-                          .solution()
-                          .map(Balancer.Solution::proposal)
-                          .map(
-                              cluster ->
-                                  Utils.packException(this.latch::awaitExecutionStart)
-                                      .apply(cluster))
-                          .orElse(
-                              CompletableFuture.failedFuture(
-                                  new NoSuchElementException(
-                                      "Unable to execute this balance plan since no cluster improvement solution found"))));
-    }
-
-    @Override
-    public String id() {
-      return taskId;
-    }
-
-    @Override
-    public TaskPhase phase() {
-      // Note: this method is not transactional
-      if (planExecution.isDone() && latch.started()) return TaskPhase.Executed;
-      if (planGeneration.isDone() && latch.started()) return TaskPhase.Executing;
-      if (planGeneration.isDone() && !latch.started()) return TaskPhase.Searched;
-      if (!planGeneration.isDone()) return TaskPhase.Searching;
-      throw new IllegalStateException("This should never happened");
-    }
-
-    @Override
-    public CompletionStage<Balancer.Plan> planGeneration() {
-      return planGeneration.minimalCompletionStage();
-    }
-
-    @Override
-    public CompletionStage<Void> planExecution() {
-      return planExecution.minimalCompletionStage();
+      this.executionLatch = new CompletableFuture<>();
+      this.planExecution = this.executionLatch.thenComposeAsync((stage) -> stage);
     }
 
     /**
@@ -441,32 +422,11 @@ public class BalancerConsoleImpl implements BalancerConsole {
       if (planGeneration.getNow(null).solution().isEmpty())
         throw new IllegalStateException(
             "This plan generation failed to find any usable balance plan that will improve this cluster");
-      if (latch.started())
+      if (executionLatch.isDone())
         throw new IllegalStateException("This rebalance execution already started");
 
-      this.latch.startExecution(executionContext);
-    }
-
-    private static class ExecutionLatch {
-
-      private final CountDownLatch permitExecution = new CountDownLatch(1);
-      private final AtomicReference<Function<ClusterInfo, CompletionStage<Void>>> executionContext =
-          new AtomicReference<>();
-
-      public void startExecution(Function<ClusterInfo, CompletionStage<Void>> executionContext) {
-        this.executionContext.set(executionContext);
-        permitExecution.countDown();
-      }
-
-      public Function<ClusterInfo, CompletionStage<Void>> awaitExecutionStart()
-          throws InterruptedException {
-        permitExecution.await();
-        return this.executionContext.get();
-      }
-
-      public boolean started() {
-        return permitExecution.getCount() == 0;
-      }
+      executionLatch.complete(
+          executionContext.apply(planGeneration.getNow(null).solution().get().proposal()));
     }
   }
 }

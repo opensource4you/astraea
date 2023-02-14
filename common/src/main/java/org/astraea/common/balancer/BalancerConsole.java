@@ -35,7 +35,7 @@ public interface BalancerConsole extends AutoCloseable {
 
   Set<String> tasks();
 
-  TaskPhase taskPhase(String taskId);
+  Optional<TaskPhase> taskPhase(String taskId);
 
   Generation launchRebalancePlanGeneration();
 

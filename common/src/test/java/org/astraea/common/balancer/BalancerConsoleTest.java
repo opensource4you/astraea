@@ -70,26 +70,26 @@ class BalancerConsoleTest {
 
       // launch rebalance plan generation
       var console = BalancerConsole.create(admin, (x) -> Optional.empty());
-      var balanceTask =
+      var generation =
           console
               .launchRebalancePlanGeneration()
+              .setTaskId("THE_TASK")
               .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
               .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
               .generate();
-      Assertions.assertInstanceOf(String.class, balanceTask.id());
-      Assertions.assertEquals(BalancerConsole.TaskPhase.Searching, balanceTask.phase());
-      Assertions.assertFalse(balanceTask.planGeneration().toCompletableFuture().isDone());
-      Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
-      balanceTask.planGeneration().toCompletableFuture().join();
-      Assertions.assertEquals(BalancerConsole.TaskPhase.Searched, balanceTask.phase());
-      Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
-      Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Searching, console.taskPhase("THE_TASK").orElseThrow());
+      Assertions.assertFalse(generation.toCompletableFuture().isDone());
+      generation.toCompletableFuture().join();
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Searched, console.taskPhase("THE_TASK").orElseThrow());
+      Assertions.assertTrue(generation.toCompletableFuture().isDone());
 
       // this task is there
-      Assertions.assertEquals(balanceTask, console.task(balanceTask.id()).orElseThrow());
-      Assertions.assertEquals(List.of(balanceTask), List.copyOf(console.tasks()));
+      Assertions.assertTrue(console.taskPhase("THE_TASK").isPresent());
+      Assertions.assertEquals(Set.of("THE_TASK"), console.tasks());
 
       // launch rebalance plan execution
       var customExecutor =
@@ -100,20 +100,21 @@ class BalancerConsoleTest {
               return CompletableFuture.runAsync(() -> Utils.sleep(timeout));
             }
           };
-      var balancerTaskSame =
+      var execution =
           console
               .launchRebalancePlanExecution()
               .setExecutionTimeout(Duration.ofSeconds(1))
               .setExecutor(customExecutor)
-              .execute(balanceTask);
-      Assertions.assertEquals(balanceTask, balancerTaskSame);
-      Assertions.assertEquals(BalancerConsole.TaskPhase.Executing, balanceTask.phase());
-      Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
-      Assertions.assertFalse(balanceTask.planExecution().toCompletableFuture().isDone());
-      balancerTaskSame.planExecution().toCompletableFuture().join();
-      Assertions.assertEquals(BalancerConsole.TaskPhase.Executed, balanceTask.phase());
-      Assertions.assertTrue(balanceTask.planGeneration().toCompletableFuture().isDone());
-      Assertions.assertTrue(balanceTask.planExecution().toCompletableFuture().isDone());
+              .execute("THE_TASK");
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Executing, console.taskPhase("THE_TASK").orElseThrow());
+      Assertions.assertTrue(generation.toCompletableFuture().isDone());
+      Assertions.assertFalse(execution.toCompletableFuture().isDone());
+      execution.toCompletableFuture().join();
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Executed, console.taskPhase("THE_TASK").orElseThrow());
+      Assertions.assertTrue(generation.toCompletableFuture().isDone());
+      Assertions.assertTrue(execution.toCompletableFuture().isDone());
 
       Assertions.assertDoesNotThrow(console::close);
     }
@@ -122,38 +123,44 @@ class BalancerConsoleTest {
   @Test
   void testTasks() {
     try (Admin admin = Admin.of(SERVICE.bootstrapServers())) {
+      // create some topics
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 2)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(500));
+
       // launch rebalance plan generation
       var console = BalancerConsole.create(admin, (x) -> Optional.empty());
-      var balanceTask0 =
-          console
-              .launchRebalancePlanGeneration()
-              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
-              .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
-              .generate();
-      var balanceTask1 =
-          console
-              .launchRebalancePlanGeneration()
-              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
-              .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
-              .generate();
-      var balanceTask2 =
-          console
-              .launchRebalancePlanGeneration()
-              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
-              .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
-              .generate();
-
-      Assertions.assertEquals(
-          Set.of(balanceTask0, balanceTask1, balanceTask2), Set.copyOf(console.tasks()));
-      Assertions.assertEquals(balanceTask0, console.task(balanceTask0.id()).orElseThrow());
-      Assertions.assertEquals(balanceTask1, console.task(balanceTask1.id()).orElseThrow());
-      Assertions.assertEquals(balanceTask2, console.task(balanceTask2.id()).orElseThrow());
+      console
+          .launchRebalancePlanGeneration()
+          .setTaskId("TASK_1")
+          .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+          .setGenerationTimeout(Duration.ofMillis(100))
+          .checkNoOngoingMigration(false)
+          .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+          .generate();
+      console
+          .launchRebalancePlanGeneration()
+          .setTaskId("TASK_2")
+          .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+          .setGenerationTimeout(Duration.ofMillis(100))
+          .checkNoOngoingMigration(false)
+          .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+          .generate();
+      console
+          .launchRebalancePlanGeneration()
+          .setTaskId("TASK_3")
+          .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+          .setGenerationTimeout(Duration.ofMillis(100))
+          .checkNoOngoingMigration(false)
+          .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+          .generate();
+      Assertions.assertEquals(Set.of("TASK_1", "TASK_2", "TASK_3"), console.tasks());
     }
   }
 
@@ -187,9 +194,10 @@ class BalancerConsoleTest {
           .join();
       Utils.sleep(Duration.ofMillis(500));
 
-      var task =
+      var generation =
           console
               .launchRebalancePlanGeneration()
+              .setTaskId("THE_TASK")
               .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
               .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
@@ -203,7 +211,7 @@ class BalancerConsoleTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofMillis(500));
-      task.planGeneration().toCompletableFuture().join();
+      generation.toCompletableFuture().join();
 
       Assertions.assertThrows(
           IllegalStateException.class,
@@ -212,16 +220,18 @@ class BalancerConsoleTest {
                   .launchRebalancePlanExecution()
                   .setExecutor(new StraightPlanExecutor())
                   .checkPlanConsistency(true)
-                  .execute(task),
+                  .execute("THE_TASK"),
           "Cluster state has been changed");
       Assertions.assertDoesNotThrow(
-          () ->
-              console
-                  .launchRebalancePlanExecution()
-                  .setExecutor(new NoOpExecutor())
-                  .checkPlanConsistency(false)
-                  .execute(task),
-          "Cluster state has been changed, but no check perform");
+              () ->
+                  console
+                      .launchRebalancePlanExecution()
+                      .setExecutor(new NoOpExecutor())
+                      .checkPlanConsistency(false)
+                      .execute("THE_TASK"),
+              "Cluster state has been changed, but no check perform")
+          .toCompletableFuture()
+          .join();
     }
   }
 
@@ -245,6 +255,7 @@ class BalancerConsoleTest {
           () ->
               console
                   .launchRebalancePlanGeneration()
+                  .setTaskId(Utils.randomString())
                   .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
                   .setAlgorithmConfig(
                       AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -277,6 +288,7 @@ class BalancerConsoleTest {
                     () ->
                         console
                             .launchRebalancePlanGeneration()
+                            .setTaskId(Utils.randomString())
                             .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
                             .setAlgorithmConfig(
                                 AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -288,6 +300,7 @@ class BalancerConsoleTest {
                     () ->
                         console
                             .launchRebalancePlanGeneration()
+                            .setTaskId(Utils.randomString())
                             .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
                             .setAlgorithmConfig(
                                 AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())

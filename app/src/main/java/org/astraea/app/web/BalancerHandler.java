@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,6 +69,9 @@ class BalancerHandler implements Handler {
   private final BalancerConsole balancerConsole;
   private final RebalancePlanExecutor executor;
   private final Map<String, PostRequestWrapper> taskMetadata = new ConcurrentHashMap<>();
+  private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
+      new ConcurrentHashMap<>();
+  private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
 
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
@@ -94,7 +98,7 @@ class BalancerHandler implements Handler {
   public CompletionStage<Response> get(Channel channel) {
     if (channel.target().isEmpty()) return CompletableFuture.completedFuture(Response.NOT_FOUND);
     var taskId = channel.target().get();
-    if (balancerConsole.task(taskId).isEmpty())
+    if (balancerConsole.taskPhase(taskId).isEmpty())
       return CompletableFuture.completedFuture(Response.NOT_FOUND);
     return CompletableFuture.completedFuture(progress(taskId));
   }
@@ -114,23 +118,25 @@ class BalancerHandler implements Handler {
     var balancer =
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
+      var taskId = UUID.randomUUID().toString();
       var task =
           balancerConsole
               .launchRebalancePlanGeneration()
+              .setTaskId(taskId)
               .setBalancer(balancer)
               .setAlgorithmConfig(request.algorithmConfig)
               .setGenerationTimeout(request.executionTime)
               .checkNoOngoingMigration(true)
               .generate();
-      task.planGeneration()
-          .whenComplete(
-              (result, error) -> {
-                if (error != null)
-                  new RuntimeException("Failed to generate balance plan: " + task.id(), error)
-                      .printStackTrace();
-              });
-      taskMetadata.put(task.id(), request);
-      return CompletableFuture.completedFuture(new PostPlanResponse(task.id()));
+      task.whenComplete(
+          (result, error) -> {
+            if (error != null)
+              new RuntimeException("Failed to generate balance plan: " + taskId, error)
+                  .printStackTrace();
+          });
+      taskMetadata.put(taskId, request);
+      planGenerations.put(taskId, task);
+      return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
   }
 
@@ -138,11 +144,12 @@ class BalancerHandler implements Handler {
   public CompletionStage<Response> put(Channel channel) {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
+    final var taskPhase = balancerConsole.taskPhase(taskId);
 
-    if (balancerConsole.task(taskId).isEmpty())
+    if (taskPhase.isEmpty())
       throw new IllegalArgumentException("No such rebalance plan id: " + taskId);
 
-    if (balancerConsole.task(taskId).get().phase() == BalancerConsole.TaskPhase.Executed)
+    if (taskPhase.get() == BalancerConsole.TaskPhase.Executed)
       return CompletableFuture.completedFuture(Response.ACCEPT);
 
     // this method will fail if plan cannot be executed (lack of plan)
@@ -154,19 +161,18 @@ class BalancerHandler implements Handler {
             .checkNoOngoingMigration(true)
             .checkPlanConsistency(true)
             .execute(taskId);
-    task.planExecution()
-        .whenComplete(
-            (ignore, error) -> {
-              if (error != null)
-                new RuntimeException("Failed to execute balance plan: " + taskId, error)
-                    .printStackTrace();
-            });
+    task.whenComplete(
+        (ignore, error) -> {
+          if (error != null)
+            new RuntimeException("Failed to execute balance plan: " + taskId, error)
+                .printStackTrace();
+        });
+    planExecutions.put(taskId, task);
 
     return CompletableFuture.completedFuture(new PutPlanResponse(taskId));
   }
 
   private PlanExecutionProgress progress(String taskId) {
-    var task = balancerConsole.task(taskId).orElseThrow();
     var contextCluster = taskMetadata.get(taskId).clusterInfo;
     var exception =
         (Function<BalancerConsole.TaskPhase, String>)
@@ -177,7 +183,8 @@ class BalancerHandler implements Handler {
                   // No error message during the search & execution
                   return null;
                 case Searched:
-                  return task.planGeneration()
+                  return planGenerations
+                      .get(taskId)
                       .handle(
                           (plan, err) ->
                               err != null
@@ -188,12 +195,13 @@ class BalancerHandler implements Handler {
                       .toCompletableFuture()
                       .getNow(null);
                 case Executed:
-                  return task.planExecution()
+                  return planExecutions
+                      .get(taskId)
                       .handle((ignore, err) -> err != null ? err.toString() : null)
                       .toCompletableFuture()
                       .getNow(null);
                 default:
-                  throw new IllegalStateException("Unknown state: " + task.phase());
+                  throw new IllegalStateException("Unknown state: " + phase);
               }
             };
     var changes =
@@ -212,7 +220,8 @@ class BalancerHandler implements Handler {
         (Supplier<PlanReport>)
             () ->
                 Optional.ofNullable(
-                        task.planGeneration()
+                        planGenerations
+                            .get(taskId)
                             .toCompletableFuture()
                             .handle((res, err) -> res)
                             .getNow(null))
@@ -221,14 +230,14 @@ class BalancerHandler implements Handler {
                         solution ->
                             new PlanReport(changes.apply(solution), moveCosts.apply(solution)))
                     .orElse(null);
-    var phaseSeen = task.phase();
+    var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
-        task.id(),
-        phaseSeen,
-        taskMetadata.get(task.id()).executionTime,
-        taskMetadata.get(task.id()).balancerClasspath,
-        taskMetadata.get(task.id()).algorithmConfig.clusterCostFunction().toString(),
-        exception.apply(phaseSeen),
+        taskId,
+        phase,
+        taskMetadata.get(taskId).executionTime,
+        taskMetadata.get(taskId).balancerClasspath,
+        taskMetadata.get(taskId).algorithmConfig.clusterCostFunction().toString(),
+        exception.apply(phase),
         report.get());
   }
 
