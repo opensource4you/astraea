@@ -21,7 +21,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
@@ -43,37 +42,7 @@ public final class ServerMetrics {
                 .property("id", "*")
                 .build())
         .stream()
-        .map(
-            obj ->
-                new AppInfo() {
-                  @Override
-                  public String id() {
-                    return beanObject().properties().get("id");
-                  }
-
-                  @Override
-                  public String commitId() {
-                    return (String) beanObject().attributes().get("CommitId");
-                  }
-
-                  @Override
-                  public Optional<Long> startTimeMs() {
-                    var t = beanObject().attributes().get("StartTimeMs");
-                    ;
-                    if (t == null) return Optional.empty();
-                    return Optional.of((long) t);
-                  }
-
-                  @Override
-                  public String version() {
-                    return (String) beanObject().attributes().get("Version");
-                  }
-
-                  @Override
-                  public BeanObject beanObject() {
-                    return obj;
-                  }
-                })
+        .map(b -> (AppInfo) () -> b)
         .collect(Collectors.toList());
   }
 
