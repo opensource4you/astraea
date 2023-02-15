@@ -20,11 +20,28 @@ import java.util.Optional;
 
 public interface AppInfo extends HasBeanObject {
 
-  String id();
+  default String id() {
+    var result = beanObject().properties().get("client-id");
+    if (result == null) result = beanObject().properties().get("id");
+    return result;
+  }
 
-  String commitId();
+  default String commitId() {
+    var result = beanObject().attributes().get("commit-id");
+    if (result == null) result = beanObject().attributes().get("CommitId");
+    return (String) result;
+  }
 
-  Optional<Long> startTimeMs();
+  default Optional<Long> startTimeMs() {
+    var result = beanObject().attributes().get("start-time-ms");
+    if (result == null) result = beanObject().attributes().get("StartTimeMs");
+    if (result == null) return Optional.empty();
+    return Optional.of((long) result);
+  }
 
-  String version();
+  default String version() {
+    var result = beanObject().attributes().get("version");
+    if (result == null) result = beanObject().attributes().get("Version");
+    return (String) result;
+  }
 }
