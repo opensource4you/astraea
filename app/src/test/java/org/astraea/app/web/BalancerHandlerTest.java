@@ -239,6 +239,7 @@ public class BalancerHandlerTest {
           ClusterInfo.of(
               "fake",
               List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              Map.of(),
               List.of(
                   Replica.builder()
                       .topic("topic")
@@ -911,7 +912,7 @@ public class BalancerHandlerTest {
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
         Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
         Assertions.assertTrue(
-            clusterInfo.topics().stream().allMatch(t -> config.topicFilter().test(t)));
+            clusterInfo.topicNames().stream().allMatch(t -> config.topicFilter().test(t)));
       }
       {
         // use custom filter/timeout/balancer config/cost function
@@ -936,7 +937,7 @@ public class BalancerHandlerTest {
         Assertions.assertTrue(config.topicFilter().test(randomTopic0));
         Assertions.assertTrue(config.topicFilter().test(randomTopic1));
         Assertions.assertTrue(
-            clusterInfo.topics().stream().noneMatch(t -> config.topicFilter().test(t)));
+            clusterInfo.topicNames().stream().noneMatch(t -> config.topicFilter().test(t)));
       }
       {
         // malformed content

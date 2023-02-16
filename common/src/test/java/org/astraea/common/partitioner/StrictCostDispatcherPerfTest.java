@@ -57,6 +57,7 @@ public class StrictCostDispatcherPerfTest {
         ClusterInfo.of(
             "fake",
             List.of(node0, node1, node2),
+            Map.of(),
             List.of(
                 Replica.builder()
                     .topic("topic")

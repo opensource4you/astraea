@@ -115,6 +115,22 @@ public class BrokerNode {
             tryToFetch(() -> HostMetrics.operatingSystem(client))
                 .map(o -> o.beanObject().attributes())
                 .orElse(Map.of())),
+    MEMORY(
+        "memory",
+        client ->
+            tryToFetch(() -> HostMetrics.jvmMemory(client))
+                .map(
+                    o ->
+                        Map.<String, Object>of(
+                            "used",
+                            o.heapMemoryUsage().getUsed(),
+                            "max",
+                            o.heapMemoryUsage().getMax(),
+                            "init",
+                            o.heapMemoryUsage().getInit(),
+                            "committed",
+                            o.heapMemoryUsage().getCommitted()))
+                .orElse(Map.of())),
     CONTROLLER(
         "controller",
         client ->

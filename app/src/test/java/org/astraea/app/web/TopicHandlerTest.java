@@ -82,7 +82,7 @@ public class TopicHandlerTest {
         Assertions.assertEquals(200, response.statusCode());
         Assertions.assertEquals(1, response.body().topics.size());
         Assertions.assertEquals(topicName, response.body().topics.get(0).name);
-        Assertions.assertEquals(Set.of(topicName), clusterInfo.topics());
+        Assertions.assertEquals(Set.of(topicName), clusterInfo.topicNames());
         Assertions.assertEquals(partitions, clusterInfo.topicPartitions().size());
         Assertions.assertEquals(partitions * replicas, clusterInfo.replicas().size());
       }
