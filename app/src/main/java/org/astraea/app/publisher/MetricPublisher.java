@@ -54,14 +54,14 @@ public class MetricPublisher {
   // Valid for testing
   static void execute(Arguments arguments) {
     // queue of ID and target mbean clients to fetch
-    var idClients = new DelayQueue<DelayedIdClient>();
+    var targetClients = new DelayQueue<DelayedIdClient>();
     // queue of fetched beans
     var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
     var close = new AtomicBoolean(false);
     var idMBeanClient = new HashMap<String, MBeanClient>();
 
     var JMXFetcherThreads =
-        jmxFetcherThreads(3, idClients, arguments.period, beanQueue, close::get);
+        jmxFetcherThreads(3, targetClients, arguments.period, beanQueue, close::get);
     var publisherThreads = publisherThreads(2, arguments.bootstrapServers(), beanQueue, close::get);
     var periodicJobPool = Executors.newScheduledThreadPool(1);
     var threadPool = Executors.newFixedThreadPool(3 + 2);
@@ -84,7 +84,7 @@ public class MetricPublisher {
                                               MBeanClient.jndi(
                                                   node.host(),
                                                   arguments.idToJmxPort().apply(node.id()));
-                                          idClients.put(
+                                          targetClients.put(
                                               new DelayedIdClient(arguments.period, id, client));
                                           return client;
                                         }))),
@@ -114,7 +114,7 @@ public class MetricPublisher {
     }
   }
 
-  static List<Runnable> jmxFetcherThreads(
+  private static List<Runnable> jmxFetcherThreads(
       int threads,
       DelayQueue<DelayedIdClient> clients,
       Duration duration,
@@ -146,7 +146,7 @@ public class MetricPublisher {
         .collect(Collectors.toList());
   }
 
-  static List<Runnable> publisherThreads(
+  private static List<Runnable> publisherThreads(
       int threads, String bootstrap, BlockingQueue<IdBean> beanQueue, Supplier<Boolean> closed) {
     return IntStream.range(0, threads)
         .mapToObj(
