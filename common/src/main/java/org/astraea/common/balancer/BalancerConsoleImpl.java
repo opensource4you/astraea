@@ -189,9 +189,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
       @Override
       public CompletionStage<Void> execute(String taskId) {
-        if (!tasks.containsKey(taskId))
-          throw new IllegalArgumentException("No such balance task: " + taskId);
         var task = tasks.get(taskId);
+        if (task == null) throw new IllegalArgumentException("No such balance task: " + taskId);
         if (this.checkNoOngoingMigration) BalancerConsoleImpl.this.checkNoOngoingMigration();
         if (this.checkPlanConsistency) BalancerConsoleImpl.this.checkPlanConsistency(task);
         synchronized (this) {
