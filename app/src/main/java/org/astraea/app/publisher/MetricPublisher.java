@@ -18,9 +18,13 @@ package org.astraea.app.publisher;
 
 import com.beust.jcommander.Parameter;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.DelayQueue;
+import java.util.concurrent.Delayed;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,65 +53,19 @@ public class MetricPublisher {
 
   // Valid for testing
   static void execute(Arguments arguments) {
-    // queue of ID of the target to fetch
-    var targetIDQueue = new ArrayBlockingQueue<String>(2000);
+    // queue of ID and target mbean clients to fetch
+    var idClients = new DelayQueue<DelayedIdClient>();
     // queue of fetched beans
     var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
     var close = new AtomicBoolean(false);
-    var idMBeanClient = new ConcurrentHashMap<String, MBeanClient>();
+    var idMBeanClient = new HashMap<String, MBeanClient>();
+
     var JMXFetcherThreads =
-        IntStream.range(0, 3)
-            .mapToObj(
-                i ->
-                    repeatedRun(
-                        close::get,
-                        () -> {
-                          try {
-                            var targetID = targetIDQueue.poll(5, TimeUnit.SECONDS);
-                            // Nothing to fetch
-                            if (targetID == null) return;
-                            var targetClient = idMBeanClient.getOrDefault(targetID, null);
-                            // targetClient not exist currently
-                            if (targetClient == null) return;
-                            beanQueue.addAll(
-                                targetClient.beans(BeanQuery.all()).stream()
-                                    .map(bean -> new IdBean(targetID, bean))
-                                    .collect(Collectors.toList()));
-                          } catch (InterruptedException ie) {
-                            // Queue polling was interrupted, print and ignore.
-                            ie.printStackTrace();
-                          }
-                        }));
-    var publisherThreads =
-        IntStream.range(0, 2)
-            .mapToObj(i -> JMXPublisher.create(arguments.bootstrapServers()))
-            .map(
-                publisher ->
-                    repeatedRun(
-                        close::get,
-                        () ->
-                            Utils.swallowException(
-                                () -> {
-                                  var idAndBean = beanQueue.poll(5, TimeUnit.SECONDS);
-                                  if (idAndBean != null) {
-                                    publisher.publish(idAndBean.id(), idAndBean.bean());
-                                  }
-                                })))
-            .collect(Collectors.toList());
-    var periodicJobPool = Executors.newScheduledThreadPool(2);
+        jmxFetcherThreads(3, idClients, arguments.period, beanQueue, close::get);
+    var publisherThreads = publisherThreads(2, arguments.bootstrapServers(), beanQueue, close::get);
+    var periodicJobPool = Executors.newScheduledThreadPool(1);
     var threadPool = Executors.newFixedThreadPool(3 + 2);
     var admin = Admin.of(arguments.bootstrapServers());
-
-    // Periodically submit "fetch job" on all targets
-    var periodicFetch =
-        periodicJobPool.scheduleAtFixedRate(
-            // Block until target put into queue. To ensure all targets can be put into queue
-            () ->
-                idMBeanClient.forEach(
-                    (id, bean) -> Utils.swallowException(() -> targetIDQueue.put(id))),
-            0,
-            arguments.period.toMillis(),
-            TimeUnit.MILLISECONDS);
 
     // Periodically update MBeanClient. (MBeanClients may change when broker added into cluster)
     var periodicUpdate =
@@ -119,11 +77,17 @@ public class MetricPublisher {
                         nodes ->
                             nodes.forEach(
                                 node ->
-                                    idMBeanClient.putIfAbsent(
+                                    idMBeanClient.computeIfAbsent(
                                         String.valueOf(node.id()),
-                                        MBeanClient.jndi(
-                                            node.host(),
-                                            arguments.idToJmxPort().apply(node.id()))))),
+                                        id -> {
+                                          var client =
+                                              MBeanClient.jndi(
+                                                  node.host(),
+                                                  arguments.idToJmxPort().apply(node.id()));
+                                          idClients.put(
+                                              new DelayedIdClient(arguments.period, id, client));
+                                          return client;
+                                        }))),
             0,
             5,
             TimeUnit.MINUTES);
@@ -140,7 +104,6 @@ public class MetricPublisher {
       ie.printStackTrace();
     } finally {
       close.set(true);
-      periodicFetch.cancel(false);
       periodicUpdate.cancel(false);
       periodicJobPool.shutdown();
       threadPool.shutdown();
@@ -151,12 +114,84 @@ public class MetricPublisher {
     }
   }
 
-  static Runnable repeatedRun(Supplier<Boolean> close, Runnable job) {
-    return () -> {
-      while (!close.get()) {
-        job.run();
-      }
-    };
+  static List<Runnable> jmxFetcherThreads(
+      int threads,
+      DelayQueue<DelayedIdClient> clients,
+      Duration duration,
+      BlockingQueue<IdBean> beanQueue,
+      Supplier<Boolean> closed) {
+    return IntStream.range(0, threads)
+        .mapToObj(
+            i ->
+                (Runnable)
+                    () -> {
+                      while (!closed.get()) {
+                        try {
+                          var delayedClient = clients.poll(5, TimeUnit.SECONDS);
+                          if (delayedClient != null) {
+                            beanQueue.addAll(
+                                delayedClient.mBeanClient.beans(BeanQuery.all()).stream()
+                                    .map(bean -> new IdBean(delayedClient.id, bean))
+                                    .collect(Collectors.toList()));
+                            clients.put(
+                                new DelayedIdClient(
+                                    duration, delayedClient.id, delayedClient.mBeanClient));
+                          }
+
+                        } catch (InterruptedException ie) {
+                          ie.printStackTrace();
+                        }
+                      }
+                    })
+        .collect(Collectors.toList());
+  }
+
+  static List<Runnable> publisherThreads(
+      int threads, String bootstrap, BlockingQueue<IdBean> beanQueue, Supplier<Boolean> closed) {
+    return IntStream.range(0, threads)
+        .mapToObj(
+            i ->
+                (Runnable)
+                    () -> {
+                      try (var publisher = JMXPublisher.create(bootstrap)) {
+                        while (!closed.get()) {
+                          try {
+                            var idBean = beanQueue.poll(5, TimeUnit.SECONDS);
+                            if (idBean != null) {
+                              publisher.publish(idBean.id(), idBean.bean());
+                            }
+                          } catch (InterruptedException ie) {
+                            // Blocking queue time out. Ignore and run again if the closed flag is
+                            // false
+                          }
+                        }
+                      }
+                    })
+        .collect(Collectors.toList());
+  }
+
+  static class DelayedIdClient implements Delayed {
+    private final long timeout;
+
+    private final String id;
+    private final MBeanClient mBeanClient;
+
+    public DelayedIdClient(Duration duration, String id, MBeanClient mBeanClient) {
+      this.timeout = System.nanoTime() + duration.toNanos();
+      this.id = id;
+      this.mBeanClient = mBeanClient;
+    }
+
+    @Override
+    public long getDelay(TimeUnit timeUnit) {
+      return timeUnit.convert(timeout - System.nanoTime(), TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    public int compareTo(Delayed delayed) {
+      return Long.compare(
+          this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
+    }
   }
 
   private static class IdBean {
