@@ -33,6 +33,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -46,6 +47,9 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +60,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class NetworkCostTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void close() {
+    SERVICE.close();
+  }
 
   private static NetworkIngressCost ingressCost() {
     return new NetworkIngressCost() {
@@ -441,6 +452,25 @@ class NetworkCostTest {
         (NetworkCost.NetworkClusterCost) new NetworkEgressCost().clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costE.brokerRate.size());
     Assertions.assertEquals(0.0, costE.brokerRate.get(node));
+  }
+
+  @Test
+  void testNoMetricCheck() {
+    try (var collector = MetricCollector.builder().interval(Duration.ofMillis(100)).build()) {
+      var ingressCost = new NetworkIngressCost();
+
+      // setup sampling
+      SERVICE.dataFolders().keySet().forEach(collector::registerLocalJmx);
+      ingressCost.metricSensor().ifPresent(collector::addMetricSensor);
+
+      // sample metrics for a while.
+      Utils.sleep(Duration.ofMillis(500));
+
+      var emptyCluster = ClusterInfoBuilder.builder().addNode(Set.of(1, 2, 3)).build();
+      Assertions.assertDoesNotThrow(
+          () -> ingressCost.clusterCost(emptyCluster, collector.clusterBean()),
+          "Should not raise an exception");
+    }
   }
 
   interface TestCase {

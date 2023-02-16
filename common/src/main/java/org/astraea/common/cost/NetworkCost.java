@@ -39,6 +39,7 @@ import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.platform.HostMetrics;
 
 /**
  * This cost function calculate the load balance score in terms of network ingress or network
@@ -169,6 +170,7 @@ public abstract class NetworkCost implements HasClusterCost {
     return Optional.of(
         (client, clusterBean) ->
             Stream.of(
+                    List.of(HostMetrics.jvmMemory(client)),
                     ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
                     ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
                     LogMetrics.Log.SIZE.fetch(client))
