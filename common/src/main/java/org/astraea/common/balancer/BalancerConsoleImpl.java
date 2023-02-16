@@ -321,7 +321,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
                             .collect(Collectors.toUnmodifiableList())));
     final var now =
         admin
-            .clusterInfo(task.sourceCluster.topics())
+            .clusterInfo(task.sourceCluster.topicNames())
             .toCompletableFuture()
             .join()
             .replicaStream()

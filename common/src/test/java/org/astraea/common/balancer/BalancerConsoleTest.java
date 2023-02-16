@@ -269,6 +269,7 @@ class BalancerConsoleTest {
                             ClusterInfo.of(
                                 cluster.clusterId(),
                                 cluster.nodes(),
+                                cluster.topics(),
                                 cluster
                                     .replicaStream()
                                     .map(mapper)
