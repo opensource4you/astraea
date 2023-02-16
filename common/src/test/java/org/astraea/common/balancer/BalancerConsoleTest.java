@@ -92,19 +92,11 @@ class BalancerConsoleTest {
       Assertions.assertEquals(Set.of("THE_TASK"), console.tasks());
 
       // launch rebalance plan execution
-      var customExecutor =
-          new RebalancePlanExecutor() {
-            @Override
-            public CompletionStage<Void> run(
-                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
-              return CompletableFuture.runAsync(() -> Utils.sleep(timeout));
-            }
-          };
       var execution =
           console
               .launchRebalancePlanExecution()
               .setExecutionTimeout(Duration.ofSeconds(1))
-              .setExecutor(customExecutor)
+              .setExecutor(new TimeoutExecutor())
               .execute("THE_TASK");
       Assertions.assertEquals(
           BalancerConsole.TaskPhase.Executing, console.taskPhase("THE_TASK").orElseThrow());
@@ -312,6 +304,58 @@ class BalancerConsoleTest {
     }
   }
 
+  @Test
+  void testExecutionAheadOfGeneration() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      // create some topics
+      admin
+          .creator()
+          .topic(Utils.randomString())
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 2)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(500));
+
+      // launch rebalance plan generation
+      var console = BalancerConsole.create(admin, t -> Optional.empty());
+      var generation =
+          console
+              .launchRebalancePlanGeneration()
+              .setTaskId("THE_TASK")
+              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+              .setGenerationTimeout(Duration.ofSeconds(1))
+              .setAlgorithmConfig(
+                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+              .generate();
+      var execution =
+          console
+              .launchRebalancePlanExecution()
+              .setExecutionTimeout(Duration.ofSeconds(1))
+              .setExecutor(new TimeoutExecutor())
+              .execute("THE_TASK");
+
+      // generation
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Searching, console.taskPhase("THE_TASK").orElseThrow());
+
+      // wait until generation done
+      generation.toCompletableFuture().join();
+
+      // execution
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Executing, console.taskPhase("THE_TASK").orElseThrow());
+
+      // wait until execution done
+      execution.toCompletableFuture().join();
+
+      // execution done
+      Assertions.assertEquals(
+          BalancerConsole.TaskPhase.Executed, console.taskPhase("THE_TASK").orElseThrow());
+    }
+  }
+
   public static class DecreasingCost implements HasClusterCost {
 
     private ClusterInfo original;
@@ -334,6 +378,14 @@ class BalancerConsoleTest {
     @Override
     public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
       return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  public static class TimeoutExecutor implements RebalancePlanExecutor {
+
+    @Override
+    public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
+      return CompletableFuture.runAsync(() -> Utils.sleep(timeout));
     }
   }
 }

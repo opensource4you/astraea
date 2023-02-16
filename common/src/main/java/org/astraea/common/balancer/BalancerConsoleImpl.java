@@ -402,7 +402,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
     private final String taskId;
     private final CompletableFuture<Balancer.Plan> planGeneration;
-    private final CompletableFuture<CompletionStage<Void>> executionLatch;
+    private final CompletableFuture<Function<ClusterInfo, CompletionStage<Void>>> executionLatch;
     private final CompletableFuture<Void> planExecution;
     private final ClusterInfo sourceCluster;
 
@@ -412,7 +412,19 @@ public class BalancerConsoleImpl implements BalancerConsole {
       this.sourceCluster = sourceCluster;
       this.planGeneration = planGeneration;
       this.executionLatch = new CompletableFuture<>();
-      this.planExecution = this.executionLatch.thenComposeAsync((stage) -> stage);
+      this.planExecution =
+          this.planGeneration.thenCompose(
+              plan ->
+                  this.executionLatch.thenCompose(
+                      context ->
+                          plan.solution()
+                              .map(Balancer.Solution::proposal)
+                              .map(context)
+                              .orElseThrow(
+                                  () ->
+                                      new IllegalStateException(
+                                          "Plan generation failed to find any usable balance plan that will improve this cluster: "
+                                              + taskId))));
     }
 
     /**
@@ -424,21 +436,17 @@ public class BalancerConsoleImpl implements BalancerConsole {
      *     already been executed.
      */
     void startExecution(Function<ClusterInfo, CompletionStage<Void>> executionContext) {
-      if (!planGeneration.isDone()) throw new IllegalStateException("The plan is not ready");
-      if (planGeneration.isCancelled())
-        throw new IllegalStateException("The plan generation is cancelled");
-      if (planGeneration.isCompletedExceptionally())
-        throw new IllegalStateException(
-            "The specified plan generation failed with an exception",
-            planGeneration.handle((ignore, err) -> err).getNow(null));
-      if (planGeneration.getNow(null).solution().isEmpty())
-        throw new IllegalStateException(
-            "This plan generation failed to find any usable balance plan that will improve this cluster");
       if (executionLatch.isDone())
         throw new IllegalStateException("This rebalance execution already started");
+      if (planGeneration.isDone()
+          && !planGeneration.isCancelled()
+          && !planGeneration.isCompletedExceptionally()
+          && planGeneration.getNow(null).solution().isEmpty())
+        throw new IllegalStateException(
+            "Plan generation failed to find any usable balance plan that will improve this cluster: "
+                + taskId);
 
-      executionLatch.complete(
-          executionContext.apply(planGeneration.getNow(null).solution().get().proposal()));
+      executionLatch.complete(executionContext);
     }
   }
 }
