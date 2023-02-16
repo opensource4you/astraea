@@ -197,9 +197,9 @@ public class BalancerConsoleImpl implements BalancerConsole {
         synchronized (this) {
           checkNotClosed();
           // If this plan already executed, raise an exception
-          if (taskPhases.get(taskId) == TaskPhase.Executing
-              || taskPhases.get(taskId) == TaskPhase.Executed)
-            throw new IllegalStateException("This task has been executed: " + taskId);
+          if (taskPhases.get(taskId) == TaskPhase.Executing) return tasks.get(taskId).planExecution;
+          if (taskPhases.get(taskId) == TaskPhase.Executed)
+            return CompletableFuture.completedStage(null);
           // another task is still running
           if (lastExecutingTask.get() != null && taskPhases.get(taskId) != TaskPhase.Executed)
             throw new IllegalStateException(
