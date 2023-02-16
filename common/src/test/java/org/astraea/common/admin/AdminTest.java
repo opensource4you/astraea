@@ -161,10 +161,13 @@ public class AdminTest {
   void testClusterInfo() {
     try (var admin =
         new AdminImpl(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()))) {
+      var topic0 = Utils.randomString();
+      var topic1 = Utils.randomString();
+      var topic2 = Utils.randomString();
       try (var producer = Producer.of(SERVICE.bootstrapServers())) {
-        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[100]).build());
-        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[55]).build());
-        producer.send(Record.builder().topic(Utils.randomString()).key(new byte[33]).build());
+        producer.send(Record.builder().topic(topic0).key(new byte[100]).build());
+        producer.send(Record.builder().topic(topic1).key(new byte[55]).build());
+        producer.send(Record.builder().topic(topic2).key(new byte[33]).build());
       }
 
       try (var consumer =
@@ -176,6 +179,15 @@ public class AdminTest {
               .build()) {
         Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(7)).size());
       }
+
+      admin
+          .setTopicConfigs(
+              Map.ofEntries(
+                  Map.entry(topic0, Map.of(TopicConfig.RETENTION_BYTES_CONFIG, "1111111111")),
+                  Map.entry(topic1, Map.of(TopicConfig.RETENTION_BYTES_CONFIG, "2222222222")),
+                  Map.entry(topic2, Map.of(TopicConfig.RETENTION_BYTES_CONFIG, "3333333333"))))
+          .toCompletableFuture()
+          .join();
 
       var topics =
           admin
@@ -204,6 +216,16 @@ public class AdminTest {
           SERVICE.dataFolders(),
           clusterInfo.brokerFolders(),
           "The log folder information is available from the admin version of ClusterInfo");
+
+      Assertions.assertEquals(
+          Optional.of("1111111111"),
+          clusterInfo.topics().get(topic0).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
+      Assertions.assertEquals(
+          Optional.of("2222222222"),
+          clusterInfo.topics().get(topic1).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
+      Assertions.assertEquals(
+          Optional.of("3333333333"),
+          clusterInfo.topics().get(topic2).config().value(TopicConfig.RETENTION_BYTES_CONFIG));
     }
   }
 

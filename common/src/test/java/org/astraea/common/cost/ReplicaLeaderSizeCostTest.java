@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -83,7 +84,10 @@ class ReplicaLeaderSizeCostTest {
 
   static ClusterInfo getClusterInfo(List<Replica> replicas) {
     return ClusterInfo.of(
-        "fake", replicas.stream().map(Replica::nodeInfo).collect(Collectors.toList()), replicas);
+        "fake",
+        replicas.stream().map(Replica::nodeInfo).collect(Collectors.toList()),
+        Map.of(),
+        replicas);
   }
 
   static ClusterInfo originClusterInfo() {
@@ -299,6 +303,7 @@ class ReplicaLeaderSizeCostTest {
     return ClusterInfo.of(
         "fake",
         List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
+        Map.of(),
         replicas);
   }
 }
