@@ -34,7 +34,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
-import org.astraea.common.balancer.algorithms.SingleStepBalancer;
+import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
@@ -74,7 +74,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
-              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
               .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -131,7 +131,7 @@ class BalancerConsoleTest {
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_1")
-          .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+          .setBalancer(new GreedyBalancer(Configuration.EMPTY))
           .setGenerationTimeout(Duration.ofMillis(100))
           .checkNoOngoingMigration(false)
           .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -139,7 +139,7 @@ class BalancerConsoleTest {
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_2")
-          .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+          .setBalancer(new GreedyBalancer(Configuration.EMPTY))
           .setGenerationTimeout(Duration.ofMillis(100))
           .checkNoOngoingMigration(false)
           .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -147,7 +147,7 @@ class BalancerConsoleTest {
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_3")
-          .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+          .setBalancer(new GreedyBalancer(Configuration.EMPTY))
           .setGenerationTimeout(Duration.ofMillis(100))
           .checkNoOngoingMigration(false)
           .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -190,7 +190,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
-              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
               .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
@@ -248,7 +248,7 @@ class BalancerConsoleTest {
               console
                   .launchRebalancePlanGeneration()
                   .setTaskId(Utils.randomString())
-                  .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+                  .setBalancer(new GreedyBalancer(Configuration.EMPTY))
                   .setAlgorithmConfig(
                       AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
                   .setGenerationTimeout(Duration.ofMillis(100))
@@ -282,7 +282,7 @@ class BalancerConsoleTest {
                         console
                             .launchRebalancePlanGeneration()
                             .setTaskId(Utils.randomString())
-                            .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+                            .setBalancer(new GreedyBalancer(Configuration.EMPTY))
                             .setAlgorithmConfig(
                                 AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
                             .setGenerationTimeout(Duration.ofMillis(100))
@@ -294,7 +294,7 @@ class BalancerConsoleTest {
                         console
                             .launchRebalancePlanGeneration()
                             .setTaskId(Utils.randomString())
-                            .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+                            .setBalancer(new GreedyBalancer(Configuration.EMPTY))
                             .setAlgorithmConfig(
                                 AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
                             .setGenerationTimeout(Duration.ofMillis(100))
@@ -325,11 +325,12 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
-              .setBalancer(new SingleStepBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
               .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
               .generate();
+
       var execution =
           console
               .launchRebalancePlanExecution()
