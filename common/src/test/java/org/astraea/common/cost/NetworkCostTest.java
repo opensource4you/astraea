@@ -421,6 +421,28 @@ class NetworkCostTest {
     System.out.println("False test: " + counting.get(false));
   }
 
+  @Test
+  void testZeroReplicaBroker() {
+    var testcase = new LargeTestCase(1, 1, 0);
+    var beans = testcase.clusterBean();
+    var cluster = testcase.clusterInfo();
+    var scaledCluster =
+        ClusterInfoBuilder.builder(cluster)
+            .addNode(Set.of(4321))
+            .addFolders(Map.of(4321, Set.of("/folder")))
+            .build();
+    var node = scaledCluster.node(4321);
+
+    var costI =
+        (NetworkCost.NetworkClusterCost) new NetworkIngressCost().clusterCost(scaledCluster, beans);
+    Assertions.assertEquals(2, costI.brokerRate.size());
+    Assertions.assertEquals(0.0, costI.brokerRate.get(node));
+    var costE =
+        (NetworkCost.NetworkClusterCost) new NetworkEgressCost().clusterCost(scaledCluster, beans);
+    Assertions.assertEquals(2, costE.brokerRate.size());
+    Assertions.assertEquals(0.0, costE.brokerRate.get(node));
+  }
+
   interface TestCase {
 
     ClusterInfo clusterInfo();
