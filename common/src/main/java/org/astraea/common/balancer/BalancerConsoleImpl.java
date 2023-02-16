@@ -25,12 +25,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -53,7 +53,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
   private final Map<String, TaskPhase> taskPhases = new ConcurrentHashMap<>();
   private final Map<String, BalanceTaskImpl> tasks = new ConcurrentHashMap<>();
-  private final AtomicReference<BalanceTaskImpl> lastExecutingTask = new AtomicReference<>();
+  private final BlockingQueue<BalanceTaskImpl> ongoingRebalanceTasks = new LinkedBlockingDeque<>(1);
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
@@ -201,24 +201,36 @@ public class BalancerConsoleImpl implements BalancerConsole {
               || taskPhases.get(taskId) == TaskPhase.Executed)
             throw new IllegalStateException("This task has been executed: " + taskId);
           // another task is still running
-          if (lastExecutingTask.get() != null && taskPhases.get(taskId) != TaskPhase.Executed)
-            throw new IllegalStateException(
-                "Another task is executing: " + lastExecutingTask.get().taskId);
-          // start the execution. this should fail if the plan is not ready
-          task.startExecution(
-              (targetClusterInfo) -> {
-                taskPhases.put(taskId, TaskPhase.Executing);
-                return executor
-                    .run(admin, targetClusterInfo, timeout)
-                    .whenComplete(
-                        (ignore, err) -> {
-                          // intentionally remove this task from internal, so it might be GC later.
-                          tasks.remove(taskId);
-                          // mark this task as executed
-                          taskPhases.put(taskId, TaskPhase.Executed);
-                        });
-              });
-          lastExecutingTask.set(task);
+          if (ongoingRebalanceTasks.offer(task)) {
+            try {
+              task.startExecution(
+                  (targetClusterInfo) -> {
+                    taskPhases.put(taskId, TaskPhase.Executing);
+                    return executor
+                        .run(admin, targetClusterInfo, timeout)
+                        .whenComplete(
+                            (ignore, err) -> {
+                              // intentionally remove this task from internal, so it might be GC
+                              // later.
+                              tasks.remove(taskId);
+                              // mark this task as executed
+                              taskPhases.put(taskId, TaskPhase.Executed);
+                              // remove this task from the running queue
+                              synchronized (BalancerConsoleImpl.this) {
+                                ongoingRebalanceTasks.removeIf(theTask -> theTask == task);
+                              }
+                            });
+                  });
+            } catch (Exception e) {
+              // fail to schedule this task, remove it from the queue
+              ongoingRebalanceTasks.poll();
+              throw e;
+            }
+          } else {
+            var maybeTaskId =
+                Optional.ofNullable(ongoingRebalanceTasks.peek()).map(i -> i.taskId).orElse(null);
+            throw new IllegalStateException("Another task is executing: " + maybeTaskId);
+          }
         }
         return task.planExecution.minimalCompletionStage();
       }
@@ -231,32 +243,32 @@ public class BalancerConsoleImpl implements BalancerConsole {
     synchronized (this) {
       // reject further request
       stopped.set(true);
+    }
 
-      // stop execution
-      if (lastExecutingTask.get() != null) lastExecutingTask.get().planExecution.cancel(false);
+    // stop execution
+    ongoingRebalanceTasks.forEach(task -> task.planExecution.cancel(false));
 
-      // stop generation
-      var taskToStop =
-          tasks.values().stream()
-              .filter(task -> taskPhases.get(task.taskId) == TaskPhase.Searching)
-              .peek(task -> task.planGeneration.cancel(true))
-              .collect(Collectors.toUnmodifiableSet());
-      Utils.sleep(Duration.ofSeconds(1));
-      taskToStop.stream()
-          .filter(task -> !task.planGeneration.isDone())
-          .forEach(
-              task ->
-                  System.err.println(
-                      "Failed to stop task plan generation, it still running after interrupt: "
-                          + task));
+    // stop generation
+    var taskToStop =
+        tasks.values().stream()
+            .filter(task -> taskPhases.get(task.taskId) == TaskPhase.Searching)
+            .peek(task -> task.planGeneration.cancel(true))
+            .collect(Collectors.toUnmodifiableSet());
+    Utils.sleep(Duration.ofSeconds(1));
+    taskToStop.stream()
+        .filter(task -> !task.planGeneration.isDone())
+        .forEach(
+            task ->
+                System.err.println(
+                    "Failed to stop task plan generation, it still running after interrupt: "
+                        + task));
 
-      // wait until execution stop
-      try {
-        if (lastExecutingTask.get() != null)
-          lastExecutingTask.get().planExecution.toCompletableFuture().get();
-      } catch (InterruptedException | ExecutionException e) {
-        e.printStackTrace();
-      }
+    // wait until execution stop
+    try {
+      ongoingRebalanceTasks.forEach(task -> task.planExecution.join());
+      ongoingRebalanceTasks.clear();
+    } catch (Exception e) {
+      e.printStackTrace();
     }
   }
 
