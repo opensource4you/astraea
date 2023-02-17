@@ -201,7 +201,6 @@ public class BalancerConsoleImpl implements BalancerConsole {
         if (this.checkPlanConsistency) BalancerConsoleImpl.this.checkPlanConsistency(task);
         synchronized (this) {
           checkNotClosed();
-          // If this plan already executed, raise an exception
           if (taskPhases.get(taskId) == TaskPhase.Executing) return tasks.get(taskId).planExecution;
           if (taskPhases.get(taskId) == TaskPhase.Executed)
             return CompletableFuture.completedStage(null);
@@ -396,29 +395,17 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
     private final String taskId;
     private final CompletableFuture<Balancer.Plan> planGeneration;
-    private final CompletableFuture<Function<ClusterInfo, CompletionStage<Void>>> executionLatch;
     private final CompletableFuture<Void> planExecution;
     private final ClusterInfo sourceCluster;
+    private final AtomicBoolean executionStarted;
 
     private BalanceTaskImpl(
         String taskId, ClusterInfo sourceCluster, CompletableFuture<Balancer.Plan> planGeneration) {
       this.taskId = taskId;
       this.sourceCluster = sourceCluster;
       this.planGeneration = planGeneration;
-      this.executionLatch = new CompletableFuture<>();
-      this.planExecution =
-          this.planGeneration.thenCompose(
-              plan ->
-                  this.executionLatch.thenCompose(
-                      context ->
-                          plan.solution()
-                              .map(Balancer.Solution::proposal)
-                              .map(context)
-                              .orElseThrow(
-                                  () ->
-                                      new IllegalStateException(
-                                          "Plan generation failed to find any usable balance plan that will improve this cluster: "
-                                              + taskId))));
+      this.planExecution = new CompletableFuture<>();
+      this.executionStarted = new AtomicBoolean();
     }
 
     /**
@@ -430,8 +417,6 @@ public class BalancerConsoleImpl implements BalancerConsole {
      *     already been executed.
      */
     void startExecution(Function<ClusterInfo, CompletionStage<Void>> executionContext) {
-      if (executionLatch.isDone())
-        throw new IllegalStateException("This rebalance execution already started");
       if (planGeneration.isDone()
           && !planGeneration.isCancelled()
           && !planGeneration.isCompletedExceptionally()
@@ -439,8 +424,24 @@ public class BalancerConsoleImpl implements BalancerConsole {
         throw new IllegalStateException(
             "Plan generation failed to find any usable balance plan that will improve this cluster: "
                 + taskId);
+      if (!executionStarted.compareAndSet(false, true))
+        throw new IllegalStateException("This plan execution already started");
 
-      executionLatch.complete(executionContext);
+      planGeneration.whenComplete(
+          (plan, err) ->
+              plan.solution()
+                  .map(Balancer.Solution::proposal)
+                  .map(executionContext)
+                  .orElseThrow(
+                      () ->
+                          new IllegalStateException(
+                              "Plan generation failed to find any usable balance plan that will improve this cluster: "
+                                  + taskId))
+                  .whenComplete(
+                      (res, error) -> {
+                        if (error != null) this.planExecution.completeExceptionally(error);
+                        else this.planExecution.complete(res);
+                      }));
     }
   }
 }
