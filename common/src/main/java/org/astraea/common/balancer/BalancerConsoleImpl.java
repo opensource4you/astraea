@@ -209,7 +209,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
           if (lastExecutingTask.get() != null && taskPhases.get(taskId) != TaskPhase.Executed)
             throw new IllegalStateException(
                 "Another task is executing: " + lastExecutingTask.get().taskId);
-          // start the execution. this should fail if the plan is not ready
+          // start the execution.
+          // this should fail if the plan is not ready or this plan has been executed.
           task.startExecution(
               (targetClusterInfo) -> {
                 taskPhases.put(taskId, TaskPhase.Executing);
