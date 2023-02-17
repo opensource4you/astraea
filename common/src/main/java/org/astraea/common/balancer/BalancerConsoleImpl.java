@@ -237,32 +237,32 @@ public class BalancerConsoleImpl implements BalancerConsole {
     synchronized (this) {
       // reject further request
       stopped.set(true);
+    }
 
-      // stop execution
-      if (lastExecutingTask.get() != null) lastExecutingTask.get().planExecution.cancel(false);
+    // stop execution
+    if (lastExecutingTask.get() != null) lastExecutingTask.get().planExecution.cancel(false);
 
-      // stop generation
-      var taskToStop =
-          tasks.values().stream()
-              .filter(task -> taskPhases.get(task.taskId) == TaskPhase.Searching)
-              .peek(task -> task.planGeneration.cancel(true))
-              .collect(Collectors.toUnmodifiableSet());
-      Utils.sleep(Duration.ofSeconds(1));
-      taskToStop.stream()
-          .filter(task -> !task.planGeneration.isDone())
-          .forEach(
-              task ->
-                  System.err.println(
-                      "Failed to stop task plan generation, it still running after interrupt: "
-                          + task));
+    // stop generation
+    var taskToStop =
+        tasks.values().stream()
+            .filter(task -> taskPhases.get(task.taskId) == TaskPhase.Searching)
+            .peek(task -> task.planGeneration.cancel(true))
+            .collect(Collectors.toUnmodifiableSet());
+    Utils.sleep(Duration.ofSeconds(1));
+    taskToStop.stream()
+        .filter(task -> !task.planGeneration.isDone())
+        .forEach(
+            task ->
+                System.err.println(
+                    "Failed to stop task plan generation, it still running after interrupt: "
+                        + task));
 
-      // wait until execution stop
-      try {
-        if (lastExecutingTask.get() != null)
-          lastExecutingTask.get().planExecution.toCompletableFuture().get();
-      } catch (InterruptedException | ExecutionException e) {
-        e.printStackTrace();
-      }
+    // wait until execution stop
+    try {
+      if (lastExecutingTask.get() != null)
+        lastExecutingTask.get().planExecution.toCompletableFuture().get();
+    } catch (InterruptedException | ExecutionException e) {
+      e.printStackTrace();
     }
   }
 
