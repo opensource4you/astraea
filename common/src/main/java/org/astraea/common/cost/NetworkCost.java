@@ -141,8 +141,7 @@ public abstract class NetworkCost implements HasClusterCost {
                           }
                         },
                         Collectors.summingDouble(x -> x))));
-    // the above logic doesn't consider broker with no replica, the following statement put those
-    // broker into the map
+    // add the brokers having no replicas into map
     clusterInfo.nodes().stream()
         .filter(node -> !brokerRate.containsKey(node))
         .forEach(node -> brokerRate.put(node, 0.0));
@@ -262,11 +261,11 @@ public abstract class NetworkCost implements HasClusterCost {
     }
   }
 
-  public static class NetworkClusterCost implements ClusterCost {
+  static class NetworkClusterCost implements ClusterCost {
     final double score;
     final Map<NodeInfo, Double> brokerRate;
 
-    public NetworkClusterCost(double score, Map<NodeInfo, Double> brokerRate) {
+    NetworkClusterCost(double score, Map<NodeInfo, Double> brokerRate) {
       this.score = score;
       this.brokerRate = brokerRate;
     }
