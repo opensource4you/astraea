@@ -123,34 +123,40 @@ public class BalancerConsoleImpl implements BalancerConsole {
                     config.moveCostFunction().metricSensor().stream())
                 .collect(Collectors.toUnmodifiableList());
         if (this.checkNoOngoingMigration) BalancerConsoleImpl.this.checkNoOngoingMigration();
+        final var sourceCluster =
+            admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
         synchronized (this) {
           checkNotClosed();
-          if (tasks().contains(taskId))
-            throw new IllegalStateException("Conflict task ID: " + taskId);
-          var sourceCluster =
-              admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
-          taskPhases.put(taskId, TaskPhase.Searching);
-          tasks.put(
-              taskId,
-              new BalanceTaskImpl(
+          return tasks
+              .compute(
                   taskId,
-                  sourceCluster,
-                  CompletableFuture.supplyAsync(
-                          () ->
-                              metricContext(
-                                  sensors,
-                                  (clusterBeanSupplier -> {
-                                    // TODO: embedded the retry offer logic into BalancerConsoleImpl
-                                    return balancer.retryOffer(
-                                        sourceCluster,
-                                        timeout,
-                                        AlgorithmConfig.builder(config)
-                                            .metricSource(clusterBeanSupplier)
-                                            .build());
-                                  })))
-                      .whenComplete((plan, err) -> taskPhases.put(taskId, TaskPhase.Searched))));
+                  (id, previousTask) -> {
+                    if (previousTask != null)
+                      throw new IllegalStateException("Conflict task ID: " + taskId);
+                    taskPhases.put(taskId, TaskPhase.Searching);
+                    return new BalanceTaskImpl(
+                        taskId,
+                        sourceCluster,
+                        CompletableFuture.supplyAsync(
+                                () ->
+                                    metricContext(
+                                        sensors,
+                                        (clusterBeanSupplier -> {
+                                          // TODO: embedded the retry offer logic into
+                                          //  BalancerConsoleImpl
+                                          return balancer.retryOffer(
+                                              sourceCluster,
+                                              timeout,
+                                              AlgorithmConfig.builder(config)
+                                                  .metricSource(clusterBeanSupplier)
+                                                  .build());
+                                        })))
+                            .whenComplete(
+                                (plan, err) -> taskPhases.put(taskId, TaskPhase.Searched)));
+                  })
+              .planGeneration
+              .minimalCompletionStage();
         }
-        return tasks.get(taskId).planGeneration.minimalCompletionStage();
       }
     };
   }
