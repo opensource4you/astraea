@@ -78,6 +78,7 @@ public interface Balancer {
       AlgorithmConfig config);
 
   class Plan {
+    final ClusterInfo initialClusterInfo;
     final ClusterCost initialClusterCost;
     final Solution solution;
 
@@ -93,11 +94,12 @@ public interface Balancer {
       return Optional.ofNullable(solution);
     }
 
-    public Plan(ClusterCost initialClusterCost) {
-      this(initialClusterCost, null);
+    public Plan(ClusterInfo initialClusterInfo, ClusterCost initialClusterCost) {
+      this(initialClusterInfo, initialClusterCost, null);
     }
 
-    public Plan(ClusterCost initialClusterCost, Solution solution) {
+    public Plan(ClusterInfo initialClusterInfo, ClusterCost initialClusterCost, Solution solution) {
+      this.initialClusterInfo = initialClusterInfo;
       this.initialClusterCost = initialClusterCost;
       this.solution = solution;
     }

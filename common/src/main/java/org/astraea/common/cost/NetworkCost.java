@@ -31,6 +31,7 @@ import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.HasBeanObject;
@@ -38,6 +39,7 @@ import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.platform.HostMetrics;
 
 /**
  * This cost function calculate the load balance score in terms of network ingress or network
@@ -139,6 +141,10 @@ public abstract class NetworkCost implements HasClusterCost {
                           }
                         },
                         Collectors.summingDouble(x -> x))));
+    // add the brokers having no replicas into map
+    clusterInfo.nodes().stream()
+        .filter(node -> !brokerRate.containsKey(node))
+        .forEach(node -> brokerRate.put(node, 0.0));
 
     var summary = brokerRate.values().stream().mapToDouble(x -> x).summaryStatistics();
     if (summary.getMax() < 0)
@@ -151,13 +157,8 @@ public abstract class NetworkCost implements HasClusterCost {
       return ClusterCost.of(
           0, () -> "network load zero"); // edge case to avoid divided by zero error
     double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
-    return ClusterCost.of(
-        score,
-        () ->
-            brokerRate.values().stream()
-                .map(x -> DataRate.Byte.of(x.longValue()).perSecond())
-                .map(DataRate::toString)
-                .collect(Collectors.joining(", ", "{", "}")));
+
+    return new NetworkClusterCost(score, brokerRate);
   }
 
   @Override
@@ -168,6 +169,7 @@ public abstract class NetworkCost implements HasClusterCost {
     return Optional.of(
         (client, clusterBean) ->
             Stream.of(
+                    List.of(HostMetrics.jvmMemory(client)),
                     ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
                     ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
                     LogMetrics.Log.SIZE.fetch(client))
@@ -256,6 +258,28 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return alias();
+    }
+  }
+
+  static class NetworkClusterCost implements ClusterCost {
+    final double score;
+    final Map<NodeInfo, Double> brokerRate;
+
+    NetworkClusterCost(double score, Map<NodeInfo, Double> brokerRate) {
+      this.score = score;
+      this.brokerRate = brokerRate;
+    }
+
+    public double value() {
+      return score;
+    }
+
+    @Override
+    public String toString() {
+      return brokerRate.values().stream()
+          .map(x -> DataRate.Byte.of(x.longValue()).perSecond())
+          .map(DataRate::toString)
+          .collect(Collectors.joining(", ", "{", "}"));
     }
   }
 }
