@@ -324,7 +324,7 @@ class BalancerTest {
         new Balancer() {
           @Override
           public Plan offer(
-              ClusterInfo currentClusterInfo,
+              final ClusterInfo currentClusterInfo,
               ClusterBean clusterBean,
               Duration timeout,
               AlgorithmConfig config) {
@@ -332,7 +332,10 @@ class BalancerTest {
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return new Plan(() -> 0, new Solution(() -> 0, MoveCost.EMPTY, currentClusterInfo));
+            return new Plan(
+                currentClusterInfo,
+                () -> 0,
+                new Solution(() -> 0, MoveCost.EMPTY, currentClusterInfo));
           }
         };
 

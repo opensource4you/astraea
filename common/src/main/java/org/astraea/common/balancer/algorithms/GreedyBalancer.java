@@ -134,7 +134,7 @@ public class GreedyBalancer implements Balancer {
 
   @Override
   public Plan offer(
-      ClusterInfo currentClusterInfo,
+      final ClusterInfo currentClusterInfo,
       ClusterBean clusterBean,
       Duration timeout,
       AlgorithmConfig config) {
@@ -194,6 +194,6 @@ public class GreedyBalancer implements Balancer {
       currentCost = currentSolution.get().proposalClusterCost();
       currentAllocation = currentSolution.get().proposal();
     }
-    return new Plan(initialCost, currentSolution.orElse(null));
+    return new Plan(currentClusterInfo, initialCost, currentSolution.orElse(null));
   }
 }
