@@ -179,10 +179,12 @@ class BalancerHandler implements Handler {
             (phase) -> {
               switch (phase) {
                 case Searching:
+                case Searched:
                 case Executing:
+                case Executed:
                   // No error message during the search & execution
                   return null;
-                case Searched:
+                case SearchFailed:
                   return planGenerations
                       .get(taskId)
                       .handle(
@@ -194,7 +196,7 @@ class BalancerHandler implements Handler {
                                       : null)
                       .toCompletableFuture()
                       .getNow(null);
-                case Executed:
+                case ExecutionFailed:
                   return planExecutions
                       .get(taskId)
                       .handle((ignore, err) -> err != null ? err.toString() : null)

@@ -75,8 +75,10 @@ public interface BalancerConsole extends AutoCloseable {
   enum TaskPhase implements EnumInfo {
     Searching,
     Searched,
+    SearchFailed,
     Executing,
-    Executed;
+    Executed,
+    ExecutionFailed;
 
     static TaskPhase ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(TaskPhase.class, alias);

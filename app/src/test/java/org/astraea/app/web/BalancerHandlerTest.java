@@ -18,6 +18,8 @@ package org.astraea.app.web;
 
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.ExecutionFailed;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
 
 import java.nio.charset.StandardCharsets;
@@ -396,14 +398,18 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(post.id, progress.id);
       Assertions.assertEquals(Duration.ofMillis(996), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
-      Assertions.assertEquals(Searched, progress.phase, "search done");
+      Assertions.assertEquals(SearchFailed, progress.phase, "search done");
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
       Assertions.assertNotNull(progress.config.function);
       Assertions.assertNull(progress.plan, "no proposal");
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
-          "Cannot execute a plan with no proposal available");
+      handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join();
+      Utils.sleep(Duration.ofMillis(300));
+      var progress1 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
+      Assertions.assertEquals(SearchFailed, progress1.phase, "No plan");
+      Assertions.assertNotNull(progress1.exception);
     }
   }
 
@@ -578,9 +584,14 @@ public class BalancerHandlerTest {
               .toCompletableFuture()
               .join());
 
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", theReport.id))).toCompletableFuture().join());
+      handler.put(httpRequest(Map.of("id", theReport.id))).toCompletableFuture().join();
+      Utils.sleep(Duration.ofMillis(300));
+      var progress1 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(theReport.id)).toCompletableFuture().join());
+      Assertions.assertEquals(ExecutionFailed, progress1.phase, "Ongoing Migration");
+      Assertions.assertNotNull(progress1.exception);
     }
   }
 
@@ -613,27 +624,48 @@ public class BalancerHandlerTest {
             .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
             .build();
     try (Admin admin = Mockito.mock(Admin.class)) {
+      var handler = new BalancerHandler(admin);
       Mockito.when(admin.topicNames(Mockito.anyBoolean()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
-      Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
+      var task0 =
+          (BalancerHandler.PostPlanResponse)
+              handler.post(defaultPostPlan).toCompletableFuture().join();
+      Utils.waitFor(
+          () ->
+              ((BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(task0.id)).toCompletableFuture().join())
+                      .phase
+                  == SearchFailed,
+          Duration.ofSeconds(5));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasAdding));
-      Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
+      var task1 =
+          (BalancerHandler.PostPlanResponse)
+              handler.post(defaultPostPlan).toCompletableFuture().join();
+      Utils.waitFor(
+          () ->
+              ((BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(task1.id)).toCompletableFuture().join())
+                      .phase
+                  == SearchFailed,
+          Duration.ofSeconds(5));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasRemoving));
-      Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
-
-      Mockito.when(admin.clusterInfo(Mockito.any()))
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(base));
-      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(defaultPostPlan));
+      var task2 =
+          (BalancerHandler.PostPlanResponse)
+              handler.post(defaultPostPlan).toCompletableFuture().join();
+      Utils.waitFor(
+          () ->
+              ((BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(task2.id)).toCompletableFuture().join())
+                      .phase
+                  == SearchFailed,
+          Duration.ofSeconds(5));
     }
   }
 
@@ -658,10 +690,19 @@ public class BalancerHandlerTest {
       Utils.sleep(Duration.ofSeconds(10));
 
       // assert
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", theProgress.id))).toCompletableFuture().join(),
+      handler.put(httpRequest(Map.of("id", theProgress.id))).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(5));
+
+      var result =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(theProgress.id)).toCompletableFuture().join());
+      Assertions.assertEquals(
+          ExecutionFailed,
+          result.phase,
           "The cluster state has changed, prevent the plan from execution");
+      Assertions.assertNotNull(
+          result.exception, "The cluster state has changed, prevent the plan from execution");
     }
   }
 
@@ -774,20 +815,21 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(Searched, progress0.phase, "The plan is ready");
 
       // schedule
-      var response =
-          Assertions.assertInstanceOf(
-              BalancerHandler.PutPlanResponse.class,
-              handler.put(httpRequest(Map.of("id", post.id))).toCompletableFuture().join());
-      Assertions.assertNotNull(response.id, "The plan should be executed");
+      handler.put(httpRequest(Map.of("id", post.id)));
+      // var response =
+      //     Assertions.assertInstanceOf(
+      //         BalancerHandler.PutPlanResponse.class,
+      //         handler.put(httpRequest(Map.of("id", post.id))).toCompletableFuture().join());
+      // Assertions.assertNotNull(response.id, "The execution scheduled");
 
       // exception
       Utils.sleep(Duration.ofSeconds(1));
       var progress =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
-      Assertions.assertEquals(Executed, progress.phase);
+      Assertions.assertEquals(ExecutionFailed, progress.phase);
       Assertions.assertNotNull(progress.exception);
       Assertions.assertInstanceOf(String.class, progress.exception);
     }
@@ -980,7 +1022,7 @@ public class BalancerHandlerTest {
       var progress =
           (BalancerHandler.PlanExecutionProgress)
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
-      Assertions.assertEquals(Searched, progress.phase);
+      Assertions.assertEquals(SearchFailed, progress.phase);
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
     }

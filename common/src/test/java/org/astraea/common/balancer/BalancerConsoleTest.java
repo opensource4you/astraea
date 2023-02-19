@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -186,15 +187,26 @@ class BalancerConsoleTest {
           .join();
       Utils.sleep(Duration.ofMillis(500));
 
-      var generation =
+      var gen0 =
           console
               .launchRebalancePlanGeneration()
-              .setTaskId("THE_TASK")
+              .setTaskId("THE_TASK_0")
               .setBalancer(new GreedyBalancer(Configuration.EMPTY))
               .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
                   AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
               .generate();
+      var gen1 =
+          console
+              .launchRebalancePlanGeneration()
+              .setTaskId("THE_TASK_1")
+              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+              .setGenerationTimeout(Duration.ofSeconds(1))
+              .setAlgorithmConfig(
+                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+              .generate();
+      gen0.toCompletableFuture().join();
+      gen1.toCompletableFuture().join();
 
       // change the cluster state via moving things
       admin
@@ -203,27 +215,28 @@ class BalancerConsoleTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofMillis(500));
-      generation.toCompletableFuture().join();
 
       Assertions.assertThrows(
-          IllegalStateException.class,
+          CompletionException.class,
           () ->
               console
                   .launchRebalancePlanExecution()
                   .setExecutor(new StraightPlanExecutor())
                   .checkPlanConsistency(true)
-                  .execute("THE_TASK"),
+                  .execute("THE_TASK_0")
+                  .toCompletableFuture()
+                  .join(),
           "Cluster state has been changed");
       Assertions.assertDoesNotThrow(
-              () ->
-                  console
-                      .launchRebalancePlanExecution()
-                      .setExecutor(new NoOpExecutor())
-                      .checkPlanConsistency(false)
-                      .execute("THE_TASK"),
-              "Cluster state has been changed, but no check perform")
-          .toCompletableFuture()
-          .join();
+          () ->
+              console
+                  .launchRebalancePlanExecution()
+                  .setExecutor(new NoOpExecutor())
+                  .checkPlanConsistency(false)
+                  .execute("THE_TASK_1")
+                  .toCompletableFuture()
+                  .join(),
+          "Cluster state has been changed, but no check perform");
     }
   }
 
@@ -277,7 +290,7 @@ class BalancerConsoleTest {
                     .when(spy)
                     .clusterInfo(Mockito.anySet());
                 Assertions.assertThrows(
-                    IllegalStateException.class,
+                    CompletionException.class,
                     () ->
                         console
                             .launchRebalancePlanGeneration()
@@ -287,7 +300,9 @@ class BalancerConsoleTest {
                                 AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
                             .setGenerationTimeout(Duration.ofMillis(100))
                             .checkNoOngoingMigration(true)
-                            .generate(),
+                            .generate()
+                            .toCompletableFuture()
+                            .join(),
                     "Some Adding/Removing/Future replica here");
                 Assertions.assertDoesNotThrow(
                     () ->
