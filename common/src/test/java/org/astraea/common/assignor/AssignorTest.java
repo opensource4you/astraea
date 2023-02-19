@@ -114,7 +114,7 @@ public class AssignorTest {
     Assertions.assertEquals("192.168.103.1", unregister.get(1000));
     Assertions.assertEquals("192.168.103.2", unregister.get(1001));
 
-    assignor.registerLocalJMX(Map.of(1000, "192.168.103.1"));
+    assignor.registerLocalJMX(1000);
     var unregister2 = assignor.checkUnregister(nodes);
     Assertions.assertEquals(1, unregister2.size());
     Assertions.assertEquals("192.168.103.2", unregister2.get(1001));
@@ -129,7 +129,7 @@ public class AssignorTest {
     var unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(1, unregisterNode.size());
     Assertions.assertEquals("192.168.103.1", unregisterNode.get(1000));
-    assignor.registerLocalJMX(unregisterNode);
+    assignor.registerLocalJMX(unregisterNode.keySet().stream().findAny().get());
     unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(0, unregisterNode.size());
 

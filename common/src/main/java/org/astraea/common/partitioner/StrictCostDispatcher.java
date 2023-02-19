@@ -51,34 +51,44 @@ public class StrictCostDispatcher extends Dispatcher {
   static final String JMX_PORT = "jmx.port";
   static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
-  final MetricCollector metricCollector =
-      MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
+  MetricCollector metricCollector = null;
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   RoundRobinKeeper roundRobinKeeper;
 
+  // visible for test
+  Duration updatePeriod = Duration.ofMinutes(5);
+  private long lastUpdate = System.currentTimeMillis();
+
   void tryToUpdateSensor(ClusterInfo clusterInfo) {
-    // register new nodes to metric collector
-    costFunction
-        .metricSensor()
-        .ifPresent(
-            ignored ->
-                clusterInfo
-                    .nodes()
-                    .forEach(
-                        node -> {
-                          if (!metricCollector.listIdentities().contains(node.id())) {
-                            jmxPortGetter
-                                .apply(node.id())
-                                .ifPresent(
-                                    port ->
-                                        metricCollector.registerJmx(
-                                            node.id(),
-                                            InetSocketAddress.createUnresolved(node.host(), port)));
-                          }
-                        }));
+    if (System.currentTimeMillis() < lastUpdate + updatePeriod.toMillis()) {
+      return;
+    }
+    // Check if there is new nodes "not" fetched by metric collector
+    if (metricCollector == null
+        || clusterInfo.nodes().stream()
+            .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
+      if (metricCollector != null) metricCollector.close();
+      // Recreate metric collector with current clusterInfo
+      metricCollector =
+          MetricCollector.builder()
+              .interval(Duration.ofMillis(1500))
+              .registerLocalJmx(-1)
+              .registerJmx(
+                  clusterInfo.nodes().stream()
+                      .filter(node -> jmxPortGetter.apply(node.id()).isPresent())
+                      .map(
+                          node ->
+                              Map.entry(
+                                  node.id(),
+                                  new InetSocketAddress(
+                                      node.host(), jmxPortGetter.apply(node.id()).get())))
+                      .collect(
+                          Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
+              .build();
+    }
   }
 
   @Override
@@ -141,9 +151,15 @@ public class StrictCostDispatcher extends Dispatcher {
         .ifPresent(d -> this.roundRobinLease = d);
 
     // put local mbean client first
-    if (!metricCollector.listIdentities().contains(-1)) metricCollector.registerLocalJmx(-1);
+    if (metricCollector == null)
+      metricCollector =
+          MetricCollector.builder()
+              .interval(Duration.ofMillis(1500))
+              .registerLocalJmx(-1)
+              .addMetricSensors(
+                  this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+              .build();
 
-    this.costFunction.metricSensor().ifPresent(metricCollector::addMetricSensor);
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
 

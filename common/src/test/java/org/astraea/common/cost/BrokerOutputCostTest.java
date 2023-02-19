@@ -58,14 +58,17 @@ public class BrokerOutputCostTest {
   @Test
   void testSensor() {
     var interval = Duration.ofMillis(300);
-    try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.addMetricSensor(
-          new BrokerOutputCost().metricSensor().orElseThrow(),
-          (id, err) -> Assertions.fail(err.getMessage()));
-      collector.registerJmx(
-          0,
-          InetSocketAddress.createUnresolved(
-              SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()));
+    try (MetricCollector collector =
+        MetricCollector.builder()
+            .interval(interval)
+            .registerJmx(
+                0,
+                InetSocketAddress.createUnresolved(
+                    SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()))
+            .addMetricSensor(
+                new BrokerOutputCost().metricSensor().orElseThrow(),
+                (id, err) -> Assertions.fail(err.getMessage()))
+            .build()) {
 
       // Test the fetched object's type, and its metric name.
       Assertions.assertTrue(

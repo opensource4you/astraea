@@ -279,7 +279,7 @@ public class StrictCostDispatcherTest {
                           .path("/tmp/aa")
                           .buildLeader()));
 
-          Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertNull(dispatcher.metricCollector);
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
@@ -293,11 +293,13 @@ public class StrictCostDispatcherTest {
                 }
               };
           dispatcher.jmxPortGetter = id -> Optional.of(1111);
+          dispatcher.updatePeriod = Duration.ZERO;
           dispatcher.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertNotNull(dispatcher.metricCollector);
+          Assertions.assertEquals(2, dispatcher.metricCollector.listIdentities().size());
 
           dispatcher.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertEquals(2, dispatcher.metricCollector.listIdentities().size());
         }
       }
     }

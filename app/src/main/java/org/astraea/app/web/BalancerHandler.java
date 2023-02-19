@@ -552,9 +552,12 @@ class BalancerHandler implements Handler {
         Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
       // TODO: use a global metric collector when we are ready to enable long-run metric sampling
       //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-      try (var collector = MetricCollector.builder().interval(sampleInterval).build()) {
-        freshJmxAddresses().forEach(collector::registerJmx);
-        metricSensors.forEach(collector::addMetricSensor);
+      try (var collector =
+          MetricCollector.builder()
+              .registerJmx(freshJmxAddresses())
+              .addMetricSensors(metricSensors)
+              .interval(sampleInterval)
+              .build()) {
         return execution.apply(collector::clusterBean);
       }
     }

@@ -54,11 +54,14 @@ public class MemoryCostTest {
   @Test
   void testSensor() {
     var interval = Duration.ofMillis(300);
-    try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.addMetricSensor(
-          new MemoryCost().metricSensor().orElseThrow(),
-          (id, err) -> Assertions.fail(err.getMessage()));
-      collector.registerLocalJmx(0);
+    try (MetricCollector collector =
+        MetricCollector.builder()
+            .interval(interval)
+            .registerLocalJmx(0)
+            .addMetricSensor(
+                new MemoryCost().metricSensor().orElseThrow(),
+                (id, err) -> Assertions.fail(err.getMessage()))
+            .build()) {
 
       Utils.sleep(interval);
 

@@ -18,6 +18,7 @@ package org.astraea.common.assignor;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,11 +48,9 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
-  protected final MetricCollector metricCollector =
-      MetricCollector.builder()
-          .interval(Duration.ofSeconds(1))
-          .expiration(Duration.ofSeconds(15))
-          .build();
+  private final Map<Integer, String> idHost = new HashMap<>();
+  private Optional<Integer> localId = Optional.empty();
+  protected MetricCollector metricCollector = null;
 
   /**
    * Perform the group assignment given the member subscriptions and current cluster metadata.
@@ -82,7 +81,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
     return nodes.stream()
-        .filter(i -> !metricCollector.listIdentities().contains(i.id()))
+        .filter(
+            i -> (metricCollector == null || !metricCollector.listIdentities().contains(i.id())))
         .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
   }
 
@@ -92,15 +92,41 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * @param unregister Map from each broker id to broker host
    */
   protected void registerJMX(Map<Integer, String> unregister) {
-    unregister.forEach(
-        (id, host) ->
-            metricCollector.registerJmx(
-                id, InetSocketAddress.createUnresolved(host, jmxPortGetter.apply(id).get())));
+    // Recreate metricCollector when new target should be registered.
+    if (unregister.keySet().stream().anyMatch(idHost::containsKey)) {
+      idHost.putAll(unregister);
+      if (metricCollector != null) metricCollector.close();
+      recreateCollector();
+    }
   }
 
   // used for test
-  protected void registerLocalJMX(Map<Integer, String> unregister) {
-    unregister.forEach((id, host) -> metricCollector.registerLocalJmx(id));
+  protected void registerLocalJMX(int id) {
+    // Recreate metricCollector when new target should be registered.
+    if (localId.isEmpty()) {
+      localId = Optional.of(id);
+      if (metricCollector != null) metricCollector.close();
+      recreateCollector();
+    }
+  }
+
+  private void recreateCollector() {
+    metricCollector =
+        MetricCollector.builder()
+            .interval(Duration.ofSeconds(1))
+            .expiration(Duration.ofSeconds(15))
+            .registerJmx(
+                idHost.entrySet().stream()
+                    .map(
+                        idhost ->
+                            Map.entry(
+                                idhost.getKey(),
+                                InetSocketAddress.createUnresolved(
+                                    idhost.getValue(), jmxPortGetter.apply(idhost.getKey()).get())))
+                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
+            .registerLocalJmx(localId.get())
+            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+            .build();
   }
 
   /**
@@ -153,7 +179,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    this.costFunction.metricSensor().ifPresent(metricCollector::addMetricSensor);
     configure(config);
   }
 }

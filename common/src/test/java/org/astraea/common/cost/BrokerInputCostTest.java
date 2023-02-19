@@ -60,14 +60,17 @@ public class BrokerInputCostTest {
   @Test
   void testSensor() {
     var interval = Duration.ofMillis(300);
-    try (var collector = MetricCollector.builder().interval(interval).build()) {
-      collector.addMetricSensor(
-          new BrokerInputCost().metricSensor().orElseThrow(),
-          (id, err) -> Assertions.fail(err.getMessage()));
-      collector.registerJmx(
-          0,
-          InetSocketAddress.createUnresolved(
-              SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()));
+    try (var collector =
+        MetricCollector.builder()
+            .interval(interval)
+            .registerJmx(
+                0,
+                InetSocketAddress.createUnresolved(
+                    SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()))
+            .addMetricSensor(
+                new BrokerInputCost().metricSensor().orElseThrow(),
+                (id, err) -> Assertions.fail(err.getMessage()))
+            .build()) {
       Assertions.assertFalse(collector.listIdentities().isEmpty());
       Assertions.assertFalse(collector.metricSensors().isEmpty());
 

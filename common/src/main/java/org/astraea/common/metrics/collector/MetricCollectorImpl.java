@@ -18,7 +18,9 @@ package org.astraea.common.metrics.collector;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -27,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.Executors;
@@ -44,9 +45,8 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
 public class MetricCollectorImpl implements MetricCollector {
-  private final Map<Integer, MBeanClient> mBeanClients = new ConcurrentHashMap<>();
-  private final CopyOnWriteArrayList<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>>
-      sensors = new CopyOnWriteArrayList<>();
+  private final Map<Integer, MBeanClient> mBeanClients;
+  private final List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors;
   private final ScheduledExecutorService executorService;
   private final DelayQueue<DelayedIdentity> delayedWorks;
 
@@ -54,9 +54,18 @@ public class MetricCollectorImpl implements MetricCollector {
   private final ConcurrentMap<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
   public MetricCollectorImpl(
-      int threadCount, Duration expiration, Duration interval, Duration cleanerInterval) {
+      int threadCount,
+      Duration expiration,
+      Duration interval,
+      Duration cleanerInterval,
+      Map<Integer, MBeanClient> mBeanClients,
+      List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors) {
     this.executorService = Executors.newScheduledThreadPool(threadCount + 1);
     this.delayedWorks = new DelayQueue<>();
+    this.mBeanClients = mBeanClients;
+    this.sensors = sensors;
+    mBeanClients.forEach(
+        (id, ignore) -> this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, id)));
 
     // TODO: restart cleaner if it is dead
     // cleaner
@@ -118,36 +127,6 @@ public class MetricCollectorImpl implements MetricCollector {
   }
 
   @Override
-  public void addMetricSensor(
-      MetricSensor metricSensor, BiConsumer<Integer, Exception> noSuchMetricHandler) {
-    this.sensors.add(Map.entry(metricSensor, noSuchMetricHandler));
-  }
-
-  @Override
-  public void registerJmx(int identity, InetSocketAddress socketAddress) {
-    this.registerJmx(
-        identity,
-        () -> MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort()),
-        () ->
-            "Attempt to register identity "
-                + identity
-                + " with address "
-                + socketAddress
-                + ". But this id is already registered");
-  }
-
-  @Override
-  public void registerLocalJmx(int identity) {
-    this.registerJmx(
-        identity,
-        MBeanClient::local,
-        () ->
-            "Attempt to register identity "
-                + identity
-                + " with the local JMX server. But this id is already registered");
-  }
-
-  @Override
   public Collection<MetricSensor> metricSensors() {
     return sensors.stream().map(Map.Entry::getKey).collect(Collectors.toList());
   }
@@ -168,18 +147,6 @@ public class MetricCollectorImpl implements MetricCollector {
   @Override
   public int size() {
     return beans.values().stream().mapToInt(Collection::size).sum();
-  }
-
-  @SuppressWarnings("resource")
-  private void registerJmx(
-      int identity, Supplier<MBeanClient> clientSupplier, Supplier<String> errorMessage) {
-    mBeanClients.compute(
-        identity,
-        (id, client) -> {
-          if (client != null) throw new IllegalArgumentException(errorMessage.get());
-          else return clientSupplier.get();
-        });
-    this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, identity));
   }
 
   public ClusterBean clusterBean() {
@@ -208,6 +175,11 @@ public class MetricCollectorImpl implements MetricCollector {
     private Duration interval = Duration.ofSeconds(1);
     private Duration cleanerInterval = Duration.ofSeconds(30);
 
+    private final HashMap<Integer, Supplier<MBeanClient>> mBeanClients = new HashMap<>();
+
+    private final List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors =
+        new ArrayList<>();
+
     Builder() {}
 
     public Builder threads(int threads) {
@@ -230,8 +202,120 @@ public class MetricCollectorImpl implements MetricCollector {
       return this;
     }
 
+    /**
+     * Create a Jmx connection with the given `socketAddress` and tag it as a user-defined identity.
+     * Register with the same identity will cause `IllegalArgumentException`.
+     *
+     * @param identity identity of the registered connection
+     * @param socketAddress address of the jmx server to connect
+     * @throws IllegalArgumentException when the given identity has been registered before
+     * @return this builder
+     */
+    public Builder registerJmx(Integer identity, InetSocketAddress socketAddress) {
+      registerJmx(
+          identity,
+          () -> MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort()),
+          () ->
+              "Attempt to register identity "
+                  + identity
+                  + " with address "
+                  + socketAddress
+                  + ". But this id is already registered");
+      return this;
+    }
+
+    /**
+     * Create Jmx connections with all the given address. It is equivalent to subsequent call to
+     * {@link Builder#registerJmx(Integer, InetSocketAddress)}.
+     *
+     * @param idAddress identities and corresponding address to register
+     * @return this builder
+     */
+    public Builder registerJmx(Map<Integer, InetSocketAddress> idAddress) {
+      idAddress.forEach(this::registerJmx);
+      return this;
+    }
+
+    public Builder registerLocalJmx(int identity) {
+      this.registerJmx(
+          identity,
+          MBeanClient::local,
+          () ->
+              "Attempt to register identity "
+                  + identity
+                  + " with the local JMX server. But this id is already registered");
+      return this;
+    }
+
+    private void registerJmx(
+        int identity, Supplier<MBeanClient> clientSupplier, Supplier<String> errorMessage) {
+      mBeanClients.compute(
+          identity,
+          (id, client) -> {
+            if (client != null) throw new IllegalArgumentException(errorMessage.get());
+            else return clientSupplier;
+          });
+    }
+
+    /**
+     * Register a {@link MetricSensor}.
+     *
+     * <p>Note that sensors will be used by every identity. It is possible that the metric this
+     * {@link MetricSensor} is sampling doesn't exist on a JMX server(For example: sampling Kafka
+     * broker metric from a Producer client). When such case occurred. The {@code
+     * noSuchMetricHandler} will be invoked.
+     *
+     * @param metricSensor the sensor
+     * @param noSuchMetricHandler call this if the sensor raise a {@link
+     *     java.util.NoSuchElementException} exception. The first argument is the identity number.
+     *     The second argument is the exception itself.
+     */
+    public Builder addMetricSensor(
+        MetricSensor metricSensor, BiConsumer<Integer, Exception> noSuchMetricHandler) {
+      this.sensors.add(Map.entry(metricSensor, noSuchMetricHandler));
+      return this;
+    }
+
+    /**
+     * Register a {@link MetricSensor}.
+     *
+     * <p>This method swallow the exception caused by {@link java.util.NoSuchElementException}. For
+     * further detail see {@link Builder#addMetricSensor(MetricSensor, BiConsumer)}.
+     *
+     * @see Builder#addMetricSensor(MetricSensor, BiConsumer)
+     * @param metricSensor the sensor
+     */
+    public Builder addMetricSensor(MetricSensor metricSensor) {
+      addMetricSensor(metricSensor, (i0, i1) -> {});
+      return this;
+    }
+
+    /**
+     * Add all entry to collector. Equivalent to subsequence call to {@link
+     * Builder#addMetricSensor(MetricSensor, BiConsumer)}
+     *
+     * @param sensors metric sensor and corresponding {@link NoSuchElementException} handler
+     */
+    public Builder addMetricSensors(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
+      this.sensors.addAll(new ArrayList<>(sensors.entrySet()));
+      return this;
+    }
+
+    public Builder addMetricSensors(Collection<MetricSensor> sensors) {
+      sensors.forEach(this::addMetricSensor);
+      return this;
+    }
+
     public MetricCollector build() {
-      return new MetricCollectorImpl(threadCount, expiration, interval, cleanerInterval);
+      return new MetricCollectorImpl(
+          threadCount,
+          expiration,
+          interval,
+          cleanerInterval,
+          this.mBeanClients.entrySet().stream()
+              .map(e -> Map.entry(e.getKey(), e.getValue().get()))
+              .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)),
+          this.sensors);
     }
   }
 

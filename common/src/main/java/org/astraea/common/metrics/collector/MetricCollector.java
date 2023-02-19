@@ -16,50 +16,13 @@
  */
 package org.astraea.common.metrics.collector;
 
-import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface MetricCollector extends AutoCloseable {
-
-  /**
-   * Register a {@link MetricSensor}.
-   *
-   * <p>Note that sensors will be used by every identity. It is possible that the metric this {@link
-   * MetricSensor} is sampling doesn't exist on a JMX server(For example: sampling Kafka broker
-   * metric from a Producer client). When such case occurred. The {@code noSuchMetricHandler} will
-   * be invoked.
-   *
-   * @param metricSensor the sensor
-   * @param noSuchMetricHandler call this if the sensor raise a {@link
-   *     java.util.NoSuchElementException} exception. The first argument is the identity number. The
-   *     second argument is the exception itself.
-   */
-  void addMetricSensor(
-      MetricSensor metricSensor, BiConsumer<Integer, Exception> noSuchMetricHandler);
-
-  /**
-   * Register a {@link MetricSensor}.
-   *
-   * <p>This method swallow the exception caused by {@link java.util.NoSuchElementException}. For
-   * further detail see {@link MetricCollector#addMetricSensor(MetricSensor, BiConsumer)}.
-   *
-   * @see MetricCollector#addMetricSensor(MetricSensor, BiConsumer)
-   * @param metricSensor the sensor
-   */
-  default void addMetricSensor(MetricSensor metricSensor) {
-    addMetricSensor(metricSensor, (i0, i1) -> {});
-  }
-
-  /** Register a JMX server. */
-  void registerJmx(int identity, InetSocketAddress socketAddress);
-
-  /** Register the JMX server on this JVM instance. */
-  void registerLocalJmx(int identity);
 
   /**
    * @return the current registered sensors.

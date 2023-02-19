@@ -59,9 +59,7 @@ class MetricCollectorTest {
 
   @Test
   void testAddSensor() {
-    try (var collector = MetricCollector.builder().build()) {
-      collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-
+    try (var collector = MetricCollector.builder().addMetricSensor(MEMORY_METRIC_SENSOR).build()) {
       Assertions.assertEquals(1, collector.metricSensors().size());
       Assertions.assertTrue(collector.metricSensors().contains(MEMORY_METRIC_SENSOR));
     }
@@ -69,34 +67,37 @@ class MetricCollectorTest {
 
   @Test
   void registerJmx() {
-    try (var collector = MetricCollector.builder().build()) {
-      var socket =
-          InetSocketAddress.createUnresolved(
-              SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
-      collector.registerJmx(1, socket);
-      collector.registerLocalJmx(-1);
+    var socket =
+        InetSocketAddress.createUnresolved(
+            SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
+    var builder = MetricCollector.builder().registerJmx(1, socket).registerLocalJmx(-1);
 
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> builder.registerJmx(-1, socket),
+        "The id -1 is already registered");
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> builder.registerLocalJmx(-1),
+        "The id -1 is already registered");
+
+    try (var collector = builder.build()) {
       Assertions.assertEquals(2, collector.listIdentities().size());
-      Assertions.assertTrue(collector.listIdentities().contains(1));
       Assertions.assertTrue(collector.listIdentities().contains(-1));
-      Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> collector.registerJmx(-1, socket),
-          "The id -1 is already registered");
-      Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> collector.registerLocalJmx(-1),
-          "The id -1 is already registered");
+      Assertions.assertTrue(collector.listIdentities().contains(1));
     }
   }
 
   @Test
   void testListMetricTypes() {
     var sample = Duration.ofMillis(100);
-    try (var collector = MetricCollector.builder().interval(sample).build()) {
-      collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-      collector.addMetricSensor(OS_METRIC_SENSOR);
-      collector.registerLocalJmx(0);
+    try (var collector =
+        MetricCollector.builder()
+            .registerLocalJmx(0)
+            .addMetricSensor(MEMORY_METRIC_SENSOR)
+            .addMetricSensor(OS_METRIC_SENSOR)
+            .interval(sample)
+            .build()) {
 
       Utils.sleep(sample);
 
@@ -108,12 +109,15 @@ class MetricCollectorTest {
   @Test
   void clusterBean() {
     var sample = Duration.ofMillis(200);
-    try (var collector = MetricCollector.builder().interval(sample).build()) {
-      collector.registerLocalJmx(0);
-      collector.registerLocalJmx(1);
-      collector.registerLocalJmx(2);
-      collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-      collector.addMetricSensor(OS_METRIC_SENSOR);
+    try (var collector =
+        MetricCollector.builder()
+            .registerLocalJmx(0)
+            .registerLocalJmx(1)
+            .registerLocalJmx(2)
+            .addMetricSensor(MEMORY_METRIC_SENSOR)
+            .addMetricSensor(OS_METRIC_SENSOR)
+            .interval(sample)
+            .build()) {
 
       Utils.sleep(sample);
       Utils.sleep(sample);
@@ -139,11 +143,13 @@ class MetricCollectorTest {
   @Test
   void metrics() {
     var sample = Duration.ofSeconds(2);
-    try (var collector = MetricCollector.builder().interval(sample).build()) {
-      collector.addMetricSensor(
-          MEMORY_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()));
-      collector.addMetricSensor(OS_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()));
-      collector.registerLocalJmx(0);
+    try (var collector =
+        MetricCollector.builder()
+            .registerLocalJmx(0)
+            .addMetricSensor(MEMORY_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()))
+            .addMetricSensor(OS_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()))
+            .interval(sample)
+            .build()) {
 
       Utils.sleep(Duration.ofMillis(300));
       var untilNow = System.currentTimeMillis();
@@ -185,13 +191,15 @@ class MetricCollectorTest {
         var socket =
             InetSocketAddress.createUnresolved(
                 SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
-        var collector = MetricCollector.builder().build();
-        collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-        collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-        collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-        collector.registerJmx(0, socket);
-        collector.registerJmx(1, socket);
-        collector.registerJmx(2, socket);
+        var collector =
+            MetricCollector.builder()
+                .registerJmx(0, socket)
+                .registerJmx(1, socket)
+                .registerJmx(2, socket)
+                .addMetricSensor(MEMORY_METRIC_SENSOR)
+                .addMetricSensor(MEMORY_METRIC_SENSOR)
+                .addMetricSensor(MEMORY_METRIC_SENSOR)
+                .build();
 
         // client & service are created
         Assertions.assertEquals(3, clients.size(), "MBeanClient has been mocked");
@@ -219,15 +227,18 @@ class MetricCollectorTest {
                   BeanQuery.builder().domainName("no.such.metric").property("k", "v").build());
           return List.of(() -> beanObject);
         };
-    try (var collector = MetricCollector.builder().interval(Duration.ofMillis(100)).build()) {
-      collector.addMetricSensor(
-          noSuchMetricSensor,
-          (id, ex) -> {
-            Assertions.assertEquals(-1, id);
-            Assertions.assertInstanceOf(NoSuchElementException.class, ex);
-            called.set(true);
-          });
-      collector.registerLocalJmx(-1);
+    try (var collector =
+        MetricCollector.builder()
+            .registerLocalJmx(-1)
+            .addMetricSensor(
+                noSuchMetricSensor,
+                (id, ex) -> {
+                  Assertions.assertEquals(-1, id);
+                  Assertions.assertInstanceOf(NoSuchElementException.class, ex);
+                  called.set(true);
+                })
+            .interval(Duration.ofMillis(100))
+            .build()) {
 
       Utils.sleep(Duration.ofMillis(300));
       Assertions.assertTrue(called.get(), "The error was triggered");
@@ -241,9 +252,9 @@ class MetricCollectorTest {
             .expiration(Duration.ofMillis(2000))
             .cleanerInterval(Duration.ofMillis(50))
             .interval(Duration.ofMillis(100))
+            .registerLocalJmx(0)
+            .addMetricSensor(MEMORY_METRIC_SENSOR)
             .build()) {
-      collector.addMetricSensor(MEMORY_METRIC_SENSOR);
-      collector.registerLocalJmx(0);
 
       Utils.sleep(Duration.ofMillis(1500));
       var beforeCleaning = collector.metrics(JvmMemory.class).collect(Collectors.toList());

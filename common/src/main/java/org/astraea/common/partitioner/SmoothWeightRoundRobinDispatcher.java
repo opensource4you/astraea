@@ -36,7 +36,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private static final String JMX_PORT = "jmx.port";
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
-  private final MetricCollector metricCollector =
+  private MetricCollector metricCollector =
       MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
   private SmoothWeightCal<Integer> smoothWeightCal;
@@ -98,7 +98,6 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
       Map<Integer, Integer> customJmxPort,
       Duration roundRobinLease) {
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
-    this.neutralIntegratedCost.metricSensor().ifPresent(metricCollector::addMetricSensor);
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
     this.smoothWeightCal =
         new SmoothWeightCal<>(
@@ -112,19 +111,27 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   }
 
   private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
-    clusterInfo.availableReplicas(topic).stream()
-        .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
-        .forEach(
-            node -> {
-              if (!metricCollector.listIdentities().contains(node.nodeInfo().id())) {
-                jmxPortGetter
-                    .apply(node.nodeInfo().id())
-                    .ifPresent(
-                        port ->
-                            metricCollector.registerJmx(
-                                node.nodeInfo().id(),
-                                InetSocketAddress.createUnresolved(node.nodeInfo().host(), port)));
-              }
-            });
+    // Check if there are new nodes "not" fetched by metric collector
+    if (clusterInfo.nodes().stream()
+        .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
+      metricCollector.close();
+      // Recreate metric collector with current cluster info
+      metricCollector =
+          MetricCollector.builder()
+              .registerJmx(
+                  clusterInfo.availableReplicas(topic).stream()
+                      .filter(replica -> jmxPortGetter.apply(replica.nodeInfo().id()).isPresent())
+                      .collect(
+                          Collectors.toUnmodifiableMap(
+                              replica -> replica.nodeInfo().id(),
+                              replica ->
+                                  new InetSocketAddress(
+                                      replica.nodeInfo().host(),
+                                      jmxPortGetter.apply(replica.nodeInfo().id()).get()))))
+              .addMetricSensors(
+                  neutralIntegratedCost.metricSensor().stream().collect(Collectors.toSet()))
+              .interval(Duration.ofMillis(1500))
+              .build();
+    }
   }
 }
