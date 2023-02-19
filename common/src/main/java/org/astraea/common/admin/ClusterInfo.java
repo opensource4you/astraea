@@ -34,7 +34,7 @@ import org.astraea.common.Lazy;
 
 public interface ClusterInfo {
   static ClusterInfo empty() {
-    return of("unknown", List.of(), List.of());
+    return of("unknown", List.of(), Map.of(), List.of());
   }
 
   // ---------------------[helpers]---------------------//
@@ -42,12 +42,16 @@ public interface ClusterInfo {
   /** Mask specific topics from a {@link ClusterInfo}. */
   static ClusterInfo masked(ClusterInfo clusterInfo, Predicate<String> topicFilter) {
     final var nodes = List.copyOf(clusterInfo.nodes());
+    final var topics =
+        clusterInfo.topics().entrySet().stream()
+            .filter(e -> topicFilter.test(e.getKey()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     final var replicas =
         clusterInfo
             .replicaStream()
             .filter(replica -> topicFilter.test(replica.topic()))
             .collect(Collectors.toUnmodifiableList());
-    return of(clusterInfo.clusterId(), nodes, replicas);
+    return of(clusterInfo.clusterId(), nodes, topics, replicas);
   }
 
   /**
@@ -79,7 +83,8 @@ public interface ClusterInfo {
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableList());
 
-    return ClusterInfo.of(clusterInfo.clusterId(), clusterInfo.nodes(), newReplicas);
+    return ClusterInfo.of(
+        clusterInfo.clusterId(), clusterInfo.nodes(), clusterInfo.topics(), newReplicas);
   }
 
   /**
@@ -179,12 +184,15 @@ public interface ClusterInfo {
    * replica list might result in data loss or unintended replica drop during rebalance plan
    * proposing & execution.
    *
+   * @param clusterId the id of the Kafka cluster
    * @param nodes the node information of the cluster info
+   * @param topics topics
    * @param replicas used to build cluster info
    * @return cluster info
    */
-  static ClusterInfo of(String clusterId, List<NodeInfo> nodes, List<Replica> replicas) {
-    return new Optimized(clusterId, nodes, replicas);
+  static ClusterInfo of(
+      String clusterId, List<NodeInfo> nodes, Map<String, Topic> topics, List<Replica> replicas) {
+    return new Optimized(clusterId, nodes, topics, replicas);
   }
 
   // ---------------------[for leader]---------------------//
@@ -321,7 +329,7 @@ public interface ClusterInfo {
    *
    * @return return a set of topic names
    */
-  default Set<String> topics() {
+  default Set<String> topicNames() {
     return replicaStream().map(Replica::topic).collect(Collectors.toUnmodifiableSet());
   }
 
@@ -408,11 +416,18 @@ public interface ClusterInfo {
    */
   Stream<Replica> replicaStream();
 
+  /**
+   * @return a map of topic description
+   */
+  Map<String, Topic> topics();
+
   /** It optimizes all queries by pre-allocated Map collection. */
   class Optimized implements ClusterInfo {
     private final String clusterId;
     private final List<NodeInfo> nodeInfos;
     private final List<Replica> all;
+
+    private final Lazy<Map<String, Topic>> topics;
 
     private final Lazy<Map<BrokerTopic, List<Replica>>> byBrokerTopic;
 
@@ -424,10 +439,50 @@ public interface ClusterInfo {
     private final Lazy<Map<TopicPartition, List<Replica>>> byPartition;
     private final Lazy<Map<TopicPartitionReplica, List<Replica>>> byReplica;
 
-    protected Optimized(String clusterId, List<NodeInfo> nodeInfos, List<Replica> replicas) {
+    protected Optimized(
+        String clusterId,
+        List<NodeInfo> nodeInfos,
+        Map<String, Topic> topics,
+        List<Replica> replicas) {
       this.clusterId = clusterId;
       this.nodeInfos = nodeInfos;
       this.all = replicas;
+      this.topics =
+          Lazy.of(
+              () ->
+                  replicas.stream()
+                      .map(Replica::topic)
+                      .distinct()
+                      .map(
+                          topic ->
+                              new Topic() {
+                                @Override
+                                public String name() {
+                                  return topic;
+                                }
+
+                                @Override
+                                public Config config() {
+                                  return Optional.ofNullable(topics.get(name()))
+                                      .map(Topic::config)
+                                      .orElse(Config.EMPTY);
+                                }
+
+                                @Override
+                                public boolean internal() {
+                                  return Optional.ofNullable(topics.get(name()))
+                                      .map(Topic::internal)
+                                      .orElse(false);
+                                }
+
+                                @Override
+                                public Set<TopicPartition> topicPartitions() {
+                                  return Optimized.this.replicas(topic).stream()
+                                      .map(Replica::topicPartition)
+                                      .collect(Collectors.toUnmodifiableSet());
+                                }
+                              })
+                      .collect(Collectors.toUnmodifiableMap(t -> t.name(), t -> t)));
       this.byBrokerTopic =
           Lazy.of(
               () ->
@@ -529,7 +584,7 @@ public interface ClusterInfo {
     }
 
     @Override
-    public Set<String> topics() {
+    public Set<String> topicNames() {
       return byTopic.get().keySet();
     }
 
@@ -541,6 +596,11 @@ public interface ClusterInfo {
     @Override
     public Stream<Replica> replicaStream() {
       return all.stream();
+    }
+
+    @Override
+    public Map<String, Topic> topics() {
+      return topics.get();
     }
 
     @Override

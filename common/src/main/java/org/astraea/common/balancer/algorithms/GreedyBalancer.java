@@ -25,7 +25,9 @@ import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
@@ -102,24 +104,20 @@ public class GreedyBalancer implements Balancer {
   public static final Set<String> ALL_CONFIGS =
       new TreeSet<>(Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")));
 
-  private final AlgorithmConfig config;
   private final int minStep;
   private final int maxStep;
   private final int iteration;
   private final AtomicInteger run = new AtomicInteger();
 
-  public GreedyBalancer(AlgorithmConfig algorithmConfig) {
-    this.config = algorithmConfig;
+  public GreedyBalancer(Configuration config) {
     minStep =
         config
-            .config()
             .string(SHUFFLE_TWEAKER_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
     maxStep =
         config
-            .config()
             .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
@@ -128,7 +126,6 @@ public class GreedyBalancer implements Balancer {
             .orElse(5);
     iteration =
         config
-            .config()
             .string(ITERATION_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
@@ -136,12 +133,15 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(ClusterInfo currentClusterInfo, Duration timeout) {
+  public Plan offer(
+      final ClusterInfo currentClusterInfo,
+      ClusterBean clusterBean,
+      Duration timeout,
+      AlgorithmConfig config) {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
-    final var metrics = config.metricSource().get();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
-    final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, metrics);
+    final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, clusterBean);
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
@@ -158,8 +158,9 @@ public class GreedyBalancer implements Balancer {
                       var newClusterInfo =
                           ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
                       return new Solution(
-                          clusterCostFunction.clusterCost(newClusterInfo, metrics),
-                          moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, metrics),
+                          clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
+                          moveCostFunction.moveCost(
+                              currentClusterInfo, newClusterInfo, clusterBean),
                           newAllocation);
                     })
                 .filter(
@@ -193,6 +194,6 @@ public class GreedyBalancer implements Balancer {
       currentCost = currentSolution.get().proposalClusterCost();
       currentAllocation = currentSolution.get().proposal();
     }
-    return new Plan(initialCost, currentSolution.orElse(null));
+    return new Plan(currentClusterInfo, initialCost, currentSolution.orElse(null));
   }
 }

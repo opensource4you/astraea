@@ -34,7 +34,9 @@ public interface FileSystem extends AutoCloseable {
           "ftp.impl",
           "org.astraea.fs.ftp.FtpFileSystem",
           "local.impl",
-          "org.astraea.fs.local.LocalFileSystem");
+          "org.astraea.fs.local.LocalFileSystem",
+          "hdfs.impl",
+          "org.astraea.fs.hdfs.HdfsFileSystem");
 
   static FileSystem of(String schema, Configuration configuration) {
     var key = schema.toLowerCase() + "." + "impl";

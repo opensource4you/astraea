@@ -18,10 +18,8 @@ package org.astraea.common.metrics.client.consumer;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.metrics.AppInfo;
-import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
@@ -30,43 +28,14 @@ public class ConsumerMetrics {
 
   public static List<AppInfo> appInfo(MBeanClient client) {
     return client
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "app-info")
                 .property("client-id", "*")
                 .build())
         .stream()
-        .map(
-            obj ->
-                new AppInfo() {
-                  @Override
-                  public String id() {
-                    return beanObject().properties().get("client-id");
-                  }
-
-                  @Override
-                  public String commitId() {
-                    return (String) beanObject().attributes().get("commit-id");
-                  }
-
-                  @Override
-                  public Optional<Long> startTimeMs() {
-                    var t = beanObject().attributes().get("start-time-ms");
-                    if (t == null) return Optional.empty();
-                    return Optional.of((long) t);
-                  }
-
-                  @Override
-                  public String version() {
-                    return (String) beanObject().attributes().get("version");
-                  }
-
-                  @Override
-                  public BeanObject beanObject() {
-                    return obj;
-                  }
-                })
+        .map(b -> (AppInfo) () -> b)
         .collect(Collectors.toList());
   }
 
@@ -78,7 +47,7 @@ public class ConsumerMetrics {
    */
   public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-node-metrics")
@@ -92,7 +61,7 @@ public class ConsumerMetrics {
 
   public static Collection<HasConsumerCoordinatorMetrics> coordinators(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-coordinator-metrics")
@@ -105,7 +74,7 @@ public class ConsumerMetrics {
 
   public static Collection<HasConsumerFetchMetrics> fetches(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-fetch-manager-metrics")
@@ -118,7 +87,7 @@ public class ConsumerMetrics {
 
   public static Collection<HasConsumerMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
-        .queryBeans(
+        .beans(
             BeanQuery.builder()
                 .domainName("kafka.consumer")
                 .property("type", "consumer-metrics")

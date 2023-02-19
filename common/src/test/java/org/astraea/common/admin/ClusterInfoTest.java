@@ -17,9 +17,15 @@
 package org.astraea.common.admin;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 public class ClusterInfoTest {
@@ -48,6 +54,7 @@ public class ClusterInfoTest {
             .stream()
             .flatMap(Optional::stream)
             .collect(Collectors.toUnmodifiableList()),
+        Map.of(),
         replicas);
   }
 
@@ -112,5 +119,33 @@ public class ClusterInfoTest {
     var emptyCluster = ClusterInfo.empty();
     Assertions.assertEquals(0, emptyCluster.nodes().size());
     Assertions.assertEquals(0, emptyCluster.replicaStream().count());
+  }
+
+  @RepeatedTest(3)
+  void testTopics() {
+    var nodes =
+        IntStream.range(0, ThreadLocalRandom.current().nextInt(3, 9))
+            .boxed()
+            .collect(Collectors.toUnmodifiableSet());
+    var topics =
+        IntStream.range(0, ThreadLocalRandom.current().nextInt(0, 100))
+            .mapToObj(x -> Utils.randomString())
+            .collect(Collectors.toUnmodifiableSet());
+    var builder =
+        ClusterInfoBuilder.builder()
+            .addNode(nodes)
+            .addFolders(
+                nodes.stream()
+                    .collect(Collectors.toUnmodifiableMap(x -> x, x -> Set.of("/folder"))));
+    topics.forEach(
+        t ->
+            builder.addTopic(
+                t,
+                ThreadLocalRandom.current().nextInt(1, 10),
+                (short) ThreadLocalRandom.current().nextInt(1, nodes.size())));
+
+    var cluster = builder.build();
+    Assertions.assertEquals(topics, cluster.topics().keySet());
+    Assertions.assertEquals(topics, cluster.topicNames());
   }
 }

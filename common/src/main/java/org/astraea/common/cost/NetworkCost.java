@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -24,17 +25,21 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.platform.HostMetrics;
 
 /**
  * This cost function calculate the load balance score in terms of network ingress or network
@@ -136,6 +141,10 @@ public abstract class NetworkCost implements HasClusterCost {
                           }
                         },
                         Collectors.summingDouble(x -> x))));
+    // add the brokers having no replicas into map
+    clusterInfo.nodes().stream()
+        .filter(node -> !brokerRate.containsKey(node))
+        .forEach(node -> brokerRate.put(node, 0.0));
 
     var summary = brokerRate.values().stream().mapToDouble(x -> x).summaryStatistics();
     if (summary.getMax() < 0)
@@ -144,21 +153,28 @@ public abstract class NetworkCost implements HasClusterCost {
     if (summary.getMin() < 0)
       throw new IllegalStateException(
           "Corrupted min rate: " + summary.getMin() + ", brokers: " + brokerRate);
-    if (summary.getMax() == 0) return () -> 0; // edge case to avoid divided by zero error
+    if (summary.getMax() == 0)
+      return ClusterCost.of(
+          0, () -> "network load zero"); // edge case to avoid divided by zero error
     double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
-    return () -> score;
+
+    return new NetworkClusterCost(score, brokerRate);
   }
 
   @Override
-  public Optional<Fetcher> fetcher() {
+  public Optional<MetricSensor> metricSensor() {
     // TODO: We need a reliable way to access the actual current cluster info. To do that we need to
     //  obtain the replica info, so we intentionally sample log size but never use it.
     //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
-    return Fetcher.of(
-        List.of(
-            ServerMetrics.Topic.BYTES_IN_PER_SEC::fetch,
-            ServerMetrics.Topic.BYTES_OUT_PER_SEC::fetch,
-            LogMetrics.Log.SIZE::fetch));
+    return Optional.of(
+        (client, clusterBean) ->
+            Stream.of(
+                    List.of(HostMetrics.jvmMemory(client)),
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
+                    ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
+                    LogMetrics.Log.SIZE.fetch(client))
+                .flatMap(Collection::stream)
+                .collect(Collectors.toUnmodifiableList()));
   }
 
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(ClusterInfo clusterInfo) {
@@ -223,6 +239,9 @@ public abstract class NetworkCost implements HasClusterCost {
     throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), reason);
   }
 
+  @Override
+  public abstract String toString();
+
   enum BandwidthType implements EnumInfo {
     Ingress,
     Egress;
@@ -239,6 +258,28 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return alias();
+    }
+  }
+
+  static class NetworkClusterCost implements ClusterCost {
+    final double score;
+    final Map<NodeInfo, Double> brokerRate;
+
+    NetworkClusterCost(double score, Map<NodeInfo, Double> brokerRate) {
+      this.score = score;
+      this.brokerRate = brokerRate;
+    }
+
+    public double value() {
+      return score;
+    }
+
+    @Override
+    public String toString() {
+      return brokerRate.values().stream()
+          .map(x -> DataRate.Byte.of(x.longValue()).perSecond())
+          .map(DataRate::toString)
+          .collect(Collectors.joining(", ", "{", "}"));
     }
   }
 }

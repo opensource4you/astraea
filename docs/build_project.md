@@ -40,10 +40,11 @@
 
     ./gradlew shadowJar
 
-可在 GUI 模組下找到可執行的 jar 檔案 (`build/libs/astraea-XXX-all.jar`)
+可在 GUI 模組下找到可執行的 jar 檔案 (`./gui/build/libs/astraea-gui-[VERSION]-all.jar`)
 
-    java -jar astraea-gui-XXX-all.jar
+    java -jar astraea-gui-[VERSION]-all.jar
 
+- 請將`[VERSION]`替換為建構完成後所顯示之版本號（例如：_java -jar astraea-gui-0.2.0-all.jar_）
 #### 透過 docker 運行專案測試 ####
 
 運行docker container

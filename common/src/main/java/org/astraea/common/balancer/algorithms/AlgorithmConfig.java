@@ -21,9 +21,7 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -76,11 +74,6 @@ public interface AlgorithmConfig {
    */
   Supplier<ClusterBean> metricSource();
 
-  /**
-   * @return the algorithm implementation specific parameters
-   */
-  Configuration config();
-
   class Builder {
 
     private String executionId = "noname-" + UUID.randomUUID();
@@ -91,7 +84,6 @@ public interface AlgorithmConfig {
     private Predicate<MoveCost> movementConstraint = ignore -> true;
     private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
-    private Configuration config = Configuration.EMPTY;
 
     private Builder(AlgorithmConfig config) {
       if (config != null) {
@@ -102,7 +94,6 @@ public interface AlgorithmConfig {
         this.movementConstraint = config.movementConstraint();
         this.metricSource = config.metricSource();
         this.topicFilter = config.topicFilter();
-        this.config = config.config();
       }
     }
 
@@ -195,15 +186,6 @@ public interface AlgorithmConfig {
       return this;
     }
 
-    /**
-     * @param config for {@link Balancer}
-     * @return this
-     */
-    public Builder config(Configuration config) {
-      this.config = config;
-      return this;
-    }
-
     public AlgorithmConfig build() {
       Objects.requireNonNull(clusterCostFunction);
 
@@ -241,11 +223,6 @@ public interface AlgorithmConfig {
         @Override
         public Supplier<ClusterBean> metricSource() {
           return metricSource;
-        }
-
-        @Override
-        public Configuration config() {
-          return config;
         }
       };
     }

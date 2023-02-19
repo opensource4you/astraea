@@ -60,7 +60,7 @@ public final class LogMetrics {
 
     public List<Gauge> fetch(MBeanClient mBeanClient) {
       return mBeanClient
-          .queryBeans(
+          .beans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "LogCleanerManager")
@@ -141,7 +141,7 @@ public final class LogMetrics {
 
     public List<Gauge> fetch(MBeanClient mBeanClient) {
       return mBeanClient
-          .queryBeans(
+          .beans(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", LOG_TYPE)

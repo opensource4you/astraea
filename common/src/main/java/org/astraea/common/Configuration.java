@@ -103,6 +103,20 @@ public interface Configuration {
   }
 
   /**
+   * @param prefix the string to be filtered and removed
+   * @return new Configuration only contains which the key value starts with the prefix, and the
+   *     prefix string and the following dot will be removed from the key
+   */
+  default Configuration filteredPrefixConfigs(String prefix) {
+    return of(
+        entrySet().stream()
+            .filter(k -> k.getKey().startsWith(prefix))
+            .collect(
+                Collectors.toMap(
+                    i -> i.getKey().replaceFirst(prefix + '.', ""), Map.Entry::getValue)));
+  }
+
+  /**
    * @param key the key whose associated value is to be returned
    * @param separator to split string to multiple strings
    * @return string list. never null

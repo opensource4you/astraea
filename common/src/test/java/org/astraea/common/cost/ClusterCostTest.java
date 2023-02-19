@@ -40,26 +40,30 @@ class ClusterCostTest {
 
   @Test
   void testMerge() {
-    HasClusterCost cost0 = (c, b) -> () -> 0.2;
-    HasClusterCost cost1 = (c, b) -> () -> 0.5;
-    HasClusterCost cost2 = (c, b) -> () -> 0.8;
+    HasClusterCost cost0 = (c, b) -> ClusterCost.of(0.2, () -> "description0");
+    HasClusterCost cost1 = (c, b) -> ClusterCost.of(0.5, () -> "description1");
+    HasClusterCost cost2 = (c, b) -> ClusterCost.of(0.8, () -> "description2");
     var merged = HasClusterCost.of(Map.of(cost0, 1D, cost1, 2D, cost2, 2D));
-    var result = merged.clusterCost(null, null).value();
-    Assertions.assertEquals(2.8, Math.round(result * 100.0) / 100.0);
+    var clusterCost = merged.clusterCost(null, null);
+    var result = clusterCost.value();
+    Assertions.assertEquals(0.56, Math.round(result * 100.0) / 100.0);
+    Assertions.assertTrue(clusterCost.toString().contains("description0"));
+    Assertions.assertTrue(clusterCost.toString().contains("description1"));
+    Assertions.assertTrue(clusterCost.toString().contains("description2"));
   }
 
   @Test
-  void testFetcher() {
+  void testSensor() {
     // create topic partition to get metrics
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      admin.creator().topic("testFetcher").numberOfPartitions(2).run().toCompletableFuture().join();
+      admin.creator().topic("testSensor").numberOfPartitions(2).run().toCompletableFuture().join();
     }
     var cost1 = new RecordSizeCost();
     var cost2 = new ReplicaLeaderCost();
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =
-        mergeCost.fetcher().stream()
-            .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL())))
+        mergeCost.metricSensor().stream()
+            .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
             .collect(Collectors.toSet());
     Assertions.assertTrue(
         metrics.iterator().next().stream()

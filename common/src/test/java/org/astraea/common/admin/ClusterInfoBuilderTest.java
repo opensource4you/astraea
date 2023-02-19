@@ -43,7 +43,8 @@ class ClusterInfoBuilderTest {
             .isPreferredLeader(true)
             .isLeader(true)
             .build();
-    var cluster = ClusterInfo.of("fake", List.of(host1000, host2000, host3000), List.of(replica));
+    var cluster =
+        ClusterInfo.of("fake", List.of(host1000, host2000, host3000), Map.of(), List.of(replica));
 
     Assertions.assertEquals(
         List.of(host1000, host2000, host3000), ClusterInfoBuilder.builder(cluster).build().nodes());

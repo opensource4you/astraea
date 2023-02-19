@@ -103,7 +103,7 @@ class MBeanClientTest {
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
 
       // act
-      BeanObject beanObject = client.queryBean(beanQuery);
+      BeanObject beanObject = client.bean(beanQuery);
 
       // assert
       assertTrue(beanObject.properties().containsKey("type"));
@@ -129,8 +129,8 @@ class MBeanClientTest {
               .build();
 
       // act
-      BeanObject beanObject1 = client.queryBean(query1);
-      BeanObject beanObject2 = client.queryBean(query2);
+      BeanObject beanObject1 = client.bean(query1);
+      BeanObject beanObject2 = client.bean(query2);
 
       // assert
       assertTrue(beanObject1.properties().containsKey("type"));
@@ -152,7 +152,7 @@ class MBeanClientTest {
   @Test
   void testFetchSelectedAttributes() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
       List<String> selectedAttribute = List.of("HeapMemoryUsage");
@@ -175,7 +175,7 @@ class MBeanClientTest {
           BeanQuery.builder().domainName("java.lang").property("type", "C*").build();
 
       // act 1
-      Collection<BeanObject> beanObjects = client.queryBeans(beanQuery);
+      Collection<BeanObject> beanObjects = client.beans(beanQuery);
 
       // assert 1
       assertEquals(2, beanObjects.size());
@@ -213,7 +213,7 @@ class MBeanClientTest {
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
       // act
-      Collection<BeanObject> beanObjects = client.queryBeans(beanQuery);
+      Collection<BeanObject> beanObjects = client.beans(beanQuery);
 
       // assert
       assertEquals(0, beanObjects.size());
@@ -223,12 +223,12 @@ class MBeanClientTest {
   @Test
   void testFetchNonExistsBeans() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
       // act assert
-      assertThrows(NoSuchElementException.class, () -> client.queryBean(beanQuery));
+      assertThrows(NoSuchElementException.class, () -> client.bean(beanQuery));
       assertThrows(
           NoSuchElementException.class, () -> client.queryBean(beanQuery, Collections.emptyList()));
     }
@@ -256,7 +256,7 @@ class MBeanClientTest {
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
-      Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all());
+      Collection<BeanObject> beanObjects = client.beans(BeanQuery.all());
 
       // assert
       assertTrue(beanObjects.stream().anyMatch(x -> x.domainName().equals("java.lang")));
@@ -270,7 +270,7 @@ class MBeanClientTest {
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
-      Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.lang"));
+      Collection<BeanObject> beanObjects = client.beans(BeanQuery.all("java.lang"));
 
       // assert
       assertTrue(beanObjects.size() > 1);
@@ -284,7 +284,7 @@ class MBeanClientTest {
     try (var client = MBeanClient.of(jmxServer.getAddress())) {
 
       // act
-      Collection<BeanObject> beanObjects = client.queryBeans(BeanQuery.all("java.*"));
+      Collection<BeanObject> beanObjects = client.beans(BeanQuery.all("java.*"));
 
       // assert
       assertTrue(beanObjects.size() > 1);
@@ -313,7 +313,7 @@ class MBeanClientTest {
               .build();
 
       // act
-      Collection<BeanObject> beanObjects = client.queryBeans(patternQuery);
+      Collection<BeanObject> beanObjects = client.beans(patternQuery);
 
       // assert
       /*
@@ -357,10 +357,10 @@ class MBeanClientTest {
   @Test
   void testListDomains() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
 
       // act
-      List<String> domains = client.listDomains();
+      List<String> domains = client.domains();
 
       // assert
       assertTrue(domains.contains("java.lang"));
@@ -371,10 +371,9 @@ class MBeanClientTest {
   @Test
   void testHostAndPort() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
-
-      assertEquals(jmxServer.getAddress().getHost(), client.host());
-      assertEquals(jmxServer.getAddress().getPort(), client.port());
+    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+      assertEquals(jmxServer.getAddress().getHost(), client.host);
+      assertEquals(jmxServer.getAddress().getPort(), client.port);
     }
   }
 
@@ -392,7 +391,7 @@ class MBeanClientTest {
 
       // act
       Collection<BeanObject> all =
-          client.queryBeans(
+          client.beans(
               BeanQuery.builder().domainName("com.example").property("type", "test*").build());
 
       // assert
@@ -419,7 +418,7 @@ class MBeanClientTest {
 
       // act
       Collection<BeanObject> all =
-          client.queryBeans(
+          client.beans(
               BeanQuery.builder().domainName("com.example").property("type", "test*").build());
 
       // assert
@@ -454,6 +453,6 @@ class MBeanClientTest {
   @Test
   void testLocal() {
     var client = MBeanClient.local();
-    Assertions.assertNotEquals(0, client.queryBeans(BeanQuery.all()).size());
+    Assertions.assertNotEquals(0, client.beans(BeanQuery.all()).size());
   }
 }

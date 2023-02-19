@@ -30,7 +30,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
@@ -49,7 +49,12 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerScore.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerScore.values().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   private static Map<Integer, Integer> leaderCount(
@@ -83,8 +88,9 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(c -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(c)));
+  public Optional<MetricSensor> metricSensor() {
+    return Optional.of(
+        (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
   }
 
   @Override
@@ -122,5 +128,10 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                                   .count();
                       return newLeaders - removedLeaders;
                     })));
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 }

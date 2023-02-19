@@ -70,16 +70,16 @@ public class ClusterInfoIntegratedTest {
 
       // search by topic
       clusterInfo
-          .topics()
+          .topicNames()
           .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicas(t).size()));
       clusterInfo
-          .topics()
+          .topicNames()
           .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.availableReplicas(t).size()));
       clusterInfo
-          .topics()
+          .topicNames()
           .forEach(t -> Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(t).size()));
       clusterInfo
-          .topics()
+          .topicNames()
           .forEach(
               t ->
                   Assertions.assertNotEquals(

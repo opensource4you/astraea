@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.platform.HasJvmMemory;
 import org.astraea.common.metrics.platform.HostMetrics;
 
@@ -56,7 +56,12 @@ public class MemoryCost implements HasBrokerCost {
   }
 
   @Override
-  public Optional<Fetcher> fetcher() {
-    return Optional.of(client -> List.of(HostMetrics.jvmMemory(client)));
+  public Optional<MetricSensor> metricSensor() {
+    return Optional.of((client, ignored) -> List.of(HostMetrics.jvmMemory(client)));
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 }

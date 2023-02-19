@@ -25,7 +25,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.collector.Fetcher;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -40,7 +40,7 @@ public class ReplicaLeaderSizeCost
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
   @Override
-  public Optional<Fetcher> fetcher() {
+  public Optional<MetricSensor> metricSensor() {
     return Optional.empty();
   }
 
@@ -85,7 +85,12 @@ public class ReplicaLeaderSizeCost
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerCost = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerCost.values());
-    return () -> value;
+    return ClusterCost.of(
+        value,
+        () ->
+            brokerCost.values().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ", "{", "}")));
   }
 
   @Override
@@ -102,5 +107,10 @@ public class ReplicaLeaderSizeCost
                                 .map(Replica::size)
                                 .orElseThrow()));
     return () -> result;
+  }
+
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName();
   }
 }

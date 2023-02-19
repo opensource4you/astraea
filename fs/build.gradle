@@ -35,6 +35,11 @@ dependencies {
         exclude group: "org.slf4j"
     }
     implementation libs["commons-net"]
+    implementation(libs["hadoop-common"]) {
+        // Kafka connector uses org.glassfish.jersey(2.34) which is conflict with com.sun.jersey(1.19).
+        // Hence, the later must be excluded from hadoop dependencies to make embedded Kafka worker work
+        exclude group: "com.sun.jersey"
+    }
 }
 
 java {
