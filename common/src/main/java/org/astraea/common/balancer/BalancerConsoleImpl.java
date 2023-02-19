@@ -34,6 +34,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -41,6 +42,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
+import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -88,7 +90,6 @@ public class BalancerConsoleImpl implements BalancerConsole {
       private String taskId;
       private Balancer balancer;
       private AlgorithmConfig algorithmConfig;
-      private Duration timeout = Duration.ofSeconds(1);
       private boolean checkNoOngoingMigration = true;
 
       @Override
@@ -100,12 +101,6 @@ public class BalancerConsoleImpl implements BalancerConsole {
       @Override
       public Generation setBalancer(Balancer balancer) {
         this.balancer = balancer;
-        return this;
-      }
-
-      @Override
-      public Generation setGenerationTimeout(Duration timeout) {
-        this.timeout = timeout;
         return this;
       }
 
@@ -128,7 +123,6 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
           var taskId = Objects.requireNonNull(this.taskId);
           var balancer = Objects.requireNonNull(this.balancer);
-          var timeout = Objects.requireNonNull(this.timeout);
           var config = Objects.requireNonNull(this.algorithmConfig);
           var sensors =
               Stream.concat(
@@ -149,15 +143,13 @@ public class BalancerConsoleImpl implements BalancerConsole {
                         cluster ->
                             metricContext(
                                 sensors,
-                                (clusterBeanSupplier -> {
-                                  // TODO: embedded the retry offer logic into BalancerConsoleImpl
-                                  return balancer.retryOffer(
-                                      cluster,
-                                      timeout,
-                                      AlgorithmConfig.builder(config)
-                                          .metricSource(clusterBeanSupplier)
-                                          .build());
-                                })))
+                                (clusterBeanSupplier ->
+                                    retryOffer(
+                                        balancer,
+                                        clusterBeanSupplier,
+                                        AlgorithmConfig.builder(config)
+                                            .clusterInfo(cluster)
+                                            .build()))))
                     .thenApply(
                         plan -> {
                           if (plan.solution().isPresent()) return plan;
@@ -347,6 +339,38 @@ public class BalancerConsoleImpl implements BalancerConsole {
                         + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
                         + mismatchPartitions);
             });
+  }
+
+  static Balancer.Plan retryOffer(
+      Balancer balancer, Supplier<ClusterBean> clusterBeanSupplier, AlgorithmConfig config) {
+    final var timeoutMs = System.currentTimeMillis() + config.timeout().toMillis();
+    while (System.currentTimeMillis() < timeoutMs) {
+      try {
+        return balancer.offer(
+            AlgorithmConfig.builder(config)
+                .clusterBean(clusterBeanSupplier.get())
+                .timeout(Duration.ofMillis(timeoutMs - System.currentTimeMillis()))
+                .build());
+      } catch (NoSufficientMetricsException e) {
+        e.printStackTrace();
+        var remainTimeout = timeoutMs - System.currentTimeMillis();
+        var waitMs = e.suggestedWait().toMillis();
+        if (remainTimeout > waitMs) {
+          Utils.sleep(Duration.ofMillis(waitMs));
+        } else {
+          // This suggested wait time will definitely time out after we woke up
+          throw new RuntimeException(
+              "Execution time will exceeded, "
+                  + "remain: "
+                  + remainTimeout
+                  + "ms, suggestedWait: "
+                  + waitMs
+                  + "ms.",
+              e);
+        }
+      }
+    }
+    throw new RuntimeException("Execution time exceeded: " + timeoutMs);
   }
 
   private Balancer.Plan metricContext(

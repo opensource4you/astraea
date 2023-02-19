@@ -39,11 +39,17 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 class BalancerConsoleTest {
@@ -76,9 +82,11 @@ class BalancerConsoleTest {
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
               .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                  AlgorithmConfig.builder()
+                      .timeout(Duration.ofSeconds(1))
+                      .clusterCost(new DecreasingCost())
+                      .build())
               .generate();
       Assertions.assertEquals(
           BalancerConsole.TaskPhase.Searching, console.taskPhase("THE_TASK").orElseThrow());
@@ -133,25 +141,34 @@ class BalancerConsoleTest {
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_1")
           .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-          .setGenerationTimeout(Duration.ofMillis(100))
           .checkNoOngoingMigration(false)
-          .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+          .setAlgorithmConfig(
+              AlgorithmConfig.builder()
+                  .timeout(Duration.ofMillis(100))
+                  .clusterCost(new DecreasingCost())
+                  .build())
           .generate();
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_2")
           .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-          .setGenerationTimeout(Duration.ofMillis(100))
           .checkNoOngoingMigration(false)
-          .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+          .setAlgorithmConfig(
+              AlgorithmConfig.builder()
+                  .timeout(Duration.ofMillis(100))
+                  .clusterCost(new DecreasingCost())
+                  .build())
           .generate();
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_3")
           .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-          .setGenerationTimeout(Duration.ofMillis(100))
           .checkNoOngoingMigration(false)
-          .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+          .setAlgorithmConfig(
+              AlgorithmConfig.builder()
+                  .timeout(Duration.ofMillis(100))
+                  .clusterCost(new DecreasingCost())
+                  .build())
           .generate();
       Assertions.assertEquals(Set.of("TASK_1", "TASK_2", "TASK_3"), console.tasks());
     }
@@ -192,18 +209,22 @@ class BalancerConsoleTest {
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK_0")
               .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                  AlgorithmConfig.builder()
+                      .timeout(Duration.ofSeconds(1))
+                      .clusterCost(new DecreasingCost())
+                      .build())
               .generate();
       var gen1 =
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK_1")
               .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                  AlgorithmConfig.builder()
+                      .timeout(Duration.ofSeconds(1))
+                      .clusterCost(new DecreasingCost())
+                      .build())
               .generate();
       gen0.toCompletableFuture().join();
       gen1.toCompletableFuture().join();
@@ -263,8 +284,10 @@ class BalancerConsoleTest {
                   .setTaskId(Utils.randomString())
                   .setBalancer(new GreedyBalancer(Configuration.EMPTY))
                   .setAlgorithmConfig(
-                      AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
-                  .setGenerationTimeout(Duration.ofMillis(100))
+                      AlgorithmConfig.builder()
+                          .timeout(Duration.ofMillis(100))
+                          .clusterCost(new DecreasingCost())
+                          .build())
                   .checkNoOngoingMigration(true)
                   .generate(),
           "No change occurred");
@@ -297,8 +320,10 @@ class BalancerConsoleTest {
                             .setTaskId(Utils.randomString())
                             .setBalancer(new GreedyBalancer(Configuration.EMPTY))
                             .setAlgorithmConfig(
-                                AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
-                            .setGenerationTimeout(Duration.ofMillis(100))
+                                AlgorithmConfig.builder()
+                                    .timeout(Duration.ofMillis(100))
+                                    .clusterCost(new DecreasingCost())
+                                    .build())
                             .checkNoOngoingMigration(true)
                             .generate()
                             .toCompletableFuture()
@@ -311,8 +336,10 @@ class BalancerConsoleTest {
                             .setTaskId(Utils.randomString())
                             .setBalancer(new GreedyBalancer(Configuration.EMPTY))
                             .setAlgorithmConfig(
-                                AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
-                            .setGenerationTimeout(Duration.ofMillis(100))
+                                AlgorithmConfig.builder()
+                                    .timeout(Duration.ofMillis(100))
+                                    .clusterCost(new DecreasingCost())
+                                    .build())
                             .checkNoOngoingMigration(false)
                             .generate(),
                     "Some Adding/Removing/Future replica here, but no check performed");
@@ -341,9 +368,11 @@ class BalancerConsoleTest {
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
               .setBalancer(new GreedyBalancer(Configuration.EMPTY))
-              .setGenerationTimeout(Duration.ofSeconds(1))
               .setAlgorithmConfig(
-                  AlgorithmConfig.builder().clusterCost(new DecreasingCost()).build())
+                  AlgorithmConfig.builder()
+                      .timeout(Duration.ofSeconds(1))
+                      .clusterCost(new DecreasingCost())
+                      .build())
               .generate();
 
       var execution =
@@ -371,6 +400,72 @@ class BalancerConsoleTest {
       Assertions.assertEquals(
           BalancerConsole.TaskPhase.Executed, console.taskPhase("THE_TASK").orElseThrow());
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1000, 2000, 3000})
+  @Timeout(10)
+  void testRetryOffer(int sampleTimeMs) {
+    var startMs = System.currentTimeMillis();
+    var costFunction = new org.astraea.common.cost.DecreasingCost(Configuration.EMPTY);
+    var fake = FakeClusterInfo.of(3, 3, 3, 3);
+    var balancer =
+        new Balancer() {
+          @Override
+          public Plan offer(AlgorithmConfig config) {
+            if (System.currentTimeMillis() - startMs < sampleTimeMs)
+              throw new NoSufficientMetricsException(
+                  costFunction,
+                  Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
+            return new Plan(
+                config.clusterInfo(),
+                () -> 0,
+                new Solution(() -> 0, MoveCost.EMPTY, config.clusterInfo()));
+          }
+        };
+
+    Assertions.assertDoesNotThrow(
+        () ->
+            BalancerConsoleImpl.retryOffer(
+                balancer,
+                () -> ClusterBean.EMPTY,
+                AlgorithmConfig.builder()
+                    .clusterInfo(fake)
+                    .timeout(Duration.ofSeconds(10))
+                    .clusterCost(costFunction)
+                    .clusterBean(ClusterBean.EMPTY)
+                    .build()));
+    var endMs = System.currentTimeMillis();
+
+    Assertions.assertTrue(
+        sampleTimeMs < (endMs - startMs) && (endMs - startMs) < sampleTimeMs + 1000,
+        "Finished on time");
+  }
+
+  @Test
+  @Timeout(1)
+  void testRetryOfferTimeout() {
+    var timeout = Duration.ofMillis(100);
+    var costFunction = new org.astraea.common.cost.DecreasingCost(null);
+    var fake = FakeClusterInfo.of(3, 3, 3, 3);
+    var balancer =
+        new Balancer() {
+          @Override
+          public Plan offer(AlgorithmConfig config) {
+            throw new NoSufficientMetricsException(
+                costFunction, Duration.ofSeconds(999), "This will takes forever");
+          }
+        };
+
+    // start
+    Assertions.assertThrows(
+            RuntimeException.class,
+            () ->
+                BalancerConsoleImpl.retryOffer(
+                    balancer,
+                    () -> ClusterBean.EMPTY,
+                    AlgorithmConfig.builder().clusterInfo(fake).timeout(timeout).build()))
+        .printStackTrace();
   }
 
   public static class DecreasingCost implements HasClusterCost {

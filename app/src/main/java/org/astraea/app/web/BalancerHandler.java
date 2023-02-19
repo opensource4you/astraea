@@ -125,7 +125,6 @@ class BalancerHandler implements Handler {
               .setTaskId(taskId)
               .setBalancer(balancer)
               .setAlgorithmConfig(request.algorithmConfig)
-              .setGenerationTimeout(request.executionTime)
               .checkNoOngoingMigration(true)
               .generate();
       task.whenComplete(
@@ -236,7 +235,7 @@ class BalancerHandler implements Handler {
     return new PlanExecutionProgress(
         taskId,
         phase,
-        taskMetadata.get(taskId).executionTime,
+        taskMetadata.get(taskId).algorithmConfig.timeout(),
         taskMetadata.get(taskId).balancerClasspath,
         taskMetadata.get(taskId).algorithmConfig.clusterCostFunction().toString(),
         exception.apply(phase),
@@ -286,10 +285,10 @@ class BalancerHandler implements Handler {
     return new PostRequestWrapper(
         balancerPostRequest.balancer,
         Configuration.of(balancerPostRequest.balancerConfig),
-        balancerPostRequest.timeout,
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .timeout(balancerPostRequest.timeout)
             .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
             .build(),
@@ -357,19 +356,16 @@ class BalancerHandler implements Handler {
   static class PostRequestWrapper {
     final String balancerClasspath;
     final Configuration balancerConfig;
-    final Duration executionTime;
     final AlgorithmConfig algorithmConfig;
     final ClusterInfo clusterInfo;
 
     PostRequestWrapper(
         String balancerClasspath,
         Configuration balancerConfig,
-        Duration executionTime,
         AlgorithmConfig algorithmConfig,
         ClusterInfo clusterInfo) {
       this.balancerClasspath = balancerClasspath;
       this.balancerConfig = balancerConfig;
-      this.executionTime = executionTime;
       this.algorithmConfig = algorithmConfig;
       this.clusterInfo = clusterInfo;
     }

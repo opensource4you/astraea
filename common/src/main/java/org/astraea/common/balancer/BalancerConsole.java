@@ -50,8 +50,6 @@ public interface BalancerConsole extends AutoCloseable {
 
     Generation setBalancer(Balancer balancer);
 
-    Generation setGenerationTimeout(Duration timeout);
-
     Generation setAlgorithmConfig(AlgorithmConfig config);
 
     Generation checkNoOngoingMigration(boolean enable);

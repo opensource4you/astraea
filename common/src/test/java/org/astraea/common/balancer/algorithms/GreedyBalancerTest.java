@@ -65,10 +65,13 @@ class GreedyBalancerTest {
               run -> {
                 var plan =
                     balancer.offer(
-                        clusterInfo,
-                        ClusterBean.EMPTY,
-                        Duration.ofMillis(300),
-                        AlgorithmConfig.builder().executionId(id).clusterCost(cost).build());
+                        AlgorithmConfig.builder()
+                            .clusterInfo(clusterInfo)
+                            .clusterBean(ClusterBean.EMPTY)
+                            .timeout(Duration.ofMillis(300))
+                            .executionId(id)
+                            .clusterCost(cost)
+                            .build());
                 Assertions.assertTrue(plan.solution().isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(

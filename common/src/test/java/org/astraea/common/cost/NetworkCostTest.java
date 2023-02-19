@@ -172,10 +172,12 @@ class NetworkCostTest {
     var newPlan =
         Balancer.Official.Greedy.create(Configuration.EMPTY)
             .offer(
-                testcase.clusterInfo(),
-                testcase.clusterBean(),
-                Duration.ofSeconds(1),
-                AlgorithmConfig.builder().clusterCost(costFunction).build());
+                AlgorithmConfig.builder()
+                    .clusterInfo(testcase.clusterInfo())
+                    .clusterBean(testcase.clusterBean())
+                    .timeout(Duration.ofSeconds(1))
+                    .clusterCost(costFunction)
+                    .build());
 
     Assertions.assertTrue(newPlan.solution().isPresent());
     System.out.println("Initial cost: " + newPlan.initialClusterCost().value());

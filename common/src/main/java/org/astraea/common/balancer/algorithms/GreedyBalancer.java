@@ -16,7 +16,6 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -27,7 +26,6 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
@@ -133,11 +131,9 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(
-      final ClusterInfo currentClusterInfo,
-      ClusterBean clusterBean,
-      Duration timeout,
-      AlgorithmConfig config) {
+  public Plan offer(AlgorithmConfig config) {
+    final var currentClusterInfo = config.clusterInfo();
+    final var clusterBean = config.clusterBean();
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
@@ -145,7 +141,7 @@ public class GreedyBalancer implements Balancer {
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
-    final var executionTime = timeout.toMillis();
+    final var executionTime = config.timeout().toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
     BiFunction<ClusterInfo, ClusterCost, Optional<Solution>> next =

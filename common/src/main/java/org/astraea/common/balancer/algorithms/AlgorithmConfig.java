@@ -16,12 +16,13 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -70,9 +71,19 @@ public interface AlgorithmConfig {
   Predicate<String> topicFilter();
 
   /**
-   * @return a {@link Supplier} which offer the fresh metrics of the target cluster
+   * @return the initial cluster state of this optimization problem
    */
-  Supplier<ClusterBean> metricSource();
+  ClusterInfo clusterInfo();
+
+  /**
+   * @return the metrics of the associated cluster and optimization problem
+   */
+  ClusterBean clusterBean();
+
+  /**
+   * @return the execution limit of this optimization problem
+   */
+  Duration timeout();
 
   class Builder {
 
@@ -82,8 +93,11 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<MoveCost> movementConstraint = ignore -> true;
-    private Supplier<ClusterBean> metricSource = () -> ClusterBean.EMPTY;
     private Predicate<String> topicFilter = ignore -> true;
+
+    private ClusterInfo clusterInfo;
+    private ClusterBean clusterBean = ClusterBean.EMPTY;
+    private Duration timeout = Duration.ofSeconds(3);
 
     private Builder(AlgorithmConfig config) {
       if (config != null) {
@@ -92,8 +106,10 @@ public interface AlgorithmConfig {
         this.moveCostFunction = config.moveCostFunction();
         this.clusterConstraint = config.clusterConstraint();
         this.movementConstraint = config.movementConstraint();
-        this.metricSource = config.metricSource();
         this.topicFilter = config.topicFilter();
+        this.clusterInfo = config.clusterInfo();
+        this.clusterBean = config.clusterBean();
+        this.timeout = config.timeout();
       }
     }
 
@@ -160,21 +176,6 @@ public interface AlgorithmConfig {
     }
 
     /**
-     * Specify the source of bean metrics. The default supplier return {@link ClusterBean#EMPTY}
-     * only, which means any cost function that interacts with metrics won't work. To use a cost
-     * function with metrics requirement, one must specify the concrete bean metric source by
-     * invoking this method.
-     *
-     * @param metricSource a {@link Supplier} offers the newest {@link ClusterBean} of target
-     *     cluster
-     * @return this
-     */
-    public Builder metricSource(Supplier<ClusterBean> metricSource) {
-      this.metricSource = metricSource;
-      return this;
-    }
-
-    /**
      * Specify the topics that are eligible for rebalance.
      *
      * @param topicFilter the {@link Predicate} what can indicate which topic is eligible for
@@ -186,8 +187,37 @@ public interface AlgorithmConfig {
       return this;
     }
 
+    /**
+     * Specify the initial cluster state of this optimization problem
+     *
+     * @return this
+     */
+    public Builder clusterInfo(ClusterInfo clusterInfo) {
+      this.clusterInfo = clusterInfo;
+      return this;
+    }
+
+    /**
+     * Specify the metrics of the associated Kafka cluster in this optimization problem
+     *
+     * @return this
+     */
+    public Builder clusterBean(ClusterBean clusterBean) {
+      this.clusterBean = clusterBean;
+      return this;
+    }
+
+    /**
+     * Specify the execution timeout of this optimization problem
+     *
+     * @return this
+     */
+    public Builder timeout(Duration timeout) {
+      this.timeout = timeout;
+      return this;
+    }
+
     public AlgorithmConfig build() {
-      Objects.requireNonNull(clusterCostFunction);
 
       return new AlgorithmConfig() {
         @Override
@@ -221,8 +251,18 @@ public interface AlgorithmConfig {
         }
 
         @Override
-        public Supplier<ClusterBean> metricSource() {
-          return metricSource;
+        public ClusterInfo clusterInfo() {
+          return clusterInfo;
+        }
+
+        @Override
+        public ClusterBean clusterBean() {
+          return clusterBean;
+        }
+
+        @Override
+        public Duration timeout() {
+          return timeout;
         }
       };
     }

@@ -205,10 +205,10 @@ class BalancerNode {
                               GreedyBalancer.class,
                               Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                           .offer(
-                              clusterInfo,
-                              ClusterBean.EMPTY,
-                              Duration.ofSeconds(10),
                               AlgorithmConfig.builder()
+                                  .clusterInfo(clusterInfo)
+                                  .clusterBean(ClusterBean.EMPTY)
+                                  .timeout(Duration.ofSeconds(10))
                                   .clusterCost(
                                       HasClusterCost.of(clusterCosts(argument.selectedKeys())))
                                   .moveCost(

@@ -264,13 +264,14 @@ public class BalancerHandlerTest {
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
@@ -285,13 +286,14 @@ public class BalancerHandlerTest {
           () ->
               Utils.construct(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
                   .offer(
-                      admin
-                          .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                          .toCompletableFuture()
-                          .join(),
-                      ClusterBean.EMPTY,
-                      Duration.ofSeconds(3),
                       AlgorithmConfig.builder()
+                          .clusterInfo(
+                              admin
+                                  .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                                  .toCompletableFuture()
+                                  .join())
+                          .clusterBean(ClusterBean.EMPTY)
+                          .timeout(Duration.ofSeconds(3))
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
                           .moveCost(moveCostFunction)
@@ -303,13 +305,14 @@ public class BalancerHandlerTest {
           Optional.empty(),
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
@@ -322,13 +325,14 @@ public class BalancerHandlerTest {
           Optional.empty(),
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
                       .moveCost(moveCostFunction)
@@ -952,7 +956,7 @@ public class BalancerHandlerTest {
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
-        Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
+        Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.algorithmConfig.timeout().toSeconds());
         Assertions.assertTrue(
             clusterInfo.topicNames().stream().allMatch(t -> config.topicFilter().test(t)));
       }
@@ -975,7 +979,7 @@ public class BalancerHandlerTest {
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
         Assertions.assertEquals(
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
-        Assertions.assertEquals(32, postRequest.executionTime.toSeconds());
+        Assertions.assertEquals(32, postRequest.algorithmConfig.timeout().toSeconds());
         Assertions.assertTrue(config.topicFilter().test(randomTopic0));
         Assertions.assertTrue(config.topicFilter().test(randomTopic1));
         Assertions.assertTrue(
@@ -1300,14 +1304,10 @@ public class BalancerHandlerTest {
     }
 
     @Override
-    public Plan offer(
-        ClusterInfo currentClusterInfo,
-        ClusterBean clusterBean,
-        Duration timeout,
-        AlgorithmConfig config) {
+    public Plan offer(AlgorithmConfig config) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
-      return super.offer(currentClusterInfo, clusterBean, timeout, config);
+      return super.offer(config);
     }
   }
 
