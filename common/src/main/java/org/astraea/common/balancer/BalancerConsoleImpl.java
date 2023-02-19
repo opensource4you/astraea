@@ -123,47 +123,50 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
       @Override
       public CompletionStage<Balancer.Plan> generate() {
-        checkNotClosed();
-        var taskId = Objects.requireNonNull(this.taskId);
-        var balancer = Objects.requireNonNull(this.balancer);
-        var timeout = Objects.requireNonNull(this.timeout);
-        var config = Objects.requireNonNull(this.algorithmConfig);
-        var sensors =
-            Stream.concat(
-                    config.clusterCostFunction().metricSensor().stream(),
-                    config.moveCostFunction().metricSensor().stream())
-                .collect(Collectors.toUnmodifiableList());
-        var clusterInfo =
-            this.checkNoOngoingMigration
-                ? BalancerConsoleImpl.this.checkNoOngoingMigration()
-                : admin.topicNames(false).thenCompose(admin::clusterInfo);
-        return planGenerations.compute(
-            taskId,
-            (id, previousTask) -> {
-              if (previousTask != null)
-                throw new IllegalStateException("Conflict task ID: " + taskId);
-              return clusterInfo
-                  .thenApply(
-                      cluster ->
-                          metricContext(
-                              sensors,
-                              (clusterBeanSupplier -> {
-                                // TODO: embedded the retry offer logic into BalancerConsoleImpl
-                                return balancer.retryOffer(
-                                    cluster,
-                                    timeout,
-                                    AlgorithmConfig.builder(config)
-                                        .metricSource(clusterBeanSupplier)
-                                        .build());
-                              })))
-                  .thenApply(
-                      plan -> {
-                        if (plan.solution().isPresent()) return plan;
-                        else
-                          throw new IllegalStateException(
-                              "Unable to find a rebalance plan that can improve this cluster");
-                      });
-            });
+        synchronized (BalancerConsoleImpl.this) {
+          checkNotClosed();
+
+          var taskId = Objects.requireNonNull(this.taskId);
+          var balancer = Objects.requireNonNull(this.balancer);
+          var timeout = Objects.requireNonNull(this.timeout);
+          var config = Objects.requireNonNull(this.algorithmConfig);
+          var sensors =
+              Stream.concat(
+                      config.clusterCostFunction().metricSensor().stream(),
+                      config.moveCostFunction().metricSensor().stream())
+                  .collect(Collectors.toUnmodifiableList());
+          var clusterInfo =
+              this.checkNoOngoingMigration
+                  ? BalancerConsoleImpl.this.checkNoOngoingMigration()
+                  : admin.topicNames(false).thenCompose(admin::clusterInfo);
+          return planGenerations.compute(
+              taskId,
+              (id, previousTask) -> {
+                if (previousTask != null)
+                  throw new IllegalStateException("Conflict task ID: " + taskId);
+                return clusterInfo
+                    .thenApply(
+                        cluster ->
+                            metricContext(
+                                sensors,
+                                (clusterBeanSupplier -> {
+                                  // TODO: embedded the retry offer logic into BalancerConsoleImpl
+                                  return balancer.retryOffer(
+                                      cluster,
+                                      timeout,
+                                      AlgorithmConfig.builder(config)
+                                          .metricSource(clusterBeanSupplier)
+                                          .build());
+                                })))
+                    .thenApply(
+                        plan -> {
+                          if (plan.solution().isPresent()) return plan;
+                          else
+                            throw new IllegalStateException(
+                                "Unable to find a rebalance plan that can improve this cluster");
+                        });
+              });
+        }
       }
     };
   }
@@ -202,44 +205,45 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
       @Override
       public CompletionStage<Void> execute(String taskId) {
-        checkNotClosed();
         var planGen = planGenerations.get(taskId);
         if (planGen == null) throw new IllegalArgumentException("No such balance task: " + taskId);
 
         return planExecutions.computeIfAbsent(
             taskId,
             (id) -> {
-              synchronized (this) {
+              synchronized (BalancerConsoleImpl.this) {
+                checkNotClosed();
+
                 // another task is still running
                 if (lastExecutingTask.get() != null
                     && taskPhase(lastExecutingTask.get()).orElseThrow() == TaskPhase.Executing)
                   throw new IllegalStateException(
                       "Another task is executing: " + lastExecutingTask.get());
                 lastExecutingTask.set(taskId);
-              }
 
-              return planGen
-                  .thenCompose(
-                      plan ->
-                          checkPlanConsistency
-                              ? BalancerConsoleImpl.this.checkPlanConsistency(plan)
-                              : CompletableFuture.completedStage(null))
-                  .thenCompose(
-                      ignore ->
-                          checkNoOngoingMigration
-                              ? BalancerConsoleImpl.this.checkNoOngoingMigration()
-                              : CompletableFuture.completedStage(null))
-                  .thenCompose(ignore -> planGen)
-                  .thenCompose(
-                      plan ->
-                          plan.solution()
-                              .map(Balancer.Solution::proposal)
-                              .map(target -> executor.run(admin, target, timeout))
-                              .orElseThrow(
-                                  () ->
-                                      new IllegalStateException(
-                                          "Plan generation failed to find any usable balance plan that will improve this cluster: "
-                                              + taskId)));
+                return planGen
+                    .thenCompose(
+                        plan ->
+                            checkPlanConsistency
+                                ? BalancerConsoleImpl.this.checkPlanConsistency(plan)
+                                : CompletableFuture.completedStage(null))
+                    .thenCompose(
+                        ignore ->
+                            checkNoOngoingMigration
+                                ? BalancerConsoleImpl.this.checkNoOngoingMigration()
+                                : CompletableFuture.completedStage(null))
+                    .thenCompose(ignore -> planGen)
+                    .thenCompose(
+                        plan ->
+                            plan.solution()
+                                .map(Balancer.Solution::proposal)
+                                .map(target -> executor.run(admin, target, timeout))
+                                .orElseThrow(
+                                    () ->
+                                        new IllegalStateException(
+                                            "Plan generation failed to find any usable balance plan that will improve this cluster: "
+                                                + taskId)));
+              }
             });
       }
     };
@@ -248,10 +252,13 @@ public class BalancerConsoleImpl implements BalancerConsole {
   @Override
   public void close() {
     if (closed.get()) return;
-    synchronized (this) {
-      // reject further request
+
+    synchronized (BalancerConsoleImpl.this) {
       closed.set(true);
     }
+
+    planGenerations.values().forEach(i -> i.toCompletableFuture().cancel(true));
+    planExecutions.values().forEach(i -> i.toCompletableFuture().cancel(true));
   }
 
   private void checkNotClosed() {
