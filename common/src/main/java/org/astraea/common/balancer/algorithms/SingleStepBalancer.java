@@ -63,7 +63,7 @@ public class SingleStepBalancer implements Balancer {
 
   @Override
   public Plan offer(
-      ClusterInfo currentClusterInfo,
+      final ClusterInfo currentClusterInfo,
       ClusterBean clusterBean,
       Duration timeout,
       AlgorithmConfig config) {
@@ -91,7 +91,7 @@ public class SingleStepBalancer implements Balancer {
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
-        .map(solution -> new Plan(currentCost, solution))
-        .orElse(new Plan(currentCost));
+        .map(solution -> new Plan(currentClusterInfo, currentCost, solution))
+        .orElse(new Plan(currentClusterInfo, currentCost));
   }
 }
