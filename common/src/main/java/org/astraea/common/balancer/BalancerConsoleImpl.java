@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.algorithms.AlgorithmConfig;
@@ -132,25 +133,24 @@ public class BalancerConsoleImpl implements BalancerConsole {
                     config.clusterCostFunction().metricSensor().stream(),
                     config.moveCostFunction().metricSensor().stream())
                 .collect(Collectors.toUnmodifiableList());
-        var check =
+        var clusterInfo =
             this.checkNoOngoingMigration
                 ? BalancerConsoleImpl.this.checkNoOngoingMigration()
-                : CompletableFuture.completedFuture(null);
+                : admin.topicNames(false).thenCompose(admin::clusterInfo);
         return planGenerations.compute(
             taskId,
             (id, previousTask) -> {
               if (previousTask != null)
                 throw new IllegalStateException("Conflict task ID: " + taskId);
-              return check
-                  .thenCompose(ignore -> admin.topicNames(false).thenCompose(admin::clusterInfo))
+              return clusterInfo
                   .thenApply(
-                      clusterInfo ->
+                      cluster ->
                           metricContext(
                               sensors,
                               (clusterBeanSupplier -> {
                                 // TODO: embedded the retry offer logic into BalancerConsoleImpl
                                 return balancer.retryOffer(
-                                    clusterInfo,
+                                    cluster,
                                     timeout,
                                     AlgorithmConfig.builder(config)
                                         .metricSource(clusterBeanSupplier)
@@ -258,11 +258,11 @@ public class BalancerConsoleImpl implements BalancerConsole {
     if (closed.get()) throw new IllegalStateException("This BalanceConsole is already stopped");
   }
 
-  private CompletionStage<Void> checkNoOngoingMigration() {
+  private CompletionStage<ClusterInfo> checkNoOngoingMigration() {
     return admin
         .topicNames(false)
         .thenCompose(admin::clusterInfo)
-        .thenAccept(
+        .thenApply(
             cluster -> {
               var ongoingMigration =
                   cluster.replicas().stream()
@@ -274,6 +274,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
                     "Another rebalance task might be working on. "
                         + "The following topic/partition has ongoing migration: "
                         + ongoingMigration);
+              return cluster;
             });
   }
 
