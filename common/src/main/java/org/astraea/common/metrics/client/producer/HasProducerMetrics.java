@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client.producer;
 
 import org.astraea.common.metrics.client.HasSelectorMetrics;
 
+@FunctionalInterface
 public interface HasProducerMetrics extends HasSelectorMetrics {
 
   default double batchSizeAvg() {

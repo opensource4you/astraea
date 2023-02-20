@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client;
 
 import org.astraea.common.metrics.HasBeanObject;
 
+/** This FunctionalInterface corresponds to the selector in Kafka's underlying implementation */
 @FunctionalInterface
 public interface HasSelectorMetrics extends HasBeanObject {
 

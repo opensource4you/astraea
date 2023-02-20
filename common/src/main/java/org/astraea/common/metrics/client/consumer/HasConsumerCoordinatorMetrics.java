@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client.consumer;
 
 import org.astraea.common.metrics.client.HasCoordinatorMetrics;
 
+@FunctionalInterface
 public interface HasConsumerCoordinatorMetrics extends HasCoordinatorMetrics {
 
   default double assignedPartitions() {

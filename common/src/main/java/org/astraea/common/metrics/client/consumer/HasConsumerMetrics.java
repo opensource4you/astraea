@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client.consumer;
 
 import org.astraea.common.metrics.client.HasSelectorMetrics;
 
+@FunctionalInterface
 public interface HasConsumerMetrics extends HasSelectorMetrics {
 
   default double committedTimeNsTotal() {
@@ -40,15 +41,7 @@ public interface HasConsumerMetrics extends HasSelectorMetrics {
     return (double) beanObject().attributes().get("time-between-poll-max");
   }
 
-  default double outgoingByteTotal() {
-    return (double) beanObject().attributes().get("outgoing-byte-total");
-  }
-
   default double pollIdleRatioAvg() {
     return (double) beanObject().attributes().get("poll-idle-ratio-avg");
-  }
-
-  default double incomingByteTotal() {
-    return (double) beanObject().attributes().get("incoming-byte-total");
   }
 }
