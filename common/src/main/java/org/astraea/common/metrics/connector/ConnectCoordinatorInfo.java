@@ -16,28 +16,16 @@
  */
 package org.astraea.common.metrics.connector;
 
-import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.client.HasCoordinatorMetrics;
 
 @FunctionalInterface
-public interface ConnectorInfo extends HasBeanObject {
+public interface ConnectCoordinatorInfo extends HasCoordinatorMetrics {
 
-  default String connectorName() {
-    return beanObject().properties().get("connector");
+  default double assignedConnectors() {
+    return (double) beanObject().attributes().get("assigned-connectors");
   }
 
-  default String connectorClass() {
-    return (String) beanObject().attributes().get("connector-class");
-  }
-
-  default String connectorType() {
-    return (String) beanObject().attributes().get("connector-type");
-  }
-
-  default String connectorVersion() {
-    return (String) beanObject().attributes().get("connector-version");
-  }
-
-  default String status() {
-    return (String) beanObject().attributes().get("status");
+  default double assignedTasks() {
+    return (double) beanObject().attributes().get("assigned-tasks");
   }
 }

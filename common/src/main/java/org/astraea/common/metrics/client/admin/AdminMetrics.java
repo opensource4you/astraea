@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.client.HasSelectorMetrics;
 
 public class AdminMetrics {
   /**
@@ -43,7 +44,7 @@ public class AdminMetrics {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Collection<HasAdminMetrics> of(MBeanClient mBeanClient) {
+  public static Collection<HasSelectorMetrics> of(MBeanClient mBeanClient) {
     return mBeanClient
         .beans(
             BeanQuery.builder()
@@ -52,7 +53,7 @@ public class AdminMetrics {
                 .property("client-id", "*")
                 .build())
         .stream()
-        .map(b -> (HasAdminMetrics) () -> b)
+        .map(b -> (HasSelectorMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
 }

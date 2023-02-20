@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.client.admin;
+package org.astraea.common.metrics.client;
 
 import org.astraea.common.metrics.HasBeanObject;
 
-public interface HasAdminMetrics extends HasBeanObject {
+/** This FunctionalInterface corresponds to the selector in Kafka's underlying implementation */
+@FunctionalInterface
+public interface HasSelectorMetrics extends HasBeanObject {
 
   default String clientId() {
     return beanObject().properties().get("client-id");
@@ -68,6 +70,10 @@ public interface HasAdminMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("incoming-byte-total");
   }
 
+  default double ioRatio() {
+    return (double) beanObject().attributes().get("io-ratio");
+  }
+
   default double ioTimeNsAvg() {
     return (double) beanObject().attributes().get("io-time-ns-avg");
   }
@@ -76,12 +82,24 @@ public interface HasAdminMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("io-time-ns-total");
   }
 
+  default double ioWaitRatio() {
+    return (double) beanObject().attributes().get("io-wait-ratio");
+  }
+
   default double ioWaitTimeNsAvg() {
     return (double) beanObject().attributes().get("io-wait-time-ns-avg");
   }
 
   default double ioWaitTimeNsTotal() {
     return (double) beanObject().attributes().get("io-wait-time-ns-total");
+  }
+
+  default double ioWaitTimeTotal() {
+    return (double) beanObject().attributes().get("io-waittime-total");
+  }
+
+  default double ioTimeTotal() {
+    return (double) beanObject().attributes().get("iotime-total");
   }
 
   default double networkIoRate() {
