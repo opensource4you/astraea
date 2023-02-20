@@ -19,7 +19,6 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -74,7 +73,7 @@ class BalancerConsoleTest {
       Utils.sleep(Duration.ofMillis(500));
 
       // launch rebalance plan generation
-      var console = BalancerConsole.create(admin, (x) -> Optional.empty());
+      var console = BalancerConsole.create(admin);
       var generation =
           console
               .launchRebalancePlanGeneration()
@@ -134,7 +133,7 @@ class BalancerConsoleTest {
       Utils.sleep(Duration.ofMillis(500));
 
       // launch rebalance plan generation
-      var console = BalancerConsole.create(admin, (x) -> Optional.empty());
+      var console = BalancerConsole.create(admin);
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_1")
@@ -173,24 +172,9 @@ class BalancerConsoleTest {
   }
 
   @Test
-  void testFreshJmxAddress() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var noJmx = (BalancerConsoleImpl) BalancerConsole.create(admin, (id) -> Optional.empty());
-      var withJmx = (BalancerConsoleImpl) BalancerConsole.create(admin, (id) -> Optional.of(5566));
-      var partialJmx =
-          (BalancerConsoleImpl)
-              BalancerConsole.create(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
-
-      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
-      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
-      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
-    }
-  }
-
-  @Test
   void testCheckPlanConsistency() {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var console = BalancerConsole.create(admin, (x) -> Optional.empty())) {
+        var console = BalancerConsole.create(admin)) {
       var topic = Utils.randomString();
       admin
           .creator()
@@ -263,7 +247,7 @@ class BalancerConsoleTest {
   void testCheckNoOngoingMigration() {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var spy = Mockito.spy(admin);
-        var console = BalancerConsole.create(spy, (x) -> Optional.empty())) {
+        var console = BalancerConsole.create(spy)) {
       var topic = Utils.randomString();
       admin
           .creator()
@@ -360,7 +344,7 @@ class BalancerConsoleTest {
       Utils.sleep(Duration.ofMillis(500));
 
       // launch rebalance plan generation
-      var console = BalancerConsole.create(admin, t -> Optional.empty());
+      var console = BalancerConsole.create(admin);
       var generation =
           console
               .launchRebalancePlanGeneration()

@@ -16,9 +16,7 @@
  */
 package org.astraea.common.balancer;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
@@ -30,25 +28,19 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.NoSufficientMetricsException;
-import org.astraea.common.metrics.collector.MetricCollector;
-import org.astraea.common.metrics.collector.MetricSensor;
 
 public class BalancerConsoleImpl implements BalancerConsole {
 
   private final Admin admin;
-  private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
   private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
       new ConcurrentHashMap<>();
@@ -57,9 +49,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
   private final AtomicBoolean closed = new AtomicBoolean(false);
 
-  public BalancerConsoleImpl(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+  public BalancerConsoleImpl(Admin admin) {
     this.admin = admin;
-    this.jmxPortMapper = jmxPortMapper;
   }
 
   @Override
@@ -90,6 +81,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
       private Balancer balancer;
       private AlgorithmConfig algorithmConfig;
       private boolean checkNoOngoingMigration = true;
+      private Supplier<ClusterBean> clusterBeanSource = () -> ClusterBean.EMPTY;
 
       @Override
       public Generation setTaskId(String taskId) {
@@ -110,6 +102,12 @@ public class BalancerConsoleImpl implements BalancerConsole {
       }
 
       @Override
+      public Generation setClusterBeanSource(Supplier<ClusterBean> clusterBeanSource) {
+        this.clusterBeanSource = clusterBeanSource;
+        return this;
+      }
+
+      @Override
       public Generation checkNoOngoingMigration(boolean enable) {
         this.checkNoOngoingMigration = enable;
         return this;
@@ -123,11 +121,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
           var taskId = Objects.requireNonNull(this.taskId);
           var balancer = Objects.requireNonNull(this.balancer);
           var config = Objects.requireNonNull(this.algorithmConfig);
-          var sensors =
-              Stream.concat(
-                      config.clusterCostFunction().metricSensor().stream(),
-                      config.moveCostFunction().metricSensor().stream())
-                  .collect(Collectors.toUnmodifiableList());
+          var metricSource = Objects.requireNonNull(this.clusterBeanSource);
           var clusterInfo =
               this.checkNoOngoingMigration
                   ? BalancerConsoleImpl.this.checkNoOngoingMigration()
@@ -140,15 +134,10 @@ public class BalancerConsoleImpl implements BalancerConsole {
                 return clusterInfo
                     .thenApply(
                         cluster ->
-                            metricContext(
-                                sensors,
-                                (clusterBeanSupplier ->
-                                    retryOffer(
-                                        balancer,
-                                        clusterBeanSupplier,
-                                        AlgorithmConfig.builder(config)
-                                            .clusterInfo(cluster)
-                                            .build()))))
+                            retryOffer(
+                                balancer,
+                                metricSource,
+                                AlgorithmConfig.builder(config).clusterInfo(cluster).build()))
                     .thenApply(
                         plan -> {
                           if (plan.solution().isPresent()) return plan;
@@ -166,7 +155,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
   public Execution launchRebalancePlanExecution() {
     return new Execution() {
       private RebalancePlanExecutor executor;
-      private Duration timeout;
+      private Duration timeout = Duration.ofHours(3);
       private boolean checkPlanConsistency = true;
       private boolean checkNoOngoingMigration = true;
 
@@ -196,6 +185,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
       @Override
       public CompletionStage<Void> execute(String taskId) {
+        var executor = Objects.requireNonNull(this.executor);
+        var timeout = Objects.requireNonNull(this.timeout);
         var planGen = planGenerations.get(taskId);
         if (planGen == null) throw new IllegalArgumentException("No such balance task: " + taskId);
 
@@ -370,46 +361,5 @@ public class BalancerConsoleImpl implements BalancerConsole {
       }
     }
     throw new RuntimeException("Execution time exceeded: " + timeoutMs);
-  }
-
-  private Balancer.Plan metricContext(
-      Collection<MetricSensor> metricSensors,
-      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
-    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
-    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build()) {
-      freshJmxAddresses().forEach(collector::registerJmx);
-      metricSensors.forEach(collector::addMetricSensor);
-      return execution.apply(collector::clusterBean);
-    }
-  }
-
-  // visible for test
-  Map<Integer, InetSocketAddress> freshJmxAddresses() {
-    var brokers = admin.brokers().toCompletableFuture().join();
-    var jmxAddresses =
-        brokers.stream()
-            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
-            .filter(entry -> entry.getValue().isPresent())
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    e -> e.getKey().id(),
-                    e ->
-                        InetSocketAddress.createUnresolved(
-                            e.getKey().host(), e.getValue().orElseThrow())));
-
-    // JMX is disabled
-    if (jmxAddresses.size() == 0) return Map.of();
-
-    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
-    if (brokers.size() != jmxAddresses.size())
-      throw new IllegalArgumentException(
-          "Some brokers has no JMX port specified in the web service argument: "
-              + brokers.stream()
-                  .map(NodeInfo::id)
-                  .filter(id -> !jmxAddresses.containsKey(id))
-                  .collect(Collectors.toUnmodifiableSet()));
-
-    return jmxAddresses;
   }
 }

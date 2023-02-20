@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -38,7 +39,9 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
@@ -54,6 +57,8 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
+import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
@@ -72,6 +77,7 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
       new ConcurrentHashMap<>();
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
+  private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
@@ -91,7 +97,8 @@ class BalancerHandler implements Handler {
       RebalancePlanExecutor executor) {
     this.admin = admin;
     this.executor = executor;
-    this.balancerConsole = BalancerConsole.create(admin, jmxPortMapper);
+    this.jmxPortMapper = jmxPortMapper;
+    this.balancerConsole = BalancerConsole.create(admin);
   }
 
   @Override
@@ -119,22 +126,36 @@ class BalancerHandler implements Handler {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      var task =
-          balancerConsole
-              .launchRebalancePlanGeneration()
-              .setTaskId(taskId)
-              .setBalancer(balancer)
-              .setAlgorithmConfig(request.algorithmConfig)
-              .checkNoOngoingMigration(true)
-              .generate();
-      task.whenComplete(
-          (result, error) -> {
-            if (error != null)
-              new RuntimeException("Failed to generate balance plan: " + taskId, error)
-                  .printStackTrace();
-          });
-      taskMetadata.put(taskId, request);
-      planGenerations.put(taskId, task);
+      MetricCollector metricCollector = null;
+      try {
+        metricCollector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build();
+        final var mc = metricCollector;
+        request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(mc::addMetricSensor);
+        request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(mc::addMetricSensor);
+        freshJmxAddresses().forEach(mc::registerJmx);
+
+        var task =
+            balancerConsole
+                .launchRebalancePlanGeneration()
+                .setTaskId(taskId)
+                .setBalancer(balancer)
+                .setAlgorithmConfig(request.algorithmConfig)
+                .setClusterBeanSource(mc::clusterBean)
+                .checkNoOngoingMigration(true)
+                .generate();
+        task.whenComplete(
+            (result, error) -> {
+              if (error != null)
+                new RuntimeException("Failed to generate balance plan: " + taskId, error)
+                    .printStackTrace();
+            });
+        task.whenComplete((result, error) -> mc.close());
+        taskMetadata.put(taskId, request);
+        planGenerations.put(taskId, task);
+      } catch (RuntimeException e) {
+        if (metricCollector != null) metricCollector.close();
+        throw e;
+      }
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
   }
@@ -264,6 +285,47 @@ class BalancerHandler implements Handler {
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
+  }
+
+  private Balancer.Plan metricContext(
+      Collection<MetricSensor> metricSensors,
+      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
+    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
+    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
+    try (var collector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build()) {
+      freshJmxAddresses().forEach(collector::registerJmx);
+      metricSensors.forEach(collector::addMetricSensor);
+      return execution.apply(collector::clusterBean);
+    }
+  }
+
+  // visible for test
+  Map<Integer, InetSocketAddress> freshJmxAddresses() {
+    var brokers = admin.brokers().toCompletableFuture().join();
+    var jmxAddresses =
+        brokers.stream()
+            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
+            .filter(entry -> entry.getValue().isPresent())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    e -> e.getKey().id(),
+                    e ->
+                        InetSocketAddress.createUnresolved(
+                            e.getKey().host(), e.getValue().orElseThrow())));
+
+    // JMX is disabled
+    if (jmxAddresses.size() == 0) return Map.of();
+
+    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
+    if (brokers.size() != jmxAddresses.size())
+      throw new IllegalArgumentException(
+          "Some brokers has no JMX port specified in the web service argument: "
+              + brokers.stream()
+                  .map(NodeInfo::id)
+                  .filter(id -> !jmxAddresses.containsKey(id))
+                  .collect(Collectors.toUnmodifiableSet()));
+
+    return jmxAddresses;
   }
 
   // visible for test

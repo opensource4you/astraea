@@ -20,16 +20,17 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
+import java.util.function.Supplier;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 
 /** Offer a uniform interface to schedule/manage/execute balance plan to an actual Kafka cluster. */
 public interface BalancerConsole extends AutoCloseable {
 
-  static BalancerConsole create(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
-    return new BalancerConsoleImpl(admin, jmxPortMapper);
+  static BalancerConsole create(Admin admin) {
+    return new BalancerConsoleImpl(admin);
   }
 
   Set<String> tasks();
@@ -50,6 +51,8 @@ public interface BalancerConsole extends AutoCloseable {
     Generation setBalancer(Balancer balancer);
 
     Generation setAlgorithmConfig(AlgorithmConfig config);
+
+    Generation setClusterBeanSource(Supplier<ClusterBean> clusterBeanSource);
 
     Generation checkNoOngoingMigration(boolean enable);
 

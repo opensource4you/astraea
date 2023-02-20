@@ -629,6 +629,8 @@ public class BalancerHandlerTest {
             .build();
     try (Admin admin = Mockito.mock(Admin.class)) {
       var handler = new BalancerHandler(admin);
+      Mockito.when(admin.brokers())
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
       Mockito.when(admin.topicNames(Mockito.anyBoolean()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
 
@@ -1189,6 +1191,20 @@ public class BalancerHandlerTest {
         () -> BalancerHandler.Change.from(Set.of(), sourceCluster.replicas()));
     Assertions.assertThrows(
         NoSuchElementException.class, () -> BalancerHandler.Change.from(Set.of(), Set.of()));
+  }
+
+  @Test
+  void testFreshJmxAddress() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
+      var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
+      var partialJmx =
+          new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
+
+      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
+      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
+      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
+    }
   }
 
   /** Submit the plan and wait until it generated. */
