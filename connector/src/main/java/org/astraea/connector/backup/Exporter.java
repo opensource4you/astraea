@@ -43,32 +43,32 @@ public class Exporter extends SinkConnector {
       Definition.builder()
           .name("fs.schema")
           .type(Definition.Type.STRING)
-          .documentation("decide which file system to use, such as FTP.")
+          .documentation("decide which file system to use, such as FTP, HDFS.")
           .required()
           .build();
   static Definition HOSTNAME_KEY =
       Definition.builder()
-          .name("fs.ftp.hostname")
+          .name("fs.<schema>.hostname")
           .type(Definition.Type.STRING)
-          .documentation("the host name of the ftp server used.")
+          .documentation("the host name of the <schema> server used.")
           .build();
   static Definition PORT_KEY =
       Definition.builder()
-          .name("fs.ftp.port")
+          .name("fs.<schema>.port")
           .type(Definition.Type.STRING)
-          .documentation("the port of the ftp server used.")
+          .documentation("the port of the <schema> server used.")
           .build();
   static Definition USER_KEY =
       Definition.builder()
-          .name("fs.ftp.user")
+          .name("fs.<schema>.user")
           .type(Definition.Type.STRING)
-          .documentation("the user name required to login to the FTP server.")
+          .documentation("the user name required to login to the <schema> server.")
           .build();
   static Definition PASSWORD_KEY =
       Definition.builder()
-          .name("fs.ftp.password")
+          .name("fs.<schema>.password")
           .type(Definition.Type.PASSWORD)
-          .documentation("the password required to login to the ftp server.")
+          .documentation("the password required to login to the <schema> server.")
           .build();
   static Definition PATH_KEY =
       Definition.builder()
@@ -94,6 +94,13 @@ public class Exporter extends SinkConnector {
           .defaultValue("3s")
           .documentation("the maximum time before a new archive file is rolling out.")
           .build();
+
+  static Definition OVERRIDE_KEY =
+      Definition.builder()
+          .name("fs.<schema>.override.<property_name>")
+          .type(Definition.Type.STRING)
+          .documentation("a value that needs to be overridden in the file system.")
+          .build();
   private Configuration configs;
 
   @Override
@@ -113,7 +120,15 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Definition> definitions() {
-    return List.of(SCHEMA_KEY, HOSTNAME_KEY, PORT_KEY, USER_KEY, PASSWORD_KEY, PATH_KEY, SIZE_KEY);
+    return List.of(
+        SCHEMA_KEY,
+        HOSTNAME_KEY,
+        PORT_KEY,
+        USER_KEY,
+        PASSWORD_KEY,
+        PATH_KEY,
+        SIZE_KEY,
+        OVERRIDE_KEY);
   }
 
   public static class Task extends SinkTask {

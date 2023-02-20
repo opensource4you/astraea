@@ -14,40 +14,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.partitioner;
+package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.astraea.common.Configuration;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-public class ConfigurationTest {
-
-  @Test
-  void testString() {
-    var config = Configuration.of(Map.of("key", "value"));
-    Assertions.assertEquals(Optional.of("value"), config.string("key"));
-    Assertions.assertEquals("value", config.requireString("key"));
-  }
+public class HasMoveCostTest {
 
   @Test
-  void testList() {
-    var config = Configuration.of(Map.of("key", "v0,v1"));
-    Assertions.assertEquals(List.of("v0", "v1"), config.list("key", ","));
-  }
+  void testSensor() {
+    var sensor = Mockito.mock(MetricSensor.class);
+    var function =
+        new HasMoveCost() {
 
-  @Test
-  void testMap() {
-    var config = Configuration.of(Map.of("key", "v0:0,v1:1"));
-    Assertions.assertEquals(
-        Map.of("v0", 0, "v1", 1), config.map("key", ",", ":", Integer::valueOf));
-  }
+          @Override
+          public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+            return MoveCost.movedRecordSize(Map.of());
+          }
 
-  @Test
-  void testFilteredConfigs() {
-    var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
-    Assertions.assertEquals(Map.of("key", "v2"), config.filteredPrefixConfigs("filtered").raw());
+          @Override
+          public Optional<MetricSensor> metricSensor() {
+            return Optional.of(sensor);
+          }
+        };
+
+    var f2 = HasMoveCost.of(List.of(function));
+    Assertions.assertTrue(f2.metricSensor().isPresent());
   }
 }

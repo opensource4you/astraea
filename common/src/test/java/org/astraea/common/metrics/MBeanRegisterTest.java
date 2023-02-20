@@ -46,9 +46,7 @@ class MBeanRegisterTest {
       var domainName = MBeanRegisterTest.class.getPackageName();
       var id = UUID.randomUUID().toString();
       Supplier<BeanObject> bean =
-          () ->
-              client.queryBean(
-                  BeanQuery.builder().domainName(domainName).property("id", id).build());
+          () -> client.bean(BeanQuery.builder().domainName(domainName).property("id", id).build());
 
       // register
       MBeanRegister.local()

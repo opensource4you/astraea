@@ -53,11 +53,12 @@ public class CpuCostTest {
   }
 
   @Test
-  void testFetcher() {
+  void testSensor() {
     var interval = Duration.ofMillis(300);
     try (MetricCollector collector = MetricCollector.builder().interval(interval).build()) {
-      collector.addFetcher(
-          new CpuCost().fetcher().orElseThrow(), (id, err) -> Assertions.fail(err.getMessage()));
+      collector.addMetricSensor(
+          new CpuCost().metricSensor().orElseThrow(),
+          (id, err) -> Assertions.fail(err.getMessage()));
       collector.registerLocalJmx(0);
 
       Utils.sleep(interval);

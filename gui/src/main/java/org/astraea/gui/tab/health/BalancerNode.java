@@ -33,6 +33,7 @@ import javafx.scene.Node;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
@@ -200,8 +201,13 @@ class BalancerNode {
                   logger.log("searching better assignments ... ");
                   return Map.entry(
                       clusterInfo,
-                      Balancer.create(
+                      Utils.construct(
                               GreedyBalancer.class,
+                              Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
+                          .offer(
+                              clusterInfo,
+                              ClusterBean.EMPTY,
+                              Duration.ofSeconds(10),
                               AlgorithmConfig.builder()
                                   .clusterCost(
                                       HasClusterCost.of(clusterCosts(argument.selectedKeys())))
@@ -216,11 +222,7 @@ class BalancerNode {
                                           patterns.isEmpty()
                                               || patterns.stream()
                                                   .anyMatch(p -> p.matcher(topic).matches()))
-                                  .config(
-                                      Configuration.of(
-                                          Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
-                                  .build())
-                          .offer(clusterInfo, Duration.ofSeconds(10)));
+                                  .build()));
                 })
             .thenApply(
                 entry -> {

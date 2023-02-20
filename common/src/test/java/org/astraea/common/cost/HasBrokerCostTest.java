@@ -14,23 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.algorithms;
+package org.astraea.common.cost;
 
+import java.util.Map;
+import java.util.Optional;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-public class AlgorithmConfigTest {
+public class HasBrokerCostTest {
 
   @Test
-  void testCopy() {
-    var config0 = AlgorithmConfig.builder().clusterCost((i, j) -> () -> 100).build();
-    var config1 = AlgorithmConfig.builder(config0).build();
-    Assertions.assertSame(config0.executionId(), config1.executionId());
-    Assertions.assertSame(config0.clusterCostFunction(), config1.clusterCostFunction());
-    Assertions.assertSame(config0.moveCostFunction(), config1.moveCostFunction());
-    Assertions.assertSame(config0.clusterConstraint(), config1.clusterConstraint());
-    Assertions.assertSame(config0.movementConstraint(), config1.movementConstraint());
-    Assertions.assertSame(config0.topicFilter(), config1.topicFilter());
-    Assertions.assertSame(config0.metricSource(), config1.metricSource());
+  void testSensor() {
+    var sensor = Mockito.mock(MetricSensor.class);
+    var function =
+        new HasBrokerCost() {
+
+          @Override
+          public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+            return () -> Map.of(1, 1D);
+          }
+
+          @Override
+          public Optional<MetricSensor> metricSensor() {
+            return Optional.of(sensor);
+          }
+        };
+
+    var f2 = HasBrokerCost.of(Map.of(function, 1D));
+    Assertions.assertTrue(f2.metricSensor().isPresent());
   }
 }
