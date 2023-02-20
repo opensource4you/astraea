@@ -118,7 +118,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
       // Recreate metric collector with current cluster info
       metricCollector =
           MetricCollector.builder()
-              .registerJmx(
+              .registerJmxs(
                   clusterInfo.availableReplicas(topic).stream()
                       .filter(replica -> jmxPortGetter.apply(replica.nodeInfo().id()).isPresent())
                       .collect(

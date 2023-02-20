@@ -76,7 +76,7 @@ public class StrictCostDispatcher extends Dispatcher {
           MetricCollector.builder()
               .interval(Duration.ofMillis(1500))
               .registerLocalJmx(-1)
-              .registerJmx(
+              .registerJmxs(
                   clusterInfo.nodes().stream()
                       .filter(node -> jmxPortGetter.apply(node.id()).isPresent())
                       .map(

@@ -115,7 +115,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         MetricCollector.builder()
             .interval(Duration.ofSeconds(1))
             .expiration(Duration.ofSeconds(15))
-            .registerJmx(
+            .registerJmxs(
                 idHost.entrySet().stream()
                     .map(
                         idhost ->

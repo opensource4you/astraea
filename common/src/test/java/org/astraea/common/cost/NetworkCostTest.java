@@ -456,12 +456,13 @@ class NetworkCostTest {
 
   @Test
   void testNoMetricCheck() {
-    try (var collector = MetricCollector.builder().interval(Duration.ofMillis(100)).build()) {
+    try (var collector =
+        MetricCollector.builder()
+            .registerLocalJmx(SERVICE.dataFolders().keySet().stream().findAny().get())
+            .addMetricSensor(ingressCost().metricSensor().get())
+            .interval(Duration.ofMillis(100))
+            .build()) {
       var ingressCost = new NetworkIngressCost();
-
-      // setup sampling
-      SERVICE.dataFolders().keySet().forEach(collector::registerLocalJmx);
-      ingressCost.metricSensor().ifPresent(collector::addMetricSensor);
 
       // sample metrics for a while.
       Utils.sleep(Duration.ofMillis(500));

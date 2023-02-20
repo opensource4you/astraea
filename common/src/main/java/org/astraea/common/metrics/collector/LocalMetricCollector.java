@@ -44,7 +44,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
-public class MetricCollectorImpl implements MetricCollector {
+public class LocalMetricCollector implements MetricCollector {
   private final Map<Integer, MBeanClient> mBeanClients;
   private final List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors;
   private final ScheduledExecutorService executorService;
@@ -53,7 +53,7 @@ public class MetricCollectorImpl implements MetricCollector {
   // identity (broker id or producer/consumer id) -> beans
   private final ConcurrentMap<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
-  public MetricCollectorImpl(
+  public LocalMetricCollector(
       int threadCount,
       Duration expiration,
       Duration interval,
@@ -231,7 +231,7 @@ public class MetricCollectorImpl implements MetricCollector {
      * @param idAddress identities and corresponding address to register
      * @return this builder
      */
-    public Builder registerJmx(Map<Integer, InetSocketAddress> idAddress) {
+    public Builder registerJmxs(Map<Integer, InetSocketAddress> idAddress) {
       idAddress.forEach(this::registerJmx);
       return this;
     }
@@ -307,7 +307,7 @@ public class MetricCollectorImpl implements MetricCollector {
     }
 
     public MetricCollector build() {
-      return new MetricCollectorImpl(
+      return new LocalMetricCollector(
           threadCount,
           expiration,
           interval,

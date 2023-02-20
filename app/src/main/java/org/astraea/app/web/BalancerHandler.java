@@ -554,7 +554,7 @@ class BalancerHandler implements Handler {
       //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
       try (var collector =
           MetricCollector.builder()
-              .registerJmx(freshJmxAddresses())
+              .registerJmxs(freshJmxAddresses())
               .addMetricSensors(metricSensors)
               .interval(sampleInterval)
               .build()) {
