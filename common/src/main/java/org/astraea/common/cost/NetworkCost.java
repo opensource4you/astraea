@@ -108,7 +108,7 @@ public abstract class NetworkCost implements HasClusterCost {
         estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
     var egressRate =
         estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
-    var brokerRate =
+    var brokerIngressRate =
         clusterInfo
             .replicaStream()
             .filter(Replica::isOnline)
@@ -117,34 +117,45 @@ public abstract class NetworkCost implements HasClusterCost {
                     replica -> clusterInfo.node(replica.nodeInfo().id()),
                     Collectors.mapping(
                         replica -> {
-                          var tp = replica.topicPartition();
-                          switch (bandwidthType) {
-                            case Ingress:
-                              // ingress might come from producer-send or follower-fetch.
-                              return notNull(ingressRate.get(tp));
-                            case Egress:
-                              // egress is composed of consumer-fetch and follower-fetch.
-                              // this implementation assumes no consumer rack awareness fetcher
-                              // enabled so all consumers fetch data from the leader only.
-                              return replica.isLeader()
-                                  ? notNull(egressRate.get(tp))
-                                      + notNull(ingressRate.get(tp))
-                                          // Multiply by the number of follower replicas. This
-                                          // number considers both online replicas and offline
-                                          // replicas since an offline replica is probably a
-                                          // transient behavior. So the offline state should get
-                                          // resolved in the near future, we count it in advance.
-                                          * (clusterInfo.replicas(tp).size() - 1)
-                                  : 0;
-                            default:
-                              throw new RuntimeException();
-                          }
+                          // ingress might come from producer-send or follower-fetch.
+                          return notNull(ingressRate.get(replica.topicPartition()));
+                        },
+                        Collectors.summingDouble(x -> x))));
+    var brokerEgressRate =
+        clusterInfo
+            .replicaStream()
+            .filter(Replica::isOnline)
+            .collect(
+                Collectors.groupingBy(
+                    replica -> clusterInfo.node(replica.nodeInfo().id()),
+                    Collectors.mapping(
+                        replica -> {
+                          // egress is composed of consumer-fetch and follower-fetch.
+                          // this implementation assumes no consumer rack awareness fetcher
+                          // enabled so all consumers fetch data from the leader only.
+                          return replica.isLeader()
+                              ? notNull(egressRate.get(replica.topicPartition()))
+                                  + notNull(ingressRate.get(replica.topicPartition()))
+                                      // Multiply by the number of follower replicas. This
+                                      // number considers both online replicas and offline
+                                      // replicas since an offline replica is probably a
+                                      // transient behavior. So the offline state should get
+                                      // resolved in the near future, we count it in advance.
+                                      * (clusterInfo.replicas(replica.topicPartition()).size() - 1)
+                              : 0;
                         },
                         Collectors.summingDouble(x -> x))));
     // add the brokers having no replicas into map
     clusterInfo.nodes().stream()
-        .filter(node -> !brokerRate.containsKey(node))
-        .forEach(node -> brokerRate.put(node, 0.0));
+        .filter(node -> !brokerIngressRate.containsKey(node))
+        .forEach(node -> brokerIngressRate.put(node, 0.0));
+    clusterInfo.nodes().stream()
+        .filter(node -> !brokerEgressRate.containsKey(node))
+        .forEach(node -> brokerEgressRate.put(node, 0.0));
+
+    // the rate we are measuring
+    var brokerRate =
+        (bandwidthType == BandwidthType.Ingress) ? brokerIngressRate : brokerEgressRate;
 
     var summary = brokerRate.values().stream().mapToDouble(x -> x).summaryStatistics();
     if (summary.getMax() < 0)
@@ -156,7 +167,15 @@ public abstract class NetworkCost implements HasClusterCost {
     if (summary.getMax() == 0)
       return ClusterCost.of(
           0, () -> "network load zero"); // edge case to avoid divided by zero error
-    double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
+
+    // evaluate the max possible load of ingress & egress
+    var maxIngress = brokerIngressRate.values().stream().mapToDouble(x -> x).sum();
+    var maxEgress = brokerEgressRate.values().stream().mapToDouble(x -> x).sum();
+    var maxRate = Math.max(maxIngress, maxEgress);
+    // the score is measured as the ratio of targeting network throughput related to the maximum
+    // ingress or egress throughput. See https://github.com/skiptests/astraea/issues/1285 for the
+    // reason to do this.
+    double score = (summary.getMax() - summary.getMin()) / (maxRate);
 
     return new NetworkClusterCost(score, brokerRate);
   }
