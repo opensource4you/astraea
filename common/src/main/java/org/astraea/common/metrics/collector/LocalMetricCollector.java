@@ -229,15 +229,19 @@ public class LocalMetricCollector implements MetricCollector {
      * @return this builder
      */
     public Builder registerJmx(Integer identity, InetSocketAddress socketAddress) {
-      registerJmx(
+      mBeanClients.compute(
           identity,
-          () -> MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort()),
-          () ->
-              "Attempt to register identity "
-                  + identity
-                  + " with address "
-                  + socketAddress
-                  + ". But this id is already registered");
+          (id, client) -> {
+            if (client != null)
+              throw new IllegalArgumentException(
+                  "Attempt to register identity "
+                      + identity
+                      + " with address "
+                      + socketAddress
+                      + ". But this id is already registered");
+            else
+              return () -> MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort());
+          });
       return this;
     }
 
@@ -251,27 +255,6 @@ public class LocalMetricCollector implements MetricCollector {
     public Builder registerJmxs(Map<Integer, InetSocketAddress> idAddress) {
       idAddress.forEach(this::registerJmx);
       return this;
-    }
-
-    public Builder registerLocalJmx(int identity) {
-      this.registerJmx(
-          identity,
-          MBeanClient::local,
-          () ->
-              "Attempt to register identity "
-                  + identity
-                  + " with the local JMX server. But this id is already registered");
-      return this;
-    }
-
-    private void registerJmx(
-        int identity, Supplier<MBeanClient> clientSupplier, Supplier<String> errorMessage) {
-      mBeanClients.compute(
-          identity,
-          (id, client) -> {
-            if (client != null) throw new IllegalArgumentException(errorMessage.get());
-            else return clientSupplier;
-          });
     }
 
     /**
@@ -309,7 +292,7 @@ public class LocalMetricCollector implements MetricCollector {
 
     /**
      * Add all entry to collector. Equivalent to subsequence call to {@link
-     * Builder#addMetricSensor(MetricSensor, BiConsumer)}
+     * Builder#addMetricSensor(MetricSensor, BiConsumer)}.
      *
      * @param sensors metric sensor and corresponding {@link NoSuchElementException} handler
      */
@@ -318,12 +301,27 @@ public class LocalMetricCollector implements MetricCollector {
       return this;
     }
 
+    /**
+     * Add all metric sensor to collector. It is equivalent to subsequence call to {@link
+     * Builder#addMetricSensor(MetricSensor)}.
+     *
+     * @param sensors metric sensors that we want to collect
+     */
     public Builder addMetricSensors(Collection<MetricSensor> sensors) {
       sensors.forEach(this::addMetricSensor);
       return this;
     }
 
     public MetricCollector build() {
+      // Set local mbean client as default
+      this.mBeanClients.compute(
+          -1,
+          (id, client) -> {
+            if (client != null)
+              throw new IllegalArgumentException(
+                  "Id conflict. Id -1 is used for local jmx connection.");
+            else return MBeanClient::local;
+          });
       return new LocalMetricCollector(
           threadCount,
           expiration,

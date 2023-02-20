@@ -58,7 +58,6 @@ public class CpuCostTest {
     try (MetricCollector collector =
         MetricCollector.local()
             .interval(interval)
-            .registerLocalJmx(0)
             .addMetricSensor(
                 new CpuCost().metricSensor().orElseThrow(),
                 (id, err) -> Assertions.fail(err.getMessage()))

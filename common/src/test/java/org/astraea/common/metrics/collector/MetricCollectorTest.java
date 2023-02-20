@@ -70,18 +70,12 @@ class MetricCollectorTest {
     var socket =
         InetSocketAddress.createUnresolved(
             SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
-    var builder = MetricCollector.local().registerJmx(1, socket).registerLocalJmx(-1);
+    var builder = MetricCollector.local().registerJmx(1, socket).registerJmx(-1, socket);
 
     Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> builder.registerJmx(-1, socket),
-        "The id -1 is already registered");
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> builder.registerLocalJmx(-1),
-        "The id -1 is already registered");
+        IllegalArgumentException.class, builder::build, "The id -1 is already registered");
 
-    try (var collector = builder.build()) {
+    try (var collector = MetricCollector.local().registerJmx(1, socket).build()) {
       Assertions.assertEquals(2, collector.listIdentities().size());
       Assertions.assertTrue(collector.listIdentities().contains(-1));
       Assertions.assertTrue(collector.listIdentities().contains(1));
@@ -93,7 +87,6 @@ class MetricCollectorTest {
     var sample = Duration.ofMillis(100);
     try (var collector =
         MetricCollector.local()
-            .registerLocalJmx(0)
             .addMetricSensor(MEMORY_METRIC_SENSOR)
             .addMetricSensor(OS_METRIC_SENSOR)
             .interval(sample)
@@ -111,9 +104,6 @@ class MetricCollectorTest {
     var sample = Duration.ofMillis(200);
     try (var collector =
         MetricCollector.local()
-            .registerLocalJmx(0)
-            .registerLocalJmx(1)
-            .registerLocalJmx(2)
             .addMetricSensor(MEMORY_METRIC_SENSOR)
             .addMetricSensor(OS_METRIC_SENSOR)
             .interval(sample)
@@ -124,19 +114,11 @@ class MetricCollectorTest {
 
       ClusterBean clusterBean = collector.clusterBean();
 
-      Assertions.assertEquals(3, clusterBean.all().keySet().size());
+      Assertions.assertEquals(1, clusterBean.all().keySet().size());
       Assertions.assertTrue(
-          clusterBean.all().get(0).stream().anyMatch(x -> x instanceof JvmMemory));
+          clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof JvmMemory));
       Assertions.assertTrue(
-          clusterBean.all().get(1).stream().anyMatch(x -> x instanceof JvmMemory));
-      Assertions.assertTrue(
-          clusterBean.all().get(2).stream().anyMatch(x -> x instanceof JvmMemory));
-      Assertions.assertTrue(
-          clusterBean.all().get(0).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
-      Assertions.assertTrue(
-          clusterBean.all().get(1).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
-      Assertions.assertTrue(
-          clusterBean.all().get(2).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
+          clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
     }
   }
 
@@ -145,7 +127,6 @@ class MetricCollectorTest {
     var sample = Duration.ofSeconds(2);
     try (var collector =
         MetricCollector.local()
-            .registerLocalJmx(0)
             .addMetricSensor(MEMORY_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()))
             .addMetricSensor(OS_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()))
             .interval(sample)
@@ -229,7 +210,6 @@ class MetricCollectorTest {
         };
     try (var collector =
         MetricCollector.local()
-            .registerLocalJmx(-1)
             .addMetricSensor(
                 noSuchMetricSensor,
                 (id, ex) -> {
@@ -252,7 +232,6 @@ class MetricCollectorTest {
             .expiration(Duration.ofMillis(2000))
             .cleanerInterval(Duration.ofMillis(50))
             .interval(Duration.ofMillis(100))
-            .registerLocalJmx(0)
             .addMetricSensor(MEMORY_METRIC_SENSOR)
             .build()) {
 

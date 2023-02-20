@@ -458,7 +458,6 @@ class NetworkCostTest {
   void testNoMetricCheck() {
     try (var collector =
         MetricCollector.local()
-            .registerLocalJmx(SERVICE.dataFolders().keySet().stream().findAny().get())
             .addMetricSensor(ingressCost().metricSensor().get())
             .interval(Duration.ofMillis(100))
             .build()) {

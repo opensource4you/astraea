@@ -57,7 +57,6 @@ public class MemoryCostTest {
     try (MetricCollector collector =
         MetricCollector.local()
             .interval(interval)
-            .registerLocalJmx(0)
             .addMetricSensor(
                 new MemoryCost().metricSensor().orElseThrow(),
                 (id, err) -> Assertions.fail(err.getMessage()))

@@ -75,7 +75,6 @@ public class StrictCostDispatcher extends Dispatcher {
       metricCollector =
           MetricCollector.local()
               .interval(Duration.ofMillis(1500))
-              .registerLocalJmx(-1)
               .registerJmxs(
                   clusterInfo.nodes().stream()
                       .filter(node -> jmxPortGetter.apply(node.id()).isPresent())
@@ -155,7 +154,6 @@ public class StrictCostDispatcher extends Dispatcher {
       metricCollector =
           MetricCollector.local()
               .interval(Duration.ofMillis(1500))
-              .registerLocalJmx(-1)
               .addMetricSensors(
                   this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
               .build();

@@ -93,18 +93,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected void registerJMX(Map<Integer, String> unregister) {
     // Recreate metricCollector when new target should be registered.
-    if (unregister.keySet().stream().anyMatch(idHost::containsKey)) {
+    if (unregister.keySet().stream().anyMatch(id -> !idHost.containsKey(id))) {
       idHost.putAll(unregister);
-      if (metricCollector != null) metricCollector.close();
-      recreateCollector();
-    }
-  }
-
-  // used for test
-  protected void registerLocalJMX(int id) {
-    // Recreate metricCollector when new target should be registered.
-    if (localId.isEmpty()) {
-      localId = Optional.of(id);
       if (metricCollector != null) metricCollector.close();
       recreateCollector();
     }
@@ -124,7 +114,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                                 InetSocketAddress.createUnresolved(
                                     idhost.getValue(), jmxPortGetter.apply(idhost.getKey()).get())))
                     .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
-            .registerLocalJmx(localId.get())
             .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
             .build();
   }
@@ -179,6 +168,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
+    recreateCollector();
     configure(config);
   }
 }
