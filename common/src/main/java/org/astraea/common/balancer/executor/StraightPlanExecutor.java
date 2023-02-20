@@ -86,7 +86,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
             replicas ->
                 admin
                     .waitCluster(
-                        logAllocation.topics(),
+                        logAllocation.topicNames(),
                         clusterInfo ->
                             clusterInfo
                                 .topicPartitionReplicas()

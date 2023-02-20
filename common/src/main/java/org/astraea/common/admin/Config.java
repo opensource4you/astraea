@@ -21,6 +21,9 @@ import java.util.Optional;
 
 /** this interface used to represent the resource (topic or broker) configuration. */
 public interface Config {
+
+  Config EMPTY = Config.of(Map.of());
+
   static Config of(Map<String, String> configs) {
     return new Config() {
       @Override

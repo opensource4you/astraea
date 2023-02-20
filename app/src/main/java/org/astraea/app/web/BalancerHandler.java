@@ -224,7 +224,7 @@ class BalancerHandler implements Handler {
       BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
     var topics =
         balancerPostRequest.topics.isEmpty()
-            ? currentClusterInfo.topics()
+            ? currentClusterInfo.topicNames()
             : balancerPostRequest.topics;
 
     if (topics.isEmpty())

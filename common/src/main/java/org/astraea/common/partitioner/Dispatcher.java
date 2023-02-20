@@ -157,7 +157,7 @@ public abstract class Dispatcher implements Partitioner {
       return interdependent.targetPartitions;
     tryToUpdate();
     final int target;
-    if (!clusterInfo.topics().contains(topic)) {
+    if (!clusterInfo.topicNames().contains(topic)) {
       // the cached cluster info is not updated, so we just return a random partition
       var ps = cluster.availablePartitionsForTopic(topic);
       target = ps.isEmpty() ? 0 : ps.get((int) (Math.random() * ps.size())).partition();
