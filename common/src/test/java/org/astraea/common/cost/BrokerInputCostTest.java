@@ -61,7 +61,7 @@ public class BrokerInputCostTest {
   void testSensor() {
     var interval = Duration.ofMillis(300);
     try (var collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .interval(interval)
             .registerJmx(
                 0,

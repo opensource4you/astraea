@@ -64,7 +64,7 @@ public interface MetricCollector extends AutoCloseable {
   @Override
   void close();
 
-  static LocalMetricCollector.Builder builder() {
+  static LocalMetricCollector.Builder local() {
     return new LocalMetricCollector.Builder();
   }
 }

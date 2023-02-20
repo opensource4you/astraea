@@ -112,7 +112,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
 
   private void recreateCollector() {
     metricCollector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .interval(Duration.ofSeconds(1))
             .expiration(Duration.ofSeconds(15))
             .registerJmxs(

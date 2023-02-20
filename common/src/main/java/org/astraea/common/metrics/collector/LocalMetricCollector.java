@@ -44,6 +44,23 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
+/**
+ * Keep fetching Jmx mbeans from given targets. Then store the fetched metrics temporary and
+ * locally.
+ *
+ * <p>The following code fetch mbeans from local jmx server
+ *
+ * <pre>{@code
+ * try (var collector =
+ *     MetricCollector.local()
+ *         .registerLocalJmx(0)
+ *         .addMetricSensor(client -> List.of(HostMetrics.jvmMemory(client)))
+ *         .interval(sample)
+ *         .build()) {
+ *   collector.clusterBean();
+ * }
+ * }</pre>
+ */
 public class LocalMetricCollector implements MetricCollector {
   private final Map<Integer, MBeanClient> mBeanClients;
   private final List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors;

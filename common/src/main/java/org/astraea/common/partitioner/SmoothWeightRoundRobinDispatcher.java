@@ -37,7 +37,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
   private MetricCollector metricCollector =
-      MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
+      MetricCollector.local().interval(Duration.ofMillis(1500)).build();
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
   private SmoothWeightCal<Integer> smoothWeightCal;
   private RoundRobinKeeper roundRobinKeeper;
@@ -117,7 +117,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
       metricCollector.close();
       // Recreate metric collector with current cluster info
       metricCollector =
-          MetricCollector.builder()
+          MetricCollector.local()
               .registerJmxs(
                   clusterInfo.availableReplicas(topic).stream()
                       .filter(replica -> jmxPortGetter.apply(replica.nodeInfo().id()).isPresent())

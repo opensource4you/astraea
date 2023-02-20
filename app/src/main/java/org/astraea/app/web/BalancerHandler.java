@@ -553,7 +553,7 @@ class BalancerHandler implements Handler {
       // TODO: use a global metric collector when we are ready to enable long-run metric sampling
       //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
       try (var collector =
-          MetricCollector.builder()
+          MetricCollector.local()
               .registerJmxs(freshJmxAddresses())
               .addMetricSensors(metricSensors)
               .interval(sampleInterval)

@@ -55,7 +55,7 @@ public class MemoryCostTest {
   void testSensor() {
     var interval = Duration.ofMillis(300);
     try (MetricCollector collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .interval(interval)
             .registerLocalJmx(0)
             .addMetricSensor(

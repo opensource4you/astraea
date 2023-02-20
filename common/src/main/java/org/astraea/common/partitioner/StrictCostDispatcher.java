@@ -73,7 +73,7 @@ public class StrictCostDispatcher extends Dispatcher {
       if (metricCollector != null) metricCollector.close();
       // Recreate metric collector with current clusterInfo
       metricCollector =
-          MetricCollector.builder()
+          MetricCollector.local()
               .interval(Duration.ofMillis(1500))
               .registerLocalJmx(-1)
               .registerJmxs(
@@ -153,7 +153,7 @@ public class StrictCostDispatcher extends Dispatcher {
     // put local mbean client first
     if (metricCollector == null)
       metricCollector =
-          MetricCollector.builder()
+          MetricCollector.local()
               .interval(Duration.ofMillis(1500))
               .registerLocalJmx(-1)
               .addMetricSensors(

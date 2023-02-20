@@ -59,7 +59,7 @@ class MetricCollectorTest {
 
   @Test
   void testAddSensor() {
-    try (var collector = MetricCollector.builder().addMetricSensor(MEMORY_METRIC_SENSOR).build()) {
+    try (var collector = MetricCollector.local().addMetricSensor(MEMORY_METRIC_SENSOR).build()) {
       Assertions.assertEquals(1, collector.metricSensors().size());
       Assertions.assertTrue(collector.metricSensors().contains(MEMORY_METRIC_SENSOR));
     }
@@ -70,7 +70,7 @@ class MetricCollectorTest {
     var socket =
         InetSocketAddress.createUnresolved(
             SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
-    var builder = MetricCollector.builder().registerJmx(1, socket).registerLocalJmx(-1);
+    var builder = MetricCollector.local().registerJmx(1, socket).registerLocalJmx(-1);
 
     Assertions.assertThrows(
         IllegalArgumentException.class,
@@ -92,7 +92,7 @@ class MetricCollectorTest {
   void testListMetricTypes() {
     var sample = Duration.ofMillis(100);
     try (var collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .registerLocalJmx(0)
             .addMetricSensor(MEMORY_METRIC_SENSOR)
             .addMetricSensor(OS_METRIC_SENSOR)
@@ -110,7 +110,7 @@ class MetricCollectorTest {
   void clusterBean() {
     var sample = Duration.ofMillis(200);
     try (var collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .registerLocalJmx(0)
             .registerLocalJmx(1)
             .registerLocalJmx(2)
@@ -144,7 +144,7 @@ class MetricCollectorTest {
   void metrics() {
     var sample = Duration.ofSeconds(2);
     try (var collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .registerLocalJmx(0)
             .addMetricSensor(MEMORY_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()))
             .addMetricSensor(OS_METRIC_SENSOR, (id, err) -> Assertions.fail(err.getMessage()))
@@ -192,7 +192,7 @@ class MetricCollectorTest {
             InetSocketAddress.createUnresolved(
                 SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
         var collector =
-            MetricCollector.builder()
+            MetricCollector.local()
                 .registerJmx(0, socket)
                 .registerJmx(1, socket)
                 .registerJmx(2, socket)
@@ -228,7 +228,7 @@ class MetricCollectorTest {
           return List.of(() -> beanObject);
         };
     try (var collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .registerLocalJmx(-1)
             .addMetricSensor(
                 noSuchMetricSensor,
@@ -248,7 +248,7 @@ class MetricCollectorTest {
   @Test
   void testCleaner() {
     try (var collector =
-        MetricCollector.builder()
+        MetricCollector.local()
             .expiration(Duration.ofMillis(2000))
             .cleanerInterval(Duration.ofMillis(50))
             .interval(Duration.ofMillis(100))
