@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.algorithms;
+package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.Objects;
