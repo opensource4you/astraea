@@ -31,7 +31,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -45,6 +47,9 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -55,6 +60,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class NetworkCostTest {
+
+  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void close() {
+    SERVICE.close();
+  }
 
   private static NetworkIngressCost ingressCost() {
     return new NetworkIngressCost() {
@@ -158,12 +170,12 @@ class NetworkCostTest {
   @DisplayName("Run with Balancer")
   void testOptimization(HasClusterCost costFunction, TestCase testcase) {
     var newPlan =
-        Balancer.Official.Greedy.create(
-                AlgorithmConfig.builder()
-                    .clusterCost(costFunction)
-                    .metricSource(testcase::clusterBean)
-                    .build())
-            .offer(testcase.clusterInfo(), Duration.ofSeconds(1));
+        Balancer.Official.Greedy.create(Configuration.EMPTY)
+            .offer(
+                testcase.clusterInfo(),
+                testcase.clusterBean(),
+                Duration.ofSeconds(1),
+                AlgorithmConfig.builder().clusterCost(costFunction).build());
 
     Assertions.assertTrue(newPlan.solution().isPresent());
     System.out.println("Initial cost: " + newPlan.initialClusterCost().value());
@@ -244,11 +256,15 @@ class NetworkCostTest {
     double expectedIngress1 = 100 + 80;
     double expectedIngress2 = 100;
     double expectedIngress3 = 80;
+    double ingressSum = expectedIngress1 + expectedIngress2 + expectedIngress3;
     double expectedEgress1 = 300 + 100;
     double expectedEgress2 = 0;
-    double expectedEgress3 = 800 + 80 * 2;
-    double expectedIngressScore = (expectedIngress1 - expectedIngress3) / expectedIngress1;
-    double expectedEgressScore = (expectedEgress3 - expectedEgress2) / expectedEgress3;
+    double expectedEgress3 = 800 + 80;
+    double egressSum = expectedEgress1 + expectedEgress2 + expectedEgress3;
+    double expectedIngressScore =
+        (expectedIngress1 - expectedIngress3) / Math.max(ingressSum, egressSum);
+    double expectedEgressScore =
+        (expectedEgress3 - expectedEgress2) / Math.max(ingressSum, egressSum);
     double ingressScore = ingressCost().clusterCost(cluster, beans).value();
     double egressScore = egressCost().clusterCost(cluster, beans).value();
     Assertions.assertTrue(
@@ -257,6 +273,9 @@ class NetworkCostTest {
     Assertions.assertTrue(
         around.apply(expectedEgressScore).test(egressScore),
         "Egress score should be " + expectedEgressScore + " but it is " + egressScore);
+    Assertions.assertTrue(
+        egressScore > ingressScore,
+        "Egress is experience higher imbalance issues, its score should be higher");
   }
 
   @Test
@@ -418,6 +437,47 @@ class NetworkCostTest {
     System.out.println("[Summary]");
     System.out.println("True  test: " + counting.get(true));
     System.out.println("False test: " + counting.get(false));
+  }
+
+  @Test
+  void testZeroReplicaBroker() {
+    var testcase = new LargeTestCase(1, 1, 0);
+    var beans = testcase.clusterBean();
+    var cluster = testcase.clusterInfo();
+    var scaledCluster =
+        ClusterInfoBuilder.builder(cluster)
+            .addNode(Set.of(4321))
+            .addFolders(Map.of(4321, Set.of("/folder")))
+            .build();
+    var node = scaledCluster.node(4321);
+
+    var costI =
+        (NetworkCost.NetworkClusterCost) new NetworkIngressCost().clusterCost(scaledCluster, beans);
+    Assertions.assertEquals(2, costI.brokerRate.size());
+    Assertions.assertEquals(0.0, costI.brokerRate.get(node));
+    var costE =
+        (NetworkCost.NetworkClusterCost) new NetworkEgressCost().clusterCost(scaledCluster, beans);
+    Assertions.assertEquals(2, costE.brokerRate.size());
+    Assertions.assertEquals(0.0, costE.brokerRate.get(node));
+  }
+
+  @Test
+  void testNoMetricCheck() {
+    try (var collector = MetricCollector.builder().interval(Duration.ofMillis(100)).build()) {
+      var ingressCost = new NetworkIngressCost();
+
+      // setup sampling
+      SERVICE.dataFolders().keySet().forEach(collector::registerLocalJmx);
+      ingressCost.metricSensor().ifPresent(collector::addMetricSensor);
+
+      // sample metrics for a while.
+      Utils.sleep(Duration.ofMillis(500));
+
+      var emptyCluster = ClusterInfoBuilder.builder().addNode(Set.of(1, 2, 3)).build();
+      Assertions.assertDoesNotThrow(
+          () -> ingressCost.clusterCost(emptyCluster, collector.clusterBean()),
+          "Should not raise an exception");
+    }
   }
 
   interface TestCase {

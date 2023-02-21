@@ -14,21 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.performance;
+package org.astraea.common.metrics.connector;
 
-import java.io.Closeable;
+import org.astraea.common.metrics.client.HasCoordinatorMetrics;
 
-interface AbstractThread extends Closeable {
+@FunctionalInterface
+public interface ConnectCoordinatorInfo extends HasCoordinatorMetrics {
 
-  /** wait this thread to be completed. */
-  void waitForDone();
+  default double assignedConnectors() {
+    return (double) beanObject().attributes().get("assigned-connectors");
+  }
 
-  /**
-   * @return true if this thread is done
-   */
-  boolean closed();
-
-  /** wakeup and then wait this thread to complete */
-  @Override
-  void close();
+  default double assignedTasks() {
+    return (double) beanObject().attributes().get("assigned-tasks");
+  }
 }

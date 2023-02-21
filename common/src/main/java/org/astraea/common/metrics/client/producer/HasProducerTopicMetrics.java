@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client.producer;
 
 import org.astraea.common.metrics.HasBeanObject;
 
+@FunctionalInterface
 public interface HasProducerTopicMetrics extends HasBeanObject {
 
   default String topic() {
