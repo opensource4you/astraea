@@ -504,7 +504,7 @@ public class BalancerHandlerTest {
           Utils.packException(() -> executor.awaitTermination(threadCount * 3L, TimeUnit.SECONDS)));
 
       // the rebalance task is triggered in async manner, it may take some time to getting schedule
-      Utils.sleep(Duration.ofMillis(500));
+      Utils.sleep(Duration.ofSeconds(2));
       // test if the plan has been executed just once
       Assertions.assertEquals(1, theExecutor.count());
     }
