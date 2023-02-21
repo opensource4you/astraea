@@ -33,9 +33,9 @@ import scala.jdk.CollectionConverters._
 class DataFrameProcessorTest {
   @Test
   def skipBlankLineTest(): Unit = {
-    val sourceDir = Files.createTempDirectory("source").toFile
-    val dataDir = Files.createTempDirectory("data").toFile
-    val checkoutDir = Files.createTempDirectory("checkpoint").toFile
+    val sourceDir = Files.createTempDirectory("source")
+    val dataDir = Files.createTempDirectory("data")
+    val checkoutDir = Files.createTempDirectory("checkpoint")
 
     val columnOne: List[String] =
       List("A1", "B1", null, "D1")
@@ -56,7 +56,7 @@ class DataFrameProcessorTest {
     val df = DataFrameProcessor.fromLocalCsv(
       createSpark(),
       Metadata(
-        sourcePath = sourceDir.getPath,
+        sourcePath = sourceDir.toAbsolutePath.toString,
         checkpoint = "",
         columns = Seq(
           DataColumn("RecordNumber", true, StringType),
@@ -77,32 +77,32 @@ class DataFrameProcessorTest {
     df.dataFrame()
       .writeStream
       .format("csv")
-      .option("path", dataDir.getPath)
-      .option("checkpointLocation", checkoutDir.getPath)
+      .option("path", dataDir.toAbsolutePath.toString)
+      .option("checkpointLocation", checkoutDir.toAbsolutePath.toString)
       .outputMode("append")
       .start()
       .awaitTermination(Duration(20, TimeUnit.SECONDS).toMillis)
 
-    val writeFile = getCSVFile(Path.of(dataDir.getPath)).head
-    val br = Files.newBufferedReader(writeFile)
+    val writeFile = getCSVFile(dataDir).head
+    val lines = Files.readAllLines(writeFile)
 
-    assertEquals(br.readLine, "A1,52,fghgh")
-    assertEquals(br.readLine, "B1,36,gjgbn")
-    assertEquals(br.readLine, "D1,25,dfjf")
+    assertEquals("A1,52,fghgh", lines.get(0))
+    assertEquals("B1,36,gjgbn", lines.get(1))
+    assertEquals("D1,25,dfjf", lines.get(2))
   }
 
   @Test
   def sparkReadCSVTest(): Unit = {
-    val sourceDir = Files.createTempDirectory("source").toFile
+    val sourceDir = Files.createTempDirectory("source")
     generateCSVF(sourceDir, rows)
 
-    val checkoutDir = Files.createTempDirectory("checkpoint").toFile
+    val checkoutDir = Files.createTempDirectory("checkpoint")
     val dataDir = Files.createTempDirectory("data")
 
     val csvDF = DataFrameProcessor.fromLocalCsv(
       createSpark(),
       Metadata(
-        sourcePath = sourceDir.getPath,
+        sourcePath = sourceDir.toAbsolutePath.toString,
         checkpoint = "",
         columns = Seq(
           DataColumn("RecordNumber", true, StringType),
@@ -130,18 +130,17 @@ class DataFrameProcessorTest {
       .writeStream
       .format("csv")
       .option("path", dataDir.toAbsolutePath.toString)
-      .option("checkpointLocation", checkoutDir.getPath)
+      .option("checkpointLocation", checkoutDir.toAbsolutePath.toString)
       .outputMode("append")
       .start()
       .awaitTermination(Duration(20, TimeUnit.SECONDS).toMillis)
 
     val writeFile = getCSVFile(dataDir).head
-    val br = Files.newBufferedReader(writeFile)
-
-    assertEquals(br.readLine, "A1,52,fghgh")
-    assertEquals(br.readLine, "B1,36,gjgbn")
-    assertEquals(br.readLine, "C1,45,fgbhjf")
-    assertEquals(br.readLine, "D1,25,dfjf")
+    val lines = Files.readAllLines(writeFile)
+    assertEquals("A1,52,fghgh", lines.get(0))
+    assertEquals("B1,36,gjgbn", lines.get(1))
+    assertEquals("C1,45,fgbhjf", lines.get(2))
+    assertEquals("D1,25,dfjf", lines.get(3))
   }
 
   @Test
