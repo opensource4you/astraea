@@ -19,6 +19,7 @@ package org.astraea.common.cost;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -167,14 +168,40 @@ public abstract class NetworkCost implements HasClusterCost, HasPartitionCost {
     if (bandwidthType == BandwidthType.Egress)
       return () ->
           clusterInfo.topicPartitions().stream().collect(Collectors.toMap(tp -> tp, ignore -> 0.0));
-    // The value of cost is: the ingress of partition converted to GB
-    // For example, if the ingress of the partition is 1 GB/s, the value of cost is 1.
-    // Return 0 is don't care
-    return () ->
+
+    var partitionLocation = new HashMap<TopicPartition, Integer>();
+    // 1. get partition byte in per second
+    var partitionCost =
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
             .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double)e.getValue()));
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()));
+    // 2. in order to normalize to [0,1] , calculate the total ingress of the brokers
+    var ingressPerBroker =
+        clusterInfo
+            .replicaStream()
+            .filter(Replica::isLeader)
+            .filter(Replica::isOnline)
+            .collect(
+                Collectors.groupingBy(
+                    replica -> replica.nodeInfo().id(),
+                    Collectors.mapping(
+                        replica -> {
+                          var tp = replica.topicPartition();
+                          partitionLocation.put(tp, replica.nodeInfo().id());
+                          return partitionCost.get(tp);
+                        },
+                        Collectors.summingLong(x -> x))));
+    // 3. normalize cost to [0,1]
+    var result =
+        partitionCost.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        (double) e.getValue()
+                            / ingressPerBroker.get(partitionLocation.get(e.getKey()))));
+    return () -> result;
   }
 
   public Optional<MetricSensor> metricSensor() {
