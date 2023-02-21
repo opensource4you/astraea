@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Assertions.{assertEquals, assertTrue}
 import org.junit.jupiter.api.Test
 
 import java.io._
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
@@ -83,8 +83,8 @@ class DataFrameProcessorTest {
       .start()
       .awaitTermination(Duration(20, TimeUnit.SECONDS).toMillis)
 
-    val writeFile = getCSVFile(new File(dataDir.getPath)).head
-    val br = new BufferedReader(new FileReader(writeFile))
+    val writeFile = getCSVFile(Path.of(dataDir.getPath)).head
+    val br = Files.newBufferedReader(writeFile)
 
     assertEquals(br.readLine, "A1,52,fghgh")
     assertEquals(br.readLine, "B1,36,gjgbn")
@@ -97,7 +97,7 @@ class DataFrameProcessorTest {
     generateCSVF(sourceDir, rows)
 
     val checkoutDir = Files.createTempDirectory("checkpoint").toFile
-    val dataDir = Files.createTempDirectory("data").toFile
+    val dataDir = Files.createTempDirectory("data")
 
     val csvDF = DataFrameProcessor.fromLocalCsv(
       createSpark(),
@@ -129,14 +129,14 @@ class DataFrameProcessorTest {
       .dataFrame()
       .writeStream
       .format("csv")
-      .option("path", dataDir.getPath)
+      .option("path", dataDir.toAbsolutePath.toString)
       .option("checkpointLocation", checkoutDir.getPath)
       .outputMode("append")
       .start()
       .awaitTermination(Duration(20, TimeUnit.SECONDS).toMillis)
 
-    val writeFile = getCSVFile(new File(dataDir.getPath)).head
-    val br = new BufferedReader(new FileReader(writeFile))
+    val writeFile = getCSVFile(dataDir).head
+    val br = Files.newBufferedReader(writeFile)
 
     assertEquals(br.readLine, "A1,52,fghgh")
     assertEquals(br.readLine, "B1,36,gjgbn")

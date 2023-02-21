@@ -30,7 +30,7 @@ public interface ZookeeperCluster extends AutoCloseable {
     try {
       factory = new NIOServerCnxnFactory();
       factory.configure(new InetSocketAddress("0.0.0.0", 0), 1024);
-      factory.startup(new ZooKeeperServer(snapshotDir, logDir, 500));
+      factory.startup(new ZooKeeperServer(snapshotDir.toFile(), logDir.toFile(), 500));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

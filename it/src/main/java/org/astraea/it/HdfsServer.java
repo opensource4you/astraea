@@ -16,8 +16,10 @@
  */
 package org.astraea.it;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Objects;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -45,23 +47,26 @@ public interface HdfsServer extends AutoCloseable {
 
     private Builder() {
       Configuration conf = new Configuration();
-      conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, homeFolder.getAbsolutePath());
+      conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, homeFolder.toAbsolutePath().toString());
       miniDfsBuilder = new MiniDFSCluster.Builder(conf);
     }
 
-    private File homeFolder = Utils.createTempDirectory("local_hdfs");
+    private Path homeFolder = Utils.createTempDirectory("local_hdfs");
 
     private MiniDFSCluster.Builder miniDfsBuilder;
 
-    public void checkArguments() {
-      if (!homeFolder.exists() && !homeFolder.mkdir())
-        throw new IllegalArgumentException(
-            "fail to create folder on " + homeFolder.getAbsolutePath());
-      if (!homeFolder.isDirectory())
-        throw new IllegalArgumentException(homeFolder.getAbsolutePath() + " is not folder");
+    private void checkArguments() {
+      if (Files.notExists(homeFolder))
+        try {
+          Files.createDirectories(homeFolder);
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+      if (!Files.isDirectory(homeFolder))
+        throw new IllegalArgumentException(homeFolder + " is not folder");
     }
 
-    public Builder homeFolder(File homeFolder) {
+    public Builder homeFolder(Path homeFolder) {
       this.homeFolder = Objects.requireNonNull(homeFolder);
       return this;
     }

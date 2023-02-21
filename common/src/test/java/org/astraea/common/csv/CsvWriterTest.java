@@ -20,8 +20,8 @@ import static org.astraea.it.Utils.createTempDirectory;
 import static org.astraea.it.Utils.mkdir;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.File;
-import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.astraea.common.Utils;
 import org.junit.jupiter.api.Test;
@@ -33,10 +33,10 @@ public class CsvWriterTest {
   void differentLineLengthsErrorTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
 
     try (var writer =
-        CsvWriter.builder(Utils.packException(() -> new FileWriter(target))).build()) {
+        CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(target))).build()) {
       writer.append(
           List.of(
               "TIMESTAMP,RECORD,StartTime2,Batt_V_Min,Rain_mm_Tot,SlrFD_kW_Avg,SlrTF_MJ_Tot,WS_ms_WVc(1),WS_ms_WVc(2),WS_ms_S_WVT,MaxWS_ms_Max,MaxWS_ms_TMx,AirT_C_Avg,AirT_C_Max,AirT_C_TMx,AirT_C_Min,AirT_C_TMn,VP_hPa_Avg,BP_hPa_Max,BP_hPa_TMx,BP_hPa_Min,BP_hPa_TMn,RH_Max,RH_Min,RHT_C_Max,RHT_C_Min,TiltNS_deg_Max,TiltNS_deg_TMx,TiltNS_deg_Min,TiltNS_deg_TMn,TiltWE_deg_Max,TiltWE_deg_TMx,TiltWE_deg_Min,CVMeta"
@@ -59,10 +59,10 @@ public class CsvWriterTest {
   void blankLineTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
 
     try (var writer =
-        CsvWriter.builder(Utils.packException(() -> new FileWriter(target))).build()) {
+        CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(target))).build()) {
       writer.append(
           List.of(
               "TIMESTAMP,RECORD,StartTime2,Batt_V_Min,Rain_mm_Tot,SlrFD_kW_Avg,SlrTF_MJ_Tot,WS_ms_WVc(1),WS_ms_WVc(2),WS_ms_S_WVT,MaxWS_ms_Max,MaxWS_ms_TMx,AirT_C_Avg,AirT_C_Max,AirT_C_TMx,AirT_C_Min,AirT_C_TMn,VP_hPa_Avg,BP_hPa_Max,BP_hPa_TMx,BP_hPa_Min,BP_hPa_TMn,RH_Max,RH_Min,RHT_C_Max,RHT_C_Min,TiltNS_deg_Max,TiltNS_deg_TMx,TiltNS_deg_Min,TiltNS_deg_TMn,TiltWE_deg_Max,TiltWE_deg_TMx,TiltWE_deg_Min,CVMeta"
@@ -75,7 +75,7 @@ public class CsvWriterTest {
     }
 
     try (var writer =
-        CsvWriter.builder(Utils.packException(() -> new FileWriter(target)))
+        CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(target)))
             .blankLine(true)
             .build()) {
       writer.append(
@@ -95,9 +95,9 @@ public class CsvWriterTest {
   void nullErrorTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     try (var writer =
-        CsvWriter.builder(Utils.packException(() -> new FileWriter(target))).build()) {
+        CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(target))).build()) {
       assertThrows(RuntimeException.class, () -> writer.append(null));
     }
   }

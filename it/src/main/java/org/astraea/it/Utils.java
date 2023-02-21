@@ -16,14 +16,13 @@
  */
 package org.astraea.it;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
-import java.util.stream.Stream;
+import java.nio.file.Path;
 
 public final class Utils {
 
@@ -43,9 +42,9 @@ public final class Utils {
     return port;
   }
 
-  public static File createTempDirectory(String prefix) {
+  public static Path createTempDirectory(String prefix) {
     try {
-      return Files.createTempDirectory(prefix).toFile();
+      return Files.createTempDirectory(prefix);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -59,21 +58,18 @@ public final class Utils {
     }
   }
 
-  public static void delete(File file) {
+  public static void delete(Path path) {
     try {
-      if (file.isDirectory()) {
-        var fs = file.listFiles();
-        if (fs != null) Stream.of(fs).forEach(Utils::delete);
-      }
-      Files.deleteIfExists(file.toPath());
+      if (Files.isDirectory(path)) Files.list(path).forEach(Utils::delete);
+      Files.deleteIfExists(path);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
   }
 
-  public static File mkdir(String address) {
+  public static Path mkdir(String address) {
     try {
-      return Files.createDirectories(new File(address).toPath()).toFile();
+      return Files.createDirectories(Path.of(address));
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

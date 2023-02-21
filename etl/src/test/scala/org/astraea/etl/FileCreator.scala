@@ -19,7 +19,7 @@ package org.astraea.etl
 import com.opencsv.CSVWriter
 
 import java.io.{BufferedWriter, File, FileWriter}
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -47,7 +47,7 @@ object FileCreator {
       int: Int
   ): Try[Unit] = {
     val str = sourceDir.toString + "/local_kafka" + "-" + int + ".csv"
-    val fileCSV2 = Files.createFile(new File(str).toPath)
+    val fileCSV2 = Files.createFile(Path.of(str))
     writeCsvFile(fileCSV2.toAbsolutePath.toString, rows)
   }
 
@@ -70,10 +70,13 @@ object FileCreator {
         }
     )
 
-  def getCSVFile(file: File): Array[File] = {
-    file
-      .listFiles()
-      .filter(!_.isDirectory)
-      .filter(t => t.toString.endsWith(".csv"))
+  def getCSVFile(file: Path): Seq[Path] = {
+    Files
+      .list(file)
+      .filter(f => Files.isRegularFile(f))
+      .filter(t => t.endsWith(".csv"))
+      .iterator()
+      .asScala
+      .toSeq
   }
 }
