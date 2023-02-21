@@ -77,20 +77,34 @@ public class LocalMetricCollector implements MetricCollector {
       Duration interval,
       Duration cleanerInterval,
       Map<Integer, MBeanClient> mBeanClients,
-      List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors) {
+      List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors,
+      Map<Integer, Collection<HasBeanObject>> beans) {
     this.executorService = Executors.newScheduledThreadPool(threadCount + 1);
     this.delayedWorks = new DelayQueue<>();
     this.mBeanClients = new ConcurrentHashMap<>(mBeanClients);
     this.sensors = sensors;
     mBeanClients.forEach(
         (id, ignore) -> this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, id)));
+    if (beans != null)
+      beans.forEach(
+          (id, hasBeans) ->
+              this.beans.compute(
+                  id,
+                  (key, old) -> {
+                    if (old == null) {
+                      return new ConcurrentLinkedQueue<>(hasBeans);
+                    } else {
+                      old.addAll(hasBeans);
+                      return old;
+                    }
+                  }));
 
     // TODO: restart cleaner if it is dead
     // cleaner
     executorService.scheduleWithFixedDelay(
         () -> {
           var before = System.currentTimeMillis() - expiration.toMillis();
-          beans
+          this.beans
               .values()
               .forEach(
                   bs -> bs.removeIf(hasBeanObject -> hasBeanObject.createdTimestamp() < before));
@@ -122,7 +136,7 @@ public class LocalMetricCollector implements MetricCollector {
                             try {
                               var newBeans =
                                   sensor.getKey().fetch(mBeanClients.get(identity.id), clusterBean);
-                              beans
+                              this.beans
                                   .computeIfAbsent(
                                       identity.id, ignored -> new ConcurrentLinkedQueue<>())
                                   .addAll(newBeans);
@@ -241,6 +255,8 @@ public class LocalMetricCollector implements MetricCollector {
     private final List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors =
         new ArrayList<>();
 
+    private Map<Integer, Collection<HasBeanObject>> beans = null;
+
     Builder() {}
 
     public Builder threads(int threads) {
@@ -356,6 +372,12 @@ public class LocalMetricCollector implements MetricCollector {
       return this;
     }
 
+    /** Add all beans to collector initially. */
+    public Builder storeBeans(Map<Integer, Collection<HasBeanObject>> beans) {
+      this.beans = beans;
+      return this;
+    }
+
     public MetricCollector build() {
       // Set local mbean client as default
       this.mBeanClients.compute(
@@ -374,7 +396,8 @@ public class LocalMetricCollector implements MetricCollector {
           this.mBeanClients.entrySet().stream()
               .map(e -> Map.entry(e.getKey(), e.getValue().get()))
               .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)),
-          this.sensors);
+          this.sensors,
+          this.beans);
     }
   }
 

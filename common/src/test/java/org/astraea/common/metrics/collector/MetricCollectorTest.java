@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -32,6 +33,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
@@ -247,6 +249,17 @@ class MetricCollectorTest {
               + afterCleaning.get(0).createdTimestamp()
               + " != "
               + beforeCleaning.get(0).createdTimestamp());
+    }
+  }
+
+  @Test
+  void testLocalStoreBeans() {
+    Map<Integer, Collection<HasBeanObject>> beans =
+        Map.of(1, List.of(() -> new BeanObject("domain", Map.of(), Map.of())));
+    try (var collector = MetricCollector.local().storeBeans(beans).build()) {
+      Assertions.assertEquals(1, collector.clusterBean().all().size());
+      Assertions.assertNotNull(collector.clusterBean().all().get(1));
+      Assertions.assertEquals(1, collector.clusterBean().all().get(1).size());
     }
   }
 

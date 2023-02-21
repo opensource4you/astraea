@@ -73,7 +73,13 @@ public class LocalMetricCollectorTest {
       Assertions.assertEquals(1, opened.get());
       try (var collector =
           new LocalMetricCollector(
-              1, Duration.ZERO, Duration.ofSeconds(1), Duration.ofMinutes(1), clients, List.of())) {
+              1,
+              Duration.ZERO,
+              Duration.ofSeconds(1),
+              Duration.ofMinutes(1),
+              clients,
+              List.of(),
+              Map.of())) {
         // Test target creation
         Assertions.assertEquals(Set.of(-1, 1), collector.listIdentities());
         Assertions.assertEquals(1, opened.get());
