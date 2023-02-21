@@ -18,7 +18,6 @@ package org.astraea.app.publisher;
 
 import java.util.concurrent.CompletionStage;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
@@ -29,14 +28,14 @@ public interface JMXPublisher extends AutoCloseable {
         Producer.builder().bootstrapServers(bootstrap).valueSerializer(Serializer.STRING).build();
     return new JMXPublisher() {
       @Override
-      public CompletionStage<Metadata> publish(String id, BeanObject bean) {
+      public CompletionStage<Void> publish(String id, BeanObject bean) {
         Record<byte[], String> record =
             Record.builder()
                 .topic(MetricPublisher.internalTopicName(id))
                 .key((byte[]) null)
                 .value(bean.toString())
                 .build();
-        return producer.send(record);
+        return producer.send(record).thenAccept(ignore -> {});
       }
 
       @Override
@@ -46,7 +45,7 @@ public interface JMXPublisher extends AutoCloseable {
     };
   }
 
-  CompletionStage<Metadata> publish(String id, BeanObject bean);
+  CompletionStage<Void> publish(String id, BeanObject bean);
 
   void close();
 }
