@@ -75,7 +75,7 @@ object FileCreator {
     Files
       .list(file)
       .filter(f => Files.isRegularFile(f))
-      .filter(t => t.endsWith(".csv"))
+      .filter(f => f.getFileName.toString.endsWith(".csv"))
       .iterator()
       .asScala
       .toSeq
