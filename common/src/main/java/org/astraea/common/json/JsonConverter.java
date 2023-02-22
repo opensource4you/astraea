@@ -195,7 +195,6 @@ public interface JsonConverter {
         .forEach(
             x -> {
               try {
-                System.out.println("name: " + x.getName() + " isSynthetic: " + x.isSynthetic());
                 preventNull(name + "." + x.getName(), x.get(obj));
               } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
