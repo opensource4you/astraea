@@ -28,7 +28,7 @@ import java.io._
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class DataFrameProcessorTest {
   @Test

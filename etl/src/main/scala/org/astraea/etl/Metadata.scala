@@ -57,7 +57,7 @@ case class Metadata private (
 object Metadata {
   private[etl] val ARCHIVE_PATH = "archive.path"
   private[etl] val SOURCE_PATH_KEY = "source.path"
-  private[etl] val CHECKPOINT_KEY = "checkpoint"
+  private[etl] val CHECKPOINT_KEY = "checkpoint.path"
   private[etl] val COLUMN_NAME_KEY = "column.names"
   private[etl] val COLUMN_TYPES_KEY = "column.types"
   private[etl] val CLEAN_SOURCE = "clean.source"

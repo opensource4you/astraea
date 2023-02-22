@@ -89,7 +89,7 @@ function runContainer() {
 
   if [[ "$master" == "spark:"* ]] || [[ "$master" == "local"* ]]; then
     docker run -d --init \
-      --name "csv-kafka${source_name}" \
+      --name "csv-kafka-${source_name}" \
       $network_config \
       -v "$propertiesPath":"$propertiesPath":ro \
       -v "$jar_path":/tmp/astraea-etl.jar:ro \
