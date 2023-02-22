@@ -16,13 +16,61 @@
  */
 package org.astraea.common.cost;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.broker.ServerMetrics;
+
 /**
  * A cost function to evaluate cluster load balance score in terms of message ingress data rate. See
  * {@link NetworkCost} for further detail.
  */
-public class NetworkIngressCost extends NetworkCost {
+public class NetworkIngressCost extends NetworkCost implements HasPartitionCost {
   public NetworkIngressCost() {
     super(BandwidthType.Ingress);
+  }
+
+  @Override
+  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    noMetricCheck(clusterBean);
+
+    var partitionLocation = new HashMap<TopicPartition, Integer>();
+    // 1. get partition byte in per second
+    var partitionCost =
+        estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
+            .entrySet()
+            .stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()));
+    // 2. in order to normalize to [0,1] , calculate the total ingress of the brokers
+    var ingressPerBroker =
+        clusterInfo
+            .replicaStream()
+            .filter(Replica::isLeader)
+            .filter(Replica::isOnline)
+            .collect(
+                Collectors.groupingBy(
+                    replica -> replica.nodeInfo().id(),
+                    Collectors.mapping(
+                        replica -> {
+                          var tp = replica.topicPartition();
+                          partitionLocation.put(tp, replica.nodeInfo().id());
+                          return partitionCost.get(tp);
+                        },
+                        Collectors.summingLong(x -> x))));
+    // 3. normalize cost to [0,1]
+    var result =
+        partitionCost.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        (double) e.getValue()
+                            / ingressPerBroker.get(partitionLocation.get(e.getKey()))));
+    return () -> result;
   }
 
   @Override

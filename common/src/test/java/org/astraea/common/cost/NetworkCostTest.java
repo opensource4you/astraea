@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -476,7 +475,6 @@ class NetworkCostTest {
 
   @Test
   void testPartitionCost() {
-    var egressCost = new NetworkEgressCost();
     var ingressCost = new NetworkIngressCost();
 
     // create topic `test` and 9 partitions, the size of each partition is ( partition id +1 ) *
@@ -520,37 +518,15 @@ class NetworkCostTest {
 
     var ingressPartitionCost = ingressCost.partitionCost(clusterInfo, clusterBean).value();
 
-    var df = new DecimalFormat("#.##");
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-0"))),
-        df.format((double) 1 / 12));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-1"))),
-        df.format((double) 2 / 15));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-2"))),
-        df.format((double) 3 / 18));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-3"))),
-        df.format((double) 4 / 12));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-4"))),
-        df.format((double) 5 / 15));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-5"))),
-        df.format((double) 6 / 18));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-6"))),
-        df.format((double) 7 / 12));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-7"))),
-        df.format((double) 8 / 15));
-    Assertions.assertEquals(
-        df.format(ingressPartitionCost.get(TopicPartition.of("test-8"))),
-        df.format((double) 9 / 18));
-
-    var partitionEgressCost = egressCost.partitionCost(clusterInfo, clusterBean).value();
-    Assertions.assertTrue(partitionEgressCost.values().stream().allMatch(v -> v == 0.0));
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-0")), (double) 1 / 12);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-1")), (double) 2 / 15);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-2")), (double) 3 / 18);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-3")), (double) 4 / 12);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-4")), (double) 5 / 15);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-5")), (double) 6 / 18);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-6")), (double) 7 / 12);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-7")), (double) 8 / 15);
+    Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-8")), (double) 9 / 18);
   }
 
   interface TestCase {

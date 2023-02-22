@@ -19,7 +19,6 @@ package org.astraea.common.cost;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,7 +61,7 @@ import org.astraea.common.metrics.platform.HostMetrics;
  *       replica, see <a href="https://cwiki.apache.org/confluence/x/go_zBQ">KIP-392<a>.
  * </ol>
  */
-public abstract class NetworkCost implements HasClusterCost, HasPartitionCost {
+public abstract class NetworkCost implements HasClusterCost {
 
   private final AtomicReference<ClusterInfo> currentCluster = new AtomicReference<>();
   private final BandwidthType bandwidthType;
@@ -160,48 +159,6 @@ public abstract class NetworkCost implements HasClusterCost, HasPartitionCost {
     double score = (summary.getMax() - summary.getMin()) / (summary.getMax());
 
     return new NetworkClusterCost(score, brokerRate);
-  }
-
-  @Override
-  public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    noMetricCheck(clusterBean);
-    if (bandwidthType == BandwidthType.Egress)
-      return () ->
-          clusterInfo.topicPartitions().stream().collect(Collectors.toMap(tp -> tp, ignore -> 0.0));
-
-    var partitionLocation = new HashMap<TopicPartition, Integer>();
-    // 1. get partition byte in per second
-    var partitionCost =
-        estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()));
-    // 2. in order to normalize to [0,1] , calculate the total ingress of the brokers
-    var ingressPerBroker =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isLeader)
-            .filter(Replica::isOnline)
-            .collect(
-                Collectors.groupingBy(
-                    replica -> replica.nodeInfo().id(),
-                    Collectors.mapping(
-                        replica -> {
-                          var tp = replica.topicPartition();
-                          partitionLocation.put(tp, replica.nodeInfo().id());
-                          return partitionCost.get(tp);
-                        },
-                        Collectors.summingLong(x -> x))));
-    // 3. normalize cost to [0,1]
-    var result =
-        partitionCost.entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        (double) e.getValue()
-                            / ingressPerBroker.get(partitionLocation.get(e.getKey()))));
-    return () -> result;
   }
 
   public Optional<MetricSensor> metricSensor() {
