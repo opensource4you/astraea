@@ -77,7 +77,6 @@ class DataFrameProcessor(dataFrame: DataFrame) {
                   (
                     lit(c.name),
                     when(col(c.name).isNotNull, col(c.name))
-                      .otherwise(lit(null))
                   )
                 )
                 .filter(_._2 != null)
