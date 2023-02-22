@@ -141,7 +141,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                               : topicDataRateDistribution.sample()))
                                   .perSecond()));
           var topicPartitionDataRate =
-              clusterInfo.topics().stream()
+              clusterInfo.topicNames().stream()
                   .filter(topic -> !topic.equals(backboneTopicName))
                   .flatMap(
                       topic -> {
