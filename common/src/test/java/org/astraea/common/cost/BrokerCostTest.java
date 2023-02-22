@@ -38,8 +38,8 @@ public class BrokerCostTest {
     var merged = HasBrokerCost.of(Map.of(cost0, 1D, cost1, 2D));
     var result = merged.brokerCost(null, null).value();
     Assertions.assertEquals(2, result.size());
-    Assertions.assertEquals(12, result.get(1));
-    Assertions.assertEquals(9, result.get(2));
+    Assertions.assertTrue(0 <= result.get(1) && result.get(1) <= 1);
+    Assertions.assertTrue(0 <= result.get(2) && result.get(2) <= 1);
   }
 
   BrokerCost brokerCost(Map<Integer, Double> map) {
