@@ -161,6 +161,7 @@ public abstract class NetworkCost implements HasClusterCost {
     return new NetworkClusterCost(score, brokerRate);
   }
 
+  @Override
   public Optional<MetricSensor> metricSensor() {
     // TODO: We need a reliable way to access the actual current cluster info. To do that we need to
     //  obtain the replica info, so we intentionally sample log size but never use it.
