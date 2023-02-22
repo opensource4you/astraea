@@ -47,8 +47,8 @@ public interface HasBrokerCost extends CostFunction {
         var result = new HashMap<Integer, Double>();
         costAndWeight.forEach(
             (f, w) ->
-                f.brokerCost(clusterInfo, clusterBean)
-                    .value()
+                Normalizer.DEFAULT
+                    .normalize(f.brokerCost(clusterInfo, clusterBean).value())
                     .forEach(
                         (i, v) ->
                             result.compute(

@@ -27,6 +27,8 @@ import java.util.stream.IntStream;
 /** used to normalize data into a range between [0, 1] */
 public interface Normalizer {
 
+  Normalizer DEFAULT = Normalizer.TScore();
+
   /**
    * @return all normalizers
    */
@@ -51,7 +53,6 @@ public interface Normalizer {
   static Normalizer minMax(boolean positive) {
     var comparator = Comparator.comparing(Double::doubleValue);
     return values -> {
-      if (isNormalized(values)) return values;
       double max = values.stream().max(comparator).orElse(0.0);
       double min = values.stream().min(comparator).orElse(0.0);
       // there is nothing to rescale, so we just all same values
@@ -74,7 +75,6 @@ public interface Normalizer {
    */
   static Normalizer proportion() {
     return values -> {
-      if (isNormalized(values)) return values;
       var sum = values.stream().mapToDouble(i -> i).sum();
       return values.stream().map(v -> v / sum).collect(Collectors.toUnmodifiableList());
     };
@@ -89,7 +89,6 @@ public interface Normalizer {
    */
   static Normalizer TScore() {
     return values -> {
-      if (isNormalized(values)) return values;
       var avg = values.stream().mapToDouble(i -> i).sum() / values.size();
       var standardDeviation =
           Math.sqrt(values.stream().mapToDouble(i -> (i - avg) * (i - avg)).sum() / values.size());
@@ -122,9 +121,5 @@ public interface Normalizer {
     var keys = values.keySet().iterator();
     return normalize(values.values()).stream()
         .collect(Collectors.toUnmodifiableMap(ignored -> keys.next(), Function.identity()));
-  }
-
-  private static boolean isNormalized(Collection<Double> values) {
-    return values.stream().allMatch(v -> 0 <= v && v <= 1);
   }
 }
