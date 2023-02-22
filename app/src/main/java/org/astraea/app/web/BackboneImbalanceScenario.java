@@ -312,7 +312,9 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       var orderMap =
           IntStream.range(0, rendered.size())
               .boxed()
-              .collect(Collectors.toUnmodifiableMap(x -> rendered.get(x).getKey(), x -> x));
+              .collect(
+                  Collectors.toUnmodifiableMap(
+                      x -> rendered.get(x).getKey(), x -> x, Integer::sum));
       var sortedMap = new TreeMap<String, String>(Comparator.comparingInt(orderMap::get));
       rendered.forEach(e -> sortedMap.put(e.getKey(), e.getValue()));
       return sortedMap;
