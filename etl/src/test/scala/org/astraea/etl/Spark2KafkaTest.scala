@@ -99,13 +99,13 @@ object Spark2KafkaTest {
 
   @BeforeAll
   def setup(): Unit = {
-    val sourceDir = Files.createTempDirectory("source").toFile
-    val checkoutDir = Files.createTempDirectory("checkpoint").toFile
+    val sourceDir = Files.createTempDirectory("source")
+    val checkoutDir = Files.createTempDirectory("checkpoint")
     generateCSVF(sourceDir, rows)
 
     val metadata = Metadata(
-      sourcePath = sourceDir.getPath,
-      checkpoint = checkoutDir.getPath,
+      sourcePath = sourceDir.toAbsolutePath.toString,
+      checkpoint = checkoutDir.toAbsolutePath.toString,
       columns = immutable.Seq(
         DataColumn(
           name = "FirstName",

@@ -16,7 +16,7 @@
  */
 package org.astraea.it;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -41,9 +41,9 @@ public interface BrokerCluster extends AutoCloseable {
                     Function.identity(),
                     brokerId ->
                         Set.of(
-                            Utils.createTempDirectory("local_kafka").getAbsolutePath(),
-                            Utils.createTempDirectory("local_kafka").getAbsolutePath(),
-                            Utils.createTempDirectory("local_kafka").getAbsolutePath())));
+                            Utils.createTempDirectory("local_kafka").toAbsolutePath().toString(),
+                            Utils.createTempDirectory("local_kafka").toAbsolutePath().toString(),
+                            Utils.createTempDirectory("local_kafka").toAbsolutePath().toString())));
 
     var brokers =
         IntStream.range(0, numberOfBrokers)
@@ -98,7 +98,7 @@ public interface BrokerCluster extends AutoCloseable {
           broker.shutdown();
           broker.awaitShutdown();
           var folders = tempFolders.remove(brokerID);
-          if (folders != null) folders.forEach(f -> Utils.delete(new File(f)));
+          if (folders != null) folders.forEach(f -> Utils.delete(Path.of(f)));
           connectionProps.set(
               brokers.values().stream()
                   .map(

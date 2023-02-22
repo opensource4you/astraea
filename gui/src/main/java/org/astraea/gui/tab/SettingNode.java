@@ -16,12 +16,11 @@
  */
 package org.astraea.gui.tab;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -56,21 +55,21 @@ public class SettingNode {
   private static final String WORKER_URL = "worker url";
   private static final String WORKER_JMX_PORT = "worker jmx port";
 
-  private static Optional<File> propertyFile() {
+  private static Optional<Path> propertyFile() {
     var tempDir = System.getProperty("java.io.tmpdir");
     if (tempDir == null) return Optional.empty();
-    var dir = new File(tempDir);
-    if (!dir.exists() || !dir.isDirectory()) return Optional.empty();
-    var f = new File(dir, "astraee_gui_json.properties");
-    if (!f.exists() && !Utils.packException(f::createNewFile)) return Optional.empty();
-    return Optional.of(f);
+    var dir = Path.of(tempDir);
+    if (!Files.isDirectory(dir)) return Optional.empty();
+    var f = dir.resolve("astraee_gui_json.properties");
+    if (Files.isRegularFile(f)) return Optional.of(f);
+    return Utils.packException(() -> Optional.of(Files.createFile(f)));
   }
 
   static Optional<Prop> load() {
     return propertyFile()
         .map(
             f -> {
-              try (var input = new FileInputStream(f)) {
+              try (var input = Files.newInputStream(f)) {
                 var bytes = input.readAllBytes();
                 if (bytes == null || bytes.length == 0) return Optional.<Prop>empty();
                 return Optional.of(
@@ -87,7 +86,7 @@ public class SettingNode {
     propertyFile()
         .ifPresent(
             f -> {
-              try (var output = new FileOutputStream(f)) {
+              try (var output = Files.newOutputStream(f)) {
                 output.write(JSON_CONVERTER.toJson(prop).getBytes(StandardCharsets.UTF_8));
               } catch (IOException ignored) {
                 // swallow

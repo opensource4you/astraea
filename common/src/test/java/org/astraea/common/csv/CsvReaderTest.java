@@ -23,9 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -40,9 +38,9 @@ public class CsvReaderTest {
   void differentLineLengthsTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     writeCSV(
-        target.toPath(),
+        target,
         List.of(
             "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"
                 .split(","),
@@ -56,7 +54,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target))).build()) {
       reader.next();
       reader.skip(2);
       assertThrows(
@@ -70,9 +68,9 @@ public class CsvReaderTest {
   void blankLineTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     writeCSV(
-        target.toPath(),
+        target,
         List.of(
             "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"
                 .split(","),
@@ -87,7 +85,7 @@ public class CsvReaderTest {
             "   ".split(",")));
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
@@ -101,7 +99,7 @@ public class CsvReaderTest {
     }
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target)))
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target)))
             .blankLine(true)
             .build()) {
       reader.skip(1);
@@ -118,9 +116,9 @@ public class CsvReaderTest {
   void skipTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     writeCSV(
-        target.toPath(),
+        target,
         List.of(
             "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"
                 .split(","),
@@ -134,7 +132,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target))).build()) {
       reader.skip(4);
       assertEquals(
           mkString(reader.next()),
@@ -146,9 +144,9 @@ public class CsvReaderTest {
   void nextTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     writeCSV(
-        target.toPath(),
+        target,
         List.of(
             "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"
                 .split(","),
@@ -162,7 +160,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
@@ -176,9 +174,9 @@ public class CsvReaderTest {
   void rawNextTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     writeCSV(
-        target.toPath(),
+        target,
         List.of(
             "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"
                 .split(","),
@@ -192,7 +190,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
@@ -206,9 +204,9 @@ public class CsvReaderTest {
   void hasNextTest() {
     var local_csv = createTempDirectory("local_CSV");
     var sink = mkdir(local_csv + "/sink");
-    var target = new File(sink + "/" + DATA_MAME);
+    var target = Path.of(sink + "/" + DATA_MAME);
     writeCSV(
-        target.toPath(),
+        target,
         List.of(
             "TOA5,CR1000(2017),CR1000,82129,CR1000.Std.31,CPU:CR10002017_ENV_20190201_Slowsequence_timestamp_corr.CR1,56749,Climavue50_daily"
                 .split(","),
@@ -222,7 +220,7 @@ public class CsvReaderTest {
                 .split(",")));
 
     try (var reader =
-        CsvReader.builder(Utils.packException(() -> new FileReader(target))).build()) {
+        CsvReader.builder(Utils.packException(() -> Files.newBufferedReader(target))).build()) {
       reader.skip(1);
       reader.next();
       reader.skip(2);
@@ -236,7 +234,7 @@ public class CsvReaderTest {
 
   private void writeCSV(Path sink, List<String[]> lists) {
     try (var writer =
-        CsvWriter.builder(Utils.packException(() -> new FileWriter(sink.toFile()))).build()) {
+        CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(sink))).build()) {
       lists.forEach(line -> writer.rawAppend(Arrays.stream(line).collect(Collectors.toList())));
     }
   }
