@@ -19,13 +19,10 @@ package org.astraea.common.metrics.collector;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
 public interface MetricCollector extends AutoCloseable {
-  void reconfigure(Configuration config);
-
   /**
    * @return the current registered sensors.
    */

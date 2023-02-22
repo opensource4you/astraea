@@ -114,6 +114,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
     // Check if there are new nodes "not" fetched by metric collector
     if (clusterInfo.nodes().stream()
         .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
+      var lastBeans = metricCollector.clusterBean().all();
       metricCollector.close();
       // Recreate metric collector with current cluster info
       metricCollector =
@@ -130,6 +131,7 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
                                       jmxPortGetter.apply(replica.nodeInfo().id()).get()))))
               .addMetricSensors(
                   neutralIntegratedCost.metricSensor().stream().collect(Collectors.toSet()))
+              .storeBeans(lastBeans)
               .interval(Duration.ofMillis(1500))
               .build();
     }

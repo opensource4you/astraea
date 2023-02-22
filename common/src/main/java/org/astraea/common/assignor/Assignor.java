@@ -18,6 +18,7 @@ package org.astraea.common.assignor;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
+import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.PartitionerUtils;
 
@@ -49,7 +51,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
   private final Map<Integer, String> idHost = new HashMap<>();
-  private Optional<Integer> localId = Optional.empty();
   protected MetricCollector metricCollector = null;
 
   /**
@@ -94,13 +95,14 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   protected void registerJMX(Map<Integer, String> unregister) {
     // Recreate metricCollector when new target should be registered.
     if (unregister.keySet().stream().anyMatch(id -> !idHost.containsKey(id))) {
+      var lastBeans = metricCollector.clusterBean().all();
       idHost.putAll(unregister);
       if (metricCollector != null) metricCollector.close();
-      recreateCollector();
+      recreateCollector(lastBeans);
     }
   }
 
-  private void recreateCollector() {
+  private void recreateCollector(Map<Integer, Collection<HasBeanObject>> lastBeans) {
     metricCollector =
         MetricCollector.local()
             .interval(Duration.ofSeconds(1))
@@ -115,6 +117,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                                     idhost.getValue(), jmxPortGetter.apply(idhost.getKey()).get())))
                     .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
             .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+            .storeBeans(lastBeans)
             .build();
   }
 
@@ -168,7 +171,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    recreateCollector();
+    recreateCollector(Map.of());
     configure(config);
   }
 }

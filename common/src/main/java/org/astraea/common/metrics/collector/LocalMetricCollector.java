@@ -36,11 +36,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
@@ -156,49 +154,6 @@ public class LocalMetricCollector implements MetricCollector {
                         }
                       }
                     }));
-  }
-
-  @Override
-  public void reconfigure(Configuration config) {
-    reconfigureJmx(config);
-  }
-
-  /**
-   * This method reconfigure the target nodes to fetch. It will try to add new connection when the
-   * targets in configuration is not currently fetch. The currently fetched targets which is not in
-   * configuration will be closed and removed. The format for setting a target is
-   * {"registerJmx.1001", "localhost:7091"}
-   *
-   * @param config the brokerId-address pair to set jmx connection
-   */
-  // Visible for test
-  void reconfigureJmx(Configuration config) {
-    final Pattern brokerId = Pattern.compile("registerJmx\\.(?<id>\\d+)");
-    final Pattern address = Pattern.compile("(?<host>.*):(?<port>\\d+$)");
-    var newTargets =
-        config.entrySet().stream()
-            .filter(e -> e.getKey().startsWith("registerJmx."))
-            .map(e -> Map.entry(brokerId.matcher(e.getKey()), address.matcher(e.getValue())))
-            .filter(e -> e.getKey().matches() && e.getValue().matches())
-            .map(
-                e ->
-                    Map.entry(
-                        Integer.parseInt(e.getKey().group("id")),
-                        Map.entry(
-                            e.getValue().group("host"),
-                            Integer.parseInt(e.getValue().group("port")))))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    // Remove old connections that is not in new targets. (except for local jmx connection)
-    var removed =
-        mBeanClients.keySet().stream()
-            .filter(id -> id != -1 && !newTargets.containsKey(id))
-            .collect(Collectors.toSet());
-    removed.stream().map(mBeanClients::remove).forEach(MBeanClient::close);
-    // Add new connections
-    newTargets.forEach(
-        (id, addressPort) ->
-            mBeanClients.putIfAbsent(
-                id, MBeanClient.jndi(addressPort.getKey(), addressPort.getValue())));
   }
 
   @Override
