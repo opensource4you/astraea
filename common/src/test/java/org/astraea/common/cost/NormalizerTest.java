@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -64,6 +65,29 @@ public class NormalizerTest {
               result.forEach(v -> Assertions.assertNotEquals(Double.NaN, v));
               // make sure all values are in the range between 0 and 1
               result.forEach(v -> Assertions.assertTrue(0 <= v && v <= 1));
+            });
+  }
+
+  @ParameterizedTest
+  @MethodSource("normalizers")
+  void testNothingWhenInputIsNormalized(Normalizer normalizer) {
+    var map = Map.of("a", 0.3, "b", 0.4);
+    Assertions.assertEquals(normalizer.normalize(map), map);
+  }
+
+  @ParameterizedTest
+  @MethodSource("normalizers")
+  void testNormalize(Normalizer normalizer) {
+    var testMap =
+        IntStream.range(0, 100).boxed().collect(Collectors.toMap(i -> i, i -> i * 2 + 0.0));
+    var oldKey = -1;
+    var oldValue = -1.0;
+    normalizer
+        .normalize(testMap)
+        .forEach(
+            (key, value) -> {
+              Assertions.assertTrue(key > oldKey);
+              Assertions.assertTrue(value > oldValue);
             });
   }
 

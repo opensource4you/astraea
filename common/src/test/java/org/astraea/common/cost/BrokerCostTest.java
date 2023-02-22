@@ -18,8 +18,6 @@ package org.astraea.common.cost;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -42,22 +40,6 @@ public class BrokerCostTest {
     Assertions.assertEquals(2, result.size());
     Assertions.assertEquals(12, result.get(1));
     Assertions.assertEquals(9, result.get(2));
-  }
-
-  @Test
-  void testNormalize() {
-    var testMap =
-        IntStream.range(0, 100).boxed().collect(Collectors.toMap(i -> i, i -> i * 2 + 0.0));
-    var oldKey = -1;
-    var oldValue = -1.0;
-    brokerCost(testMap)
-        .normalize(Normalizer.TScore())
-        .value()
-        .forEach(
-            (key, value) -> {
-              Assertions.assertTrue(key > oldKey);
-              Assertions.assertTrue(value > oldValue);
-            });
   }
 
   BrokerCost brokerCost(Map<Integer, Double> map) {
