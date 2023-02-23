@@ -16,13 +16,10 @@
  */
 package org.astraea.common.metrics.client.producer;
 
-import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.client.HasSelectorMetrics;
 
-public interface HasProducerMetrics extends HasBeanObject {
-
-  default String clientId() {
-    return beanObject().properties().get("client-id");
-  }
+@FunctionalInterface
+public interface HasProducerMetrics extends HasSelectorMetrics {
 
   default double batchSizeAvg() {
     return (double) beanObject().attributes().get("batch-size-avg");
@@ -68,88 +65,12 @@ public interface HasProducerMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("compression-rate-avg");
   }
 
-  default double connectionCloseRate() {
-    return (double) beanObject().attributes().get("connection-close-rate");
-  }
-
-  default double connectionCloseTotal() {
-    return (double) beanObject().attributes().get("connection-close-total");
-  }
-
-  default double connectionCount() {
-    return (double) beanObject().attributes().get("connection-count");
-  }
-
-  default double connectionCreationRate() {
-    return (double) beanObject().attributes().get("connection-creation-rate");
-  }
-
-  default double connectionCreationTotal() {
-    return (double) beanObject().attributes().get("connection-creation-total");
-  }
-
-  default double failedAuthenticationRate() {
-    return (double) beanObject().attributes().get("failed-authentication-rate");
-  }
-
-  default double failedAuthenticationTotal() {
-    return (double) beanObject().attributes().get("failed-authentication-total");
-  }
-
-  default double failedReauthenticationRate() {
-    return (double) beanObject().attributes().get("failed-reauthentication-rate");
-  }
-
-  default double failedReauthenticationTotal() {
-    return (double) beanObject().attributes().get("failed-reauthentication-total");
-  }
-
   default double flushTimeNsTotal() {
     return (double) beanObject().attributes().get("flush-time-ns-total");
   }
 
-  default double incomingByteRate() {
-    return (double) beanObject().attributes().get("incoming-byte-rate");
-  }
-
-  default double incomingByteTotal() {
-    return (double) beanObject().attributes().get("incoming-byte-total");
-  }
-
-  default double ioTimeNsAvg() {
-    return (double) beanObject().attributes().get("io-time-ns-avg");
-  }
-
-  default double ioTimeNsTotal() {
-    return (double) beanObject().attributes().get("io-time-ns-total");
-  }
-
-  default double ioWaitTimeNsAvg() {
-    return (double) beanObject().attributes().get("io-wait-time-ns-avg");
-  }
-
-  default double ioWaitTimeNsTotal() {
-    return (double) beanObject().attributes().get("io-wait-time-ns-total");
-  }
-
   default double metadataAge() {
     return (double) beanObject().attributes().get("metadata-age");
-  }
-
-  default double networkIoRate() {
-    return (double) beanObject().attributes().get("network-io-rate");
-  }
-
-  default double networkIoTotal() {
-    return (double) beanObject().attributes().get("network-io-total");
-  }
-
-  default double outgoingByteRate() {
-    return (double) beanObject().attributes().get("outgoing-byte-rate");
-  }
-
-  default double outgoingByteTotal() {
-    return (double) beanObject().attributes().get("outgoing-byte-total");
   }
 
   default double produceThrottleTimeAvg() {
@@ -158,14 +79,6 @@ public interface HasProducerMetrics extends HasBeanObject {
 
   default double produceThrottleTimeMax() {
     return (double) beanObject().attributes().get("produce-throttle-time-max");
-  }
-
-  default double reauthenticationLatencyAvg() {
-    return (double) beanObject().attributes().get("reauthentication-latency-avg");
-  }
-
-  default double reauthenticationLatencyMax() {
-    return (double) beanObject().attributes().get("reauthentication-latency-max");
   }
 
   default double recordErrorRate() {
@@ -220,60 +133,8 @@ public interface HasProducerMetrics extends HasBeanObject {
     return (double) beanObject().attributes().get("request-latency-max");
   }
 
-  default double requestRate() {
-    return (double) beanObject().attributes().get("request-rate");
-  }
-
-  default double requestSizeAvg() {
-    return (double) beanObject().attributes().get("request-size-avg");
-  }
-
-  default double requestSizeMax() {
-    return (double) beanObject().attributes().get("request-size-max");
-  }
-
-  default double requestTotal() {
-    return (double) beanObject().attributes().get("request-total");
-  }
-
   default double requestInFlight() {
     return (double) beanObject().attributes().get("requests-in-flight");
-  }
-
-  default double responseRate() {
-    return (double) beanObject().attributes().get("response-rate");
-  }
-
-  default double responseTotal() {
-    return (double) beanObject().attributes().get("response-total");
-  }
-
-  default double selectRate() {
-    return (double) beanObject().attributes().get("select-rate");
-  }
-
-  default double selectTotal() {
-    return (double) beanObject().attributes().get("select-total");
-  }
-
-  default double successfulAuthenticationNoReauthTotal() {
-    return (double) beanObject().attributes().get("successful-authentication-no-reauth-total");
-  }
-
-  default double successfulAuthenticationRate() {
-    return (double) beanObject().attributes().get("successful-authentication-rate");
-  }
-
-  default double successfulAuthenticationTotal() {
-    return (double) beanObject().attributes().get("successful-authentication-total");
-  }
-
-  default double successfulReauthenticationRate() {
-    return (double) beanObject().attributes().get("successful-reauthentication-rate");
-  }
-
-  default double successfulReauthenticationTotal() {
-    return (double) beanObject().attributes().get("successful-reauthentication-total");
   }
 
   default double txnAbortTimeNsTotal() {

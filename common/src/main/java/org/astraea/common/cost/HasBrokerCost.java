@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -44,18 +43,19 @@ public interface HasBrokerCost extends CostFunction {
     return new HasBrokerCost() {
       @Override
       public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        var result = new HashMap<Integer, Double>();
+        var merged = new HashMap<Integer, Double>();
         costAndWeight.forEach(
             (f, w) ->
-                f.brokerCost(clusterInfo, clusterBean)
-                    .value()
+                Normalizer.DEFAULT
+                    .normalize(f.brokerCost(clusterInfo, clusterBean).value())
                     .forEach(
                         (i, v) ->
-                            result.compute(
+                            merged.compute(
                                 i,
                                 (ignored, previous) ->
                                     previous == null ? v * w : v * w + previous)));
-        return () -> Collections.unmodifiableMap(result);
+        var result = Normalizer.DEFAULT.normalize(merged);
+        return () -> result;
       }
 
       @Override

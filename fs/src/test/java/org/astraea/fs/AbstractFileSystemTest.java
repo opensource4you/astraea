@@ -85,6 +85,7 @@ public abstract class AbstractFileSystemTest {
       }
       var f = fs.listFiles("/");
       Assertions.assertEquals(1, f.size());
+      System.out.println("before");
       Assertions.assertEquals("/aa", f.get(0));
 
       // can't list a file

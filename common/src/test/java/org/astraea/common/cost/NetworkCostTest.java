@@ -256,11 +256,15 @@ class NetworkCostTest {
     double expectedIngress1 = 100 + 80;
     double expectedIngress2 = 100;
     double expectedIngress3 = 80;
+    double ingressSum = expectedIngress1 + expectedIngress2 + expectedIngress3;
     double expectedEgress1 = 300 + 100;
     double expectedEgress2 = 0;
-    double expectedEgress3 = 800 + 80 * 2;
-    double expectedIngressScore = (expectedIngress1 - expectedIngress3) / expectedIngress1;
-    double expectedEgressScore = (expectedEgress3 - expectedEgress2) / expectedEgress3;
+    double expectedEgress3 = 800 + 80;
+    double egressSum = expectedEgress1 + expectedEgress2 + expectedEgress3;
+    double expectedIngressScore =
+        (expectedIngress1 - expectedIngress3) / Math.max(ingressSum, egressSum);
+    double expectedEgressScore =
+        (expectedEgress3 - expectedEgress2) / Math.max(ingressSum, egressSum);
     double ingressScore = ingressCost().clusterCost(cluster, beans).value();
     double egressScore = egressCost().clusterCost(cluster, beans).value();
     Assertions.assertTrue(
@@ -269,6 +273,9 @@ class NetworkCostTest {
     Assertions.assertTrue(
         around.apply(expectedEgressScore).test(egressScore),
         "Egress score should be " + expectedEgressScore + " but it is " + egressScore);
+    Assertions.assertTrue(
+        egressScore > ingressScore,
+        "Egress is experience higher imbalance issues, its score should be higher");
   }
 
   @Test

@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost;
+package org.astraea.common.metrics.connector;
 
-import java.util.Map;
+import org.astraea.common.metrics.client.HasCoordinatorMetrics;
 
-/** Return type of cost function, `HasBrokerCost`. It returns the score of brokers. */
-public interface BrokerCost {
-  /**
-   * @return broker-id and its "cost"
-   */
-  Map<Integer, Double> value();
+@FunctionalInterface
+public interface ConnectCoordinatorInfo extends HasCoordinatorMetrics {
+
+  default double assignedConnectors() {
+    return (double) beanObject().attributes().get("assigned-connectors");
+  }
+
+  default double assignedTasks() {
+    return (double) beanObject().attributes().get("assigned-tasks");
+  }
 }

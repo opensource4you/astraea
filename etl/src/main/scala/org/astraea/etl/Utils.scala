@@ -17,17 +17,19 @@
 package org.astraea.etl
 
 import org.astraea.common.admin.Admin
+
 import java.awt.geom.IllegalPathStateException
 import java.io.File
+import java.nio.file.{Files, Path}
 import java.util.concurrent.CompletionStage
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 import scala.jdk.CollectionConverters._
 
 object Utils {
-  def requireFolder(path: String): File = {
-    val file = new File(path)
-    if (!file.isDirectory) {
+  def requireFolder(path: String): Path = {
+    val file = Path.of(path)
+    if (!Files.isDirectory(file)) {
       throw new IllegalPathStateException(
         s"$path is not a folder. The path should be a folder."
       )
@@ -35,9 +37,9 @@ object Utils {
     file
   }
 
-  def requireFile(path: String): File = {
-    val file = new File(path)
-    if (!file.exists()) {
+  def requireFile(path: String): Path = {
+    val file = Path.of(path)
+    if (!Files.isRegularFile(file)) {
       throw new IllegalPathStateException(
         s"$path is not a file. The file does not exist."
       )

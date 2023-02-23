@@ -19,22 +19,46 @@ package org.astraea.common.metrics.connector;
 import org.astraea.common.metrics.HasBeanObject;
 
 @FunctionalInterface
-public interface ConnectorInfo extends HasBeanObject {
+public interface ConnectorTaskInfo extends HasBeanObject {
 
   default String connectorName() {
     return beanObject().properties().get("connector");
   }
 
-  default String connectorClass() {
-    return (String) beanObject().attributes().get("connector-class");
+  default int taskId() {
+    return Integer.parseInt(beanObject().properties().get("task"));
   }
 
   default String connectorType() {
-    return (String) beanObject().attributes().get("connector-type");
+    return beanObject().properties().get("type");
   }
 
-  default String connectorVersion() {
-    return (String) beanObject().attributes().get("connector-version");
+  default double batchSizeAvg() {
+    return (double) beanObject().attributes().get("batch-size-avg");
+  }
+
+  default double batchSizeMax() {
+    return (double) beanObject().attributes().get("batch-size-max");
+  }
+
+  default double offsetCommitAvgTimeMs() {
+    return (double) beanObject().attributes().get("offset-commit-avg-time-ms");
+  }
+
+  default double offsetCommitMaxTimeMs() {
+    return (double) beanObject().attributes().get("offset-commit-max-time-ms");
+  }
+
+  default double offsetCommitFailurePercentage() {
+    return (double) beanObject().attributes().get("offset-commit-failure-percentage");
+  }
+
+  default double offsetCommitSuccessPercentage() {
+    return (double) beanObject().attributes().get("offset-commit-success-percentage");
+  }
+
+  default double pauseRatio() {
+    return (double) beanObject().attributes().get("pause-ratio");
   }
 
   default String status() {

@@ -16,7 +16,10 @@
  */
 package org.astraea.it;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -69,13 +72,13 @@ public interface FtpServer extends AutoCloseable {
   class Builder {
     private Builder() {}
 
-    private File homeFolder = Utils.createTempDirectory("local_ftp");
+    private Path homeFolder = Utils.createTempDirectory("local_ftp");
     private String user = "user";
     private String password = "password";
     private int controlPort = 0;
     private List<Integer> dataPorts = Arrays.asList(0, 0, 0);
 
-    public Builder homeFolder(File homeFolder) {
+    public Builder homeFolder(Path homeFolder) {
       this.homeFolder = Objects.requireNonNull(homeFolder);
       return this;
     }
@@ -108,10 +111,14 @@ public interface FtpServer extends AutoCloseable {
     }
 
     private void checkArguments() {
-      if (!homeFolder.exists() && !homeFolder.mkdir())
-        throw new IllegalStateException("fail to create folder on " + homeFolder.getAbsolutePath());
-      if (!homeFolder.isDirectory())
-        throw new IllegalArgumentException(homeFolder.getAbsolutePath() + " is not folder");
+      if (Files.notExists(homeFolder))
+        try {
+          Files.createDirectories(homeFolder);
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+      if (!Files.isDirectory(homeFolder))
+        throw new IllegalArgumentException(homeFolder + " is not folder");
     }
 
     public FtpServer build() {
@@ -123,7 +130,7 @@ public interface FtpServer extends AutoCloseable {
       _user.setAuthorities(List.of(new WritePermission()));
       _user.setEnabled(true);
       _user.setPassword(password);
-      _user.setHomeDirectory(homeFolder.getAbsolutePath());
+      _user.setHomeDirectory(homeFolder.toAbsolutePath().toString());
       try {
         userManager.save(_user);
       } catch (Exception e) {
@@ -194,7 +201,7 @@ public interface FtpServer extends AutoCloseable {
 
         @Override
         public String absolutePath() {
-          return homeFolder.getAbsolutePath();
+          return homeFolder.toAbsolutePath().toString();
         }
       };
     }

@@ -19,6 +19,7 @@ package org.astraea.common.metrics.client;
 import java.util.function.Function;
 import org.astraea.common.metrics.HasBeanObject;
 
+@FunctionalInterface
 public interface HasNodeMetrics extends HasBeanObject {
   Function<String, Integer> BROKER_ID_FETCHER =
       node -> Integer.parseInt(node.substring(node.indexOf("-") + 1));
