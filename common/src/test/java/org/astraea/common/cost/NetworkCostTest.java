@@ -40,8 +40,8 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MetricSeriesBuilder;
@@ -172,10 +172,12 @@ class NetworkCostTest {
     var newPlan =
         Balancer.Official.Greedy.create(Configuration.EMPTY)
             .offer(
-                testcase.clusterInfo(),
-                testcase.clusterBean(),
-                Duration.ofSeconds(1),
-                AlgorithmConfig.builder().clusterCost(costFunction).build());
+                AlgorithmConfig.builder()
+                    .clusterInfo(testcase.clusterInfo())
+                    .clusterBean(testcase.clusterBean())
+                    .timeout(Duration.ofSeconds(1))
+                    .clusterCost(costFunction)
+                    .build());
 
     Assertions.assertTrue(newPlan.solution().isPresent());
     System.out.println("Initial cost: " + newPlan.initialClusterCost().value());
@@ -256,11 +258,15 @@ class NetworkCostTest {
     double expectedIngress1 = 100 + 80;
     double expectedIngress2 = 100;
     double expectedIngress3 = 80;
+    double ingressSum = expectedIngress1 + expectedIngress2 + expectedIngress3;
     double expectedEgress1 = 300 + 100;
     double expectedEgress2 = 0;
-    double expectedEgress3 = 800 + 80 * 2;
-    double expectedIngressScore = (expectedIngress1 - expectedIngress3) / expectedIngress1;
-    double expectedEgressScore = (expectedEgress3 - expectedEgress2) / expectedEgress3;
+    double expectedEgress3 = 800 + 80;
+    double egressSum = expectedEgress1 + expectedEgress2 + expectedEgress3;
+    double expectedIngressScore =
+        (expectedIngress1 - expectedIngress3) / Math.max(ingressSum, egressSum);
+    double expectedEgressScore =
+        (expectedEgress3 - expectedEgress2) / Math.max(ingressSum, egressSum);
     double ingressScore = ingressCost().clusterCost(cluster, beans).value();
     double egressScore = egressCost().clusterCost(cluster, beans).value();
     Assertions.assertTrue(
@@ -269,6 +275,9 @@ class NetworkCostTest {
     Assertions.assertTrue(
         around.apply(expectedEgressScore).test(egressScore),
         "Egress score should be " + expectedEgressScore + " but it is " + egressScore);
+    Assertions.assertTrue(
+        egressScore > ingressScore,
+        "Egress is experience higher imbalance issues, its score should be higher");
   }
 
   @Test

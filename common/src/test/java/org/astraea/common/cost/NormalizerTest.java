@@ -67,6 +67,22 @@ public class NormalizerTest {
             });
   }
 
+  @ParameterizedTest
+  @MethodSource("normalizers")
+  void testNormalize(Normalizer normalizer) {
+    var testMap =
+        IntStream.range(0, 100).boxed().collect(Collectors.toMap(i -> i, i -> i * 2 + 0.0));
+    var oldKey = -1;
+    var oldValue = -1.0;
+    normalizer
+        .normalize(testMap)
+        .forEach(
+            (key, value) -> {
+              Assertions.assertTrue(key > oldKey);
+              Assertions.assertTrue(value > oldValue);
+            });
+  }
+
   private static Stream<Arguments> normalizers() {
     return Normalizer.all().stream().map(Arguments::of);
   }

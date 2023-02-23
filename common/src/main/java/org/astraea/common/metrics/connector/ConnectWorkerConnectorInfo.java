@@ -19,25 +19,36 @@ package org.astraea.common.metrics.connector;
 import org.astraea.common.metrics.HasBeanObject;
 
 @FunctionalInterface
-public interface ConnectorInfo extends HasBeanObject {
-
+public interface ConnectWorkerConnectorInfo extends HasBeanObject {
   default String connectorName() {
     return beanObject().properties().get("connector");
   }
 
-  default String connectorClass() {
-    return (String) beanObject().attributes().get("connector-class");
+  default long connectorDestroyedTaskCount() {
+    return (long) beanObject().attributes().get("connector-destroyed-task-count");
   }
 
-  default String connectorType() {
-    return (String) beanObject().attributes().get("connector-type");
+  default long connectorFailedTaskCount() {
+    return (long) beanObject().attributes().get("connector-failed-task-count");
   }
 
-  default String connectorVersion() {
-    return (String) beanObject().attributes().get("connector-version");
+  default long connectorPausedTaskCount() {
+    return (long) beanObject().attributes().get("connector-paused-task-count");
   }
 
-  default String status() {
-    return (String) beanObject().attributes().get("status");
+  default long connectorRestartingTaskCount() {
+    return (long) beanObject().attributes().get("connector-restarting-task-count");
+  }
+
+  default long connectorRunningTaskCount() {
+    return (long) beanObject().attributes().get("connector-running-task-count");
+  }
+
+  default long connectorTotalTaskCount() {
+    return (long) beanObject().attributes().get("connector-total-task-count");
+  }
+
+  default long connectorUnassignedTaskCount() {
+    return (long) beanObject().attributes().get("connector-unassigned-task-count");
   }
 }

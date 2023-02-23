@@ -36,8 +36,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
@@ -205,10 +205,10 @@ class BalancerNode {
                               GreedyBalancer.class,
                               Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                           .offer(
-                              clusterInfo,
-                              ClusterBean.EMPTY,
-                              Duration.ofSeconds(10),
                               AlgorithmConfig.builder()
+                                  .clusterInfo(clusterInfo)
+                                  .clusterBean(ClusterBean.EMPTY)
+                                  .timeout(Duration.ofSeconds(10))
                                   .clusterCost(
                                       HasClusterCost.of(clusterCosts(argument.selectedKeys())))
                                   .moveCost(
