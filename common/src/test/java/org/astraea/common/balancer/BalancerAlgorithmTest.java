@@ -23,7 +23,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ReplicaNumberCost;
@@ -98,26 +97,32 @@ public class BalancerAlgorithmTest {
       var planOfGreedy =
           Utils.construct(GreedyBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(5),
-                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
+                  AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(5))
+                      .clusterCost(new ReplicaNumberCost())
+                      .build())
               .solution()
               .get();
 
       var plan =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(5),
-                  AlgorithmConfig.builder().clusterCost(new ReplicaNumberCost()).build())
+                  AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(5))
+                      .clusterCost(new ReplicaNumberCost())
+                      .build())
               .solution()
               .get();
 
