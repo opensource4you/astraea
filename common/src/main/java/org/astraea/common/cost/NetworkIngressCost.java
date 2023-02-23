@@ -39,37 +39,35 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
     noMetricCheck(clusterBean);
 
     var partitionLocation = new HashMap<TopicPartition, Integer>();
-    // 1. get partition byte in per second
     var partitionCost =
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
             .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()));
-    // 2. in order to normalize to [0,1] , calculate the total ingress of the brokers
-    var ingressPerBroker =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isLeader)
-            .filter(Replica::isOnline)
-            .collect(
-                Collectors.groupingBy(
-                    replica -> replica.nodeInfo().id(),
-                    Collectors.mapping(
-                        replica -> {
-                          var tp = replica.topicPartition();
-                          partitionLocation.put(tp, replica.nodeInfo().id());
-                          return partitionCost.get(tp);
-                        },
-                        Collectors.summingLong(x -> x))));
-    // 3. normalize cost to [0,1]
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+
+    var partitionPerBroker = new HashMap<Integer, Map<TopicPartition, Double>>();
+
+    clusterInfo.nodes().forEach(node -> partitionPerBroker.put(node.id(), new HashMap<>()));
+
+    clusterInfo
+        .replicaStream()
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
+        .forEach(
+            replica -> {
+              var tp = replica.topicPartition();
+              var id = replica.nodeInfo().id();
+              partitionPerBroker.get(id).put(tp, partitionCost.get(tp));
+            });
+
     var result =
-        partitionCost.entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        (double) e.getValue()
-                            / ingressPerBroker.get(partitionLocation.get(e.getKey()))));
+        partitionPerBroker.values().stream()
+            .map(
+                topicPartitionDoubleMap ->
+                    Normalizer.proportion().normalize(topicPartitionDoubleMap))
+            .flatMap(cost -> cost.entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
     return () -> result;
   }
 
