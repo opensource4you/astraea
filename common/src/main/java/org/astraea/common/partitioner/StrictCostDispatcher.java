@@ -52,7 +52,7 @@ public class StrictCostDispatcher extends Dispatcher {
   static final String JMX_PORT = "jmx.port";
   static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
-  MetricCollector metricCollector = MetricCollector.local().build();
+  MetricCollector metricCollector = null;
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
@@ -61,7 +61,7 @@ public class StrictCostDispatcher extends Dispatcher {
 
   // visible for test
   Duration updatePeriod = Duration.ofMinutes(5);
-  private long lastUpdate = System.currentTimeMillis();
+  private long lastUpdate = 0;
 
   void tryToUpdateSensor(ClusterInfo clusterInfo) {
     if (System.currentTimeMillis() < lastUpdate + updatePeriod.toMillis()) {
@@ -89,6 +89,8 @@ public class StrictCostDispatcher extends Dispatcher {
                                         node.host(), jmxPortGetter.apply(node.id()).get())))
                         .collect(
                             Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
+                .addMetricSensors(
+                    this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
                 .storeBeans(lastBeans)
                 .build();
       }
@@ -156,13 +158,11 @@ public class StrictCostDispatcher extends Dispatcher {
         .ifPresent(d -> this.roundRobinLease = d);
 
     // put local mbean client first
-    if (metricCollector == null)
-      metricCollector =
-          MetricCollector.local()
-              .interval(Duration.ofMillis(1500))
-              .addMetricSensors(
-                  this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
-              .build();
+    metricCollector =
+        MetricCollector.local()
+            .interval(Duration.ofMillis(1500))
+            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+            .build();
 
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
