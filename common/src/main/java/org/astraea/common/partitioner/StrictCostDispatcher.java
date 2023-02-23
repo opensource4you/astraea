@@ -18,7 +18,6 @@ package org.astraea.common.partitioner;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -30,7 +29,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
-import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.collector.LocalMetricCollector;
 import org.astraea.common.metrics.collector.MetricCollector;
 
 /**
@@ -53,7 +52,7 @@ public class StrictCostDispatcher extends Dispatcher {
   static final String JMX_PORT = "jmx.port";
   static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
-  MetricCollector metricCollector = null;
+  MetricCollector metricCollector = MetricCollector.local().build();
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
@@ -68,38 +67,33 @@ public class StrictCostDispatcher extends Dispatcher {
     if (System.currentTimeMillis() < lastUpdate + updatePeriod.toMillis()) {
       return;
     }
-    // Check if there is new nodes "not" fetched by metric collector
-    if (metricCollector == null) {
-      // Recreate metric collector with current clusterInfo
-      recreateCollector(clusterInfo, Map.of());
-    } else if (clusterInfo.nodes().stream()
-        .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
-      // Recreate metric collector with current clusterInfo and store previous beans into new one
-      var lastBeans = metricCollector.clusterBean().all();
-      metricCollector.close();
-      recreateCollector(clusterInfo, lastBeans);
+
+    if (metricCollector instanceof LocalMetricCollector) {
+      // Check if there is new nodes "not" fetched by metric collector
+      if (clusterInfo.nodes().stream()
+          .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
+        // Recreate metric collector with current clusterInfo and store previous beans into new one
+        var lastBeans = metricCollector.clusterBean().all();
+        metricCollector.close();
+        metricCollector =
+            MetricCollector.local()
+                .interval(Duration.ofMillis(1500))
+                .registerJmxs(
+                    clusterInfo.nodes().stream()
+                        .filter(node -> jmxPortGetter.apply(node.id()).isPresent())
+                        .map(
+                            node ->
+                                Map.entry(
+                                    node.id(),
+                                    new InetSocketAddress(
+                                        node.host(), jmxPortGetter.apply(node.id()).get())))
+                        .collect(
+                            Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
+                .storeBeans(lastBeans)
+                .build();
+      }
     }
     lastUpdate = System.currentTimeMillis();
-  }
-
-  // Recreate metric collector with given clusterInfo and make initial store of Beans.
-  private void recreateCollector(
-      ClusterInfo clusterInfo, Map<Integer, Collection<HasBeanObject>> lastBeans) {
-    metricCollector =
-        MetricCollector.local()
-            .interval(Duration.ofMillis(1500))
-            .registerJmxs(
-                clusterInfo.nodes().stream()
-                    .filter(node -> jmxPortGetter.apply(node.id()).isPresent())
-                    .map(
-                        node ->
-                            Map.entry(
-                                node.id(),
-                                new InetSocketAddress(
-                                    node.host(), jmxPortGetter.apply(node.id()).get())))
-                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
-            .storeBeans(lastBeans)
-            .build();
   }
 
   @Override

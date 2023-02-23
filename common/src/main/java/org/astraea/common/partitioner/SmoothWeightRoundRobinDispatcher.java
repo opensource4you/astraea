@@ -29,6 +29,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
+import org.astraea.common.metrics.collector.LocalMetricCollector;
 import org.astraea.common.metrics.collector.MetricCollector;
 
 public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
@@ -111,29 +112,31 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   }
 
   private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
-    // Check if there are new nodes "not" fetched by metric collector
-    if (clusterInfo.nodes().stream()
-        .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
-      var lastBeans = metricCollector.clusterBean().all();
-      metricCollector.close();
-      // Recreate metric collector with current cluster info
-      metricCollector =
-          MetricCollector.local()
-              .registerJmxs(
-                  clusterInfo.availableReplicas(topic).stream()
-                      .filter(replica -> jmxPortGetter.apply(replica.nodeInfo().id()).isPresent())
-                      .collect(
-                          Collectors.toUnmodifiableMap(
-                              replica -> replica.nodeInfo().id(),
-                              replica ->
-                                  new InetSocketAddress(
-                                      replica.nodeInfo().host(),
-                                      jmxPortGetter.apply(replica.nodeInfo().id()).get()))))
-              .addMetricSensors(
-                  neutralIntegratedCost.metricSensor().stream().collect(Collectors.toSet()))
-              .storeBeans(lastBeans)
-              .interval(Duration.ofMillis(1500))
-              .build();
+    if (metricCollector instanceof LocalMetricCollector) {
+      // Check if there are new nodes "not" fetched by metric collector
+      if (clusterInfo.nodes().stream()
+          .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
+        var lastBeans = metricCollector.clusterBean().all();
+        metricCollector.close();
+        // Recreate metric collector with current cluster info
+        metricCollector =
+            MetricCollector.local()
+                .registerJmxs(
+                    clusterInfo.availableReplicas(topic).stream()
+                        .filter(replica -> jmxPortGetter.apply(replica.nodeInfo().id()).isPresent())
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                replica -> replica.nodeInfo().id(),
+                                replica ->
+                                    new InetSocketAddress(
+                                        replica.nodeInfo().host(),
+                                        jmxPortGetter.apply(replica.nodeInfo().id()).get()))))
+                .addMetricSensors(
+                    neutralIntegratedCost.metricSensor().stream().collect(Collectors.toSet()))
+                .storeBeans(lastBeans)
+                .interval(Duration.ofMillis(1500))
+                .build();
+      }
     }
   }
 }
