@@ -69,31 +69,26 @@ public class StrictCostDispatcher extends Dispatcher {
     }
 
     if (metricCollector instanceof LocalMetricCollector) {
-      // Check if there is new nodes "not" fetched by metric collector
-      if (clusterInfo.nodes().stream()
-          .anyMatch(node -> !metricCollector.listIdentities().contains(node.id()))) {
-        // Recreate metric collector with current clusterInfo and store previous beans into new one
-        var lastBeans = metricCollector.clusterBean().all();
-        metricCollector.close();
-        metricCollector =
-            MetricCollector.local()
-                .interval(Duration.ofMillis(1500))
-                .registerJmxs(
-                    clusterInfo.nodes().stream()
-                        .filter(node -> jmxPortGetter.apply(node.id()).isPresent())
-                        .map(
-                            node ->
-                                Map.entry(
-                                    node.id(),
-                                    new InetSocketAddress(
-                                        node.host(), jmxPortGetter.apply(node.id()).get())))
-                        .collect(
-                            Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)))
-                .addMetricSensors(
-                    this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
-                .storeBeans(lastBeans)
-                .build();
-      }
+      var localCollector = (LocalMetricCollector) metricCollector;
+      costFunction
+          .metricSensor()
+          .ifPresent(
+              ignored ->
+                  clusterInfo
+                      .nodes()
+                      .forEach(
+                          node -> {
+                            if (!localCollector.listIdentities().contains(node.id())) {
+                              jmxPortGetter
+                                  .apply(node.id())
+                                  .ifPresent(
+                                      port ->
+                                          localCollector.registerJmx(
+                                              node.id(),
+                                              InetSocketAddress.createUnresolved(
+                                                  node.host(), port)));
+                            }
+                          }));
     }
     lastUpdate = System.currentTimeMillis();
   }

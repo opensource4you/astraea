@@ -156,6 +156,22 @@ public class LocalMetricCollector implements MetricCollector {
                     }));
   }
 
+  @SuppressWarnings("resource")
+  public void registerJmx(int identity, InetSocketAddress socketAddress) {
+    mBeanClients.compute(
+        identity,
+        (id, client) -> {
+          if (client != null)
+            throw new IllegalArgumentException(
+                "Attempt to register identity "
+                    + identity
+                    + " with address "
+                    + socketAddress
+                    + ". But this id is already registered");
+          else return MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort());
+        });
+  }
+
   @Override
   public Collection<MetricSensor> metricSensors() {
     return sensors.stream().map(Map.Entry::getKey).collect(Collectors.toList());
