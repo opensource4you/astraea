@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -43,6 +41,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
+import org.astraea.common.cost.utils.ClusterInfoSensor;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -68,101 +67,58 @@ class NetworkCostTest {
     SERVICE.close();
   }
 
-  private static NetworkIngressCost ingressCost() {
-    return new NetworkIngressCost() {
-      @Override
-      void updateCurrentCluster(
-          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
-        ref.compareAndSet(null, clusterInfo);
-      }
-    };
-  }
-
-  private static NetworkEgressCost egressCost() {
-    return new NetworkEgressCost() {
-      @Override
-      void updateCurrentCluster(
-          ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
-        ref.compareAndSet(null, clusterInfo);
-      }
-    };
-  }
-
-  @Test
-  void testInitialClusterInfo() {
-    var cost = new NetworkIngressCost();
-    var initial =
-        ClusterInfoBuilder.builder()
-            .addNode(Set.of(1))
-            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
-            .addTopic("Pipeline", 1, (short) 1)
-            .addNode(Set.of(2))
-            .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
-            .build();
-    var modified = new ShuffleTweaker(10, 30).generate(initial).findFirst().orElseThrow();
-    var withLog =
-        ClusterBean.of(
-            Map.of(
-                1,
-                List.of(
-                    logSize(TopicPartition.of("Pipeline", 0), -1),
-                    bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0),
-                    bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Pipeline", 0))));
-    var noLog =
-        ClusterBean.of(
-            Map.of(
-                1,
-                List.of(
-                    bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Pipeline", 0),
-                    bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Pipeline", 0))));
-
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.clusterCost(initial, ClusterBean.EMPTY));
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.clusterCost(modified, ClusterBean.EMPTY));
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.clusterCost(initial, noLog));
-    Assertions.assertThrows(
-        NoSufficientMetricsException.class, () -> cost.clusterCost(modified, noLog));
-    Assertions.assertDoesNotThrow(() -> cost.clusterCost(initial, withLog));
-    Assertions.assertDoesNotThrow(() -> cost.clusterCost(modified, noLog));
-  }
-
   @Test
   void testEstimatedIngressRate() {
-    testEstimatedRate(ServerMetrics.Topic.BYTES_IN_PER_SEC);
+    var t = new LargeTestCase(3, 10, 0);
+    var expected =
+        Map.ofEntries(
+            Map.entry(TopicPartition.of("Pipeline-9"), 100000000L),
+            Map.entry(TopicPartition.of("Pipeline-8"), 125000000L),
+            Map.entry(TopicPartition.of("Pipeline-7"), 220000000L),
+            Map.entry(TopicPartition.of("Pipeline-6"), 12000000L),
+            Map.entry(TopicPartition.of("Pipeline-5"), 27000000L),
+            Map.entry(TopicPartition.of("Pipeline-4"), 4000000L),
+            Map.entry(TopicPartition.of("Pipeline-3"), 11000000L),
+            Map.entry(TopicPartition.of("Pipeline-2"), 9000000L),
+            Map.entry(TopicPartition.of("Pipeline-1"), 47000000L),
+            Map.entry(TopicPartition.of("Pipeline-0"), 144000000L));
+    Assertions.assertEquals(
+        expected,
+        new NetworkIngressCost()
+            .estimateRate(t.clusterInfo(), t.clusterBean(), ServerMetrics.Topic.BYTES_IN_PER_SEC));
   }
 
   @Test
   void testEstimatedEgressRate() {
-    testEstimatedRate(ServerMetrics.Topic.BYTES_OUT_PER_SEC);
-  }
-
-  void testEstimatedRate(ServerMetrics.Topic metric) {
-    var t = new HandWrittenTestCase();
-    new NetworkIngressCost()
-        .estimateRate(t.clusterInfo(), t.clusterBean(), metric)
-        .forEach(
-            (tp, actual) -> {
-              var expected = t.expectedRate().get(tp);
-              var test = (expected - 3) + " < " + actual + " < " + (expected + 3);
-              System.out.println(test);
-              Assertions.assertTrue((expected - 3) < actual && actual < (expected + 3), test);
-            });
+    var t = new LargeTestCase(3, 10, 0);
+    var expected =
+        Map.ofEntries(
+            Map.entry(TopicPartition.of("Pipeline-9"), 316479400L),
+            Map.entry(TopicPartition.of("Pipeline-8"), 222049689L),
+            Map.entry(TopicPartition.of("Pipeline-7"), 668929889L),
+            Map.entry(TopicPartition.of("Pipeline-6"), 37977528L),
+            Map.entry(TopicPartition.of("Pipeline-5"), 47962732L),
+            Map.entry(TopicPartition.of("Pipeline-4"), 12162361L),
+            Map.entry(TopicPartition.of("Pipeline-3"), 34812734L),
+            Map.entry(TopicPartition.of("Pipeline-2"), 15987577L),
+            Map.entry(TopicPartition.of("Pipeline-1"), 142907749L),
+            Map.entry(TopicPartition.of("Pipeline-0"), 455730337L));
+    Assertions.assertEquals(
+        expected,
+        new NetworkEgressCost()
+            .estimateRate(t.clusterInfo(), t.clusterBean(), ServerMetrics.Topic.BYTES_OUT_PER_SEC));
   }
 
   static Stream<Arguments> testcases() {
     return Stream.of(
-        Arguments.of(ingressCost(), new HandWrittenTestCase()),
-        Arguments.of(ingressCost(), new LargeTestCase(2, 100, 0xfeedbabe)),
-        Arguments.of(ingressCost(), new LargeTestCase(3, 100, 0xabcdef01)),
-        Arguments.of(ingressCost(), new LargeTestCase(10, 200, 0xcafebabe)),
-        Arguments.of(ingressCost(), new LargeTestCase(15, 300, 0xfee1dead)),
-        Arguments.of(egressCost(), new HandWrittenTestCase()),
-        Arguments.of(egressCost(), new LargeTestCase(5, 100, 0xfa11fa11)),
-        Arguments.of(egressCost(), new LargeTestCase(6, 100, 0xf001f001)),
-        Arguments.of(egressCost(), new LargeTestCase(8, 200, 0xba1aba1a)),
-        Arguments.of(egressCost(), new LargeTestCase(14, 300, 0xdd0000bb)));
+        Arguments.of(new NetworkIngressCost(), new LargeTestCase(2, 100, 0xfeedbabe)),
+        Arguments.of(new NetworkIngressCost(), new LargeTestCase(3, 100, 0xabcdef01)),
+        Arguments.of(new NetworkIngressCost(), new LargeTestCase(10, 200, 0xcafebabe)),
+        Arguments.of(new NetworkIngressCost(), new LargeTestCase(15, 300, 0xfee1dead)),
+        Arguments.of(new NetworkEgressCost(), new LargeTestCase(5, 100, 0xfa11fa11)),
+        Arguments.of(new NetworkEgressCost(), new LargeTestCase(6, 100, 0xf001f001)),
+        Arguments.of(new NetworkEgressCost(), new LargeTestCase(8, 200, 0xba1aba1a)),
+        Arguments.of(new NetworkEgressCost(), new LargeTestCase(14, 300, 0xdd0000bb)));
   }
 
   @ParameterizedTest
@@ -193,8 +149,8 @@ class NetworkCostTest {
     var costFunction =
         HasClusterCost.of(
             Map.of(
-                ingressCost(), 1.0,
-                egressCost(), 1.0));
+                new NetworkIngressCost(), 1.0,
+                new NetworkEgressCost(), 1.0));
     testOptimization(costFunction, testCase);
   }
 
@@ -243,11 +199,21 @@ class NetworkCostTest {
             Map.of(
                 1,
                     List.of(
+                        ClusterInfoSensor.ReplicasCountMetric.of("Rain", 0, 2),
+                        ClusterInfoSensor.ReplicasCountMetric.of("Drop", 0, 0),
+                        LogMetrics.Log.SIZE.builder().topic("Rain").partition(0).logSize(1).build(),
+                        LogMetrics.Log.SIZE.builder().topic("Drop").partition(0).logSize(1).build(),
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Rain", 100),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Rain", 300)),
-                2, List.of(noise(5566)),
+                2,
+                    List.of(
+                        ClusterInfoSensor.ReplicasCountMetric.of("Rain", 0, 0),
+                        LogMetrics.Log.SIZE.builder().topic("Rain").partition(0).logSize(1).build(),
+                        noise(5566)),
                 3,
                     List.of(
+                        ClusterInfoSensor.ReplicasCountMetric.of("Drop", 0, 2),
+                        LogMetrics.Log.SIZE.builder().topic("Drop").partition(0).logSize(1).build(),
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Drop", 80),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Drop", 800))));
 
@@ -267,8 +233,8 @@ class NetworkCostTest {
         (expectedIngress1 - expectedIngress3) / Math.max(ingressSum, egressSum);
     double expectedEgressScore =
         (expectedEgress3 - expectedEgress2) / Math.max(ingressSum, egressSum);
-    double ingressScore = ingressCost().clusterCost(cluster, beans).value();
-    double egressScore = egressCost().clusterCost(cluster, beans).value();
+    double ingressScore = new NetworkIngressCost().clusterCost(cluster, beans).value();
+    double egressScore = new NetworkEgressCost().clusterCost(cluster, beans).value();
     Assertions.assertTrue(
         around.apply(expectedIngressScore).test(ingressScore),
         "Ingress score should be " + expectedIngressScore + " but it is " + ingressScore);
@@ -291,34 +257,61 @@ class NetworkCostTest {
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
             .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
             .addFolders(Map.of(3, Set.of("/folder0", "/folder1")))
-            .addTopic("Pipeline", 10, (short) 2)
+            .addTopic("Pipeline", 1, (short) 3)
             .build();
     var beans =
         ClusterBean.of(
             Map.of(
-                1, List.of(noise(5566)),
-                2, List.of(noise(5566)),
-                3, List.of(noise(5566))));
+                1,
+                    List.of(
+                        ClusterInfoSensor.ReplicasCountMetric.of("Pipeline", 0, 2),
+                        LogMetrics.Log.SIZE
+                            .builder()
+                            .topic("Pipeline")
+                            .partition(0)
+                            .logSize(0)
+                            .build(),
+                        noise(5566)),
+                2,
+                    List.of(
+                        ClusterInfoSensor.ReplicasCountMetric.of("Pipeline", 0, 0),
+                        LogMetrics.Log.SIZE
+                            .builder()
+                            .topic("Pipeline")
+                            .partition(0)
+                            .logSize(0)
+                            .build(),
+                        noise(5566)),
+                3,
+                    List.of(
+                        ClusterInfoSensor.ReplicasCountMetric.of("Pipeline", 0, 0),
+                        LogMetrics.Log.SIZE
+                            .builder()
+                            .topic("Pipeline")
+                            .partition(0)
+                            .logSize(0)
+                            .build(),
+                        noise(5566))));
     Assertions.assertDoesNotThrow(
-        () -> ingressCost().clusterCost(cluster, beans),
+        () -> new NetworkIngressCost().clusterCost(cluster, beans),
         "Metric sampled but no load value, treat as zero load");
     Assertions.assertDoesNotThrow(
-        () -> egressCost().clusterCost(cluster, beans),
+        () -> new NetworkEgressCost().clusterCost(cluster, beans),
         "Metric sampled but no load value, treat as zero load");
-    Assertions.assertEquals(0, ingressCost().clusterCost(cluster, beans).value());
-    Assertions.assertEquals(0, egressCost().clusterCost(cluster, beans).value());
+    Assertions.assertEquals(0, new NetworkIngressCost().clusterCost(cluster, beans).value());
+    Assertions.assertEquals(0, new NetworkEgressCost().clusterCost(cluster, beans).value());
 
     Assertions.assertThrows(
         NoSufficientMetricsException.class,
         () ->
-            ingressCost()
+            new NetworkIngressCost()
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
     Assertions.assertThrows(
         NoSufficientMetricsException.class,
         () ->
-            egressCost()
+            new NetworkEgressCost()
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
@@ -333,7 +326,8 @@ class NetworkCostTest {
     var clusterBean = testCase.clusterBean();
     var smallShuffle = new ShuffleTweaker(1, 6);
     var largeShuffle = new ShuffleTweaker(1, 31);
-    var costFunction = HasClusterCost.of(Map.of(ingressCost(), 1.0, egressCost(), 1.0));
+    var costFunction =
+        HasClusterCost.of(Map.of(new NetworkIngressCost(), 1.0, new NetworkEgressCost(), 1.0));
     var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
 
     Function<ShuffleTweaker, Double> experiment =
@@ -385,60 +379,6 @@ class NetworkCostTest {
     System.out.println(large + " (takes " + smallTime + "s)");
     System.out.println("Small step is better: " + (small > large));
     System.out.println();
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {0xfee1dead, 1, 100, 500, -5566, 0xcafebabe, 0x5566, 0x996, 0xABCDEF})
-  @Disabled
-  void testSingleStepImprovement(int seed) {
-    var random = new Random(seed);
-
-    Map<Boolean, Long> counting =
-        IntStream.range(0, 100)
-            .map(i -> random.nextInt())
-            .mapToObj(
-                cSeed -> {
-                  var testCase = new LargeTestCase(6, 100, cSeed);
-                  var clusterInfo = testCase.clusterInfo();
-                  var clusterBean = testCase.clusterBean();
-                  var smallShuffle = new ShuffleTweaker(5, 6);
-                  var largeShuffle = new ShuffleTweaker(30, 31);
-                  var costFunction =
-                      HasClusterCost.of(Map.of(ingressCost(), 1.0, egressCost(), 1.0));
-                  var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
-
-                  double improve30 =
-                      largeShuffle
-                          .generate(clusterInfo)
-                          .limit(50)
-                          .parallel()
-                          .map(cluster -> costFunction.clusterCost(cluster, clusterBean))
-                          .mapToDouble(ClusterCost::value)
-                          .map(score -> originalCost.value() - score)
-                          .max()
-                          .orElseThrow();
-                  double improve5 =
-                      smallShuffle
-                          .generate(clusterInfo)
-                          .limit(300)
-                          .parallel()
-                          .map(cluster -> costFunction.clusterCost(cluster, clusterBean))
-                          .mapToDouble(ClusterCost::value)
-                          .map(score -> originalCost.value() - score)
-                          .max()
-                          .orElseThrow();
-
-                  System.out.println("Step 30 Improvement: " + improve30);
-                  System.out.println("Step  5 Improvement: " + improve5);
-                  System.out.println("Is small step better: " + (improve5 > improve30));
-                  System.out.println();
-                  return improve5 > improve30;
-                })
-            .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
-
-    System.out.println("[Summary]");
-    System.out.println("True  test: " + counting.get(true));
-    System.out.println("False test: " + counting.get(false));
   }
 
   @Test
@@ -543,125 +483,6 @@ class NetworkCostTest {
     ClusterInfo clusterInfo();
 
     ClusterBean clusterBean();
-  }
-
-  /**
-   * A manually crafted cluster & metrics
-   *
-   * <ul>
-   *   <li>3 Brokers.
-   *   <li>Broker 3 has no load at all.
-   * </ul>
-   */
-  private static class HandWrittenTestCase implements TestCase {
-    private HandWrittenTestCase() {
-      this.clusterBean =
-          ClusterBean.of(
-              Map.of(
-                  1,
-                  expectedBrokerTopicBandwidth.get(1).entrySet().stream()
-                      .flatMap(
-                          e ->
-                              Stream.of(
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                      e.getKey(),
-                                      e.getValue()),
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                      e.getKey(),
-                                      e.getValue())))
-                      .collect(Collectors.toUnmodifiableList()),
-                  2,
-                  expectedBrokerTopicBandwidth.get(2).entrySet().stream()
-                      .flatMap(
-                          e ->
-                              Stream.of(
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                      e.getKey(),
-                                      e.getValue()),
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                      e.getKey(),
-                                      e.getValue())))
-                      .collect(Collectors.toUnmodifiableList()),
-                  3,
-                  expectedBrokerTopicBandwidth.get(3).entrySet().stream()
-                      .flatMap(
-                          e ->
-                              Stream.of(
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                                      e.getKey(),
-                                      e.getValue()),
-                                  bandwidth(
-                                      ServerMetrics.Topic.BYTES_OUT_PER_SEC,
-                                      e.getKey(),
-                                      e.getValue())))
-                      .collect(Collectors.toUnmodifiableList())));
-    }
-
-    final ClusterInfo base =
-        ClusterInfoBuilder.builder()
-            .addNode(Set.of(1, 2, 3))
-            .addFolders(Map.of(1, Set.of("/ssd1", "/ssd2", "/ssd3")))
-            .addFolders(Map.of(2, Set.of("/ssd1", "/ssd2", "/ssd3")))
-            .addFolders(Map.of(3, Set.of("/ssd1", "/ssd2", "/ssd3")))
-            .build();
-    final Map<TopicPartition, Long> expectedRate =
-        Map.of(
-            TopicPartition.of("Beef", 0), ThreadLocalRandom.current().nextLong(10000),
-            TopicPartition.of("Beef", 1), ThreadLocalRandom.current().nextLong(10000),
-            TopicPartition.of("Beef", 2), 0L,
-            TopicPartition.of("Beef", 3), ThreadLocalRandom.current().nextLong(10000),
-            TopicPartition.of("Pork", 0), ThreadLocalRandom.current().nextLong(10000),
-            TopicPartition.of("Pork", 1), ThreadLocalRandom.current().nextLong(10000),
-            TopicPartition.of("Pork", 2), 0L,
-            TopicPartition.of("Pork", 3), ThreadLocalRandom.current().nextLong(10000));
-
-    final Map<Integer, Map<String, Long>> expectedBrokerTopicBandwidth =
-        Stream.of(0, 1, 2)
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    index -> index + 1,
-                    index ->
-                        Stream.of("Beef", "Pork")
-                            .collect(
-                                Collectors.toUnmodifiableMap(
-                                    topic -> topic,
-                                    topic ->
-                                        expectedRate.entrySet().stream()
-                                            .filter(e -> e.getKey().topic().equals(topic))
-                                            .filter(e -> e.getKey().partition() % 3 == index)
-                                            .mapToLong(Map.Entry::getValue)
-                                            .sum()))));
-    final Function<Replica, Replica> modPlacement =
-        replica ->
-            Replica.builder(replica)
-                .size(expectedRate.get(replica.topicPartition()) * 100)
-                .nodeInfo(base.node(1 + replica.partition() % 3))
-                .build();
-    final ClusterInfo clusterInfo =
-        ClusterInfoBuilder.builder(base)
-            .addTopic("Beef", 4, (short) 1, modPlacement)
-            .addTopic("Pork", 4, (short) 1, modPlacement)
-            .build();
-    final ClusterBean clusterBean;
-
-    public Map<TopicPartition, Long> expectedRate() {
-      return expectedRate;
-    }
-
-    @Override
-    public ClusterInfo clusterInfo() {
-      return clusterInfo;
-    }
-
-    @Override
-    public ClusterBean clusterBean() {
-      return clusterBean;
-    }
   }
 
   /** A large cluster */
@@ -776,6 +597,10 @@ class NetworkCostTest {
                           .partition(replica.partition())
                           .logSize(replica.size())
                           .build())
+              .seriesByBrokerReplica(
+                  (time, broker, replica) ->
+                      ClusterInfoSensor.ReplicasCountMetric.of(
+                          replica.topic(), replica.partition(), replica.isLeader() ? 1 : 0))
               .build();
     }
 
