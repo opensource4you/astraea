@@ -150,10 +150,4 @@ public class ClusterInfoSensor implements MetricSensor {
       return this.value() != 0;
     }
   }
-
-  static class Builder {
-    private String topic;
-    private int partition;
-    private long size;
-  }
 }
