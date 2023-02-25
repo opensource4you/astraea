@@ -28,7 +28,7 @@ import org.astraea.common.metrics.HasBeanObject;
 public interface HasGauge<T> extends HasBeanObject {
   String VALUE_KEY = "Value";
 
-  static HasGauge<Long> ofLong(BeanObject beanObject) {
+  static <T> HasGauge<T> of(BeanObject beanObject, Class<T> aClass) {
     return () -> beanObject;
   }
 

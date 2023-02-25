@@ -28,9 +28,12 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ClusterMetrics;
+import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -124,6 +127,8 @@ class ClusterInfoSensorTest {
                               .orElseThrow();
                       return realReplica.size() == metricReplica.size();
                     }));
+        // compare cluster id
+        Assertions.assertEquals(realCluster.clusterId(), info.clusterId());
       }
     }
   }
@@ -227,5 +232,30 @@ class ClusterInfoSensorTest {
     Assertions.assertTrue(info.replicaStream(1).allMatch(Replica::isLeader));
     Assertions.assertTrue(info.replicaStream(2).allMatch(Replica::isFollower));
     Assertions.assertTrue(info.replicaStream(3).allMatch(Replica::isFollower));
+  }
+
+  @Test
+  void testClusterId() {
+    var id = Utils.randomString();
+    var cb =
+        ClusterBean.of(
+            Map.of(
+                0,
+                List.of(
+                    HasGauge.of(
+                        new BeanObject(
+                            ServerMetrics.DOMAIN_NAME,
+                            Map.of(
+                                "type",
+                                "KafkaServer",
+                                "name",
+                                ServerMetrics.KafkaServer.CLUSTER_ID),
+                            Map.of("Value", id)),
+                        String.class))));
+
+    var info = ClusterInfoSensor.metricViewCluster(cb);
+
+    Assertions.assertEquals(1, info.nodes().size());
+    Assertions.assertEquals(id, info.clusterId());
   }
 }

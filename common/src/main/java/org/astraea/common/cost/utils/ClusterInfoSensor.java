@@ -29,7 +29,9 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ClusterMetrics;
+import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 /** This MetricSensor attempts to reconstruct a ClusterInfo of the kafka cluster via JMX metrics. */
@@ -38,6 +40,7 @@ public class ClusterInfoSensor implements MetricSensor {
   @Override
   public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
     return Stream.of(
+            List.of(ServerMetrics.KafkaServer.clusterId(client)),
             LogMetrics.Log.SIZE.fetch(client),
             ClusterMetrics.Partition.REPLICAS_COUNT.fetch(client))
         .flatMap(Collection::stream)
@@ -95,7 +98,21 @@ public class ClusterInfoSensor implements MetricSensor {
                   return partitions.values().stream();
                 })
             .collect(Collectors.toUnmodifiableList());
+    var clusterId =
+        clusterBean.all().values().stream()
+            .flatMap(Collection::stream)
+            .filter(x -> x instanceof HasGauge)
+            .filter(
+                x ->
+                    x.beanObject()
+                        .properties()
+                        .get("name")
+                        .equals(ServerMetrics.KafkaServer.CLUSTER_ID))
+            .map(x -> (HasGauge<String>) x)
+            .findAny()
+            .map(HasGauge::value)
+            .orElse("");
 
-    return ClusterInfo.of("", List.copyOf(nodes.values()), Map.of(), replicas);
+    return ClusterInfo.of(clusterId, List.copyOf(nodes.values()), Map.of(), replicas);
   }
 }
