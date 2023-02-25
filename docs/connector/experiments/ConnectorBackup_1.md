@@ -8,17 +8,29 @@
 
 ### 硬體規格
 
-本次實驗使用3台實體機器（M1,M2 and M3)，三台機器的規格均為下表所示
+本次實驗使用3台實體機器（M1,M2 and M3)，其中 M1 與 M2 機器的規格為下表所示
 
-| 硬體      | 名稱                                    |
-|---------|---------------------------------------|
-| CPU     | intel i7-13700K                       |
-| MB      | ASUS PRIME Z790-P WIFI                |
-| RAM     | Corsair PLATINUM 32G(16G*2) DDR5-5600 |
-| DISK    | ADATA SX8200PNP                       |
-| Coolers |                                       |
-| Power   |                                       |
-| Network |                                       |
+| 硬體      | 名稱                                            |
+|---------|-----------------------------------------------|
+| CPU     | intel i7-13700K                               |
+| MB      | ASUS PRIME Z790-P WIFI CSM                    |
+| RAM     | Corsair PLATINUM 32G(16G*2) DDR5-5600         |
+| DISK    | ADATA XGP SX8200Pro 1TB M.2 2280 PCIe SSD * 2 |
+| Coolers | Cooler Master MasterLiquid ML240L V2 ARGB     |
+| Power   | Cooler Master New GX Gold 850W                |
+| Network | XG-C100C PCIE 10GBase PCIe Network Adapter    |
+
+M3 機器規格如下
+
+| 硬體      | 名稱                                            |
+|---------|-----------------------------------------------|
+| CPU     | intel i7-11700K                               |
+| MB      | GIGABYTE Z590M GAMING X                       |
+| RAM     | Kingston 32g(16g*2) DDR4-3200                 |
+| DISK    | ADATA XGP SX8200Pro 1TB M.2 2280 PCIe SSD * 2 |
+| Coolers | CRYORIG H7                                    |
+| Power   | Antec NE550G Gold 550W                        |
+| Network | XG-C100C PCIE 10GBase PCIe Network Adapter    |
 
 ### 網路拓普
 
