@@ -33,6 +33,10 @@
 13. [Build](docs/build_project.md): 說明如何建構與測試本專案各模組
 14. [etl](./docs/etl/README.md): 構建 spark-kafka 的資料傳輸通道
 
+# Kafka Q&A
+
+[Kafka Q&A](./docs/kafka_Q&A.md): 整理`Kafka`在使用上可能會遇到的問題以及解決方法
+
 # 技術發表
 
 `Astraea` 鼓勵貢獻者參與研討會做技術發表，各年度的發表請見下列連結：
