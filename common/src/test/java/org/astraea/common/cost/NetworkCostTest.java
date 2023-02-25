@@ -41,9 +41,9 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
-import org.astraea.common.cost.utils.ClusterInfoSensor;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MetricSeriesBuilder;
+import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -199,20 +199,20 @@ class NetworkCostTest {
             Map.of(
                 1,
                     List.of(
-                        ClusterInfoSensor.ReplicasCountMetric.of("Rain", 0, 2),
-                        ClusterInfoSensor.ReplicasCountMetric.of("Drop", 0, 0),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Rain", 0, 2),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Drop", 0, 0),
                         LogMetrics.Log.SIZE.builder().topic("Rain").partition(0).logSize(1).build(),
                         LogMetrics.Log.SIZE.builder().topic("Drop").partition(0).logSize(1).build(),
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Rain", 100),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Rain", 300)),
                 2,
                     List.of(
-                        ClusterInfoSensor.ReplicasCountMetric.of("Rain", 0, 0),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Rain", 0, 0),
                         LogMetrics.Log.SIZE.builder().topic("Rain").partition(0).logSize(1).build(),
                         noise(5566)),
                 3,
                     List.of(
-                        ClusterInfoSensor.ReplicasCountMetric.of("Drop", 0, 2),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Drop", 0, 2),
                         LogMetrics.Log.SIZE.builder().topic("Drop").partition(0).logSize(1).build(),
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Drop", 80),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Drop", 800))));
@@ -264,7 +264,7 @@ class NetworkCostTest {
             Map.of(
                 1,
                     List.of(
-                        ClusterInfoSensor.ReplicasCountMetric.of("Pipeline", 0, 2),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Pipeline", 0, 2),
                         LogMetrics.Log.SIZE
                             .builder()
                             .topic("Pipeline")
@@ -274,7 +274,7 @@ class NetworkCostTest {
                         noise(5566)),
                 2,
                     List.of(
-                        ClusterInfoSensor.ReplicasCountMetric.of("Pipeline", 0, 0),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Pipeline", 0, 0),
                         LogMetrics.Log.SIZE
                             .builder()
                             .topic("Pipeline")
@@ -284,7 +284,7 @@ class NetworkCostTest {
                         noise(5566)),
                 3,
                     List.of(
-                        ClusterInfoSensor.ReplicasCountMetric.of("Pipeline", 0, 0),
+                        ClusterMetrics.Partition.REPLICAS_COUNT.of("Pipeline", 0, 0),
                         LogMetrics.Log.SIZE
                             .builder()
                             .topic("Pipeline")
@@ -599,7 +599,7 @@ class NetworkCostTest {
                           .build())
               .seriesByBrokerReplica(
                   (time, broker, replica) ->
-                      ClusterInfoSensor.ReplicasCountMetric.of(
+                      ClusterMetrics.Partition.REPLICAS_COUNT.of(
                           replica.topic(), replica.partition(), replica.isLeader() ? 1 : 0))
               .build();
     }

@@ -26,12 +26,9 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.broker.HasGauge;
+import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -41,7 +38,8 @@ public class ClusterInfoSensor implements MetricSensor {
   @Override
   public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
     return Stream.of(
-            LogMetrics.Log.SIZE.fetch(client), ClusterInfoSensor.ReplicasCountMetric.fetch(client))
+            LogMetrics.Log.SIZE.fetch(client),
+            ClusterMetrics.Partition.REPLICAS_COUNT.fetch(client))
         .flatMap(Collection::stream)
         .collect(Collectors.toUnmodifiableList());
   }
@@ -58,12 +56,12 @@ public class ClusterInfoSensor implements MetricSensor {
                   var broker = bt.broker();
                   var partitions =
                       clusterBean
-                          .brokerTopicMetrics(bt, ReplicasCountMetric.class)
+                          .brokerTopicMetrics(bt, ClusterMetrics.PartitionMetric.class)
                           .sorted(
                               Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
                           .collect(
                               Collectors.toUnmodifiableMap(
-                                  ReplicasCountMetric::topicPartition,
+                                  ClusterMetrics.PartitionMetric::topicPartition,
                                   m -> {
                                     var tp = m.topicPartition();
                                     var size =
@@ -88,7 +86,8 @@ public class ClusterInfoSensor implements MetricSensor {
                                             .nodeInfo(nodes.get(broker))
                                             .path("")
                                             .size(size);
-                                    return m.isLeader()
+                                    var isLeader = m.value() != 0;
+                                    return isLeader
                                         ? build.buildLeader()
                                         : build.buildInSyncFollower();
                                   },
@@ -98,56 +97,5 @@ public class ClusterInfoSensor implements MetricSensor {
             .collect(Collectors.toUnmodifiableList());
 
     return ClusterInfo.of("", List.copyOf(nodes.values()), Map.of(), replicas);
-  }
-
-  public static class ReplicasCountMetric implements HasGauge<Integer> {
-
-    private final BeanObject beanObject;
-
-    ReplicasCountMetric(BeanObject beanObject) {
-      this.beanObject = beanObject;
-    }
-
-    public static ReplicasCountMetric of(String topic, int partition, int count) {
-      return new ReplicasCountMetric(
-          new BeanObject(
-              "kafka.cluster",
-              Map.ofEntries(
-                  Map.entry("type", "Partition"),
-                  Map.entry("topic", topic),
-                  Map.entry("partition", Integer.toString(partition)),
-                  Map.entry("name", "ReplicasCount")),
-              Map.of("Value", count)));
-    }
-
-    static List<ReplicasCountMetric> fetch(MBeanClient client) {
-      return client
-          .beans(
-              BeanQuery.builder()
-                  .domainName("kafka.cluster")
-                  .property("type", "Partition")
-                  .property("topic", "*")
-                  .property("partition", "*")
-                  .property("name", "ReplicasCount")
-                  .build())
-          .stream()
-          .map(ReplicasCountMetric::new)
-          .collect(Collectors.toUnmodifiableList());
-    }
-
-    @Override
-    public BeanObject beanObject() {
-      return beanObject;
-    }
-
-    public TopicPartition topicPartition() {
-      return TopicPartition.of(
-          beanObject.properties().get("topic"),
-          Integer.parseInt(beanObject.properties().get("partition")));
-    }
-
-    public boolean isLeader() {
-      return this.value() != 0;
-    }
   }
 }
