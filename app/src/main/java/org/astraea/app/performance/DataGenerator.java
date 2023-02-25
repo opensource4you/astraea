@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -32,11 +31,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
+import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataUnit;
+import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
@@ -51,9 +50,11 @@ public interface DataGenerator extends AbstractThread {
     var dataSupplier =
         supplier(
             argument.transactionSize,
+            LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
             argument.keyDistributionType.create(10000, keyDistConfig),
-            argument.keyDistributionType.create(
+            DistributionType.FIXED.create(
                 argument.keySize.measurement(DataUnit.Byte).intValue(), keyDistConfig),
+            LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
             argument.valueDistributionType.create(10000, valueDistConfig),
             argument.valueDistributionType.create(
                 argument.valueSize.measurement(DataUnit.Byte).intValue(), valueDistConfig),
@@ -126,8 +127,10 @@ public interface DataGenerator extends AbstractThread {
 
   static Function<TopicPartition, List<Record<byte[], byte[]>>> supplier(
       int batchSize,
+      List<Long> keyFunctionRange,
       Supplier<Long> keyDistribution,
       Supplier<Long> keySizeDistribution,
+      List<Long> valueFunctionRange,
       Supplier<Long> valueDistribution,
       Supplier<Long> valueSizeDistribution,
       Map<TopicPartition, DataRate> throughput,
@@ -136,15 +139,37 @@ public interface DataGenerator extends AbstractThread {
         throughput.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
     final var defaultThrottler = new Throttler(defaultThroughput);
-    final Random rand = new Random(0);
-    final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
-    final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
-    Supplier<byte[]> keySupplier =
-        () -> getOrNew(recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
-    Supplier<byte[]> valueSupplier =
-        () ->
-            getOrNew(
-                recordValueTable, valueDistribution, valueSizeDistribution.get().intValue(), rand);
+    final var keyRandom = new Random(keyDistribution.get());
+    final var valueRandom = new Random(valueDistribution.get());
+    final Map<Long, byte[]> recordKeyTable =
+        keyFunctionRange.stream()
+            .map(
+                index -> {
+                  // The key size should be at least zero. An unsuitable probability distribution
+                  // might return a non-positive integer as the key size. While Java allows the
+                  // creation of a zero-length array, this array only has one representation and
+                  // will route any record with this key to the exactly same partition. In such
+                  // case, a user might see a weird hotspot at a specific broker even if the
+                  // distribution looks random enough.
+                  var size = keySizeDistribution.get().intValue();
+                  var key = new byte[size];
+                  keyRandom.nextBytes(key);
+                  return Map.entry(index, key);
+                })
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    final Map<Long, byte[]> recordValueTable =
+        valueFunctionRange.stream()
+            .map(
+                index -> {
+                  var size = valueSizeDistribution.get().intValue();
+                  var value = new byte[size];
+                  valueRandom.nextBytes(value);
+                  return Map.entry(index, value);
+                })
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    Supplier<byte[]> keySupplier = () -> recordKeyTable.get(keyDistribution.get());
+    Supplier<byte[]> valueSupplier = () -> recordValueTable.get(valueDistribution.get());
 
     return (tp) -> {
       var throttler = throttlers.getOrDefault(tp, defaultThrottler);
@@ -174,7 +199,7 @@ public interface DataGenerator extends AbstractThread {
       Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
     return table.computeIfAbsent(
         distribution.get(),
-        ignore -> {
+        key -> {
           if (size == 0) return null;
           var value = new byte[size];
           rand.nextBytes(value);

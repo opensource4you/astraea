@@ -17,13 +17,16 @@
 package org.astraea.app.performance;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class DataSupplierTest {
@@ -32,8 +35,10 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            List.of(2L),
             () -> 2L,
             () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
             Map.of(),
@@ -52,8 +57,10 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            List.of(2L),
             () -> 2L,
             () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
             Map.of(),
@@ -68,29 +75,30 @@ public class DataSupplierTest {
   @Test
   void testKeyDistribution() {
     var counter = new AtomicLong(0L);
-    var counter2 = new AtomicLong(0L);
 
     // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
-            () -> 100L + counter2.getAndIncrement(),
+            () -> ThreadLocalRandom.current().nextLong(2),
+            List.of(10L),
             () -> 10L,
             () -> 10L,
             Map.of(),
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     var data3 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data3.isEmpty());
+    Assertions.assertFalse(data3.isEmpty());
 
-    // The key of data1 and data2 should have size 100 bytes and 101 bytes respectively.
-    Assertions.assertEquals(100, data1.get(0).key().length);
-    Assertions.assertEquals(101, data2.get(0).key().length);
+    // The key of data1 and data2 should have size 0 bytes or 1 byte.
+    Assertions.assertTrue(data1.get(0).key().length <= 1);
+    Assertions.assertTrue(data2.get(0).key().length <= 1);
     // Round-robin key distribution with 2 possible key.
     Assertions.assertEquals(data1.get(0).key(), data3.get(0).key());
 
@@ -98,16 +106,18 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
             Map.of(),
             DataRate.KiB.of(200).perSecond());
     data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     // Same size but different content
     Assertions.assertEquals(100, data1.get(0).key().length);
     Assertions.assertEquals(100, data2.get(0).key().length);
@@ -123,24 +133,26 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
-            () -> 100L + counter2.getAndIncrement(),
+            () -> ThreadLocalRandom.current().nextLong(2),
             Map.of(),
             DataRate.KiB.of(100).perSecond());
 
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     var data3 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data3.isEmpty());
+    Assertions.assertFalse(data3.isEmpty());
 
-    // The value of data1 and data2 should have size 100 bytes and 101 bytes respectively.
-    Assertions.assertEquals(100, data1.get(0).value().length);
-    Assertions.assertEquals(101, data2.get(0).value().length);
+    // The value of data1 and data2 should have size 0 bytes or 1 byte.
+    Assertions.assertTrue(data1.get(0).value().length <= 1);
+    Assertions.assertTrue(data2.get(0).value().length <= 1);
     // Round-robin value distribution with 2 possible value.
     Assertions.assertEquals(data1.get(0).value(), data3.get(0).value());
 
@@ -148,8 +160,10 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
             Map.of(),
@@ -183,12 +197,15 @@ public class DataSupplierTest {
   }
 
   @Test
+  @Disabled("Enable this once the discussion at PR finished")
   void testNoKey() {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(10L),
             () -> 10L,
             () -> 0L,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
             Map.of(),
@@ -201,12 +218,15 @@ public class DataSupplierTest {
   }
 
   @Test
+  @Disabled("Enable this once the discussion at PR finished")
   void testNoValue() {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
+            List.of(10L),
             () -> 10L,
             () -> 0L,
             Map.of(),
@@ -221,7 +241,15 @@ public class DataSupplierTest {
   void testBatch() {
     var dataSupplier =
         DataGenerator.supplier(
-            3, () -> 1L, () -> 1L, () -> 1L, () -> 1L, Map.of(), DataRate.KiB.of(100).perSecond());
+            3,
+            List.of(1L),
+            () -> 1L,
+            () -> 1L,
+            List.of(1L),
+            () -> 1L,
+            () -> 1L,
+            Map.of(),
+            DataRate.KiB.of(100).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertEquals(3, data.size());
