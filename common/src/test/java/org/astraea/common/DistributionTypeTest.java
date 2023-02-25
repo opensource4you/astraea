@@ -17,7 +17,10 @@
 package org.astraea.common;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
@@ -78,5 +81,53 @@ public class DistributionTypeTest {
         Assertions.assertTrue(distribution.get() >= 0);
       }
     }
+  }
+
+  @Test
+  void testZipfianConfig() {
+    // fixed seed
+    var zip100 =
+        DistributionType.ZIPFIAN.create(
+            10000, Configuration.of(Map.of(DistributionType.ZIPFIAN_SEED, "100")));
+    Assertions.assertEquals(
+        List.of(11, 18, 0, 1126, 12),
+        IntStream.range(0, 5)
+            .map(i -> zip100.get().intValue())
+            .boxed()
+            .collect(Collectors.toUnmodifiableList()),
+        "Random sequence fixed by specific seed");
+
+    // random fixed seed
+    var seed = ThreadLocalRandom.current().nextInt();
+    var zipA =
+        DistributionType.ZIPFIAN.create(
+            10000, Configuration.of(Map.of(DistributionType.ZIPFIAN_SEED, Integer.toString(seed))));
+    var zipB =
+        DistributionType.ZIPFIAN.create(
+            10000, Configuration.of(Map.of(DistributionType.ZIPFIAN_SEED, Integer.toString(seed))));
+    var sequenceA = IntStream.range(0, 1000).map(i -> zipA.get().intValue()).toArray();
+    var sequenceB = IntStream.range(0, 1000).map(i -> zipB.get().intValue()).toArray();
+    Assertions.assertArrayEquals(sequenceA, sequenceB);
+
+    // high exponent come with high skewness
+    var zip1 =
+        DistributionType.ZIPFIAN.create(
+            100, Configuration.of(Map.of(DistributionType.ZIPFIAN_EXPONENT, Double.toString(1.0))));
+    var zip2 =
+        DistributionType.ZIPFIAN.create(
+            100, Configuration.of(Map.of(DistributionType.ZIPFIAN_EXPONENT, Double.toString(2.0))));
+    var counting1 =
+        IntStream.range(0, 10000)
+            .map(x -> zip1.get().intValue())
+            .boxed()
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+    var counting2 =
+        IntStream.range(0, 10000)
+            .map(x -> zip2.get().intValue())
+            .boxed()
+            .collect(Collectors.groupingBy(x -> x, Collectors.counting()));
+    Assertions.assertTrue(
+        counting2.get(0) > counting1.get(0),
+        "zipf with exp 2.0 should be much skewer than the one with exp 1.0");
   }
 }
