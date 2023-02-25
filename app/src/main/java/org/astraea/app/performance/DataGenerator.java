@@ -32,6 +32,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
@@ -43,15 +46,17 @@ public interface DataGenerator extends AbstractThread {
       List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
+    var keyDistConfig = Configuration.of(argument.keyDistributionConfig);
+    var valueDistConfig = Configuration.of(argument.valueDistributionConfig);
     var dataSupplier =
         supplier(
             argument.transactionSize,
-            argument.keyDistributionType.create(10000),
+            argument.keyDistributionType.create(10000, keyDistConfig),
             argument.keyDistributionType.create(
-                argument.keySize.measurement(DataUnit.Byte).intValue()),
-            argument.valueDistributionType.create(10000),
+                argument.keySize.measurement(DataUnit.Byte).intValue(), keyDistConfig),
+            argument.valueDistributionType.create(10000, valueDistConfig),
             argument.valueDistributionType.create(
-                argument.valueSize.measurement(DataUnit.Byte).intValue()),
+                argument.valueSize.measurement(DataUnit.Byte).intValue(), valueDistConfig),
             argument.throttles,
             argument.throughput);
     var closeLatch = new CountDownLatch(1);
@@ -131,7 +136,7 @@ public interface DataGenerator extends AbstractThread {
         throughput.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
     final var defaultThrottler = new Throttler(defaultThroughput);
-    final Random rand = new Random();
+    final Random rand = new Random(0);
     final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
     final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
     Supplier<byte[]> keySupplier =

@@ -47,6 +47,7 @@ import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.StringMapField;
 import org.astraea.app.argument.TopicPartitionDataRateMapField;
 import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
@@ -305,11 +306,23 @@ public class Performance {
     DistributionType keyDistributionType = DistributionType.UNIFORM;
 
     @Parameter(
+        names = {"--key.distribution.config"},
+        description = "Configuration for key distribution",
+        converter = StringMapField.class)
+    Map<String, String> keyDistributionConfig = Map.of();
+
+    @Parameter(
         names = {"--value.distribution"},
         description =
             "Distribution name for value and value size. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: uniform",
         converter = DistributionTypeField.class)
     DistributionType valueDistributionType = DistributionType.UNIFORM;
+
+    @Parameter(
+        names = {"--value.distribution.config"},
+        description = "Configuration for key distribution",
+        converter = StringMapField.class)
+    Map<String, String> valueDistributionConfig = Map.of();
 
     @Parameter(
         names = {"--specify.brokers"},
