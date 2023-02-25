@@ -96,13 +96,17 @@ public class HdfsFileSystem implements FileSystem {
 
   @Override
   public List<String> listFolders(String path) {
+    if (!path.endsWith("/")) {
+      path += "/";
+    }
+    var searchedPath = path;
     return Utils.packException(
         () -> {
-          if (type(path) != Type.FOLDER)
-            throw new IllegalArgumentException(path + " is not a folder");
-          return Arrays.stream(fs.listStatus(new Path(path)))
+          if (type(searchedPath) != Type.FOLDER)
+            throw new IllegalArgumentException(searchedPath + " is not a folder");
+          return Arrays.stream(fs.listStatus(new Path(searchedPath)))
               .filter(FileStatus::isDirectory)
-              .map(f -> f.getPath().getName())
+              .map(f -> searchedPath + f.getPath().getName())
               .collect(Collectors.toList());
         });
   }
