@@ -35,7 +35,6 @@ import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataUnit;
-import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
@@ -46,14 +45,16 @@ public interface DataGenerator extends AbstractThread {
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
     var keyDistConfig = Configuration.of(argument.keyDistributionConfig);
+    var keySizeDistConfig = Configuration.of(argument.keySizeDistributionConfig);
     var valueDistConfig = Configuration.of(argument.valueDistributionConfig);
     var dataSupplier =
         supplier(
             argument.transactionSize,
+            argument.keyValueTableSeed,
             LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
             argument.keyDistributionType.create(10000, keyDistConfig),
-            DistributionType.FIXED.create(
-                argument.keySize.measurement(DataUnit.Byte).intValue(), keyDistConfig),
+            argument.keySizeDistributionType.create(
+                (int) argument.keySize.bytes(), keySizeDistConfig),
             LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
             argument.valueDistributionType.create(10000, valueDistConfig),
             argument.valueDistributionType.create(
@@ -127,6 +128,7 @@ public interface DataGenerator extends AbstractThread {
 
   static Function<TopicPartition, List<Record<byte[], byte[]>>> supplier(
       int batchSize,
+      long keyValueTableSeed,
       List<Long> keyFunctionRange,
       Supplier<Long> keyDistribution,
       Supplier<Long> keySizeDistribution,
@@ -139,8 +141,9 @@ public interface DataGenerator extends AbstractThread {
         throughput.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
     final var defaultThrottler = new Throttler(defaultThroughput);
-    final var keyRandom = new Random(keyDistribution.get());
-    final var valueRandom = new Random(valueDistribution.get());
+    final var randomSource = new Random(keyValueTableSeed);
+    final var keyRandom = new Random(randomSource.nextLong());
+    final var valueRandom = new Random(randomSource.nextLong());
     final Map<Long, byte[]> recordKeyTable =
         keyFunctionRange.stream()
             .map(

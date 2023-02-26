@@ -19,8 +19,12 @@ package org.astraea.app.performance;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -35,6 +39,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
@@ -57,6 +62,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
@@ -80,6 +86,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> ThreadLocalRandom.current().nextLong(2),
@@ -106,6 +113,7 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
@@ -133,6 +141,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(10L),
             () -> 10L,
             () -> 10L,
@@ -160,6 +169,7 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(10L),
             () -> 10L,
             () -> 10L,
@@ -202,6 +212,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(10L),
             () -> 10L,
             () -> 0L,
@@ -223,6 +234,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             List.of(10L),
             () -> 10L,
             () -> 10L,
@@ -242,6 +254,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             3,
+            0,
             List.of(1L),
             () -> 1L,
             () -> 1L,
@@ -253,5 +266,58 @@ public class DataSupplierTest {
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertEquals(3, data.size());
+  }
+
+  @Test
+  void testRandomSeed() {
+    long tableSeed = ThreadLocalRandom.current().nextLong();
+    long keyContentSeed = ThreadLocalRandom.current().nextLong();
+    long valueContentSeed = ThreadLocalRandom.current().nextLong();
+    int size = 10000;
+    var keyRandom0 = new Random(keyContentSeed);
+    var valueRandom0 = new Random(valueContentSeed);
+    var keyRandom1 = new Random(keyContentSeed);
+    var valueRandom1 = new Random(valueContentSeed);
+
+    var gen0 =
+        DataGenerator.supplier(
+            10,
+            tableSeed,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(keyRandom0.nextLong() % size),
+            () -> 32L,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(valueRandom0.nextLong() % size),
+            () -> 256L,
+            Map.of(),
+            DataRate.MB.of(1).perSecond());
+    var gen1 =
+        DataGenerator.supplier(
+            10,
+            tableSeed,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(keyRandom1.nextLong() % size),
+            () -> 32L,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(valueRandom1.nextLong() % size),
+            () -> 256L,
+            Map.of(),
+            DataRate.MB.of(1).perSecond());
+
+    var tp = TopicPartition.of("A", -1);
+    var series0 =
+        IntStream.range(0, 10000)
+            .mapToObj(i -> gen0.apply(tp))
+            .collect(Collectors.toUnmodifiableList());
+    var series1 =
+        IntStream.range(0, 10000)
+            .mapToObj(i -> gen1.apply(tp))
+            .collect(Collectors.toUnmodifiableList());
+    for (int i = 0; i < 10000; i++) {
+      for (int j = 0; j < 10; j++) {
+        Assertions.assertArrayEquals(series0.get(i).get(j).key(), series1.get(i).get(j).key());
+        Assertions.assertArrayEquals(series0.get(i).get(j).value(), series1.get(i).get(j).value());
+      }
+    }
   }
 }

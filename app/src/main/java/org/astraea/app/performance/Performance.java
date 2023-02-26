@@ -18,6 +18,7 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.converters.LongConverter;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -299,9 +300,19 @@ public class Performance {
     DataSize valueSize = DataSize.KiB.of(1);
 
     @Parameter(
+        names = {"--seed.key-value.table"},
+        description =
+            "The random seed for internal record key/value candidate content generation. "
+                + "If one wants to run performance tool at multiple instances, consider using a common seed for all performance tools. "
+                + "Doing so guarantee all instances send record against the same key/value content lookup table. "
+                + "This might be crucial for probability distribution like Zipfian. Where only a specific key will be the hotspot.",
+        converter = LongConverter.class)
+    long keyValueTableSeed;
+
+    @Parameter(
         names = {"--key.distribution"},
         description =
-            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
+            "Distribution name for key content. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
         converter = DistributionTypeField.class)
     DistributionType keyDistributionType = DistributionType.UNIFORM;
 
@@ -310,6 +321,19 @@ public class Performance {
         description = "Configuration for key distribution",
         converter = StringMapField.class)
     Map<String, String> keyDistributionConfig = Map.of();
+
+    @Parameter(
+        names = {"--key.size.distribution"},
+        description =
+            "Distribution name for key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed",
+        converter = DistributionTypeField.class)
+    DistributionType keySizeDistributionType = DistributionType.FIXED;
+
+    @Parameter(
+        names = {"--key.size.distribution.config"},
+        description = "Configuration for key size distribution",
+        converter = StringMapField.class)
+    Map<String, String> keySizeDistributionConfig = Map.of();
 
     @Parameter(
         names = {"--value.distribution"},
