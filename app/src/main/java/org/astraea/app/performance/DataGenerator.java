@@ -195,21 +195,6 @@ public interface DataGenerator extends AbstractThread {
     };
   }
 
-  // Find the key from the table, if the record has been produced before. Randomly generate a
-  // byte array if
-  // the record has not been produced.
-  static byte[] getOrNew(
-      Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
-    return table.computeIfAbsent(
-        distribution.get(),
-        key -> {
-          if (size == 0) return null;
-          var value = new byte[size];
-          rand.nextBytes(value);
-          return value;
-        });
-  }
-
   class Throttler {
     private final long start = System.currentTimeMillis();
     private final long throughput;
