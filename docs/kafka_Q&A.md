@@ -1,8 +1,8 @@
 # Kafka Q&A
 
 這邊會整理Kafka使用上可能會遇到的問題，以及解決方法
-1. [單一partition 的副本同步速度太慢](##單一partition的副本同步速度太慢)
-2. [Consumer poll速度太慢](##Consumer-poll速度太慢)
+1. [單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)
+2. [Consumer poll速度太慢](#consumer-poll速度太慢)
 
 ## 單一partition的副本同步速度太慢
 
