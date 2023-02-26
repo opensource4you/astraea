@@ -307,7 +307,7 @@ public class Performance {
                 + "Doing so guarantee all instances send record against the same key/value content lookup table. "
                 + "This might be crucial for probability distribution like Zipfian. Where only a specific key will be the hotspot.",
         converter = LongConverter.class)
-    long keyValueTableSeed;
+    long keyValueTableSeed = ThreadLocalRandom.current().nextLong();
 
     @Parameter(
         names = {"--key.distribution"},
