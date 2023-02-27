@@ -109,6 +109,15 @@ public class NetworkIngressAssignor extends Assignor {
         .values()
         .forEach(
             costPerBroker -> {
+              if(costPerBroker.values().stream().mapToDouble(x -> x ). sum() == 0) {
+                // if there are no cost, round-robin assign per node
+                var iter = consumers.iterator();
+                for(var tp : costPerBroker.keySet()) {
+                  assignment.get(iter.next()).add(tp);
+                  if(!iter.hasNext())
+                    iter = consumers.iterator();
+                }
+              } else {
               var sortedCost = new LinkedHashMap<TopicPartition, Double>();
               costPerBroker.entrySet().stream()
                   .sorted(Map.Entry.comparingByValue())
@@ -134,7 +143,7 @@ public class NetworkIngressAssignor extends Assignor {
                 costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
                 lastValue = cost;
               }
-            });
+            }});
     return assignment;
   }
 
