@@ -101,14 +101,8 @@ public class ClusterInfoSensor implements MetricSensor {
     var clusterId =
         clusterBean.all().values().stream()
             .flatMap(Collection::stream)
-            .filter(x -> x instanceof HasGauge)
-            .filter(
-                x ->
-                    x.beanObject()
-                        .properties()
-                        .get("name")
-                        .equals(ServerMetrics.KafkaServer.CLUSTER_ID))
-            .map(x -> (HasGauge<String>) x)
+            .filter(x -> x instanceof ServerMetrics.KafkaServer.ClusterIdGauge)
+            .map(x -> (ServerMetrics.KafkaServer.ClusterIdGauge) x)
             .findAny()
             .map(HasGauge::value)
             .orElse("");

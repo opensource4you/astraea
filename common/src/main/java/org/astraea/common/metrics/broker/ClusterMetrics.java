@@ -97,9 +97,7 @@ public final class ClusterMetrics {
     }
 
     public TopicPartition topicPartition() {
-      return TopicPartition.of(
-          beanObject.properties().get("topic"),
-          Integer.parseInt(beanObject.properties().get("partition")));
+      return partitionIndex().orElseThrow();
     }
   }
 

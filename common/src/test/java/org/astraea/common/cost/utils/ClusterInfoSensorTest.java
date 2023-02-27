@@ -31,7 +31,6 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ClusterMetrics;
-import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricCollector;
@@ -242,7 +241,7 @@ class ClusterInfoSensorTest {
             Map.of(
                 0,
                 List.of(
-                    HasGauge.of(
+                    new ServerMetrics.KafkaServer.ClusterIdGauge(
                         new BeanObject(
                             ServerMetrics.DOMAIN_NAME,
                             Map.of(
@@ -250,8 +249,7 @@ class ClusterInfoSensorTest {
                                 "KafkaServer",
                                 "name",
                                 ServerMetrics.KafkaServer.CLUSTER_ID),
-                            Map.of("Value", id)),
-                        String.class))));
+                            Map.of("Value", id))))));
 
     var info = ClusterInfoSensor.metricViewCluster(cb);
 
