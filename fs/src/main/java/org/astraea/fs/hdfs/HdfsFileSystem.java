@@ -102,7 +102,7 @@ public class HdfsFileSystem implements FileSystem {
             throw new IllegalArgumentException(path + " is not a folder");
           return Arrays.stream(fs.listStatus(new Path(path)))
               .filter(FileStatus::isDirectory)
-              .map(f -> f.getPath().getName())
+              .map(f -> FileSystem.path(path, f.getPath().getName()))
               .collect(Collectors.toList());
         });
   }

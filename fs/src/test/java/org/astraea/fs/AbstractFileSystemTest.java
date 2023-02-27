@@ -83,6 +83,8 @@ public abstract class AbstractFileSystemTest {
       try (var output = fs.write("/aa")) {
         output.write("abc".getBytes(StandardCharsets.UTF_8));
       }
+      fs.mkdir("/a/b");
+      Assertions.assertEquals("/a/b", fs.listFolders("/a").get(0));
       var f = fs.listFiles("/");
       Assertions.assertEquals(1, f.size());
       System.out.println("before");
