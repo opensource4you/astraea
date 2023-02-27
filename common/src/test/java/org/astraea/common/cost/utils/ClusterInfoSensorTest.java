@@ -30,6 +30,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -140,14 +141,14 @@ class ClusterInfoSensorTest {
                 Map.entry(
                     1,
                     List.of(
-                        ClusterMetrics.Partition.REPLICAS_COUNT.of("TwoReplica", 0, 2),
+                        MetricFactory.ofPartitionMetric("TwoReplica", 0, 2),
                         LogMetrics.Log.SIZE
                             .builder()
                             .topic("TwoReplica")
                             .partition(0)
                             .logSize(200)
                             .build(),
-                        ClusterMetrics.Partition.REPLICAS_COUNT.of("OneReplica", 0, 1),
+                        MetricFactory.ofPartitionMetric("OneReplica", 0, 1),
                         LogMetrics.Log.SIZE
                             .builder()
                             .topic("OneReplica")
@@ -157,7 +158,7 @@ class ClusterInfoSensorTest {
                 Map.entry(
                     2,
                     List.of(
-                        ClusterMetrics.Partition.REPLICAS_COUNT.of("TwoReplica", 0, 0),
+                        MetricFactory.ofPartitionMetric("TwoReplica", 0, 0),
                         LogMetrics.Log.SIZE
                             .builder()
                             .topic("TwoReplica")
@@ -185,7 +186,7 @@ class ClusterInfoSensorTest {
         new Object() {
           Stream<HasBeanObject> partition(int partition, int replica) {
             return Stream.of(
-                ClusterMetrics.Partition.REPLICAS_COUNT.of("topic", partition, replica),
+                MetricFactory.ofPartitionMetric("topic", partition, replica),
                 LogMetrics.Log.SIZE
                     .builder()
                     .topic("topic")

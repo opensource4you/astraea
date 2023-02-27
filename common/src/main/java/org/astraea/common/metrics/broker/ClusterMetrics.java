@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.broker;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -36,18 +35,6 @@ public final class ClusterMetrics {
 
     Partition(String metricName) {
       this.metricName = metricName;
-    }
-
-    public PartitionMetric of(String topic, int partition, int value) {
-      return new PartitionMetric(
-          new BeanObject(
-              DOMAIN_NAME,
-              Map.ofEntries(
-                  Map.entry("type", "Partition"),
-                  Map.entry("topic", topic),
-                  Map.entry("partition", Integer.toString(partition)),
-                  Map.entry("name", metricName())),
-              Map.of("Value", value)));
     }
 
     @Override
@@ -87,7 +74,7 @@ public final class ClusterMetrics {
   public static class PartitionMetric implements HasGauge<Integer> {
     private final BeanObject beanObject;
 
-    PartitionMetric(BeanObject beanObject) {
+    public PartitionMetric(BeanObject beanObject) {
       this.beanObject = beanObject;
     }
 
