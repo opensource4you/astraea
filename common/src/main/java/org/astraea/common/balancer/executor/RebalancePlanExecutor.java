@@ -24,6 +24,8 @@ import org.astraea.common.admin.ClusterInfo;
 /** This class associate with the logic of fulfill given rebalance plan. */
 public interface RebalancePlanExecutor {
 
+  String CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION = "enableDataDirectoryMigration";
+
   static RebalancePlanExecutor of() {
     return new StraightPlanExecutor();
   }

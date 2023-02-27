@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -30,14 +31,22 @@ import org.astraea.common.admin.Replica;
 /** Execute every possible migration immediately. */
 public class StraightPlanExecutor implements RebalancePlanExecutor {
 
-  private final boolean disableDataDirectoryMigration;
+  private final boolean enableDataDirectoryMigration;
 
   public StraightPlanExecutor() {
     this(false);
   }
 
-  public StraightPlanExecutor(boolean disableDataDirectoryMigration) {
-    this.disableDataDirectoryMigration = disableDataDirectoryMigration;
+  public StraightPlanExecutor(Configuration configuration) {
+    this.enableDataDirectoryMigration =
+        configuration
+            .string(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION)
+            .map(Boolean::parseBoolean)
+            .orElse(false);
+  }
+
+  public StraightPlanExecutor(boolean enableDataDirectoryMigration) {
+    this.enableDataDirectoryMigration = enableDataDirectoryMigration;
   }
 
   @Override
@@ -105,15 +114,13 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                         }))
         // step.3 move replicas to specify folders
         .thenCompose(
-            replicas -> {
-              // temporarily disable data-directory migration, there are some Kafka bug related to
-              // it. see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
-              if (disableDataDirectoryMigration) return CompletableFuture.completedFuture(null);
-              else
-                return admin.moveToFolders(
-                    replicas.stream()
-                        .collect(Collectors.toMap(Replica::topicPartitionReplica, Replica::path)));
-            })
+            replicas ->
+                enableDataDirectoryMigration
+                    ? admin.moveToFolders(
+                        replicas.stream()
+                            .collect(
+                                Collectors.toMap(Replica::topicPartitionReplica, Replica::path)))
+                    : CompletableFuture.completedFuture(null))
         // step.4 wait replicas get synced
         .thenCompose(
             replicas -> admin.waitReplicasSynced(logAllocation.topicPartitionReplicas(), timeout))

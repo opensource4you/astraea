@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
@@ -72,7 +71,6 @@ class BalancerHandler implements Handler {
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
-  private final RebalancePlanExecutor executor;
   private final Map<String, PostRequestWrapper> taskMetadata = new ConcurrentHashMap<>();
   private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
       new ConcurrentHashMap<>();
@@ -80,23 +78,11 @@ class BalancerHandler implements Handler {
   private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
   BalancerHandler(Admin admin) {
-    this(admin, (ignore) -> Optional.empty(), new StraightPlanExecutor(true));
+    this(admin, (ignore) -> Optional.empty());
   }
 
   BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
-    this(admin, jmxPortMapper, new StraightPlanExecutor(true));
-  }
-
-  BalancerHandler(Admin admin, RebalancePlanExecutor executor) {
-    this(admin, (ignore) -> Optional.empty(), executor);
-  }
-
-  BalancerHandler(
-      Admin admin,
-      Function<Integer, Optional<Integer>> jmxPortMapper,
-      RebalancePlanExecutor executor) {
     this.admin = admin;
-    this.executor = executor;
     this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
   }
@@ -165,6 +151,9 @@ class BalancerHandler implements Handler {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
     final var taskPhase = balancerConsole.taskPhase(taskId);
+    final var executorConfig = Configuration.of(request.executorConfig);
+    final var executor =
+        Utils.construct(request.executor, RebalancePlanExecutor.class, executorConfig);
 
     if (taskPhase.isEmpty())
       throw new IllegalArgumentException("No such rebalance plan id: " + taskId);
@@ -412,7 +401,9 @@ class BalancerHandler implements Handler {
   }
 
   static class BalancerPutRequest implements Request {
-    private String id;
+    String id;
+    String executor = StraightPlanExecutor.class.getName();
+    Map<String, String> executorConfig = Map.of();
   }
 
   static class PostRequestWrapper {
@@ -437,9 +428,7 @@ class BalancerHandler implements Handler {
 
     final int brokerId;
 
-    // temporarily disable data-directory migration, there are some Kafka bug related to it.
-    // see https://github.com/skiptests/astraea/issues/1325#issue-1506582838
-    @JsonIgnore final String directory;
+    final String directory;
 
     final Optional<Long> size;
 
