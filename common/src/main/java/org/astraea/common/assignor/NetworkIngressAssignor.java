@@ -85,7 +85,6 @@ public class NetworkIngressAssignor extends Assignor {
     if (!unregister.isEmpty()) registerJMX(unregister);
   }
 
-  // visible for test
   /**
    * perform assign algorithm to get balanced assignment and ensure that 1. each consumer would
    * receive the cost that are as close as possible to each other. 2. similar loads within a node
@@ -141,6 +140,6 @@ public class NetworkIngressAssignor extends Assignor {
 
   @Override
   public String name() {
-    return "NetworkIngress";
+    return "networkIngress";
   }
 }
