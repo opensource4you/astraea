@@ -109,41 +109,41 @@ public class NetworkIngressAssignor extends Assignor {
         .values()
         .forEach(
             costPerBroker -> {
-              if(costPerBroker.values().stream().mapToDouble(x -> x ). sum() == 0) {
+              if (costPerBroker.values().stream().mapToDouble(x -> x).sum() == 0) {
                 // if there are no cost, round-robin assign per node
                 var iter = consumers.iterator();
-                for(var tp : costPerBroker.keySet()) {
+                for (var tp : costPerBroker.keySet()) {
                   assignment.get(iter.next()).add(tp);
-                  if(!iter.hasNext())
-                    iter = consumers.iterator();
+                  if (!iter.hasNext()) iter = consumers.iterator();
                 }
               } else {
-              var sortedCost = new LinkedHashMap<TopicPartition, Double>();
-              costPerBroker.entrySet().stream()
-                  .sorted(Map.Entry.comparingByValue())
-                  .forEach(entry -> sortedCost.put(entry.getKey(), entry.getValue()));
-              var tmpCostPerConsumer = new HashMap<>(costPerConsumer);
-              Supplier<String> largestCostConsumer =
-                  () ->
-                      Collections.max(tmpCostPerConsumer.entrySet(), Map.Entry.comparingByValue())
-                          .getKey();
-              var consumer = largestCostConsumer.get();
-              var lastValue = Collections.min(sortedCost.values());
+                var sortedCost = new LinkedHashMap<TopicPartition, Double>();
+                costPerBroker.entrySet().stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .forEach(entry -> sortedCost.put(entry.getKey(), entry.getValue()));
+                var tmpCostPerConsumer = new HashMap<>(costPerConsumer);
+                Supplier<String> largestCostConsumer =
+                    () ->
+                        Collections.max(tmpCostPerConsumer.entrySet(), Map.Entry.comparingByValue())
+                            .getKey();
+                var consumer = largestCostConsumer.get();
+                var lastValue = Collections.min(sortedCost.values());
 
-              for (var e : sortedCost.entrySet()) {
-                var tp = e.getKey();
-                var cost = e.getValue();
-                // TODO: threshold need to be set an appropriate value
-                if (cost - lastValue > 0.05) {
-                  tmpCostPerConsumer.remove(consumer);
-                  consumer = largestCostConsumer.get();
+                for (var e : sortedCost.entrySet()) {
+                  var tp = e.getKey();
+                  var cost = e.getValue();
+                  // TODO: threshold need to be set an appropriate value
+                  if (cost - lastValue > 0.05) {
+                    tmpCostPerConsumer.remove(consumer);
+                    consumer = largestCostConsumer.get();
+                  }
+
+                  assignment.get(consumer).add(tp);
+                  costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
+                  lastValue = cost;
                 }
-
-                assignment.get(consumer).add(tp);
-                costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
-                lastValue = cost;
               }
-            }});
+            });
     return assignment;
   }
 
