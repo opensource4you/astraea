@@ -18,9 +18,11 @@ package org.astraea.common.assignor;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
@@ -34,7 +36,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
-import org.astraea.common.cost.ReplicaLeaderSizeCost;
+import org.astraea.common.cost.NetworkIngressCost;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.partitioner.PartitionerUtils;
 
@@ -62,8 +64,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected abstract Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions, ClusterInfo clusterInfo);
-  // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
-  // https://github.com/skiptests/astraea/issues/1409
 
   /**
    * Parse config to get JMX port and cost function type.
@@ -73,6 +73,20 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   protected void configure(Configuration config) {}
 
   // -----------------------[helper]-----------------------//
+
+  /**
+   * get all topics which consumers subscribe.
+   *
+   * @param subscriptions Consumers' subscriptions
+   * @return A set of topics the consumers subscribe
+   */
+  protected Set<String> topics(
+      Map<String, org.astraea.common.assignor.Subscription> subscriptions) {
+    return subscriptions.values().stream()
+        .map(org.astraea.common.assignor.Subscription::topics)
+        .flatMap(Collection::stream)
+        .collect(Collectors.toUnmodifiableSet());
+  }
 
   /**
    * check the nodes which wasn't register yet.
@@ -150,7 +164,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =
         costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
+            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
     this.costFunction.metricSensor().ifPresent(metricCollector::addMetricSensor);
