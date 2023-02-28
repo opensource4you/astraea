@@ -67,7 +67,7 @@ JSON Response 範例
 }
 ```
 
-> ##### 搜尋負載優化計劃需要時間c
+> ##### 搜尋負載優化計劃需要時間
 > 透過 `POST /balancer` 發起搜尋後，由於演算法邏輯和叢集效能資訊收集因素，這個計劃可能會花上一段時間才會找到。
 > `POST /balancer` 回傳的計劃 id 能夠透過 [GET /balancer/{id}](#查詢負載優化計劃的狀態) 查詢其搜尋狀態，
 > 如果其 response 欄位 `generated` 為 `true`，則代表此計劃已經完成搜尋，能夠被 `PUT /balancer` 執行。
@@ -118,6 +118,9 @@ JSON Response 範例
 > 的實作會忽略這種同節點的負載搬移行為。這樣做雖然可以避免觸發 Bug，但由於部分計劃內容被忽略沒有套用，
 > 最後負載優化的結果可能會和預期的結果失真。這個行為可以透過設定覆蓋，使用者可以透過設定 `executorConfig` 
 > 的 `enableDataDirectoryMigration` 設定為 `true` 來啟動 Data Directory 之間的負載轉移。
+> 
+> 由於這個錯誤是有機率性的觸發，如果你賭一把進行 Data Directory 的轉移，但事後真的不幸觸發錯誤，
+> 可以參考 [故障排除文件](../troubleshooting.md)， 那邊有觸發這個 bug 時的一些症狀和解決方案。
 
 > ##### 一個叢集同時間只能執行一個負載優化計劃
 > 嘗試對一個叢集同時套用多個負載優化計劃會導致意外的結果，因此 `PUT /balancer` 被設計為：
@@ -207,7 +210,7 @@ JSON Response 範例
 }
 ```
 
-```json
+```json5
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
   "phase": "Searched",
