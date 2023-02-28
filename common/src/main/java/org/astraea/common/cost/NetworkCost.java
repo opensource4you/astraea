@@ -88,10 +88,13 @@ public abstract class NetworkCost implements HasClusterCost {
     noMetricCheck(clusterBean);
     final var metricViewCluster = ClusterInfoSensor.metricViewCluster(clusterBean);
 
+    // Use the real cluster(metricViewCluster) and real metrics to derive the data rate of each
+    // partition
     var ingressRate =
         estimateRate(metricViewCluster, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
     var egressRate =
         estimateRate(metricViewCluster, clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+    // Evaluate the score of the balancer-tweaked cluster(clusterInfo)
     var brokerIngressRate =
         clusterInfo
             .replicaStream()
