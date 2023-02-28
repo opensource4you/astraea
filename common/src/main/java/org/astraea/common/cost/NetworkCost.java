@@ -22,7 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,6 +33,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.utils.ClusterInfoSensor;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -63,8 +63,8 @@ import org.astraea.common.metrics.platform.HostMetrics;
  */
 public abstract class NetworkCost implements HasClusterCost {
 
-  private final AtomicReference<ClusterInfo> currentCluster = new AtomicReference<>();
   private final BandwidthType bandwidthType;
+  private final ClusterInfoSensor clusterInfoSensor = new ClusterInfoSensor();
 
   NetworkCost(BandwidthType bandwidthType) {
     this.bandwidthType = bandwidthType;
@@ -83,31 +83,18 @@ public abstract class NetworkCost implements HasClusterCost {
           "The following brokers have no metric available: " + noMetricBrokers);
   }
 
-  void updateCurrentCluster(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
-    // TODO: We need a reliable way to access the actual current cluster info. The following method
-    //  try to compare the equality of cluster info and cluster bean in terms of replica set. But it
-    //  didn't consider the data folder info. See the full discussion:
-    //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
-    var metricReplicas = clusterBean.replicas();
-    var mismatchSet =
-        clusterInfo.topicPartitionReplicas().stream()
-            .filter(tpr -> !metricReplicas.contains(tpr))
-            .collect(Collectors.toUnmodifiableSet());
-    if (mismatchSet.isEmpty()) ref.set(clusterInfo);
-    if (ref.get() == null)
-      fail("Initial clusterInfo required, the following replicas are mismatch: " + mismatchSet);
-  }
-
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
-    updateCurrentCluster(clusterInfo, clusterBean, currentCluster);
+    final var metricViewCluster = ClusterInfoSensor.metricViewCluster(clusterBean);
 
+    // Use the real cluster(metricViewCluster) and real metrics to derive the data rate of each
+    // partition
     var ingressRate =
-        estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
+        estimateRate(metricViewCluster, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
     var egressRate =
-        estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+        estimateRate(metricViewCluster, clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+    // Evaluate the score of the balancer-tweaked cluster(clusterInfo)
     var brokerIngressRate =
         clusterInfo
             .replicaStream()
@@ -192,7 +179,8 @@ public abstract class NetworkCost implements HasClusterCost {
                     List.of(HostMetrics.jvmMemory(client)),
                     ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
                     ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
-                    LogMetrics.Log.SIZE.fetch(client))
+                    LogMetrics.Log.SIZE.fetch(client),
+                    clusterInfoSensor.fetch(client, clusterBean))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList()));
   }
