@@ -40,7 +40,7 @@ public class HdfsFileSystem implements FileSystem {
   private org.apache.hadoop.fs.FileSystem fs;
 
   public HdfsFileSystem(Configuration config) {
-    Utils.packException(
+    Utils.swallowException(
         () -> {
           var uri =
               new URI(
