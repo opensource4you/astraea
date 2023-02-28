@@ -94,12 +94,12 @@ class ClusterBeanTest {
         ClusterBean.of(
             Map.of(
                 1,
-                List.of(HasGauge.of(testBeanObjectWithPartition1, Long.class)),
+                List.of(HasGauge.of(testBeanObjectWithPartition1)),
                 2,
                 List.of(
-                    HasGauge.of(testBeanObjectWithoutPartition, Long.class),
-                    HasGauge.of(testBeanObjectWithPartition2, Long.class),
-                    HasGauge.of(testBeanObjectWithPartition3, Long.class))));
+                    HasGauge.of(testBeanObjectWithoutPartition),
+                    HasGauge.of(testBeanObjectWithPartition2),
+                    HasGauge.of(testBeanObjectWithPartition3))));
     // test all
     Assertions.assertEquals(2, clusterBean.all().size());
     Assertions.assertEquals(1, clusterBean.all().get(1).size());
