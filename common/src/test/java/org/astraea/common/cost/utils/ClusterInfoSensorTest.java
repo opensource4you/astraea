@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost.utils;
 
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -74,9 +75,15 @@ class ClusterInfoSensorTest {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      try (var mc = MetricCollector.builder().interval(Duration.ofSeconds(1)).build()) {
-        mc.addMetricSensor(sensor);
-        mc.registerLocalJmx(0);
+      try (var mc =
+          MetricCollector.local()
+              .addMetricSensor(sensor)
+              .registerJmx(
+                  aBroker.id(),
+                  new InetSocketAddress(
+                      SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()))
+              .interval(Duration.ofSeconds(1))
+              .build()) {
 
         Utils.sleep(Duration.ofSeconds(2));
 

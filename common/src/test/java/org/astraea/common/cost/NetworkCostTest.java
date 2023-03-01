@@ -405,12 +405,10 @@ class NetworkCostTest {
 
   @Test
   void testNoMetricCheck() {
-    try (var collector =
-        MetricCollector.local()
-            .addMetricSensor(ingressCost().metricSensor().get())
-            .interval(Duration.ofMillis(100))
-            .build()) {
-      var ingressCost = new NetworkIngressCost();
+    var ingressCost = new NetworkIngressCost();
+    var collectorBuilder = MetricCollector.local().interval(Duration.ofMillis(100));
+    ingressCost.metricSensor().ifPresent(collectorBuilder::addMetricSensor);
+    try (var collector = collectorBuilder.build()) {
 
       // sample metrics for a while.
       Utils.sleep(Duration.ofMillis(500));

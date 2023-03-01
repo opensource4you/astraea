@@ -50,10 +50,12 @@ public class ClusterInfoSensor implements MetricSensor {
   public static ClusterInfo metricViewCluster(ClusterBean clusterBean) {
     var nodes =
         clusterBean.brokerIds().stream()
+            .filter(id -> id != -1)
             .map(id -> NodeInfo.of(id, "", -1))
             .collect(Collectors.toUnmodifiableMap(NodeInfo::id, x -> x));
     var replicas =
         clusterBean.brokerTopics().stream()
+            .filter(bt -> bt.broker() != -1)
             .flatMap(
                 (bt) -> {
                   var broker = bt.broker();
@@ -99,7 +101,9 @@ public class ClusterInfoSensor implements MetricSensor {
                 })
             .collect(Collectors.toUnmodifiableList());
     var clusterId =
-        clusterBean.all().values().stream()
+        clusterBean.all().entrySet().stream()
+            .filter(e -> e.getKey() != -1)
+            .map(Map.Entry::getValue)
             .flatMap(Collection::stream)
             .filter(x -> x instanceof ServerMetrics.KafkaServer.ClusterIdGauge)
             .map(x -> (ServerMetrics.KafkaServer.ClusterIdGauge) x)
