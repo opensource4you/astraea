@@ -126,21 +126,26 @@ class BalancerHandler implements Handler {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      MetricCollector metricCollector = null;
-      try {
-        metricCollector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build();
-        final var mc = metricCollector;
-        request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(mc::addMetricSensor);
-        request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(mc::addMetricSensor);
-        freshJmxAddresses().forEach(mc::registerJmx);
-
+      var metricBuilder =
+          MetricCollector.local().interval(Duration.ofSeconds(1)).registerJmxs(freshJmxAddresses());
+      request
+          .algorithmConfig
+          .clusterCostFunction()
+          .metricSensor()
+          .ifPresent(metricBuilder::addMetricSensor);
+      request
+          .algorithmConfig
+          .moveCostFunction()
+          .metricSensor()
+          .ifPresent(metricBuilder::addMetricSensor);
+      try (var metricCollector = metricBuilder.build()) {
         var task =
             balancerConsole
                 .launchRebalancePlanGeneration()
                 .setTaskId(taskId)
                 .setBalancer(balancer)
                 .setAlgorithmConfig(request.algorithmConfig)
-                .setClusterBeanSource(mc::clusterBean)
+                .setClusterBeanSource(metricCollector::clusterBean)
                 .checkNoOngoingMigration(true)
                 .generate();
         task.whenComplete(
@@ -149,12 +154,8 @@ class BalancerHandler implements Handler {
                 new RuntimeException("Failed to generate balance plan: " + taskId, error)
                     .printStackTrace();
             });
-        task.whenComplete((result, error) -> mc.close());
         taskMetadata.put(taskId, request);
         planGenerations.put(taskId, task);
-      } catch (RuntimeException e) {
-        if (metricCollector != null) metricCollector.close();
-        throw e;
       }
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
@@ -292,9 +293,12 @@ class BalancerHandler implements Handler {
       Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build()) {
-      freshJmxAddresses().forEach(collector::registerJmx);
-      metricSensors.forEach(collector::addMetricSensor);
+    try (var collector =
+        MetricCollector.local()
+            .registerJmxs(freshJmxAddresses())
+            .addMetricSensors(metricSensors)
+            .interval(Duration.ofSeconds(1))
+            .build()) {
       return execution.apply(collector::clusterBean);
     }
   }
