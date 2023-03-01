@@ -126,26 +126,31 @@ class BalancerHandler implements Handler {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      var metricBuilder =
-          MetricCollector.local().interval(Duration.ofSeconds(1)).registerJmxs(freshJmxAddresses());
-      request
-          .algorithmConfig
-          .clusterCostFunction()
-          .metricSensor()
-          .ifPresent(metricBuilder::addMetricSensor);
-      request
-          .algorithmConfig
-          .moveCostFunction()
-          .metricSensor()
-          .ifPresent(metricBuilder::addMetricSensor);
-      try (var metricCollector = metricBuilder.build()) {
+      MetricCollector metricCollector = null;
+      try {
+        var collectorBuilder = MetricCollector.local().interval(Duration.ofSeconds(1));
+
+        request
+            .algorithmConfig
+            .clusterCostFunction()
+            .metricSensor()
+            .ifPresent(collectorBuilder::addMetricSensor);
+        request
+            .algorithmConfig
+            .moveCostFunction()
+            .metricSensor()
+            .ifPresent(collectorBuilder::addMetricSensor);
+        freshJmxAddresses().forEach(collectorBuilder::registerJmx);
+        metricCollector = collectorBuilder.build();
+        final var mc = metricCollector;
+
         var task =
             balancerConsole
                 .launchRebalancePlanGeneration()
                 .setTaskId(taskId)
                 .setBalancer(balancer)
                 .setAlgorithmConfig(request.algorithmConfig)
-                .setClusterBeanSource(metricCollector::clusterBean)
+                .setClusterBeanSource(mc::clusterBean)
                 .checkNoOngoingMigration(true)
                 .generate();
         task.whenComplete(
@@ -154,8 +159,12 @@ class BalancerHandler implements Handler {
                 new RuntimeException("Failed to generate balance plan: " + taskId, error)
                     .printStackTrace();
             });
+        task.whenComplete((result, error) -> mc.close());
         taskMetadata.put(taskId, request);
         planGenerations.put(taskId, task);
+      } catch (RuntimeException e) {
+        if (metricCollector != null) metricCollector.close();
+        throw e;
       }
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
