@@ -35,6 +35,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -54,6 +55,8 @@ public interface TableViewer {
   Node node();
 
   void data(Map<String, List<Map<String, Object>>> data);
+
+  void tip(Map<String, String> tips);
 
   List<Map<String, Object>> filteredData();
 
@@ -145,6 +148,8 @@ public interface TableViewer {
       private volatile Map<String, List<Map<String, Object>>> allData = Map.of();
       private volatile Map<String, List<Map<String, Object>>> allFilteredData = Map.of();
 
+      private volatile Map<String, String> tips = Map.of();
+
       private void refresh() {
         var query = querySupplier.get();
         allFilteredData =
@@ -218,6 +223,14 @@ public interface TableViewer {
                                               return new ReadOnlyObjectWrapper<>(
                                                   obj == null ? "" : obj);
                                             });
+                                        var factory = col.getCellFactory();
+                                        col.setCellFactory(
+                                            column -> {
+                                              var cell = factory.call(column);
+                                              var tip = tips.get(key);
+                                              if (tip != null) cell.setTooltip(new Tooltip(tip));
+                                              return cell;
+                                            });
                                         return col;
                                       })
                                   .collect(Collectors.toUnmodifiableList());
@@ -256,6 +269,11 @@ public interface TableViewer {
       public void data(Map<String, List<Map<String, Object>>> data) {
         this.allData = data;
         refresh();
+      }
+
+      @Override
+      public void tip(Map<String, String> tips) {
+        this.tips = tips;
       }
 
       @Override

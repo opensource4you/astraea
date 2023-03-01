@@ -32,28 +32,29 @@ import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicChecker;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 
 public class HealthNode {
 
   public static Node healthNode(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            null,
-            List.of(),
-            "CHECK",
-            (argument, logger) ->
-                FutureUtils.combine(
-                    badTopics(context.admin()),
-                    unavailablePartitions(context.admin()),
-                    (topics, partitions) -> {
-                      var result = new LinkedHashMap<String, List<Map<String, Object>>>();
-                      result.put("topic", topics);
-                      result.put("partition", partitions);
-                      return result;
-                    }))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .clickName("CHECK")
+            .tablesRefresher(
+                (argument, logger) ->
+                    FutureUtils.combine(
+                        badTopics(context.admin()),
+                        unavailablePartitions(context.admin()),
+                        (topics, partitions) -> {
+                          var result = new LinkedHashMap<String, List<Map<String, Object>>>();
+                          result.put("topic", topics);
+                          result.put("partition", partitions);
+                          return result;
+                        }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   static CompletionStage<List<Map<String, Object>>> badTopics(Admin admin) {
