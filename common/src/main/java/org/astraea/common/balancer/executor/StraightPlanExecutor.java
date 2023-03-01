@@ -33,20 +33,12 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
 
   private final boolean enableDataDirectoryMigration;
 
-  public StraightPlanExecutor() {
-    this(false);
-  }
-
   public StraightPlanExecutor(Configuration configuration) {
     this.enableDataDirectoryMigration =
         configuration
             .string(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION)
             .map(Boolean::parseBoolean)
             .orElse(false);
-  }
-
-  public StraightPlanExecutor(boolean enableDataDirectoryMigration) {
-    this.enableDataDirectoryMigration = enableDataDirectoryMigration;
   }
 
   @Override

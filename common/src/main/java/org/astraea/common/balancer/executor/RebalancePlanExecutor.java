@@ -18,6 +18,7 @@ package org.astraea.common.balancer.executor;
 
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 
@@ -27,7 +28,7 @@ public interface RebalancePlanExecutor {
   String CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION = "enableDataDirectoryMigration";
 
   static RebalancePlanExecutor of() {
-    return new StraightPlanExecutor();
+    return new StraightPlanExecutor(Configuration.EMPTY);
   }
 
   /**

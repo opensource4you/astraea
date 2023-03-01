@@ -114,7 +114,10 @@ class StraightPlanExecutorTest {
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 
       var execute =
-          new StraightPlanExecutor(true).run(admin, expectedAllocation, Duration.ofSeconds(10));
+          new StraightPlanExecutor(
+                  Configuration.of(
+                      Map.of(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION, "true")))
+              .run(admin, expectedAllocation, Duration.ofSeconds(10));
 
       execute.toCompletableFuture().join();
 

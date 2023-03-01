@@ -126,7 +126,7 @@ class BalancerTest {
                       .build())
               .solution()
               .orElseThrow();
-      new StraightPlanExecutor(false)
+      new StraightPlanExecutor(Configuration.EMPTY)
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
           .toCompletableFuture()
           .join();
