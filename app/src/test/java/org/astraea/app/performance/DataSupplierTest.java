@@ -30,7 +30,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class DataSupplierTest {
@@ -89,7 +88,7 @@ public class DataSupplierTest {
             0,
             List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
-            () -> ThreadLocalRandom.current().nextLong(2),
+            () -> 1 + ThreadLocalRandom.current().nextLong(2),
             List.of(10L),
             () -> 10L,
             () -> 10L,
@@ -103,9 +102,9 @@ public class DataSupplierTest {
     var data3 = dataSupplier.apply(tp);
     Assertions.assertFalse(data3.isEmpty());
 
-    // The key of data1 and data2 should have size 0 bytes or 1 byte.
-    Assertions.assertTrue(data1.get(0).key().length <= 1);
-    Assertions.assertTrue(data2.get(0).key().length <= 1);
+    // The key of data1 and data2 should have size 1 byte or 2 byte.
+    Assertions.assertTrue(data1.get(0).key().length <= 2);
+    Assertions.assertTrue(data2.get(0).key().length <= 2);
     // Round-robin key distribution with 2 possible key.
     Assertions.assertEquals(data1.get(0).key(), data3.get(0).key());
 
@@ -207,7 +206,6 @@ public class DataSupplierTest {
   }
 
   @Test
-  @Disabled("Enable this once the discussion at PR finished")
   void testNoKey() {
     var dataSupplier =
         DataGenerator.supplier(
@@ -224,12 +222,11 @@ public class DataSupplierTest {
 
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data.isEmpty());
+    Assertions.assertFalse(data.isEmpty());
     Assertions.assertNull(data.get(0).key());
   }
 
   @Test
-  @Disabled("Enable this once the discussion at PR finished")
   void testNoValue() {
     var dataSupplier =
         DataGenerator.supplier(
@@ -245,8 +242,8 @@ public class DataSupplierTest {
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data.isEmpty());
-    Assertions.assertNull(data.get(0).value());
+    Assertions.assertFalse(data.isEmpty());
+    Assertions.assertEquals(0, data.get(0).value().length);
   }
 
   @Test

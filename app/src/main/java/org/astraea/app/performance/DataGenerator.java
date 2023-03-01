@@ -148,12 +148,6 @@ public interface DataGenerator extends AbstractThread {
         keyFunctionRange.stream()
             .map(
                 index -> {
-                  // The key size should be at least zero. An unsuitable probability distribution
-                  // might return a non-positive integer as the key size. While Java allows the
-                  // creation of a zero-length array, this array only has one representation and
-                  // will route any record with this key to the exactly same partition. In such
-                  // case, a user might see a weird hotspot at a specific broker even if the
-                  // distribution looks random enough.
                   var size = keySizeDistribution.get().intValue();
                   var key = new byte[size];
                   keyRandom.nextBytes(key);
@@ -171,7 +165,15 @@ public interface DataGenerator extends AbstractThread {
                 })
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    Supplier<byte[]> keySupplier = () -> recordKeyTable.get(keyDistribution.get());
+    Supplier<byte[]> keySupplier =
+        () -> {
+          var key = recordKeyTable.get(keyDistribution.get());
+          // Intentionally replace key with zero length by null key. A key with zero length can lead
+          // to ambiguous behavior in an experiment.
+          // See https://github.com/skiptests/astraea/pull/1521#discussion_r1121801293 for further
+          // details.
+          return key.length > 0 ? key : null;
+        };
     Supplier<byte[]> valueSupplier = () -> recordValueTable.get(valueDistribution.get());
 
     return (tp) -> {
