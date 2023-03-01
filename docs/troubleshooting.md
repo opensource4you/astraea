@@ -2,20 +2,21 @@
 
 這個條目記錄一些 Astraea 工具使用上可能會遭遇到的問題。
 
-## Balancer 的 Data Directory 負載轉移造成 Replica 損毀
+## Balancer 的 Data Directory 負載轉移失敗
 
-Astraea Balancer 支援同節點 Data Director 的負載轉移。但由於 Apache Kafka 2.2.0 到 3.5.0 版本之間的一個 bug，
-這個負載轉移的過程有機會觸發一個節點狀態操作上的 race condition ，這最終會導致 Replica 損毀不可用。由於這個 bug，
-目前 WebService Balancer 預設是**不進行**同節點下的 Data Directory 負載轉移。但使用者可以透過重寫特定設定來強制啟動 
-Data Directory 的負載轉移操作，詳情參考[文件](./web_server/web_api_balancer_chinese.md#進行-Data-Directory-負載轉移的風險)。
+Astraea Balancer 支援同節點 Data Director 的負載轉移。但由於 Apache Kafka 2.2.0 到 3.5.0 版本之間的一個 
+[bug](https://issues.apache.org/jira/browse/KAFKA-9087)，這個負載轉移的過程有機會觸發一個節點狀態操作上的
+race condition ，這最終會導致 Replica 搬移操作失敗。由於這個 bug，目前 WebService Balancer 預設是**不進行**
+同節點下的 Data Directory 負載轉移。但使用者可以透過重寫特定設定來強制啟動 Data Directory 的負載轉移操作，
+詳情參考[文件](./web_server/web_api_balancer_chinese.md#進行-Data-Directory-負載轉移的風險)。
 
 ### 症狀
 
-如果 Data Directory 的負載轉移真的觸發了這個錯誤，叢集會有下面這些症狀：
+如果 Data Directory 的負載轉移觸發了這個 bug，叢集會有下面這些症狀：
 
 * 部分的 Replica 一直處於 `future` 狀態。
-  * 對 Astraea WebService 發送 `GET /topics`，如果回傳結果指出有部分 Replica 的 `isFuture` 一直處於 `true`，且他的 `size` 
-    總是維持在 `0`。
+  * 對 Astraea WebService 發送 `GET /topics`，回傳結果指出有部分 Replica 的 `isFuture` 一直處於 `true`，
+    且他的 `size` 總是維持在 `0`。
 * 負責該 Replica 的 Apache Kafka Broker，其 log 有類似下者的錯誤：
     ```
     java.lang.IllegalStateException: Offset mismatch for the future replica topicB-121: fetched offset = 142138, log end offset = 0.
@@ -134,11 +135,19 @@ curl -X GET --location "http://localhost:8001/topics" \
 ```
 
 上述輸出中，`topicB` 的部分有兩個 Partition 有遇到這個問題。 出問題的 Partition 分別是 `topicB-121` 和 `topicB-221`，
-他們各自有個 Replica，其 `isFuture` 是 `true` 且 `size` 維持在 `0` 不動。
-您可以順便去查看節點編號 1 和 4 的 Kafka Broker，應該可以在他們的 log 中看到相關的錯誤訊息。
+他們各自有個 Replica 其 `isFuture` 是 `true` 且 `size` 維持在 `0` 不動。
+您可以順便去查看編號 1 和 4 的 節點 log，應該可以在他們的 log 中看到相關的錯誤訊息。
 
-同一個 Replica 其 `isFuture` 為 `false` 那一份是套用負載優化前的原先位置。我們現在要嘗試手動抵消這個搬移操作，
-對 Web Service 發起類似下者 reassignment request，指示那份 replica 應該要放回他們原先的位置。
+同一個 Replica 其 `isFuture` 為 `false` 那一份是套用負載優化前的原先位置，而 `isFuture` 是 `true` 那一份是優化計劃
+預計要的移動到的位置，透過觀察我們可以統計出下面這些關係。
+
+| TopicPartition | 節點  | 原本的資料夾            | 欲移動到的資料夾          |
+|----------------|-----|-------------------|-------------------|
+| topicB-121     | 1   | /tmp/log-folder-1 | /tmp/log-folder-2 |
+| topicB-221     | 4   | /tmp/log-folder-0 | /tmp/log-folder-1 |
+
+我們現在要嘗試手動抵消這個搬移操作，對 Web Service 發起類似下者 reassignment request，
+指示那份 replica 應該要放回他們原先的位置。
 
 ```shell
 curl -X POST --location "http://localhost:8001/reassignments" \

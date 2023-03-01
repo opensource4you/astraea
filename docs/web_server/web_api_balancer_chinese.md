@@ -120,7 +120,8 @@ JSON Response 範例
 > 的 `enableDataDirectoryMigration` 設定為 `true` 來啟動 Data Directory 之間的負載轉移。
 > 
 > 由於這個錯誤是有機率性的觸發，如果你賭一把進行 Data Directory 的轉移，但事後真的不幸觸發錯誤，
-> 可以參考 [故障排除文件](../troubleshooting.md)， 那邊有觸發這個 bug 時的一些症狀和解決方案。
+> 可以參考[故障排除文件](../troubleshooting.md#Balancer-的-Data-Directory-負載轉移失敗)，
+> 那邊有觸發這個 bug 時的一些症狀和解決方案。
 
 > ##### 一個叢集同時間只能執行一個負載優化計劃
 > 嘗試對一個叢集同時套用多個負載優化計劃會導致意外的結果，因此 `PUT /balancer` 被設計為：
