@@ -116,8 +116,7 @@ class ClusterInfoSensorTest {
                         TopicPartition.of(topic, 2))));
         // compare broker id
         Assertions.assertTrue(
-            info.replicaStream()
-                .allMatch(r -> r.nodeInfo().id() == aBroker.id()));
+            info.replicaStream().allMatch(r -> r.nodeInfo().id() == aBroker.id()));
         // compare replica size
         var realCluster = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
         Assertions.assertTrue(
