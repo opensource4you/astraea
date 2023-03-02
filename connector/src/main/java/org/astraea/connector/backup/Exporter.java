@@ -132,19 +132,20 @@ public class Exporter extends SinkConnector {
   }
 
   public static class Task extends SinkTask {
-    private String topicName;
-    private String path;
-    private DataSize size;
+    private static String topicName;
+    private static String path;
+    private static DataSize size;
 
     private CompletableFuture<Void> writerFuture;
 
-    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private static final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private Duration interval;
+    private static Duration interval;
 
-    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
+    private static final BlockingQueue<Record<byte[], byte[]>> recordsQueue =
+        new LinkedBlockingQueue<>();
 
-    void writer(FileSystem fileSystem) {
+    static void writer(FileSystem fileSystem) {
       var writers = new HashMap<TopicPartition, RecordWriter>();
       var intervalTimeInMillis = interval.toMillis();
       var sleepTime = Math.min(intervalTimeInMillis, 1000);
@@ -193,17 +194,17 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      this.topicName = configuration.requireString(TOPICS_KEY);
-      this.path = configuration.requireString(PATH_KEY.name());
-      this.size =
+      topicName = configuration.requireString(TOPICS_KEY);
+      path = configuration.requireString(PATH_KEY.name());
+      size =
           DataSize.of(
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
-      this.interval =
+      interval =
           Utils.toDuration(
               configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()));
 
       var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.writerFuture = CompletableFuture.runAsync(() -> this.writer(fs));
+      this.writerFuture = CompletableFuture.runAsync(() -> writer(fs));
     }
 
     @Override
@@ -213,7 +214,7 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void close() {
-      this.closed.set(true);
+      closed.set(true);
       Utils.packException(() -> writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS));
     }
 
