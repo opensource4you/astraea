@@ -19,13 +19,16 @@ package org.astraea.common.balancer.executor;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -34,6 +37,7 @@ import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class StraightPlanExecutorTest {
 
@@ -110,7 +114,10 @@ class StraightPlanExecutorTest {
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 
       var execute =
-          new StraightPlanExecutor().run(admin, expectedAllocation, Duration.ofSeconds(10));
+          new StraightPlanExecutor(
+                  Configuration.of(
+                      Map.of(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION, "true")))
+              .run(admin, expectedAllocation, Duration.ofSeconds(10));
 
       execute.toCompletableFuture().join();
 
@@ -133,6 +140,46 @@ class StraightPlanExecutorTest {
                   ClusterInfo.placementMatch(
                       expectedAllocation.replicas(topicPartition),
                       CurrentAllocation.replicas(topicPartition))));
+    }
+  }
+
+  @Test
+  void testDisableDataDirMigration() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(30)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(300));
+
+      var source = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
+      var target =
+          ClusterInfoBuilder.builder(source)
+              .mapLog(
+                  replica ->
+                      Replica.builder(replica)
+                          .path(
+                              source.brokerFolders().get(replica.nodeInfo().id()).stream()
+                                  .filter(p -> !replica.path().equals(p))
+                                  .findAny()
+                                  .orElseThrow())
+                          .build())
+              .build();
+
+      var spiedAdmin = Mockito.spy(admin);
+      var executor =
+          new StraightPlanExecutor(
+              Configuration.of(
+                  Map.of(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION, "false")));
+
+      executor.run(spiedAdmin, target, Duration.ofSeconds(30)).toCompletableFuture().join();
+
+      Mockito.verify(spiedAdmin, Mockito.never()).moveToFolders(Mockito.anyMap());
     }
   }
 }
