@@ -25,10 +25,13 @@ import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class AssignorTest {
+  private final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
   @Test
   void testSubscriptionConvert() {
     var data = "rack=1";
@@ -108,28 +111,31 @@ public class AssignorTest {
     var assignor = new RandomAssignor();
     assignor.configure(Map.of("broker.1000.jmx.port", "8000", "broker.1001.jmx.port", "8100"));
     var nodes =
-        List.of(NodeInfo.of(1000, "192.168.103.1", 8000), NodeInfo.of(1001, "192.168.103.2", 8100));
+        List.of(
+            NodeInfo.of(1000, "192.168.103.1", 8000),
+            NodeInfo.of(1001, "192.168.103.2", 8100),
+            NodeInfo.of(-1, "local jmx", 0));
     var unregister = assignor.checkUnregister(nodes);
     Assertions.assertEquals(2, unregister.size());
     Assertions.assertEquals("192.168.103.1", unregister.get(1000));
     Assertions.assertEquals("192.168.103.2", unregister.get(1001));
-
-    assignor.registerLocalJMX(Map.of(1000, "192.168.103.1"));
-    var unregister2 = assignor.checkUnregister(nodes);
-    Assertions.assertEquals(1, unregister2.size());
-    Assertions.assertEquals("192.168.103.2", unregister2.get(1001));
   }
 
   @Test
   void testAddNode() {
     var assignor = new RandomAssignor();
-    assignor.configure(Map.of("broker.1000.jmx.port", "8000"));
+    // Get broker id
+    var brokerId = SERVICE.dataFolders().keySet().stream().findAny().get();
+    var jmxAddr = SERVICE.jmxServiceURL().getHost();
+    var jmxPort = SERVICE.jmxServiceURL().getPort();
+    assignor.configure(Map.of("broker." + brokerId + ".jmx.port", jmxPort));
+
     var nodes = new ArrayList<NodeInfo>();
-    nodes.add(NodeInfo.of(1000, "192.168.103.1", 8000));
+    nodes.add(NodeInfo.of(brokerId, jmxAddr, jmxPort));
     var unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(1, unregisterNode.size());
-    Assertions.assertEquals("192.168.103.1", unregisterNode.get(1000));
-    assignor.registerLocalJMX(unregisterNode);
+    Assertions.assertEquals(jmxAddr, unregisterNode.get(brokerId));
+    assignor.registerJMX(Map.of(brokerId, jmxAddr));
     unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(0, unregisterNode.size());
 
