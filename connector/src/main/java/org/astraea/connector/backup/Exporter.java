@@ -132,27 +132,28 @@ public class Exporter extends SinkConnector {
   }
 
   public static class Task extends SinkTask {
-    private static String topicName;
-    private static String path;
-    private static DataSize size;
+    private String topicName;
+    private String path;
+    private DataSize size;
 
     private CompletableFuture<Void> writerFuture;
 
-    private static final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private static Duration interval;
+    private Duration interval;
 
-    private static final BlockingQueue<Record<byte[], byte[]>> recordsQueue =
-        new LinkedBlockingQueue<>();
+    private FileSystem fs;
 
-    static void writer(FileSystem fileSystem) {
+    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
+
+    static void writer(Task thisTask) {
       var writers = new HashMap<TopicPartition, RecordWriter>();
-      var intervalTimeInMillis = interval.toMillis();
+      var intervalTimeInMillis = thisTask.interval.toMillis();
       var sleepTime = Math.min(intervalTimeInMillis, 1000);
       var lastWriteTime = System.currentTimeMillis();
       try {
-        while (!closed.get()) {
-          var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
+        while (!thisTask.closed.get()) {
+          var record = thisTask.recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
           var currentTime = System.currentTimeMillis();
 
           if (record == null) {
@@ -169,20 +170,20 @@ public class Exporter extends SinkConnector {
                   ignored -> {
                     var fileName = String.valueOf(record.offset());
                     return RecordWriter.builder(
-                            fileSystem.write(
+                            thisTask.fs.write(
                                 String.join(
                                     "/",
-                                    path,
-                                    topicName,
+                                    thisTask.path,
+                                    thisTask.topicName,
                                     String.valueOf(record.partition()),
                                     fileName)))
                         .build();
                   });
           writer.append(record);
           lastWriteTime = System.currentTimeMillis();
-          if (writer.size().greaterThan(size)) {
+          if (writer.size().greaterThan(thisTask.size)) {
             writers.remove(record.topicPartition()).close();
-            fileSystem.close();
+            thisTask.fs.close();
           }
         }
       } catch (InterruptedException ignored) {
@@ -194,17 +195,17 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      topicName = configuration.requireString(TOPICS_KEY);
-      path = configuration.requireString(PATH_KEY.name());
-      size =
+      this.topicName = configuration.requireString(TOPICS_KEY);
+      this.path = configuration.requireString(PATH_KEY.name());
+      this.size =
           DataSize.of(
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
-      interval =
+      this.interval =
           Utils.toDuration(
               configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()));
 
-      var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.writerFuture = CompletableFuture.runAsync(() -> writer(fs));
+      this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+      this.writerFuture = CompletableFuture.runAsync(() -> writer(this));
     }
 
     @Override
@@ -214,7 +215,7 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void close() {
-      closed.set(true);
+      this.closed.set(true);
       Utils.packException(() -> writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS));
     }
 
