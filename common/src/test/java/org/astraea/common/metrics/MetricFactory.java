@@ -14,26 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.broker;
+package org.astraea.common.metrics;
 
-import java.util.Objects;
-import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.HasBeanObject;
+import java.util.Map;
+import org.astraea.common.metrics.broker.ClusterMetrics;
 
-/**
- * You can find some default metric in {@link kafka.metrics.KafkaMetricsGroup}. This object is
- * mapped to {@link com.yammer.metrics.core.Gauge}.Kafka gauges are String, Integer, Long and
- * Double.
- */
-public interface HasGauge<T> extends HasBeanObject {
-  String VALUE_KEY = "Value";
+public class MetricFactory {
 
-  static HasGauge<?> of(BeanObject beanObject) {
-    return () -> beanObject;
-  }
-
-  @SuppressWarnings("unchecked")
-  default T value() {
-    return (T) Objects.requireNonNull(beanObject().attributes().get(VALUE_KEY));
+  public static ClusterMetrics.PartitionMetric ofPartitionMetric(
+      String topic, int partition, int value) {
+    return new ClusterMetrics.PartitionMetric(
+        new BeanObject(
+            ClusterMetrics.DOMAIN_NAME,
+            Map.ofEntries(
+                Map.entry("type", "Partition"),
+                Map.entry("topic", topic),
+                Map.entry("partition", Integer.toString(partition)),
+                Map.entry("name", ClusterMetrics.Partition.REPLICAS_COUNT.metricName())),
+            Map.of("Value", value)));
   }
 }
