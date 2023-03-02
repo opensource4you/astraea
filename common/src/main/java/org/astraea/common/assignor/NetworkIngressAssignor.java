@@ -16,7 +16,6 @@
  */
 package org.astraea.common.assignor;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -43,7 +41,7 @@ public class NetworkIngressAssignor extends Assignor {
     registerUnregisterNode(clusterInfo);
     // wait for clusterBean
     var clusterBean = metricCollector.clusterBean();
-    if(clusterBean.all().isEmpty() || !clusterBean.topics().containsAll(topics))
+    if (clusterBean.all().isEmpty() || !clusterBean.topics().containsAll(topics))
       throw new RuntimeException("no enough metrics");
 
     // 2. parse subscription , get all topic consumer subscribe
