@@ -128,11 +128,21 @@ class BalancerHandler implements Handler {
       var taskId = UUID.randomUUID().toString();
       MetricCollector metricCollector = null;
       try {
-        metricCollector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build();
+        var collectorBuilder = MetricCollector.local().interval(Duration.ofSeconds(1));
+
+        request
+            .algorithmConfig
+            .clusterCostFunction()
+            .metricSensor()
+            .ifPresent(collectorBuilder::addMetricSensor);
+        request
+            .algorithmConfig
+            .moveCostFunction()
+            .metricSensor()
+            .ifPresent(collectorBuilder::addMetricSensor);
+        freshJmxAddresses().forEach(collectorBuilder::registerJmx);
+        metricCollector = collectorBuilder.build();
         final var mc = metricCollector;
-        request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(mc::addMetricSensor);
-        request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(mc::addMetricSensor);
-        freshJmxAddresses().forEach(mc::registerJmx);
 
         var task =
             balancerConsole
@@ -292,9 +302,12 @@ class BalancerHandler implements Handler {
       Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
     // TODO: use a global metric collector when we are ready to enable long-run metric sampling
     //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector = MetricCollector.builder().interval(Duration.ofSeconds(1)).build()) {
-      freshJmxAddresses().forEach(collector::registerJmx);
-      metricSensors.forEach(collector::addMetricSensor);
+    try (var collector =
+        MetricCollector.local()
+            .registerJmxs(freshJmxAddresses())
+            .addMetricSensors(metricSensors)
+            .interval(Duration.ofSeconds(1))
+            .build()) {
       return execution.apply(collector::clusterBean);
     }
   }

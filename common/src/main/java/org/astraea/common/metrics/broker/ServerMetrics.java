@@ -192,14 +192,14 @@ public final class ServerMetrics {
 
     private final String metricName;
 
-    public static HasGauge<String> clusterId(MBeanClient mBeanClient) {
-      return () ->
+    public static ClusterIdGauge clusterId(MBeanClient mBeanClient) {
+      return new ClusterIdGauge(
           mBeanClient.bean(
               BeanQuery.builder()
                   .domainName(DOMAIN_NAME)
                   .property("type", "KafkaServer")
                   .property("name", CLUSTER_ID)
-                  .build());
+                  .build()));
     }
 
     KafkaServer(String name) {
@@ -247,6 +247,19 @@ public final class ServerMetrics {
 
       public KafkaServer type() {
         return ofAlias(metricsName());
+      }
+
+      @Override
+      public BeanObject beanObject() {
+        return beanObject;
+      }
+    }
+
+    public static class ClusterIdGauge implements HasGauge<String> {
+      private final BeanObject beanObject;
+
+      public ClusterIdGauge(BeanObject beanObject) {
+        this.beanObject = beanObject;
       }
 
       @Override
