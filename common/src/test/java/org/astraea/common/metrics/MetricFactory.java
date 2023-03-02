@@ -14,26 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.common.metrics;
 
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
-import org.astraea.gui.Logger;
+import org.astraea.common.metrics.broker.ClusterMetrics;
 
-@FunctionalInterface
-public interface TableRefresher {
+public class MetricFactory {
 
-  String BASIC_KEY = "basic";
-
-  static TableRefresher of(
-      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> refresher) {
-    return (argument, logger) ->
-        refresher
-            .apply(argument, logger)
-            .thenApply(r -> r.isEmpty() ? Map.of() : Map.of(BASIC_KEY, r));
+  public static ClusterMetrics.PartitionMetric ofPartitionMetric(
+      String topic, int partition, int value) {
+    return new ClusterMetrics.PartitionMetric(
+        new BeanObject(
+            ClusterMetrics.DOMAIN_NAME,
+            Map.ofEntries(
+                Map.entry("type", "Partition"),
+                Map.entry("topic", topic),
+                Map.entry("partition", Integer.toString(partition)),
+                Map.entry("name", ClusterMetrics.Partition.REPLICAS_COUNT.metricName())),
+            Map.of("Value", value)));
   }
-
-  CompletionStage<Map<String, List<Map<String, Object>>>> apply(Argument argument, Logger logger);
 }

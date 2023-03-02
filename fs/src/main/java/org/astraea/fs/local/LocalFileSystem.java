@@ -16,12 +16,14 @@
  */
 package org.astraea.fs.local;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -41,63 +43,75 @@ public class LocalFileSystem implements FileSystem {
     root = configuration.string(ROOT_KEY).filter(r -> !r.equals("/"));
     root.ifPresent(
         r -> {
-          var f = new File(r);
-          if (!f.isDirectory())
+          if (!Files.isDirectory(Path.of(r)))
             throw new IllegalArgumentException("the root:" + r + " is not folder");
         });
   }
 
-  private File resolvePath(String path) {
-    return new File(root.map(r -> FileSystem.path(r, path)).orElse(path));
+  private Path resolvePath(String path) {
+    return Path.of(root.map(r -> FileSystem.path(r, path)).orElse(path));
   }
 
   @Override
   public synchronized void mkdir(String path) {
     var folder = resolvePath(path);
-    if (folder.isFile()) throw new IllegalArgumentException(path + " is a file");
-    if (folder.isDirectory()) return;
-    if (!folder.mkdirs()) throw new IllegalArgumentException("Failed to create folder on " + path);
+    if (Files.isRegularFile(folder)) throw new IllegalArgumentException(path + " is a file");
+    if (Files.isDirectory(folder)) return;
+    Utils.packException(() -> Files.createDirectories(folder));
   }
 
   @Override
   public synchronized List<String> listFiles(String path) {
-    var folder = resolvePath(path);
-    if (!folder.isDirectory()) throw new IllegalArgumentException(path + " is not a folder");
-    var fs = folder.listFiles(File::isFile);
-    if (fs == null) throw new IllegalArgumentException("failed to list files on " + path);
-    return Arrays.stream(fs)
-        .map(File::getAbsolutePath)
-        .map(p -> root.map(r -> p.substring(p.indexOf(r) + r.length())).orElse(p))
-        .collect(Collectors.toList());
+    return listFolders(path, true);
   }
 
   @Override
   public synchronized List<String> listFolders(String path) {
+    return listFolders(path, false);
+  }
+
+  private synchronized List<String> listFolders(String path, boolean requireFile) {
     var folder = resolvePath(path);
-    if (!folder.isDirectory()) throw new IllegalArgumentException(path + " is not a folder");
-    var fs = folder.listFiles(File::isDirectory);
-    if (fs == null) throw new IllegalArgumentException("failed to list directory on " + path);
-    return Arrays.stream(fs)
-        .map(File::getAbsolutePath)
-        .map(p -> root.map(r -> p.substring(p.indexOf(r) + r.length())).orElse(p))
+    System.out.println("[chia] " + folder);
+    if (!Files.isDirectory(folder)) throw new IllegalArgumentException(path + " is not a folder");
+    return Utils.packException(() -> Files.list(folder))
+        .filter(f -> requireFile ? Files.isRegularFile(f) : Files.isDirectory(f))
+        .map(Path::toAbsolutePath)
+        .map(
+            p ->
+                Path.of("/")
+                    .resolve(
+                        root.map(r -> p.subpath(Path.of(r).getNameCount(), p.getNameCount()))
+                            .orElse(p))
+                    .toString())
         .collect(Collectors.toList());
   }
 
   @Override
   public synchronized void delete(String path) {
-    if (path.equals("/")) throw new IllegalArgumentException("can't delete whole root folder");
-    delete(path, resolvePath(path));
-  }
+    if (Path.of(path).getNameCount() == 0)
+      throw new IllegalArgumentException("can't delete whole root folder");
+    var resolvedPath = resolvePath(path);
+    if (Files.notExists(resolvedPath)) return;
+    Utils.packException(
+        () ->
+            Files.walkFileTree(
+                resolvedPath,
+                new SimpleFileVisitor<>() {
+                  @Override
+                  public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                      throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                  }
 
-  private synchronized void delete(String root, File file) {
-    if (!file.exists()) return;
-    if (file.isFile() && !file.delete())
-      throw new IllegalArgumentException("failed to delete " + root);
-    if (file.isDirectory()) {
-      var fs = file.listFiles();
-      if (fs != null) Arrays.stream(fs).forEach(f -> delete(root, f));
-      if (!file.delete()) throw new IllegalArgumentException("failed to delete " + root);
-    }
+                  @Override
+                  public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                      throws IOException {
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                  }
+                }));
   }
 
   @Override
@@ -105,7 +119,7 @@ public class LocalFileSystem implements FileSystem {
     return Utils.packException(
         () -> {
           if (type(path) != Type.FILE) throw new IllegalArgumentException(path + " is not a file");
-          return new FileInputStream(resolvePath(path));
+          return Files.newInputStream(resolvePath(path));
         });
   }
 
@@ -115,15 +129,15 @@ public class LocalFileSystem implements FileSystem {
         () -> {
           if (type(path) == Type.FOLDER) throw new IllegalArgumentException(path + " is a folder");
           FileSystem.parent(path).ifPresent(this::mkdir);
-          return new FileOutputStream(resolvePath(path));
+          return Files.newOutputStream(resolvePath(path));
         });
   }
 
   @Override
   public synchronized Type type(String path) {
     var f = resolvePath(path);
-    if (!f.exists()) return Type.NONEXISTENT;
-    if (f.isDirectory()) return Type.FOLDER;
+    if (Files.notExists(f)) return Type.NONEXISTENT;
+    if (Files.isDirectory(f)) return Type.FOLDER;
     return Type.FILE;
   }
 

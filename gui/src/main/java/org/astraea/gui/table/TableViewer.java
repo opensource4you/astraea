@@ -16,7 +16,6 @@
  */
 package org.astraea.gui.table;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -35,6 +34,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -49,11 +49,11 @@ import org.astraea.gui.text.EditableText;
 
 public interface TableViewer {
 
-  int CELL_LENGTH_MAX = 70;
-
   Node node();
 
   void data(Map<String, List<Map<String, Object>>> data);
+
+  void tip(Map<String, String> tips);
 
   List<Map<String, Object>> filteredData();
 
@@ -145,6 +145,8 @@ public interface TableViewer {
       private volatile Map<String, List<Map<String, Object>>> allData = Map.of();
       private volatile Map<String, List<Map<String, Object>>> allFilteredData = Map.of();
 
+      private volatile Map<String, String> tips = Map.of();
+
       private void refresh() {
         var query = querySupplier.get();
         allFilteredData =
@@ -208,15 +210,21 @@ public interface TableViewer {
                                         col.setCellValueFactory(
                                             param -> {
                                               var obj = param.getValue().get(key);
-                                              if (obj instanceof String)
-                                                return new ReadOnlyObjectWrapper<>(
-                                                    String.join(
-                                                        "\n",
-                                                        TableViewer.chunk(
-                                                            (String) obj, CELL_LENGTH_MAX)));
-
                                               return new ReadOnlyObjectWrapper<>(
                                                   obj == null ? "" : obj);
+                                            });
+                                        var factory = col.getCellFactory();
+                                        col.setCellFactory(
+                                            column -> {
+                                              var cell = factory.call(column);
+                                              var tipString = tips.get(key);
+                                              if (tipString != null && !tipString.isBlank()) {
+                                                var tip = new Tooltip(tipString);
+                                                tip.setPrefWidth(300);
+                                                tip.setWrapText(true);
+                                                cell.setTooltip(tip);
+                                              }
+                                              return cell;
                                             });
                                         return col;
                                       })
@@ -259,6 +267,11 @@ public interface TableViewer {
       }
 
       @Override
+      public void tip(Map<String, String> tips) {
+        this.tips = tips;
+      }
+
+      @Override
       public List<Map<String, Object>> filteredData() {
         var current = slide;
         if (current == null) return List.of();
@@ -273,20 +286,5 @@ public interface TableViewer {
         if (enableQuery) queryField.keyAction(keyAction);
       }
     };
-  }
-
-  private static List<String> chunk(String s, int size) {
-    if (s.length() <= size) return List.of(s);
-    var result = new ArrayList<String>();
-    var current = "";
-    for (var i : s.split(" ")) {
-      current = current + " " + i;
-      if (current.length() >= size) {
-        result.add(current);
-        current = "";
-      }
-    }
-    if (!current.isBlank()) result.add(current);
-    return result;
   }
 }

@@ -268,6 +268,7 @@ public class StrictCostDispatcherTest {
                   invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
         try (var dispatcher = new StrictCostDispatcher()) {
           var nodeInfo = NodeInfo.of(10, "host", 2222);
+          dispatcher.configure(Map.of("jmx.port", "1111"));
 
           var clusterInfo =
               ClusterInfoTest.of(
@@ -279,7 +280,7 @@ public class StrictCostDispatcherTest {
                           .path("/tmp/aa")
                           .buildLeader()));
 
-          Assertions.assertEquals(0, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
           dispatcher.costFunction =
               new HasBrokerCost() {
                 @Override
@@ -292,12 +293,13 @@ public class StrictCostDispatcherTest {
                   return Optional.of(Mockito.mock(MetricSensor.class));
                 }
               };
-          dispatcher.jmxPortGetter = id -> Optional.of(1111);
+          dispatcher.updatePeriod = Duration.ZERO;
           dispatcher.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertNotNull(dispatcher.metricCollector);
+          Assertions.assertEquals(2, dispatcher.metricCollector.listIdentities().size());
 
           dispatcher.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
+          Assertions.assertEquals(2, dispatcher.metricCollector.listIdentities().size());
         }
       }
     }

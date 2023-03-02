@@ -18,6 +18,7 @@ package org.astraea.common.metrics.client.consumer;
 
 import org.astraea.common.metrics.HasBeanObject;
 
+@FunctionalInterface
 public interface HasConsumerFetchMetrics extends HasBeanObject {
 
   default String clientId() {

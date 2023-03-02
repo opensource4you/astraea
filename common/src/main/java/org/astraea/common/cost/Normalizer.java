@@ -19,11 +19,15 @@ package org.astraea.common.cost;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /** used to normalize data into a range between [0, 1] */
 public interface Normalizer {
+
+  Normalizer DEFAULT = Normalizer.TScore();
 
   /**
    * @return all normalizers
@@ -112,4 +116,10 @@ public interface Normalizer {
    * @return rescaled data
    */
   Collection<Double> normalize(Collection<Double> values);
+
+  default <T> Map<T, Double> normalize(Map<T, Double> values) {
+    var keys = values.keySet().iterator();
+    return normalize(values.values()).stream()
+        .collect(Collectors.toUnmodifiableMap(ignored -> keys.next(), Function.identity()));
+  }
 }

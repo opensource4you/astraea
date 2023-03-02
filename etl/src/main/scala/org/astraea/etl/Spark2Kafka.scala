@@ -20,6 +20,7 @@ import org.apache.spark.sql.SparkSession
 import org.astraea.common.admin.Admin
 
 import java.io.File
+import java.nio.file.Path
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 import scala.util.Using
@@ -54,7 +55,7 @@ object Spark2Kafka {
         .builder()
         .appName("astraea etl")
         .getOrCreate(),
-      Metadata.of(new File(args(0))),
+      Metadata.of(Path.of(args(0))),
       Duration("1000 seconds")
     )
   }

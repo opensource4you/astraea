@@ -84,14 +84,22 @@ cURL 範例
 ```shell
 curl -X PUT http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
-    -d '{ "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a" }'
+    -d '{ 
+      "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
+      "executor": "org.astraea.common.balancer.executor.StraightPlanExecutor",
+      "executorConfig": {
+        "enableDataDirectoryMigration": false
+      }
+    }'
 ```
 
 JSON Request 格式
 
-| 名稱  | 說明                 | 預設值 |
-|-----|--------------------|-----|
-| id  | (必填) 欲執行的負載優化計劃之編號 | 無   |
+| 名稱             | 說明                                                           | 預設值                                                       |
+|----------------|--------------------------------------------------------------|-----------------------------------------------------------|
+| id             | (必填) 欲執行的負載優化計劃之編號                                           | 無                                                         |
+| executor       | (選填) 欲使用的計劃執行演算法                                             | org.astraea.common.balancer.executor.StraightPlanExecutor |
+| executorConfig | (選填) 計劃執行演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                         |
 
 JSON Response 範例
 
@@ -102,6 +110,18 @@ JSON Response 範例
 ```
 
 後續能用特定 [API](#查詢負載優化計劃的狀態) 來查詢負載優化計劃的執行進度。
+
+> ##### 進行 Data Directory 負載轉移的風險
+> Kafka 本身支援在同一個節點進行 Data Directory 之間的負載轉移，但在 Apache Kafka Version 2.2.0 
+> 到 3.5.0 之間存在一個 [Bug](https://issues.apache.org/jira/browse/KAFKA-9087)，這個 Bug 
+> 會使這類的負載轉移操作有機率卡住無法結束。 由於這個風險的存在，預設上 `StraightPlanExecutor`
+> 的實作會忽略這種同節點的負載搬移行為。這樣做雖然可以避免觸發 Bug，但由於部分計劃內容被忽略沒有套用，
+> 最後負載優化的結果可能會和預期的結果失真。這個行為可以透過設定覆蓋，使用者可以透過設定 `executorConfig` 
+> 的 `enableDataDirectoryMigration` 設定為 `true` 來啟動 Data Directory 之間的負載轉移。
+> 
+> 由於這個錯誤是有機率性的觸發，如果你賭一把進行 Data Directory 的轉移，但事後真的不幸觸發錯誤，
+> 可以參考[故障排除文件](../troubleshooting.md#Balancer-的-Data-Directory-負載轉移失敗)，
+> 那邊有觸發這個 bug 時的一些症狀和解決方案。
 
 > ##### 一個叢集同時間只能執行一個負載優化計劃
 > 嘗試對一個叢集同時套用多個負載優化計劃會導致意外的結果，因此 `PUT /balancer` 被設計為：
@@ -191,7 +211,7 @@ JSON Response 範例
 }
 ```
 
-```json
+```json5
 {
   "id": "46ecf6e7-aa28-4f72-b1b6-a788056c122a",
   "phase": "Searched",

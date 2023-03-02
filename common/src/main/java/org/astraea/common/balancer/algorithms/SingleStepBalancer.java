@@ -16,14 +16,13 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.time.Duration;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.TreeSet;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
@@ -62,11 +61,9 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(
-      ClusterInfo currentClusterInfo,
-      ClusterBean clusterBean,
-      Duration timeout,
-      AlgorithmConfig config) {
+  public Plan offer(AlgorithmConfig config) {
+    final var currentClusterInfo = config.clusterInfo();
+    final var clusterBean = config.clusterBean();
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
@@ -79,7 +76,7 @@ public class SingleStepBalancer implements Balancer {
         .generate(generatorClusterInfo)
         .parallel()
         .limit(iteration)
-        .takeWhile(ignored -> System.currentTimeMillis() - start <= timeout.toMillis())
+        .takeWhile(ignored -> System.currentTimeMillis() - start <= config.timeout().toMillis())
         .map(
             newAllocation -> {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
@@ -91,7 +88,7 @@ public class SingleStepBalancer implements Balancer {
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
-        .map(solution -> new Plan(currentCost, solution))
-        .orElse(new Plan(currentCost));
+        .map(solution -> new Plan(currentClusterInfo, currentCost, solution))
+        .orElse(new Plan(currentClusterInfo, currentCost));
   }
 }

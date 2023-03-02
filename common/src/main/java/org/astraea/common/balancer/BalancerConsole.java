@@ -17,24 +17,25 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
+import java.util.function.Supplier;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 
 /** Offer a uniform interface to schedule/manage/execute balance plan to an actual Kafka cluster. */
 public interface BalancerConsole extends AutoCloseable {
 
-  static BalancerConsole create(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
-    throw new UnsupportedOperationException();
+  static BalancerConsole create(Admin admin) {
+    return new BalancerConsoleImpl(admin);
   }
 
-  Collection<BalanceTask> tasks();
+  Set<String> tasks();
 
-  Optional<BalanceTask> task(String taskId);
+  Optional<TaskPhase> taskPhase(String taskId);
 
   Generation launchRebalancePlanGeneration();
 
@@ -45,57 +46,52 @@ public interface BalancerConsole extends AutoCloseable {
 
   interface Generation {
 
+    Generation setTaskId(String taskId);
+
     Generation setBalancer(Balancer balancer);
 
-    Generation setGenerationTimeout(Duration timeout);
+    Generation setAlgorithmConfig(AlgorithmConfig config);
 
-    BalanceTask generate();
+    Generation setClusterBeanSource(Supplier<ClusterBean> clusterBeanSource);
+
+    Generation checkNoOngoingMigration(boolean enable);
+
+    CompletionStage<Balancer.Plan> generate();
   }
 
   interface Execution {
 
     Execution setExecutor(RebalancePlanExecutor executor);
 
-    Execution setExecutor(Class<? extends RebalancePlanExecutor> executor);
-
     Execution setExecutionTimeout(Duration timeout);
 
-    default BalanceTask execute(BalanceTask theTask) {
-      return execute(theTask.taskId());
-    }
+    Execution checkPlanConsistency(boolean enable);
 
-    BalanceTask execute(String taskId);
+    Execution checkNoOngoingMigration(boolean enable);
+
+    CompletionStage<Void> execute(String taskId);
   }
 
-  interface BalanceTask {
+  enum TaskPhase implements EnumInfo {
+    Searching,
+    Searched,
+    SearchFailed,
+    Executing,
+    Executed,
+    ExecutionFailed;
 
-    String taskId();
+    static TaskPhase ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(TaskPhase.class, alias);
+    }
 
-    Phase phase();
+    @Override
+    public String alias() {
+      return name();
+    }
 
-    CompletionStage<Balancer.Plan> planGeneration();
-
-    CompletionStage<Void> planExecution();
-
-    enum Phase implements EnumInfo {
-      Searching,
-      Searched,
-      Executing,
-      Executed;
-
-      static Phase ofAlias(String alias) {
-        return EnumInfo.ignoreCaseEnum(Phase.class, alias);
-      }
-
-      @Override
-      public String alias() {
-        return name();
-      }
-
-      @Override
-      public String toString() {
-        return alias();
-      }
+    @Override
+    public String toString() {
+      return alias();
     }
   }
 }

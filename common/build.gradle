@@ -104,6 +104,8 @@ private String exec(String[] args) {
 
 import org.apache.tools.ant.taskdefs.condition.Os
 
+import java.nio.file.Files
+
 private String whoami() {
     try {
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -145,8 +147,8 @@ private String version() {
 
 task initializer {
     doLast {
-        def file = new File("$projectDir" + "/src/main/java/org/astraea/common/VersionUtils.java")
-        if (file.exists()) file.delete()
+        def file = java.nio.file.Path.of("$projectDir" + "/src/main/java/org/astraea/common/VersionUtils.java")
+        Files.deleteIfExists(file)
         String code = """package org.astraea.common;
 // DON'T touch this file!!! It is generated dynamically. see common/build.gradle
 public final class VersionUtils {
@@ -157,7 +159,7 @@ public final class VersionUtils {
   private VersionUtils() {}
 }
 """
-        def writer = new FileWriter(file)
+        def writer = Files.newBufferedWriter(file)
         try {
             writer.write(code.replaceAll("\n", System.lineSeparator()))
         } finally {

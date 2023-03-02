@@ -19,7 +19,7 @@ package org.astraea.etl
 import org.junit.jupiter.api.{Assertions, Test}
 
 import java.io.{File, FileOutputStream}
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.Properties
 import scala.util.Using
 
@@ -66,13 +66,13 @@ class MetadataTest {
     Assertions.assertEquals(DataType.StringType, metadata.columns(1).dataType)
   }
 
-  private def save(props: Map[String, String]): File = {
+  private def save(props: Map[String, String]): Path = {
     val prop = new Properties
     props.foreach { case (k, v) =>
       prop.put(k, v)
     }
-    val file = Files.createTempFile("test", "props").toFile
-    Using(new FileOutputStream(file)) { output =>
+    val file = Files.createTempFile("test", "props")
+    Using(Files.newOutputStream(file)) { output =>
       prop.store(output, null)
     }
     file
