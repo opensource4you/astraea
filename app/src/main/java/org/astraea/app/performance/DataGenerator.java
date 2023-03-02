@@ -50,7 +50,8 @@ public interface DataGenerator extends AbstractThread {
     var dataSupplier =
         supplier(
             argument.transactionSize,
-            argument.keyValueTableSeed,
+            argument.recordKeyTableSeed,
+            argument.recordValueTableSeed,
             LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
             argument.keyDistributionType.create(10000, keyDistConfig),
             argument.keySizeDistributionType.create(
@@ -128,7 +129,8 @@ public interface DataGenerator extends AbstractThread {
 
   static Function<TopicPartition, List<Record<byte[], byte[]>>> supplier(
       int batchSize,
-      long keyValueTableSeed,
+      long keyTableSeed,
+      long valueTableSeed,
       List<Long> keyFunctionRange,
       Supplier<Long> keyDistribution,
       Supplier<Long> keySizeDistribution,
@@ -141,9 +143,8 @@ public interface DataGenerator extends AbstractThread {
         throughput.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
     final var defaultThrottler = new Throttler(defaultThroughput);
-    final var randomSource = new Random(keyValueTableSeed);
-    final var keyRandom = new Random(randomSource.nextLong());
-    final var valueRandom = new Random(randomSource.nextLong());
+    final var keyRandom = new Random(keyTableSeed);
+    final var valueRandom = new Random(valueTableSeed);
     final Map<Long, byte[]> recordKeyTable =
         keyFunctionRange.stream()
             .map(

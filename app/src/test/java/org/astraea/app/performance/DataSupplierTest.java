@@ -39,6 +39,7 @@ public class DataSupplierTest {
         DataGenerator.supplier(
             1,
             0,
+            0,
             List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
@@ -61,6 +62,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             0,
             List.of(1L),
             () -> 1L,
@@ -85,6 +87,7 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             0,
             List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
@@ -113,6 +116,7 @@ public class DataSupplierTest {
         DataGenerator.supplier(
             1,
             0,
+            0,
             List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
@@ -134,12 +138,12 @@ public class DataSupplierTest {
   @Test
   void testDistributedValueSize() {
     var counter = new AtomicLong(0);
-    var counter2 = new AtomicLong(0);
 
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             0,
             List.of(10L),
             () -> 10L,
@@ -168,6 +172,7 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
             0,
             List.of(10L),
             () -> 10L,
@@ -211,6 +216,7 @@ public class DataSupplierTest {
         DataGenerator.supplier(
             1,
             0,
+            0,
             List.of(10L),
             () -> 10L,
             () -> 0L,
@@ -232,6 +238,7 @@ public class DataSupplierTest {
         DataGenerator.supplier(
             1,
             0,
+            0,
             List.of(10L),
             () -> 10L,
             () -> 10L,
@@ -252,6 +259,7 @@ public class DataSupplierTest {
         DataGenerator.supplier(
             3,
             0,
+            0,
             List.of(1L),
             () -> 1L,
             () -> 1L,
@@ -267,7 +275,6 @@ public class DataSupplierTest {
 
   @Test
   void testRandomSeed() {
-    long tableSeed = ThreadLocalRandom.current().nextLong();
     long keyContentSeed = ThreadLocalRandom.current().nextLong();
     long valueContentSeed = ThreadLocalRandom.current().nextLong();
     int size = 10000;
@@ -279,7 +286,8 @@ public class DataSupplierTest {
     var gen0 =
         DataGenerator.supplier(
             10,
-            tableSeed,
+            keyContentSeed,
+            valueContentSeed,
             LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
             () -> Math.abs(keyRandom0.nextLong() % size),
             () -> 32L,
@@ -291,7 +299,8 @@ public class DataSupplierTest {
     var gen1 =
         DataGenerator.supplier(
             10,
-            tableSeed,
+            keyContentSeed,
+            valueContentSeed,
             LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
             () -> Math.abs(keyRandom1.nextLong() % size),
             () -> 32L,

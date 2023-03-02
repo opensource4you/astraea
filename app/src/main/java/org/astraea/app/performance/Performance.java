@@ -288,6 +288,22 @@ public class Performance {
     }
 
     @Parameter(
+        names = {"--record.key.table.seed"},
+        description =
+            "The random seed for internal record key candidate generation. "
+                + "If one wants to run performance tool at multiple instances, consider using a common seed for all performance tools. "
+                + "Doing so guarantee all instances send record against the same key/value content lookup table. "
+                + "This might be crucial for probability distribution like Zipfian. Where only a specific key will be the hotspot.",
+        converter = LongConverter.class)
+    long recordKeyTableSeed = ThreadLocalRandom.current().nextLong();
+
+    @Parameter(
+        names = {"--record.value.table.seed"},
+        description = "The random seed for internal record value candidate generation.",
+        converter = LongConverter.class)
+    long recordValueTableSeed = ThreadLocalRandom.current().nextLong();
+
+    @Parameter(
         names = {"--key.size"},
         description = "DataSize of the key. Default: 4Byte",
         converter = DataSizeField.class)
@@ -298,16 +314,6 @@ public class Performance {
         description = "DataSize of the value. Default: 1KiB",
         converter = DataSizeField.class)
     DataSize valueSize = DataSize.KiB.of(1);
-
-    @Parameter(
-        names = {"--seed.key-value.table"},
-        description =
-            "The random seed for internal record key/value candidate content generation. "
-                + "If one wants to run performance tool at multiple instances, consider using a common seed for all performance tools. "
-                + "Doing so guarantee all instances send record against the same key/value content lookup table. "
-                + "This might be crucial for probability distribution like Zipfian. Where only a specific key will be the hotspot.",
-        converter = LongConverter.class)
-    long keyValueTableSeed = ThreadLocalRandom.current().nextLong();
 
     @Parameter(
         names = {"--key.distribution"},
