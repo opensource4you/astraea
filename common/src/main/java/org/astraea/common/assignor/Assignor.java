@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
@@ -59,8 +60,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected abstract Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions, ClusterInfo clusterInfo);
-  // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
-  // https://github.com/skiptests/astraea/issues/1409
 
   /**
    * Parse config to get JMX port and cost function type.
@@ -104,9 +103,9 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    *
    * @return cluster information
    */
-  private ClusterInfo updateClusterInfo() {
+  ClusterInfo updateClusterInfo(Set<String> subscription) {
     try (Admin admin = Admin.of(bootstrap)) {
-      return admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
+      return admin.clusterInfo(subscription).toCompletableFuture().join();
     }
   }
 
@@ -114,11 +113,16 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
 
   @Override
   public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-    var clusterInfo = updateClusterInfo();
     // convert Kafka's data structure to ours
     var subscriptionsPerMember =
         org.astraea.common.assignor.GroupSubscription.from(groupSubscription).groupSubscription();
 
+    var clusterInfo =
+        updateClusterInfo(
+            subscriptionsPerMember.values().stream()
+                .map(org.astraea.common.assignor.Subscription::topics)
+                .flatMap(List::stream)
+                .collect(Collectors.toUnmodifiableSet()));
     // TODO: Detected if consumers subscribed to the same topics.
     // For now, assume that the consumers only subscribed to identical topics
 
