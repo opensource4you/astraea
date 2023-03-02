@@ -38,14 +38,15 @@ public class NetworkIngressAssignor extends Assignor {
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       ClusterInfo clusterInfo) {
     var consumers = subscriptions.keySet();
+    var topics = topics(subscriptions);
     // 1. check unregister node. if there are unregister nodes, register them
     registerUnregisterNode(clusterInfo);
     // wait for clusterBean
-    Utils.sleep(Duration.ofSeconds(1));
     var clusterBean = metricCollector.clusterBean();
+    if(clusterBean.all().isEmpty() || !clusterBean.topics().containsAll(topics))
+      throw new RuntimeException("no enough metrics");
 
     // 2. parse subscription , get all topic consumer subscribe
-    var topics = topics(subscriptions);
     var networkCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
 
     // key = broker id, value = partition and its cost
