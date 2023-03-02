@@ -16,6 +16,7 @@
  */
 package org.astraea.common.assignor;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.NoSufficientMetricsException;
 
 public class NetworkIngressAssignor extends Assignor {
 
@@ -41,8 +43,11 @@ public class NetworkIngressAssignor extends Assignor {
     registerUnregisterNode(clusterInfo);
     // wait for clusterBean
     var clusterBean = metricCollector.clusterBean();
-    if (clusterBean.all().isEmpty() || !clusterBean.topics().containsAll(topics))
-      throw new RuntimeException("no enough metrics");
+    if (clusterBean.all().isEmpty()
+        || !clusterBean.topics().containsAll(topics)
+        || !clusterInfo.topicPartitions().containsAll(clusterBean.partitions()))
+      throw new NoSufficientMetricsException(
+          costFunction, Duration.ofSeconds(1), "no enough metrics");
 
     // 2. parse subscription , get all topic consumer subscribe
     var networkCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
