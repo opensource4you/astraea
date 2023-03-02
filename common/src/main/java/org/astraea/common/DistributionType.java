@@ -91,10 +91,6 @@ public enum DistributionType implements EnumInfo {
     return alias();
   }
 
-  public final Supplier<Long> create(int n) {
-    return create(n, Configuration.EMPTY);
-  }
-
   public final Supplier<Long> create(int n, Configuration configuration) {
     if (n <= 0) return () -> 0L;
     return supplier(n, configuration);
