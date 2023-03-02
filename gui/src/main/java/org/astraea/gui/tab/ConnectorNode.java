@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javafx.geometry.Side;
 import javafx.scene.Node;
@@ -32,7 +33,6 @@ import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.gui.Context;
-import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.SecondPart;
@@ -292,12 +292,25 @@ public class ConnectorNode {
   }
 
   private static Node pluginNode(Context context) {
-    var documentation = "documentation";
-    var defaultValue = "default value";
     var firstPart =
         FirstPart.builder()
-            .selectBox(SelectBox.single(List.of(defaultValue, documentation), 2))
             .clickName("REFRESH")
+            .tipRefresher(
+                (argument, logger) ->
+                    context
+                        .connectorClient()
+                        .plugins()
+                        .thenApply(
+                            pluginInfos ->
+                                pluginInfos.stream()
+                                    .flatMap(
+                                        pluginInfo ->
+                                            pluginInfo.definitions().stream()
+                                                .sorted(Comparator.comparing(Definition::name))
+                                                .map(d -> Map.entry(d.name(), d.documentation())))
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l))))
             .tableRefresher(
                 (argument, logger) ->
                     context
@@ -315,12 +328,7 @@ public class ConnectorNode {
                                               .forEach(
                                                   d ->
                                                       map.put(
-                                                          d.name(),
-                                                          argument
-                                                                  .selectedKeys()
-                                                                  .contains(documentation)
-                                                              ? d.documentation()
-                                                              : d.defaultValue().orElse("")));
+                                                          d.name(), d.defaultValue().orElse("")));
                                           return map;
                                         })
                                     .collect(Collectors.toList())))
