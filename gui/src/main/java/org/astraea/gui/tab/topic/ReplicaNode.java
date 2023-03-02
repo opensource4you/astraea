@@ -162,7 +162,10 @@ class ReplicaNode {
           .thenCompose(
               internalTopics -> {
                 var internal =
-                    partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
+                    partitions.stream()
+                        .map(TopicPartition::topic)
+                        .filter(internalTopics::contains)
+                        .collect(Collectors.toSet());
                 if (!internal.isEmpty()) {
                   logger.log("internal topics: " + internal + " can't be altered");
                   return CompletableFuture.completedStage(null);
