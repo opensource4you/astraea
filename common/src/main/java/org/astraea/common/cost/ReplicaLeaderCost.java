@@ -36,6 +36,15 @@ import org.astraea.common.metrics.collector.MetricSensor;
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "leader";
+  private final long maxMigratedLeader;
+
+  public ReplicaLeaderCost(long maxMigratedLeader) {
+    this.maxMigratedLeader = maxMigratedLeader;
+  }
+
+  public ReplicaLeaderCost() {
+    this.maxMigratedLeader = Long.MAX_VALUE;
+  }
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -128,6 +137,16 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                                   .count();
                       return newLeaders - removedLeaders;
                     })));
+  }
+
+  @Override
+  public boolean overflow(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+    var moveCost = moveCost(before, after, clusterBean);
+    return maxMigratedLeader
+        < moveCost.changedReplicaLeaderCount().values().stream()
+            .map(Math::abs)
+            .mapToLong(s -> s)
+            .sum();
   }
 
   @Override

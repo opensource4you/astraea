@@ -27,6 +27,16 @@ import org.astraea.common.admin.Replica;
 
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
+  private final DataSize maxMigratedSize;
+
+  public RecordSizeCost(DataSize maxMigratedSize) {
+    this.maxMigratedSize = maxMigratedSize;
+  }
+
+  public RecordSizeCost() {
+    this.maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
+  }
+
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
@@ -52,6 +62,16 @@ public class RecordSizeCost
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
                                 - before.replicaStream(id).mapToLong(Replica::size).sum()))));
+  }
+
+  @Override
+  public boolean overflow(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+    var moveCost = moveCost(before, after, clusterBean);
+    return maxMigratedSize.bytes()
+        < moveCost.movedRecordSize().values().stream()
+            .map(x -> Math.abs(x.bytes()))
+            .mapToLong(x -> x)
+            .sum();
   }
 
   @Override

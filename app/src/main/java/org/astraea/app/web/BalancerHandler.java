@@ -30,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,14 +59,6 @@ import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
-
-  static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
-      HasMoveCost.of(
-          List.of(
-              new ReplicaNumberCost(),
-              new ReplicaLeaderCost(),
-              new RecordSizeCost(),
-              new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
@@ -351,24 +342,21 @@ class BalancerHandler implements Handler {
         Configuration.of(balancerPostRequest.balancerConfig),
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .moveCost(moveCosts(balancerPostRequest))
             .timeout(balancerPostRequest.timeout)
-            .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
             .build(),
         currentClusterInfo);
   }
 
   // TODO: There needs to be a way for"GU" and Web to share this function.
-  static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
-    return cost -> {
-      if (request.maxMigratedSize.bytes()
-          < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
-      if (request.maxMigratedLeader
-          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
-        return false;
-      return true;
-    };
+  static HasMoveCost moveCosts(BalancerPostRequest request) {
+    return HasMoveCost.of(
+        List.of(
+            new ReplicaNumberCost(),
+            new ReplicaLeaderCost(request.maxMigratedLeader),
+            new RecordSizeCost(request.maxMigratedSize),
+            new ReplicaLeaderSizeCost()));
   }
 
   static class BalancerPostRequest implements Request {

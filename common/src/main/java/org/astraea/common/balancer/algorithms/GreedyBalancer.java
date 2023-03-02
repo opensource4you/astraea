@@ -158,12 +158,14 @@ public class GreedyBalancer implements Balancer {
                           clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
                           moveCostFunction.moveCost(
                               currentClusterInfo, newClusterInfo, clusterBean),
+                          moveCostFunction.overflow(
+                              currentClusterInfo, newClusterInfo, clusterBean),
                           newAllocation);
                     })
                 .filter(
                     plan ->
                         config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
-                .filter(plan -> config.movementConstraint().test(plan.moveCost()))
+                .filter(plan -> !plan.isOverflow())
                 .findFirst();
     var currentCost = initialCost;
     var currentAllocation = ClusterInfo.masked(currentClusterInfo, config.topicFilter());

@@ -66,6 +66,7 @@ public interface Balancer {
     final ClusterInfo proposal;
     final ClusterCost proposalClusterCost;
     final MoveCost moveCost;
+    final boolean overflow;
 
     public ClusterInfo proposal() {
       return proposal;
@@ -80,10 +81,19 @@ public interface Balancer {
       return moveCost;
     }
 
-    public Solution(ClusterCost proposalClusterCost, MoveCost moveCost, ClusterInfo proposal) {
+    public boolean isOverflow() {
+      return overflow;
+    }
+
+    public Solution(
+        ClusterCost proposalClusterCost,
+        MoveCost moveCost,
+        boolean overflow,
+        ClusterInfo proposal) {
       this.proposal = proposal;
       this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;
+      this.overflow = overflow;
     }
   }
 

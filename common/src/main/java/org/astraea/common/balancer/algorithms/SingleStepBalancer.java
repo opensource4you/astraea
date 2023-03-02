@@ -83,6 +83,7 @@ public class SingleStepBalancer implements Balancer {
               return new Solution(
                   clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
                   moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, clusterBean),
+                  moveCostFunction.overflow(currentClusterInfo, newClusterInfo, clusterBean),
                   newAllocation);
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
