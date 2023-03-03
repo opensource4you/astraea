@@ -20,10 +20,8 @@ import com.beust.jcommander.Parameter;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.Executors;
@@ -55,7 +53,7 @@ public class MetricPublisher {
   // Valid for testing
   static void execute(Arguments arguments) {
     // self-defined queue of ID and target mbean clients to fetch
-    var targetClients = new FixedDelayQueue(arguments.period);
+    var targetClients = new DelayQueue<DelayedIdClient>();
     // queue of fetched beans
     var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
     var close = new AtomicBoolean(false);
@@ -75,10 +73,17 @@ public class MetricPublisher {
                     .nodeInfos()
                     .thenAccept(
                         nodes -> {
-                          // Find if there is target that is not alive in the FixDelayQueue
-                          var alive = targetClients.alive(arguments.period);
+                          // TODO: Real elements in queue may not consistent with `inQueue` object.
+                          // Other threads (JMXFetcherThreads) may add element to this queue (as
+                          // they complete the fetch). This may result in duplicate targets in the
+                          // DelayQueue (`targetClients`). Discussion:
+                          // https://github.com/skiptests/astraea/pull/1481#discussion_r1112972154
+                          var inQueue =
+                              targetClients.stream()
+                                  .map(target -> target.id)
+                                  .collect(Collectors.toUnmodifiableSet());
                           nodes.stream()
-                              .filter(node -> !alive.contains(String.valueOf(node.id())))
+                              .filter(node -> !inQueue.contains(String.valueOf(node.id())))
                               .forEach(
                                   node ->
                                       targetClients.put(
@@ -110,7 +115,7 @@ public class MetricPublisher {
       threadPool.shutdown();
       Utils.swallowException(() -> periodicJobPool.awaitTermination(1, TimeUnit.MINUTES));
       Utils.swallowException(() -> threadPool.awaitTermination(1, TimeUnit.MINUTES));
-      targetClients.idMBeanClients().forEach(idClient -> idClient.client().close());
+      targetClients.forEach(idClient -> idClient.mBeanClient.close());
 
       admin.close();
     }
@@ -118,7 +123,7 @@ public class MetricPublisher {
 
   private static List<Runnable> jmxFetcherThreads(
       int threads,
-      FixedDelayQueue clients,
+      DelayQueue<DelayedIdClient> clients,
       Duration duration,
       BlockingQueue<IdBean> beanQueue,
       Supplier<Boolean> closed) {
@@ -174,53 +179,6 @@ public class MetricPublisher {
         .collect(Collectors.toList());
   }
 
-  /**
-   * This class is supposed to use in "periodic object adding". The {@link
-   * FixedDelayQueue#alive(Duration)} helps us to know which elements has been added recently.
-   */
-  // visible for test
-  static class FixedDelayQueue {
-    private final Duration delay;
-    private final DelayQueue<DelayedIdClient> delayQueue = new DelayQueue<>();
-    private final Map<IdMBeanClient, Long> lastPutMs = new ConcurrentHashMap<>();
-
-    FixedDelayQueue(Duration delay) {
-      this.delay = delay;
-    }
-
-    void put(DelayedIdClient delayedIdClient) {
-      delayQueue.put(delayedIdClient);
-      lastPutMs.put(
-          new IdMBeanClient(delayedIdClient.id, delayedIdClient.mBeanClient),
-          System.currentTimeMillis());
-    }
-
-    DelayedIdClient poll(long timeout, TimeUnit timeUnit) throws InterruptedException {
-      return delayQueue.poll(timeout, timeUnit);
-    }
-
-    /**
-     * Check the elements that has been put into this queue within a "duration". This "duration" is
-     * computed by fixed-delay of this object and the given error. That is, the elements that has
-     * been added to this queue within (delay + error) is called "alive".
-     *
-     * @param error and the fix-delay define element "alive"
-     * @return the set of id whose last put into this queue is shorter than (delay + error)
-     */
-    Set<String> alive(Duration error) {
-      final long timeout = System.currentTimeMillis() - (delay.toMillis() + error.toMillis());
-      return lastPutMs.entrySet().stream()
-          .filter(e -> e.getValue() <= timeout)
-          .map(Map.Entry::getKey)
-          .map(IdMBeanClient::id)
-          .collect(Collectors.toSet());
-    }
-
-    Set<IdMBeanClient> idMBeanClients() {
-      return lastPutMs.keySet();
-    }
-  }
-
   static class DelayedIdClient implements Delayed {
     private final long timeout;
 
@@ -242,24 +200,6 @@ public class MetricPublisher {
     public int compareTo(Delayed delayed) {
       return Long.compare(
           this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
-    }
-  }
-
-  private static class IdMBeanClient {
-    private final String id;
-    private final MBeanClient client;
-
-    public IdMBeanClient(String id, MBeanClient client) {
-      this.id = id;
-      this.client = client;
-    }
-
-    public String id() {
-      return id;
-    }
-
-    public MBeanClient client() {
-      return client;
     }
   }
 
