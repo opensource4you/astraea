@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -32,6 +31,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataUnit;
 import org.astraea.common.Utils;
@@ -43,15 +44,22 @@ public interface DataGenerator extends AbstractThread {
       List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
+    var keyDistConfig = Configuration.of(argument.keyDistributionConfig);
+    var keySizeDistConfig = Configuration.of(argument.keySizeDistributionConfig);
+    var valueDistConfig = Configuration.of(argument.valueDistributionConfig);
     var dataSupplier =
         supplier(
             argument.transactionSize,
-            argument.keyDistributionType.create(10000),
-            argument.keyDistributionType.create(
-                argument.keySize.measurement(DataUnit.Byte).intValue()),
-            argument.valueDistributionType.create(10000),
+            argument.recordKeyTableSeed,
+            argument.recordValueTableSeed,
+            LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
+            argument.keyDistributionType.create(10000, keyDistConfig),
+            argument.keySizeDistributionType.create(
+                (int) argument.keySize.bytes(), keySizeDistConfig),
+            LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()),
+            argument.valueDistributionType.create(10000, valueDistConfig),
             argument.valueDistributionType.create(
-                argument.valueSize.measurement(DataUnit.Byte).intValue()),
+                argument.valueSize.measurement(DataUnit.Byte).intValue(), valueDistConfig),
             argument.throttles,
             argument.throughput);
     var closeLatch = new CountDownLatch(1);
@@ -121,8 +129,12 @@ public interface DataGenerator extends AbstractThread {
 
   static Function<TopicPartition, List<Record<byte[], byte[]>>> supplier(
       int batchSize,
+      long keyTableSeed,
+      long valueTableSeed,
+      List<Long> keyFunctionRange,
       Supplier<Long> keyDistribution,
       Supplier<Long> keySizeDistribution,
+      List<Long> valueFunctionRange,
       Supplier<Long> valueDistribution,
       Supplier<Long> valueSizeDistribution,
       Map<TopicPartition, DataRate> throughput,
@@ -131,15 +143,39 @@ public interface DataGenerator extends AbstractThread {
         throughput.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> new Throttler(e.getValue())));
     final var defaultThrottler = new Throttler(defaultThroughput);
-    final Random rand = new Random();
-    final Map<Long, byte[]> recordKeyTable = new ConcurrentHashMap<>();
-    final Map<Long, byte[]> recordValueTable = new ConcurrentHashMap<>();
+    final var keyRandom = new Random(keyTableSeed);
+    final var valueRandom = new Random(valueTableSeed);
+    final Map<Long, byte[]> recordKeyTable =
+        keyFunctionRange.stream()
+            .map(
+                index -> {
+                  var size = keySizeDistribution.get().intValue();
+                  var key = new byte[size];
+                  keyRandom.nextBytes(key);
+                  return Map.entry(index, key);
+                })
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    final Map<Long, byte[]> recordValueTable =
+        valueFunctionRange.stream()
+            .map(
+                index -> {
+                  var size = valueSizeDistribution.get().intValue();
+                  var value = new byte[size];
+                  valueRandom.nextBytes(value);
+                  return Map.entry(index, value);
+                })
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
     Supplier<byte[]> keySupplier =
-        () -> getOrNew(recordKeyTable, keyDistribution, keySizeDistribution.get().intValue(), rand);
-    Supplier<byte[]> valueSupplier =
-        () ->
-            getOrNew(
-                recordValueTable, valueDistribution, valueSizeDistribution.get().intValue(), rand);
+        () -> {
+          var key = recordKeyTable.get(keyDistribution.get());
+          // Intentionally replace key with zero length by null key. A key with zero length can lead
+          // to ambiguous behavior in an experiment.
+          // See https://github.com/skiptests/astraea/pull/1521#discussion_r1121801293 for further
+          // details.
+          return key.length > 0 ? key : null;
+        };
+    Supplier<byte[]> valueSupplier = () -> recordValueTable.get(valueDistribution.get());
 
     return (tp) -> {
       var throttler = throttlers.getOrDefault(tp, defaultThrottler);
@@ -160,21 +196,6 @@ public interface DataGenerator extends AbstractThread {
       }
       return records;
     };
-  }
-
-  // Find the key from the table, if the record has been produced before. Randomly generate a
-  // byte array if
-  // the record has not been produced.
-  static byte[] getOrNew(
-      Map<Long, byte[]> table, Supplier<Long> distribution, int size, Random rand) {
-    return table.computeIfAbsent(
-        distribution.get(),
-        ignore -> {
-          if (size == 0) return null;
-          var value = new byte[size];
-          rand.nextBytes(value);
-          return value;
-        });
   }
 
   class Throttler {
