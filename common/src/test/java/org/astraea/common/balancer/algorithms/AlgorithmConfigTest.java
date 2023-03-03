@@ -37,7 +37,6 @@ public class AlgorithmConfigTest {
     Assertions.assertSame(config0.clusterCostFunction(), config1.clusterCostFunction());
     Assertions.assertSame(config0.moveCostFunction(), config1.moveCostFunction());
     Assertions.assertSame(config0.clusterConstraint(), config1.clusterConstraint());
-    Assertions.assertSame(config0.movementConstraint(), config1.movementConstraint());
     Assertions.assertSame(config0.topicFilter(), config1.topicFilter());
     Assertions.assertSame(config0.clusterInfo(), config1.clusterInfo());
     Assertions.assertSame(config0.clusterBean(), config1.clusterBean());
