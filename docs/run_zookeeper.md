@@ -26,7 +26,6 @@ Zookeeper有兩個重要的功能:
 ```bash
 =================================================
 run /home/username/Documents/astraea/docker/start_broker.sh zookeeper.connect=192.168.103.24:18098 to join kafka broker
-run env CONFLUENT_BROKER=true /home/username/Documents/astraea/docker/start_broker.sh zookeeper.connect=192.168.103.24:18098 to join confluent kafka broker
 =================================================
 ```
 
