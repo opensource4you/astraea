@@ -81,7 +81,7 @@ public class LocalMetricCollector implements MetricCollector {
     this.delayedWorks = new DelayQueue<>();
     this.mBeanClients = new ConcurrentHashMap<>(mBeanClients);
     this.sensors = sensors;
-    mBeanClients.forEach(
+    this.mBeanClients.forEach(
         (id, ignore) -> this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, id)));
     if (beans != null)
       beans.forEach(
@@ -133,7 +133,9 @@ public class LocalMetricCollector implements MetricCollector {
                           for (var sensor : sensors) {
                             try {
                               var newBeans =
-                                  sensor.getKey().fetch(mBeanClients.get(identity.id), clusterBean);
+                                  sensor
+                                      .getKey()
+                                      .fetch(this.mBeanClients.get(identity.id), clusterBean);
                               this.beans
                                   .computeIfAbsent(
                                       identity.id, ignored -> new ConcurrentLinkedQueue<>())
@@ -170,6 +172,7 @@ public class LocalMetricCollector implements MetricCollector {
                     + ". But this id is already registered");
           else return MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort());
         });
+    delayedWorks.add(new DelayedIdentity(Duration.ZERO, identity));
   }
 
   @Override
