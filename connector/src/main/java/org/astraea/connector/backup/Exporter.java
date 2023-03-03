@@ -132,80 +132,85 @@ public class Exporter extends SinkConnector {
   }
 
   public static class Task extends SinkTask {
-    private String topicName;
-    private String path;
-    private DataSize size;
 
     private CompletableFuture<Void> writerFuture;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private Duration interval;
-
-    private FileSystem fs;
-
     private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
-    static void writer(Task thisTask) {
-      var writers = new HashMap<TopicPartition, RecordWriter>();
-      var intervalTimeInMillis = thisTask.interval.toMillis();
-      var sleepTime = Math.min(intervalTimeInMillis, 1000);
-      var lastWriteTime = System.currentTimeMillis();
-      try {
-        while (!thisTask.closed.get()) {
-          var record = thisTask.recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
-          var currentTime = System.currentTimeMillis();
+    static Runnable createWriter(
+        FileSystem fs,
+        String path,
+        String topicName,
+        Duration interval,
+        DataSize size,
+        AtomicBoolean closed,
+        BlockingQueue<Record<byte[], byte[]>> recordsQueue) {
+      return () -> {
+        var writers = new HashMap<TopicPartition, RecordWriter>();
+        var intervalTimeInMillis = interval.toMillis();
+        var sleepTime = Math.min(intervalTimeInMillis, 1000);
+        var lastWriteTime = System.currentTimeMillis();
+        try {
+          while (!closed.get()) {
+            var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
+            var currentTime = System.currentTimeMillis();
 
-          if (record == null) {
-            // close all writers if they have been idle over roll.duration.
-            if (currentTime - lastWriteTime > intervalTimeInMillis) {
-              writers.values().forEach(RecordWriter::close);
-              writers.clear();
+            if (record == null) {
+              // close all writers if they have been idle over roll.duration.
+              if (currentTime - lastWriteTime > intervalTimeInMillis) {
+                writers.values().forEach(RecordWriter::close);
+                writers.clear();
+              }
+              continue;
             }
-            continue;
+            var writer =
+                writers.computeIfAbsent(
+                    record.topicPartition(),
+                    ignored -> {
+                      var fileName = String.valueOf(record.offset());
+                      return RecordWriter.builder(
+                              fs.write(
+                                  String.join(
+                                      "/",
+                                      path,
+                                      topicName,
+                                      String.valueOf(record.partition()),
+                                      fileName)))
+                          .build();
+                    });
+            writer.append(record);
+            lastWriteTime = System.currentTimeMillis();
+            if (writer.size().greaterThan(size)) {
+              writers.remove(record.topicPartition()).close();
+              fs.close();
+            }
           }
-          var writer =
-              writers.computeIfAbsent(
-                  record.topicPartition(),
-                  ignored -> {
-                    var fileName = String.valueOf(record.offset());
-                    return RecordWriter.builder(
-                            thisTask.fs.write(
-                                String.join(
-                                    "/",
-                                    thisTask.path,
-                                    thisTask.topicName,
-                                    String.valueOf(record.partition()),
-                                    fileName)))
-                        .build();
-                  });
-          writer.append(record);
-          lastWriteTime = System.currentTimeMillis();
-          if (writer.size().greaterThan(thisTask.size)) {
-            writers.remove(record.topicPartition()).close();
-            thisTask.fs.close();
-          }
+        } catch (InterruptedException ignored) {
+          // swallow
+        } finally {
+          writers.forEach((tp, writer) -> writer.close());
         }
-      } catch (InterruptedException ignored) {
-        // swallow
-      } finally {
-        writers.forEach((tp, writer) -> writer.close());
-      }
+      };
     }
 
     @Override
     protected void init(Configuration configuration) {
-      this.topicName = configuration.requireString(TOPICS_KEY);
-      this.path = configuration.requireString(PATH_KEY.name());
-      this.size =
+      var topicName = configuration.requireString(TOPICS_KEY);
+      var path = configuration.requireString(PATH_KEY.name());
+      var size =
           DataSize.of(
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
-      this.interval =
+      var interval =
           Utils.toDuration(
               configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()));
 
-      this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.writerFuture = CompletableFuture.runAsync(() -> writer(this));
+      var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+
+      this.writerFuture =
+          CompletableFuture.runAsync(
+              createWriter(fs, path, topicName, interval, size, this.closed, this.recordsQueue));
     }
 
     @Override
