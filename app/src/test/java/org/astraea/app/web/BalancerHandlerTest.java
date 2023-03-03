@@ -66,6 +66,7 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
@@ -259,6 +260,20 @@ public class BalancerHandlerTest {
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
+      HasMoveCost failMoveCostFunction =
+          new HasMoveCost() {
+            @Override
+            public MoveCost moveCost(
+                ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+              return MoveCost.EMPTY;
+            }
+
+            @Override
+            public boolean overflow(
+                ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+              return true;
+            }
+          };
 
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
@@ -274,7 +289,6 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
                       .build());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
@@ -296,7 +310,6 @@ public class BalancerHandlerTest {
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
                           .moveCost(moveCostFunction)
-                          .movementConstraint(moveCosts -> true)
                           .build()));
 
       // test cluster cost predicate
@@ -315,7 +328,6 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
                       .build())
               .solution());
 
@@ -334,8 +346,7 @@ public class BalancerHandlerTest {
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
-                      .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> false)
+                      .moveCost(failMoveCostFunction)
                       .build())
               .solution());
     }

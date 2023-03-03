@@ -61,11 +61,6 @@ public interface AlgorithmConfig {
   BiPredicate<ClusterCost, ClusterCost> clusterConstraint();
 
   /**
-   * @return the movement constraint that must be complied with by the algorithm solution
-   */
-  Predicate<MoveCost> movementConstraint();
-
-  /**
    * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
    */
   Predicate<String> topicFilter();
@@ -105,7 +100,6 @@ public interface AlgorithmConfig {
         this.clusterCostFunction = config.clusterCostFunction();
         this.moveCostFunction = config.moveCostFunction();
         this.clusterConstraint = config.clusterConstraint();
-        this.movementConstraint = config.movementConstraint();
         this.topicFilter = config.topicFilter();
         this.clusterInfo = config.clusterInfo();
         this.clusterBean = config.clusterBean();
@@ -160,18 +154,6 @@ public interface AlgorithmConfig {
      */
     public Builder clusterConstraint(BiPredicate<ClusterCost, ClusterCost> clusterConstraint) {
       this.clusterConstraint = clusterConstraint;
-      return this;
-    }
-
-    /**
-     * Specify the movement cost constraint for any rebalance plan.
-     *
-     * @param moveConstraint a {@link Predicate} to determine if the rebalance result is
-     *     acceptable(in terms of the ongoing cost caused by execute this rebalance plan).
-     * @return this
-     */
-    public Builder movementConstraint(Predicate<MoveCost> moveConstraint) {
-      this.movementConstraint = Objects.requireNonNull(moveConstraint);
       return this;
     }
 
@@ -238,11 +220,6 @@ public interface AlgorithmConfig {
         @Override
         public BiPredicate<ClusterCost, ClusterCost> clusterConstraint() {
           return clusterConstraint;
-        }
-
-        @Override
-        public Predicate<MoveCost> movementConstraint() {
-          return movementConstraint;
         }
 
         @Override
