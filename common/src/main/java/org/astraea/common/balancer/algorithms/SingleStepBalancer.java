@@ -77,17 +77,21 @@ public class SingleStepBalancer implements Balancer {
         .parallel()
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= config.timeout().toMillis())
+        .filter(
+            newAllocation ->
+                !moveCostFunction.overflow(
+                    currentClusterInfo,
+                    ClusterInfo.update(currentClusterInfo, newAllocation::replicas),
+                    clusterBean))
         .map(
             newAllocation -> {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Solution(
                   clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
                   moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, clusterBean),
-                  moveCostFunction.overflow(currentClusterInfo, newClusterInfo, clusterBean),
                   newAllocation);
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
-        .filter(plan -> config.movementConstraint().test(plan.moveCost()))
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
         .map(solution -> new Plan(currentClusterInfo, currentCost, solution))
         .orElse(new Plan(currentClusterInfo, currentCost));

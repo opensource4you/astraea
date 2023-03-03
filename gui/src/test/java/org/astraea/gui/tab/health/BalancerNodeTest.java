@@ -168,7 +168,6 @@ class BalancerNodeTest {
             new Balancer.Solution(
                 new ReplicaLeaderCost().clusterCost(beforeClusterInfo, ClusterBean.EMPTY),
                 MoveCost.EMPTY,
-                false,
                 ClusterInfo.of("fake", allNodes, Map.of(), afterReplicas)));
     Assertions.assertEquals(results.size(), 1);
     Assertions.assertEquals(results.get(0).get("topic"), topic);

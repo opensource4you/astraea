@@ -402,7 +402,7 @@ class BalancerConsoleTest {
             return new Plan(
                 config.clusterInfo(),
                 () -> 0,
-                new Solution(() -> 0, MoveCost.EMPTY, false, config.clusterInfo()));
+                new Solution(() -> 0, MoveCost.EMPTY, config.clusterInfo()));
           }
         };
 
