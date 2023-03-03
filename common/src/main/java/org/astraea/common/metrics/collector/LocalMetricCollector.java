@@ -74,12 +74,12 @@ public class LocalMetricCollector implements MetricCollector {
       Duration expiration,
       Duration interval,
       Duration cleanerInterval,
-      Map<Integer, MBeanClient> mBeanClients,
+      Map<Integer, MBeanClient> registeredMBeanClients,
       List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors,
       Map<Integer, Collection<HasBeanObject>> beans) {
     this.executorService = Executors.newScheduledThreadPool(threadCount + 1);
     this.delayedWorks = new DelayQueue<>();
-    this.mBeanClients = new ConcurrentHashMap<>(mBeanClients);
+    this.mBeanClients = new ConcurrentHashMap<>(registeredMBeanClients);
     this.sensors = sensors;
     this.mBeanClients.forEach(
         (id, ignore) -> this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, id)));

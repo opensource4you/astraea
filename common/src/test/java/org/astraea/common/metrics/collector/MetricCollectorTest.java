@@ -77,10 +77,19 @@ class MetricCollectorTest {
     Assertions.assertThrows(
         IllegalArgumentException.class, builder::build, "The id -1 is already registered");
 
-    try (var collector = MetricCollector.local().registerJmx(1, socket).build()) {
+    try (var collector =
+        MetricCollector.local().interval(Duration.ofSeconds(30)).registerJmx(1, socket).build()) {
       Assertions.assertEquals(2, collector.listIdentities().size());
       Assertions.assertTrue(collector.listIdentities().contains(-1));
       Assertions.assertTrue(collector.listIdentities().contains(1));
+      Utils.sleep(Duration.ofSeconds(2));
+      var ids =
+          ((LocalMetricCollector) collector)
+              .delayQueue().stream()
+                  .map(LocalMetricCollector.DelayedIdentity::id)
+                  .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertTrue(ids.contains(-1));
+      Assertions.assertTrue(ids.contains(1));
     }
 
     try (var collector = MetricCollector.local().interval(Duration.ofSeconds(30)).build()) {
