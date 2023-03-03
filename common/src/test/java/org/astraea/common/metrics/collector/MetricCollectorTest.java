@@ -82,6 +82,19 @@ class MetricCollectorTest {
       Assertions.assertTrue(collector.listIdentities().contains(-1));
       Assertions.assertTrue(collector.listIdentities().contains(1));
     }
+
+    try (var collector = MetricCollector.local().interval(Duration.ofSeconds(30)).build()) {
+      ((LocalMetricCollector) collector).registerJmx(1, socket);
+      Utils.sleep(Duration.ofSeconds(2));
+      var ids =
+          ((LocalMetricCollector) collector)
+              .delayQueue().stream()
+                  .map(LocalMetricCollector.DelayedIdentity::id)
+                  .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertEquals(2, ids.size());
+      Assertions.assertTrue(ids.contains(-1));
+      Assertions.assertTrue(ids.contains(1));
+    }
   }
 
   @Test

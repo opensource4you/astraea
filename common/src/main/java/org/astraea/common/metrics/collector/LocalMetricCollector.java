@@ -217,6 +217,11 @@ public class LocalMetricCollector implements MetricCollector {
     this.mBeanClients.forEach((ignore, client) -> client.close());
   }
 
+  // Only for testing
+  DelayQueue<DelayedIdentity> delayQueue() {
+    return delayedWorks;
+  }
+
   public static class Builder {
 
     private int threadCount = Runtime.getRuntime().availableProcessors();
@@ -375,7 +380,8 @@ public class LocalMetricCollector implements MetricCollector {
     }
   }
 
-  private static class DelayedIdentity implements Delayed {
+  // visible for test
+  static class DelayedIdentity implements Delayed {
     private final long deadlineNs;
     private final int id;
 
@@ -393,6 +399,11 @@ public class LocalMetricCollector implements MetricCollector {
     public int compareTo(Delayed delayed) {
       return Long.compare(
           this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
+    }
+
+    // Only for testing
+    int id() {
+      return id;
     }
   }
 }
