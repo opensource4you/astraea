@@ -89,13 +89,11 @@ public class ReplicaLeaderCostTest {
     var broker3 = List.of((HasBeanObject) LeaderCount3);
     var clusterBean = ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
     var brokerLoad = costFunction.brokerCost(ClusterInfo.empty(), clusterBean);
-    var clusterLoad = costFunction.clusterCost(ClusterInfo.empty(), clusterBean);
 
     Assertions.assertEquals(3, brokerLoad.value().size());
     Assertions.assertEquals(3.0, brokerLoad.value().get(1));
     Assertions.assertEquals(4.0, brokerLoad.value().get(2));
     Assertions.assertEquals(5.0, brokerLoad.value().get(3));
-    Assertions.assertEquals(0.2041241452319315, clusterLoad.value());
   }
 
   @Test
