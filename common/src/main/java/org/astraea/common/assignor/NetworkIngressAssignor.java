@@ -26,10 +26,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.cost.NoSufficientMetricsException;
 
 public class NetworkIngressAssignor extends Assignor {
 
@@ -42,12 +42,9 @@ public class NetworkIngressAssignor extends Assignor {
     // 1. check unregister node. if there are unregister nodes, register them
     registerUnregisterNode(clusterInfo);
     // wait for clusterBean
+    Utils.waitFor(
+        () -> !metricCollector.clusterBean().all().isEmpty(), Duration.ofSeconds(maxWaitBean));
     var clusterBean = metricCollector.clusterBean();
-    if (clusterBean.all().isEmpty()
-        || !clusterBean.topics().containsAll(topics)
-        || !clusterInfo.topicPartitions().containsAll(clusterBean.partitions()))
-      throw new NoSufficientMetricsException(
-          costFunction, Duration.ofSeconds(1), "no enough metrics");
 
     // 2. parse subscription , get all topic consumer subscribe
     var networkCost = costFunction.partitionCost(clusterInfo, clusterBean).value();

@@ -44,6 +44,8 @@ import org.astraea.common.partitioner.PartitionerUtils;
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
   public static final String JMX_PORT = "jmx.port";
+  public static final String MAX_WAIT_BEAN = "max.wait.bean";
+  int maxWaitBean = 3;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
@@ -154,6 +156,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
+    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = value);
     var costFunctions = Utils.costFunctions(config, HasPartitionCost.class);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
