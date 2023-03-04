@@ -17,8 +17,14 @@
 package org.astraea.app.performance;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
@@ -32,8 +38,12 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            List.of(2L),
             () -> 2L,
             () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
             Map.of(),
@@ -52,8 +62,12 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(1L),
             () -> 1L,
             () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
+            List.of(2L),
             () -> 2L,
             () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
             Map.of(),
@@ -68,29 +82,32 @@ public class DataSupplierTest {
   @Test
   void testKeyDistribution() {
     var counter = new AtomicLong(0L);
-    var counter2 = new AtomicLong(0L);
 
     // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
-            () -> 100L + counter2.getAndIncrement(),
+            () -> 1 + ThreadLocalRandom.current().nextLong(2),
+            List.of(10L),
             () -> 10L,
             () -> 10L,
             Map.of(),
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     var data3 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data3.isEmpty());
+    Assertions.assertFalse(data3.isEmpty());
 
-    // The key of data1 and data2 should have size 100 bytes and 101 bytes respectively.
-    Assertions.assertEquals(100, data1.get(0).key().length);
-    Assertions.assertEquals(101, data2.get(0).key().length);
+    // The key of data1 and data2 should have size 1 byte or 2 byte.
+    Assertions.assertTrue(data1.get(0).key().length <= 2);
+    Assertions.assertTrue(data2.get(0).key().length <= 2);
     // Round-robin key distribution with 2 possible key.
     Assertions.assertEquals(data1.get(0).key(), data3.get(0).key());
 
@@ -98,16 +115,20 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
             Map.of(),
             DataRate.KiB.of(200).perSecond());
     data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     // Same size but different content
     Assertions.assertEquals(100, data1.get(0).key().length);
     Assertions.assertEquals(100, data2.get(0).key().length);
@@ -117,30 +138,33 @@ public class DataSupplierTest {
   @Test
   void testDistributedValueSize() {
     var counter = new AtomicLong(0);
-    var counter2 = new AtomicLong(0);
 
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
-            () -> 100L + counter2.getAndIncrement(),
+            () -> ThreadLocalRandom.current().nextLong(2),
             Map.of(),
             DataRate.KiB.of(100).perSecond());
 
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     var data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     var data3 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data3.isEmpty());
+    Assertions.assertFalse(data3.isEmpty());
 
-    // The value of data1 and data2 should have size 100 bytes and 101 bytes respectively.
-    Assertions.assertEquals(100, data1.get(0).value().length);
-    Assertions.assertEquals(101, data2.get(0).value().length);
+    // The value of data1 and data2 should have size 0 bytes or 1 byte.
+    Assertions.assertTrue(data1.get(0).value().length <= 1);
+    Assertions.assertTrue(data2.get(0).value().length <= 1);
     // Round-robin value distribution with 2 possible value.
     Assertions.assertEquals(data1.get(0).value(), data3.get(0).value());
 
@@ -148,8 +172,12 @@ public class DataSupplierTest {
     dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
+            List.of(0L, 1L),
             () -> counter.getAndIncrement() % 2,
             () -> 100L,
             Map.of(),
@@ -187,8 +215,12 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(10L),
             () -> 10L,
             () -> 0L,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
             Map.of(),
@@ -196,7 +228,7 @@ public class DataSupplierTest {
 
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data.isEmpty());
+    Assertions.assertFalse(data.isEmpty());
     Assertions.assertNull(data.get(0).key());
   }
 
@@ -205,25 +237,93 @@ public class DataSupplierTest {
     var dataSupplier =
         DataGenerator.supplier(
             1,
+            0,
+            0,
+            List.of(10L),
             () -> 10L,
             () -> 10L,
+            List.of(10L),
             () -> 10L,
             () -> 0L,
             Map.of(),
             DataRate.KiB.of(200).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data.isEmpty());
-    Assertions.assertNull(data.get(0).value());
+    Assertions.assertFalse(data.isEmpty());
+    Assertions.assertEquals(0, data.get(0).value().length);
   }
 
   @Test
   void testBatch() {
     var dataSupplier =
         DataGenerator.supplier(
-            3, () -> 1L, () -> 1L, () -> 1L, () -> 1L, Map.of(), DataRate.KiB.of(100).perSecond());
+            3,
+            0,
+            0,
+            List.of(1L),
+            () -> 1L,
+            () -> 1L,
+            List.of(1L),
+            () -> 1L,
+            () -> 1L,
+            Map.of(),
+            DataRate.KiB.of(100).perSecond());
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertEquals(3, data.size());
+  }
+
+  @Test
+  void testRandomSeed() {
+    long keyContentSeed = ThreadLocalRandom.current().nextLong();
+    long valueContentSeed = ThreadLocalRandom.current().nextLong();
+    int size = 10000;
+    var keyRandom0 = new Random(keyContentSeed);
+    var valueRandom0 = new Random(valueContentSeed);
+    var keyRandom1 = new Random(keyContentSeed);
+    var valueRandom1 = new Random(valueContentSeed);
+
+    var gen0 =
+        DataGenerator.supplier(
+            10,
+            keyContentSeed,
+            valueContentSeed,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(keyRandom0.nextLong() % size),
+            () -> 32L,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(valueRandom0.nextLong() % size),
+            () -> 256L,
+            Map.of(),
+            DataRate.MB.of(1).perSecond());
+    var gen1 =
+        DataGenerator.supplier(
+            10,
+            keyContentSeed,
+            valueContentSeed,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(keyRandom1.nextLong() % size),
+            () -> 32L,
+            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
+            () -> Math.abs(valueRandom1.nextLong() % size),
+            () -> 256L,
+            Map.of(),
+            DataRate.MB.of(1).perSecond());
+
+    var tp = TopicPartition.of("A", -1);
+    var series0 =
+        IntStream.range(0, 10000)
+            .mapToObj(i -> gen0.apply(tp))
+            .collect(Collectors.toUnmodifiableList());
+    var series1 =
+        IntStream.range(0, 10000)
+            .mapToObj(i -> gen1.apply(tp))
+            .collect(Collectors.toUnmodifiableList());
+    for (int i = 0; i < 10000; i++) {
+      for (int j = 0; j < 10; j++) {
+        Assertions.assertArrayEquals(series0.get(i).get(j).key(), series1.get(i).get(j).key());
+        Assertions.assertArrayEquals(series0.get(i).get(j).value(), series1.get(i).get(j).value());
+      }
+    }
   }
 }
