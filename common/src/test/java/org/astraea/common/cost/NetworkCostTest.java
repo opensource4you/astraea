@@ -396,11 +396,11 @@ class NetworkCostTest {
     var costI =
         (NetworkCost.NetworkClusterCost) new NetworkIngressCost().clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costI.brokerRate.size());
-    Assertions.assertEquals(0.0, costI.brokerRate.get(node));
+    Assertions.assertEquals(0L, costI.brokerRate.get(node.id()));
     var costE =
         (NetworkCost.NetworkClusterCost) new NetworkEgressCost().clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costE.brokerRate.size());
-    Assertions.assertEquals(0.0, costE.brokerRate.get(node));
+    Assertions.assertEquals(0L, costE.brokerRate.get(node.id()));
   }
 
   @Test

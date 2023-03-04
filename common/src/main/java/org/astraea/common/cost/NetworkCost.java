@@ -97,49 +97,55 @@ public abstract class NetworkCost implements HasClusterCost {
 
     // Evaluate the score of the balancer-tweaked cluster(clusterInfo)
     var brokerIngressRate =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isOnline)
+        clusterInfo.brokers().stream()
             .collect(
-                Collectors.groupingBy(
-                    replica -> clusterInfo.node(replica.nodeInfo().id()),
-                    Collectors.mapping(
-                        replica -> {
-                          // ingress might come from producer-send or follower-fetch.
-                          return notNull(ingressRate.get(replica.topicPartition()));
-                        },
-                        Collectors.summingDouble(x -> x))));
+                Collectors.toMap(
+                    NodeInfo::id,
+                    broker ->
+                        clusterInfo
+                            .replicaStream(broker.id())
+                            .mapToLong(
+                                replica -> {
+                                  // ingress might come from producer-send or follower-fetch.
+                                  return notNull(ingressRate.get(replica.topicPartition()));
+                                })
+                            .sum()));
     var brokerEgressRate =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isOnline)
+        clusterInfo.brokers().stream()
             .collect(
-                Collectors.groupingBy(
-                    replica -> clusterInfo.node(replica.nodeInfo().id()),
-                    Collectors.mapping(
-                        replica -> {
-                          // egress is composed of consumer-fetch and follower-fetch.
-                          // this implementation assumes no consumer rack awareness fetcher
-                          // enabled so all consumers fetch data from the leader only.
-                          return replica.isLeader()
-                              ? notNull(egressRate.get(replica.topicPartition()))
-                                  + notNull(ingressRate.get(replica.topicPartition()))
-                                      // Multiply by the number of follower replicas. This
-                                      // number considers both online replicas and offline
-                                      // replicas since an offline replica is probably a
-                                      // transient behavior. So the offline state should get
-                                      // resolved in the near future, we count it in advance.
-                                      * (clusterInfo.replicas(replica.topicPartition()).size() - 1)
-                              : 0;
-                        },
-                        Collectors.summingDouble(x -> x))));
+                Collectors.toMap(
+                    NodeInfo::id,
+                    broker ->
+                        clusterInfo
+                            .replicaStream(broker.id())
+                            .mapToLong(
+                                replica -> {
+                                  // egress is composed of consumer-fetch and follower-fetch.
+                                  // this implementation assumes no consumer rack awareness fetcher
+                                  // enabled so all consumers fetch data from the leader only.
+                                  return replica.isLeader()
+                                      ? notNull(egressRate.get(replica.topicPartition()))
+                                          + notNull(ingressRate.get(replica.topicPartition()))
+                                              // Multiply by the number of follower replicas. This
+                                              // number considers both online replicas and offline
+                                              // replicas since an offline replica is probably a
+                                              // transient behavior. So the offline state should get
+                                              // resolved in the near future, we count it in
+                                              // advance.
+                                              * (clusterInfo
+                                                      .replicas(replica.topicPartition())
+                                                      .size()
+                                                  - 1)
+                                      : 0;
+                                })
+                            .sum()));
     // add the brokers having no replicas into map
     clusterInfo.nodes().stream()
-        .filter(node -> !brokerIngressRate.containsKey(node))
+        .filter(node -> !brokerIngressRate.containsKey(node.id()))
         .forEach(
             node -> {
-              brokerIngressRate.put(node, 0.0);
-              brokerEgressRate.put(node, 0.0);
+              brokerIngressRate.put(node.id(), 0L);
+              brokerEgressRate.put(node.id(), 0L);
             });
 
     // the rate we are measuring
@@ -286,9 +292,9 @@ public abstract class NetworkCost implements HasClusterCost {
 
   static class NetworkClusterCost implements ClusterCost {
     final double score;
-    final Map<NodeInfo, Double> brokerRate;
+    final Map<Integer, Long> brokerRate;
 
-    NetworkClusterCost(double score, Map<NodeInfo, Double> brokerRate) {
+    NetworkClusterCost(double score, Map<Integer, Long> brokerRate) {
       this.score = score;
       this.brokerRate = brokerRate;
     }
@@ -300,7 +306,7 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return brokerRate.values().stream()
-          .map(x -> DataRate.Byte.of(x.longValue()).perSecond())
+          .map(x -> DataRate.Byte.of(x).perSecond())
           .map(DataRate::toString)
           .collect(Collectors.joining(", ", "{", "}"));
     }
