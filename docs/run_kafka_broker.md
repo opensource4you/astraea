@@ -35,24 +35,6 @@ exporter address: 192.168.103.24:15663
 2. `jmx address` :  可以透過JMX來監控一些狀態
 3. `exporter address` : Prometheus exporter的address，可用來監控hardware及OS的metrics
 
-#### Confluent版本的broker
-
-此腳本提供啟動`Confluent版本`的Kafka broker，可以將環境變數`CONFLUENT_BROKER`設成true。 例如:
-
-```bash
-env CONFLUENT_BROKER=true /home/username/Documents/astraea/docker/start_broker.sh zookeeper.connect=192.168.103.24:18098
-```
-
-若成功啟動`Confluent`版本的broker，腳本會印出該broker的訊息。
-
-```ba
-=================================================
-broker id: 1001
-broker address: 192.168.103.24:15230
-exporter address: 192.168.103.24:18928
-=================================================
-```
-
 #### 環境變數設置
 
 有四個好用的 ENVs，它們可以修改 JVM/container的配置，使用者可隨著自己的需求改動
