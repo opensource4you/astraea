@@ -32,24 +32,6 @@ group.id: worker-uddds
 1. `worker address` : 供Client端連線使用
 2. `group.id` : 群集id，用以判斷各個worker節點是否處於同一群集。如前面範例所示可透過指令進行設定，若不指定，預設每次啟動此腳本都會替worker建立一隨機group.id，需注意只有相同的group.id才會被視作同一個worker cluster。
 
-#### Confluent版本的worker
-
-此腳本提供啟動`Confluent版本`的Kafka worker，可以將環境變數`CONFLUENT_WORKER`設成true。若要指定 confluent 版本，可設置環境變數`CONFLUENT_VERSION`。
-例如:
-
-```bash
-env CONFLUENT_WORKER=true CONFLUENT_VERSION=7.0.1 /home/username/Documents/astraea/docker/start_broker.sh bootstrap.servers=192.168.1.101:16072
-```
-
-若成功啟動`Confluent`版本的broker，腳本會印出該broker的訊息。
-
-```text
-=================================================
-connect address: 192.168.1.101:14418
-group.id: worker-SuXd9
-=================================================
-```
-
 #### 環境變數設置
 
 有三個好用的 ENVs，它們可以修改 JVM/container的配置，使用者可隨著自己的需求改動

@@ -34,6 +34,7 @@ import org.astraea.common.connector.WorkerStatus;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -124,48 +125,52 @@ public class SettingNode {
                     .defaultValue(
                         properties.flatMap(p -> p.workerJmxPort).map(String::valueOf).orElse(null))
                     .build()));
-    return PaneBuilder.of()
-        .firstPart(
-            multiInput,
-            "CHECK",
-            (argument, logger) -> {
-              var prop = new Prop();
-              prop.bootstrapServers = argument.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
-              prop.brokerJmxPort =
-                  Optional.ofNullable(argument.nonEmptyTexts().get(BROKER_JMX_PORT))
-                      .map(Integer::parseInt);
-              prop.workerUrl = Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_URL));
-              prop.workerJmxPort =
-                  Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_JMX_PORT))
-                      .map(Integer::parseInt);
-              save(prop);
-              var newAdmin = Admin.of(prop.bootstrapServers);
-              var client =
-                  prop.workerUrl.map(
-                      url ->
-                          ConnectorClient.builder()
-                              .url(Utils.packException(() -> new URL("http://" + url)))
-                              .build());
-              return FutureUtils.combine(
-                  newAdmin.nodeInfos(),
-                  client
-                      .map(ConnectorClient::activeWorkers)
-                      .orElse(CompletableFuture.completedFuture(List.of())),
-                  (nodeInfos, workers) -> {
-                    context.replace(newAdmin);
-                    client.ifPresent(context::replace);
-                    prop.brokerJmxPort.ifPresent(context::brokerJmxPort);
-                    prop.workerJmxPort.ifPresent(context::workerJmxPort);
-                    context.addBrokerClients(nodeInfos);
-                    context.addWorkerClients(
-                        workers.stream().map(WorkerStatus::hostname).collect(Collectors.toSet()));
-                    logger.log(
-                        "succeed to connect to "
-                            + prop.bootstrapServers
-                            + prop.workerUrl.map(url -> " and " + url).orElse(""));
-                    return List.of();
-                  });
-            })
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(multiInput)
+            .clickName("CHECK")
+            .tableRefresher(
+                (argument, logger) -> {
+                  var prop = new Prop();
+                  prop.bootstrapServers = argument.nonEmptyTexts().get(BOOTSTRAP_SERVERS);
+                  prop.brokerJmxPort =
+                      Optional.ofNullable(argument.nonEmptyTexts().get(BROKER_JMX_PORT))
+                          .map(Integer::parseInt);
+                  prop.workerUrl = Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_URL));
+                  prop.workerJmxPort =
+                      Optional.ofNullable(argument.nonEmptyTexts().get(WORKER_JMX_PORT))
+                          .map(Integer::parseInt);
+                  save(prop);
+                  var newAdmin = Admin.of(prop.bootstrapServers);
+                  var client =
+                      prop.workerUrl.map(
+                          url ->
+                              ConnectorClient.builder()
+                                  .url(Utils.packException(() -> new URL("http://" + url)))
+                                  .build());
+                  return FutureUtils.combine(
+                      newAdmin.nodeInfos(),
+                      client
+                          .map(ConnectorClient::activeWorkers)
+                          .orElse(CompletableFuture.completedFuture(List.of())),
+                      (nodeInfos, workers) -> {
+                        context.replace(newAdmin);
+                        client.ifPresent(context::replace);
+                        prop.brokerJmxPort.ifPresent(context::brokerJmxPort);
+                        prop.workerJmxPort.ifPresent(context::workerJmxPort);
+                        context.addBrokerClients(nodeInfos);
+                        context.addWorkerClients(
+                            workers.stream()
+                                .map(WorkerStatus::hostname)
+                                .collect(Collectors.toSet()));
+                        logger.log(
+                            "succeed to connect to "
+                                + prop.bootstrapServers
+                                + prop.workerUrl.map(url -> " and " + url).orElse(""));
+                        return List.of();
+                      });
+                })
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 }

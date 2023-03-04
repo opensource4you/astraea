@@ -32,6 +32,7 @@ import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Quota;
 import org.astraea.common.admin.QuotaConfigs;
 import org.astraea.gui.Context;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
@@ -46,34 +47,36 @@ public class QuotaNode {
         List.of(
             TextInput.required(ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
             TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build()));
-    return PaneBuilder.of()
-        .firstPart(
-            multiInput,
-            "ALTER",
-            (argument, logger) ->
-                Optional.ofNullable(argument.nonEmptyTexts().get(rateKey))
-                    .map(
-                        rate ->
-                            context
-                                .admin()
-                                .setConnectionQuotas(
-                                    Map.of(
-                                        argument.nonEmptyTexts().get(ipLabelKey),
-                                        Integer.parseInt(rate))))
-                    .orElseGet(
-                        () ->
-                            context
-                                .admin()
-                                .unsetConnectionQuotas(
-                                    Set.of(argument.nonEmptyTexts().get(ipLabelKey))))
-                    .thenApply(
-                        ignored -> {
-                          logger.log(
-                              "succeed to alter rate for "
-                                  + argument.nonEmptyTexts().get(ipLabelKey));
-                          return List.of();
-                        }))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(multiInput)
+            .clickName("ALTER")
+            .tableRefresher(
+                (argument, logger) ->
+                    Optional.ofNullable(argument.nonEmptyTexts().get(rateKey))
+                        .map(
+                            rate ->
+                                context
+                                    .admin()
+                                    .setConnectionQuotas(
+                                        Map.of(
+                                            argument.nonEmptyTexts().get(ipLabelKey),
+                                            Integer.parseInt(rate))))
+                        .orElseGet(
+                            () ->
+                                context
+                                    .admin()
+                                    .unsetConnectionQuotas(
+                                        Set.of(argument.nonEmptyTexts().get(ipLabelKey))))
+                        .thenApply(
+                            ignored -> {
+                              logger.log(
+                                  "succeed to alter rate for "
+                                      + argument.nonEmptyTexts().get(ipLabelKey));
+                              return List.of();
+                            }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   private static Node producerNode(Context context) {
@@ -83,34 +86,36 @@ public class QuotaNode {
         List.of(
             TextInput.required(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
             TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()));
-    return PaneBuilder.of()
-        .firstPart(
-            multiInput,
-            "ALTER",
-            (argument, logger) ->
-                Optional.ofNullable(argument.nonEmptyTexts().get(byteRateKey))
-                    .map(
-                        rate ->
-                            context
-                                .admin()
-                                .setProducerQuotas(
-                                    Map.of(
-                                        argument.nonEmptyTexts().get(clientIdLabelKey),
-                                        DataRate.MB.of(Long.parseLong(rate)).perSecond())))
-                    .orElseGet(
-                        () ->
-                            context
-                                .admin()
-                                .unsetProducerQuotas(
-                                    Set.of(argument.nonEmptyTexts().get(clientIdLabelKey))))
-                    .thenApply(
-                        ignored -> {
-                          logger.log(
-                              "succeed to alter rate for "
-                                  + argument.nonEmptyTexts().get(clientIdLabelKey));
-                          return List.of();
-                        }))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(multiInput)
+            .clickName("ALTER")
+            .tableRefresher(
+                (argument, logger) ->
+                    Optional.ofNullable(argument.nonEmptyTexts().get(byteRateKey))
+                        .map(
+                            rate ->
+                                context
+                                    .admin()
+                                    .setProducerQuotas(
+                                        Map.of(
+                                            argument.nonEmptyTexts().get(clientIdLabelKey),
+                                            DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                        .orElseGet(
+                            () ->
+                                context
+                                    .admin()
+                                    .unsetProducerQuotas(
+                                        Set.of(argument.nonEmptyTexts().get(clientIdLabelKey))))
+                        .thenApply(
+                            ignored -> {
+                              logger.log(
+                                  "succeed to alter rate for "
+                                      + argument.nonEmptyTexts().get(clientIdLabelKey));
+                              return List.of();
+                            }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   private static Node consumerNode(Context context) {
@@ -120,34 +125,36 @@ public class QuotaNode {
         List.of(
             TextInput.required(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
             TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()));
-    return PaneBuilder.of()
-        .firstPart(
-            multiInput,
-            "ALTER",
-            (argument, logger) ->
-                Optional.ofNullable(argument.nonEmptyTexts().get(byteRateKey))
-                    .map(
-                        rate ->
-                            context
-                                .admin()
-                                .setConsumerQuotas(
-                                    Map.of(
-                                        argument.nonEmptyTexts().get(clientIdLabelKey),
-                                        DataRate.MB.of(Long.parseLong(rate)).perSecond())))
-                    .orElseGet(
-                        () ->
-                            context
-                                .admin()
-                                .unsetConsumerQuotas(
-                                    Set.of(argument.nonEmptyTexts().get(clientIdLabelKey))))
-                    .thenApply(
-                        ignored -> {
-                          logger.log(
-                              "succeed to alter rate for "
-                                  + argument.nonEmptyTexts().get(clientIdLabelKey));
-                          return List.of();
-                        }))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(multiInput)
+            .clickName("ALTER")
+            .tableRefresher(
+                (argument, logger) ->
+                    Optional.ofNullable(argument.nonEmptyTexts().get(byteRateKey))
+                        .map(
+                            rate ->
+                                context
+                                    .admin()
+                                    .setConsumerQuotas(
+                                        Map.of(
+                                            argument.nonEmptyTexts().get(clientIdLabelKey),
+                                            DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                        .orElseGet(
+                            () ->
+                                context
+                                    .admin()
+                                    .unsetConsumerQuotas(
+                                        Set.of(argument.nonEmptyTexts().get(clientIdLabelKey))))
+                        .thenApply(
+                            ignored -> {
+                              logger.log(
+                                  "succeed to alter rate for "
+                                      + argument.nonEmptyTexts().get(clientIdLabelKey));
+                              return List.of();
+                            }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   static LinkedHashMap<String, Object> basicResult(Quota quota) {
@@ -162,18 +169,20 @@ public class QuotaNode {
   }
 
   private static Node basicNode(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            "REFRESH",
-            (argument, logger) ->
-                FutureUtils.combine(
-                    context.admin().quotas(Set.of(QuotaConfigs.IP)),
-                    context.admin().quotas(Set.of(QuotaConfigs.CLIENT_ID)),
-                    (q0, q1) ->
-                        Stream.concat(q0.stream(), q1.stream())
-                            .map(QuotaNode::basicResult)
-                            .collect(Collectors.toList())))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    FutureUtils.combine(
+                        context.admin().quotas(Set.of(QuotaConfigs.IP)),
+                        context.admin().quotas(Set.of(QuotaConfigs.CLIENT_ID)),
+                        (q0, q1) ->
+                            Stream.concat(q0.stream(), q1.stream())
+                                .map(QuotaNode::basicResult)
+                                .collect(Collectors.toList())))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   public static Node of(Context context) {

@@ -53,9 +53,10 @@ import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.SecondPart;
 import org.astraea.gui.pane.Slide;
-import org.astraea.gui.pane.TableRefresher;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
@@ -68,92 +69,103 @@ public class ClientNode {
 
   public static Node csvNode(Context context) {
     var fileChooser = new FileChooser();
-    return PaneBuilder.of()
-        .firstPart(
-            List.of(
-                TextInput.of(
-                    LINE_LIMIT_KEY,
-                    EditableText.singleLine()
-                        .onlyNumber()
-                        .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
-                        .build())),
-            "open",
-            (argument, logger) -> {
-              var f = fileChooser.showOpenDialog(context.stage());
-              if (f == null) return CompletableFuture.completedStage(List.of());
-              if (!f.isFile())
-                throw new IllegalArgumentException("the file: " + f + " is not file");
-              return CompletableFuture.supplyAsync(
-                  () ->
-                      Utils.packException(
-                          () -> {
-                            int limit =
-                                Optional.ofNullable(argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
-                                    .map(Integer::parseInt)
-                                    .orElse(LINE_LIMIT_DEFAULT);
-                            try (var reader = CsvReader.builder(new FileReader(f)).build()) {
-                              if (!reader.hasNext())
-                                throw new IllegalArgumentException("there is no header");
-                              var header = reader.rawNext();
-                              var result = new ArrayList<Map<String, Object>>(limit);
-                              var count = 0;
-                              while (reader.hasNext()) {
-                                var line = reader.next();
-                                var map = new LinkedHashMap<String, Object>();
-                                for (var index = 0; index < header.size(); ++index) {
-                                  if (index < line.size())
-                                    map.put(header.get(index), line.get(index));
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(
+                List.of(
+                    TextInput.of(
+                        LINE_LIMIT_KEY,
+                        EditableText.singleLine()
+                            .onlyNumber()
+                            .defaultValue(String.valueOf(LINE_LIMIT_DEFAULT))
+                            .build())))
+            .clickName("OPEN")
+            .tableRefresher(
+                (argument, logger) -> {
+                  var f = fileChooser.showOpenDialog(context.stage());
+                  if (f == null) return CompletableFuture.completedStage(List.of());
+                  if (!f.isFile())
+                    throw new IllegalArgumentException("the file: " + f + " is not file");
+                  return CompletableFuture.supplyAsync(
+                      () ->
+                          Utils.packException(
+                              () -> {
+                                int limit =
+                                    Optional.ofNullable(
+                                            argument.nonEmptyTexts().get(LINE_LIMIT_KEY))
+                                        .map(Integer::parseInt)
+                                        .orElse(LINE_LIMIT_DEFAULT);
+                                try (var reader = CsvReader.builder(new FileReader(f)).build()) {
+                                  if (!reader.hasNext())
+                                    throw new IllegalArgumentException("there is no header");
+                                  var header = reader.rawNext();
+                                  var result = new ArrayList<Map<String, Object>>(limit);
+                                  var count = 0;
+                                  while (reader.hasNext()) {
+                                    var line = reader.next();
+                                    var map = new LinkedHashMap<String, Object>();
+                                    for (var index = 0; index < header.size(); ++index) {
+                                      if (index < line.size())
+                                        map.put(header.get(index), line.get(index));
+                                    }
+                                    result.add(map);
+                                    if (++count >= limit) break;
+                                  }
+                                  return result;
                                 }
-                                result.add(map);
-                                if (++count >= limit) break;
-                              }
-                              return result;
-                            }
-                          }));
-            })
-        .secondPart(
-            List.of(
-                TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
-                TextInput.required(
-                    "format", EditableText.singleLine().hint("csv or json").build())),
-            "PUSH",
-            (records, argument, logger) ->
-                context
-                    .admin()
-                    .bootstrapServers()
-                    .thenApply(
-                        s -> {
-                          var converter = JsonConverter.defaultConverter();
-                          try (var producer =
-                              Producer.builder()
-                                  .bootstrapServers(s)
-                                  .keySerializer(Serializer.STRING)
-                                  .build()) {
-                            var topics =
-                                Set.copyOf(
-                                    Arrays.asList(
-                                        argument.nonEmptyTexts().get(TOPIC_NAMES_KEY).split(",")));
+                              }));
+                })
+            .build();
+    var secondPart =
+        SecondPart.builder()
+            .textInputs(
+                List.of(
+                    TextInput.required(TOPIC_NAMES_KEY, EditableText.singleLine().build()),
+                    TextInput.required(
+                        "format", EditableText.singleLine().hint("csv or json").build())))
+            .buttonName("PUSH")
+            .action(
+                (records, argument, logger) ->
+                    context
+                        .admin()
+                        .bootstrapServers()
+                        .thenApply(
+                            s -> {
+                              var converter = JsonConverter.defaultConverter();
+                              try (var producer =
+                                  Producer.builder()
+                                      .bootstrapServers(s)
+                                      .keySerializer(Serializer.STRING)
+                                      .build()) {
+                                var topics =
+                                    Set.copyOf(
+                                        Arrays.asList(
+                                            argument
+                                                .nonEmptyTexts()
+                                                .get(TOPIC_NAMES_KEY)
+                                                .split(",")));
 
-                            var isJson = argument.nonEmptyTexts().containsValue("json");
-                            records.forEach(
-                                record -> {
-                                  var key =
-                                      isJson
-                                          ? converter.toJson(record)
-                                          : record.values().stream()
-                                              .map(Object::toString)
-                                              .collect(Collectors.joining(","));
-                                  topics.forEach(
-                                      t ->
-                                          producer.send(
-                                              Record.builder().topic(t).key(key).build()));
-                                });
-                            producer.flush();
-                            logger.log("succeed to push " + records.size());
-                          }
-                          return null;
-                        }))
-        .build();
+                                var isJson = argument.nonEmptyTexts().containsValue("json");
+                                records.forEach(
+                                    record -> {
+                                      var key =
+                                          isJson
+                                              ? converter.toJson(record)
+                                              : record.values().stream()
+                                                  .map(Object::toString)
+                                                  .collect(Collectors.joining(","));
+                                      topics.forEach(
+                                          t ->
+                                              producer.send(
+                                                  Record.builder().topic(t).key(key).build()));
+                                    });
+                                producer.flush();
+                                logger.log("succeed to push " + records.size());
+                              }
+                              return null;
+                            }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
   }
 
   static List<Map<String, Object>> consumerResult(
@@ -201,18 +213,24 @@ public class ClientNode {
   }
 
   private static Node consumerNode(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            "REFRESH",
-            (argument, logger) ->
-                FutureUtils.combine(
-                    context.admin().consumerGroupIds().thenCompose(context.admin()::consumerGroups),
-                    context
-                        .admin()
-                        .topicNames(true)
-                        .thenCompose(names -> context.admin().partitions(names)),
-                    ClientNode::consumerResult))
-        .build();
+
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    FutureUtils.combine(
+                        context
+                            .admin()
+                            .consumerGroupIds()
+                            .thenCompose(context.admin()::consumerGroups),
+                        context
+                            .admin()
+                            .topicNames(true)
+                            .thenCompose(names -> context.admin().partitions(names)),
+                        ClientNode::consumerResult))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   private static List<Map<String, Object>> transactionResult(List<Transaction> transactions) {
@@ -234,16 +252,18 @@ public class ClientNode {
   }
 
   public static Node transactionNode(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            "REFRESH",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .transactionIds()
-                    .thenCompose(context.admin()::transactions)
-                    .thenApply(ClientNode::transactionResult))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .transactionIds()
+                        .thenCompose(context.admin()::transactions)
+                        .thenApply(ClientNode::transactionResult))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   private static List<Map<String, Object>> producerResult(Stream<ProducerState> states) {
@@ -268,23 +288,25 @@ public class ClientNode {
   }
 
   public static Node producerNode(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            "REFRESH",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .topicNames(true)
-                    .thenCompose(context.admin()::topicPartitions)
-                    .thenCompose(context.admin()::producerStates)
-                    .thenApply(
-                        ps ->
-                            ps.stream()
-                                .sorted(
-                                    Comparator.comparing(ProducerState::topic)
-                                        .thenComparing(ProducerState::partition)))
-                    .thenApply(ClientNode::producerResult))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenCompose(context.admin()::topicPartitions)
+                        .thenCompose(context.admin()::producerStates)
+                        .thenApply(
+                            ps ->
+                                ps.stream()
+                                    .sorted(
+                                        Comparator.comparing(ProducerState::topic)
+                                            .thenComparing(ProducerState::partition)))
+                        .thenApply(ClientNode::producerResult))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   private static Node readNode(Context context) {
@@ -297,12 +319,12 @@ public class ClientNode {
         List.of(
             TextInput.of(recordsKey, EditableText.singleLine().defaultValue("1").build()),
             TextInput.of(timeoutKey, EditableText.singleLine().defaultValue("3s").build()));
-    return PaneBuilder.of()
-        .firstPart(
-            selectBox,
-            multiInput,
-            "READ",
-            TableRefresher.of(
+    var firstPart =
+        FirstPart.builder()
+            .selectBox(selectBox)
+            .textInputs(multiInput)
+            .clickName("READ")
+            .tableRefresher(
                 (argument, logger) ->
                     context
                         .admin()
@@ -360,8 +382,9 @@ public class ClientNode {
                                                                 record.value()));
                                                       return result;
                                                     }))
-                                    .collect(Collectors.toList()))))
-        .build();
+                                    .collect(Collectors.toList())))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   private static Node writeNode(Context context) {
@@ -375,55 +398,57 @@ public class ClientNode {
             TextInput.of(partitionKey, EditableText.singleLine().build()),
             TextInput.of(keyKey, EditableText.multiline().build()),
             TextInput.of(valueKey, EditableText.multiline().build()));
-    return PaneBuilder.of()
-        .firstPart(
-            multiInput,
-            "WRITE",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .bootstrapServers()
-                    .thenCompose(
-                        bs -> {
-                          try (var producer = Producer.of(bs)) {
-                            var topic = argument.nonEmptyTexts().get(topicKey);
-                            var builder = Record.builder().topic(topic);
-                            argument
-                                .get(partitionKey)
-                                .map(Integer::parseInt)
-                                .ifPresent(builder::partition);
-                            argument
-                                .get(keyKey)
-                                .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
-                                .ifPresent(builder::key);
-                            argument
-                                .get(valueKey)
-                                .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
-                                .ifPresent(builder::value);
-                            return producer
-                                .send(builder.build())
-                                .thenApply(
-                                    metadata -> {
-                                      var result = new LinkedHashMap<String, Object>();
-                                      result.put("topic", metadata.topic());
-                                      result.put("partition", metadata.partition());
-                                      result.put("offset", metadata.offset());
-                                      result.put(
-                                          "timestamp",
-                                          LocalDateTime.ofInstant(
-                                              Instant.ofEpochMilli(metadata.timestamp()),
-                                              ZoneId.systemDefault()));
-                                      result.put(
-                                          "serializedKeySize",
-                                          DataSize.Byte.of(metadata.serializedKeySize()));
-                                      result.put(
-                                          "serializedValueSize",
-                                          DataSize.Byte.of(metadata.serializedValueSize()));
-                                      return List.of(result);
-                                    });
-                          }
-                        }))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(multiInput)
+            .clickName("WRITE")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .bootstrapServers()
+                        .thenCompose(
+                            bs -> {
+                              try (var producer = Producer.of(bs)) {
+                                var topic = argument.nonEmptyTexts().get(topicKey);
+                                var builder = Record.builder().topic(topic);
+                                argument
+                                    .get(partitionKey)
+                                    .map(Integer::parseInt)
+                                    .ifPresent(builder::partition);
+                                argument
+                                    .get(keyKey)
+                                    .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
+                                    .ifPresent(builder::key);
+                                argument
+                                    .get(valueKey)
+                                    .map(b -> Serializer.STRING.serialize(topic, List.of(), b))
+                                    .ifPresent(builder::value);
+                                return producer
+                                    .send(builder.build())
+                                    .thenApply(
+                                        metadata -> {
+                                          var result = new LinkedHashMap<String, Object>();
+                                          result.put("topic", metadata.topic());
+                                          result.put("partition", metadata.partition());
+                                          result.put("offset", metadata.offset());
+                                          result.put(
+                                              "timestamp",
+                                              LocalDateTime.ofInstant(
+                                                  Instant.ofEpochMilli(metadata.timestamp()),
+                                                  ZoneId.systemDefault()));
+                                          result.put(
+                                              "serializedKeySize",
+                                              DataSize.Byte.of(metadata.serializedKeySize()));
+                                          result.put(
+                                              "serializedValueSize",
+                                              DataSize.Byte.of(metadata.serializedValueSize()));
+                                          return List.of(result);
+                                        });
+                              }
+                            }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   public static Node of(Context context) {
