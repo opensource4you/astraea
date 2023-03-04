@@ -40,6 +40,11 @@ dependencies {
         // Hence, the later must be excluded from hadoop dependencies to make embedded Kafka worker work
         exclude group: "com.sun.jersey"
     }
+
+    //following dependencies are used for hdfs connector
+    implementation libs["commons-logging"]
+    implementation libs["hadoop-client-api"]
+    implementation libs["hadoop-client-runtime"]
 }
 
 java {
