@@ -261,19 +261,13 @@ public class BalancerHandlerTest {
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
       HasMoveCost failMoveCostFunction =
-          new HasMoveCost() {
-            @Override
-            public MoveCost moveCost(
-                ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-              return MoveCost.EMPTY;
-            }
-
-            @Override
-            public boolean overflow(
-                ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-              return true;
-            }
-          };
+          (before, after, clusterBean) ->
+              new MoveCost() {
+                @Override
+                public boolean overflow() {
+                  return true;
+                }
+              };
 
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)

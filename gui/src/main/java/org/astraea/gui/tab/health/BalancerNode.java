@@ -261,6 +261,7 @@ class BalancerNode {
                                           List.of(
                                               new ReplicaLeaderSizeCost(),
                                               new ReplicaLeaderCost())))
+                                  .movementConstraint(movementConstraint(argument.nonEmptyTexts()))
                                   .topicFilter(
                                       topic ->
                                           patterns.isEmpty()

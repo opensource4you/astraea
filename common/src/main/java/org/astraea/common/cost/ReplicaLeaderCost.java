@@ -104,7 +104,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.changedReplicaLeaderCount(
+    var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -136,17 +136,10 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                                               .noneMatch(Replica::isLeader))
                                   .count();
                       return newLeaders - removedLeaders;
-                    })));
-  }
-
-  @Override
-  public boolean overflow(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = moveCost(before, after, clusterBean);
-    return maxMigratedLeader
-        < moveCost.changedReplicaLeaderCount().values().stream()
-            .map(Math::abs)
-            .mapToLong(s -> s)
-            .sum();
+                    }));
+    var overflow =
+        maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
+    return MoveCost.changedReplicaLeaderCount(moveCost, overflow);
   }
 
   @Override

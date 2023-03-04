@@ -50,7 +50,7 @@ public class RecordSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.movedRecordSize(
+    var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -61,17 +61,11 @@ public class RecordSizeCost
                     id ->
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
-                                - before.replicaStream(id).mapToLong(Replica::size).sum()))));
-  }
-
-  @Override
-  public boolean overflow(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = moveCost(before, after, clusterBean);
-    return maxMigratedSize.bytes()
-        < moveCost.movedRecordSize().values().stream()
-            .map(x -> Math.abs(x.bytes()))
-            .mapToLong(x -> x)
-            .sum();
+                                - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var overflow =
+        maxMigratedSize.bytes()
+            < moveCost.values().stream().map(x -> Math.abs(x.bytes())).mapToLong(x -> x).sum();
+    return MoveCost.movedRecordSize(moveCost, overflow);
   }
 
   @Override

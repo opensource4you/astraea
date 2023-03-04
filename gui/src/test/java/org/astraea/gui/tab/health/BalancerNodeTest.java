@@ -65,10 +65,10 @@ class BalancerNodeTest {
     Assertions.assertTrue(BalancerNode.movementConstraint(Map.of()).test(MoveCost.EMPTY));
     Assertions.assertFalse(
         BalancerNode.movementConstraint(Map.of(BalancerNode.MAX_MIGRATE_LEADER_NUM, "10"))
-            .test(MoveCost.changedReplicaLeaderCount(Map.of(1, 1000))));
+            .test(MoveCost.changedReplicaLeaderCount(Map.of(1, 1000), false)));
     Assertions.assertTrue(
         BalancerNode.movementConstraint(Map.of(BalancerNode.MAX_MIGRATE_LEADER_NUM, "10"))
-            .test(MoveCost.changedReplicaLeaderCount(Map.of(1, 5))));
+            .test(MoveCost.changedReplicaLeaderCount(Map.of(1, 5), false)));
   }
 
   @Test

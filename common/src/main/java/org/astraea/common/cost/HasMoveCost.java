@@ -39,11 +39,6 @@ public interface HasMoveCost extends CostFunction {
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
     return new HasMoveCost() {
-      @Override
-      public boolean overflow(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-        return hasMoveCosts.stream()
-            .anyMatch(hasMoveCost -> hasMoveCost.overflow(before, after, clusterBean));
-      }
 
       @Override
       public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
@@ -76,6 +71,7 @@ public interface HasMoveCost extends CostFunction {
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+        var overflow = costs.stream().anyMatch(MoveCost::overflow);
         return new MoveCost() {
           @Override
           public Map<Integer, DataSize> movedReplicaLeaderSize() {
@@ -95,6 +91,11 @@ public interface HasMoveCost extends CostFunction {
           @Override
           public Map<Integer, Integer> changedReplicaLeaderCount() {
             return changedReplicaLeaderCount;
+          }
+
+          @Override
+          public boolean overflow() {
+            return overflow;
           }
         };
       }
@@ -124,11 +125,4 @@ public interface HasMoveCost extends CostFunction {
    * @return the score of migrate cost
    */
   MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean);
-
-  /**
-   * @return check if the cost exceeds the limit value of the user
-   */
-  default boolean overflow(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return false;
-  }
 }

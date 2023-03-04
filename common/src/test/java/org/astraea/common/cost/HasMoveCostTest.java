@@ -36,7 +36,7 @@ public class HasMoveCostTest {
 
           @Override
           public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-            return MoveCost.movedRecordSize(Map.of());
+            return MoveCost.movedRecordSize(Map.of(), false);
           }
 
           @Override
