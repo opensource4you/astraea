@@ -143,7 +143,7 @@ public class Exporter extends SinkConnector {
         FileSystem fs,
         String path,
         String topicName,
-        Long interval,
+        long interval,
         DataSize size,
         Supplier<Boolean> closed,
         Supplier<Record<byte[], byte[]>> recordsQueue) {
