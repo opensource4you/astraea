@@ -277,12 +277,11 @@ public abstract class NetworkCost implements HasClusterCost {
   }
 
   private class CachedCalculation {
-    private final ClusterInfo metricViewCluster;
     private final Map<TopicPartition, Long> partitionIngressRate;
     private final Map<TopicPartition, Long> partitionEgressRate;
 
     private CachedCalculation(ClusterBean sourceMetric) {
-      this.metricViewCluster = ClusterInfoSensor.metricViewCluster(sourceMetric);
+      final var metricViewCluster = ClusterInfoSensor.metricViewCluster(sourceMetric);
       this.partitionIngressRate =
           estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_IN_PER_SEC);
       this.partitionEgressRate =
