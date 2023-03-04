@@ -16,7 +16,6 @@
  */
 package org.astraea.connector.backup;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -24,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
@@ -143,23 +143,22 @@ public class Exporter extends SinkConnector {
         FileSystem fs,
         String path,
         String topicName,
-        Duration interval,
+        Long interval,
         DataSize size,
-        AtomicBoolean closed,
-        BlockingQueue<Record<byte[], byte[]>> recordsQueue) {
+        Supplier<Boolean> closed,
+        Supplier<Record<byte[], byte[]>> recordsQueue) {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
-        var intervalTimeInMillis = interval.toMillis();
-        var sleepTime = Math.min(intervalTimeInMillis, 1000);
         var lastWriteTime = System.currentTimeMillis();
+
         try {
           while (!closed.get()) {
-            var record = recordsQueue.poll(sleepTime, TimeUnit.MILLISECONDS);
+            var record = recordsQueue.get();
             var currentTime = System.currentTimeMillis();
 
             if (record == null) {
               // close all writers if they have been idle over roll.duration.
-              if (currentTime - lastWriteTime > intervalTimeInMillis) {
+              if (currentTime - lastWriteTime > interval) {
                 writers.values().forEach(RecordWriter::close);
                 writers.clear();
               }
@@ -187,8 +186,6 @@ public class Exporter extends SinkConnector {
               fs.close();
             }
           }
-        } catch (InterruptedException ignored) {
-          // swallow
         } finally {
           writers.forEach((tp, writer) -> writer.close());
         }
@@ -204,13 +201,24 @@ public class Exporter extends SinkConnector {
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
       var interval =
           Utils.toDuration(
-              configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()));
+                  configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
+              .toMillis();
 
       var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-
       this.writerFuture =
           CompletableFuture.runAsync(
-              createWriter(fs, path, topicName, interval, size, this.closed, this.recordsQueue));
+              createWriter(
+                  fs,
+                  path,
+                  topicName,
+                  interval,
+                  size,
+                  this.closed::get,
+                  () ->
+                      Utils.packException(
+                          () ->
+                              this.recordsQueue.poll(
+                                  Math.min(interval, 1000), TimeUnit.MILLISECONDS))));
     }
 
     @Override
