@@ -94,6 +94,9 @@ class MetricCollectorTest {
 
     try (var collector = MetricCollector.local().interval(Duration.ofSeconds(30)).build()) {
       ((LocalMetricCollector) collector).registerJmx(1, socket);
+      Assertions.assertEquals(2, collector.listIdentities().size());
+      Assertions.assertTrue(collector.listIdentities().contains(-1));
+      Assertions.assertTrue(collector.listIdentities().contains(1));
       Utils.sleep(Duration.ofSeconds(2));
       var ids =
           ((LocalMetricCollector) collector)
