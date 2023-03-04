@@ -25,8 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -81,6 +81,9 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
     final var moveCostProcessingTimeNs = new LongSummaryStatistics();
     final var newConfig =
         AlgorithmConfig.builder(config)
+            .clusterInfo(clusterInfo)
+            .clusterBean(clusterBean)
+            .timeout(timeout)
             .clusterCost(
                 new HasClusterCost() {
                   @Override
@@ -132,7 +135,7 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
         () -> {
           var initial = costFunction.clusterCost(clusterInfo, clusterBean);
           var executionStart = System.nanoTime();
-          var plan = balancer.offer(clusterInfo, clusterBean, timeout, newConfig);
+          var plan = balancer.offer(newConfig);
           var executionStop = System.nanoTime();
 
           return new BalancerBenchmark.CostProfilingResult() {

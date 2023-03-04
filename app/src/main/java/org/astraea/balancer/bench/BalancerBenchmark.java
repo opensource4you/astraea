@@ -27,8 +27,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
 

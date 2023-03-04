@@ -23,8 +23,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
 import org.astraea.common.cost.ClusterCost;
 
 class ExperimentBuilderImpl implements BalancerBenchmark.ExperimentBuilder {
@@ -74,11 +74,17 @@ class ExperimentBuilderImpl implements BalancerBenchmark.ExperimentBuilder {
     final var trials = this.trials;
     final var initial = config.clusterCostFunction().clusterCost(clusterInfo, clusterBean);
     final var results = new ConcurrentLinkedQueue<ClusterCost>();
+    final var newConfig =
+        AlgorithmConfig.builder(config)
+            .clusterInfo(clusterInfo)
+            .clusterBean(clusterBean)
+            .timeout(timeout)
+            .build();
     return CompletableFuture.supplyAsync(
         () -> {
           for (int i = 0; i < trials; i++) {
             balancer
-                .offer(clusterInfo, clusterBean, timeout, config)
+                .offer(newConfig)
                 .solution()
                 .map(Balancer.Solution::proposalClusterCost)
                 .ifPresent(results::add);
