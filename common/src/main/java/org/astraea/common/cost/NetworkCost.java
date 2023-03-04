@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Cache;
 import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
@@ -64,10 +65,12 @@ import org.astraea.common.metrics.platform.HostMetrics;
 public abstract class NetworkCost implements HasClusterCost {
 
   private final BandwidthType bandwidthType;
+  private final Cache<ClusterBean, CachedCalculation> calculationCache;
   private final ClusterInfoSensor clusterInfoSensor = new ClusterInfoSensor();
 
   NetworkCost(BandwidthType bandwidthType) {
     this.bandwidthType = bandwidthType;
+    this.calculationCache = Cache.builder(CachedCalculation::new).maxCapacity(10).build();
   }
 
   void noMetricCheck(ClusterBean clusterBean) {
@@ -86,14 +89,12 @@ public abstract class NetworkCost implements HasClusterCost {
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
-    final var metricViewCluster = ClusterInfoSensor.metricViewCluster(clusterBean);
 
-    // Use the real cluster(metricViewCluster) and real metrics to derive the data rate of each
-    // partition
-    var ingressRate =
-        estimateRate(metricViewCluster, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
-    var egressRate =
-        estimateRate(metricViewCluster, clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+    // cache the metric calculation to speed things up
+    final var cachedCalculation = calculationCache.require(clusterBean);
+    final var ingressRate = cachedCalculation.partitionIngressRate;
+    final var egressRate = cachedCalculation.partitionEgressRate;
+
     // Evaluate the score of the balancer-tweaked cluster(clusterInfo)
     var brokerIngressRate =
         clusterInfo
@@ -266,6 +267,20 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return alias();
+    }
+  }
+
+  private class CachedCalculation {
+    private final ClusterInfo metricViewCluster;
+    private final Map<TopicPartition, Long> partitionIngressRate;
+    private final Map<TopicPartition, Long> partitionEgressRate;
+
+    private CachedCalculation(ClusterBean sourceMetric) {
+      this.metricViewCluster = ClusterInfoSensor.metricViewCluster(sourceMetric);
+      this.partitionIngressRate =
+          estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_IN_PER_SEC);
+      this.partitionEgressRate =
+          estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
     }
   }
 
