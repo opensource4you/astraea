@@ -38,7 +38,7 @@ public class NetworkIngressAssignor extends Assignor {
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       ClusterInfo clusterInfo) {
     var consumers = subscriptions.keySet();
-    var topics = topics(subscriptions);
+    var subscribedTopics = topics(subscriptions);
     // 1. check unregister node. if there are unregister nodes, register them
     registerUnregisterNode(clusterInfo);
     // wait for clusterBean
@@ -46,8 +46,11 @@ public class NetworkIngressAssignor extends Assignor {
         () -> !metricCollector.clusterBean().all().isEmpty(), Duration.ofSeconds(maxWaitBean));
     var clusterBean = metricCollector.clusterBean();
 
-    // 2. parse subscription , get all topic consumer subscribe
-    var networkCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
+    // 2. get the network cost of all subscribed topic
+    var networkCost =
+        costFunction
+            .partitionCost(ClusterInfo.masked(clusterInfo, subscribedTopics::contains), clusterBean)
+            .value();
 
     // key = broker id, value = partition and its cost
     var tpCostPerBroker =
@@ -55,7 +58,7 @@ public class NetworkIngressAssignor extends Assignor {
             .replicaStream()
             .filter(Replica::isLeader)
             .filter(Replica::isOnline)
-            .filter(replica -> topics.contains(replica.topic()))
+            .filter(replica -> subscribedTopics.contains(replica.topic()))
             .collect(Collectors.groupingBy(replica -> replica.nodeInfo().id()))
             .entrySet()
             .stream()
