@@ -16,15 +16,18 @@
  */
 package org.astraea.common.assignor;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.NetworkIngressCost;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -32,49 +35,40 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class NetworkIngressAssignorTest {
+
   @Test
-  void testGreedyAssign() {
+  void testConvertTrafficToCost() {
+    var assignor = new NetworkIngressAssignor();
+    var cost = new NetworkIngressCost();
+    var aFactorList = new ArrayList<Double>();
+    IntStream.range(0, 3)
+        .forEach(
+            i -> {
+              var rand = new Random();
+              aFactorList.add(i, rand.nextDouble());
+            });
     var clusterInfo =
         ClusterInfoBuilder.builder()
-            .addNode(Set.of(1, 2, 3))
-            .addFolders(
-                Map.of(
-                    1,
-                    Set.of("/folder0", "/folder1"),
-                    2,
-                    Set.of("/folder0", "/folder1"),
-                    3,
-                    Set.of("/folder0", "/folder1")))
+            .addNode(Set.of(1))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
             .addTopic(
                 "a",
-                9,
+                3,
                 (short) 1,
                 replica -> {
-                  var factor = getFactor(replica.partition());
+                  var factor = aFactorList.get(replica.partition());
                   return Replica.builder(replica)
-                      .size((long) (factor * DataRate.MB.of(10).perSecond().byteRate()))
+                      .size((long) (factor * DataRate.MiB.of(100).perSecond().byteRate()))
                       .build();
                 })
             .addTopic(
                 "b",
-                9,
+                1,
                 (short) 1,
-                replica -> {
-                  var factor = getFactor(replica.partition());
-                  return Replica.builder(replica)
-                      .size((long) (factor * DataRate.MB.of(10).perSecond().byteRate()))
-                      .build();
-                })
-            .addTopic(
-                "c",
-                9,
-                (short) 1,
-                replica -> {
-                  var factor = getFactor(replica.partition());
-                  return Replica.builder(replica)
-                      .size((long) (factor * DataRate.MB.of(10).perSecond().byteRate()))
-                      .build();
-                })
+                replica ->
+                    Replica.builder(replica)
+                        .size((long) DataRate.MiB.of(10).perSecond().byteRate())
+                        .build())
             .build();
     var clusterBean =
         ClusterBean.of(
@@ -84,89 +78,108 @@ public class NetworkIngressAssignorTest {
                     bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "a",
-                        DataRate.MB.of(90).perSecond().byteRate()),
+                        DataRate.MiB.of(100).perSecond().byteRate()),
                     bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "b",
-                        DataRate.MB.of(90).perSecond().byteRate()),
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "c",
-                        DataRate.MB.of(90).perSecond().byteRate())),
+                        DataRate.MiB.of(10).perSecond().byteRate()))));
+    var costPerBroker =
+        assignor.costPerBroker(
+            clusterInfo, Set.of("a", "b"), cost.partitionCost(clusterInfo, clusterBean).value());
+    var resultOf10MiBCost = assignor.convertTrafficToCost(clusterInfo, clusterBean, costPerBroker);
+    var _10MiBCost = costPerBroker.get(1).get(TopicPartition.of("b-0"));
+    Assertions.assertEquals(resultOf10MiBCost.get(1), _10MiBCost);
+  }
+
+  static ClusterInfo buildClusterInfo() {
+    return ClusterInfoBuilder.builder()
+        .addNode(Set.of(1, 2, 3))
+        .addFolders(
+            Map.of(
+                1,
+                Set.of("/folder0", "/folder1"),
                 2,
-                List.of(
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "a",
-                        DataRate.MB.of(90).perSecond().byteRate()),
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "b",
-                        DataRate.MB.of(90).perSecond().byteRate()),
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "c",
-                        DataRate.MB.of(90).perSecond().byteRate())),
+                Set.of("/folder0", "/folder1"),
                 3,
-                List.of(
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "a",
-                        DataRate.MB.of(90).perSecond().byteRate()),
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "b",
-                        DataRate.MB.of(90).perSecond().byteRate()),
-                    bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "c",
-                        DataRate.MB.of(90).perSecond().byteRate()))));
+                Set.of("/folder0", "/folder1")))
+        .addTopic(
+            "a",
+            9,
+            (short) 1,
+            replica -> {
+              var factor = getFactor(replica.partition());
+              return Replica.builder(replica)
+                  .size((long) (factor * DataRate.MB.of(10).perSecond().byteRate()))
+                  .build();
+            })
+        .addTopic(
+            "b",
+            9,
+            (short) 1,
+            replica -> {
+              var factor = getFactor(replica.partition());
+              return Replica.builder(replica)
+                  .size((long) (factor * DataRate.MB.of(10).perSecond().byteRate()))
+                  .build();
+            })
+        .addTopic(
+            "c",
+            9,
+            (short) 1,
+            replica -> {
+              var factor = getFactor(replica.partition());
+              return Replica.builder(replica)
+                  .size((long) (factor * DataRate.MB.of(10).perSecond().byteRate()))
+                  .build();
+            })
+        .build();
+  }
 
-    var networkCost = new NetworkIngressCost();
-    var cost = networkCost.partitionCost(clusterInfo, clusterBean).value();
-
-    var topics = Set.of("a", "b", "c");
-    var tpCostPerBroker =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isLeader)
-            .filter(Replica::isOnline)
-            .filter(replica -> topics.contains(replica.topic()))
-            .collect(Collectors.groupingBy(replica -> replica.nodeInfo().id()))
-            .entrySet()
-            .stream()
-            .map(
-                e ->
-                    Map.entry(
-                        e.getKey(),
-                        e.getValue().stream()
-                            .map(
-                                replica ->
-                                    Map.entry(
-                                        replica.topicPartition(),
-                                        cost.get(replica.topicPartition())))
-                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var assignor = new NetworkIngressAssignor();
-    var assignment = assignor.greedyAssign(tpCostPerBroker, Set.of("haha1", "haha2", "haha3"));
-    var costPerConsumer =
-        assignment.entrySet().stream()
-            .map(
-                e -> {
-                  var tps = e.getValue();
-                  var tpCost =
-                      tpCostPerBroker.values().stream()
-                          .flatMap(v -> v.entrySet().stream())
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-                  return Map.entry(e.getKey(), tps.stream().mapToDouble(tpCost::get).sum());
-                })
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    var sortedCostPerConsumer = new LinkedHashMap<String, Double>();
-    costPerConsumer.entrySet().stream()
-        .sorted(Map.Entry.comparingByValue())
-        .forEach(e -> sortedCostPerConsumer.put(e.getKey(), e.getValue()));
-    sortedCostPerConsumer.forEach((ignore, c) -> Assertions.assertTrue(c > 0.7 && c < 1.3));
+  static ClusterBean buildClusterBean() {
+    return ClusterBean.of(
+        Map.of(
+            1,
+            List.of(
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "a",
+                    DataRate.MB.of(90).perSecond().byteRate()),
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "b",
+                    DataRate.MB.of(90).perSecond().byteRate()),
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "c",
+                    DataRate.MB.of(90).perSecond().byteRate())),
+            2,
+            List.of(
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "a",
+                    DataRate.MB.of(90).perSecond().byteRate()),
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "b",
+                    DataRate.MB.of(90).perSecond().byteRate()),
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "c",
+                    DataRate.MB.of(90).perSecond().byteRate())),
+            3,
+            List.of(
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "a",
+                    DataRate.MB.of(90).perSecond().byteRate()),
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "b",
+                    DataRate.MB.of(90).perSecond().byteRate()),
+                bandwidth(
+                    ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                    "c",
+                    DataRate.MB.of(90).perSecond().byteRate()))));
   }
 
   static ServerMetrics.Topic.Meter bandwidth(
@@ -178,7 +191,7 @@ public class NetworkIngressAssignorTest {
     return new ServerMetrics.Topic.Meter(new BeanObject(domainName, properties, attributes));
   }
 
-  private int getFactor(int partition) {
+  private static int getFactor(int partition) {
     if (partition > 2 && partition < 6) return 3;
     else if (partition >= 6) return 5;
     return 1;
