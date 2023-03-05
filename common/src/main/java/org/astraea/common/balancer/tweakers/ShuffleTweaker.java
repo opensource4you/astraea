@@ -18,13 +18,10 @@ package org.astraea.common.balancer.tweakers;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
@@ -72,73 +69,62 @@ public class ShuffleTweaker implements AllocationTweaker {
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-
-          var candidates =
-              IntStream.range(0, shuffleCount)
-                  .mapToObj(i -> allocationGenerator(baseAllocation.brokerFolders()))
+          final var eligiblePartitions =
+              baseAllocation.topicPartitions().stream()
+                  .filter(tp -> eligiblePartition((baseAllocation.replicas(tp))))
+                  .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
+                  .sorted(Map.Entry.comparingByValue())
+                  .map(Map.Entry::getKey)
+                  .limit(shuffleCount)
                   .collect(Collectors.toUnmodifiableList());
 
-          var currentAllocation = baseAllocation;
-          for (var candidate : candidates) currentAllocation = candidate.apply(currentAllocation);
+          final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
+          for (int i = 0; i < shuffleCount && i < eligiblePartitions.size(); i++) {
+            final var tp = eligiblePartitions.get(i);
+            switch (ThreadLocalRandom.current().nextInt(0, 2)) {
+              case 0:
+                {
+                  // change leader/follower identity
+                  baseAllocation
+                      .replicaStream(tp)
+                      .filter(Replica::isFollower)
+                      .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
+                      .min(Map.Entry.comparingByValue())
+                      .map(Map.Entry::getKey)
+                      .ifPresent(r -> finalCluster.setPreferredLeader(r.topicPartitionReplica()));
+                  break;
+                }
+              case 1:
+                {
+                  // change replica list
+                  var replicaList = baseAllocation.replicas(tp);
+                  var currentIds =
+                      replicaList.stream()
+                          .map(Replica::nodeInfo)
+                          .map(NodeInfo::id)
+                          .collect(Collectors.toUnmodifiableSet());
+                  baseAllocation.brokers().stream()
+                      .filter(b -> !currentIds.contains(b.id()))
+                      .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
+                      .min(Map.Entry.comparingByValue())
+                      .map(Map.Entry::getKey)
+                      .ifPresent(
+                          broker -> {
+                            var replica = randomElement(replicaList);
+                            finalCluster.reassignReplica(
+                                replica.topicPartitionReplica(),
+                                broker.id(),
+                                randomElement(baseAllocation.brokerFolders().get(broker.id())));
+                          });
+                  break;
+                }
+              default:
+                throw new RuntimeException("Unexpected Condition");
+            }
+          }
 
-          return currentAllocation;
+          return finalCluster.build();
         });
-  }
-
-  private static Function<ClusterInfo, ClusterInfo> allocationGenerator(
-      Map<Integer, Set<String>> brokerFolders) {
-    return currentAllocation -> {
-      final var selectedPartition =
-          currentAllocation.topicPartitions().stream()
-              .filter(tp -> eligiblePartition((currentAllocation.replicas(tp))))
-              .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
-              .min(Map.Entry.comparingByValue())
-              .map(Map.Entry::getKey)
-              .orElseThrow();
-
-      // [valid operation 1] change leader/follower identity
-      final var currentReplicas = currentAllocation.replicas(selectedPartition);
-      final var candidates0 =
-          currentReplicas.stream()
-              .skip(1)
-              .map(
-                  follower ->
-                      (Supplier<ClusterInfo>)
-                          () ->
-                              ClusterInfoBuilder.builder(currentAllocation)
-                                  .setPreferredLeader(follower.topicPartitionReplica())
-                                  .build());
-
-      // [valid operation 2] change replica list
-      final var currentIds =
-          currentReplicas.stream()
-              .map(Replica::nodeInfo)
-              .map(NodeInfo::id)
-              .collect(Collectors.toUnmodifiableSet());
-      final var candidates1 =
-          brokerFolders.keySet().stream()
-              .filter(brokerId -> !currentIds.contains(brokerId))
-              .flatMap(
-                  toThisBroker ->
-                      currentReplicas.stream()
-                          .map(
-                              replica ->
-                                  (Supplier<ClusterInfo>)
-                                      () -> {
-                                        var toThisDir =
-                                            randomElement(brokerFolders.get(toThisBroker));
-                                        return ClusterInfoBuilder.builder(currentAllocation)
-                                            .reassignReplica(
-                                                replica.topicPartitionReplica(),
-                                                toThisBroker,
-                                                toThisDir)
-                                            .build();
-                                      }));
-
-      return randomElement(
-              Stream.concat(candidates0, candidates1).collect(Collectors.toUnmodifiableSet()))
-          .get();
-    };
   }
 
   private static <T> T randomElement(Collection<T> collection) {
