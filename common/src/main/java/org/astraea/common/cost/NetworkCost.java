@@ -22,10 +22,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.Cache;
 import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
@@ -65,12 +65,12 @@ import org.astraea.common.metrics.platform.HostMetrics;
 public abstract class NetworkCost implements HasClusterCost {
 
   private final BandwidthType bandwidthType;
-  private final Cache<ClusterBean, CachedCalculation> calculationCache;
+  private final Map<ClusterBean, CachedCalculation> calculationCache;
   private final ClusterInfoSensor clusterInfoSensor = new ClusterInfoSensor();
 
   NetworkCost(BandwidthType bandwidthType) {
     this.bandwidthType = bandwidthType;
-    this.calculationCache = Cache.builder(CachedCalculation::new).maxCapacity(10).build();
+    this.calculationCache = new ConcurrentHashMap<>();
   }
 
   void noMetricCheck(ClusterBean clusterBean) {
@@ -90,8 +90,10 @@ public abstract class NetworkCost implements HasClusterCost {
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
 
-    // cache the metric calculation to speed things up
-    final var cachedCalculation = calculationCache.require(clusterBean);
+    // The partition load calculation takes considerable time with many partitions. cache the
+    // calculation result to speed things up
+    final var cachedCalculation =
+        calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
     final var ingressRate = cachedCalculation.partitionIngressRate;
     final var egressRate = cachedCalculation.partitionEgressRate;
 
