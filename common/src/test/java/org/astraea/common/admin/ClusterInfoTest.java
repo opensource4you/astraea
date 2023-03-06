@@ -148,4 +148,22 @@ public class ClusterInfoTest {
     Assertions.assertEquals(topics, cluster.topics().keySet());
     Assertions.assertEquals(topics, cluster.topicNames());
   }
+
+  @Test
+  void testReturnCollectionUnmodifiable() {
+    var cluster = ClusterInfo.empty();
+    var replica =
+        Replica.builder()
+            .topic("topic")
+            .partition(0)
+            .nodeInfo(NodeInfo.of(0, "", -1))
+            .path("f")
+            .buildLeader();
+    Assertions.assertThrows(Exception.class, () -> cluster.replicas().add(replica));
+    Assertions.assertThrows(Exception.class, () -> cluster.replicas("t").add(replica));
+    Assertions.assertThrows(
+        Exception.class, () -> cluster.replicas(TopicPartition.of("t", 0)).add(replica));
+    Assertions.assertThrows(
+        Exception.class, () -> cluster.replicas(TopicPartitionReplica.of("t", 0, 10)).add(replica));
+  }
 }
