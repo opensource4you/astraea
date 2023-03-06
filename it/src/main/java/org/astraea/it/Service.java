@@ -87,7 +87,6 @@ public interface Service extends AutoCloseable {
       return new Service() {
         private JMXConnectorServer jmxConnectorServer = jmxConnectorServer(Utils.availablePort());
 
-        private ZookeeperCluster zookeeperCluster;
         private BrokerCluster brokerCluster;
         private WorkerCluster workerCluster;
 
@@ -126,7 +125,6 @@ public interface Service extends AutoCloseable {
         public synchronized void close() {
           if (workerCluster != null) workerCluster.close();
           if (brokerCluster != null) brokerCluster.close();
-          if (zookeeperCluster != null) zookeeperCluster.close();
           if (jmxConnectorServer != null) {
             try {
               jmxConnectorServer.stop();
@@ -136,14 +134,9 @@ public interface Service extends AutoCloseable {
           }
         }
 
-        synchronized void tryToCreateZookeeperCluster() {
-          if (zookeeperCluster == null) zookeeperCluster = ZookeeperCluster.of();
-        }
-
         synchronized void tryToCreateBrokerCluster() {
-          tryToCreateZookeeperCluster();
           if (brokerCluster == null)
-            brokerCluster = BrokerCluster.of(zookeeperCluster, numberOfBrokers, brokerConfigs);
+            brokerCluster = BrokerCluster.of(numberOfBrokers, brokerConfigs);
         }
 
         synchronized void tryToCreateWorkerCluster() {
