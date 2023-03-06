@@ -37,8 +37,11 @@ public class RecordWriterBuilder {
             private final AtomicInteger count = new AtomicInteger();
             private final LongAdder size = new LongAdder();
 
+            private long lastModifiedTime = System.currentTimeMillis();
+
             @Override
             public void append(Record<byte[], byte[]> record) {
+              this.lastModifiedTime = System.currentTimeMillis();
               var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
               var recordSize =
                   2 // [topic size 2bytes]
@@ -84,6 +87,11 @@ public class RecordWriterBuilder {
                       });
               Utils.packException(() -> outputStream.write(recordBuffer.array()));
               count.incrementAndGet();
+            }
+
+            @Override
+            public long lastModifiedTime() {
+              return this.lastModifiedTime;
             }
 
             @Override

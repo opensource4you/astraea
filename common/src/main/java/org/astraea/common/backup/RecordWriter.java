@@ -38,6 +38,8 @@ public interface RecordWriter extends AutoCloseable {
 
   void flush();
 
+  long lastModifiedTime();
+
   @Override
   void close();
 
