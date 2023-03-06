@@ -103,6 +103,7 @@ public class NetworkIngressAssignor extends Assignor {
         .forEach(
             costPerBroker -> {
               if (costPerBroker.getValue().values().stream().mapToDouble(x -> x).sum() == 0) {
+                //  TODO: use logLeaderSize cost to assign when there is no network ingress cost
                 // if there are no cost, round-robin assign per node
                 var iter = consumers.iterator();
                 for (var tp : costPerBroker.getValue().keySet()) {
@@ -110,11 +111,14 @@ public class NetworkIngressAssignor extends Assignor {
                   if (!iter.hasNext()) iter = consumers.iterator();
                 }
               } else {
+                // let networkIngress cost be ascending order
                 var sortedCost = new LinkedHashMap<TopicPartition, Double>();
                 costPerBroker.getValue().entrySet().stream()
                     .sorted(Map.Entry.comparingByValue())
                     .forEach(entry -> sortedCost.put(entry.getKey(), entry.getValue()));
+                // maintain the temp loading of the consumer
                 var tmpCostPerConsumer = new HashMap<>(costPerConsumer);
+                // get the consumer with the largest load
                 Supplier<String> largestCostConsumer =
                     () ->
                         Collections.max(tmpCostPerConsumer.entrySet(), Map.Entry.comparingByValue())
@@ -129,11 +133,11 @@ public class NetworkIngressAssignor extends Assignor {
                   if (cost - lastValue > limitedPerBroker.get(costPerBroker.getKey())) {
                     tmpCostPerConsumer.remove(consumer);
                     consumer = largestCostConsumer.get();
+                    lastValue = cost;
                   }
 
                   assignment.get(consumer).add(tp);
                   costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
-                  lastValue = cost;
                 }
               }
             });
@@ -217,7 +221,7 @@ public class NetworkIngressAssignor extends Assignor {
                   e.getValue().entrySet().stream()
                       .filter(entry -> entry.getValue() > 0.0)
                       .findFirst()
-                      .get();
+                      .orElseThrow();
               var traffic = partitionsTraffic.get(tpCost.getKey());
               var normalizedCost = tpCost.getValue();
 

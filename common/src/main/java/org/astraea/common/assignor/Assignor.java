@@ -47,7 +47,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String MAX_WAIT_BEAN = "max.wait.bean";
   public static final String MAX_TRAFFIC_MIB_INTERVAL = "max.traffic.mib.interval";
   int maxWaitBean = 3;
-  long maxTrafficMiBInterval = 10;
+  int maxTrafficMiBInterval = 10;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
@@ -159,9 +159,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
     config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = value);
-    config
-        .integer(MAX_TRAFFIC_MIB_INTERVAL)
-        .ifPresent(value -> this.maxTrafficMiBInterval = (long) value);
+    config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
     var costFunctions = Utils.costFunctions(config, HasPartitionCost.class);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
