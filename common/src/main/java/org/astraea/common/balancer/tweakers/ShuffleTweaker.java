@@ -85,13 +85,17 @@ public class ShuffleTweaker implements AllocationTweaker {
               case 0:
                 {
                   // change leader/follower identity
-                  baseAllocation
-                      .replicaStream(tp)
-                      .filter(Replica::isFollower)
-                      .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
-                      .min(Map.Entry.comparingByValue())
-                      .map(Map.Entry::getKey)
-                      .ifPresent(r -> finalCluster.setPreferredLeader(r.topicPartitionReplica()));
+                  var replica =
+                      baseAllocation
+                          .replicaStream(tp)
+                          .filter(Replica::isFollower)
+                          .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
+                          .min(Map.Entry.comparingByValue())
+                          .map(Map.Entry::getKey);
+                  if (replica.isPresent()) {
+                    finalCluster.setPreferredLeader(replica.get().topicPartitionReplica());
+                    shuffled++;
+                  }
                   break;
                 }
               case 1:
@@ -103,25 +107,25 @@ public class ShuffleTweaker implements AllocationTweaker {
                           .map(Replica::nodeInfo)
                           .map(NodeInfo::id)
                           .collect(Collectors.toUnmodifiableSet());
-                  baseAllocation.brokers().stream()
-                      .filter(b -> !currentIds.contains(b.id()))
-                      .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
-                      .min(Map.Entry.comparingByValue())
-                      .map(Map.Entry::getKey)
-                      .ifPresent(
-                          broker -> {
-                            var replica = randomElement(replicaList);
-                            finalCluster.reassignReplica(
-                                replica.topicPartitionReplica(),
-                                broker.id(),
-                                randomElement(baseAllocation.brokerFolders().get(broker.id())));
-                          });
+                  var broker =
+                      baseAllocation.brokers().stream()
+                          .filter(b -> !currentIds.contains(b.id()))
+                          .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
+                          .min(Map.Entry.comparingByValue())
+                          .map(Map.Entry::getKey);
+                  if (broker.isPresent()) {
+                    var replica = randomElement(replicaList);
+                    finalCluster.reassignReplica(
+                        replica.topicPartitionReplica(),
+                        broker.get().id(),
+                        randomElement(baseAllocation.brokerFolders().get(broker.get().id())));
+                    shuffled++;
+                  }
                   break;
                 }
               default:
                 throw new RuntimeException("Unexpected Condition");
             }
-            shuffled++;
           }
 
           return finalCluster.build();
