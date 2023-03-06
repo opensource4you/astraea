@@ -60,6 +60,14 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
+  static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
+      HasMoveCost.of(
+          List.of(
+              new ReplicaNumberCost(),
+              new ReplicaLeaderCost(),
+              new RecordSizeCost(),
+              new ReplicaLeaderSizeCost()));
+
   private final Admin admin;
   private final BalancerConsole balancerConsole;
   private final Map<String, PostRequestWrapper> taskMetadata = new ConcurrentHashMap<>();
@@ -328,7 +336,13 @@ class BalancerHandler implements Handler {
         balancerPostRequest.topics.isEmpty()
             ? currentClusterInfo.topicNames()
             : balancerPostRequest.topics;
-
+    var moveCostLimit =
+        Configuration.of(
+            Map.of(
+                ReplicaLeaderCost.COST_LIMIT_KEY,
+                Long.toString(balancerPostRequest.maxMigratedLeader),
+                RecordSizeCost.COST_LIMIT_KEY,
+                Long.toString(balancerPostRequest.maxMigratedSize.bytes())));
     if (topics.isEmpty())
       throw new IllegalArgumentException(
           "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
@@ -342,21 +356,12 @@ class BalancerHandler implements Handler {
         Configuration.of(balancerPostRequest.balancerConfig),
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(moveCosts(balancerPostRequest))
+            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .movementLimit(moveCostLimit)
             .timeout(balancerPostRequest.timeout)
             .topicFilter(topics::contains)
             .build(),
         currentClusterInfo);
-  }
-
-  // TODO: There needs to be a way for"GU" and Web to share this function.
-  static HasMoveCost moveCosts(BalancerPostRequest request) {
-    return HasMoveCost.of(
-        List.of(
-            new ReplicaNumberCost(),
-            new ReplicaLeaderCost(request.maxMigratedLeader),
-            new RecordSizeCost(request.maxMigratedSize),
-            new ReplicaLeaderSizeCost()));
   }
 
   static class BalancerPostRequest implements Request {

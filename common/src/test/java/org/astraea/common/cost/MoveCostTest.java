@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -42,7 +43,7 @@ public class MoveCostTest {
   @Test
   void testMerge() {
     HasMoveCost cost0 =
-        (before, after, clusterBean) ->
+        (before, after, clusterBean, limit) ->
             new MoveCost() {
               @Override
               public Map<Integer, Integer> changedReplicaCount() {
@@ -50,7 +51,7 @@ public class MoveCostTest {
               }
             };
     HasMoveCost cost1 =
-        (before, after, clusterBean) ->
+        (before, after, clusterBean, limit) ->
             new MoveCost() {
               @Override
               public Map<Integer, Integer> changedReplicaLeaderCount() {
@@ -58,7 +59,7 @@ public class MoveCostTest {
               }
             };
     var merged = HasMoveCost.of(List.of(cost0, cost1));
-    var result = merged.moveCost(null, null, ClusterBean.EMPTY);
+    var result = merged.moveCost(null, null, ClusterBean.EMPTY, Configuration.EMPTY);
     Assertions.assertEquals(10, result.changedReplicaCount().get(1));
     Assertions.assertEquals(20, result.changedReplicaCount().get(2));
     Assertions.assertEquals(30, result.changedReplicaCount().get(3));
@@ -119,7 +120,8 @@ public class MoveCostTest {
     }
 
     @Override
-    public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+    public MoveCost moveCost(
+        ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
       return null;
     }
   }

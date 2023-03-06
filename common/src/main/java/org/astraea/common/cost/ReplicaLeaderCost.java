@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -36,15 +37,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "leader";
-  private final long maxMigratedLeader;
-
-  public ReplicaLeaderCost(long maxMigratedLeader) {
-    this.maxMigratedLeader = maxMigratedLeader;
-  }
-
-  public ReplicaLeaderCost() {
-    this.maxMigratedLeader = Long.MAX_VALUE;
-  }
+  public static final String COST_LIMIT_KEY = "max.migrated.size";
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -103,7 +96,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   @Override
-  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+  public MoveCost moveCost(
+      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
     var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -137,6 +131,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                                   .count();
                       return newLeaders - removedLeaders;
                     }));
+    var maxMigratedLeader =
+        limits.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
     return MoveCost.changedReplicaLeaderCount(moveCost, overflow);

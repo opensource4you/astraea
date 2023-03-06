@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -45,7 +46,8 @@ public class ReplicaLeaderSizeCost
   }
 
   @Override
-  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+  public MoveCost moveCost(
+      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
     return MoveCost.movedReplicaLeaderSize(
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)

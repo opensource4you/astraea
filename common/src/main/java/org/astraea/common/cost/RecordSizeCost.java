@@ -19,6 +19,7 @@ package org.astraea.common.cost;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -27,15 +28,7 @@ import org.astraea.common.admin.Replica;
 
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
-  private final DataSize maxMigratedSize;
-
-  public RecordSizeCost(DataSize maxMigratedSize) {
-    this.maxMigratedSize = maxMigratedSize;
-  }
-
-  public RecordSizeCost() {
-    this.maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
-  }
+  public static final String COST_LIMIT_KEY = "max.migrated.leader";
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -49,7 +42,8 @@ public class RecordSizeCost
   }
 
   @Override
-  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
+  public MoveCost moveCost(
+      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
     var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -62,9 +56,14 @@ public class RecordSizeCost
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
                                 - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var maxMigratedSize = limits.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
-        maxMigratedSize.bytes()
-            < moveCost.values().stream().map(x -> Math.abs(x.bytes())).mapToLong(x -> x).sum();
+        maxMigratedSize
+            < moveCost.values().stream()
+                .map(DataSize::bytes)
+                .map(Math::abs)
+                .mapToLong(s -> s)
+                .sum();
     return MoveCost.movedRecordSize(moveCost, overflow);
   }
 

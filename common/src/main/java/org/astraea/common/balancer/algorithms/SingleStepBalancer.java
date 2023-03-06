@@ -67,6 +67,7 @@ public class SingleStepBalancer implements Balancer {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
+    final var moveCostLimit = config.movementLimit();
     final var currentCost =
         config.clusterCostFunction().clusterCost(currentClusterInfo, clusterBean);
     final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
@@ -82,7 +83,8 @@ public class SingleStepBalancer implements Balancer {
               var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
               return new Solution(
                   clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
-                  moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, clusterBean),
+                  moveCostFunction.moveCost(
+                      currentClusterInfo, newClusterInfo, clusterBean, moveCostLimit),
                   newAllocation);
             })
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))

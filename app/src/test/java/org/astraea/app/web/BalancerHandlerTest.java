@@ -261,7 +261,7 @@ public class BalancerHandlerTest {
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
       HasMoveCost failMoveCostFunction =
-          (before, after, clusterBean) ->
+          (before, after, clusterBean, limit) ->
               new MoveCost() {
                 @Override
                 public boolean overflow() {
