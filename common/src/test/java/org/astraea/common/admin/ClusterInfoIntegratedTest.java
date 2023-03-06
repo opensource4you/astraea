@@ -16,8 +16,17 @@
  */
 package org.astraea.common.admin;
 
+import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
+import org.astraea.common.Utils;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ClusterInfoIntegratedTest {
 
@@ -26,5 +35,59 @@ public class ClusterInfoIntegratedTest {
   @AfterAll
   static void closeService() {
     SERVICE.close();
+  }
+
+  @Test
+  void testUpdate() {
+    var topicName = Utils.randomString(5);
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      admin.creator().topic(topicName).run().toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
+        IntStream.range(0, 100)
+            .forEach(
+                ignored ->
+                    producer.send(Record.builder().topic(topicName).key(new byte[10]).build()));
+      }
+
+      var clusterInfo = admin.clusterInfo(Set.of(topicName)).toCompletableFuture().join();
+      clusterInfo.replicas().forEach(r -> Assertions.assertTrue(r.size() > 0));
+
+      var replica = clusterInfo.replicas().iterator().next();
+      var newBrokerId =
+          SERVICE.dataFolders().keySet().stream()
+              .filter(id -> id != replica.nodeInfo().id())
+              .findFirst()
+              .get();
+
+      var randomSizeValue = ThreadLocalRandom.current().nextInt();
+      var merged =
+          ClusterInfo.update(
+              clusterInfo,
+              tp ->
+                  tp.equals(TopicPartition.of(topicName, 0))
+                      ? Set.of(
+                          Replica.builder()
+                              .topic(topicName)
+                              .partition(0)
+                              .nodeInfo(NodeInfo.of(newBrokerId, "", -1))
+                              .lag(0)
+                              .size(randomSizeValue)
+                              .isLeader(true)
+                              .isSync(true)
+                              .isFuture(false)
+                              .isOffline(false)
+                              .isPreferredLeader(true)
+                              .path(replica.path())
+                              .build())
+                      : Set.of());
+
+      Assertions.assertEquals(clusterInfo.replicas().size(), merged.replicas().size());
+      Assertions.assertEquals(clusterInfo.topicNames().size(), merged.topicNames().size());
+      merged.replicas().forEach(r -> Assertions.assertEquals(randomSizeValue, r.size()));
+      Assertions.assertEquals(1, merged.replicas(topicName).size());
+      Assertions.assertEquals(newBrokerId, merged.replicas(topicName).get(0).nodeInfo().id());
+    }
   }
 }

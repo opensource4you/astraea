@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -51,6 +52,39 @@ public interface ClusterInfo {
             .filter(replica -> topicFilter.test(replica.topic()))
             .collect(Collectors.toUnmodifiableList());
     return of(clusterInfo.clusterId(), nodes, topics, replicas);
+  }
+
+  /**
+   * Update the replicas of ClusterInfo according to the given ClusterLogAllocation. The returned
+   * {@link ClusterInfo} will have some of its replicas replaced by the replicas inside the given
+   * {@link ClusterInfo}. Since {@link ClusterInfo} might only cover a subset of topic/partition in
+   * the associated cluster. Only the replicas related to the covered topic/partition get updated.
+   *
+   * <p>This method intended to offer a way to describe a cluster with some of its state modified
+   * manually.
+   *
+   * @param clusterInfo to get updated
+   * @param replacement offers new host and data folder
+   * @return new cluster info
+   */
+  static ClusterInfo update(
+      ClusterInfo clusterInfo, Function<TopicPartition, Collection<Replica>> replacement) {
+    var newReplicas =
+        clusterInfo.replicas().stream()
+            .collect(Collectors.groupingBy(r -> TopicPartition.of(r.topic(), r.partition())))
+            .entrySet()
+            .stream()
+            .map(
+                entry -> {
+                  var replaced = replacement.apply(entry.getKey());
+                  if (replaced.isEmpty()) return entry.getValue();
+                  return replaced;
+                })
+            .flatMap(Collection::stream)
+            .collect(Collectors.toUnmodifiableList());
+
+    return ClusterInfo.of(
+        clusterInfo.clusterId(), clusterInfo.nodes(), clusterInfo.topics(), newReplicas);
   }
 
   /**
