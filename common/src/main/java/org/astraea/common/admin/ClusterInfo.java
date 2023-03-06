@@ -17,6 +17,7 @@
 package org.astraea.common.admin;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -601,6 +602,26 @@ public interface ClusterInfo {
     @Override
     public Map<String, Topic> topics() {
       return topics.get();
+    }
+
+    @Override
+    public List<Replica> replicas() {
+      return Collections.unmodifiableList(all);
+    }
+
+    @Override
+    public List<Replica> replicas(String topic) {
+      return Collections.unmodifiableList(byTopic.get().get(topic));
+    }
+
+    @Override
+    public List<Replica> replicas(TopicPartition topicPartition) {
+      return Collections.unmodifiableList(byPartition.get().get(topicPartition));
+    }
+
+    @Override
+    public List<Replica> replicas(TopicPartitionReplica replica) {
+      return Collections.unmodifiableList(byReplica.get().get(replica));
     }
 
     @Override
