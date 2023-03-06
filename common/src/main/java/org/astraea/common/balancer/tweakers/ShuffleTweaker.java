@@ -69,9 +69,8 @@ public class ShuffleTweaker implements AllocationTweaker {
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-          final var eligiblePartitions =
+          final var partitionOrder =
               baseAllocation.topicPartitions().stream()
-                  .filter(tp -> eligiblePartition((baseAllocation.replicas(tp))))
                   .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
@@ -79,8 +78,9 @@ public class ShuffleTweaker implements AllocationTweaker {
                   .collect(Collectors.toUnmodifiableList());
 
           final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
-          for (int i = 0; i < shuffleCount && i < eligiblePartitions.size(); i++) {
-            final var tp = eligiblePartitions.get(i);
+          for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
+            final var tp = partitionOrder.get(i);
+            if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
             switch (ThreadLocalRandom.current().nextInt(0, 2)) {
               case 0:
                 {
@@ -121,6 +121,7 @@ public class ShuffleTweaker implements AllocationTweaker {
               default:
                 throw new RuntimeException("Unexpected Condition");
             }
+            shuffled++;
           }
 
           return finalCluster.build();
