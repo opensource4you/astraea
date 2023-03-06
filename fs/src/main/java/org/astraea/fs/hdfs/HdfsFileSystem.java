@@ -37,10 +37,10 @@ public class HdfsFileSystem implements FileSystem {
   public static final String USER_KEY = "fs.hdfs.user";
   public static final String OVERRIDE_KEY = "fs.hdfs.override";
 
-  private org.apache.hadoop.fs.FileSystem fs;
+  private final org.apache.hadoop.fs.FileSystem fs;
 
-  public HdfsFileSystem(Configuration config) {
-    Utils.packException(
+  static org.apache.hadoop.fs.FileSystem create(Configuration config) {
+    return Utils.packException(
         () -> {
           var uri =
               new URI(
@@ -56,8 +56,12 @@ public class HdfsFileSystem implements FileSystem {
               .entrySet()
               .forEach(configItem -> conf.set(configItem.getKey(), configItem.getValue()));
 
-          fs = org.apache.hadoop.fs.FileSystem.get(uri, conf, config.requireString(USER_KEY));
+          return org.apache.hadoop.fs.FileSystem.get(uri, conf, config.requireString(USER_KEY));
         });
+  }
+
+  public HdfsFileSystem(Configuration config) {
+    fs = create(config);
   }
 
   @Override
@@ -140,6 +144,6 @@ public class HdfsFileSystem implements FileSystem {
 
   @Override
   public void close() {
-    Utils.packException(() -> fs.close());
+    Utils.packException(fs::close);
   }
 }
