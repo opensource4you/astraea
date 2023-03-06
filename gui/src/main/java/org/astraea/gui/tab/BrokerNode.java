@@ -43,7 +43,6 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.HasGauge;
-import org.astraea.common.metrics.broker.HasPercentiles;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.HasStatistics;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -93,24 +92,6 @@ public class BrokerNode {
                       return result;
                     })
                 .orElse(Map.of())),
-    ZOOKEEPER_REQUEST(
-        "zookeeper request",
-        client ->
-            Arrays.stream(ServerMetrics.ZooKeeperClientMetrics.values())
-                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(
-                    Collectors.toMap(
-                        ServerMetrics.ZooKeeperClientMetrics.Histogram::metricsName,
-                        HasPercentiles::percentile50))),
-    ZOOKEEPER_SESSION(
-        "zookeeper session",
-        client ->
-            Arrays.stream(ServerMetrics.SessionExpireListener.values())
-                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(
-                    Collectors.toMap(
-                        ServerMetrics.SessionExpireListener.Meter::metricsName,
-                        HasRate::fiveMinuteRate))),
     HOST(
         "host",
         client ->
