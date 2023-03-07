@@ -58,8 +58,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var brokerScore = leaderCount(clusterInfo);
-    // var brokerScore = brokerCost(clusterInfo, clusterBean).value();
+    var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerScore.values());
     return ClusterCost.of(
         value,
