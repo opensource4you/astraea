@@ -40,7 +40,27 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 
-public class NetworkIngressAssignor extends Assignor {
+/**
+ * This assignor scores the partitions by cost function(s) that user given. Each cost function
+ * evaluate the partitions' cost in each node by metrics depend on which cost function user use. The
+ * default cost function ranks partitions that are in the same node by NetworkIngressCost{@link
+ * org.astraea.common.cost.NetworkIngressCost}
+ *
+ * <p>When get the partitions' cost of each node, assignor would assign partitions to consumers base
+ * on node. Each consumer would get the partitions with "the similar cost" from same node.
+ *
+ * <p>The important configs are JMX port, MAX_WAIT_BEAN, MAX_TRAFFIC_MiB_INTERVAL. Most cost
+ * function need the JMX metrics to score partitions. Normally, all brokers use the same JMX port,
+ * so you could just define the `jmx.port=12345`. If one of brokers uses different JMX client port,
+ * you can define `broker.1001.jmx.port=3456` (`1001` is the broker id) to replace the value of
+ * `jmx.port`. If the jmx port is undefined, only local mbean client is created for each cost
+ * function.
+ *
+ * <p>MAX_WAIT_BEAN is the config of setting the amount of time waiting for fetch ClusterBean.
+ * MAX_TRAFFIC_MiB_INTERVAL is the config of setting how traffic similar is. You can define these
+ * config by `max.wait.bean=10` or `max.traffic.mib.interval=15`
+ */
+public class SimilarCostAssignor extends Assignor {
 
   @Override
   protected Map<String, List<TopicPartition>> assign(

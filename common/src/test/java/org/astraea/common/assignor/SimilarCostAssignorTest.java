@@ -34,11 +34,11 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class NetworkIngressAssignorTest {
+public class SimilarCostAssignorTest {
 
   @Test
   void testConvertTrafficToCost() {
-    var assignor = new NetworkIngressAssignor();
+    var assignor = new SimilarCostAssignor();
     var cost = new NetworkIngressCost();
     var aFactorList = new ArrayList<Double>();
     IntStream.range(0, 3)
