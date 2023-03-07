@@ -36,8 +36,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
-import org.astraea.common.metrics.BeanDeserializer;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
@@ -67,7 +67,7 @@ public class InternalTopicCollector implements MetricCollector {
                         .bootstrapServers(bootstrapServer)
                         .config(ConsumerConfigs.GROUP_ID_CONFIG, tmpGroupId)
                         .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
-                        .valueDeserializer(new BeanDeserializer())
+                        .valueDeserializer(Deserializer.BEAN_OBJECT)
                         .build())
             .collect(Collectors.toUnmodifiableList());
     this.consumers.forEach(
