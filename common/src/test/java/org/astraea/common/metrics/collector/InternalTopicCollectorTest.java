@@ -57,7 +57,6 @@ public class InternalTopicCollectorTest {
         MetricCollector.internalTopic()
             .bootstrapServer(SERVICE.bootstrapServers())
             .addMetricSensor((client, ignore) -> LogMetrics.Log.SIZE.fetch(client))
-            .threads(2)
             .build()) {
       Thread.sleep(5000);
       // Check if collector get the beans

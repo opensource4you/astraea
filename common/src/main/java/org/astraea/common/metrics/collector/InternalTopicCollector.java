@@ -23,19 +23,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.consumer.Consumer;
-import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.metrics.BeanObject;
@@ -50,53 +45,42 @@ public class InternalTopicCollector implements MetricCollector {
 
   // Store those we need (we queried)
   private final Collection<MetricSensor> metricSensors;
-  private final ExecutorService service;
-  private final List<Consumer<byte[], BeanObject>> consumers;
+  private final Consumer<byte[], BeanObject> consumer;
+  private final CompletableFuture<Void> future;
   private final AtomicBoolean closed = new AtomicBoolean(false);
 
-  private InternalTopicCollector(
-      String bootstrapServer, int threads, Collection<MetricSensor> sensors) {
+  private InternalTopicCollector(String bootstrapServer, Collection<MetricSensor> sensors) {
     this.metricSensors = new ArrayList<>(sensors);
-    this.service = Executors.newFixedThreadPool(threads);
-    var tmpGroupId = Utils.randomString();
-    this.consumers =
-        IntStream.range(0, threads)
-            .mapToObj(
-                i ->
-                    Consumer.forTopics(INTERNAL_TOPIC_PATTERN)
-                        .bootstrapServers(bootstrapServer)
-                        .config(ConsumerConfigs.GROUP_ID_CONFIG, tmpGroupId)
-                        .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
-                        .valueDeserializer(Deserializer.BEAN_OBJECT)
-                        .build())
-            .collect(Collectors.toUnmodifiableList());
-    this.consumers.forEach(
-        consumer ->
-            service.submit(
-                () -> {
-                  while (!closed.get()) {
-                    consumer.poll(Duration.ofSeconds(1)).stream()
-                        .filter(r -> r.value() != null)
-                        // Parsing topic name
-                        .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
-                        .filter(matcherBean -> matcherBean.getKey().matches())
-                        .forEach(
-                            matcherBean -> {
-                              int id = Integer.parseInt(matcherBean.getKey().group("brokerId"));
-                              metricStores.compute(
-                                  id,
-                                  (ID, old) -> {
-                                    if (old == null) old = new MetricStore();
-                                    old.put(
-                                        new BeanProperties(
-                                            matcherBean.getValue().domainName(),
-                                            matcherBean.getValue().properties()),
-                                        matcherBean.getValue());
-                                    return old;
-                                  });
-                            });
-                  }
-                }));
+    this.consumer =
+        Consumer.forTopics(INTERNAL_TOPIC_PATTERN)
+            .bootstrapServers(bootstrapServer)
+            .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
+            .valueDeserializer(Deserializer.BEAN_OBJECT)
+            .build();
+
+    this.future = CompletableFuture.runAsync(() -> {
+    while (!closed.get()) {
+      consumer.poll(Duration.ofSeconds(1)).stream()
+          .filter(r -> r.value() != null)
+          // Parsing topic name
+          .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
+          .filter(matcherBean -> matcherBean.getKey().matches())
+          .forEach(
+              matcherBean -> {
+                int id = Integer.parseInt(matcherBean.getKey().group("brokerId"));
+                metricStores.compute(
+                    id,
+                    (ID, old) -> {
+                      if (old == null) old = new MetricStore();
+                      old.put(
+                          new BeanProperties(
+                              matcherBean.getValue().domainName(),
+                              matcherBean.getValue().properties()),
+                          matcherBean.getValue());
+                      return old;
+                    });
+              });
+    }});
   }
 
   @Override
@@ -160,12 +144,9 @@ public class InternalTopicCollector implements MetricCollector {
   public void close() {
     try {
       this.closed.set(true);
-      service.shutdown();
-      service.awaitTermination(10, TimeUnit.SECONDS);
-    } catch (InterruptedException ie) {
-      ie.printStackTrace();
+      future.join();
     } finally {
-      this.consumers.forEach(Consumer::close);
+      this.consumer.close();
       this.metricStores.values().forEach(MetricStore::close);
     }
   }
@@ -256,16 +237,10 @@ public class InternalTopicCollector implements MetricCollector {
 
   public static class Builder {
     private String bootstrapServer = "";
-    private int threads = 1;
-    private List<MetricSensor> metricSensors = new ArrayList<>();
+    private final List<MetricSensor> metricSensors = new ArrayList<>();
 
     public Builder bootstrapServer(String address) {
       this.bootstrapServer = address;
-      return this;
-    }
-
-    public Builder threads(int threads) {
-      this.threads = threads;
       return this;
     }
 
@@ -283,7 +258,7 @@ public class InternalTopicCollector implements MetricCollector {
       if (bootstrapServer.isEmpty())
         throw new IllegalArgumentException(
             "Bootstrap server is required for building InternalTopicCollector.");
-      return new InternalTopicCollector(bootstrapServer, threads, this.metricSensors);
+      return new InternalTopicCollector(bootstrapServer, this.metricSensors);
     }
   }
 }
