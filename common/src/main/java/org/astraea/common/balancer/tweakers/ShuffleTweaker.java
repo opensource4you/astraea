@@ -44,21 +44,16 @@ import org.astraea.common.admin.Replica;
  *       replica set before this action) into the replica set.
  * </ol>
  */
-public class ShuffleTweaker implements AllocationTweaker {
+public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
   private final Predicate<String> topicFilter;
-
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle) {
-    this(numberOfShuffle, (x) -> true);
-  }
 
   public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> topicFilter) {
     this.numberOfShuffle = numberOfShuffle;
     this.topicFilter = topicFilter;
   }
 
-  @Override
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
     // There is no broker
     if (baseAllocation.nodes().isEmpty()) return Stream.of();
