@@ -689,4 +689,22 @@ public class ConsumerTest {
     closed.set(true);
     futures.join();
   }
+
+  @Test
+  void testCreateMultiConsumersWithSameGroup() {
+    var topic = Utils.randomString();
+    var groupId = Utils.randomString();
+    var consumers =
+        IntStream.range(0, 2)
+            .mapToObj(
+                i ->
+                    Consumer.forTopics(Set.of(topic))
+                        .bootstrapServers(SERVICE.bootstrapServers())
+                        .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
+                        .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
+                        .build())
+            .collect(Collectors.toUnmodifiableList());
+    consumers.forEach(consumer -> consumer.poll(Duration.ofSeconds(1)));
+    consumers.forEach(Consumer::close);
+  }
 }
