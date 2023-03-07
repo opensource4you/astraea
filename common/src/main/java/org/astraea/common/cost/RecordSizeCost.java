@@ -29,7 +29,7 @@ import org.astraea.common.admin.Replica;
 
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
-  public static final String COST_LIMIT_KEY = "max.migrated.leader";
+  public static final String COST_LIMIT_KEY = "maxMigratedSize";
   private final Configuration moveCostLimit;
 
   public RecordSizeCost() {
@@ -66,7 +66,11 @@ public class RecordSizeCost
                             after.replicaStream(id).mapToLong(Replica::size).sum()
                                 - before.replicaStream(id).mapToLong(Replica::size).sum())));
     var maxMigratedSize =
-        moveCostLimit.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+        moveCostLimit
+            .string(COST_LIMIT_KEY)
+            .map(DataSize::of)
+            .map(DataSize::bytes)
+            .orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedSize
             < moveCost.values().stream()

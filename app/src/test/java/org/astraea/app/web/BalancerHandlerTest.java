@@ -353,20 +353,25 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
-      request.maxMigratedSize = DataSize.of(sizeLimit);
-      request.maxMigratedLeader = Long.parseLong(leaderLimit);
+      request.costConfig = Map.of("maxMigratedLeader", leaderLimit, "maxMigratedSize", sizeLimit);
       var report = submitPlanGeneration(handler, request).plan;
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
               case BalancerHandler.MOVED_SIZE:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
+                    migrationCost.brokerCosts.values().stream()
+                            .map(Math::abs)
+                            .mapToLong(Double::intValue)
+                            .sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
               case BalancerHandler.CHANGED_LEADERS:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Double::byteValue).sum()
+                    migrationCost.brokerCosts.values().stream()
+                            .map(Math::abs)
+                            .mapToLong(Double::byteValue)
+                            .sum()
                         <= Integer.parseInt(leaderLimit));
                 break;
             }
@@ -1386,7 +1391,6 @@ public class BalancerHandlerTest {
     Assertions.assertNotNull(request.balancerConfig);
     Assertions.assertNotNull(request.timeout);
     Assertions.assertEquals(Set.of("aa"), request.topics);
-    Assertions.assertNotNull(request.maxMigratedSize);
     Assertions.assertEquals(1, request.costWeights.size());
     Assertions.assertEquals("aaa", request.costWeights.get(0).cost);
     Assertions.assertEquals(1D, request.costWeights.get(0).weight);

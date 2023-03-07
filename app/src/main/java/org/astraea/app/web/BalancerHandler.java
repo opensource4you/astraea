@@ -34,7 +34,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -328,24 +327,14 @@ class BalancerHandler implements Handler {
         balancerPostRequest.topics.isEmpty()
             ? currentClusterInfo.topicNames()
             : balancerPostRequest.topics;
-    var moveCostLimit =
-        Configuration.of(
-            Map.of(
-                ReplicaNumberCost.COST_LIMIT_KEY,
-                Long.toString(balancerPostRequest.maxMigratedReplicas),
-                ReplicaLeaderCost.COST_LIMIT_KEY,
-                Long.toString(balancerPostRequest.maxMigratedLeader),
-                RecordSizeCost.COST_LIMIT_KEY,
-                Long.toString(balancerPostRequest.maxMigratedSize.bytes()),
-                ReplicaLeaderSizeCost.COST_LIMIT_KEY,
-                Long.toString(balancerPostRequest.maxMigratedLeaderSize.bytes())));
+    var costConfig = Configuration.of(balancerPostRequest.costConfig);
     var moveCost =
         HasMoveCost.of(
             List.of(
-                new ReplicaNumberCost(moveCostLimit),
-                new ReplicaLeaderCost(moveCostLimit),
-                new RecordSizeCost(moveCostLimit),
-                new ReplicaLeaderSizeCost(moveCostLimit)));
+                new ReplicaNumberCost(costConfig),
+                new ReplicaLeaderCost(costConfig),
+                new RecordSizeCost(costConfig),
+                new ReplicaLeaderSizeCost(costConfig)));
 
     if (topics.isEmpty())
       throw new IllegalArgumentException(
@@ -361,7 +350,7 @@ class BalancerHandler implements Handler {
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(moveCost)
-            .movementLimit(moveCostLimit)
+            .movementLimit(costConfig)
             .timeout(balancerPostRequest.timeout)
             .topicFilter(topics::contains)
             .build(),
@@ -376,12 +365,7 @@ class BalancerHandler implements Handler {
 
     Duration timeout = Duration.ofSeconds(3);
     Set<String> topics = Set.of();
-
-    DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
-    DataSize maxMigratedLeaderSize = DataSize.Byte.of(Long.MAX_VALUE);
-    long maxMigratedLeader = Long.MAX_VALUE;
-    long maxMigratedReplicas = Long.MAX_VALUE;
-
+    Map<String, String> costConfig = Map.of();
     List<CostWeight> costWeights = List.of();
 
     HasClusterCost clusterCost() {

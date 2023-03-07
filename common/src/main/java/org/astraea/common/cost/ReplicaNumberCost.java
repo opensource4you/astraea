@@ -29,7 +29,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replicas migrate -> higher cost */
 public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
-  public static final String COST_LIMIT_KEY = "max.migrated.replica.num";
+  public static final String COST_LIMIT_KEY = "maxMigratedReplicas";
 
   private final Configuration moveCostLimit;
 

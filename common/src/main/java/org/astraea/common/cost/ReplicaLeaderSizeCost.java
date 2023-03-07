@@ -39,7 +39,7 @@ public class ReplicaLeaderSizeCost
 
   private final Configuration moveCostLimit;
 
-  public static final String COST_LIMIT_KEY = "max.migrate.leader.size";
+  public static final String COST_LIMIT_KEY = "maxMigratedLeaderSize";
 
   public ReplicaLeaderSizeCost() {
     this.moveCostLimit = Configuration.of(Map.of());
@@ -74,7 +74,11 @@ public class ReplicaLeaderSizeCost
                             after.replicaStream(id).mapToLong(Replica::size).sum()
                                 - before.replicaStream(id).mapToLong(Replica::size).sum())));
     var maxMigratedLeaderSize =
-        moveCostLimit.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+        moveCostLimit
+            .string(COST_LIMIT_KEY)
+            .map(DataSize::of)
+            .map(DataSize::bytes)
+            .orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeaderSize
             < moveCost.values().stream()
