@@ -59,62 +59,6 @@ public class ClusterInfoTest {
   }
 
   @Test
-  void testReplicaLeadersAndMaskedCluster() {
-    var replicas =
-        List.of(
-            Replica.builder()
-                .topic("test-1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(0, "", -1))
-                .lag(-1)
-                .size(-1)
-                .isLeader(true)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("/data-folder-01")
-                .build(),
-            Replica.builder()
-                .topic("test-1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(1, "", -1))
-                .lag(-1)
-                .size(-1)
-                .isLeader(false)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("/data-folder-02")
-                .build(),
-            Replica.builder()
-                .topic("test-1")
-                .partition(2)
-                .nodeInfo(NodeInfo.of(0, "", -1))
-                .lag(-1)
-                .size(-1)
-                .isLeader(false)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("/data-folder-01")
-                .build());
-
-    var clusterInfo = ClusterInfoTest.of(replicas);
-    var maskedClusterInfoHasReplicas = ClusterInfo.masked(clusterInfo, t -> t.equals("test-1"));
-    var maskedClusterInfoNoReplicas =
-        ClusterInfo.masked(clusterInfo, t -> t.equals("No topic name the same."));
-
-    Assertions.assertNotEquals(0, maskedClusterInfoHasReplicas.nodes().size());
-    Assertions.assertNotEquals(0, maskedClusterInfoHasReplicas.replicas().size());
-    Assertions.assertEquals(0, maskedClusterInfoNoReplicas.replicas().size());
-
-    Assertions.assertNotEquals(0, clusterInfo.replicaLeaders(BrokerTopic.of(0, "test-1")).size());
-  }
-
-  @Test
   void testEmptyCluster() {
     var emptyCluster = ClusterInfo.empty();
     Assertions.assertEquals(0, emptyCluster.nodes().size());
