@@ -16,7 +16,9 @@
  */
 package org.astraea.common.balancer.tweakers;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
@@ -155,16 +157,11 @@ public class ShuffleTweaker implements AllocationTweaker {
     LEADERSHIP_CHANGE,
     REPLICA_LIST_CHANGE;
 
+    private static final List<Operation> OPERATIONS =
+        Arrays.stream(Operation.values()).collect(Collectors.toUnmodifiableList());
+
     public static Operation random() {
-      int random = ThreadLocalRandom.current().nextInt(0, 2);
-      switch (random) {
-        case 0:
-          return LEADERSHIP_CHANGE;
-        case 1:
-          return REPLICA_LIST_CHANGE;
-        default:
-          throw new RuntimeException("Unexpected value: " + random);
-      }
+      return OPERATIONS.get(ThreadLocalRandom.current().nextInt(OPERATIONS.size()));
     }
 
     public static Operation ofAlias(String alias) {
