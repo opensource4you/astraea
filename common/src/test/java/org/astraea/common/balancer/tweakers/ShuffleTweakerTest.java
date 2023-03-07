@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -41,7 +42,7 @@ class ShuffleTweakerTest {
 
   @Test
   void testRun() {
-    final var shuffleTweaker = new ShuffleTweaker(5, 10);
+    final var shuffleTweaker = new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 10));
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
     final var stream = shuffleTweaker.generate(fakeCluster);
     final var iterator = stream.iterator();
@@ -118,7 +119,7 @@ class ShuffleTweakerTest {
     // log.
     // Notice: Stream#limit() will hurt performance. the number here might not reflect the actual
     // performance.
-    final var shuffleTweaker = new ShuffleTweaker(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 10));
     final var fakeCluster = FakeClusterInfo.of(nodeCount, topicCount, partitionCount, replicaCount);
     final var size = 1000;
 
@@ -136,7 +137,7 @@ class ShuffleTweakerTest {
 
   @Test
   void parallelStreamWorks() {
-    final var shuffleTweaker = new ShuffleTweaker(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 10));
     final var fakeCluster = FakeClusterInfo.of(10, 20, 10, 3);
 
     // generator can do parallel without error.
@@ -147,7 +148,7 @@ class ShuffleTweakerTest {
   @Test
   @Disabled
   void parallelPerformanceTests() throws InterruptedException {
-    final var shuffleTweaker = new ShuffleTweaker(0, 10);
+    final var shuffleTweaker = new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 10));
     final var fakeCluster = FakeClusterInfo.of(50, 500, 30, 2);
     final var counter = new LongAdder();
     final var forkJoinPool = new ForkJoinPool(ForkJoinPool.getCommonPoolParallelism());

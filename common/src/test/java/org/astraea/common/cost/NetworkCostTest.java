@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -324,8 +325,8 @@ class NetworkCostTest {
     var testCase = new LargeTestCase(6, 100, seed);
     var clusterInfo = testCase.clusterInfo();
     var clusterBean = testCase.clusterBean();
-    var smallShuffle = new ShuffleTweaker(1, 6);
-    var largeShuffle = new ShuffleTweaker(1, 31);
+    var smallShuffle = new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 6));
+    var largeShuffle = new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 31));
     var costFunction =
         HasClusterCost.of(Map.of(new NetworkIngressCost(), 1.0, new NetworkEgressCost(), 1.0));
     var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);

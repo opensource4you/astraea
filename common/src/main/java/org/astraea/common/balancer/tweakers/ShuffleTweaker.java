@@ -44,13 +44,15 @@ import org.astraea.common.admin.Replica;
 public class ShuffleTweaker implements AllocationTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
-
-  public ShuffleTweaker(int origin, int bound) {
-    this(() -> ThreadLocalRandom.current().nextInt(origin, bound));
-  }
+  private final Predicate<String> topicFilter;
 
   public ShuffleTweaker(Supplier<Integer> numberOfShuffle) {
+    this(numberOfShuffle, (x) -> true);
+  }
+
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> topicFilter) {
     this.numberOfShuffle = numberOfShuffle;
+    this.topicFilter = topicFilter;
   }
 
   @Override
@@ -71,10 +73,10 @@ public class ShuffleTweaker implements AllocationTweaker {
           final var shuffleCount = numberOfShuffle.get();
           final var partitionOrder =
               baseAllocation.topicPartitions().stream()
+                  .filter(tp -> topicFilter.test(tp.topic()))
                   .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
-                  .limit(shuffleCount)
                   .collect(Collectors.toUnmodifiableList());
 
           final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
