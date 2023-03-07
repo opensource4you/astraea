@@ -29,6 +29,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
+import org.astraea.common.metrics.collector.LocalMetricCollector;
 import org.astraea.common.metrics.collector.MetricCollector;
 
 public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
@@ -36,9 +37,14 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   private static final String JMX_PORT = "jmx.port";
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
-  private final MetricCollector metricCollector =
-      MetricCollector.builder().interval(Duration.ofMillis(1500)).build();
+
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
+  private final MetricCollector metricCollector =
+      MetricCollector.local()
+          .interval(Duration.ofMillis(1500))
+          .addMetricSensor(neutralIntegratedCost.metricSensor().get())
+          .build();
+
   private SmoothWeightCal<Integer> smoothWeightCal;
   private RoundRobinKeeper roundRobinKeeper;
   private Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
@@ -98,7 +104,6 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
       Map<Integer, Integer> customJmxPort,
       Duration roundRobinLease) {
     this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
-    this.neutralIntegratedCost.metricSensor().ifPresent(metricCollector::addMetricSensor);
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
     this.smoothWeightCal =
         new SmoothWeightCal<>(
@@ -112,19 +117,23 @@ public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
   }
 
   private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
-    clusterInfo.availableReplicas(topic).stream()
-        .filter(p -> !metricCollector.listIdentities().contains(p.nodeInfo().id()))
-        .forEach(
-            node -> {
-              if (!metricCollector.listIdentities().contains(node.nodeInfo().id())) {
-                jmxPortGetter
-                    .apply(node.nodeInfo().id())
-                    .ifPresent(
-                        port ->
-                            metricCollector.registerJmx(
-                                node.nodeInfo().id(),
-                                InetSocketAddress.createUnresolved(node.nodeInfo().host(), port)));
-              }
-            });
+    if (this.metricCollector instanceof LocalMetricCollector) {
+      var localCollector = (LocalMetricCollector) this.metricCollector;
+      clusterInfo.availableReplicas(topic).stream()
+          .filter(p -> !localCollector.listIdentities().contains(p.nodeInfo().id()))
+          .forEach(
+              node -> {
+                if (!localCollector.listIdentities().contains(node.nodeInfo().id())) {
+                  jmxPortGetter
+                      .apply(node.nodeInfo().id())
+                      .ifPresent(
+                          port ->
+                              localCollector.registerJmx(
+                                  node.nodeInfo().id(),
+                                  InetSocketAddress.createUnresolved(
+                                      node.nodeInfo().host(), port)));
+                }
+              });
+    }
   }
 }

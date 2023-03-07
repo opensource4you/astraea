@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
@@ -51,8 +52,9 @@ import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
-import org.astraea.gui.pane.TableRefresher;
+import org.astraea.gui.pane.SecondPart;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
@@ -180,7 +182,50 @@ class BalancerNode {
                 .isEmpty();
   }
 
-  static TableRefresher refresher(Context context) {
+  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
+      tableViewAction(Context context) {
+    return (items, inputs, logger) -> {
+      var plan = LAST_PLAN.getAndSet(null);
+      if (plan != null) {
+        logger.log("applying better assignments ... ");
+        var f =
+            RebalancePlanExecutor.of()
+                .run(context.admin(), plan.proposal(), Duration.ofHours(2))
+                .toCompletableFuture();
+        return CompletableFuture.runAsync(
+                () -> {
+                  while (!f.isDone()) {
+                    context
+                        .admin()
+                        .topicNames(false)
+                        .thenCompose(context.admin()::clusterInfo)
+                        .whenComplete(
+                            (clusterInfo, e) -> {
+                              if (clusterInfo != null) {
+                                var count =
+                                    clusterInfo
+                                        .replicaStream()
+                                        .filter(r -> r.isFuture() || r.isAdding() || r.isRemoving())
+                                        .count();
+                                if (count > 0)
+                                  logger.log(
+                                      "There are " + count + " moving replicas ... please wait");
+                              }
+                            });
+                    // TODO: should we make this sleep configurable?
+                    Utils.sleep(Duration.ofSeconds(7));
+                  }
+                })
+            .thenCompose(ignored -> f)
+            .thenAccept(ignored -> logger.log("succeed to execute re-balance"));
+      }
+      logger.log("Please click \"PLAN\" to generate re-balance plan");
+      return CompletableFuture.completedFuture(null);
+    };
+  }
+
+  static BiFunction<Argument, Logger, CompletionStage<Map<String, List<Map<String, Object>>>>>
+      refresher(Context context) {
     return (argument, logger) ->
         context
             .admin()
@@ -245,48 +290,6 @@ class BalancerNode {
                 });
   }
 
-  static Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>>
-      tableViewAction(Context context) {
-    return (items, inputs, logger) -> {
-      var plan = LAST_PLAN.getAndSet(null);
-      if (plan != null) {
-        logger.log("applying better assignments ... ");
-        var f =
-            RebalancePlanExecutor.of()
-                .run(context.admin(), plan.proposal(), Duration.ofHours(2))
-                .toCompletableFuture();
-        return CompletableFuture.runAsync(
-                () -> {
-                  while (!f.isDone()) {
-                    context
-                        .admin()
-                        .topicNames(false)
-                        .thenCompose(context.admin()::clusterInfo)
-                        .whenComplete(
-                            (clusterInfo, e) -> {
-                              if (clusterInfo != null) {
-                                var count =
-                                    clusterInfo
-                                        .replicaStream()
-                                        .filter(r -> r.isFuture() || r.isAdding() || r.isRemoving())
-                                        .count();
-                                if (count > 0)
-                                  logger.log(
-                                      "There are " + count + " moving replicas ... please wait");
-                              }
-                            });
-                    // TODO: should we make this sleep configurable?
-                    Utils.sleep(Duration.ofSeconds(7));
-                  }
-                })
-            .thenCompose(ignored -> f)
-            .thenAccept(ignored -> logger.log("succeed to execute re-balance"));
-      }
-      logger.log("Please click \"PLAN\" to generate re-balance plan");
-      return CompletableFuture.completedFuture(null);
-    };
-  }
-
   public static Node of(Context context) {
     var selectBox =
         SelectBox.multi(
@@ -298,9 +301,18 @@ class BalancerNode {
             TextInput.of(MAX_MIGRATE_LEADER_NUM, EditableText.singleLine().onlyNumber().build()),
             TextInput.of(
                 MAX_MIGRATE_LOG_SIZE, EditableText.singleLine().hint("30KB,200MB,1GB").build()));
+    var firstPart =
+        FirstPart.builder()
+            .selectBox(selectBox)
+            .textInputs(multiInput)
+            .clickName("PLAN")
+            .tablesRefresher(refresher(context))
+            .build();
+    var secondPart =
+        SecondPart.builder().buttonName("EXECUTE").action(tableViewAction(context)).build();
     return PaneBuilder.of(TableViewer.disableQuery())
-        .firstPart(selectBox, multiInput, "PLAN", refresher(context))
-        .secondPart("EXECUTE", tableViewAction(context))
+        .firstPart(firstPart)
+        .secondPart(secondPart)
         .build();
   }
 }

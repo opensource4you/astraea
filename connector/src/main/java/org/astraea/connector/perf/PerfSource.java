@@ -197,11 +197,14 @@ public class PerfSource extends SourceConnector {
               configuration
                   .string(VALUE_DISTRIBUTION_DEF.name())
                   .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
-      keySelector = keyDistribution.create(10000);
-      keySizeGenerator = keyDistribution.create(keyLength.measurement(DataUnit.Byte).intValue());
-      valueSelector = valueDistribution.create(10000);
+      keySelector = keyDistribution.create(10000, Configuration.EMPTY);
+      keySizeGenerator =
+          keyDistribution.create(
+              keyLength.measurement(DataUnit.Byte).intValue(), Configuration.EMPTY);
+      valueSelector = valueDistribution.create(10000, Configuration.EMPTY);
       valueSizeGenerator =
-          valueDistribution.create(valueLength.measurement(DataUnit.Byte).intValue());
+          valueDistribution.create(
+              valueLength.measurement(DataUnit.Byte).intValue(), Configuration.EMPTY);
       specifyPartitions = specifyPartitions(configuration);
     }
 

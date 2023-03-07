@@ -26,6 +26,7 @@ import org.astraea.common.MapUtils;
 import org.astraea.common.VersionUtils;
 import org.astraea.gui.Context;
 import org.astraea.gui.button.SelectBox;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
 
 public class AboutNode {
@@ -126,21 +127,25 @@ public class AboutNode {
   }
 
   public static Node of(Context ignored) {
-    return PaneBuilder.of()
-        .firstPart(
-            SelectBox.single(
-                Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
-                Info.values().length),
-            "DISPLAY",
-            (argument, logger) ->
-                CompletableFuture.completedFuture(
-                    argument.selectedKeys().stream()
-                        .flatMap(
-                            name ->
-                                Arrays.stream(Info.values()).filter(c -> c.toString().equals(name)))
-                        .findFirst()
-                        .orElse(Info.Version)
-                        .tables))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .selectBox(
+                SelectBox.single(
+                    Arrays.stream(Info.values()).map(Info::toString).collect(Collectors.toList()),
+                    Info.values().length))
+            .clickName("DISPLAY")
+            .tableRefresher(
+                (argument, logger) ->
+                    CompletableFuture.completedFuture(
+                        argument.selectedKeys().stream()
+                            .flatMap(
+                                name ->
+                                    Arrays.stream(Info.values())
+                                        .filter(c -> c.toString().equals(name)))
+                            .findFirst()
+                            .orElse(Info.Version)
+                            .tables))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
   }
 }

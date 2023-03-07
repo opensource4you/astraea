@@ -224,7 +224,7 @@ class BalancerConsoleTest {
           () ->
               console
                   .launchRebalancePlanExecution()
-                  .setExecutor(new StraightPlanExecutor())
+                  .setExecutor(new StraightPlanExecutor(Configuration.EMPTY))
                   .checkPlanConsistency(true)
                   .execute("THE_TASK_0")
                   .toCompletableFuture()

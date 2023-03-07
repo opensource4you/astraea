@@ -18,11 +18,8 @@ package org.astraea.gui.pane;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.application.Platform;
@@ -33,13 +30,10 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
-import org.astraea.common.function.Bi3Function;
-import org.astraea.gui.Logger;
 import org.astraea.gui.button.Click;
 import org.astraea.gui.button.SelectBox;
 import org.astraea.gui.table.TableViewer;
 import org.astraea.gui.text.EditableText;
-import org.astraea.gui.text.TextInput;
 
 /**
  * Layout: <br>
@@ -78,42 +72,19 @@ public class PaneBuilder {
     this.tableViewer = tableViewer;
   }
 
-  public PaneBuilder firstPart(
-      SelectBox selectBox,
-      String clickName,
-      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(selectBox, List.of(), clickName, TableRefresher.of(tableRefresher));
-  }
-
-  public PaneBuilder firstPart(
-      List<TextInput> textInputs,
-      String clickName,
-      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(null, textInputs, clickName, TableRefresher.of(tableRefresher));
-  }
-
-  public PaneBuilder firstPart(
-      String clickName,
-      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> tableRefresher) {
-    return firstPart(null, List.of(), clickName, TableRefresher.of(tableRefresher));
-  }
-
-  public PaneBuilder firstPart(
-      SelectBox selectBox,
-      List<TextInput> textInputs,
-      String clickName,
-      TableRefresher tableRefresher) {
-    Objects.requireNonNull(clickName);
-    Objects.requireNonNull(tableRefresher);
-    var click = Click.of(clickName);
-    var multiInput = textInputs.isEmpty() ? null : MultiInput.of(textInputs);
+  public PaneBuilder firstPart(FirstPart part) {
+    var click = Click.of(part.clickName());
+    var multiInput =
+        part.textInputs().isEmpty()
+            ? Optional.<MultiInput>empty()
+            : Optional.of(MultiInput.of(part.textInputs()));
     root.getChildren()
         .add(
             0,
             vbox(
                 Stream.of(
-                        Optional.ofNullable(selectBox).map(SelectBox::node).stream(),
-                        Optional.ofNullable(multiInput).map(MultiInput::node).stream(),
+                        part.selectBox().map(SelectBox::node).stream(),
+                        multiInput.map(MultiInput::node).stream(),
                         Optional.of(click.node()).stream())
                     .flatMap(s -> s)
                     .collect(Collectors.toList())));
@@ -122,7 +93,7 @@ public class PaneBuilder {
 
     Runnable handler =
         () -> {
-          var invalidKeys = multiInput == null ? Set.of() : multiInput.invalidKeys();
+          var invalidKeys = multiInput.map(MultiInput::invalidKeys).orElse(Set.of());
           if (!invalidKeys.isEmpty()) {
             console.text("please check fields: " + invalidKeys);
             return;
@@ -130,13 +101,16 @@ public class PaneBuilder {
 
           var argument =
               Argument.of(
-                  selectBox == null ? List.of() : selectBox.selectedKeys(),
-                  multiInput == null ? Map.of() : multiInput.contents());
+                  part.selectBox().map(SelectBox::selectedKeys).orElse(List.of()),
+                  multiInput.map(MultiInput::contents).orElse(Map.of()));
 
           console.cleanup();
           click.disable();
           try {
-            tableRefresher
+            part.tipRefresher()
+                .apply(argument, console::append)
+                .whenComplete((tips, e) -> tableViewer.tip(tips));
+            part.tableRefresher()
                 .apply(argument, console::append)
                 .whenComplete(
                     (data, e) -> {
@@ -180,20 +154,12 @@ public class PaneBuilder {
     return this;
   }
 
-  public PaneBuilder secondPart(
-      String buttonName,
-      Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
-    return secondPart(List.of(), buttonName, action);
-  }
-
-  public PaneBuilder secondPart(
-      List<TextInput> textInputs,
-      String buttonName,
-      Bi3Function<List<Map<String, Object>>, Argument, Logger, CompletionStage<Void>> action) {
-    Objects.requireNonNull(buttonName);
-    Objects.requireNonNull(action);
-    var multiInput = textInputs.isEmpty() ? null : MultiInput.of(textInputs);
-    var tableViewClick = Click.disabled(buttonName);
+  public PaneBuilder secondPart(SecondPart secondPart) {
+    var multiInput =
+        secondPart.textInputs().isEmpty()
+            ? Optional.<MultiInput>empty()
+            : Optional.of(MultiInput.of(secondPart.textInputs()));
+    var tableViewClick = Click.disabled(secondPart.buttonName());
     var checkbox = new CheckBox("enable");
     checkbox
         .selectedProperty()
@@ -201,30 +167,30 @@ public class PaneBuilder {
             (observable, oldValue, newValue) -> {
               if (checkbox.isSelected()) {
                 tableViewClick.enable();
-                if (multiInput != null) multiInput.enable();
+                multiInput.ifPresent(MultiInput::enable);
               } else {
                 tableViewClick.disable();
-                if (multiInput != null) multiInput.disable();
+                multiInput.ifPresent(MultiInput::disable);
               }
             });
     tableViewClick.action(
         () -> {
           var items = tableViewer.filteredData();
           if (items.isEmpty()) return;
-          var text =
-              multiInput == null ? Map.<String, Optional<String>>of() : multiInput.contents();
+          var text = multiInput.map(MultiInput::contents).orElse(Map.of());
           // the click for table view requires only user text inputs.
           var input = Argument.of(List.of(), text);
 
           checkbox.setDisable(true);
           checkbox.setSelected(false);
           try {
-            var invalidKeys = multiInput == null ? Set.of() : multiInput.invalidKeys();
+            var invalidKeys = multiInput.map(MultiInput::invalidKeys).orElse(Set.of());
             if (!invalidKeys.isEmpty()) {
               console.text("please check fields: " + invalidKeys);
               return;
             }
-            action
+            secondPart
+                .action()
                 .apply(items, input, console::append)
                 .whenComplete(
                     (data, e) -> {
@@ -237,8 +203,10 @@ public class PaneBuilder {
           }
         });
 
-    if (multiInput == null) secondControl = vbox(List.of(checkbox, tableViewClick.node()));
-    else secondControl = vbox(List.of(checkbox, multiInput.node(), tableViewClick.node()));
+    secondControl =
+        multiInput
+            .map(m -> vbox(List.of(checkbox, m.node(), tableViewClick.node())))
+            .orElseGet(() -> vbox(List.of(checkbox, tableViewClick.node())));
     return this;
   }
 
