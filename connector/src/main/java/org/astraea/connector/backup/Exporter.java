@@ -160,13 +160,13 @@ public class Exporter extends SinkConnector {
               var itr = writers.values().iterator();
               while (itr.hasNext()) {
                 var writer = itr.next();
-                if (currentTime - writer.lastModifiedTime() > interval) {
+                if (currentTime - writer.successAppendTimestamp() > interval) {
                   System.out.println("close writer " + writer);
                   writer.close();
                   itr.remove();
                 } else {
-                  if (oldestWriteTime > writer.lastModifiedTime())
-                    oldestWriteTime = writer.lastModifiedTime();
+                  if (oldestWriteTime > writer.successAppendTimestamp())
+                    oldestWriteTime = writer.successAppendTimestamp();
                 }
               }
             }

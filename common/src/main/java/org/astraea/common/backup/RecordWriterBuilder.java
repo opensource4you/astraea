@@ -91,7 +91,7 @@ public class RecordWriterBuilder {
             }
 
             @Override
-            public long lastModifiedTime() {
+            public long successAppendTimestamp() {
               return this.successAppendTimestamp.get();
             }
 

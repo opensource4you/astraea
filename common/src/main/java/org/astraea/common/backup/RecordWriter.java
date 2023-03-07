@@ -38,7 +38,7 @@ public interface RecordWriter extends AutoCloseable {
 
   void flush();
 
-  long lastModifiedTime();
+  long successAppendTimestamp();
 
   @Override
   void close();
