@@ -16,7 +16,7 @@ Kafka端處理fetch request時，會有一個迴圈，這個迴圈會在跟os的
 
 ## Consumer poll速度太慢
 ### 原因
-consumer的socket buffer size開太小，預設為64KB，調大buffer size後，可以增加每次socket傳輸的資料量以提昇整體效能
+原因跟[單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)類似，不會一直連續的做fetch，而是fetch一次之後會先做一些處理，因此每次fetch都會有一些間隔
 ### 解法
 調整Consumer config的"receive.buffer.bytes"，建議設定為-1，讓OS來決定buffer size大小
 ### 詳細討論
