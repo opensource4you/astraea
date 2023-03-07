@@ -60,14 +60,6 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
 
-  static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
-      HasMoveCost.of(
-          List.of(
-              new ReplicaNumberCost(),
-              new ReplicaLeaderCost(),
-              new RecordSizeCost(),
-              new ReplicaLeaderSizeCost()));
-
   private final Admin admin;
   private final BalancerConsole balancerConsole;
   private final Map<String, PostRequestWrapper> taskMetadata = new ConcurrentHashMap<>();
@@ -339,10 +331,22 @@ class BalancerHandler implements Handler {
     var moveCostLimit =
         Configuration.of(
             Map.of(
+                ReplicaNumberCost.COST_LIMIT_KEY,
+                Long.toString(balancerPostRequest.maxMigratedReplicas),
                 ReplicaLeaderCost.COST_LIMIT_KEY,
                 Long.toString(balancerPostRequest.maxMigratedLeader),
                 RecordSizeCost.COST_LIMIT_KEY,
-                Long.toString(balancerPostRequest.maxMigratedSize.bytes())));
+                Long.toString(balancerPostRequest.maxMigratedSize.bytes()),
+                ReplicaLeaderSizeCost.COST_LIMIT_KEY,
+                Long.toString(balancerPostRequest.maxMigratedLeaderSize.bytes())));
+    var moveCost =
+        HasMoveCost.of(
+            List.of(
+                new ReplicaNumberCost(moveCostLimit),
+                new ReplicaLeaderCost(moveCostLimit),
+                new RecordSizeCost(moveCostLimit),
+                new ReplicaLeaderSizeCost(moveCostLimit)));
+
     if (topics.isEmpty())
       throw new IllegalArgumentException(
           "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
@@ -356,7 +360,7 @@ class BalancerHandler implements Handler {
         Configuration.of(balancerPostRequest.balancerConfig),
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .moveCost(moveCost)
             .movementLimit(moveCostLimit)
             .timeout(balancerPostRequest.timeout)
             .topicFilter(topics::contains)
@@ -374,8 +378,9 @@ class BalancerHandler implements Handler {
     Set<String> topics = Set.of();
 
     DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
-
+    DataSize maxMigratedLeaderSize = DataSize.Byte.of(Long.MAX_VALUE);
     long maxMigratedLeader = Long.MAX_VALUE;
+    long maxMigratedReplicas = Long.MAX_VALUE;
 
     List<CostWeight> costWeights = List.of();
 

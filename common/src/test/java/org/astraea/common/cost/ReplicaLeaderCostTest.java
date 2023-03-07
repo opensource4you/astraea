@@ -19,7 +19,6 @@ package org.astraea.common.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
@@ -212,9 +211,7 @@ public class ReplicaLeaderCostTest {
                 .build());
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
-    var moveCost =
-        costFunction.moveCost(
-            beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY, Configuration.EMPTY);
+    var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
     Assertions.assertEquals(3, moveCost.changedReplicaLeaderCount().size());
     Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(0));
     Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(1));

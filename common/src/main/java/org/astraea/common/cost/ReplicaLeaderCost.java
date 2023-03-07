@@ -38,6 +38,15 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   private final Dispersion dispersion = Dispersion.cov();
   public static final String COST_NAME = "leader";
   public static final String COST_LIMIT_KEY = "max.migrated.size";
+  private final Configuration moveCostLimit;
+
+  public ReplicaLeaderCost() {
+    this.moveCostLimit = Configuration.of(Map.of());
+  }
+
+  public ReplicaLeaderCost(Configuration moveCostLimit) {
+    this.moveCostLimit = moveCostLimit;
+  }
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -49,7 +58,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var brokerScore = brokerCost(clusterInfo, clusterBean).value();
+    var brokerScore = leaderCount(clusterInfo);
+    // var brokerScore = brokerCost(clusterInfo, clusterBean).value();
     var value = dispersion.calculate(brokerScore.values());
     return ClusterCost.of(
         value,
@@ -96,8 +106,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -132,7 +141,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                       return newLeaders - removedLeaders;
                     }));
     var maxMigratedLeader =
-        limits.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+        moveCostLimit.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
     return MoveCost.changedReplicaLeaderCount(moveCost, overflow);

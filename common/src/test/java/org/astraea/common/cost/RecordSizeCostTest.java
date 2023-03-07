@@ -19,7 +19,6 @@ package org.astraea.common.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -73,7 +72,7 @@ public class RecordSizeCostTest {
                 .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())
                 .collect(Collectors.toList()));
 
-    var result = function.moveCost(before, clusterInfo, ClusterBean.EMPTY, Configuration.EMPTY);
+    var result = function.moveCost(before, clusterInfo, ClusterBean.EMPTY);
     Assertions.assertEquals(3, result.movedRecordSize().size());
     Assertions.assertEquals(-99, result.movedRecordSize().get(0).bytes());
     Assertions.assertEquals(99, result.movedRecordSize().get(2).bytes());

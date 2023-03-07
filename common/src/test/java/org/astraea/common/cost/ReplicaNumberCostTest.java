@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
@@ -223,9 +222,7 @@ class ReplicaNumberCostTest {
                 .build());
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
-    var moveCost =
-        costFunction.moveCost(
-            beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY, Configuration.EMPTY);
+    var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
     Assertions.assertEquals(
         3, moveCost.changedReplicaCount().size(), moveCost.changedReplicaCount().toString());
     Assertions.assertTrue(moveCost.changedReplicaCount().containsKey(0));

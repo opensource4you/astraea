@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,6 +30,15 @@ import org.astraea.common.admin.Replica;
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
   public static final String COST_LIMIT_KEY = "max.migrated.leader";
+  private final Configuration moveCostLimit;
+
+  public RecordSizeCost() {
+    this.moveCostLimit = Configuration.of(Map.of());
+  }
+
+  public RecordSizeCost(Configuration moveCostLimit) {
+    this.moveCostLimit = moveCostLimit;
+  }
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -42,8 +52,7 @@ public class RecordSizeCost
   }
 
   @Override
-  public MoveCost moveCost(
-      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
+  public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -56,7 +65,8 @@ public class RecordSizeCost
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
                                 - before.replicaStream(id).mapToLong(Replica::size).sum())));
-    var maxMigratedSize = limits.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+    var maxMigratedSize =
+        moveCostLimit.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedSize
             < moveCost.values().stream()

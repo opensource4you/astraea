@@ -158,7 +158,7 @@ public class GreedyBalancer implements Balancer {
                       return new Solution(
                           clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
                           moveCostFunction.moveCost(
-                              currentClusterInfo, newClusterInfo, clusterBean, limit),
+                              currentClusterInfo, newClusterInfo, clusterBean),
                           newAllocation);
                     })
                 .filter(

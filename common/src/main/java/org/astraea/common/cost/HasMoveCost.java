@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -29,7 +28,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 @FunctionalInterface
 public interface HasMoveCost extends CostFunction {
 
-  HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean, limit) -> MoveCost.EMPTY;
+  HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.EMPTY;
 
   static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts) {
     var sensor =
@@ -42,11 +41,10 @@ public interface HasMoveCost extends CostFunction {
     return new HasMoveCost() {
 
       @Override
-      public MoveCost moveCost(
-          ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits) {
+      public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
         var costs =
             hasMoveCosts.stream()
-                .map(c -> c.moveCost(before, after, clusterBean, limits))
+                .map(c -> c.moveCost(before, after, clusterBean))
                 .collect(Collectors.toList());
 
         var movedReplicaLeaderSize =
@@ -126,6 +124,5 @@ public interface HasMoveCost extends CostFunction {
    * @param clusterBean cluster metrics
    * @return the score of migrate cost
    */
-  MoveCost moveCost(
-      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean, Configuration limits);
+  MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean);
 }
