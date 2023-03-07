@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
@@ -37,11 +38,10 @@ public class RecordWriterBuilder {
             private final AtomicInteger count = new AtomicInteger();
             private final LongAdder size = new LongAdder();
 
-            private long lastModifiedTime = System.currentTimeMillis();
+            private final AtomicLong successAppendTimestamp = new AtomicLong();
 
             @Override
             public void append(Record<byte[], byte[]> record) {
-              this.lastModifiedTime = System.currentTimeMillis();
               var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
               var recordSize =
                   2 // [topic size 2bytes]
@@ -87,11 +87,12 @@ public class RecordWriterBuilder {
                       });
               Utils.packException(() -> outputStream.write(recordBuffer.array()));
               count.incrementAndGet();
+              this.successAppendTimestamp.set(System.currentTimeMillis());
             }
 
             @Override
             public long lastModifiedTime() {
-              return this.lastModifiedTime;
+              return this.successAppendTimestamp.get();
             }
 
             @Override
