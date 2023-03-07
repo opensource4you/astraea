@@ -23,6 +23,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
@@ -83,8 +84,8 @@ public class ShuffleTweaker implements AllocationTweaker {
           for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
             final var tp = partitionOrder.get(i);
             if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
-            switch (ThreadLocalRandom.current().nextInt(0, 2)) {
-              case 0:
+            switch (Operation.random()) {
+              case LEADERSHIP_CHANGE:
                 {
                   // change leader/follower identity
                   var replica =
@@ -100,7 +101,7 @@ public class ShuffleTweaker implements AllocationTweaker {
                   }
                   break;
                 }
-              case 1:
+              case REPLICA_LIST_CHANGE:
                 {
                   // change replica list
                   var replicaList = baseAllocation.replicas(tp);
@@ -148,5 +149,36 @@ public class ShuffleTweaker implements AllocationTweaker {
             // no leader
             r -> r.stream().noneMatch(Replica::isLeader))
         .noneMatch(p -> p.test(replicas));
+  }
+
+  enum Operation implements EnumInfo {
+    LEADERSHIP_CHANGE,
+    REPLICA_LIST_CHANGE;
+
+    public static Operation random() {
+      int random = ThreadLocalRandom.current().nextInt(0, 2);
+      switch (random) {
+        case 0:
+          return LEADERSHIP_CHANGE;
+        case 1:
+          return REPLICA_LIST_CHANGE;
+        default:
+          throw new RuntimeException("Unexpected value: " + random);
+      }
+    }
+
+    public static Operation ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Operation.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 }
