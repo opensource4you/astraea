@@ -58,29 +58,32 @@ public class InternalTopicCollector implements MetricCollector {
             .valueDeserializer(Deserializer.BEAN_OBJECT)
             .build();
 
-    this.future = CompletableFuture.runAsync(() -> {
-    while (!closed.get()) {
-      consumer.poll(Duration.ofSeconds(1)).stream()
-          .filter(r -> r.value() != null)
-          // Parsing topic name
-          .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
-          .filter(matcherBean -> matcherBean.getKey().matches())
-          .forEach(
-              matcherBean -> {
-                int id = Integer.parseInt(matcherBean.getKey().group("brokerId"));
-                metricStores.compute(
-                    id,
-                    (ID, old) -> {
-                      if (old == null) old = new MetricStore();
-                      old.put(
-                          new BeanProperties(
-                              matcherBean.getValue().domainName(),
-                              matcherBean.getValue().properties()),
-                          matcherBean.getValue());
-                      return old;
-                    });
-              });
-    }});
+    this.future =
+        CompletableFuture.runAsync(
+            () -> {
+              while (!closed.get()) {
+                consumer.poll(Duration.ofSeconds(1)).stream()
+                    .filter(r -> r.value() != null)
+                    // Parsing topic name
+                    .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
+                    .filter(matcherBean -> matcherBean.getKey().matches())
+                    .forEach(
+                        matcherBean -> {
+                          int id = Integer.parseInt(matcherBean.getKey().group("brokerId"));
+                          metricStores.compute(
+                              id,
+                              (ID, old) -> {
+                                if (old == null) old = new MetricStore();
+                                old.put(
+                                    new BeanProperties(
+                                        matcherBean.getValue().domainName(),
+                                        matcherBean.getValue().properties()),
+                                    matcherBean.getValue());
+                                return old;
+                              });
+                        });
+              }
+            });
   }
 
   @Override
