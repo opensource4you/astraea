@@ -38,7 +38,7 @@ public class RecordWriterBuilder {
             private final AtomicInteger count = new AtomicInteger();
             private final LongAdder size = new LongAdder();
 
-            private final AtomicLong successAppendTimestamp = new AtomicLong();
+            private final AtomicLong latestAppendTimestamp = new AtomicLong();
 
             @Override
             public void append(Record<byte[], byte[]> record) {
@@ -87,12 +87,12 @@ public class RecordWriterBuilder {
                       });
               Utils.packException(() -> outputStream.write(recordBuffer.array()));
               count.incrementAndGet();
-              this.successAppendTimestamp.set(System.currentTimeMillis());
+              this.latestAppendTimestamp.set(System.currentTimeMillis());
             }
 
             @Override
-            public long successAppendTimestamp() {
-              return this.successAppendTimestamp.get();
+            public long latestAppendTimestamp() {
+              return this.latestAppendTimestamp.get();
             }
 
             @Override

@@ -149,24 +149,24 @@ public class Exporter extends SinkConnector {
         Supplier<Record<byte[], byte[]>> recordsQueue) {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
-        var oldestWriteTime = System.currentTimeMillis();
+        var longestWriteTime = System.currentTimeMillis();
 
         try {
           while (!closed.get()) {
             var record = recordsQueue.get();
             var currentTime = System.currentTimeMillis();
 
-            if (currentTime - oldestWriteTime > interval) {
+            if (currentTime - longestWriteTime > interval) {
+              longestWriteTime = currentTime;
               var itr = writers.values().iterator();
               while (itr.hasNext()) {
                 var writer = itr.next();
-                if (currentTime - writer.successAppendTimestamp() > interval) {
+                if (currentTime - writer.latestAppendTimestamp() > interval) {
                   System.out.println("close writer " + writer);
                   writer.close();
                   itr.remove();
                 } else {
-                  if (oldestWriteTime > writer.successAppendTimestamp())
-                    oldestWriteTime = writer.successAppendTimestamp();
+                  longestWriteTime = Math.min(longestWriteTime, writer.latestAppendTimestamp());
                 }
               }
             }

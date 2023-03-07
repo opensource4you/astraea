@@ -38,7 +38,11 @@ public interface RecordWriter extends AutoCloseable {
 
   void flush();
 
-  long successAppendTimestamp();
+  /**
+   * @return latestAppendTimestamp, this variable will only be updated if the function append was
+   *     successful.
+   */
+  long latestAppendTimestamp();
 
   @Override
   void close();
