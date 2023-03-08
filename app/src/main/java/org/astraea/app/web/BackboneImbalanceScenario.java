@@ -21,9 +21,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -62,6 +64,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
   public static final String CONFIG_PARTITION_COUNT_MAX = "partitionCountMax";
   public static final String CONFIG_BACKBONE_DATA_RATE = "backboneDataRate";
   public static final String CONFIG_PERF_CLIENT_COUNT = "performanceClientCount";
+  public static final String CONFIG_PERF_KEY_TABLE_SEED = "performanceKeyTableSeed";
+  public static final String CONFIG_PERF_ZIPFIAN_EXPONENT = "performanceZipfianExponent";
 
   private static final String backboneTopicName = "backbone";
 
@@ -369,7 +373,9 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       class PerfClient {
         long consumeRate = 0;
         long produceRate = 0;
-        Set<String> topics = new HashSet<>();
+        final Set<String> topics = new HashSet<>();
+        String keyDistribution;
+        final Map<String, String> keyDistributionConfig = new HashMap<>();
       }
       var clientCount = config.performanceClientCount();
       if (clientCount < 2) throw new IllegalArgumentException("At least two clients are required");
@@ -394,6 +400,15 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
           nextClient.consumeRate += dataRate;
           nextClient.produceRate += dataRate / fanout;
           nextClient.topics.add(topic);
+        }
+      }
+      for(var client: clients) {
+        var zipfian =
+            client.topics.equals(Set.of(BackboneImbalanceScenario.backboneTopicName));
+        client.keyDistribution = zipfian ? "zipfian" : "uniform";
+        if (zipfian) {
+          client.keyDistributionConfig.put(
+              "exponent", Double.toString(config.zipfianExponent()));
         }
       }
 
@@ -427,14 +442,19 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                             })
                         .collect(Collectors.joining(","));
                 var throughput = String.format("%dByte/second", (long) produceRate.byteRate());
+                var keyDistConfigString = client.keyDistributionConfig.entrySet().stream()
+                    .map(e -> String.format("%s=%s", e.getKey(), e.getValue()))
+                    .collect(Collectors.joining());
                 return Map.ofEntries(
                     Map.entry("backbone", Boolean.toString(isBackbone)),
                     Map.entry("topics", String.join(",", client.topics)),
                     Map.entry("throughput", throughput),
                     Map.entry("throttle", throttle),
-                    Map.entry("key_distribution", isBackbone ? "zipfian" : "uniform"),
-                    Map.entry("consumeRate", consumeRate.toString()),
-                    Map.entry("produceRate", produceRate.toString()));
+                    Map.entry("key_distribution", client.keyDistribution),
+                    Map.entry("key_distribution_config", keyDistConfigString),
+                    Map.entry("key_table_seed", Integer.toString(config.keyTableSeed())),
+                    Map.entry("consume_rate", consumeRate.toString()),
+                    Map.entry("produce_rate", produceRate.toString()));
               })
           .collect(Collectors.toUnmodifiableList());
     }
@@ -449,6 +469,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
 
     private final Configuration scenarioConfig;
     private final int defaultRandomSeed = ThreadLocalRandom.current().nextInt();
+    private final int defaultPerfKeyTableSeed = new Random(defaultRandomSeed).nextInt();
 
     public Config(Configuration scenarioConfig) {
       this.scenarioConfig = scenarioConfig;
@@ -516,6 +537,20 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
 
     int performanceClientCount() {
       return scenarioConfig.string(CONFIG_PERF_CLIENT_COUNT).map(Integer::parseInt).orElse(7);
+    }
+
+    int keyTableSeed() {
+      return scenarioConfig
+          .string(CONFIG_PERF_KEY_TABLE_SEED)
+          .map(Integer::parseInt)
+          .orElse(defaultPerfKeyTableSeed);
+    }
+
+    double zipfianExponent() {
+      return scenarioConfig
+          .string(CONFIG_PERF_ZIPFIAN_EXPONENT)
+          .map(Double::parseDouble)
+          .orElse(1.0);
     }
   }
 }
