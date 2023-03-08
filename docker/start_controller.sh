@@ -21,51 +21,41 @@ source $DOCKER_FOLDER/docker_build_common.sh
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
 declare -r VERSION=${REVISION:-${VERSION:-3.4.0}}
-declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
-declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
+declare -r DOCKERFILE=$DOCKER_FOLDER/controller.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
+declare -r CLUSTER_ID=${CLUSTER_ID:-"$(randomString)"}
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
 declare -r NODE_ID=${NODE_ID:-"$(getRandomPort)"}
-declare -r BROKER_PORT=${BROKER_PORT:-"$(getRandomPort)"}
-declare -r CONTAINER_NAME="broker-$BROKER_PORT"
-declare -r BROKER_JMX_PORT="${BROKER_JMX_PORT:-"$(getRandomPort)"}"
-declare -r ADMIN_NAME="admin"
-declare -r ADMIN_PASSWORD="admin-secret"
-declare -r USER_NAME="user"
-declare -r USER_PASSWORD="user-secret"
+declare -r CONTROLLER_PORT=${CONTROLLER_PORT:-"$(getRandomPort)"}
+declare -r CONTAINER_NAME="controller-$CONTROLLER_PORT"
+declare -r CONTROLLER_JMX_PORT="${CONTROLLER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r JMX_CONFIG_FILE="${JMX_CONFIG_FILE}"
 declare -r JMX_CONFIG_FILE_IN_CONTAINER_PATH="/opt/jmx_exporter/jmx_exporter_config.yml"
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false \
-  -Dcom.sun.management.jmxremote.port=$BROKER_JMX_PORT \
-  -Dcom.sun.management.jmxremote.rmi.port=$BROKER_JMX_PORT \
+  -Dcom.sun.management.jmxremote.port=$CONTROLLER_JMX_PORT \
+  -Dcom.sun.management.jmxremote.rmi.port=$CONTROLLER_JMX_PORT \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
-declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/broker:$VERSION"
+declare -r CONTROLLER_PROPERTIES="/tmp/controller-${CONTROLLER_PORT}.properties"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/controller:$VERSION"
 # cleanup the file if it is existent
-[[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
+[[ -f "$CONTROLLER_PROPERTIES" ]] && rm -f "$CONTROLLER_PROPERTIES"
 
 # ===================================[functions]===================================
 
 function showHelp() {
-  echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
-  echo "Required Argument: "
-  echo "    zookeeper.connect=node:22222             set zookeeper connection"
-  echo "Optional Arguments: "
-  echo "    num.io.threads=10                        set broker I/O threads"
-  echo "    num.network.threads=10                   set broker network threads"
+  echo "Usage: [ENV] start_controller.sh [ ARGUMENTS ]"
   echo "ENV: "
   echo "    KAFKA_ACCOUNT=apache                      set the github account for kafka repo"
   echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
-  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
+  echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set controller JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.4.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
-  echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
-  echo "    CLUSTER_ID=asdasdasdsd                set cluster id for krafe mode"
+  echo "    META_FOLDER=/tmp/folder1                set host folder used by controller"
 }
 
 function generateDockerfileBySource() {
@@ -83,8 +73,6 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 RUN git clone ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
 RUN git checkout $VERSION
-# generate gradlew for previous
-RUN cp /tmp/kafka/gradlew /tmp/gradlew || /tmp/gradle-5.6.4/bin/gradle
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
@@ -161,48 +149,6 @@ function generateDockerfile() {
   fi
 }
 
-function setListener() {
-  if [[ "$SASL" == "true" ]]; then
-    echo "listeners=SASL_PLAINTEXT://:9092" >>"$BROKER_PROPERTIES"
-    echo "advertised.listeners=SASL_PLAINTEXT://${ADDRESS}:$BROKER_PORT" >>"$BROKER_PROPERTIES"
-    echo "security.inter.broker.protocol=SASL_PLAINTEXT" >>"$BROKER_PROPERTIES"
-    echo "sasl.mechanism.inter.broker.protocol=PLAIN" >>"$BROKER_PROPERTIES"
-    echo "sasl.enabled.mechanisms=PLAIN" >>"$BROKER_PROPERTIES"
-    echo "listener.name.sasl_plaintext.plain.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required \
-                 username="$ADMIN_NAME" \
-                 password="$ADMIN_PASSWORD" \
-                 user_${ADMIN_NAME}="$ADMIN_PASSWORD" \
-                 user_${USER_NAME}="${USER_PASSWORD}";" >>"$BROKER_PROPERTIES"
-    echo "authorizer.class.name=kafka.security.authorizer.AclAuthorizer" >>"$BROKER_PROPERTIES"
-    # allow brokers to communicate each other
-    echo "super.users=User:admin" >>"$BROKER_PROPERTIES"
-  else
-    echo "listeners=PLAINTEXT://:9092" >>"$BROKER_PROPERTIES"
-    echo "advertised.listeners=PLAINTEXT://${ADDRESS}:$BROKER_PORT" >>"$BROKER_PROPERTIES"
-  fi
-}
-
-function setLogDirs() {
-  declare -i count=0
-  if [[ -n "$DATA_FOLDERS" ]]; then
-    IFS=',' read -ra folders <<<"$DATA_FOLDERS"
-    for folder in "${folders[@]}"; do
-      # create the folder if it is nonexistent
-      mkdir -p "$folder"
-      count=$((count + 1))
-    done
-  else
-    count=3
-  fi
-
-  local logConfigs="log.dirs=$DATA_FOLDER_IN_CONTAINER_PREFIX-0"
-  for ((i = 1; i < count; i++)); do
-    logConfigs="$logConfigs,$DATA_FOLDER_IN_CONTAINER_PREFIX-$i"
-  done
-
-  echo $logConfigs >>"$BROKER_PROPERTIES"
-}
-
 function generateJmxConfigMountCommand() {
     if [[ "$JMX_CONFIG_FILE" != "" ]]; then
         echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
@@ -211,49 +157,20 @@ function generateJmxConfigMountCommand() {
     fi
 }
 
-function generateDataFolderMountCommand() {
-  local mount=""
-  if [[ -n "$DATA_FOLDERS" ]]; then
-    IFS=',' read -ra folders <<<"$DATA_FOLDERS"
-    # start with 0 rather than 1 (see setLogDirs)
-    declare -i count=0
-
-    for folder in "${folders[@]}"; do
-      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
-      count=$((count + 1))
-    done
+function setPropertyIfEmpty() {
+  local key=$1
+  local value=$2
+  if [[ ! -f "$CONTROLLER_PROPERTIES" ]] || [[ "$(cat $CONTROLLER_PROPERTIES | grep $key)" == "" ]]; then
+    echo "$key=$value" >>"$CONTROLLER_PROPERTIES"
   fi
-  echo "$mount"
 }
 
 function rejectProperty() {
   local key=$1
-  if [[ -f "$BROKER_PROPERTIES" ]] && [[ "$(cat $BROKER_PROPERTIES | grep $key)" != "" ]]; then
+  if [[ -f "$CONTROLLER_PROPERTIES" ]] && [[ "$(cat $CONTROLLER_PROPERTIES | grep $key)" != "" ]]; then
     echo "$key is NOT configurable"
     exit 2
   fi
-}
-
-function requireProperty() {
-  local key=$1
-  if [[ ! -f "$BROKER_PROPERTIES" ]] || [[ "$(cat $BROKER_PROPERTIES | grep $key)" == "" ]]; then
-    echo "$key is required"
-    exit 2
-  fi
-}
-
-function setPropertyIfEmpty() {
-  local key=$1
-  local value=$2
-  # performance configs
-  if [[ ! -f "$BROKER_PROPERTIES" ]] || [[ "$(cat $BROKER_PROPERTIES | grep $key)" == "" ]]; then
-    echo "$key=$value" >>"$BROKER_PROPERTIES"
-  fi
-}
-
-function getProperty() {
-  local key=$1
-  echo $(cat "$BROKER_PROPERTIES" | grep $key | cut -d = -f 2)
 }
 
 # ===================================[main]===================================
@@ -267,54 +184,42 @@ fi
 
 checkNetwork
 
-quorum="unknown"
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
     exit 0
   fi
-  echo "$1" >>"$BROKER_PROPERTIES"
-  if [[ "$1" == "controller.quorum.voters"* ]]; then
-    quorum="kraft"
-  fi
-  if [[ "$1" == "zookeeper.connect"* ]]; then
-    quorum="zookeeper"
-  fi
+  echo "$1" >>"$CONTROLLER_PROPERTIES"
   shift
 done
 
-if [[ "$quorum" == "unknown" ]]; then
-  echo "please define either zookeeper.connect or controller.quorum.voters"
-  exit 2
-fi
-
-rejectProperty "listeners"
-rejectProperty "log.dirs"
-rejectProperty "broker.id"
 rejectProperty "node.id"
+rejectProperty "controller.quorum.voters"
+rejectProperty "listeners"
 rejectProperty "process.roles"
 rejectProperty "controller.listener.names"
+rejectProperty "advertised.listeners"
+rejectProperty "zookeeper.connect"
+rejectProperty "log.dirs"
+rejectProperty "broker.id"
+# we don't use this property as kraft can use head of log.dirs instead
+rejectProperty "metadata.log.dir"
 
-setListener
-setPropertyIfEmpty "num.io.threads" "8"
-setPropertyIfEmpty "num.network.threads" "8"
+setPropertyIfEmpty "node.id" "$NODE_ID"
+setPropertyIfEmpty "controller.quorum.voters" "$NODE_ID@${ADDRESS}:$CONTROLLER_PORT"
+setPropertyIfEmpty "listeners" "CONTROLLER://:9093"
+setPropertyIfEmpty "process.roles" "controller"
+setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
 setPropertyIfEmpty "num.partitions" "8"
 setPropertyIfEmpty "transaction.state.log.replication.factor" "1"
 setPropertyIfEmpty "offsets.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
 setPropertyIfEmpty "min.insync.replicas" "1"
-setLogDirs
+setPropertyIfEmpty "log.dirs" "/tmp/kafka-meta"
 
-command="./bin/kafka-server-start.sh /tmp/broker.properties"
-if [[ "$quorum" == "kraft" ]]; then
-  if [[ -z "$CLUSTER_ID" ]]; then
-    echo "please set CLUSTER_ID for krafe mode"
-    exit 2
-  fi
-  setPropertyIfEmpty "node.id" "$NODE_ID"
-  setPropertyIfEmpty "process.roles" "broker"
-  setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
-  command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties && ./bin/kafka-server-start.sh /tmp/broker.properties"
+metaMountCommand=""
+if [[ -n "$META_FOLDER" ]]; then
+  metaMountCommand="-v $META_FOLDER:/tmp/kafka-meta"
 fi
 
 docker run -d --init \
@@ -322,36 +227,19 @@ docker run -d --init \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH" \
-  -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
+  -v $CONTROLLER_PROPERTIES:/tmp/controller.properties:ro \
   $(generateJmxConfigMountCommand) \
-  $(generateDataFolderMountCommand) \
-  -p $BROKER_PORT:9092 \
-  -p $BROKER_JMX_PORT:$BROKER_JMX_PORT \
+  $metaMountCommand \
+  -p $CONTROLLER_PORT:9093 \
+  -p $CONTROLLER_JMX_PORT:$CONTROLLER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" sh -c "$command"
+  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/controller.properties && ./bin/kafka-server-start.sh /tmp/controller.properties"
 
 echo "================================================="
-[[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
-echo "node.id=$NODE_ID"
-echo "broker address: ${ADDRESS}:$BROKER_PORT"
-echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
+[[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"
+echo "controller address: ${ADDRESS}:$CONTROLLER_PORT"
+echo "jmx address: ${ADDRESS}:$CONTROLLER_JMX_PORT"
 echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
-if [[ "$SASL" == "true" ]]; then
-  user_jaas_file=/tmp/user-jaas-${BROKER_PORT}.conf
-  echo "
-  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${USER_NAME} password=${USER_PASSWORD};
-  security.protocol=SASL_PLAINTEXT
-  sasl.mechanism=PLAIN
-  " >$user_jaas_file
-
-  admin_jaas_file=/tmp/admin-jaas-${BROKER_PORT}.conf
-  echo "
-  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${ADMIN_NAME} password=${ADMIN_PASSWORD};
-  security.protocol=SASL_PLAINTEXT
-  sasl.mechanism=PLAIN
-  " >$admin_jaas_file
-  echo "SASL_PLAINTEXT is enabled. user config: $user_jaas_file admin config: $admin_jaas_file"
-fi
 echo "================================================="
-echo "run $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT group.id=$(randomString) to join kafka worker"
+echo "run CLUSTER_ID=$CLUSTER_ID $DOCKER_FOLDER/start_broker.sh controller.quorum.voters=$NODE_ID@${ADDRESS}:$CONTROLLER_PORT to join broker"
 echo "================================================="

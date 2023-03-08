@@ -12,6 +12,7 @@ build
 
 # generated dockerfiles
 zookeeper.dockerfile
+controller.dockerfile
 broker.dockerfile
 app.dockerfile
 spark.dockerfile

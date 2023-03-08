@@ -35,6 +35,8 @@
 
 # Kafka Q&A
 
+* [Kafka Q&A](./docs/kafka_Q&A.md): 整理`Kafka`在使用上可能會遇到的問題以及解決方法
+
 * [Astraea 故障排除](./docs/troubleshooting.md)： 統整 Astraea 工具使用上可能會遇到的問題和解決方法
 
 # 技術發表

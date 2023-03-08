@@ -52,20 +52,6 @@ class ControllerMetricsTest {
     Assertions.assertEquals(controller, gauge.type());
   }
 
-  @ParameterizedTest
-  @EnumSource(ControllerMetrics.ControllerState.class)
-  void testControllerState(ControllerMetrics.ControllerState controllerState) {
-    var timer = controllerState.fetch(MBeanClient.local());
-    MetricsTestUtil.validate(timer);
-  }
-
-  @Test
-  void testControllerStateNonEnum() {
-    var meter =
-        ControllerMetrics.ControllerState.getUncleanLeaderElectionsPerSec(MBeanClient.local());
-    MetricsTestUtil.validate(meter);
-  }
-
   @Test
   void testKafkaMetricsOf() {
     Arrays.stream(ControllerMetrics.Controller.values())
@@ -79,17 +65,5 @@ class ControllerMetricsTest {
 
     assertThrows(
         IllegalArgumentException.class, () -> ControllerMetrics.Controller.ofAlias("nothing"));
-  }
-
-  @Test
-  void testAllEnumNameUnique() {
-    Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
-            ControllerMetrics.Controller.values(), ControllerMetrics.Controller::metricName));
-
-    Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
-            ControllerMetrics.ControllerState.values(),
-            ControllerMetrics.ControllerState::metricName));
   }
 }
