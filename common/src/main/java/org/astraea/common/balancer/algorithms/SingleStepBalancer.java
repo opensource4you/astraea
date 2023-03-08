@@ -19,9 +19,9 @@ package org.astraea.common.balancer.algorithms;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
@@ -64,27 +64,26 @@ public class SingleStepBalancer implements Balancer {
   public Plan offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
-    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
+    final var allocationTweaker =
+        new ShuffleTweaker(
+            () -> ThreadLocalRandom.current().nextInt(minStep, maxStep), config.topicFilter());
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
     final var currentCost =
         config.clusterCostFunction().clusterCost(currentClusterInfo, clusterBean);
-    final var generatorClusterInfo = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
 
     var start = System.currentTimeMillis();
     return allocationTweaker
-        .generate(generatorClusterInfo)
+        .generate(currentClusterInfo)
         .parallel()
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= config.timeout().toMillis())
         .map(
-            newAllocation -> {
-              var newClusterInfo = ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
-              return new Solution(
-                  clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
-                  moveCostFunction.moveCost(currentClusterInfo, newClusterInfo, clusterBean),
-                  newAllocation);
-            })
+            newAllocation ->
+                new Solution(
+                    clusterCostFunction.clusterCost(newAllocation, clusterBean),
+                    moveCostFunction.moveCost(currentClusterInfo, newAllocation, clusterBean),
+                    newAllocation))
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))

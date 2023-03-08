@@ -74,14 +74,14 @@ public class LocalMetricCollector implements MetricCollector {
       Duration expiration,
       Duration interval,
       Duration cleanerInterval,
-      Map<Integer, MBeanClient> mBeanClients,
+      Map<Integer, MBeanClient> registeredMBeanClients,
       List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors,
       Map<Integer, Collection<HasBeanObject>> beans) {
     this.executorService = Executors.newScheduledThreadPool(threadCount + 1);
     this.delayedWorks = new DelayQueue<>();
-    this.mBeanClients = new ConcurrentHashMap<>(mBeanClients);
+    this.mBeanClients = new ConcurrentHashMap<>(registeredMBeanClients);
     this.sensors = sensors;
-    mBeanClients.forEach(
+    this.mBeanClients.forEach(
         (id, ignore) -> this.delayedWorks.put(new DelayedIdentity(Duration.ZERO, id)));
     if (beans != null)
       beans.forEach(
@@ -133,7 +133,9 @@ public class LocalMetricCollector implements MetricCollector {
                           for (var sensor : sensors) {
                             try {
                               var newBeans =
-                                  sensor.getKey().fetch(mBeanClients.get(identity.id), clusterBean);
+                                  sensor
+                                      .getKey()
+                                      .fetch(this.mBeanClients.get(identity.id), clusterBean);
                               this.beans
                                   .computeIfAbsent(
                                       identity.id, ignored -> new ConcurrentLinkedQueue<>())
@@ -170,6 +172,7 @@ public class LocalMetricCollector implements MetricCollector {
                     + ". But this id is already registered");
           else return MBeanClient.jndi(socketAddress.getHostName(), socketAddress.getPort());
         });
+    delayedWorks.add(new DelayedIdentity(Duration.ZERO, identity));
   }
 
   @Override
@@ -212,6 +215,11 @@ public class LocalMetricCollector implements MetricCollector {
     this.executorService.shutdownNow();
     Utils.packException(() -> this.executorService.awaitTermination(20, TimeUnit.SECONDS));
     this.mBeanClients.forEach((ignore, client) -> client.close());
+  }
+
+  // Only for testing
+  DelayQueue<DelayedIdentity> delayQueue() {
+    return delayedWorks;
   }
 
   public static class Builder {
@@ -372,7 +380,8 @@ public class LocalMetricCollector implements MetricCollector {
     }
   }
 
-  private static class DelayedIdentity implements Delayed {
+  // visible for test
+  static class DelayedIdentity implements Delayed {
     private final long deadlineNs;
     private final int id;
 
@@ -390,6 +399,11 @@ public class LocalMetricCollector implements MetricCollector {
     public int compareTo(Delayed delayed) {
       return Long.compare(
           this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
+    }
+
+    // Only for testing
+    int id() {
+      return id;
     }
   }
 }

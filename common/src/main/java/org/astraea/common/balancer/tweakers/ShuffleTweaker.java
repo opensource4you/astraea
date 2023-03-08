@@ -16,16 +16,16 @@
  */
 package org.astraea.common.balancer.tweakers;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
@@ -44,19 +44,16 @@ import org.astraea.common.admin.Replica;
  *       replica set before this action) into the replica set.
  * </ol>
  */
-public class ShuffleTweaker implements AllocationTweaker {
+public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
+  private final Predicate<String> topicFilter;
 
-  public ShuffleTweaker(int origin, int bound) {
-    this(() -> ThreadLocalRandom.current().nextInt(origin, bound));
-  }
-
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle) {
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> topicFilter) {
     this.numberOfShuffle = numberOfShuffle;
+    this.topicFilter = topicFilter;
   }
 
-  @Override
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
     // There is no broker
     if (baseAllocation.nodes().isEmpty()) return Stream.of();
@@ -72,73 +69,67 @@ public class ShuffleTweaker implements AllocationTweaker {
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-
-          var candidates =
-              IntStream.range(0, shuffleCount)
-                  .mapToObj(i -> allocationGenerator(baseAllocation.brokerFolders()))
+          final var partitionOrder =
+              baseAllocation.topicPartitions().stream()
+                  .filter(tp -> topicFilter.test(tp.topic()))
+                  .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
+                  .sorted(Map.Entry.comparingByValue())
+                  .map(Map.Entry::getKey)
                   .collect(Collectors.toUnmodifiableList());
 
-          var currentAllocation = baseAllocation;
-          for (var candidate : candidates) currentAllocation = candidate.apply(currentAllocation);
+          final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
+          for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
+            final var tp = partitionOrder.get(i);
+            if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
+            switch (Operation.random()) {
+              case LEADERSHIP_CHANGE:
+                {
+                  // change leader/follower identity
+                  var replica =
+                      baseAllocation
+                          .replicaStream(tp)
+                          .filter(Replica::isFollower)
+                          .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
+                          .min(Map.Entry.comparingByValue())
+                          .map(Map.Entry::getKey);
+                  if (replica.isPresent()) {
+                    finalCluster.setPreferredLeader(replica.get().topicPartitionReplica());
+                    shuffled++;
+                  }
+                  break;
+                }
+              case REPLICA_LIST_CHANGE:
+                {
+                  // change replica list
+                  var replicaList = baseAllocation.replicas(tp);
+                  var currentIds =
+                      replicaList.stream()
+                          .map(Replica::nodeInfo)
+                          .map(NodeInfo::id)
+                          .collect(Collectors.toUnmodifiableSet());
+                  var broker =
+                      baseAllocation.brokers().stream()
+                          .filter(b -> !currentIds.contains(b.id()))
+                          .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
+                          .min(Map.Entry.comparingByValue())
+                          .map(Map.Entry::getKey);
+                  if (broker.isPresent()) {
+                    var replica = randomElement(replicaList);
+                    finalCluster.reassignReplica(
+                        replica.topicPartitionReplica(),
+                        broker.get().id(),
+                        randomElement(baseAllocation.brokerFolders().get(broker.get().id())));
+                    shuffled++;
+                  }
+                  break;
+                }
+              default:
+                throw new RuntimeException("Unexpected Condition");
+            }
+          }
 
-          return currentAllocation;
+          return finalCluster.build();
         });
-  }
-
-  private static Function<ClusterInfo, ClusterInfo> allocationGenerator(
-      Map<Integer, Set<String>> brokerFolders) {
-    return currentAllocation -> {
-      final var selectedPartition =
-          currentAllocation.topicPartitions().stream()
-              .filter(tp -> eligiblePartition((currentAllocation.replicas(tp))))
-              .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
-              .min(Map.Entry.comparingByValue())
-              .map(Map.Entry::getKey)
-              .orElseThrow();
-
-      // [valid operation 1] change leader/follower identity
-      final var currentReplicas = currentAllocation.replicas(selectedPartition);
-      final var candidates0 =
-          currentReplicas.stream()
-              .skip(1)
-              .map(
-                  follower ->
-                      (Supplier<ClusterInfo>)
-                          () ->
-                              ClusterInfoBuilder.builder(currentAllocation)
-                                  .setPreferredLeader(follower.topicPartitionReplica())
-                                  .build());
-
-      // [valid operation 2] change replica list
-      final var currentIds =
-          currentReplicas.stream()
-              .map(Replica::nodeInfo)
-              .map(NodeInfo::id)
-              .collect(Collectors.toUnmodifiableSet());
-      final var candidates1 =
-          brokerFolders.keySet().stream()
-              .filter(brokerId -> !currentIds.contains(brokerId))
-              .flatMap(
-                  toThisBroker ->
-                      currentReplicas.stream()
-                          .map(
-                              replica ->
-                                  (Supplier<ClusterInfo>)
-                                      () -> {
-                                        var toThisDir =
-                                            randomElement(brokerFolders.get(toThisBroker));
-                                        return ClusterInfoBuilder.builder(currentAllocation)
-                                            .reassignReplica(
-                                                replica.topicPartitionReplica(),
-                                                toThisBroker,
-                                                toThisDir)
-                                            .build();
-                                      }));
-
-      return randomElement(
-              Stream.concat(candidates0, candidates1).collect(Collectors.toUnmodifiableSet()))
-          .get();
-    };
   }
 
   private static <T> T randomElement(Collection<T> collection) {
@@ -155,5 +146,31 @@ public class ShuffleTweaker implements AllocationTweaker {
             // no leader
             r -> r.stream().noneMatch(Replica::isLeader))
         .noneMatch(p -> p.test(replicas));
+  }
+
+  enum Operation implements EnumInfo {
+    LEADERSHIP_CHANGE,
+    REPLICA_LIST_CHANGE;
+
+    private static final List<Operation> OPERATIONS =
+        Arrays.stream(Operation.values()).collect(Collectors.toUnmodifiableList());
+
+    public static Operation random() {
+      return OPERATIONS.get(ThreadLocalRandom.current().nextInt(OPERATIONS.size()));
+    }
+
+    public static Operation ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Operation.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
   }
 }

@@ -22,10 +22,29 @@ import org.astraea.fs.AbstractFileSystemTest;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.HdfsServer;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class HdfsFileSystemTest extends AbstractFileSystemTest {
 
   private final HdfsServer server = HdfsServer.local();
+
+  @Test
+  void testCreate() {
+    var fs =
+        HdfsFileSystem.create(
+            Configuration.of(
+                Map.of(
+                    HdfsFileSystem.HOSTNAME_KEY,
+                    server.hostname(),
+                    HdfsFileSystem.PORT_KEY,
+                    String.valueOf(server.port()),
+                    HdfsFileSystem.USER_KEY,
+                    server.user())));
+
+    Assertions.assertEquals(
+        fs.getUri().toString(), "hdfs://" + server.hostname() + ":" + server.port());
+  }
 
   @Override
   protected FileSystem fileSystem() {

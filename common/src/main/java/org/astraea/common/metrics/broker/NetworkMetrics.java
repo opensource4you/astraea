@@ -28,9 +28,6 @@ public class NetworkMetrics {
     FETCH("Fetch"),
     LIST_OFFSETS("ListOffsets"),
     METADATA("Metadata"),
-    LEADER_AND_ISR("LeaderAndIsr"),
-    STOP_REPLICA("StopReplica"),
-    UPDATE_METADATA("UpdateMetadata"),
     CONTROLLED_SHUTDOWN("ControlledShutdown"),
     OFFSET_COMMIT("OffsetCommit"),
     OFFSET_FETCH("OffsetFetch"),
@@ -62,10 +59,6 @@ public class NetworkMetrics {
     DESCRIBE_LOG_DIRS("DescribeLogDirs"),
     SASL_AUTHENTICATE("SaslAuthenticate"),
     CREATE_PARTITIONS("CreatePartitions"),
-    CREATE_DELEGATION_TOKEN("CreateDelegationToken"),
-    RENEW_DELEGATION_TOKEN("RenewDelegationToken"),
-    EXPIRE_DELEGATION_TOKEN("ExpireDelegationToken"),
-    DESCRIBE_DELEGATION_TOKEN("DescribeDelegationToken"),
     DELETE_GROUPS("DeleteGroups"),
     ELECT_LEADERS("ElectLeaders"),
     INCREMENTAL_ALTER_CONFIGS("IncrementalAlterConfigs"),
@@ -74,21 +67,19 @@ public class NetworkMetrics {
     OFFSET_DELETE("OffsetDelete"),
     DESCRIBE_CLIENT_QUOTAS("DescribeClientQuotas"),
     ALTER_CLIENT_QUOTAS("AlterClientQuotas"),
-    DESCRIBE_USER_SCRAM_CREDENTIALS("DescribeUserScramCredentials"),
-    ALTER_USER_SCRAM_CREDENTIALS("AlterUserScramCredentials"),
-    //    VOTE("Vote"), available for CONTROLLER
-    //    BEGIN_QUORUM_EPOCH("BeginQuorumEpoch"), available for CONTROLLER
-    //    END_QUORUM_EPOCH("EndQuorumEpoch"), available for CONTROLLER
-    //    DESCRIBE_QUORUM("DescribeQuorum"), available for new BROKER and CONTROLLER
+    VOTE("Vote"),
+    BEGIN_QUORUM_EPOCH("BeginQuorumEpoch"),
+    END_QUORUM_EPOCH("EndQuorumEpoch"),
+    DESCRIBE_QUORUM("DescribeQuorum"),
     ALTER_PARTITION("AlterPartition"),
     UPDATE_FEATURES("UpdateFeatures"),
-    //    ENVELOPE("Envelope"), available for CONTROLLER
-    //    FETCH_SNAPSHOT("FetchSnapshot"), available for CONTROLLER
+    ENVELOPE("Envelope"),
+    FETCH_SNAPSHOT("FetchSnapshot"),
     DESCRIBE_CLUSTER("DescribeCluster"),
     DESCRIBE_PRODUCERS("DescribeProducers"),
-    //    BROKER_REGISTRATION("BrokerRegistration"), available for CONTROLLER
-    //    BROKER_HEARTBEAT("BrokerHeartbeat"), available for CONTROLLER
-    //    UNREGISTER_BROKER("UnregisterBroker"), available for new BROKER and CONTROLLER
+    BROKER_REGISTRATION("BrokerRegistration"),
+    BROKER_HEARTBEAT("BrokerHeartbeat"),
+    UNREGISTER_BROKER("UnregisterBroker"),
     DESCRIBE_TRANSACTIONS("DescribeTransactions"),
     LIST_TRANSACTIONS("ListTransactions"),
     ALLOCATE_PRODUCER_IDS("AllocateProducerIds");
