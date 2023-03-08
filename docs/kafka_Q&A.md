@@ -4,7 +4,7 @@
 
 1. [單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)
 2. [Consumer poll速度太慢](#consumer-poll速度太慢)
-3. [Consumer 的吞吐量會被節點內資料規模差異很大的 partitions 影響](#Consumer 的吞吐量會被節點內資料規模差異很大的 partitions 影響)
+3. [Consumer 的吞吐量會被節點內流入資料速度差異很大的 partitions 影響](#Consumer-的吞吐量會被節點內流入資料速度差異很大的-partitions 影響)
 
 ## 單一partition的副本同步速度太慢
 
@@ -43,11 +43,13 @@ Kafka端處理fetch request時，會有一個迴圈，這個迴圈會在跟os的
 
 [#1518](https://github.com/skiptests/astraea/issues/1516)
 
-## Consumer 的吞吐量會被節點內資料規模差異很大的 partitions 影響
+## Consumer 的吞吐量會被節點內流入資料速度差異很大的 partitions 影響
 
 ### 原因
 
-Kafka consumer 吞吐量會被影響的主要原因如下：
+Consumer 不會對還未 response 的節點發送 fetch request，導致 consumer 發送 fetch request 的頻率下降，影響到資料的拉取
+
+導致 consumer 發送 fetch request 頻率下降的主要原因如下：
 
 * Consumer 讀取資料的邏輯
   * Consumer 靠 fetch request 來讀取分散在各個節點的 partitions 資料，並以 `節點` 為單位來發送 request。而 consumer 會不會對節點發送 fetch request 取決於節點中有沒有 pending request (broker 仍在處理 consumer 的 fetch request)
@@ -55,28 +57,10 @@ Kafka consumer 吞吐量會被影響的主要原因如下：
 * Broker 讀取資料後的處理方式
   * 處理方式會根據 consumer 所設定的兩個參數有所不同，參數分別為 `fetch.max.wait.ms` 與 `fetch.min.bytes`
 
-#### Example
-
-以下用一個簡單的例子來說明：為何上述說明的主要原因會影響到 consumer 讀取的吞吐量
-
-* Kafka consumer 的參數：[fetch.max.wait.ms](https://kafka.apache.org/documentation/#consumerconfigs_fetch.max.wait.ms) 與 [fetch.min.bytes](https://kafka.apache.org/documentation/#consumerconfigs_fetch.min.bytes) 的預設值為 500ms 與 1byte
-
-Broker 讀取 partition(s) 資料後會去判斷讀取的資料量有無大於 fetch.min.bytes，若低於 fetch.min.byte ，broker 會等待 fetch.max.wait.ms 所設定的時間，等到時間到了 broker 會再去讀一次 partition(s) 的資料
-
-可參照下圖，因為 Kafka 預設的 fetch.min.bytes 為 1 byte ，故可以想成只要有資料 broker 就會馬上將資料 response 給 consumer：
-
-![Consumer_default](pictures/Consumer_default.png)
-
-上圖紅線就是影響到 consumer 吞吐量的地方，consumer 發送 fetch request 的頻率被 broker 等待的時間影響
-
-* Consumer 發現 broker 中還有未回覆的 response ，所以不會發送 fetch request 給該 broker
-
 ### 解法
 
 * 將 Consumer 端的 `fetch.max.wait.ms` 參數調小
   * `fetch.max.wait.ms` 調小後可以讓 broker 比較快速的回應 consumer， consumer 就能夠再對該 broker 發送 fetch request
-
-![Consumer_modify_fetch_max_wait](pictures/Consumer_modify_fetch_max_wait.png)
 
 ### 副作用
 
@@ -86,3 +70,4 @@ Broker 讀取 partition(s) 資料後會去判斷讀取的資料量有無大於 f
 ### 詳細討論
 
 [#1475](https://github.com/skiptests/astraea/issues/1475)
+
