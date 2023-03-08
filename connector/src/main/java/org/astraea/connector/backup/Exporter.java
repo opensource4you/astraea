@@ -149,41 +149,48 @@ public class Exporter extends SinkConnector {
         Supplier<Record<byte[], byte[]>> recordsQueue) {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
-        var lastWriteTime = System.currentTimeMillis();
+        var longestWriteTime = System.currentTimeMillis();
 
         try {
           while (!closed.get()) {
             var record = recordsQueue.get();
             var currentTime = System.currentTimeMillis();
 
-            if (record == null) {
-              // close all writers if they have been idle over roll.duration.
-              if (currentTime - lastWriteTime > interval) {
-                writers.values().forEach(RecordWriter::close);
-                writers.clear();
+            if (currentTime - longestWriteTime > interval) {
+              longestWriteTime = currentTime;
+              var itr = writers.values().iterator();
+              while (itr.hasNext()) {
+                var writer = itr.next();
+                if (currentTime - writer.latestAppendTimestamp() > interval) {
+                  System.out.println("close writer " + writer);
+                  writer.close();
+                  itr.remove();
+                } else {
+                  longestWriteTime = Math.min(longestWriteTime, writer.latestAppendTimestamp());
+                }
               }
-              continue;
             }
-            var writer =
-                writers.computeIfAbsent(
-                    record.topicPartition(),
-                    ignored -> {
-                      var fileName = String.valueOf(record.offset());
-                      return RecordWriter.builder(
-                              fs.write(
-                                  String.join(
-                                      "/",
-                                      path,
-                                      topicName,
-                                      String.valueOf(record.partition()),
-                                      fileName)))
-                          .build();
-                    });
-            writer.append(record);
-            lastWriteTime = System.currentTimeMillis();
-            if (writer.size().greaterThan(size)) {
-              writers.remove(record.topicPartition()).close();
-              fs.close();
+
+            if (record != null) {
+              var writer =
+                  writers.computeIfAbsent(
+                      record.topicPartition(),
+                      ignored -> {
+                        var fileName = String.valueOf(record.offset());
+                        return RecordWriter.builder(
+                                fs.write(
+                                    String.join(
+                                        "/",
+                                        path,
+                                        topicName,
+                                        String.valueOf(record.partition()),
+                                        fileName)))
+                            .build();
+                      });
+              writer.append(record);
+              if (writer.size().greaterThan(size)) {
+                writers.remove(record.topicPartition()).close();
+              }
             }
           }
         } finally {

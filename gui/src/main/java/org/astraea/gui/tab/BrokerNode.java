@@ -43,8 +43,6 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.HasGauge;
-import org.astraea.common.metrics.broker.HasPercentiles;
-import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.HasStatistics;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.NetworkMetrics;
@@ -93,24 +91,6 @@ public class BrokerNode {
                       return result;
                     })
                 .orElse(Map.of())),
-    ZOOKEEPER_REQUEST(
-        "zookeeper request",
-        client ->
-            Arrays.stream(ServerMetrics.ZooKeeperClientMetrics.values())
-                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(
-                    Collectors.toMap(
-                        ServerMetrics.ZooKeeperClientMetrics.Histogram::metricsName,
-                        HasPercentiles::percentile50))),
-    ZOOKEEPER_SESSION(
-        "zookeeper session",
-        client ->
-            Arrays.stream(ServerMetrics.SessionExpireListener.values())
-                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(
-                    Collectors.toMap(
-                        ServerMetrics.SessionExpireListener.Meter::metricsName,
-                        HasRate::fiveMinuteRate))),
     HOST(
         "host",
         client ->
@@ -142,16 +122,6 @@ public class BrokerNode {
                     Collectors.toMap(
                         ControllerMetrics.Controller.Gauge::metricsName,
                         ControllerMetrics.Controller.Gauge::value))),
-
-    CONTROLLER_STATE(
-        "controller state",
-        client ->
-            Arrays.stream(ControllerMetrics.ControllerState.values())
-                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
-                .collect(
-                    Collectors.toMap(
-                        ControllerMetrics.ControllerState.Timer::metricsName,
-                        HasRate::fiveMinuteRate))),
     PRODUCE(
         "request",
         client ->

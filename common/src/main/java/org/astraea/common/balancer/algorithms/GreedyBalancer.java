@@ -19,6 +19,7 @@ package org.astraea.common.balancer.algorithms;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
@@ -135,7 +136,9 @@ public class GreedyBalancer implements Balancer {
   public Plan offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
-    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
+    final var allocationTweaker =
+        new ShuffleTweaker(
+            () -> ThreadLocalRandom.current().nextInt(minStep, maxStep), config.topicFilter());
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
     final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, clusterBean);
@@ -151,22 +154,19 @@ public class GreedyBalancer implements Balancer {
                 .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
-                    newAllocation -> {
-                      var newClusterInfo =
-                          ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
-                      return new Solution(
-                          clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
-                          moveCostFunction.moveCost(
-                              currentClusterInfo, newClusterInfo, clusterBean),
-                          newAllocation);
-                    })
+                    newAllocation ->
+                        new Solution(
+                            clusterCostFunction.clusterCost(newAllocation, clusterBean),
+                            moveCostFunction.moveCost(
+                                currentClusterInfo, newAllocation, clusterBean),
+                            newAllocation))
                 .filter(
                     plan ->
                         config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
     var currentCost = initialCost;
-    var currentAllocation = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
+    var currentAllocation = currentClusterInfo;
     var currentSolution = Optional.<Solution>empty();
 
     // register JMX
