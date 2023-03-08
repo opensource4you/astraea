@@ -17,6 +17,7 @@
 package org.astraea.common.assignor;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.Test;
 public class CostAwareAssignorTest {
 
   @Test
-  void testConvertTrafficToCost() {
+  void testEstimateIntervalTraffic() {
     var assignor = new CostAwareAssignor();
     var cost = new NetworkIngressCost();
     var aFactorList = new ArrayList<Double>();
@@ -90,6 +91,43 @@ public class CostAwareAssignorTest {
         assignor.estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
     var _10MiBCost = costPerBroker.get(1).get(TopicPartition.of("b-0"));
     Assertions.assertEquals(resultOf10MiBCost.get(1), _10MiBCost);
+  }
+
+  @Test
+  void testWrapCostBaseOnNode() {
+    var assignor = new CostAwareAssignor();
+    var clusterInfo = buildClusterInfo();
+    var subTopics = Set.of("a", "b");
+    var topics = Set.of("a", "b", "c");
+    var cost = new HashMap<TopicPartition, Double>();
+    var rand = new Random();
+    IntStream.range(0, 9)
+        .forEach(
+            i -> {
+              cost.put(TopicPartition.of("a", i), rand.nextDouble());
+              cost.put(TopicPartition.of("b", i), rand.nextDouble());
+              cost.put(TopicPartition.of("c", i), rand.nextDouble());
+            });
+
+    var brokerTp = assignor.wrapCostBaseOnNode(clusterInfo, topics, cost);
+    brokerTp.forEach((id, tps) -> Assertions.assertEquals(9, tps.size()));
+    clusterInfo
+        .replicaStream()
+        .forEach(
+            r -> {
+              var tps = brokerTp.get(r.nodeInfo().id());
+              Assertions.assertTrue(tps.containsKey(r.topicPartition()));
+            });
+
+    var brokerSubTp = assignor.wrapCostBaseOnNode(clusterInfo, subTopics, cost);
+    brokerSubTp.forEach((id, tps) -> Assertions.assertEquals(6, tps.size()));
+    ClusterInfo.masked(clusterInfo, subTopics::contains)
+        .replicaStream()
+        .forEach(
+            r -> {
+              var tps = brokerSubTp.get(r.nodeInfo().id());
+              Assertions.assertTrue(tps.containsKey(r.topicPartition()));
+            });
   }
 
   static ClusterInfo buildClusterInfo() {
