@@ -1426,7 +1426,7 @@ public class AdminTest {
           .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100).perSecond()))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
@@ -1925,6 +1925,7 @@ public class AdminTest {
                   topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "*",
           admin
@@ -1987,6 +1988,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "2:1003",
           admin
