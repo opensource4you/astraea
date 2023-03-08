@@ -1426,7 +1426,7 @@ public class AdminTest {
           .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100).perSecond()))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
