@@ -4,7 +4,7 @@
 
 1. [單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)
 2. [Consumer poll速度太慢](#consumer-poll速度太慢)
-3. [Consumer 的吞吐量會被節點內流入資料速度差異很大的 partitions 影響](#Consumer-的吞吐量會被節點內流入資料速度差異很大的-partitions 影響)
+3. [Consumer 的吞吐量會被節點內流入資料速度差異很大的 partitions 影響](#Consumer-的吞吐量會被節點內流入資料速度差異很大的-partitions-影響)
 
 ## 單一partition的副本同步速度太慢
 
