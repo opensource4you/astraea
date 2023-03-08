@@ -162,7 +162,8 @@ public class UtilsTest {
 
     // Cost function class can't be cast to String class
     Assertions.assertThrows(
-        IllegalArgumentException.class, () -> Utils.construct(aClass.getName(), String.class, config));
+        IllegalArgumentException.class,
+        () -> Utils.construct(aClass.getName(), String.class, config));
   }
 
   @Test
