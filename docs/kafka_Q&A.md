@@ -65,7 +65,7 @@ Broker 讀取 partition(s) 資料後會去判斷讀取的資料量有無大於 f
 
 可參照下圖，因為 Kafka 預設的 fetch.min.bytes 為 1 byte ，故可以想成只要有資料 broker 就會馬上將資料 response 給 consumer：
 
-![Consumer_default](/home/harry/Documents/astraea/docs/pictures/Consumer_default.png)
+![Consumer_default](pictures/Consumer_default.png)
 
 上圖紅線就是影響到 consumer 吞吐量的地方，consumer 發送 fetch request 的頻率被 broker 等待的時間影響
 
@@ -76,7 +76,7 @@ Broker 讀取 partition(s) 資料後會去判斷讀取的資料量有無大於 f
 * 將 Consumer 端的 `fetch.max.wait.ms` 參數調小
   * `fetch.max.wait.ms` 調小後可以讓 broker 比較快速的回應 consumer， consumer 就能夠再對該 broker 發送 fetch request
 
-![Consumer_modify_fetch_max_wait](/home/harry/Documents/astraea/docs/pictures/Consumer_modify_fetch_max_wait.png)
+![Consumer_modify_fetch_max_wait](pictures/Consumer_modify_fetch_max_wait.png)
 
 ### 副作用
 
