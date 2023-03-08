@@ -18,11 +18,9 @@ package org.astraea.common.assignor;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
@@ -73,20 +71,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   protected void configure(Configuration config) {}
 
   // -----------------------[helper]-----------------------//
-
-  /**
-   * get all topics which consumers subscribe.
-   *
-   * @param subscriptions Consumers' subscriptions
-   * @return A set of topics the consumers subscribe
-   */
-  protected Set<String> topics(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions) {
-    return subscriptions.values().stream()
-        .map(org.astraea.common.assignor.Subscription::topics)
-        .flatMap(Collection::stream)
-        .collect(Collectors.toUnmodifiableSet());
-  }
 
   /**
    * check the nodes which wasn't register yet.

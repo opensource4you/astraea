@@ -34,11 +34,11 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SimilarCostAssignorTest {
+public class CostAwareAssignorTest {
 
   @Test
   void testConvertTrafficToCost() {
-    var assignor = new SimilarCostAssignor();
+    var assignor = new CostAwareAssignor();
     var cost = new NetworkIngressCost();
     var aFactorList = new ArrayList<Double>();
     IntStream.range(0, 3)
@@ -84,9 +84,10 @@ public class SimilarCostAssignorTest {
                         "b",
                         DataRate.MiB.of(10).perSecond().byteRate()))));
     var costPerBroker =
-        assignor.costPerBroker(
+        assignor.wrapCostBaseOnNode(
             clusterInfo, Set.of("a", "b"), cost.partitionCost(clusterInfo, clusterBean).value());
-    var resultOf10MiBCost = assignor.convertTrafficToCost(clusterInfo, clusterBean, costPerBroker);
+    var resultOf10MiBCost =
+        assignor.estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
     var _10MiBCost = costPerBroker.get(1).get(TopicPartition.of("b-0"));
     Assertions.assertEquals(resultOf10MiBCost.get(1), _10MiBCost);
   }

@@ -18,6 +18,7 @@ package org.astraea.common.assignor;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
@@ -60,29 +60,36 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  * MAX_TRAFFIC_MiB_INTERVAL is the config of setting how traffic similar is. You can define these
  * config by `max.wait.bean=10` or `max.traffic.mib.interval=15`
  */
-public class SimilarCostAssignor extends Assignor {
+public class CostAwareAssignor extends Assignor {
 
   @Override
   protected Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       ClusterInfo clusterInfo) {
-    var consumers = subscriptions.keySet();
-    var subscribedTopics = topics(subscriptions);
     // 1. check unregister node. if there are unregister nodes, register them
     registerUnregisterNode(clusterInfo);
+    var subscribedTopics =
+        subscriptions.values().stream()
+            .map(org.astraea.common.assignor.Subscription::topics)
+            .flatMap(Collection::stream)
+            .collect(Collectors.toUnmodifiableSet());
+
     // wait for clusterBean
     Utils.waitFor(
-        () -> !metricCollector.clusterBean().all().isEmpty(), Duration.ofSeconds(maxWaitBean));
+        () ->
+            !metricCollector.clusterBean().all().isEmpty()
+                && metricCollector.clusterBean().topics().containsAll(subscribedTopics),
+        Duration.ofSeconds(maxWaitBean));
     var clusterBean = metricCollector.clusterBean();
 
-    // 2. get the network cost of all subscribed topic
-    var networkCost =
+    // 2. get the partition cost of all subscribed topic
+    var partitionCost =
         costFunction
             .partitionCost(ClusterInfo.masked(clusterInfo, subscribedTopics::contains), clusterBean)
             .value();
-    var costPerBroker = costPerBroker(clusterInfo, subscribedTopics, networkCost);
-    var intervalPerBroker = convertTrafficToCost(clusterInfo, clusterBean, costPerBroker);
-    return greedyAssign(costPerBroker, consumers, intervalPerBroker);
+    var costPerBroker = wrapCostBaseOnNode(clusterInfo, subscribedTopics, partitionCost);
+    var intervalPerBroker = estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
+    return greedyAssign(costPerBroker, subscriptions, intervalPerBroker);
   }
 
   /**
@@ -97,20 +104,20 @@ public class SimilarCostAssignor extends Assignor {
   }
 
   /**
-   * perform assign algorithm to get balanced assignment and ensure that 1. each consumer would
-   * receive the cost that are as close as possible to each other. 2. similar loads within a node
+   * perform assign algorithm to get balanced assignment and ensure that similar loads within a node
    * would be assigned to the same consumer.
    *
    * @param costs the tp and their cost within a node
-   * @param consumers consumers' name
+   * @param subscription All subscription for consumers
    * @return the assignment
    */
   Map<String, List<TopicPartition>> greedyAssign(
       Map<Integer, Map<TopicPartition, Double>> costs,
-      Set<String> consumers,
+      Map<String, org.astraea.common.assignor.Subscription> subscription,
       Map<Integer, Double> limitedPerBroker) {
     // initial
     var assignment = new HashMap<String, List<TopicPartition>>();
+    var consumers = subscription.keySet();
     for (var consumer : consumers) {
       assignment.put(consumer, new ArrayList<>());
     }
@@ -118,53 +125,50 @@ public class SimilarCostAssignor extends Assignor {
         assignment.keySet().stream()
             .map(c -> Map.entry(c, (double) 0))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    costs
-        .entrySet()
-        .forEach(
-            costPerBroker -> {
-              if (costPerBroker.getValue().values().stream().mapToDouble(x -> x).sum() == 0) {
-                //  TODO: use logLeaderSize cost to assign when there is no network ingress cost
-                // if there are no cost, round-robin assign per node
-                var iter = consumers.iterator();
-                for (var tp : costPerBroker.getValue().keySet()) {
-                  assignment.get(iter.next()).add(tp);
-                  if (!iter.hasNext()) iter = consumers.iterator();
-                }
-              } else {
-                // let networkIngress cost be ascending order
-                var sortedCost = new LinkedHashMap<TopicPartition, Double>();
-                costPerBroker.getValue().entrySet().stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .forEach(entry -> sortedCost.put(entry.getKey(), entry.getValue()));
-                // maintain the temp loading of the consumer
-                var tmpCostPerConsumer = new HashMap<>(costPerConsumer);
-                // get the consumer with the largest load
-                Supplier<String> largestCostConsumer =
-                    () ->
-                        Collections.max(tmpCostPerConsumer.entrySet(), Map.Entry.comparingByValue())
-                            .getKey();
-                var consumer = largestCostConsumer.get();
-                var lastValue = Collections.min(sortedCost.values());
+    Function<Map<String, Double>, String> largestLoadConsumer =
+        (consumerCost) ->
+            Collections.max(consumerCost.entrySet(), Map.Entry.comparingByValue()).getKey();
 
-                for (var e : sortedCost.entrySet()) {
-                  var tp = e.getKey();
-                  var cost = e.getValue();
+    costs.forEach(
+        (id, tpsCost) -> {
+          // let networkIngress cost be ascending order
+          var sortedCost = new LinkedHashMap<TopicPartition, Double>();
+          tpsCost.entrySet().stream()
+              .sorted(Map.Entry.comparingByValue())
+              .forEach(entry -> sortedCost.put(entry.getKey(), entry.getValue()));
+          // maintain the temp cost of the consumer
+          var tmpCostPerConsumer = new HashMap<>(costPerConsumer);
+          // get the consumer with the largest load
+          var consumer = largestLoadConsumer.apply(tmpCostPerConsumer);
+          var lastValue = Collections.min(sortedCost.values());
 
-                  if (cost - lastValue > limitedPerBroker.get(costPerBroker.getKey())) {
-                    tmpCostPerConsumer.remove(consumer);
-                    consumer = largestCostConsumer.get();
-                    lastValue = cost;
-                  }
+          for (var e : sortedCost.entrySet()) {
+            var tp = e.getKey();
+            var cost = e.getValue();
 
-                  assignment.get(consumer).add(tp);
-                  costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
-                }
-              }
-            });
+            if (cost - lastValue > limitedPerBroker.get(id)) {
+              tmpCostPerConsumer.remove(consumer);
+              consumer = largestLoadConsumer.apply(tmpCostPerConsumer);
+              lastValue = cost;
+            }
+
+            assignment.get(consumer).add(tp);
+            costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
+          }
+        });
     return assignment;
   }
 
-  Map<Integer, Map<TopicPartition, Double>> costPerBroker(
+  /**
+   * Wrap the partition and cost based on nodes. This method is used to process special cost, e.g.,
+   * `LogSizeCost` and `NetworkIngressCost`
+   *
+   * @param clusterInfo the cluster information that admin fetch
+   * @param topics total topics that consumers subscribed
+   * @param cost partition cost calculated by cost function
+   * @return Map from each broker id to partitions' cost
+   */
+  Map<Integer, Map<TopicPartition, Double>> wrapCostBaseOnNode(
       ClusterInfo clusterInfo, Set<String> topics, Map<TopicPartition, Double> cost) {
     return clusterInfo
         .replicaStream()
@@ -186,21 +190,23 @@ public class SimilarCostAssignor extends Assignor {
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
+
   // visible for test
   /**
-   * For all nodes, calculate the cost of given traffic. The assignor would use the cost to produce
-   * the assignment.
+   * For all nodes, estimate the cost of given traffic. The assignor would use the interval cost to
+   * assign the partition with similar cost to the same consumer.
    *
    * @param clusterInfo the clusterInfo
    * @param clusterBean the clusterBean
    * @param tpCostPerBroker the partition cost of every broker
-   * @return the Map from broker id to the cost of given traffic
+   * @return Map from broker id to the cost of given traffic
    */
-  Map<Integer, Double> convertTrafficToCost(
+  Map<Integer, Double> estimateIntervalTraffic(
       ClusterInfo clusterInfo,
       ClusterBean clusterBean,
       Map<Integer, Map<TopicPartition, Double>> tpCostPerBroker) {
     var interval = DataRate.MiB.of(maxTrafficMiBInterval).perSecond().byteRate();
+    // get partitions' cost
     var partitionsTraffic =
         replicaLeaderLocation(clusterInfo).entrySet().stream()
             .flatMap(
@@ -237,6 +243,7 @@ public class SimilarCostAssignor extends Assignor {
     return tpCostPerBroker.entrySet().stream()
         .map(
             e -> {
+              // select a partition with its network ingress cost
               var tpCost =
                   e.getValue().entrySet().stream()
                       .filter(entry -> entry.getValue() > 0.0)
@@ -244,13 +251,19 @@ public class SimilarCostAssignor extends Assignor {
                       .orElseThrow();
               var traffic = partitionsTraffic.get(tpCost.getKey());
               var normalizedCost = tpCost.getValue();
-
+              // convert the interval value to cost
               var result = normalizedCost / (traffic / interval);
               return Map.entry(e.getKey(), result);
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  /**
+   * the helper method that estimate the interval traffic
+   *
+   * @param clusterInfo cluster info
+   * @return Map from BrokerTopic to Replica
+   */
   private Map<BrokerTopic, List<Replica>> replicaLeaderLocation(ClusterInfo clusterInfo) {
     return clusterInfo
         .replicaStream()
