@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
@@ -45,43 +45,45 @@ public class InternalTopicCollector implements MetricCollector {
 
   // Store those we need (we queried)
   private final Collection<MetricSensor> metricSensors;
-  private final Consumer<byte[], BeanObject> consumer;
   private final CompletableFuture<Void> future;
   private final AtomicBoolean closed = new AtomicBoolean(false);
 
   private InternalTopicCollector(String bootstrapServer, Collection<MetricSensor> sensors) {
     this.metricSensors = new ArrayList<>(sensors);
-    this.consumer =
-        Consumer.forTopics(INTERNAL_TOPIC_PATTERN)
-            .bootstrapServers(bootstrapServer)
-            .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
-            .valueDeserializer(Deserializer.BEAN_OBJECT)
-            .build();
 
     this.future =
         CompletableFuture.runAsync(
             () -> {
-              while (!closed.get()) {
-                consumer.poll(Duration.ofSeconds(1)).stream()
-                    .filter(r -> r.value() != null)
-                    // Parsing topic name
-                    .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
-                    .filter(matcherBean -> matcherBean.getKey().matches())
-                    .forEach(
-                        matcherBean -> {
-                          int id = Integer.parseInt(matcherBean.getKey().group("brokerId"));
-                          metricStores.compute(
-                              id,
-                              (ID, old) -> {
-                                if (old == null) old = new MetricStore();
-                                old.put(
-                                    new BeanProperties(
-                                        matcherBean.getValue().domainName(),
-                                        matcherBean.getValue().properties()),
-                                    matcherBean.getValue());
-                                return old;
-                              });
-                        });
+              try (var consumer =
+                  Consumer.forTopics(INTERNAL_TOPIC_PATTERN)
+                      .bootstrapServers(bootstrapServer)
+                      .config(
+                          ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                          ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+                      .valueDeserializer(Deserializer.BEAN_OBJECT)
+                      .build()) {
+                while (!closed.get()) {
+                  consumer.poll(Duration.ofSeconds(1)).stream()
+                      .filter(r -> r.value() != null)
+                      // Parsing topic name
+                      .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
+                      .filter(matcherBean -> matcherBean.getKey().matches())
+                      .forEach(
+                          matcherBean -> {
+                            int id = Integer.parseInt(matcherBean.getKey().group("brokerId"));
+                            metricStores.compute(
+                                id,
+                                (ID, old) -> {
+                                  if (old == null) old = new MetricStore();
+                                  old.put(
+                                      new BeanProperties(
+                                          matcherBean.getValue().domainName(),
+                                          matcherBean.getValue().properties()),
+                                      matcherBean.getValue());
+                                  return old;
+                                });
+                          });
+                }
               }
             });
   }
@@ -149,7 +151,6 @@ public class InternalTopicCollector implements MetricCollector {
       this.closed.set(true);
       future.join();
     } finally {
-      this.consumer.close();
       this.metricStores.values().forEach(MetricStore::close);
     }
   }
