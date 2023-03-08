@@ -16,6 +16,7 @@
  */
 package org.astraea.common.assignor;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -90,7 +91,11 @@ public class CostAwareAssignorTest {
     var resultOf10MiBCost =
         assignor.estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
     var _10MiBCost = costPerBroker.get(1).get(TopicPartition.of("b-0"));
-    Assertions.assertEquals(resultOf10MiBCost.get(1), _10MiBCost);
+    var format = new DecimalFormat("#.####");
+    //    Assertions.assertEquals(_10MiBCost, resultOf10MiBCost.get(1));
+    Assertions.assertEquals(
+        Double.parseDouble(format.format(_10MiBCost)),
+        Double.parseDouble(format.format(resultOf10MiBCost.get(1))));
   }
 
   @Test

@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -36,7 +37,20 @@ public interface ClusterInfo {
   }
 
   // ---------------------[helpers]---------------------//
-
+  /** Mask specific topics from a {@link ClusterInfo}. */
+  static ClusterInfo masked(ClusterInfo clusterInfo, Predicate<String> topicFilter) {
+    final var nodes = List.copyOf(clusterInfo.nodes());
+    final var topics =
+        clusterInfo.topics().entrySet().stream()
+            .filter(e -> topicFilter.test(e.getKey()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    final var replicas =
+        clusterInfo
+            .replicaStream()
+            .filter(replica -> topicFilter.test(replica.topic()))
+            .collect(Collectors.toUnmodifiableList());
+    return of(clusterInfo.clusterId(), nodes, topics, replicas);
+  }
   /**
    * Find a subset of topic/partitions in the source allocation, that has any non-fulfilled log
    * placement in the given target allocation. Note that the given two allocations must have the
