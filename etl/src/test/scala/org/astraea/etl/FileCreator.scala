@@ -18,8 +18,8 @@ package org.astraea.etl
 
 import com.opencsv.CSVWriter
 
-import java.io.{BufferedWriter, File, FileWriter}
-import java.nio.file.Files
+import java.io.{BufferedWriter, FileWriter}
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -28,13 +28,13 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Try}
 object FileCreator {
   def generateCSVF(
-      sourceDir: File,
+      sourceDir: Path,
       rows: List[List[String]]
   ): Future[Boolean] = {
     Future { generateCSV(sourceDir, rows) }
   }
 
-  def generateCSV(sourceDir: File, rows: List[List[String]]): Boolean = {
+  def generateCSV(sourceDir: Path, rows: List[List[String]]): Boolean = {
     createCSV(sourceDir, rows, 0)
     Thread.sleep(Duration(12, TimeUnit.SECONDS).toMillis)
     createCSV(sourceDir, rows, 1)
@@ -42,12 +42,13 @@ object FileCreator {
   }
 
   def createCSV(
-      sourceDir: File,
+      sourceDir: Path,
       rows: List[List[String]],
       int: Int
   ): Try[Unit] = {
-    val str = sourceDir.toString + "/local_kafka" + "-" + int + ".csv"
-    val fileCSV2 = Files.createFile(new File(str).toPath)
+    val str =
+      sourceDir.toAbsolutePath.toString + "/local_kafka" + "-" + int + ".csv"
+    val fileCSV2 = Files.createFile(Path.of(str))
     writeCsvFile(fileCSV2.toAbsolutePath.toString, rows)
   }
 
@@ -70,10 +71,13 @@ object FileCreator {
         }
     )
 
-  def getCSVFile(file: File): Array[File] = {
-    file
-      .listFiles()
-      .filter(!_.isDirectory)
-      .filter(t => t.toString.endsWith(".csv"))
+  def getCSVFile(file: Path): Seq[Path] = {
+    Files
+      .list(file)
+      .filter(f => Files.isRegularFile(f))
+      .filter(f => f.getFileName.toString.endsWith(".csv"))
+      .iterator()
+      .asScala
+      .toSeq
   }
 }

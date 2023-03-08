@@ -110,7 +110,7 @@ public interface Database extends Closeable {
               .withTimeZone(Calendar.getInstance().getTimeZone().getID())
               .withTimeout(2, TimeUnit.MINUTES)
               .withServerVariable("max_connect_errors", 666)
-              .withTempDir(Utils.createTempDirectory("embedded_mysql").getAbsolutePath())
+              .withTempDir(Utils.createTempDirectory("embedded_mysql").toAbsolutePath().toString())
               .withPort(Utils.resolvePort(port))
               // make mysql use " replace '
               // see https://stackoverflow.com/questions/13884854/mysql-double-quoted-table-names

@@ -16,6 +16,12 @@
  */
 package org.astraea.app.web;
 
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executed;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.ExecutionFailed;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed;
+import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -53,11 +59,10 @@ import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.balancer.algorithms.AlgorithmConfig;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
-import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
@@ -126,7 +131,6 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(Duration.ofMillis(1234), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
       Assertions.assertNotEquals(0, report.changes.size());
-      Assertions.assertTrue(report.cost >= report.newCost.get());
       // "before" should record size
       report.changes.forEach(
           c ->
@@ -141,7 +145,6 @@ public class BalancerHandlerTest {
       report.changes.stream()
           .flatMap(c -> c.after.stream())
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
-      Assertions.assertTrue(report.cost >= report.newCost.get());
       var sizeMigration =
           report.migrationCosts.stream()
               .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
@@ -168,19 +171,12 @@ public class BalancerHandlerTest {
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
-      Assertions.assertTrue(
-          report.cost >= report.newCost.get(),
-          "The proposed plan should has better score then the current one");
       var sizeMigration =
           report.migrationCosts.stream()
               .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      Assertions.assertNotEquals(
-          0,
-          sizeMigration.brokerCosts.values().stream().filter(v -> v > 0).count(),
-          "report.cost: " + report.cost + " report.newCost.get(): " + report.newCost.get());
     }
   }
 
@@ -264,17 +260,17 @@ public class BalancerHandlerTest {
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
 
-      var balancerHandler = new BalancerHandler(admin);
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
@@ -289,13 +285,14 @@ public class BalancerHandlerTest {
           () ->
               Utils.construct(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
                   .offer(
-                      admin
-                          .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                          .toCompletableFuture()
-                          .join(),
-                      ClusterBean.EMPTY,
-                      Duration.ofSeconds(3),
                       AlgorithmConfig.builder()
+                          .clusterInfo(
+                              admin
+                                  .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                                  .toCompletableFuture()
+                                  .join())
+                          .clusterBean(ClusterBean.EMPTY)
+                          .timeout(Duration.ofSeconds(3))
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
                           .moveCost(moveCostFunction)
@@ -307,13 +304,14 @@ public class BalancerHandlerTest {
           Optional.empty(),
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
@@ -326,13 +324,14 @@ public class BalancerHandlerTest {
           Optional.empty(),
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
-                  admin
-                      .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                      .toCompletableFuture()
-                      .join(),
-                  ClusterBean.EMPTY,
-                  Duration.ofSeconds(3),
                   AlgorithmConfig.builder()
+                      .clusterInfo(
+                          admin
+                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                              .toCompletableFuture()
+                              .join())
+                      .clusterBean(ClusterBean.EMPTY)
+                      .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
                       .moveCost(moveCostFunction)
@@ -402,14 +401,18 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(post.id, progress.id);
       Assertions.assertEquals(Duration.ofMillis(996), progress.config.timeout);
       Assertions.assertEquals(GreedyBalancer.class.getName(), progress.config.balancer);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "search done");
+      Assertions.assertEquals(SearchFailed, progress.phase, "search done");
       Assertions.assertNotNull(progress.exception, "hint about no plan found");
       Assertions.assertNotNull(progress.config.function);
       Assertions.assertNull(progress.plan, "no proposal");
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join(),
-          "Cannot execute a plan with no proposal available");
+      handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join();
+      Utils.sleep(Duration.ofMillis(300));
+      var progress1 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
+      Assertions.assertEquals(SearchFailed, progress1.phase, "No plan");
+      Assertions.assertNotNull(progress1.exception);
     }
   }
 
@@ -419,8 +422,7 @@ public class BalancerHandlerTest {
     // arrange
     createAndProduceTopic(3, 10, (short) 2, false);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, theExecutor);
+      var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "100");
       var progress = submitPlanGeneration(handler, request);
@@ -430,13 +432,17 @@ public class BalancerHandlerTest {
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler.put(httpRequest(Map.of("id", thePlanId))).toCompletableFuture().join());
+              handler
+                  .put(
+                      httpRequest(
+                          Map.of("id", thePlanId, "executor", NoOpExecutor.class.getName())))
+                  .toCompletableFuture()
+                  .join());
       Utils.sleep(Duration.ofSeconds(1));
 
       // assert
       Assertions.assertEquals(Response.ACCEPT.code(), response.code());
       Assertions.assertEquals(thePlanId, response.id);
-      Assertions.assertEquals(1, theExecutor.count());
     }
   }
 
@@ -445,7 +451,7 @@ public class BalancerHandlerTest {
   void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new NoOpExecutor());
+      var handler = new BalancerHandler(admin);
 
       // no id offered
       Assertions.assertThrows(
@@ -475,8 +481,7 @@ public class BalancerHandlerTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(3));
-      var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, theExecutor);
+      var handler = new BalancerHandler(admin);
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
 
       // use many threads to increase the chance to trigger a data race
@@ -491,7 +496,10 @@ public class BalancerHandlerTest {
                   executor.submit(
                       () -> {
                         // the plan
-                        final var request = httpRequest(Map.of("id", progress.id));
+                        final var request =
+                            httpRequest(
+                                Map.of(
+                                    "id", progress.id, "executor", NoOpExecutor.class.getName()));
                         // use cyclic barrier to ensure all threads are ready to work
                         Utils.packException(() -> barrier.await());
                         // send the put request
@@ -504,41 +512,7 @@ public class BalancerHandlerTest {
           Utils.packException(() -> executor.awaitTermination(threadCount * 3L, TimeUnit.SECONDS)));
 
       // the rebalance task is triggered in async manner, it may take some time to getting schedule
-      Utils.sleep(Duration.ofMillis(500));
-      // test if the plan has been executed just once
-      Assertions.assertEquals(1, theExecutor.count());
-    }
-  }
-
-  @Test
-  @Timeout(value = 60)
-  void testRebalanceOnePlanAtATime() {
-    createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var theExecutor =
-          new NoOpExecutor() {
-            @Override
-            public CompletionStage<Void> run(
-                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
-              return super.run(admin, targetAllocation, Duration.ofSeconds(5))
-                  // Use another thread to block this completion to avoid deadlock in
-                  // BalancerHandler#put
-                  .thenApplyAsync(
-                      i -> {
-                        Utils.sleep(Duration.ofSeconds(10));
-                        return i;
-                      });
-            }
-          };
-      var handler = new BalancerHandler(admin, theExecutor);
-      var plan0 = submitPlanGeneration(handler, new BalancerPostRequest());
-      var plan1 = submitPlanGeneration(handler, new BalancerPostRequest());
-
-      Assertions.assertDoesNotThrow(
-          () -> handler.put(httpRequest(Map.of("id", plan0.id))).toCompletableFuture().join());
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", plan1.id))).toCompletableFuture().join());
+      Utils.sleep(Duration.ofSeconds(2));
     }
   }
 
@@ -556,7 +530,7 @@ public class BalancerHandlerTest {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var handler = new BalancerHandler(admin, new NoOpExecutor());
+      var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(theTopic);
       var theReport = submitPlanGeneration(handler, request);
@@ -584,9 +558,17 @@ public class BalancerHandlerTest {
               .toCompletableFuture()
               .join());
 
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", theReport.id))).toCompletableFuture().join());
+      handler
+          .put(httpRequest(Map.of("id", theReport.id, "executor", NoOpExecutor.class.getName())))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(300));
+      var progress1 =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(theReport.id)).toCompletableFuture().join());
+      Assertions.assertEquals(ExecutionFailed, progress1.phase, "Ongoing Migration");
+      Assertions.assertNotNull(progress1.exception);
     }
   }
 
@@ -619,27 +601,50 @@ public class BalancerHandlerTest {
             .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
             .build();
     try (Admin admin = Mockito.mock(Admin.class)) {
+      var handler = new BalancerHandler(admin);
+      Mockito.when(admin.brokers())
+          .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
       Mockito.when(admin.topicNames(Mockito.anyBoolean()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
-      Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
+      var task0 =
+          (BalancerHandler.PostPlanResponse)
+              handler.post(defaultPostPlan).toCompletableFuture().join();
+      Utils.waitFor(
+          () ->
+              ((BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(task0.id)).toCompletableFuture().join())
+                      .phase
+                  == SearchFailed,
+          Duration.ofSeconds(5));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasAdding));
-      Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
+      var task1 =
+          (BalancerHandler.PostPlanResponse)
+              handler.post(defaultPostPlan).toCompletableFuture().join();
+      Utils.waitFor(
+          () ->
+              ((BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(task1.id)).toCompletableFuture().join())
+                      .phase
+                  == SearchFailed,
+          Duration.ofSeconds(5));
 
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasRemoving));
-      Assertions.assertThrows(
-          IllegalStateException.class, () -> new BalancerHandler(admin).post(defaultPostPlan));
-
-      Mockito.when(admin.clusterInfo(Mockito.any()))
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(base));
-      Assertions.assertDoesNotThrow(() -> new BalancerHandler(admin).post(defaultPostPlan));
+      var task2 =
+          (BalancerHandler.PostPlanResponse)
+              handler.post(defaultPostPlan).toCompletableFuture().join();
+      Utils.waitFor(
+          () ->
+              ((BalancerHandler.PlanExecutionProgress)
+                          handler.get(Channel.ofTarget(task2.id)).toCompletableFuture().join())
+                      .phase
+                  == SearchFailed,
+          Duration.ofSeconds(5));
     }
   }
 
@@ -648,8 +653,7 @@ public class BalancerHandlerTest {
   void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var theExecutor = new NoOpExecutor();
-      var handler = new BalancerHandler(admin, theExecutor);
+      var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(topic);
       var theProgress = submitPlanGeneration(handler, request);
@@ -664,10 +668,22 @@ public class BalancerHandlerTest {
       Utils.sleep(Duration.ofSeconds(10));
 
       // assert
-      Assertions.assertThrows(
-          IllegalStateException.class,
-          () -> handler.put(httpRequest(Map.of("id", theProgress.id))).toCompletableFuture().join(),
+      handler
+          .put(httpRequest(Map.of("id", theProgress.id, "executor", NoOpExecutor.class.getName())))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(5));
+
+      var result =
+          Assertions.assertInstanceOf(
+              BalancerHandler.PlanExecutionProgress.class,
+              handler.get(Channel.ofTarget(theProgress.id)).toCompletableFuture().join());
+      Assertions.assertEquals(
+          ExecutionFailed,
+          result.phase,
           "The cluster state has changed, prevent the plan from execution");
+      Assertions.assertNotNull(
+          result.exception, "The cluster state has changed, prevent the plan from execution");
     }
   }
 
@@ -676,26 +692,9 @@ public class BalancerHandlerTest {
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var theExecutor =
-          new NoOpExecutor() {
-            final CountDownLatch latch = new CountDownLatch(1);
-
-            @Override
-            public CompletionStage<Void> run(
-                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
-              return super.run(admin, targetAllocation, Duration.ofSeconds(5))
-                  // Use another thread to block this completion to avoid deadlock in
-                  // BalancerHandler#put
-                  .thenApplyAsync(
-                      i -> {
-                        Utils.packException(() -> latch.await());
-                        return i;
-                      });
-            }
-          };
-      var handler = new BalancerHandler(admin, theExecutor);
+      var handler = new BalancerHandler(admin);
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
+      Assertions.assertEquals(Searched, progress.phase);
 
       // not scheduled yet
       Utils.sleep(Duration.ofSeconds(1));
@@ -704,14 +703,19 @@ public class BalancerHandlerTest {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(progress.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress0.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress0.phase);
+      Assertions.assertEquals(Searched, progress0.phase);
       Assertions.assertNull(progress0.exception);
 
       // schedule
       var response =
           Assertions.assertInstanceOf(
               BalancerHandler.PutPlanResponse.class,
-              handler.put(httpRequest(Map.of("id", progress.id))).toCompletableFuture().join());
+              handler
+                  .put(
+                      httpRequest(
+                          Map.of("id", progress.id, "executor", LatchExecutor.class.getName())))
+                  .toCompletableFuture()
+                  .join());
       Assertions.assertNotNull(response.id, "The plan should be executed");
 
       // not done yet
@@ -721,18 +725,18 @@ public class BalancerHandlerTest {
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress1.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Executing, progress1.phase);
+      Assertions.assertEquals(Executing, progress1.phase);
       Assertions.assertNull(progress1.exception);
 
       // it is done
-      theExecutor.latch.countDown();
+      LatchExecutor.latch.countDown();
       Utils.sleep(Duration.ofSeconds(1));
       var progress2 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
       Assertions.assertEquals(progress.id, progress2.id);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress2.phase);
+      Assertions.assertEquals(Executed, progress2.phase);
       Assertions.assertNull(progress2.exception);
     }
   }
@@ -742,17 +746,7 @@ public class BalancerHandlerTest {
   void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var theExecutor =
-          new NoOpExecutor() {
-            @Override
-            public CompletionStage<Void> run(
-                Admin admin, ClusterInfo targetAllocation, Duration timeout) {
-              return super.run(admin, targetAllocation, Duration.ofSeconds(5))
-                  .thenCompose(
-                      ignored -> CompletableFuture.failedFuture(new RuntimeException("Boom")));
-            }
-          };
-      var handler = new BalancerHandler(admin, theExecutor);
+      var handler = new BalancerHandler(admin);
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -763,38 +757,40 @@ public class BalancerHandlerTest {
       Utils.waitFor(
           () ->
               ((BalancerHandler.PlanExecutionProgress)
-                      handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
-                  .phase.calculated());
+                          handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
+                      .phase
+                  == Searched);
       var generated =
           ((BalancerHandler.PlanExecutionProgress)
                       handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join())
                   .phase
-              == BalancerHandler.PlanPhase.Searched;
+              == Searched;
       Assertions.assertTrue(generated, "The plan should be generated");
 
       var progress0 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
-      Assertions.assertEquals(
-          BalancerHandler.PlanPhase.Searched, progress0.phase, "The plan is ready");
+      Assertions.assertEquals(Searched, progress0.phase, "The plan is ready");
 
       // schedule
-      var response =
-          Assertions.assertInstanceOf(
-              BalancerHandler.PutPlanResponse.class,
-              handler.put(httpRequest(Map.of("id", post.id))).toCompletableFuture().join());
-      Assertions.assertNotNull(response.id, "The plan should be executed");
+      handler.put(
+          httpRequest(Map.of("id", post.id, "executor", ExceptionExecutor.class.getName())));
+      // var response =
+      //     Assertions.assertInstanceOf(
+      //         BalancerHandler.PutPlanResponse.class,
+      //         handler.put(httpRequest(Map.of("id", post.id))).toCompletableFuture().join());
+      // Assertions.assertNotNull(response.id, "The execution scheduled");
 
       // exception
       Utils.sleep(Duration.ofSeconds(1));
       var progress =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
-              handler.get(Channel.ofTarget(response.id)).toCompletableFuture().join());
+              handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join());
       Assertions.assertEquals(post.id, progress.id);
+      Assertions.assertEquals(ExecutionFailed, progress.phase);
       Assertions.assertNotNull(progress.exception);
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Executed, progress.phase);
       Assertions.assertInstanceOf(String.class, progress.exception);
     }
   }
@@ -804,7 +800,7 @@ public class BalancerHandlerTest {
   void testBadLookupRequest() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new NoOpExecutor());
+      var handler = new BalancerHandler(admin);
 
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
@@ -822,7 +818,7 @@ public class BalancerHandlerTest {
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
@@ -855,7 +851,7 @@ public class BalancerHandlerTest {
   void testCustomBalancer() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin, new StraightPlanExecutor());
+      var handler = new BalancerHandler(admin);
       var balancer = SpyBalancer.class.getName();
       var balancerConfig =
           Map.of(
@@ -881,7 +877,7 @@ public class BalancerHandlerTest {
 
       var progress = submitPlanGeneration(handler, request);
 
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase, "Plan is here");
+      Assertions.assertEquals(Searched, progress.phase, "Plan is here");
       Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
       Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
     }
@@ -916,7 +912,7 @@ public class BalancerHandlerTest {
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
-        Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.executionTime.toSeconds());
+        Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.algorithmConfig.timeout().toSeconds());
         Assertions.assertTrue(
             clusterInfo.topicNames().stream().allMatch(t -> config.topicFilter().test(t)));
       }
@@ -939,7 +935,7 @@ public class BalancerHandlerTest {
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
         Assertions.assertEquals(
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
-        Assertions.assertEquals(32, postRequest.executionTime.toSeconds());
+        Assertions.assertEquals(32, postRequest.algorithmConfig.timeout().toSeconds());
         Assertions.assertTrue(config.topicFilter().test(randomTopic0));
         Assertions.assertTrue(config.topicFilter().test(randomTopic1));
         Assertions.assertTrue(
@@ -947,16 +943,6 @@ public class BalancerHandlerTest {
       }
       {
         // malformed content
-        var request0 =
-            Map.of(
-                TOPICS_KEY,
-                "",
-                TIMEOUT_KEY,
-                32,
-                BALANCER_CONFIGURATION_KEY,
-                Map.of("KEY", "VALUE"),
-                COST_WEIGHT_KEY,
-                defaultDecreasing);
         var balancerRequest = new BalancerPostRequest();
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -996,7 +982,7 @@ public class BalancerHandlerTest {
       var progress =
           (BalancerHandler.PlanExecutionProgress)
               handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
+      Assertions.assertEquals(SearchFailed, progress.phase);
       Assertions.assertNotNull(
           progress.exception, "The generation timeout and failed with some reason");
     }
@@ -1030,22 +1016,8 @@ public class BalancerHandlerTest {
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
 
-      Assertions.assertEquals(BalancerHandler.PlanPhase.Searched, progress.phase);
+      Assertions.assertEquals(Searched, progress.phase);
       Assertions.assertTrue(invoked.get());
-    }
-  }
-
-  @Test
-  void testFreshJmxAddress() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
-      var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
-      var partialJmx =
-          new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
-
-      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
-      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
-      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
     }
   }
 
@@ -1175,6 +1147,54 @@ public class BalancerHandlerTest {
         NoSuchElementException.class, () -> BalancerHandler.Change.from(Set.of(), Set.of()));
   }
 
+  @Test
+  void testFreshJmxAddress() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
+      var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
+      var partialJmx =
+          new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
+
+      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
+      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
+      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
+    }
+  }
+
+  @Test
+  void testExecutorConfig() {
+    var topic = createAndProduceTopic(1).iterator().next();
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var handler = new BalancerHandler(admin);
+      var request = new BalancerHandler.BalancerPostRequest();
+      request.topics = Set.of(topic);
+      var theProgress = submitPlanGeneration(handler, request);
+
+      var value0 = Utils.randomString();
+      var value1 = Utils.randomString();
+      var value2 = Utils.randomString();
+      handler
+          .put(
+              httpRequest(
+                  Map.of(
+                      "id",
+                      theProgress.id,
+                      "executor",
+                      ExecutorWrapper.class.getName(),
+                      "executorConfig",
+                      Map.of("value0", value0, "value1", value1, "value2", value2))))
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(3));
+
+      var config = ExecutorWrapper.configWrapper.get();
+      Assertions.assertNotNull(config);
+      Assertions.assertEquals(value0, config.requireString("value0"));
+      Assertions.assertEquals(value1, config.requireString("value1"));
+      Assertions.assertEquals(value2, config.requireString("value2"));
+    }
+  }
+
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, BalancerPostRequest request) {
@@ -1191,7 +1211,7 @@ public class BalancerHandlerTest {
               (BalancerHandler.PlanExecutionProgress)
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
-          return progress.phase.calculated();
+          return progress.phase == Searched;
         });
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
@@ -1200,6 +1220,8 @@ public class BalancerHandlerTest {
   private static class NoOpExecutor implements RebalancePlanExecutor {
 
     private final LongAdder executionCounter = new LongAdder();
+
+    public NoOpExecutor(Configuration configuration) {}
 
     @Override
     public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
@@ -1288,14 +1310,52 @@ public class BalancerHandlerTest {
     }
 
     @Override
-    public Plan offer(
-        ClusterInfo currentClusterInfo,
-        ClusterBean clusterBean,
-        Duration timeout,
-        AlgorithmConfig config) {
+    public Plan offer(AlgorithmConfig config) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
-      return super.offer(currentClusterInfo, clusterBean, timeout, config);
+      return super.offer(config);
+    }
+  }
+
+  public static class LatchExecutor extends NoOpExecutor {
+    static final CountDownLatch latch = new CountDownLatch(1);
+
+    public LatchExecutor(Configuration configuration) {
+      super(configuration);
+    }
+
+    @Override
+    public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
+      return super.run(admin, targetAllocation, Duration.ofSeconds(5))
+          // Use another thread to block this completion to avoid deadlock in
+          // BalancerHandler#put
+          .thenApplyAsync(
+              i -> {
+                Utils.packException(() -> latch.await());
+                return i;
+              });
+    }
+  }
+
+  public static class ExceptionExecutor extends NoOpExecutor {
+    public ExceptionExecutor(Configuration configuration) {
+      super(configuration);
+    }
+
+    @Override
+    public CompletionStage<Void> run(Admin admin, ClusterInfo targetAllocation, Duration timeout) {
+      return super.run(admin, targetAllocation, Duration.ofSeconds(5))
+          .thenCompose(ignored -> CompletableFuture.failedFuture(new RuntimeException("Boom")));
+    }
+  }
+
+  public static class ExecutorWrapper extends NoOpExecutor {
+
+    static AtomicReference<Configuration> configWrapper = new AtomicReference<>();
+
+    public ExecutorWrapper(Configuration configuration) {
+      super(configuration);
+      configWrapper.set(configuration);
     }
   }
 

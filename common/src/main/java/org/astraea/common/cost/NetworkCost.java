@@ -22,7 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,6 +34,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.utils.ClusterInfoSensor;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -63,11 +64,13 @@ import org.astraea.common.metrics.platform.HostMetrics;
  */
 public abstract class NetworkCost implements HasClusterCost {
 
-  private final AtomicReference<ClusterInfo> currentCluster = new AtomicReference<>();
   private final BandwidthType bandwidthType;
+  private final Map<ClusterBean, CachedCalculation> calculationCache;
+  private final ClusterInfoSensor clusterInfoSensor = new ClusterInfoSensor();
 
   NetworkCost(BandwidthType bandwidthType) {
     this.bandwidthType = bandwidthType;
+    this.calculationCache = new ConcurrentHashMap<>();
   }
 
   void noMetricCheck(ClusterBean clusterBean) {
@@ -83,75 +86,68 @@ public abstract class NetworkCost implements HasClusterCost {
           "The following brokers have no metric available: " + noMetricBrokers);
   }
 
-  void updateCurrentCluster(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, AtomicReference<ClusterInfo> ref) {
-    // TODO: We need a reliable way to access the actual current cluster info. The following method
-    //  try to compare the equality of cluster info and cluster bean in terms of replica set. But it
-    //  didn't consider the data folder info. See the full discussion:
-    //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
-    var metricReplicas = clusterBean.replicas();
-    var mismatchSet =
-        clusterInfo.topicPartitionReplicas().stream()
-            .filter(tpr -> !metricReplicas.contains(tpr))
-            .collect(Collectors.toUnmodifiableSet());
-    if (mismatchSet.isEmpty()) ref.set(clusterInfo);
-    if (ref.get() == null)
-      fail("Initial clusterInfo required, the following replicas are mismatch: " + mismatchSet);
-  }
-
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
-    updateCurrentCluster(clusterInfo, clusterBean, currentCluster);
 
-    var ingressRate =
-        estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC);
-    var egressRate =
-        estimateRate(currentCluster.get(), clusterBean, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+    // The partition load calculation takes considerable time with many partitions. cache the
+    // calculation result to speed things up
+    final var cachedCalculation =
+        calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
+    final var ingressRate = cachedCalculation.partitionIngressRate;
+    final var egressRate = cachedCalculation.partitionEgressRate;
+
+    // Evaluate the score of the balancer-tweaked cluster(clusterInfo)
     var brokerIngressRate =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isOnline)
+        clusterInfo.brokers().stream()
             .collect(
-                Collectors.groupingBy(
-                    replica -> clusterInfo.node(replica.nodeInfo().id()),
-                    Collectors.mapping(
-                        replica -> {
-                          // ingress might come from producer-send or follower-fetch.
-                          return notNull(ingressRate.get(replica.topicPartition()));
-                        },
-                        Collectors.summingDouble(x -> x))));
+                Collectors.toMap(
+                    NodeInfo::id,
+                    broker ->
+                        clusterInfo
+                            .replicaStream(broker.id())
+                            .mapToLong(
+                                replica -> {
+                                  // ingress might come from producer-send or follower-fetch.
+                                  return notNull(ingressRate.get(replica.topicPartition()));
+                                })
+                            .sum()));
     var brokerEgressRate =
-        clusterInfo
-            .replicaStream()
-            .filter(Replica::isOnline)
+        clusterInfo.brokers().stream()
             .collect(
-                Collectors.groupingBy(
-                    replica -> clusterInfo.node(replica.nodeInfo().id()),
-                    Collectors.mapping(
-                        replica -> {
-                          // egress is composed of consumer-fetch and follower-fetch.
-                          // this implementation assumes no consumer rack awareness fetcher
-                          // enabled so all consumers fetch data from the leader only.
-                          return replica.isLeader()
-                              ? notNull(egressRate.get(replica.topicPartition()))
-                                  + notNull(ingressRate.get(replica.topicPartition()))
-                                      // Multiply by the number of follower replicas. This
-                                      // number considers both online replicas and offline
-                                      // replicas since an offline replica is probably a
-                                      // transient behavior. So the offline state should get
-                                      // resolved in the near future, we count it in advance.
-                                      * (clusterInfo.replicas(replica.topicPartition()).size() - 1)
-                              : 0;
-                        },
-                        Collectors.summingDouble(x -> x))));
+                Collectors.toMap(
+                    NodeInfo::id,
+                    broker ->
+                        clusterInfo
+                            .replicaStream(broker.id())
+                            .mapToLong(
+                                replica -> {
+                                  // egress is composed of consumer-fetch and follower-fetch.
+                                  // this implementation assumes no consumer rack awareness fetcher
+                                  // enabled so all consumers fetch data from the leader only.
+                                  return replica.isLeader()
+                                      ? notNull(egressRate.get(replica.topicPartition()))
+                                          + notNull(ingressRate.get(replica.topicPartition()))
+                                              // Multiply by the number of follower replicas. This
+                                              // number considers both online replicas and offline
+                                              // replicas since an offline replica is probably a
+                                              // transient behavior. So the offline state should get
+                                              // resolved in the near future, we count it in
+                                              // advance.
+                                              * (clusterInfo
+                                                      .replicas(replica.topicPartition())
+                                                      .size()
+                                                  - 1)
+                                      : 0;
+                                })
+                            .sum()));
     // add the brokers having no replicas into map
     clusterInfo.nodes().stream()
-        .filter(node -> !brokerIngressRate.containsKey(node))
+        .filter(node -> !brokerIngressRate.containsKey(node.id()))
         .forEach(
             node -> {
-              brokerIngressRate.put(node, 0.0);
-              brokerEgressRate.put(node, 0.0);
+              brokerIngressRate.put(node.id(), 0L);
+              brokerEgressRate.put(node.id(), 0L);
             });
 
     // the rate we are measuring
@@ -192,7 +188,8 @@ public abstract class NetworkCost implements HasClusterCost {
                     List.of(HostMetrics.jvmMemory(client)),
                     ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
                     ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
-                    LogMetrics.Log.SIZE.fetch(client))
+                    LogMetrics.Log.SIZE.fetch(client),
+                    clusterInfoSensor.fetch(client, clusterBean))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList()));
   }
@@ -281,11 +278,24 @@ public abstract class NetworkCost implements HasClusterCost {
     }
   }
 
+  private class CachedCalculation {
+    private final Map<TopicPartition, Long> partitionIngressRate;
+    private final Map<TopicPartition, Long> partitionEgressRate;
+
+    private CachedCalculation(ClusterBean sourceMetric) {
+      final var metricViewCluster = ClusterInfoSensor.metricViewCluster(sourceMetric);
+      this.partitionIngressRate =
+          estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_IN_PER_SEC);
+      this.partitionEgressRate =
+          estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+    }
+  }
+
   static class NetworkClusterCost implements ClusterCost {
     final double score;
-    final Map<NodeInfo, Double> brokerRate;
+    final Map<Integer, Long> brokerRate;
 
-    NetworkClusterCost(double score, Map<NodeInfo, Double> brokerRate) {
+    NetworkClusterCost(double score, Map<Integer, Long> brokerRate) {
       this.score = score;
       this.brokerRate = brokerRate;
     }
@@ -297,7 +307,7 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return brokerRate.values().stream()
-          .map(x -> DataRate.Byte.of(x.longValue()).perSecond())
+          .map(x -> DataRate.Byte.of(x).perSecond())
           .map(DataRate::toString)
           .collect(Collectors.joining(", ", "{", "}"));
     }

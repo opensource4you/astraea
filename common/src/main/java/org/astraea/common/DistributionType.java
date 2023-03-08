@@ -16,11 +16,10 @@
  */
 package org.astraea.common;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Random;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
+import org.apache.commons.math3.distribution.ZipfDistribution;
+import org.apache.commons.math3.random.Well19937c;
 
 /**
  * Random distribution generator. Example: {@code Supplier<long> uniformDistribution =
@@ -30,14 +29,14 @@ import java.util.stream.IntStream;
 public enum DistributionType implements EnumInfo {
   FIXED {
     @Override
-    public Supplier<Long> supplier(int n) {
+    public Supplier<Long> supplier(int n, Configuration configuration) {
       return () -> (long) n;
     }
   },
 
   UNIFORM {
     @Override
-    public Supplier<Long> supplier(int n) {
+    public Supplier<Long> supplier(int n, Configuration configuration) {
       var rand = new Random();
       return () -> (long) rand.nextInt(n);
     }
@@ -46,7 +45,7 @@ public enum DistributionType implements EnumInfo {
   /** A distribution for providing different random value every 2 seconds */
   LATEST {
     @Override
-    public Supplier<Long> supplier(int n) {
+    public Supplier<Long> supplier(int n, Configuration configuration) {
       var rand = new Random();
       return () -> {
         var time = System.currentTimeMillis();
@@ -62,27 +61,21 @@ public enum DistributionType implements EnumInfo {
    */
   ZIPFIAN {
     @Override
-    public Supplier<Long> supplier(int n) {
-      var cumulativeDensityTable = new ArrayList<Double>();
-      var rand = new Random();
-      var H_N = IntStream.range(1, n + 1).mapToDouble(k -> 1D / k).sum();
-      var sum = 0D;
-      // In theory, the last entry of cumulative density table is 1.0. But due to the precision of
-      // floating point addition, the resulting last entry may not be 1.0. Here, we manually fix the
-      // last entry to 1.0. Then, the binary search afterward will not return the index out of
-      // expected range.
-      for (var i = 1L; i < n; ++i) {
-        sum += 1D / i / H_N;
-        cumulativeDensityTable.add(sum);
-      }
-      cumulativeDensityTable.add(1.0);
-      return () -> {
-        var randNum = rand.nextDouble();
-        var ret = (long) Collections.binarySearch(cumulativeDensityTable, randNum);
-        return (ret >= 0) ? ret : (-ret - 1);
-      };
+    public Supplier<Long> supplier(int n, Configuration configuration) {
+      var exponent = configuration.string(ZIPFIAN_EXPONENT).map(Double::parseDouble).orElse(1.0);
+      var rng = configuration.integer(ZIPFIAN_SEED).map(Well19937c::new).orElse(new Well19937c());
+      var distribution = new ZipfDistribution(rng, n, exponent);
+
+      // the zipf in common math3 has function range [1, n]. But this previous implementation of our
+      // zipf expects [0, n), so we explicitly minus it by one to comply with the implementation
+      // detail.
+      var correction = 1;
+      return () -> (long) (distribution.sample() - correction);
     }
   };
+
+  public static final String ZIPFIAN_SEED = "seed";
+  public static final String ZIPFIAN_EXPONENT = "exponent";
 
   public static DistributionType ofAlias(String alias) {
     return EnumInfo.ignoreCaseEnum(DistributionType.class, alias);
@@ -98,10 +91,10 @@ public enum DistributionType implements EnumInfo {
     return alias();
   }
 
-  public final Supplier<Long> create(int n) {
+  public final Supplier<Long> create(int n, Configuration configuration) {
     if (n <= 0) return () -> 0L;
-    return supplier(n);
+    return supplier(n, configuration);
   }
 
-  protected abstract Supplier<Long> supplier(int n);
+  protected abstract Supplier<Long> supplier(int n, Configuration config);
 }

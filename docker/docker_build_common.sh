@@ -25,6 +25,11 @@ function getRandomPort() {
   echo $(($(($RANDOM%10000))+10000))
 }
 
+# don't change the length as it is expected 16 bytes of a base64-encoded UUID
+function randomString() {
+  echo $(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 22 | head -n 1)
+}
+
 function checkDocker() {
   if [[ "$(which docker)" == "" ]]; then
     echo "you have to install docker"

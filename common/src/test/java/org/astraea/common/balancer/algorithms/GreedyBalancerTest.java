@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
@@ -65,10 +66,13 @@ class GreedyBalancerTest {
               run -> {
                 var plan =
                     balancer.offer(
-                        clusterInfo,
-                        ClusterBean.EMPTY,
-                        Duration.ofMillis(300),
-                        AlgorithmConfig.builder().executionId(id).clusterCost(cost).build());
+                        AlgorithmConfig.builder()
+                            .clusterInfo(clusterInfo)
+                            .clusterBean(ClusterBean.EMPTY)
+                            .timeout(Duration.ofMillis(300))
+                            .executionId(id)
+                            .clusterCost(cost)
+                            .build());
                 Assertions.assertTrue(plan.solution().isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(

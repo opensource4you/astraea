@@ -36,7 +36,9 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.SecondPart;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
@@ -206,22 +208,27 @@ class ReplicaNode {
   }
 
   static Node of(Context context) {
-    return PaneBuilder.of()
-        .firstPart(
-            "REFRESH",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .topicNames(true)
-                    .thenCompose(context.admin()::clusterInfo)
-                    .thenApply(ReplicaNode::allResult))
-        .secondPart(
-            List.of(
-                TextInput.of(
-                    MOVE_BROKER_KEY,
-                    EditableText.multiline().disable().hint("1001:/path,1002").build())),
-            "ALTER",
-            tableViewAction(context))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenCompose(context.admin()::clusterInfo)
+                        .thenApply(ReplicaNode::allResult))
+            .build();
+    var secondPart =
+        SecondPart.builder()
+            .buttonName("ALTER")
+            .textInputs(
+                List.of(
+                    TextInput.of(
+                        MOVE_BROKER_KEY,
+                        EditableText.multiline().disable().hint("1001:/path,1002").build())))
+            .action(tableViewAction(context))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
   }
 }

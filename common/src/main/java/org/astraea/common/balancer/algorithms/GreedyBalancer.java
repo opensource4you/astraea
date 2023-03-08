@@ -16,10 +16,10 @@
  */
 package org.astraea.common.balancer.algorithms;
 
-import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
@@ -27,8 +27,8 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
@@ -133,19 +133,19 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(
-      final ClusterInfo currentClusterInfo,
-      ClusterBean clusterBean,
-      Duration timeout,
-      AlgorithmConfig config) {
-    final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
+  public Plan offer(AlgorithmConfig config) {
+    final var currentClusterInfo = config.clusterInfo();
+    final var clusterBean = config.clusterBean();
+    final var allocationTweaker =
+        new ShuffleTweaker(
+            () -> ThreadLocalRandom.current().nextInt(minStep, maxStep), config.topicFilter());
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
     final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, clusterBean);
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
-    final var executionTime = timeout.toMillis();
+    final var executionTime = config.timeout().toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
     BiFunction<ClusterInfo, ClusterCost, Optional<Solution>> next =
@@ -154,22 +154,19 @@ public class GreedyBalancer implements Balancer {
                 .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
-                    newAllocation -> {
-                      var newClusterInfo =
-                          ClusterInfo.update(currentClusterInfo, newAllocation::replicas);
-                      return new Solution(
-                          clusterCostFunction.clusterCost(newClusterInfo, clusterBean),
-                          moveCostFunction.moveCost(
-                              currentClusterInfo, newClusterInfo, clusterBean),
-                          newAllocation);
-                    })
+                    newAllocation ->
+                        new Solution(
+                            clusterCostFunction.clusterCost(newAllocation, clusterBean),
+                            moveCostFunction.moveCost(
+                                currentClusterInfo, newAllocation, clusterBean),
+                            newAllocation))
                 .filter(
                     plan ->
                         config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
                 .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
     var currentCost = initialCost;
-    var currentAllocation = ClusterInfo.masked(currentClusterInfo, config.topicFilter());
+    var currentAllocation = currentClusterInfo;
     var currentSolution = Optional.<Solution>empty();
 
     // register JMX

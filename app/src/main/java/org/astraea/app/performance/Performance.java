@@ -18,6 +18,7 @@ package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.converters.LongConverter;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.StringListField;
+import org.astraea.app.argument.StringMapField;
 import org.astraea.app.argument.TopicPartitionDataRateMapField;
 import org.astraea.app.argument.TopicPartitionField;
 import org.astraea.common.DataRate;
@@ -286,6 +288,22 @@ public class Performance {
     }
 
     @Parameter(
+        names = {"--record.key.table.seed"},
+        description =
+            "The random seed for internal record key candidate generation. "
+                + "If one wants to run performance tool at multiple instances, consider using a common seed for all performance tools. "
+                + "Doing so guarantee all instances send record against the same key/value content lookup table. "
+                + "This might be crucial for probability distribution like Zipfian. Where only a specific key will be the hotspot.",
+        converter = LongConverter.class)
+    long recordKeyTableSeed = ThreadLocalRandom.current().nextLong();
+
+    @Parameter(
+        names = {"--record.value.table.seed"},
+        description = "The random seed for internal record value candidate generation.",
+        converter = LongConverter.class)
+    long recordValueTableSeed = ThreadLocalRandom.current().nextLong();
+
+    @Parameter(
         names = {"--key.size"},
         description = "DataSize of the key. Default: 4Byte",
         converter = DataSizeField.class)
@@ -300,9 +318,28 @@ public class Performance {
     @Parameter(
         names = {"--key.distribution"},
         description =
-            "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
+            "Distribution name for key content. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform",
         converter = DistributionTypeField.class)
     DistributionType keyDistributionType = DistributionType.UNIFORM;
+
+    @Parameter(
+        names = {"--key.distribution.config"},
+        description = "Configuration for key distribution",
+        converter = StringMapField.class)
+    Map<String, String> keyDistributionConfig = Map.of();
+
+    @Parameter(
+        names = {"--key.size.distribution"},
+        description =
+            "Distribution name for key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed",
+        converter = DistributionTypeField.class)
+    DistributionType keySizeDistributionType = DistributionType.FIXED;
+
+    @Parameter(
+        names = {"--key.size.distribution.config"},
+        description = "Configuration for key size distribution",
+        converter = StringMapField.class)
+    Map<String, String> keySizeDistributionConfig = Map.of();
 
     @Parameter(
         names = {"--value.distribution"},
@@ -310,6 +347,12 @@ public class Performance {
             "Distribution name for value and value size. Available distribution names: \"uniform\", \"zipfian\", \"latest\", \"fixed\". Default: uniform",
         converter = DistributionTypeField.class)
     DistributionType valueDistributionType = DistributionType.UNIFORM;
+
+    @Parameter(
+        names = {"--value.distribution.config"},
+        description = "Configuration for key distribution",
+        converter = StringMapField.class)
+    Map<String, String> valueDistributionConfig = Map.of();
 
     @Parameter(
         names = {"--specify.brokers"},

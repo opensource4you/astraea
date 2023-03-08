@@ -17,7 +17,7 @@
 package org.astraea.etl
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.Properties
 import scala.jdk.CollectionConverters._
 import scala.util.Using
@@ -75,7 +75,7 @@ object Metadata {
   private[etl] val DEFAULT_CLEAN_SOURCE = "delete"
 
   // Parameters needed to configure ETL.
-  def of(path: File): Metadata = {
+  def of(path: Path): Metadata = {
     // remove the empty/blank value
     val properties =
       readProp(path).asScala.filter(_._2.nonEmpty).filterNot(_._2.isBlank)
@@ -132,10 +132,11 @@ object Metadata {
     )
   }
 
-  private[this] def readProp(path: File): Properties = {
+  private[this] def readProp(path: Path): Properties = {
     val properties = new Properties()
-    Using(scala.io.Source.fromFile(path)) { bufferedSource =>
-      properties.load(bufferedSource.reader())
+    Using(scala.io.Source.fromInputStream(Files.newInputStream(path))) {
+      bufferedSource =>
+        properties.load(bufferedSource.reader())
     }
     properties
   }

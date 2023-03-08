@@ -16,23 +16,50 @@
  */
 package org.astraea.it;
 
-import java.io.File;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
-import kafka.server.KafkaServer;
-import org.apache.kafka.common.network.ListenerName;
+import kafka.server.KafkaRaftServer;
+import kafka.server.MetaProperties;
+import kafka.server.Server;
+import kafka.tools.StorageTool;
+import org.apache.kafka.common.Uuid;
 import org.apache.kafka.common.utils.SystemTime;
+import org.apache.kafka.server.common.MetadataVersion;
 
 public interface BrokerCluster extends AutoCloseable {
 
-  static BrokerCluster of(
-      ZookeeperCluster zookeeperCluster, int numberOfBrokers, Map<String, String> override) {
+  private static CompletableFuture<Map.Entry<Integer, Server>> server(
+      Map<String, String> configs, Set<String> folders, String clusterId, int nodeId) {
+    StorageTool.formatCommand(
+        new PrintStream(new ByteArrayOutputStream()),
+        scala.collection.JavaConverters.collectionAsScalaIterableConverter(folders)
+            .asScala()
+            .toSeq(),
+        new MetaProperties(clusterId, nodeId),
+        MetadataVersion.latest(),
+        true);
+
+    return CompletableFuture.supplyAsync(
+        () -> {
+          var broker =
+              new KafkaRaftServer(
+                  new KafkaConfig(configs), SystemTime.SYSTEM, scala.Option.empty());
+          broker.startup();
+          return Map.entry(nodeId, broker);
+        });
+  }
+
+  static BrokerCluster of(int numberOfBrokers, Map<String, String> override) {
     var tempFolders =
         IntStream.range(0, numberOfBrokers)
             .boxed()
@@ -41,54 +68,94 @@ public interface BrokerCluster extends AutoCloseable {
                     Function.identity(),
                     brokerId ->
                         Set.of(
-                            Utils.createTempDirectory("local_kafka").getAbsolutePath(),
-                            Utils.createTempDirectory("local_kafka").getAbsolutePath(),
-                            Utils.createTempDirectory("local_kafka").getAbsolutePath())));
+                            Utils.createTempDirectory("local_kafka").toAbsolutePath().toString(),
+                            Utils.createTempDirectory("local_kafka").toAbsolutePath().toString(),
+                            Utils.createTempDirectory("local_kafka").toAbsolutePath().toString())));
 
-    var brokers =
+    // get more available ports to avoid conflicts
+    var ports =
+        IntStream.range(0, numberOfBrokers * 2)
+            .boxed()
+            .map(ignored -> Utils.availablePort())
+            .distinct()
+            .limit(numberOfBrokers)
+            .collect(Collectors.toUnmodifiableList());
+
+    if (ports.size() != numberOfBrokers)
+      throw new RuntimeException("failed to get enough available ports.");
+
+    var availablePorts =
         IntStream.range(0, numberOfBrokers)
-            .mapToObj(
-                index -> {
+            .boxed()
+            .collect(Collectors.toUnmodifiableMap(Function.identity(), ports::get));
+
+    var clusterId = Uuid.randomUuid().toString();
+    var controllerFolder = Utils.createTempDirectory("local_kafka").toAbsolutePath().toString();
+    var controllerPort = Utils.availablePort();
+    var voters = "999@localhost:" + controllerPort;
+    var controller =
+        server(
+                Map.of(
+                    "process.roles",
+                    "controller",
+                    "node.id",
+                    "999",
+                    "controller.quorum.voters",
+                    voters,
+                    "listeners",
+                    "CONTROLLER://:" + controllerPort,
+                    "controller.listener.names",
+                    "CONTROLLER",
+                    "listener.security.protocol.map",
+                    "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT",
+                    "log.dirs",
+                    controllerFolder,
+                    "num.partitions",
+                    "1"),
+                Set.of(controllerFolder),
+                clusterId,
+                999)
+            .join()
+            .getValue();
+
+    var brokersFutures =
+        availablePorts.entrySet().stream()
+            .map(
+                entry -> {
                   var configs = new HashMap<String, String>();
+                  configs.put("process.roles", "broker");
+                  configs.put("node.id", String.valueOf(entry.getKey()));
+                  configs.put("controller.quorum.voters", voters);
+                  configs.put("listeners", "PLAINTEXT://:" + entry.getValue());
+                  configs.put("controller.listener.names", "CONTROLLER");
+                  configs.put(
+                      "listener.security.protocol.map", "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT");
                   // reduce the backoff of compact thread to test it quickly
                   configs.put("log.cleaner.backoff.ms", String.valueOf(2000));
                   // reduce the number from partitions and replicas to speedup the mini cluster
                   configs.put("offsets.topic.num.partitions", String.valueOf(1));
                   configs.put("offsets.topic.replication.factor", String.valueOf(1));
-                  configs.put("zookeeper.connect", zookeeperCluster.connectionProps());
-                  configs.put("broker.id", String.valueOf(index));
-                  // bind broker on random port
-                  configs.put("listeners", "PLAINTEXT://:0");
-                  configs.put("log.dirs", String.join(",", tempFolders.get(index)));
-
-                  // TODO: provide a mechanism to offer customized embedded cluster for specialized
-                  // test scenario. keeping adding config to this method might cause configuration
-                  // requirement to conflict. See https://github.com/skiptests/astraea/issues/391
-                  // for further discussion.
+                  configs.put("log.dirs", String.join(",", tempFolders.get(entry.getKey())));
 
                   // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
                   // correctly.
                   configs.put("auto.leader.rebalance.enable", String.valueOf(false));
 
-                  // increase the timeout in order to avoid ZkTimeoutException
-                  configs.put("zookeeper.session.timeout.ms", String.valueOf(30 * 1000));
-
                   // add custom configs
                   configs.putAll(override);
 
-                  KafkaServer broker =
-                      new KafkaServer(
-                          new KafkaConfig(configs), SystemTime.SYSTEM, scala.Option.empty(), false);
-                  broker.startup();
-                  return Map.entry(index, broker);
+                  return server(
+                      configs, tempFolders.get(entry.getKey()), clusterId, entry.getKey());
                 })
+            .collect(Collectors.toList());
+    var brokers =
+        brokersFutures.stream()
+            .map(CompletableFuture::join)
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     AtomicReference<String> connectionProps = new AtomicReference<>();
     connectionProps.set(
-        brokers.values().stream()
-            .map(
-                kafkaServer ->
-                    Utils.hostname() + ":" + kafkaServer.boundPort(new ListenerName("PLAINTEXT")))
+        availablePorts.entrySet().stream()
+            .map(entry -> "localhost:" + entry.getValue())
             .collect(Collectors.joining(",")));
     return new BrokerCluster() {
       @Override
@@ -98,14 +165,11 @@ public interface BrokerCluster extends AutoCloseable {
           broker.shutdown();
           broker.awaitShutdown();
           var folders = tempFolders.remove(brokerID);
-          if (folders != null) folders.forEach(f -> Utils.delete(new File(f)));
+          if (folders != null) folders.forEach(f -> Utils.delete(Path.of(f)));
           connectionProps.set(
-              brokers.values().stream()
-                  .map(
-                      kafkaServer ->
-                          Utils.hostname()
-                              + ":"
-                              + kafkaServer.boundPort(new ListenerName("PLAINTEXT")))
+              availablePorts.entrySet().stream()
+                  .filter(entry -> !entry.getKey().equals(brokerID))
+                  .map(entry -> "localhost:" + entry.getValue())
                   .collect(Collectors.joining(",")));
         }
       }
@@ -113,6 +177,9 @@ public interface BrokerCluster extends AutoCloseable {
       @Override
       public void close() {
         Set.copyOf(brokers.keySet()).forEach(this::close);
+        controller.shutdown();
+        controller.awaitShutdown();
+        Utils.delete(Path.of(controllerFolder));
       }
 
       @Override

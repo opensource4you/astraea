@@ -566,6 +566,50 @@ public class AdminTest {
   }
 
   @Test
+  void testDeclarePreferredFoldersWithNoCrossBrokerMovement() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var topic = Utils.randomString();
+      admin
+          .creator()
+          .topic(topic)
+          .numberOfPartitions(10)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofMillis(300));
+
+      // 10 replicas
+      var source = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
+      // 10 replicas, all move to another folder within the same broker. No cross broker movement.
+      var target =
+          ClusterInfoBuilder.builder(source)
+              .mapLog(
+                  r ->
+                      Replica.builder(r)
+                          .path(
+                              source.brokerFolders().get(r.nodeInfo().id()).stream()
+                                  .filter(p -> !p.equals(r.path()))
+                                  .findAny()
+                                  .orElseThrow())
+                          .build())
+              .build();
+
+      Assertions.assertDoesNotThrow(
+          () ->
+              admin
+                  .declarePreferredDataFolders(
+                      target
+                          .replicaStream()
+                          .collect(
+                              Collectors.toUnmodifiableMap(
+                                  Replica::topicPartitionReplica, Replica::path)))
+                  .toCompletableFuture()
+                  .join());
+    }
+  }
+
+  @Test
   void testSetAndUnsetTopicConfig() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {

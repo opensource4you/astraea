@@ -35,7 +35,9 @@ import org.astraea.common.function.Bi3Function;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.pane.Argument;
+import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.SecondPart;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
@@ -157,23 +159,27 @@ class PartitionNode {
   }
 
   static Node of(Context context) {
-    var moveToKey = "move to brokers";
-    var offsetKey = "truncate to offset";
-    return PaneBuilder.of()
-        .secondPart(
-            List.of(
-                TextInput.of(INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
-                TextInput.of(TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build())),
-            "ALTER",
-            tableViewAction(context))
-        .firstPart(
-            "REFRESH",
-            (argument, logger) ->
-                context
-                    .admin()
-                    .topicNames(true)
-                    .thenCompose(context.admin()::partitions)
-                    .thenApply(PartitionNode::basicResult))
-        .build();
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .topicNames(true)
+                        .thenCompose(context.admin()::partitions)
+                        .thenApply(PartitionNode::basicResult))
+            .build();
+    var secondPart =
+        SecondPart.builder()
+            .textInputs(
+                List.of(
+                    TextInput.of(
+                        INCREASE_PARTITION_KEY, EditableText.singleLine().disable().build()),
+                    TextInput.of(TRUNCATE_OFFSET_KEY, EditableText.singleLine().disable().build())))
+            .buttonName("ALTER")
+            .action(tableViewAction(context))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
   }
 }

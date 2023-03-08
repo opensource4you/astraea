@@ -23,6 +23,7 @@ def versions = [
         "commons-io"          : project.properties['commons-io.version'] ?: "2.11.0",
         "commons-math3"       : project.properties['commons-math3.version'] ?: "3.6.1",
         "commons-net"         : project.properties['commons-net.version'] ?: "3.9.0",
+        "commons-logging"     : project.properties['commons-logging.version'] ?: "1.2",
         "ftp-server"          : project.properties['ftp-server.version'] ?: "1.2.0",
         jackson               : project.properties['jackson.version'] ?: "2.14.1",
         jcommander            : project.properties['jcommander.version'] ?: "1.82",
@@ -35,15 +36,14 @@ def versions = [
         slf4j                 : project.properties['slf4j.version'] ?: "2.0.6",
         spark                 : project.properties['spark.version'] ?: "3.3.1",
         "wix-embedded-mysql"  : project.properties['wix-embedded-mysql.version'] ?: "4.6.2",
-        zookeeper             : project.properties['zookeeper.version'] ?: "3.8.1",
-        "hadoop-common"       : project.properties['hadoop-common.version'] ?: "3.3.4",
-        "hadoop-minicluster"  : project.properties['hadoop-minicluster.version'] ?: "3.3.4",
+        "hadoop"              : project.properties["hadoop.version"] ?: "3.3.4",
 ]
 
 libs += [
         "commons-io"           : "commons-io:commons-io:${versions["commons-io"]}",
         "commons-math3"        : "org.apache.commons:commons-math3:${versions["commons-math3"]}",
         "commons-net"          : "commons-net:commons-net:${versions["commons-net"]}",
+        "commons-logging"      : "commons-logging:commons-logging:${versions["commons-logging"]}",
         "ftp-server"           : "org.apache.ftpserver:ftpserver-core:${versions["ftp-server"]}",
         "jackson-databind"     : "com.fasterxml.jackson.core:jackson-databind:${versions["jackson"]}",
         "jackson-datatype-jdk8": "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${versions["jackson"]}",
@@ -54,6 +54,7 @@ libs += [
         "kafka-connect-json"   : "org.apache.kafka:connect-json:${versions["kafka"]}",
         "kafka-connect-runtime": "org.apache.kafka:connect-runtime:${versions["kafka"]}",
         "kafka-core"           : "org.apache.kafka:kafka_2.13:${versions["kafka"]}",
+        "kafka-server-common"  : "org.apache.kafka:kafka-server-common:${versions["kafka"]}",
         "mockito-core"         : "org.mockito:mockito-core:${versions["mockito"]}",
         "mockito-inline"       : "org.mockito:mockito-inline:${versions["mockito"]}",
         "mysql-connector-java" : "mysql:mysql-connector-java:${versions["mysql-connector-java"]}",
@@ -63,8 +64,9 @@ libs += [
         "spark-kafka"          : "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark"]}",
         "spark-sql"            : "org.apache.spark:spark-sql_2.13:${versions["spark"]}",
         "wix-embedded-mysql"   : "com.wix:wix-embedded-mysql:${versions["wix-embedded-mysql"]}",
-        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}",
-        "hadoop-common"        : "org.apache.hadoop:hadoop-common:${versions["hadoop-common"]}",
-        "hadoop-minicluster"   : "org.apache.hadoop:hadoop-minicluster:${versions["hadoop-minicluster"]}",
-
+        "hadoop-common"        : "org.apache.hadoop:hadoop-common:${versions["hadoop"]}",
+        "hadoop-client"        : "org.apache.hadoop:hadoop-client:${versions["hadoop"]}",
+        "hadoop-minicluster"   : "org.apache.hadoop:hadoop-minicluster:${versions["hadoop"]}",
+        "hadoop-client-api"    : "org.apache.hadoop:hadoop-client-api:${versions["hadoop"]}",
+        "hadoop-client-runtime": "org.apache.hadoop:hadoop-client-runtime:${versions["hadoop"]}",
 ]

@@ -14,26 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.gui.pane;
+package org.astraea.it;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
-import org.astraea.gui.Logger;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-@FunctionalInterface
-public interface TableRefresher {
+public class BrokerClusterTest {
 
-  String BASIC_KEY = "basic";
-
-  static TableRefresher of(
-      BiFunction<Argument, Logger, CompletionStage<List<Map<String, Object>>>> refresher) {
-    return (argument, logger) ->
-        refresher
-            .apply(argument, logger)
-            .thenApply(r -> r.isEmpty() ? Map.of() : Map.of(BASIC_KEY, r));
+  @Test
+  void testSingleCreateAndClose() {
+    try (var service = Service.builder().numberOfBrokers(1).build()) {
+      Assertions.assertEquals(1, service.bootstrapServers().split(",").length);
+    }
   }
 
-  CompletionStage<Map<String, List<Map<String, Object>>>> apply(Argument argument, Logger logger);
+  @Test
+  void testMultiCreateAndClose() {
+    try (var service = Service.builder().numberOfBrokers(3).build()) {
+      Assertions.assertEquals(3, service.bootstrapServers().split(",").length);
+    }
+  }
 }

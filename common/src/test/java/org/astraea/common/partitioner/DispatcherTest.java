@@ -18,9 +18,9 @@ package org.astraea.common.partitioner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Key;
 import java.time.Duration;
 import java.util.List;
@@ -277,10 +277,10 @@ public class DispatcherTest {
         ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
     props.put("producerID", 1);
     var file =
-        new File(
+        Path.of(
             Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
                 + "PartitionerConfigTest");
-    try (var fileWriter = new FileWriter(file)) {
+    try (var fileWriter = Files.newBufferedWriter(file)) {
       fileWriter.write("jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
       fileWriter.write("broker.0.jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
       fileWriter.write("broker.1.jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
