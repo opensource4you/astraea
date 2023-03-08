@@ -1394,7 +1394,7 @@ public class AdminTest {
   void testConnectionQuotas() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.setConnectionQuotas(Map.of(Utils.hostname(), 100)).toCompletableFuture().join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.IP)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
@@ -1408,6 +1408,7 @@ public class AdminTest {
           });
 
       admin.unsetConnectionQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           0,
           (int)
@@ -1439,6 +1440,7 @@ public class AdminTest {
                   DataRate.Byte.of(100).perSecond().byteRate(), quota.limitValue()));
 
       admin.unsetProducerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           0,
           (int)
@@ -1457,7 +1459,7 @@ public class AdminTest {
           .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000).perSecond()))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(2));
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
@@ -1470,6 +1472,7 @@ public class AdminTest {
                   DataRate.Byte.of(1000).perSecond().byteRate(), quota.limitValue()));
 
       admin.unsetConsumerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           0,
           (int)
@@ -1869,6 +1872,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "1:1001",
           admin
@@ -1888,6 +1892,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "1:1001,2:1002",
           admin
@@ -1907,6 +1912,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "1:1001,2:1002",
           admin
@@ -1943,6 +1949,7 @@ public class AdminTest {
                   Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "*",
           admin
@@ -1981,6 +1988,7 @@ public class AdminTest {
                       "1:1001,2:1003")))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(2));
       admin
           .subtractTopicConfigs(
               Map.of(
@@ -2026,7 +2034,7 @@ public class AdminTest {
                   topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
           .toCompletableFuture()
           .join();
-
+      Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertInstanceOf(
           IllegalArgumentException.class,
           Assertions.assertThrows(
