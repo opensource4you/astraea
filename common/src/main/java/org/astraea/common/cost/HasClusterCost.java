@@ -95,7 +95,7 @@ public interface HasClusterCost extends CostFunction {
    * that when ClusterInfo and ClusterBean have similar information, you must first refer to
    * ClusterInfo, The main reason is that the balancer will use the estimated migration distribution
    * to calculate the ClusterCost when generating the plan, and ClusterBean will only return the
-   * metrics of the actual cluster, so in Most of the time, ClusterInfo can be used to estimate the
+   * metrics of the actual cluster, so in most of the time, ClusterInfo can be used to estimate the
    * state after migration. But some costs need to be calculated using ClusterBean, for example:
    * {@link NetworkCost}
    *

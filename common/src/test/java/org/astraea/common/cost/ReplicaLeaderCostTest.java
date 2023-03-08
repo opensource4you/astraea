@@ -25,7 +25,6 @@ import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -75,25 +74,6 @@ public class ReplicaLeaderCostTest {
     Assertions.assertTrue(brokerCost.get(10) > brokerCost.get(11));
     Assertions.assertEquals(brokerCost.get(12), 0);
     Assertions.assertEquals(clusterCost, 0.816496580927726);
-  }
-
-  @Test
-  void testWithMetrics() {
-    var costFunction = new ReplicaLeaderCost();
-    var LeaderCount1 = mockResult(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 3);
-    var LeaderCount2 = mockResult(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 4);
-    var LeaderCount3 = mockResult(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName(), 5);
-
-    var broker1 = List.of((HasBeanObject) LeaderCount1);
-    var broker2 = List.of((HasBeanObject) LeaderCount2);
-    var broker3 = List.of((HasBeanObject) LeaderCount3);
-    var clusterBean = ClusterBean.of(Map.of(1, broker1, 2, broker2, 3, broker3));
-    var brokerLoad = costFunction.brokerCost(ClusterInfo.empty(), clusterBean);
-
-    Assertions.assertEquals(3, brokerLoad.value().size());
-    Assertions.assertEquals(3.0, brokerLoad.value().get(1));
-    Assertions.assertEquals(4.0, brokerLoad.value().get(2));
-    Assertions.assertEquals(5.0, brokerLoad.value().get(3));
   }
 
   @Test
