@@ -68,7 +68,25 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    *
    * @param config configuration
    */
-  protected void configure(Configuration config) {}
+  protected void configure(Configuration config) {
+    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
+    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = value);
+    config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
+    var costFunctions = Utils.costFunctions(config, HasPartitionCost.class);
+    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
+    var defaultJMXPort = config.integer(JMX_PORT);
+    this.costFunction =
+        costFunctions.isEmpty()
+            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(), 1D))
+            : HasPartitionCost.of(costFunctions);
+    this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
+    metricCollector =
+        MetricCollector.local()
+            .interval(Duration.ofSeconds(1))
+            .expiration(Duration.ofSeconds(15))
+            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+            .build();
+  }
 
   // -----------------------[helper]-----------------------//
 
@@ -141,23 +159,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
-    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
-    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = value);
-    config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
-    var costFunctions = Utils.costFunctions(config, HasPartitionCost.class);
-    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
-    var defaultJMXPort = config.integer(JMX_PORT);
-    this.costFunction =
-        costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(), 1D))
-            : HasPartitionCost.of(costFunctions);
-    this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    metricCollector =
-        MetricCollector.local()
-            .interval(Duration.ofSeconds(1))
-            .expiration(Duration.ofSeconds(15))
-            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
-            .build();
     configure(config);
   }
 }
