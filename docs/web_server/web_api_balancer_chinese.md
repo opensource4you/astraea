@@ -14,7 +14,7 @@ POST /balancer
 
 | 名稱                | 說明                                                         | 預設值                                                   |
 |-------------------|------------------------------------------------------------|-------------------------------------------------------|
-| costWeights       | (必填) 指定要優化的目標以及對應權重                                        | 無                                                     |
+| clusterCosts      | (必填) 指定要優化的目標以及對應權重                                        | 無                                                     |
 | topics            | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
 | timeout           | (選填) 指定產生時間                                                | 3s                                                    |
 | balancer          | (選填) 欲使用的負載優化計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
@@ -49,7 +49,7 @@ curl -X POST http://localhost:8001/balancer \
         "shuffle.tweaker.min.step": "1",
         "shuffle.tweaker.max.step": "5"
       },
-      "costWeights": [
+      "clusterCosts": [
         { "cost": "org.astraea.common.cost.ReplicaLeaderSizeCost", "weight": 1 },
         { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
       ],

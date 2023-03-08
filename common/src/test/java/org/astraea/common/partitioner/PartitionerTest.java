@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public class DispatcherTest {
+public class PartitionerTest {
 
   private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
@@ -61,14 +61,14 @@ public class DispatcherTest {
   }
 
   private final String SMOOTH_ROUND_ROBIN =
-      "org.astraea.common.partitioner.SmoothWeightRoundRobinDispatcher";
-  private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostDispatcher";
+      "org.astraea.common.partitioner.SmoothWeightRoundRobinPartitioner";
+  private final String STRICT_ROUND_ROBIN = "org.astraea.common.partitioner.StrictCostPartitioner";
 
   @Test
   void testUpdateClusterInfo() {
 
-    try (var dispatcher =
-        new Dispatcher() {
+    try (var partitioner =
+        new Partitioner() {
           @Override
           public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             Assertions.assertNotNull(clusterInfo);
@@ -76,19 +76,19 @@ public class DispatcherTest {
           }
         }) {
 
-      dispatcher.configure(
+      partitioner.configure(
           Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
-      Assertions.assertNotNull(dispatcher.admin);
+      Assertions.assertNotNull(partitioner.admin);
       Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertNotEquals(0, dispatcher.clusterInfo.nodes().size());
+      Assertions.assertNotEquals(0, partitioner.clusterInfo.nodes().size());
     }
   }
 
   @Test
   void testNullKey() {
     var count = new AtomicInteger();
-    Dispatcher dispatcher =
-        new Dispatcher() {
+    Partitioner partitioner =
+        new Partitioner() {
           @Override
           public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
             Assertions.assertNull(key);
@@ -103,10 +103,10 @@ public class DispatcherTest {
           }
         };
     Assertions.assertEquals(0, count.get());
-    dispatcher.configure(Map.of("a", "b"));
+    partitioner.configure(Map.of("a", "b"));
 
     Assertions.assertEquals(1, count.get());
-    dispatcher.partition("t", null, null, ClusterInfoBuilder.builder().build());
+    partitioner.partition("t", null, null, ClusterInfoBuilder.builder().build());
     Assertions.assertEquals(2, count.get());
   }
 
@@ -129,7 +129,7 @@ public class DispatcherTest {
             .build()) {
       Runnable runnable =
           () -> {
-            Dispatcher.beginInterdependent(instanceOfProducer(producer));
+            Partitioner.beginInterdependent(instanceOfProducer(producer));
             var exceptPartition =
                 producerSend(producer, topicName, key, value, timestamp, header).partition();
             IntStream.range(0, 10)
@@ -141,9 +141,9 @@ public class DispatcherTest {
                       assertEquals(timestamp, metadata.timestamp());
                       assertEquals(exceptPartition, metadata.partition());
                     });
-            Dispatcher.endInterdependent(instanceOfProducer(producer));
+            Partitioner.endInterdependent(instanceOfProducer(producer));
           };
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Partitioner.beginInterdependent(instanceOfProducer(producer));
 
       var fs =
           IntStream.range(0, 10)
@@ -161,7 +161,7 @@ public class DispatcherTest {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      Partitioner.endInterdependent(instanceOfProducer(producer));
       fs.forEach(CompletableFuture::join);
     }
   }
@@ -191,7 +191,7 @@ public class DispatcherTest {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
               });
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Partitioner.beginInterdependent(instanceOfProducer(producer));
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -203,7 +203,7 @@ public class DispatcherTest {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      Partitioner.endInterdependent(instanceOfProducer(producer));
       IntStream.range(0, 2400)
           .forEach(
               i -> {
@@ -212,7 +212,7 @@ public class DispatcherTest {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp());
               });
-      Dispatcher.beginInterdependent(instanceOfProducer(producer));
+      Partitioner.beginInterdependent(instanceOfProducer(producer));
       var exceptPartitionSec =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -224,7 +224,7 @@ public class DispatcherTest {
                 assertEquals(timestamp, metadata.timestamp());
                 assertEquals(exceptPartitionSec, metadata.partition());
               });
-      Dispatcher.endInterdependent(instanceOfProducer(producer));
+      Partitioner.endInterdependent(instanceOfProducer(producer));
     }
   }
 
@@ -274,11 +274,11 @@ public class DispatcherTest {
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "id1");
     props.put(
-        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinDispatcher.class.getName());
+        ProducerConfig.PARTITIONER_CLASS_CONFIG, SmoothWeightRoundRobinPartitioner.class.getName());
     props.put("producerID", 1);
     var file =
         Path.of(
-            Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
+            Objects.requireNonNull(PartitionerTest.class.getResource("")).getPath()
                 + "PartitionerConfigTest");
     try (var fileWriter = Files.newBufferedWriter(file)) {
       fileWriter.write("jmx.port=" + SERVICE.jmxServiceURL().getPort() + "\n");
@@ -289,7 +289,7 @@ public class DispatcherTest {
     }
     props.put(
         "partitioner.config",
-        Objects.requireNonNull(DispatcherTest.class.getResource("")).getPath()
+        Objects.requireNonNull(PartitionerTest.class.getResource("")).getPath()
             + "PartitionerConfigTest");
     return props;
   }

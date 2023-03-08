@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
@@ -29,7 +28,8 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.producer.ProducerConfigs;
 
-public abstract class Dispatcher implements Partitioner {
+public abstract class Partitioner implements org.apache.kafka.clients.producer.Partitioner {
+  public static final String COST_PREFIX = "partitioner.cost";
   private static final Duration CLUSTER_INFO_LEASE = Duration.ofSeconds(15);
 
   static final ThreadLocal<Interdependent> THREAD_LOCAL =
@@ -50,7 +50,7 @@ public abstract class Dispatcher implements Partitioner {
   protected abstract int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo);
 
   /**
-   * configure this dispatcher. This method is called only once.
+   * configure this partitioner. This method is called only once.
    *
    * @param config configuration
    */
@@ -69,7 +69,7 @@ public abstract class Dispatcher implements Partitioner {
    * Use the producer to get the scheduler, allowing you to control it for interdependent
    * messages.Interdependent message will be sent to the same partition. The system will
    * automatically select the node with the best current condition as the target node.
-   * Action:Dispatcher states can interfere with each other when multiple producers are in the same
+   * Action:Partitioner states can interfere with each other when multiple producers are in the same
    * thread. Each Thread can only support one producer. For example:
    *
    * <pre>{
@@ -93,7 +93,7 @@ public abstract class Dispatcher implements Partitioner {
    * Use the producer to get the scheduler, allowing you to control it for interdependent
    * messages.Interdependent message will be sent to the same partition. The system will
    * automatically select the node with the best current condition as the target node.
-   * Action:Dispatcher states can interfere with each other when multiple producers are in the same
+   * Action:Partitioner states can interfere with each other when multiple producers are in the same
    * thread. Each Thread can only support one producer. For example:
    *
    * <pre>{
@@ -114,7 +114,7 @@ public abstract class Dispatcher implements Partitioner {
   }
 
   /**
-   * Close interdependence function.Send data using the original Dispatcher logic.
+   * Close interdependence function.Send data using the original partitioner logic.
    *
    * @param producer Kafka producer
    */
@@ -122,7 +122,7 @@ public abstract class Dispatcher implements Partitioner {
     THREAD_LOCAL.remove();
   }
   /**
-   * Close interdependence function.Send data using the original Dispatcher logic.
+   * Close interdependence function.Send data using the original partitioner logic.
    *
    * @param producer Kafka producer
    */

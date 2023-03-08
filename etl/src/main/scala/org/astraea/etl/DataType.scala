@@ -29,7 +29,7 @@ sealed abstract class DataType(
   }
 }
 
-/** Column Types supported by astraea dispatcher. */
+/** Column Types supported by astraea partitioner. */
 object DataType {
   private val STRING_TYPE = "string"
   private val BOOLEAN_TYPE = "boolean"

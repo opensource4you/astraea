@@ -50,7 +50,7 @@
 |       transaction.size       | (選填) 每個transaction的records數量。若設置1以上，會使用transaction，否則都是一般write                                                                                                                                                                                                        |            1             |
 |           group.id           | (選填) 設置 consumer group id                                                                                                                                                                                                                                             | groupId-{Time in millis} |
 |          read.idle           | (選填) 讀取端將被終止如果超過這個時間沒有讀取到新的資料                                                                                                                                                                                                                                         |            2秒            |
-|     interdependent.size      | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Dispatcher 可以使用)                                                                                                                                                                                                      |            1             |
+|     interdependent.size      | (選填) 每幾筆 record 要發到同一個 partition。(注意：只有 Astraea Partitioner 可以使用)                                                                                                                                                                                                      |            1             |
 |           monkeys            | (選填) 設定 chaos monkey 的觸發頻率，支援 : `kill`, `add`, `unsubscribe`。<br />觸發頻率單位為 ：day, h, m, s, ms, us, ns<br />範例：`--monkeys kill:3s,add:5s`                                                                                                                               |           none           |
 |           throttle           | (選填) 用來指定 topic-partitions 的限流值<br />例如：--throttle a1-0:5MB/s,a2-0:10MB/s,a10-4:30MB/s<br />注意此參數不可與`specify.partitions`、`specify.brokers` 或`partitioner` 一起使用                                                                                                        |           none           |
 
@@ -104,12 +104,12 @@ docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics
 
 ```bash
 # 使用astraea的 partitioner ，傳入config檔案路徑，裡面可以放 partitioner 所需的參數，如jmx port等
-docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --prop.file ./config
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostPartitioner --prop.file ./config
 ```
 
 ```bash
 # 使用 partitioner 框架，指定參考 Broker Input 做效能指標，把紀錄輸出到指定路徑。
-docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostDispatcher --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
+docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic --partitioner org.astraea.common.partitioner.StrictCostPartitioner --configs org.astraea.common.cost.BrokerInputCost=1 --prop.file ./config --report.path ~/report
 ```
 
 ```bash
