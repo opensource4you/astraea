@@ -138,7 +138,6 @@ public class GreedyBalancer implements Balancer {
     final var allocationTweaker = new ShuffleTweaker(minStep, maxStep);
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
-    final var limit = config.movementLimit();
     final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, clusterBean);
 
     final var loop = new AtomicInteger(iteration);

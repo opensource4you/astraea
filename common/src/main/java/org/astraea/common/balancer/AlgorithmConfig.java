@@ -21,7 +21,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.ClusterCost;
@@ -67,11 +66,6 @@ public interface AlgorithmConfig {
   Predicate<MoveCost> movementConstraint();
 
   /**
-   * @return the movement constraint that must be complied with by the algorithm solution
-   */
-  Configuration movementLimit();
-
-  /**
    * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
    */
   Predicate<String> topicFilter();
@@ -99,7 +93,6 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<MoveCost> movementConstraint = moveCost -> !moveCost.overflow();
-    private Configuration movementLimit;
     private Predicate<String> topicFilter = ignore -> true;
 
     private ClusterInfo clusterInfo;
@@ -113,7 +106,6 @@ public interface AlgorithmConfig {
         this.moveCostFunction = config.moveCostFunction();
         this.clusterConstraint = config.clusterConstraint();
         this.movementConstraint = config.movementConstraint();
-        this.movementLimit = config.movementLimit();
         this.topicFilter = config.topicFilter();
         this.clusterInfo = config.clusterInfo();
         this.clusterBean = config.clusterBean();
@@ -168,18 +160,6 @@ public interface AlgorithmConfig {
      */
     public Builder clusterConstraint(BiPredicate<ClusterCost, ClusterCost> clusterConstraint) {
       this.clusterConstraint = clusterConstraint;
-      return this;
-    }
-
-    /**
-     * Specify the movement cost limit for any rebalance plan.
-     *
-     * @param movementLimit a {@link Configuration} to determine acceptable limits for rebalance
-     *     plans
-     * @return this
-     */
-    public Builder movementLimit(Configuration movementLimit) {
-      this.movementLimit = movementLimit;
       return this;
     }
 
@@ -251,11 +231,6 @@ public interface AlgorithmConfig {
         @Override
         public Predicate<MoveCost> movementConstraint() {
           return movementConstraint;
-        }
-
-        @Override
-        public Configuration movementLimit() {
-          return movementLimit;
         }
 
         @Override

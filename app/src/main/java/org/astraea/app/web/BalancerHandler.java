@@ -49,10 +49,6 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.RecordSizeCost;
-import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaLeaderSizeCost;
-import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -327,14 +323,6 @@ class BalancerHandler implements Handler {
         balancerPostRequest.topics.isEmpty()
             ? currentClusterInfo.topicNames()
             : balancerPostRequest.topics;
-    var costConfig = Configuration.of(balancerPostRequest.costConfig);
-    var moveCost =
-        HasMoveCost.of(
-            List.of(
-                new ReplicaNumberCost(costConfig),
-                new ReplicaLeaderCost(costConfig),
-                new RecordSizeCost(costConfig),
-                new ReplicaLeaderSizeCost(costConfig)));
 
     if (topics.isEmpty())
       throw new IllegalArgumentException(
@@ -349,8 +337,7 @@ class BalancerHandler implements Handler {
         Configuration.of(balancerPostRequest.balancerConfig),
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(moveCost)
-            .movementLimit(costConfig)
+            .moveCost(balancerPostRequest.moveCost())
             .timeout(balancerPostRequest.timeout)
             .topicFilter(topics::contains)
             .build(),
@@ -387,6 +374,12 @@ class BalancerHandler implements Handler {
                     .map(e -> e.cost)
                     .collect(Collectors.joining(",")));
       return HasClusterCost.of(fs);
+    }
+
+    HasMoveCost moveCost() {
+      var config = Configuration.of(costConfig);
+      var cf = Utils.moveCosts(config, HasMoveCost.class);
+      return HasMoveCost.of(cf);
     }
   }
 

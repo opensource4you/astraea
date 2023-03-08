@@ -36,8 +36,6 @@ import org.astraea.common.metrics.collector.MetricSensor;
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.cov();
-  public static final String COST_NAME = "leader";
-  private static final String COST_LIMIT_KEY = "maxMigratedLeader";
   private final Configuration moveCostLimit;
 
   public ReplicaLeaderCost() {
@@ -140,7 +138,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                       return newLeaders - removedLeaders;
                     }));
     var maxMigratedLeader =
-        moveCostLimit.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+        moveCostLimit.string(this.getClass().getName()).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
     return MoveCost.changedReplicaLeaderCount(moveCost, overflow);

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -418,6 +419,23 @@ public final class Utils {
               }
             })
         .collect(Collectors.toMap(e -> Utils.construct(e.getKey(), config), Map.Entry::getValue));
+  }
+
+  public static <T extends CostFunction> Set<T> moveCosts(Configuration config, Class<T> costClz) {
+    return config.entrySet().stream()
+        .flatMap(
+            nameAndConfig -> {
+              try {
+                var clz = Class.forName(nameAndConfig.getKey());
+                if (!costClz.isAssignableFrom(clz)) return Stream.of();
+                return Stream.of((Class<T>) clz);
+              } catch (ClassNotFoundException ignore) {
+                // this config is not cost function, so we just skip it.
+                return Stream.of();
+              }
+            })
+        .map(x -> Utils.construct(x, config))
+        .collect(Collectors.toSet());
   }
 
   private Utils() {}
