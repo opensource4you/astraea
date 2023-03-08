@@ -174,7 +174,7 @@ public final class Utils {
             path + " class is not sub class of " + baseClass.getName());
       return construct((Class<T>) clz, configuration);
     } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
+      throw new IllegalArgumentException(e);
     }
   }
 
