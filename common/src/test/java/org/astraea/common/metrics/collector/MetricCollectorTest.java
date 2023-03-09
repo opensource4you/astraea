@@ -43,19 +43,36 @@ import org.mockito.stubbing.Answer;
 
 class MetricCollectorTest extends AbstractMetricCollectorTest {
 
-  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
+
+  /** Build collector with given sensors and exception handler*/
+  @Override
+  protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
+    var idJmx =
+        SERVICE.dataFolders().keySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    id -> id,
+                    ignore ->
+                        new InetSocketAddress(
+                            SERVICE.jmxServiceURL().getHost(),
+                            SERVICE.jmxServiceURL().getPort())));
+    // register all brokers
+    return MetricCollector.local()
+        .addMetricSensors(sensors)
+            .registerJmxs(idJmx)
+        .interval(Duration.ofSeconds(1))
+        .build();
+  }
+
+  @Override
+  protected Service service() {
+    return SERVICE;
+  }
 
   @AfterAll
   static void closeService() {
     SERVICE.close();
-  }
-
-  @Override
-  protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
-    return MetricCollector.local()
-        .addMetricSensors(sensors)
-        .interval(Duration.ofSeconds(1))
-        .build();
   }
 
   private static final MetricSensor MEMORY_METRIC_SENSOR =
@@ -72,10 +89,11 @@ class MetricCollectorTest extends AbstractMetricCollectorTest {
   }
 
   @Test
+  @SuppressWarnings("resource")
   void registerJmx() {
     var socket =
         InetSocketAddress.createUnresolved(
-            SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
+            service().jmxServiceURL().getHost(), service().jmxServiceURL().getPort());
     var builder = MetricCollector.local().registerJmx(1, socket).registerJmx(-1, socket);
 
     Assertions.assertThrows(
@@ -114,7 +132,7 @@ class MetricCollectorTest extends AbstractMetricCollectorTest {
   }
 
   @Test
-  void metrics() {
+  void testSampledInterval() {
     var sample = Duration.ofSeconds(2);
     try (var collector =
         MetricCollector.local()
@@ -215,7 +233,7 @@ class MetricCollectorTest extends AbstractMetricCollectorTest {
   }
 
   @Test
-  void testLocalStoreBeans() {
+  void testInitBeans() {
     Map<Integer, Collection<HasBeanObject>> beans =
         Map.of(1, List.of(() -> new BeanObject("domain", Map.of(), Map.of())));
     try (var collector = MetricCollector.local().storeBeans(beans).build()) {

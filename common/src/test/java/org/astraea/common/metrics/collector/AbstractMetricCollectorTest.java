@@ -17,6 +17,7 @@
 package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -29,9 +30,11 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
+import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -40,10 +43,26 @@ public abstract class AbstractMetricCollectorTest {
   protected abstract MetricCollector collector(
       Map<MetricSensor, BiConsumer<Integer, Exception>> sensors);
 
+  protected abstract Service service();
+
   private static final MetricSensor MEMORY_METRIC_SENSOR =
       (client, ignored) -> List.of(HostMetrics.jvmMemory(client));
   private static final MetricSensor OS_METRIC_SENSOR =
       (client, ignored) -> List.of(HostMetrics.operatingSystem(client));
+  private static final MetricSensor LOG_SIZE_SENSOR =
+      (client, ignore) -> LogMetrics.Log.SIZE.fetch(client);
+
+  @Test
+  @SuppressWarnings("resource")
+  void testListIdentity() {
+    var sample = Duration.ofSeconds(1);
+    try (var collector = collector(Map.of(MEMORY_METRIC_SENSOR, (i, e) -> {}))) {
+      Utils.sleep(sample);
+      var ids = new HashSet<>(service().dataFolders().keySet());
+      ids.add(-1);
+      Assertions.assertEquals(ids, collector.listIdentities());
+    }
+  }
 
   @Test
   void testListMetricTypes() {
@@ -67,7 +86,8 @@ public abstract class AbstractMetricCollectorTest {
 
       ClusterBean clusterBean = collector.clusterBean();
 
-      Assertions.assertEquals(1, clusterBean.all().keySet().size());
+      // local metric and remote jmx metric
+      Assertions.assertEquals(2, clusterBean.all().keySet().size());
       Assertions.assertTrue(
           clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof JvmMemory));
       Assertions.assertTrue(
@@ -86,13 +106,13 @@ public abstract class AbstractMetricCollectorTest {
       Supplier<List<OperatingSystemInfo>> os =
           () -> collector.metrics(OperatingSystemInfo.class).collect(Collectors.toList());
 
-      Assertions.assertEquals(1, memory.get().size());
+      Assertions.assertEquals(2, memory.get().size());
 
-      Assertions.assertEquals(1, os.get().size());
+      Assertions.assertEquals(2, os.get().size());
 
       // memory and os
-      Assertions.assertEquals(2, collector.metrics().count());
-      Assertions.assertEquals(2, collector.size());
+      Assertions.assertEquals(4, collector.metrics().count());
+      Assertions.assertEquals(4, collector.size());
     }
   }
 
