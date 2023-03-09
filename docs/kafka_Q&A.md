@@ -47,7 +47,7 @@ Kafka端處理fetch request時，會有一個迴圈，這個迴圈會在跟os的
 
 ### 原因
 
-節點處理 fetch 請求時，若讀取後發現資料量不足 ，節點會延後處理此次 fetch 請求，而節點延後處理的期間，consumer 不會發送 fetch 請求給節點
+節點處理 fetch 請求時，若讀取後發現資料量不足 ，節點會延後處理此次 fetch 請求，而節點延後處理的期間，consumer 不會發送 fetch 請求給節點，導致拖慢了其他 partitions 被消費的速度
 
 Consumer 拉取資料的簡短流程：
 
