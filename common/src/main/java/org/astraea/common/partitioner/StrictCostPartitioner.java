@@ -33,7 +33,7 @@ import org.astraea.common.metrics.collector.LocalMetricCollector;
 import org.astraea.common.metrics.collector.MetricCollector;
 
 /**
- * this dispatcher scores the nodes by multiples cost functions. Each function evaluate the target
+ * this partitioner scores the nodes by multiples cost functions. Each function evaluate the target
  * node by different metrics. The default cost function ranks nodes by replica leader. It means the
  * node having lower replica leaders get higher score.
  *
@@ -47,7 +47,7 @@ import org.astraea.common.metrics.collector.MetricCollector;
  * and its weight. For example,
  * `org.astraea.cost.ThroughputCost=1,org.astraea.cost.broker.BrokerOutputCost=1`.
  */
-public class StrictCostDispatcher extends Dispatcher {
+public class StrictCostPartitioner extends Partitioner {
   static final int ROUND_ROBIN_LENGTH = 400;
   static final String JMX_PORT = "jmx.port";
   static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
@@ -142,7 +142,8 @@ public class StrictCostDispatcher extends Dispatcher {
 
   @Override
   public void configure(Configuration config) {
-    var configuredFunctions = Utils.costFunctions(config, HasBrokerCost.class);
+    var configuredFunctions =
+        Utils.costFunctions(config.filteredPrefixConfigs(COST_PREFIX), HasBrokerCost.class);
     if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);

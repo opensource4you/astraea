@@ -61,7 +61,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
-import org.astraea.common.partitioner.Dispatcher;
+import org.astraea.common.partitioner.Partitioner;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Record;
@@ -240,15 +240,15 @@ public class Performance {
     String partitioner = null;
 
     String partitioner() {
-      // The given partitioner should be Astraea Dispatcher when interdependent is set
+      // The given partitioner should be Astraea Partitioner when interdependent is set
       if (this.interdependent > 1) {
         try {
           if (this.partitioner == null
-              || !Dispatcher.class.isAssignableFrom(Class.forName(this.partitioner))) {
+              || !Partitioner.class.isAssignableFrom(Class.forName(this.partitioner))) {
             throw new ParameterException(
                 "The given partitioner \""
                     + this.partitioner
-                    + "\" is not a subclass of Astraea Dispatcher");
+                    + "\" is not a subclass of Astraea Partitioner");
           }
         } catch (ClassNotFoundException e) {
           throw new ParameterException(

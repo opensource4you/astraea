@@ -479,7 +479,7 @@ public class PerformanceTest {
           "--interdependent.size",
           "3",
           "--partitioner",
-          "org.astraea.common.partitioner.StrictCostDispatcher"
+          "org.astraea.common.partitioner.StrictCostPartitioner"
         };
     Assertions.assertDoesNotThrow(
         () -> Argument.parse(new Performance.Argument(), argument).partitioner());
