@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,8 +26,6 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -40,14 +37,14 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        leaderCount(clusterInfo, clusterBean).entrySet().stream()
+        leaderCount(clusterInfo).entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
     return () -> result;
   }
 
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var brokerScore = brokerCost(clusterInfo, clusterBean).value();
+    var brokerScore = leaderCount(clusterInfo);
     var value = dispersion.calculate(brokerScore.values());
     return ClusterCost.of(
         value,
@@ -55,30 +52,6 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
             brokerScore.values().stream()
                 .map(Object::toString)
                 .collect(Collectors.joining(", ", "{", "}")));
-  }
-
-  private static Map<Integer, Integer> leaderCount(
-      ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    if (clusterBean == ClusterBean.EMPTY) return leaderCount(clusterInfo);
-    var leaderCount = leaderCount(clusterBean);
-    // if there is no available metrics, we re-count the leaders based on cluster information
-    if (leaderCount.values().stream().mapToInt(i -> i).sum() == 0) return leaderCount(clusterInfo);
-    return leaderCount;
-  }
-
-  static Map<Integer, Integer> leaderCount(ClusterBean clusterBean) {
-    return clusterBean.all().entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                e ->
-                    e.getValue().stream()
-                        .filter(x -> x instanceof ServerMetrics.ReplicaManager.Gauge)
-                        .map(x -> (ServerMetrics.ReplicaManager.Gauge) x)
-                        .sorted(Comparator.comparing(HasBeanObject::createdTimestamp).reversed())
-                        .limit(1)
-                        .mapToInt(HasGauge::value)
-                        .sum()));
   }
 
   static Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
