@@ -216,6 +216,35 @@ public class InternalTopicCollector implements MetricCollector {
     public void close() {}
   }
 
+  static class Storage {
+    private final Map<Integer, Map<BeanProperties, BeanObject>> metricStore =
+        new ConcurrentHashMap<>();
+
+    public BeanObject put(int id, BeanObject beanObject) {
+      metricStore.putIfAbsent(id, new ConcurrentHashMap<>());
+      return metricStore
+          .get(id)
+          .put(new BeanProperties(beanObject.domainName(), beanObject.properties()), beanObject);
+    }
+
+    public MBeanClient client() {
+      return new MBeanClient() {
+        @Override
+        public BeanObject bean(BeanQuery beanQuery) {
+          return null;
+        }
+
+        @Override
+        public Collection<BeanObject> beans(BeanQuery beanQuery) {
+          return null;
+        }
+
+        @Override
+        public void close() {}
+      };
+    }
+  }
+
   static class BeanProperties {
     private final String domain;
     private final Map<String, String> properties;
