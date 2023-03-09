@@ -391,10 +391,10 @@ class BalancerHandler implements Handler {
         throw new IllegalArgumentException("clusterCosts is not specified");
       return HasClusterCost.of(
           Utils.costFunctions(
-              Configuration.of(
-                  clusterCosts.stream()
-                      .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight)))),
-              HasClusterCost.class));
+              clusterCosts.stream()
+                  .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))),
+              HasClusterCost.class,
+              Configuration.EMPTY));
     }
   }
 
