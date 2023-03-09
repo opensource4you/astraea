@@ -4,7 +4,7 @@
 
 1. [單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)
 2. [Consumer poll速度太慢](#consumer-poll速度太慢)
-3. [資料流入較慢的 partitions 會脫慢同節點內其他 partitions 被消費的速度](#資料流入較慢的-partitions-會脫慢同節點內其他-partitions-被消費的速度)
+3. [資料流入較慢的 partitions 會拖慢同節點內其他 partitions 被消費的速度](#資料流入較慢的-partitions-會拖慢同節點內其他-partitions-被消費的速度)
 
 ## 單一partition的副本同步速度太慢
 
@@ -43,20 +43,18 @@ Kafka端處理fetch request時，會有一個迴圈，這個迴圈會在跟os的
 
 [#1518](https://github.com/skiptests/astraea/issues/1516)
 
-## 資料流入較慢的 partitions 會脫慢同節點內其他 partitions 被消費的速度
+## 資料流入較慢的 partitions 會拖慢同節點內其他 partitions 被消費的速度
 
 ### 原因
 
-Consumer 不會對還未回覆 fetch 請求的節點發送 fetch 請求，導致 consumer 發送 fetch 請求的頻率下降，影響到資料的拉取
+節點處理 fetch 請求時，若讀取資料後發現讀取的資料量沒有多於 `fetch.min.bytes` ，節點會延後處理此次 fetch 請求
 
-Consumer 簡短拉取資料的流程：
+Consumer 拉取資料的簡短流程：
 
 1. Consumer 發送 fetch 請求給各節點，若節點內有未回覆該 consumer 的請求，就不會對該節點發送 fetch 請求
 2. 收到 fetch 請求的節點讀取 partitions 的資料，並判斷讀取出來的資料量有無低於 `fetch.min.bytes` ，若低於則節點會將此 fetch 請求延遲回覆
 
-所以若有資料流入速度較慢的 partition，節點在第一時間讀取時的資料量可能無法滿足 `fetch.min.bytes` 所設定的大小，導致 consumer 的 fetch 請求被延遲回覆
-
-導致 consumer 發送 fetch 請求頻率下降的主要原因如下：
+所以若有資料流入速度較慢的 partition，節點在第一時間讀取時的資料量可能無法滿足 `fetch.min.bytes` 所設定的大小，導致 consumer 的 fetch 請求被延遲回覆，影響到消費的吞吐量
 
 ### 解法
 
