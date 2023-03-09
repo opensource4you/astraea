@@ -505,7 +505,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     List<Integer> consumerFanoutSeries() {
       return scenarioConfig
           .string(CONFIG_TOPIC_CONSUMER_FANOUT_SERIES)
-          .filter(String::isEmpty)
+          .filter(s -> !s.isEmpty())
           .map(
               seriesString ->
                   Arrays.stream(seriesString.split(","))
