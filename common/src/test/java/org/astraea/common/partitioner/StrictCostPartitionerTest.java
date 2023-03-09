@@ -41,63 +41,66 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class StrictCostDispatcherTest {
+public class StrictCostPartitionerTest {
 
   @Test
   void testJmxPort() {
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.of(Map.of()));
-      Assertions.assertEquals(Optional.empty(), dispatcher.jmxPortGetter.apply(0));
-      dispatcher.configure(Configuration.of(Map.of(StrictCostDispatcher.JMX_PORT, "12345")));
-      Assertions.assertEquals(Optional.of(12345), dispatcher.jmxPortGetter.apply(0));
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(Configuration.of(Map.of()));
+      Assertions.assertEquals(Optional.empty(), partitioner.jmxPortGetter.apply(0));
+      partitioner.configure(Configuration.of(Map.of(StrictCostPartitioner.JMX_PORT, "12345")));
+      Assertions.assertEquals(Optional.of(12345), partitioner.jmxPortGetter.apply(0));
     }
   }
 
   @Test
   void testNegativeWeight() {
-    try (var dispatcher = new StrictCostDispatcher()) {
+    try (var partitioner = new StrictCostPartitioner()) {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () ->
-              dispatcher.configure(
-                  Configuration.of(Map.of(ReplicaLeaderCost.class.getName(), "-1"))));
+              partitioner.configure(
+                  Configuration.of(
+                      Map.of(
+                          Partitioner.COST_PREFIX + "." + ReplicaLeaderCost.class.getName(),
+                          "-1"))));
 
       // Test for cost functions configuring
-      dispatcher.configure(
+      partitioner.configure(
           Configuration.of(
               Map.of(
-                  ReplicaLeaderCost.class.getName(),
+                  Partitioner.COST_PREFIX + "." + ReplicaLeaderCost.class.getName(),
                   "0.1",
-                  BrokerInputCost.class.getName(),
+                  Partitioner.COST_PREFIX + "." + BrokerInputCost.class.getName(),
                   "2",
                   "jmx.port",
                   "1111")));
-      Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
     }
   }
 
   @Test
   void testConfigureCostFunctions() {
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(
           Configuration.of(
               Map.of(
-                  ReplicaLeaderCost.class.getName(),
+                  Partitioner.COST_PREFIX + "." + ReplicaLeaderCost.class.getName(),
                   "0.1",
-                  BrokerInputCost.class.getName(),
+                  Partitioner.COST_PREFIX + "." + BrokerInputCost.class.getName(),
                   "2",
                   "jmx.port",
                   "1111")));
-      Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
     }
   }
 
   @Test
   void testNoAvailableBrokers() {
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.EMPTY);
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(Configuration.EMPTY);
       Assertions.assertEquals(
-          0, dispatcher.partition("topic", new byte[0], new byte[0], ClusterInfo.empty()));
+          0, partitioner.partition("topic", new byte[0], new byte[0], ClusterInfo.empty()));
     }
   }
 
@@ -111,11 +114,11 @@ public class StrictCostDispatcherTest {
             .path("/tmp/aa")
             .nodeInfo(nodeInfo)
             .buildLeader();
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.EMPTY);
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(Configuration.EMPTY);
       Assertions.assertEquals(
           10,
-          dispatcher.partition(
+          partitioner.partition(
               "topic", new byte[0], new byte[0], ClusterInfoTest.of(List.of(replicaInfo))));
     }
   }
@@ -145,23 +148,27 @@ public class StrictCostDispatcherTest {
             .path("/tmp/aa")
             .nodeInfo(NodeInfo.of(12, "host2", 11111))
             .buildLeader();
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.of((Map.of(DumbHasBrokerCost.class.getName(), "1"))));
-      dispatcher.partition(
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(
+          Configuration.of(
+              (Map.of(Partitioner.COST_PREFIX + "." + DumbHasBrokerCost.class.getName(), "1"))));
+      partitioner.partition(
           "topic",
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
-      Assertions.assertEquals(0, dispatcher.metricCollector.metricSensors().size());
+      Assertions.assertEquals(0, partitioner.metricCollector.metricSensors().size());
     }
   }
 
   @Test
   void testEmptyJmxPort() {
-    try (var dispatcher = new StrictCostDispatcher()) {
+    try (var partitioner = new StrictCostPartitioner()) {
 
       // pass due to local mbean
-      dispatcher.configure(Configuration.of(Map.of(NodeThroughputCost.class.getName(), "1")));
+      partitioner.configure(
+          Configuration.of(
+              Map.of(Partitioner.COST_PREFIX + "." + NodeThroughputCost.class.getName(), "1")));
     }
   }
 
@@ -176,8 +183,10 @@ public class StrictCostDispatcherTest {
   void testReturnedPartition() {
     var brokerId = 22;
     var partitionId = 123;
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.of(Map.of(MyFunction.class.getName(), "1")));
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(
+          Configuration.of(
+              Map.of(Partitioner.COST_PREFIX + "." + MyFunction.class.getName(), "1")));
 
       var replicaInfo0 =
           Replica.builder()
@@ -195,7 +204,7 @@ public class StrictCostDispatcherTest {
               .buildLeader();
       Assertions.assertEquals(
           partitionId,
-          dispatcher.partition(
+          partitioner.partition(
               "topic",
               new byte[0],
               new byte[0],
@@ -205,56 +214,56 @@ public class StrictCostDispatcherTest {
 
   @Test
   void testDefaultFunction() {
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.of(Map.of()));
-      Assertions.assertNotEquals(HasBrokerCost.EMPTY, dispatcher.costFunction);
-      Assertions.assertEquals(1, dispatcher.metricCollector.metricSensors().size());
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(Configuration.of(Map.of()));
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
+      Assertions.assertEquals(1, partitioner.metricCollector.metricSensors().size());
     }
   }
 
   @Test
   void testCostToScore() {
     var cost = Map.of(1, 100D, 2, 10D);
-    var score = StrictCostDispatcher.costToScore(() -> cost);
+    var score = StrictCostPartitioner.costToScore(() -> cost);
     Assertions.assertTrue(score.get(2) > score.get(1));
   }
 
   @Test
   void testInvalidCostToScore() {
-    Assertions.assertEquals(1, StrictCostDispatcher.costToScore(() -> Map.of(1, 100D)).size());
+    Assertions.assertEquals(1, StrictCostPartitioner.costToScore(() -> Map.of(1, 100D)).size());
     Assertions.assertEquals(
-        2, StrictCostDispatcher.costToScore(() -> Map.of(1, 100D, 2, 100D)).size());
-    var score = StrictCostDispatcher.costToScore(() -> Map.of(1, 100D, 2, 0D));
+        2, StrictCostPartitioner.costToScore(() -> Map.of(1, 100D, 2, 100D)).size());
+    var score = StrictCostPartitioner.costToScore(() -> Map.of(1, 100D, 2, 0D));
     Assertions.assertNotEquals(0, score.size());
     Assertions.assertTrue(score.get(2) > score.get(1));
-    StrictCostDispatcher.costToScore(() -> Map.of(1, -133D, 2, 100D))
+    StrictCostPartitioner.costToScore(() -> Map.of(1, -133D, 2, 100D))
         .values()
         .forEach(v -> Assertions.assertTrue(v > 0));
   }
 
   @Test
   void testRoundRobinLease() {
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(
-          Configuration.of(Map.of(StrictCostDispatcher.ROUND_ROBIN_LEASE_KEY, "2s")));
-      Assertions.assertEquals(Duration.ofSeconds(2), dispatcher.roundRobinKeeper.roundRobinLease);
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(
+          Configuration.of(Map.of(StrictCostPartitioner.ROUND_ROBIN_LEASE_KEY, "2s")));
+      Assertions.assertEquals(Duration.ofSeconds(2), partitioner.roundRobinKeeper.roundRobinLease);
 
-      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
-      var t = dispatcher.roundRobinKeeper.lastUpdated.get();
+      partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
+      var t = partitioner.roundRobinKeeper.lastUpdated.get();
       var rr =
-          Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
+          Arrays.stream(partitioner.roundRobinKeeper.roundRobin)
               .boxed()
               .collect(Collectors.toUnmodifiableList());
-      Assertions.assertEquals(StrictCostDispatcher.ROUND_ROBIN_LENGTH, rr.size());
+      Assertions.assertEquals(StrictCostPartitioner.ROUND_ROBIN_LENGTH, rr.size());
       // the rr is not updated yet
-      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
+      partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       IntStream.range(0, rr.size())
           .forEach(
-              i -> Assertions.assertEquals(rr.get(i), dispatcher.roundRobinKeeper.roundRobin[i]));
+              i -> Assertions.assertEquals(rr.get(i), partitioner.roundRobinKeeper.roundRobin[i]));
       Utils.sleep(Duration.ofSeconds(3));
-      dispatcher.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
+      partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       // rr is updated already
-      Assertions.assertNotEquals(t, dispatcher.roundRobinKeeper.lastUpdated.get());
+      Assertions.assertNotEquals(t, partitioner.roundRobinKeeper.lastUpdated.get());
     }
   }
 
@@ -266,9 +275,9 @@ public class StrictCostDispatcherTest {
               MBeanClient.class,
               (invoke) ->
                   invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
-        try (var dispatcher = new StrictCostDispatcher()) {
+        try (var partitioner = new StrictCostPartitioner()) {
           var nodeInfo = NodeInfo.of(10, "host", 2222);
-          dispatcher.configure(Map.of("jmx.port", "1111"));
+          partitioner.configure(Map.of("jmx.port", "1111"));
 
           var clusterInfo =
               ClusterInfoTest.of(
@@ -280,8 +289,8 @@ public class StrictCostDispatcherTest {
                           .path("/tmp/aa")
                           .buildLeader()));
 
-          Assertions.assertEquals(1, dispatcher.metricCollector.listIdentities().size());
-          dispatcher.costFunction =
+          Assertions.assertEquals(1, partitioner.metricCollector.listIdentities().size());
+          partitioner.costFunction =
               new HasBrokerCost() {
                 @Override
                 public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -293,13 +302,13 @@ public class StrictCostDispatcherTest {
                   return Optional.of(Mockito.mock(MetricSensor.class));
                 }
               };
-          dispatcher.updatePeriod = Duration.ZERO;
-          dispatcher.tryToUpdateSensor(clusterInfo);
-          Assertions.assertNotNull(dispatcher.metricCollector);
-          Assertions.assertEquals(2, dispatcher.metricCollector.listIdentities().size());
+          partitioner.updatePeriod = Duration.ZERO;
+          partitioner.tryToUpdateSensor(clusterInfo);
+          Assertions.assertNotNull(partitioner.metricCollector);
+          Assertions.assertEquals(2, partitioner.metricCollector.listIdentities().size());
 
-          dispatcher.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(2, dispatcher.metricCollector.listIdentities().size());
+          partitioner.tryToUpdateSensor(clusterInfo);
+          Assertions.assertEquals(2, partitioner.metricCollector.listIdentities().size());
         }
       }
     }

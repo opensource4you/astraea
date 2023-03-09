@@ -353,27 +353,18 @@ class BalancerHandler implements Handler {
     Duration timeout = Duration.ofSeconds(3);
     Set<String> topics = Set.of();
     Map<String, String> costConfig = Map.of();
-    List<CostWeight> costWeights = List.of();
+
+    List<CostWeight> clusterCosts = List.of();
 
     HasClusterCost clusterCost() {
-      if (costWeights.isEmpty()) throw new IllegalArgumentException("costWeights is not specified");
-      var config =
-          Configuration.of(
-              costWeights.stream()
-                  .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))));
-      var fs = Utils.costFunctions(config, HasClusterCost.class);
-      if (fs.size() != costWeights.size())
-        throw new IllegalArgumentException(
-            "Has invalid costs: "
-                + costWeights.stream()
-                    .filter(
-                        e ->
-                            fs.keySet().stream()
-                                .map(c -> c.getClass().getName())
-                                .noneMatch(n -> e.cost.equals(n)))
-                    .map(e -> e.cost)
-                    .collect(Collectors.joining(",")));
-      return HasClusterCost.of(fs);
+      if (clusterCosts.isEmpty())
+        throw new IllegalArgumentException("clusterCosts is not specified");
+      return HasClusterCost.of(
+          Utils.costFunctions(
+              Configuration.of(
+                  clusterCosts.stream()
+                      .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight)))),
+              HasClusterCost.class));
     }
 
     HasMoveCost moveCost() {

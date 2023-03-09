@@ -187,13 +187,12 @@ class BalancerTest {
               .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
               .toCompletableFuture()
               .join();
-      var newCluster = ClusterInfo.update(currentCluster, newAllocation::replicas);
 
       Assertions.assertEquals(
           currentCluster.replicas(topic1).stream()
               .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
-          newCluster.replicas(topic1).stream()
+          newAllocation.replicas(topic1).stream()
               .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
@@ -201,7 +200,7 @@ class BalancerTest {
           currentCluster.replicas(topic2).stream()
               .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
-          newCluster.replicas(topic2).stream()
+          newAllocation.replicas(topic2).stream()
               .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");
@@ -209,7 +208,7 @@ class BalancerTest {
           currentCluster.replicas(topic3).stream()
               .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
-          newCluster.replicas(topic3).stream()
+          newAllocation.replicas(topic3).stream()
               .map(Replica::topicPartitionReplica)
               .collect(Collectors.toSet()),
           "With filter, only specific topic has been balanced");

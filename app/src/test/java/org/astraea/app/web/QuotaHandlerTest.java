@@ -16,8 +16,10 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.Map;
 import org.astraea.app.web.QuotaHandler.QuotaKeys;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.it.Service;
@@ -70,21 +72,25 @@ public class QuotaHandlerTest {
   void testCreateProducerQuota() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new QuotaHandler(admin);
+      Assertions.assertInstanceOf(
+          QuotaHandler.Quotas.class,
+          handler
+              .post(
+                  Channel.ofRequest(
+                      JsonConverter.defaultConverter()
+                          .toJson(
+                              Map.of(
+                                  PRODUCER,
+                                  Map.of(
+                                      QuotaKeys.CLIENT_ID.value(), "myClient", BYTE_RATE, "10")))))
+              .toCompletableFuture()
+              .join());
+      Utils.sleep(Duration.ofSeconds(2));
       var result =
           Assertions.assertInstanceOf(
               QuotaHandler.Quotas.class,
               handler
-                  .post(
-                      Channel.ofRequest(
-                          JsonConverter.defaultConverter()
-                              .toJson(
-                                  Map.of(
-                                      PRODUCER,
-                                      Map.of(
-                                          QuotaKeys.CLIENT_ID.value(),
-                                          "myClient",
-                                          BYTE_RATE,
-                                          "10")))))
+                  .get(Channel.ofQueries(Map.of(QuotaKeys.CLIENT_ID.value(), "myClient")))
                   .toCompletableFuture()
                   .join());
       Assertions.assertEquals(1, result.quotas.size());
@@ -103,7 +109,6 @@ public class QuotaHandlerTest {
     var ip1 = "192.168.10.12";
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new QuotaHandler(admin);
-
       handler
           .post(
               Channel.ofRequest(
@@ -122,6 +127,7 @@ public class QuotaHandlerTest {
                               CONNECTION, Map.of(QuotaKeys.IP.value(), ip1, CREATION_RATE, "20")))))
           .toCompletableFuture()
           .join();
+      Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           1,
           handler

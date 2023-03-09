@@ -68,6 +68,7 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
+import org.astraea.common.cost.RecordSizeCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -97,7 +98,7 @@ public class BalancerHandlerTest {
   static final String TIMEOUT_KEY = "timeout";
   static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
   static final String MAX_MIGRATE_LEADER_KEY = "maxMigratedLeader";
-  static final String COST_WEIGHT_KEY = "costWeights";
+  static final String CLUSTER_COSTS_KEY = "clusterCosts";
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
   static final String BALANCER_CONFIGURATION_KEY = "balancerConfig";
   static final int TIMEOUT_DEFAULT = 3;
@@ -107,7 +108,7 @@ public class BalancerHandlerTest {
   private static final List<BalancerHandler.CostWeight> defaultDecreasing =
       List.of(costWeight(DecreasingCost.class.getName(), 1));
   private static final Channel defaultPostPlan =
-      httpRequest(Map.of(COST_WEIGHT_KEY, defaultDecreasing));
+      httpRequest(Map.of(CLUSTER_COSTS_KEY, defaultDecreasing));
 
   @Test
   @Timeout(value = 60)
@@ -125,6 +126,7 @@ public class BalancerHandlerTest {
       var request = new BalancerPostRequest();
       request.balancer = GreedyBalancer.class.getName();
       request.balancerConfig = Map.of("a", "b");
+      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       request.timeout = Duration.ofMillis(1234);
       var progress = submitPlanGeneration(handler, request);
       var report = progress.plan;
@@ -168,6 +170,7 @@ public class BalancerHandlerTest {
       var request = new BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "30");
       request.topics = Set.copyOf(allowedTopics);
+      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
@@ -394,7 +397,7 @@ public class BalancerHandlerTest {
                   .post(
                       httpRequest(
                           Map.of(
-                              COST_WEIGHT_KEY,
+                              CLUSTER_COSTS_KEY,
                               defaultIncreasing,
                               TIMEOUT_KEY,
                               "996ms",
@@ -761,7 +764,7 @@ public class BalancerHandlerTest {
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
               handler
-                  .post(httpRequest(Map.of(COST_WEIGHT_KEY, defaultDecreasing)))
+                  .post(httpRequest(Map.of(CLUSTER_COSTS_KEY, defaultDecreasing)))
                   .toCompletableFuture()
                   .join());
       Utils.waitFor(
@@ -912,11 +915,11 @@ public class BalancerHandlerTest {
       Assertions.assertThrows(
           IllegalArgumentException.class,
           () -> BalancerHandler.parsePostRequestWrapper(new BalancerPostRequest(), clusterInfo),
-          "CostWeights must be specified");
+          "clusterCosts must be specified");
       {
         // minimal
         var request = new BalancerPostRequest();
-        request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
+        request.clusterCosts = List.of(costWeight(DecreasingCost.class.getName(), 1));
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
         Assertions.assertInstanceOf(HasClusterCost.class, config.clusterCostFunction());
@@ -934,7 +937,7 @@ public class BalancerHandlerTest {
         request.timeout = Duration.ofSeconds(32);
         request.topics = Set.of(randomTopic0, randomTopic1);
         request.balancerConfig = Map.of("KEY", "VALUE");
-        request.costWeights = List.of(costWeight(DecreasingCost.class.getName(), 1));
+        request.clusterCosts = List.of(costWeight(DecreasingCost.class.getName(), 1));
 
         var postRequest = BalancerHandler.parsePostRequestWrapper(request, clusterInfo);
         var config = postRequest.algorithmConfig;
@@ -968,7 +971,7 @@ public class BalancerHandlerTest {
         var balancerRequest4 = new BalancerPostRequest();
         var costWeight = new CostWeight();
         costWeight.cost = "yes";
-        balancerRequest4.costWeights = List.of(costWeight);
+        balancerRequest4.clusterCosts = List.of(costWeight);
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> BalancerHandler.parsePostRequestWrapper(balancerRequest4, clusterInfo),
@@ -984,7 +987,7 @@ public class BalancerHandlerTest {
       var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
       var handler =
           new BalancerHandler(admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()));
-      var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", COST_WEIGHT_KEY, costFunction));
+      var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", CLUSTER_COSTS_KEY, costFunction));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(11));
@@ -1022,7 +1025,7 @@ public class BalancerHandlerTest {
 
       var request = new BalancerHandler.BalancerPostRequest();
       request.timeout = Duration.ofSeconds(8);
-      request.costWeights = function;
+      request.clusterCosts = function;
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
 
@@ -1208,7 +1211,7 @@ public class BalancerHandlerTest {
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, BalancerPostRequest request) {
-    if (request.costWeights.isEmpty()) request.costWeights = defaultDecreasing;
+    if (request.clusterCosts.isEmpty()) request.clusterCosts = defaultDecreasing;
     var post =
         (BalancerHandler.PostPlanResponse)
             handler
@@ -1383,7 +1386,7 @@ public class BalancerHandlerTest {
   @Test
   void testJsonToBalancerPostRequest() {
     var json =
-        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\", \"topics\":[\"aa\"], \"costWeights\":[{\"cost\":\"aaa\"}]}";
+        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\", \"topics\":[\"aa\"], \"clusterCosts\":[{\"cost\":\"aaa\"}]}";
     var request =
         JsonConverter.defaultConverter().fromJson(json, TypeRef.of(BalancerPostRequest.class));
     Assertions.assertEquals(
@@ -1391,9 +1394,10 @@ public class BalancerHandlerTest {
     Assertions.assertNotNull(request.balancerConfig);
     Assertions.assertNotNull(request.timeout);
     Assertions.assertEquals(Set.of("aa"), request.topics);
-    Assertions.assertEquals(1, request.costWeights.size());
-    Assertions.assertEquals("aaa", request.costWeights.get(0).cost);
-    Assertions.assertEquals(1D, request.costWeights.get(0).weight);
+
+    Assertions.assertEquals(1, request.clusterCosts.size());
+    Assertions.assertEquals("aaa", request.clusterCosts.get(0).cost);
+    Assertions.assertEquals(1D, request.clusterCosts.get(0).weight);
 
     var noCostRequest =
         JsonConverter.defaultConverter()

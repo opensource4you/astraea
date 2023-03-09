@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.partitioner;
+package org.astraea.common;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.astraea.common.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

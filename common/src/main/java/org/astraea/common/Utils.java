@@ -176,8 +176,45 @@ public final class Utils {
             path + " class is not sub class of " + baseClass.getName());
       return construct((Class<T>) clz, configuration);
     } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
+      throw new IllegalArgumentException(e);
     }
+  }
+
+  public static <T extends CostFunction> Map<T, Double> costFunctions(
+      Configuration config, Class<T> baseClass) {
+    return config.entrySet().stream()
+        .collect(
+            Collectors.toUnmodifiableMap(
+                entry -> construct(entry.getKey(), baseClass, config),
+                entry -> {
+                  try {
+                    var weight = Double.parseDouble(entry.getValue());
+                    if (weight < 0.0)
+                      throw new IllegalArgumentException(
+                          "the weight of cost function should be bigger than zero");
+                    return weight;
+                  } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                        "the weight of cost function must be positive number", e);
+                  }
+                }));
+  }
+
+  public static <T extends CostFunction> Set<T> moveCosts(Configuration config, Class<T> costClz) {
+    return config.entrySet().stream()
+        .flatMap(
+            nameAndConfig -> {
+              try {
+                var clz = Class.forName(nameAndConfig.getKey());
+                if (!costClz.isAssignableFrom(clz)) return Stream.of();
+                return Stream.of((Class<T>) clz);
+              } catch (ClassNotFoundException ignore) {
+                // this config is not cost function, so we just skip it.
+                return Stream.of();
+              }
+            })
+        .map(x -> Utils.construct(x, config))
+        .collect(Collectors.toSet());
   }
 
   public static <T> T construct(Class<T> target, Configuration configuration) {
@@ -394,48 +431,6 @@ public final class Utils {
     return input.stream()
         .collect(Collectors.groupingBy(s -> counter.getAndIncrement() % numberOfChunks))
         .values();
-  }
-
-  @SuppressWarnings("unchecked")
-  public static <T extends CostFunction> Map<T, Double> costFunctions(
-      Configuration config, Class<T> costClz) {
-    return config.entrySet().stream()
-        .flatMap(
-            nameAndWeight -> {
-              try {
-                var clz = Class.forName(nameAndWeight.getKey());
-                if (!costClz.isAssignableFrom(clz)) return Stream.of();
-                var weight = Double.parseDouble(nameAndWeight.getValue());
-                if (weight < 0.0)
-                  throw new IllegalArgumentException(
-                      "the weight of cost function should be bigger than zero");
-                return Stream.of(Map.entry((Class<T>) clz, weight));
-              } catch (ClassNotFoundException ignore) {
-                // this config is not cost function, so we just skip it.
-                return Stream.of();
-              } catch (NumberFormatException e) {
-                throw new IllegalArgumentException(
-                    "the weight of cost function must be positive number", e);
-              }
-            })
-        .collect(Collectors.toMap(e -> Utils.construct(e.getKey(), config), Map.Entry::getValue));
-  }
-
-  public static <T extends CostFunction> Set<T> moveCosts(Configuration config, Class<T> costClz) {
-    return config.entrySet().stream()
-        .flatMap(
-            nameAndConfig -> {
-              try {
-                var clz = Class.forName(nameAndConfig.getKey());
-                if (!costClz.isAssignableFrom(clz)) return Stream.of();
-                return Stream.of((Class<T>) clz);
-              } catch (ClassNotFoundException ignore) {
-                // this config is not cost function, so we just skip it.
-                return Stream.of();
-              }
-            })
-        .map(x -> Utils.construct(x, config))
-        .collect(Collectors.toSet());
   }
 
   private Utils() {}

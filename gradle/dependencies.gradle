@@ -36,7 +36,6 @@ def versions = [
         slf4j                 : project.properties['slf4j.version'] ?: "2.0.6",
         spark                 : project.properties['spark.version'] ?: "3.3.1",
         "wix-embedded-mysql"  : project.properties['wix-embedded-mysql.version'] ?: "4.6.2",
-        zookeeper             : project.properties['zookeeper.version'] ?: "3.8.1",
         "hadoop"              : project.properties["hadoop.version"] ?: "3.3.4",
 ]
 
@@ -55,6 +54,7 @@ libs += [
         "kafka-connect-json"   : "org.apache.kafka:connect-json:${versions["kafka"]}",
         "kafka-connect-runtime": "org.apache.kafka:connect-runtime:${versions["kafka"]}",
         "kafka-core"           : "org.apache.kafka:kafka_2.13:${versions["kafka"]}",
+        "kafka-server-common"  : "org.apache.kafka:kafka-server-common:${versions["kafka"]}",
         "mockito-core"         : "org.mockito:mockito-core:${versions["mockito"]}",
         "mockito-inline"       : "org.mockito:mockito-inline:${versions["mockito"]}",
         "mysql-connector-java" : "mysql:mysql-connector-java:${versions["mysql-connector-java"]}",
@@ -64,7 +64,6 @@ libs += [
         "spark-kafka"          : "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark"]}",
         "spark-sql"            : "org.apache.spark:spark-sql_2.13:${versions["spark"]}",
         "wix-embedded-mysql"   : "com.wix:wix-embedded-mysql:${versions["wix-embedded-mysql"]}",
-        zookeeper              : "org.apache.zookeeper:zookeeper:${versions["zookeeper"]}",
         "hadoop-common"        : "org.apache.hadoop:hadoop-common:${versions["hadoop"]}",
         "hadoop-client"        : "org.apache.hadoop:hadoop-client:${versions["hadoop"]}",
         "hadoop-minicluster"   : "org.apache.hadoop:hadoop-minicluster:${versions["hadoop"]}",
