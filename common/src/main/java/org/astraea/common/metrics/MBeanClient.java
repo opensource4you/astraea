@@ -192,6 +192,7 @@ public interface MBeanClient extends AutoCloseable {
       return Utils.packException(
           () ->
               connection.queryMBeans(beanQuery.objectName(), null).stream()
+                  .parallel()
                   .map(ObjectInstance::getObjectName)
                   .map(BeanQuery::fromObjectName)
                   .map(this::bean)
