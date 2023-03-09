@@ -26,7 +26,7 @@
 6. [快速啟動 Grafana](./docs/run_grafana.md): 建置圖形化介面監控`kafka`叢集使用狀況
 7. [Performance Tool](./docs/performance_benchmark.md): 可模擬多種使用情境來驗證`Kafka`叢集的吞吐量和延遲
 8. [Web Server](./docs/web_server/README.md): 可透過`Restful APIs`操作`Kafka`叢集
-9. [Dispatcher](docs/dispatcher/README.md): 強大且高效率的 Kafka partitioner 實作
+9. [Partitioner](docs/partitioner/README.md): 強大且高效率的 Kafka partitioner 實作
 10. [Balancer](docs/balancer/README.md): `Kafka` 伺服器端負載平衡工具
 11. [GUI](docs/gui/README.md): 簡單好用的叢集資訊圖形化工具
 12. [Connector](./docs/connector/README.md): 提供基於 `kafka connector` 實作的高效平行化工具，包含效能測試和資料遷移等工具

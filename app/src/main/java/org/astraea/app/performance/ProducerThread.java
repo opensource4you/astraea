@@ -30,7 +30,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.metrics.MBeanRegister;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.stats.Avg;
-import org.astraea.common.partitioner.Dispatcher;
+import org.astraea.common.partitioner.Partitioner;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 
@@ -91,7 +91,7 @@ public interface ProducerThread extends AbstractThread {
 
                         // Using interdependent
                         if (interdependent > 1 && data != null) {
-                          Dispatcher.beginInterdependent(producer);
+                          Partitioner.beginInterdependent(producer);
                           interdependentCounter += data.size();
                         }
                         var now = System.currentTimeMillis();
@@ -109,7 +109,7 @@ public interface ProducerThread extends AbstractThread {
 
                         // End interdependent
                         if (interdependent > 1 && interdependentCounter >= interdependent) {
-                          Dispatcher.endInterdependent(producer);
+                          Partitioner.endInterdependent(producer);
                           interdependentCounter = 0;
                         }
                       }
