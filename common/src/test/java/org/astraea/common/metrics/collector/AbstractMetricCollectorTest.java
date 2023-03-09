@@ -30,7 +30,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
@@ -49,14 +49,22 @@ public abstract class AbstractMetricCollectorTest {
       (client, ignored) -> List.of(HostMetrics.jvmMemory(client));
   private static final MetricSensor OS_METRIC_SENSOR =
       (client, ignored) -> List.of(HostMetrics.operatingSystem(client));
-  private static final MetricSensor LOG_SIZE_SENSOR =
-      (client, ignore) -> LogMetrics.Log.SIZE.fetch(client);
+  private static final MetricSensor BYTE_IN_SENSOR =
+      (client, ignore) -> List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client));
 
   @Test
   @SuppressWarnings("resource")
   void testListIdentity() {
-    var sample = Duration.ofSeconds(1);
-    try (var collector = collector(Map.of(MEMORY_METRIC_SENSOR, (i, e) -> {}))) {
+    var sample = Duration.ofSeconds(5);
+    try (var collector =
+        collector(
+            Map.of(
+                MEMORY_METRIC_SENSOR,
+                (i, e) -> {},
+                OS_METRIC_SENSOR,
+                (i, e) -> {},
+                BYTE_IN_SENSOR,
+                (i, e) -> {}))) {
       Utils.sleep(sample);
       var ids = new HashSet<>(service().dataFolders().keySet());
       ids.add(-1);
@@ -66,21 +74,36 @@ public abstract class AbstractMetricCollectorTest {
 
   @Test
   void testListMetricTypes() {
-    var sample = Duration.ofSeconds(1);
+    var sample = Duration.ofSeconds(5);
     try (var collector =
-        collector(Map.of(MEMORY_METRIC_SENSOR, (i, e) -> {}, OS_METRIC_SENSOR, (i, e) -> {}))) {
+        collector(
+            Map.of(
+                MEMORY_METRIC_SENSOR,
+                (i, e) -> {},
+                OS_METRIC_SENSOR,
+                (i, e) -> {},
+                BYTE_IN_SENSOR,
+                (i, e) -> {}))) {
       Utils.sleep(sample);
 
       Assertions.assertEquals(
-          Set.of(JvmMemory.class, OperatingSystemInfo.class), collector.listMetricTypes());
+          Set.of(JvmMemory.class, OperatingSystemInfo.class, ServerMetrics.BrokerTopic.Meter.class),
+          collector.listMetricTypes());
     }
   }
 
   @Test
   void clusterBean() {
-    var sample = Duration.ofSeconds(1);
+    var sample = Duration.ofSeconds(5);
     try (var collector =
-        collector(Map.of(MEMORY_METRIC_SENSOR, (i, e) -> {}, OS_METRIC_SENSOR, (i, e) -> {}))) {
+        collector(
+            Map.of(
+                MEMORY_METRIC_SENSOR,
+                (i, e) -> {},
+                OS_METRIC_SENSOR,
+                (i, e) -> {},
+                BYTE_IN_SENSOR,
+                (i, e) -> {}))) {
       Utils.sleep(sample);
       Utils.sleep(sample);
 
@@ -92,27 +115,46 @@ public abstract class AbstractMetricCollectorTest {
           clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof JvmMemory));
       Assertions.assertTrue(
           clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
+
+      var id = service().dataFolders().keySet().stream().findAny();
+      Assertions.assertTrue(id.isPresent());
+      Assertions.assertTrue(
+          clusterBean.all().get(id.get()).stream()
+              .anyMatch(x -> x instanceof ServerMetrics.BrokerTopic.Meter));
     }
   }
 
   @Test
   void metrics() {
     try (var collector =
-        collector(Map.of(MEMORY_METRIC_SENSOR, (i, e) -> {}, OS_METRIC_SENSOR, (i, e) -> {}))) {
-      Utils.sleep(Duration.ofMillis(300));
+        collector(
+            Map.of(
+                MEMORY_METRIC_SENSOR,
+                (i, e) -> {},
+                OS_METRIC_SENSOR,
+                (i, e) -> {},
+                BYTE_IN_SENSOR,
+                (i, e) -> {}))) {
+      Utils.sleep(Duration.ofSeconds(5));
 
       Supplier<List<JvmMemory>> memory =
           () -> collector.metrics(JvmMemory.class).collect(Collectors.toList());
       Supplier<List<OperatingSystemInfo>> os =
           () -> collector.metrics(OperatingSystemInfo.class).collect(Collectors.toList());
+      Supplier<List<ServerMetrics.BrokerTopic.Meter>> byteIn =
+          () ->
+              collector
+                  .metrics(ServerMetrics.BrokerTopic.Meter.class)
+                  .collect(Collectors.toUnmodifiableList());
 
       Assertions.assertEquals(2, memory.get().size());
-
       Assertions.assertEquals(2, os.get().size());
+      // Broker is created on the same jvm. So the local jmx could get kafka metric.
+      Assertions.assertEquals(2, byteIn.get().size());
 
-      // memory and os
-      Assertions.assertEquals(4, collector.metrics().count());
-      Assertions.assertEquals(4, collector.size());
+      // memory(2) and os(2) and byte in(2)
+      Assertions.assertEquals(6, collector.metrics().count());
+      Assertions.assertEquals(6, collector.size());
     }
   }
 
@@ -131,11 +173,11 @@ public abstract class AbstractMetricCollectorTest {
             Map.of(
                 noSuchMetricSensor,
                 (id, ex) -> {
-                  Assertions.assertEquals(-1, id);
                   Assertions.assertInstanceOf(NoSuchElementException.class, ex);
                   called.set(true);
                 }))) {
-      Utils.sleep(Duration.ofMillis(1200));
+      Utils.sleep(Duration.ofSeconds(6));
+      Assertions.assertEquals(0, collector.clusterBean().all().size());
       Assertions.assertTrue(called.get(), "The error was triggered");
     }
   }

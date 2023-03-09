@@ -17,63 +17,82 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.NoSuchElementException;
+import java.util.function.BiConsumer;
+import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-public class InternalTopicCollectorTest {
-  Service SERVICE = Service.builder().numberOfWorkers(0).build();
+public class InternalTopicCollectorTest extends AbstractMetricCollectorTest {
+  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
-  @Test
-  void testCollect() {
+  @Override
+  protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
+    return MetricCollector.internalTopic()
+        .bootstrapServer(service().bootstrapServers())
+        .addMetricSensors(sensors)
+        .build();
+  }
+
+  @Override
+  protected Service service() {
+    return SERVICE;
+  }
+
+  @BeforeAll
+  static void addMetricToTopic() {
     // Manually produce one bean to the internal topic
-    var bean =
+    var memBean = new BeanObject("java.lang", Map.of("type", "Memory"), Map.of());
+    var osBean = new BeanObject("java.lang", Map.of("type", "OperatingSystem"), Map.of());
+    var byteInBean =
         new BeanObject(
-            "kafka.log",
-            Map.of("type", "Log", "topic", "t1", "partition", "0", "name", "Size"),
+            "kafka.server",
+            Map.of("type", "BrokerTopicMetrics", "name", "BytesInPerSec"),
             Map.of());
     try (var producer =
         Producer.builder()
             .bootstrapServers(SERVICE.bootstrapServers())
             .valueSerializer(Serializer.STRING)
             .build()) {
-      producer
-          .send(Record.builder().topic("__1001_broker_metrics").value(bean.toString()).build())
-          .toCompletableFuture()
-          .get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+      // send all three metrics to all corresponding topic
+      SERVICE.dataFolders().keySet().stream()
+          .map(
+              id ->
+                  producer
+                      .send(Record.builder().topic(idToTopic(id)).value(memBean.toString()).build())
+                      .toCompletableFuture())
+          .forEach(future -> Utils.swallowException(future::get));
+      SERVICE.dataFolders().keySet().stream()
+          .map(
+              id ->
+                  producer
+                      .send(Record.builder().topic(idToTopic(id)).value(osBean.toString()).build())
+                      .toCompletableFuture())
+          .forEach(future -> Utils.swallowException(future::get));
+      SERVICE.dataFolders().keySet().stream()
+          .map(
+              id ->
+                  producer
+                      .send(
+                          Record.builder()
+                              .topic(idToTopic(id))
+                              .value(byteInBean.toString())
+                              .build())
+                      .toCompletableFuture())
+          .forEach(future -> Utils.swallowException(future::get));
     }
+  }
 
-    try (var collector =
-        MetricCollector.internalTopic()
-            .bootstrapServer(SERVICE.bootstrapServers())
-            .addMetricSensor((client, ignore) -> LogMetrics.Log.SIZE.fetch(client))
-            .build()) {
-      Thread.sleep(5000);
-      // Check if collector get the beans
-      Assertions.assertEquals(1, collector.clusterBean().all().size());
-      Assertions.assertEquals(
-          bean.toString(),
-          collector.clusterBean().all().values().stream().findAny().get().stream()
-              .findAny()
-              .get()
-              .beanObject()
-              .toString());
-      Assertions.assertEquals(
-          bean.toString(), collector.metrics().findAny().get().beanObject().toString());
-      Assertions.assertEquals(Set.of(1001), collector.listIdentities());
-    } catch (InterruptedException ie) {
-      throw new RuntimeException(ie);
-    }
+  private static String idToTopic(int id) {
+    return "__" + id + "_broker_metrics";
   }
 
   @Test
@@ -90,7 +109,7 @@ public class InternalTopicCollectorTest {
       var query = BeanQuery.builder().domainName(domainName).properties(properties).build();
 
       // No beans in metric store initially
-      Assertions.assertTrue(metricStore.beans(query).isEmpty());
+      Assertions.assertThrows(NoSuchElementException.class, () -> metricStore.beans(query));
       // Put some beans
       var targetBean = new BeanObject(domainName, properties, Map.of());
       var otherBean = new BeanObject("others", Map.of(), Map.of());
@@ -102,7 +121,12 @@ public class InternalTopicCollectorTest {
           new InternalTopicCollector.BeanProperties(otherBean.domainName(), otherBean.properties()),
           otherBean);
       Assertions.assertEquals(1, metricStore.beans(query).size());
-      Assertions.assertEquals(targetBean, metricStore.beans(query).stream().findAny().get());
+      Assertions.assertEquals(targetBean, metricStore.beans(query).stream().findAny().orElse(null));
     }
+  }
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
   }
 }

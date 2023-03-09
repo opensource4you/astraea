@@ -42,37 +42,31 @@ import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
 class MetricCollectorTest extends AbstractMetricCollectorTest {
-
   private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
-  /** Build collector with given sensors and exception handler*/
+  /** Build collector with given sensors and exception handler */
   @Override
   protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
     var idJmx =
-        SERVICE.dataFolders().keySet().stream()
+        service().dataFolders().keySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     id -> id,
                     ignore ->
                         new InetSocketAddress(
-                            SERVICE.jmxServiceURL().getHost(),
-                            SERVICE.jmxServiceURL().getPort())));
+                            service().jmxServiceURL().getHost(),
+                            service().jmxServiceURL().getPort())));
     // register all brokers
     return MetricCollector.local()
         .addMetricSensors(sensors)
-            .registerJmxs(idJmx)
-        .interval(Duration.ofSeconds(1))
+        .registerJmxs(idJmx)
+        .interval(Duration.ofSeconds(6))
         .build();
   }
 
   @Override
   protected Service service() {
     return SERVICE;
-  }
-
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
   }
 
   private static final MetricSensor MEMORY_METRIC_SENSOR =
@@ -180,7 +174,7 @@ class MetricCollectorTest extends AbstractMetricCollectorTest {
           Mockito.mockStatic(Executors.class, sniff("newScheduledThreadPool", services))) {
         var socket =
             InetSocketAddress.createUnresolved(
-                SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
+                service().jmxServiceURL().getHost(), service().jmxServiceURL().getPort());
         var collector =
             MetricCollector.local()
                 .registerJmx(0, socket)
@@ -241,6 +235,11 @@ class MetricCollectorTest extends AbstractMetricCollectorTest {
       Assertions.assertNotNull(collector.clusterBean().all().get(1));
       Assertions.assertEquals(1, collector.clusterBean().all().get(1).size());
     }
+  }
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
   }
 
   @SuppressWarnings("unchecked")

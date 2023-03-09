@@ -22,10 +22,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,13 +45,16 @@ public class InternalTopicCollector implements MetricCollector {
   public static final Pattern INTERNAL_TOPIC_PATTERN =
       Pattern.compile("__(?<brokerId>[0-9]+)_broker_metrics");
   private final Map<Integer, MetricStore> metricStores = new ConcurrentHashMap<>();
+  private final MBeanClient local = MBeanClient.local();
 
   // Store those we need (we queried)
-  private final Collection<MetricSensor> metricSensors;
+  private final Collection<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> metricSensors;
   private final CompletableFuture<Void> future;
   private final AtomicBoolean closed = new AtomicBoolean(false);
 
-  private InternalTopicCollector(String bootstrapServer, Collection<MetricSensor> sensors) {
+  private InternalTopicCollector(
+      String bootstrapServer,
+      Collection<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> sensors) {
     this.metricSensors = new ArrayList<>(sensors);
 
     this.future =
@@ -90,40 +96,62 @@ public class InternalTopicCollector implements MetricCollector {
 
   @Override
   public Collection<MetricSensor> metricSensors() {
-    return metricSensors;
+    return metricSensors.stream().map(Map.Entry::getKey).collect(Collectors.toUnmodifiableSet());
   }
 
   @Override
   public Set<Integer> listIdentities() {
-    return metricStores.keySet();
+    return Stream.concat(Stream.of(-1), metricStores.keySet().stream())
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   @Override
   public Set<Class<? extends HasBeanObject>> listMetricTypes() {
-    return metricStores.values().stream()
+    return Stream.concat(Stream.of(Map.entry(-1, local)), metricStores.entrySet().stream())
         .flatMap(
-            metricStore ->
+            idClient ->
                 metricSensors.stream()
-                    .flatMap(sensor -> sensor.fetch(metricStore, ClusterBean.EMPTY).stream()))
+                    .flatMap(
+                        sensor -> {
+                          try {
+                            return sensor
+                                .getKey()
+                                .fetch(idClient.getValue(), ClusterBean.EMPTY)
+                                .stream();
+                          } catch (NoSuchElementException e) {
+                            sensor.getValue().accept(idClient.getKey(), e);
+                            return null;
+                          }
+                        }))
+        .filter(Objects::nonNull)
         .map(bean -> bean.getClass())
         .collect(Collectors.toUnmodifiableSet());
   }
 
   @Override
   public int size() {
-    return metricStores.values().stream()
-        .map(metricStore -> metricStore.beans(BeanQuery.all()))
-        .mapToInt(Collection::size)
-        .sum();
+    return (int) metrics().count();
   }
 
   @Override
   public Stream<HasBeanObject> metrics() {
-    return metricStores.values().stream()
+    return Stream.concat(Stream.of(Map.entry(-1, local)), metricStores.entrySet().stream())
         .flatMap(
-            store ->
+            idClient ->
                 metricSensors.stream()
-                    .flatMap(sensor -> sensor.fetch(store, ClusterBean.EMPTY).stream()));
+                    .flatMap(
+                        sensor -> {
+                          try {
+                            return sensor
+                                .getKey()
+                                .fetch(idClient.getValue(), ClusterBean.EMPTY)
+                                .stream();
+                          } catch (NoSuchElementException e) {
+                            sensor.getValue().accept(idClient.getKey(), e);
+                            return null;
+                          }
+                        })
+                    .filter(Objects::nonNull));
   }
 
   @Override
@@ -132,11 +160,21 @@ public class InternalTopicCollector implements MetricCollector {
         metricSensors.stream()
             .flatMap(
                 sensor ->
-                    metricStores.entrySet().stream()
+                    Stream.concat(Stream.of(Map.entry(-1, local)), metricStores.entrySet().stream())
                         .flatMap(
-                            idStore ->
-                                sensor.fetch(idStore.getValue(), ClusterBean.EMPTY).stream()
-                                    .map(bean -> Map.entry(idStore.getKey(), bean))))
+                            idClient -> {
+                              try {
+                                return sensor
+                                    .getKey()
+                                    .fetch(idClient.getValue(), ClusterBean.EMPTY)
+                                    .stream()
+                                    .map(bean -> Map.entry(idClient.getKey(), bean));
+                              } catch (NoSuchElementException e) {
+                                sensor.getValue().accept(idClient.getKey(), e);
+                                return null;
+                              }
+                            })
+                        .filter(Objects::nonNull))
             .collect(
                 Collectors.groupingBy(
                     Map.Entry::getKey,
@@ -178,7 +216,7 @@ public class InternalTopicCollector implements MetricCollector {
      */
     @Override
     public BeanObject bean(BeanQuery beanQuery) {
-      return beans(beanQuery).stream().findAny().orElse(null);
+      return beans(beanQuery).stream().findAny().orElseThrow(NoSuchElementException::new);
     }
 
     @Override
@@ -196,19 +234,22 @@ public class InternalTopicCollector implements MetricCollector {
                           Pattern.compile(
                               e.getValue().replaceAll("[*]", ".*").replaceAll("[?]", "."))));
       // Filtering out beanObject that match the query
-      return metricStore.entrySet().stream()
-          .filter(storedEntry -> wildCardDomain.matcher(storedEntry.getKey().domain).matches())
-          .filter(
-              storedEntry ->
-                  wildCardProperties.entrySet().stream()
-                      .allMatch(
-                          e ->
-                              storedEntry.getKey().properties.containsKey(e.getKey())
-                                  && e.getValue()
-                                      .matcher(storedEntry.getKey().properties.get(e.getKey()))
-                                      .matches()))
-          .map(Map.Entry::getValue)
-          .collect(Collectors.toUnmodifiableSet());
+      var beans =
+          metricStore.entrySet().stream()
+              .filter(storedEntry -> wildCardDomain.matcher(storedEntry.getKey().domain).matches())
+              .filter(
+                  storedEntry ->
+                      wildCardProperties.entrySet().stream()
+                          .allMatch(
+                              e ->
+                                  storedEntry.getKey().properties.containsKey(e.getKey())
+                                      && e.getValue()
+                                          .matcher(storedEntry.getKey().properties.get(e.getKey()))
+                                          .matches()))
+              .map(Map.Entry::getValue)
+              .collect(Collectors.toUnmodifiableSet());
+      if (beans.isEmpty()) throw new NoSuchElementException();
+      return beans;
     }
 
     /** It is a fake MBeanClient. No IO resource to close. */
@@ -270,7 +311,8 @@ public class InternalTopicCollector implements MetricCollector {
 
   public static class Builder {
     private String bootstrapServer = "";
-    private final List<MetricSensor> metricSensors = new ArrayList<>();
+    private final List<Map.Entry<MetricSensor, BiConsumer<Integer, Exception>>> metricSensors =
+        new ArrayList<>();
 
     public Builder bootstrapServer(String address) {
       this.bootstrapServer = address;
@@ -278,12 +320,25 @@ public class InternalTopicCollector implements MetricCollector {
     }
 
     public Builder addMetricSensor(MetricSensor sensor) {
-      metricSensors.add(sensor);
+      metricSensors.add(Map.entry(sensor, (i, e) -> {}));
       return this;
     }
 
     public Builder addMetricSensors(Collection<MetricSensor> sensors) {
-      metricSensors.addAll(sensors);
+      metricSensors.addAll(
+          sensors.stream()
+              .map(sensor -> Map.entry(sensor, (BiConsumer<Integer, Exception>) (i, e) -> {}))
+              .collect(Collectors.toUnmodifiableSet()));
+      return this;
+    }
+
+    public Builder addMetricSensor(MetricSensor sensor, BiConsumer<Integer, Exception> handler) {
+      metricSensors.add(Map.entry(sensor, handler));
+      return this;
+    }
+
+    public Builder addMetricSensors(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
+      metricSensors.addAll(sensors.entrySet());
       return this;
     }
 
