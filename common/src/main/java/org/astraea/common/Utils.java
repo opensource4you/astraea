@@ -40,7 +40,6 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.management.InstanceNotFoundException;
 import org.astraea.common.cost.CostFunction;
 
@@ -181,8 +180,8 @@ public final class Utils {
   }
 
   public static <T extends CostFunction> Map<T, Double> costFunctions(
-      Configuration config, Class<T> baseClass) {
-    return config.entrySet().stream()
+      Map<String, String> nameAndWeight, Class<T> baseClass, Configuration config) {
+    return nameAndWeight.entrySet().stream()
         .collect(
             Collectors.toUnmodifiableMap(
                 entry -> construct(entry.getKey(), baseClass, config),
@@ -200,21 +199,13 @@ public final class Utils {
                 }));
   }
 
-  public static <T extends CostFunction> Set<T> moveCosts(Configuration config, Class<T> costClz) {
-    return config.entrySet().stream()
-        .flatMap(
-            nameAndConfig -> {
-              try {
-                var clz = Class.forName(nameAndConfig.getKey());
-                if (!costClz.isAssignableFrom(clz)) return Stream.of();
-                return Stream.of((Class<T>) clz);
-              } catch (ClassNotFoundException ignore) {
-                // this config is not cost function, so we just skip it.
-                return Stream.of();
-              }
-            })
-        .map(x -> Utils.construct(x, config))
-        .collect(Collectors.toSet());
+  public static <T extends CostFunction> Set<T> costFunctions(
+      Set<String> names, Class<T> baseClass, Configuration config) {
+    return costFunctions(
+            names.stream().collect(Collectors.toUnmodifiableMap(n -> n, ignored -> "1")),
+            baseClass,
+            config)
+        .keySet();
   }
 
   public static <T> T construct(Class<T> target, Configuration configuration) {

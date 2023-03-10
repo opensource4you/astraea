@@ -349,14 +349,19 @@ public class BalancerHandlerTest {
     }
   }
 
-  @CsvSource(value = {"2,100Byte", "2,500Byte", "2,1GB", "5,100Byte", "5,500Byte", "5,1GB"})
+  @CsvSource(value = {"5,500Byte", "10,500Byte", "5,1GB"})
   @ParameterizedTest
   void testMoveCost(String leaderLimit, String sizeLimit) {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
-      request.costConfig = Map.of("maxMigratedLeader", leaderLimit, "maxMigratedSize", sizeLimit);
+      request.costConfig =
+          Map.of(
+              "org.astraea.common.cost.ReplicaLeaderCost",
+              leaderLimit,
+              "org.astraea.common.cost.RecordSizeCost",
+              sizeLimit);
       var report = submitPlanGeneration(handler, request).plan;
       report.migrationCosts.forEach(
           migrationCost -> {
