@@ -34,7 +34,7 @@ import org.astraea.common.metrics.MBeanRegister;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class StrictCostDispatcherPerfTest {
+public class StrictCostPartitionerPerfTest {
 
   private static AtomicLong createMetric(int brokerId) {
     var latency = new AtomicLong(100);
@@ -84,18 +84,18 @@ public class StrictCostDispatcherPerfTest {
 
     var key = "key".getBytes(StandardCharsets.UTF_8);
     var value = "value".getBytes(StandardCharsets.UTF_8);
-    try (var dispatcher = new StrictCostDispatcher()) {
-      dispatcher.configure(Configuration.of(Map.of("round.robin.lease", "2s")));
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(Configuration.of(Map.of("round.robin.lease", "2s")));
 
       Supplier<Map<Integer, List<Integer>>> resultSupplier =
           () -> {
             var result =
                 IntStream.range(0, 1000)
-                    .mapToObj(ignored -> dispatcher.partition("topic", key, value, clusterInfo))
+                    .mapToObj(ignored -> partitioner.partition("topic", key, value, clusterInfo))
                     .collect(Collectors.groupingBy(i -> i));
 
             var keys =
-                Arrays.stream(dispatcher.roundRobinKeeper.roundRobin)
+                Arrays.stream(partitioner.roundRobinKeeper.roundRobin)
                     .boxed()
                     .collect(Collectors.groupingBy(i -> i))
                     .keySet();

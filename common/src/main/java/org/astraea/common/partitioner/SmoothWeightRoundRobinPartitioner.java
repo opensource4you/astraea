@@ -32,7 +32,7 @@ import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.LocalMetricCollector;
 import org.astraea.common.metrics.collector.MetricCollector;
 
-public class SmoothWeightRoundRobinDispatcher extends Dispatcher {
+public class SmoothWeightRoundRobinPartitioner extends Partitioner {
   private static final int ROUND_ROBIN_LENGTH = 400;
   private static final String JMX_PORT = "jmx.port";
   public static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
