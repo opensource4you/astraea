@@ -143,7 +143,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
     var costFunctions =
-        Utils.costFunctions(config.filteredPrefixConfigs(COST_PREFIX), HasPartitionCost.class);
+        Utils.costFunctions(
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =
