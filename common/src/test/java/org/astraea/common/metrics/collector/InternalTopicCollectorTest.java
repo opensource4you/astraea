@@ -25,26 +25,18 @@ import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
-import org.astraea.it.Service;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class InternalTopicCollectorTest extends AbstractMetricCollectorTest {
-  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
   @Override
   protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
     return MetricCollector.internalTopic()
-        .bootstrapServer(service().bootstrapServers())
+        .bootstrapServer(SERVICE.bootstrapServers())
         .addMetricSensors(sensors)
         .build();
-  }
-
-  @Override
-  protected Service service() {
-    return SERVICE;
   }
 
   @BeforeAll
@@ -123,10 +115,5 @@ public class InternalTopicCollectorTest extends AbstractMetricCollectorTest {
       Assertions.assertEquals(1, metricStore.beans(query).size());
       Assertions.assertEquals(targetBean, metricStore.beans(query).stream().findAny().orElse(null));
     }
-  }
-
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
   }
 }

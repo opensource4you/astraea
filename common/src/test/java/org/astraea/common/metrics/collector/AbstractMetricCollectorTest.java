@@ -35,15 +35,15 @@ import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
 import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public abstract class AbstractMetricCollectorTest {
+  protected static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
   protected abstract MetricCollector collector(
       Map<MetricSensor, BiConsumer<Integer, Exception>> sensors);
-
-  protected abstract Service service();
 
   private static final MetricSensor MEMORY_METRIC_SENSOR =
       (client, ignored) -> List.of(HostMetrics.jvmMemory(client));
@@ -53,7 +53,6 @@ public abstract class AbstractMetricCollectorTest {
       (client, ignore) -> List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client));
 
   @Test
-  @SuppressWarnings("resource")
   void testListIdentity() {
     var sample = Duration.ofSeconds(5);
     try (var collector =
@@ -66,7 +65,7 @@ public abstract class AbstractMetricCollectorTest {
                 BYTE_IN_SENSOR,
                 (i, e) -> {}))) {
       Utils.sleep(sample);
-      var ids = new HashSet<>(service().dataFolders().keySet());
+      var ids = new HashSet<>(SERVICE.dataFolders().keySet());
       ids.add(-1);
       Assertions.assertEquals(ids, collector.listIdentities());
     }
@@ -116,7 +115,7 @@ public abstract class AbstractMetricCollectorTest {
       Assertions.assertTrue(
           clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
 
-      var id = service().dataFolders().keySet().stream().findAny();
+      var id = SERVICE.dataFolders().keySet().stream().findAny();
       Assertions.assertTrue(id.isPresent());
       Assertions.assertTrue(
           clusterBean.all().get(id.get()).stream()
@@ -180,5 +179,10 @@ public abstract class AbstractMetricCollectorTest {
       Assertions.assertEquals(0, collector.clusterBean().all().size());
       Assertions.assertTrue(called.get(), "The error was triggered");
     }
+  }
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
   }
 }

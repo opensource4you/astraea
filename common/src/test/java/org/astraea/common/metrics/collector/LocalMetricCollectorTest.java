@@ -34,39 +34,30 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
-import org.astraea.it.Service;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
 class LocalMetricCollectorTest extends AbstractMetricCollectorTest {
-  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
   /** Build collector with given sensors and exception handler */
   @Override
   protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
     var idJmx =
-        service().dataFolders().keySet().stream()
+        SERVICE.dataFolders().keySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     id -> id,
                     ignore ->
                         new InetSocketAddress(
-                            service().jmxServiceURL().getHost(),
-                            service().jmxServiceURL().getPort())));
+                            SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort())));
     // register all brokers
     return MetricCollector.local()
         .addMetricSensors(sensors)
         .registerJmxs(idJmx)
         .interval(Duration.ofSeconds(6))
         .build();
-  }
-
-  @Override
-  protected Service service() {
-    return SERVICE;
   }
 
   private static final MetricSensor MEMORY_METRIC_SENSOR =
@@ -83,11 +74,10 @@ class LocalMetricCollectorTest extends AbstractMetricCollectorTest {
   }
 
   @Test
-  @SuppressWarnings("resource")
   void registerJmx() {
     var socket =
         InetSocketAddress.createUnresolved(
-            service().jmxServiceURL().getHost(), service().jmxServiceURL().getPort());
+            SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
     var builder = MetricCollector.local().registerJmx(1, socket).registerJmx(-1, socket);
 
     Assertions.assertThrows(
@@ -174,7 +164,7 @@ class LocalMetricCollectorTest extends AbstractMetricCollectorTest {
           Mockito.mockStatic(Executors.class, sniff("newScheduledThreadPool", services))) {
         var socket =
             InetSocketAddress.createUnresolved(
-                service().jmxServiceURL().getHost(), service().jmxServiceURL().getPort());
+                SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort());
         var collector =
             MetricCollector.local()
                 .registerJmx(0, socket)
@@ -235,11 +225,6 @@ class LocalMetricCollectorTest extends AbstractMetricCollectorTest {
       Assertions.assertNotNull(collector.clusterBean().all().get(1));
       Assertions.assertEquals(1, collector.clusterBean().all().get(1).size());
     }
-  }
-
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
   }
 
   @SuppressWarnings("unchecked")
