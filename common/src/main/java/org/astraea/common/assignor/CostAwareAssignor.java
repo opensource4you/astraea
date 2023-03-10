@@ -83,10 +83,7 @@ public class CostAwareAssignor extends Assignor {
     var clusterBean = metricCollector.clusterBean();
 
     // 2. get the partition cost of all subscribed topic
-    var partitionCost =
-        costFunction
-            .partitionCost(ClusterInfo.masked(clusterInfo, subscribedTopics::contains), clusterBean)
-            .value();
+    var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
     var costPerBroker = wrapCostBaseOnNode(clusterInfo, subscribedTopics, partitionCost);
     var intervalPerBroker = estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
     return greedyAssign(costPerBroker, subscriptions, intervalPerBroker);

@@ -102,7 +102,6 @@ public class CostAwareAssignorTest {
   void testWrapCostBaseOnNode() {
     var assignor = new CostAwareAssignor();
     var clusterInfo = buildClusterInfo();
-    var subTopics = Set.of("a", "b");
     var topics = Set.of("a", "b", "c");
     var cost = new HashMap<TopicPartition, Double>();
     var rand = new Random();
@@ -121,16 +120,6 @@ public class CostAwareAssignorTest {
         .forEach(
             r -> {
               var tps = brokerTp.get(r.nodeInfo().id());
-              Assertions.assertTrue(tps.containsKey(r.topicPartition()));
-            });
-
-    var brokerSubTp = assignor.wrapCostBaseOnNode(clusterInfo, subTopics, cost);
-    brokerSubTp.forEach((id, tps) -> Assertions.assertEquals(6, tps.size()));
-    ClusterInfo.masked(clusterInfo, subTopics::contains)
-        .replicaStream()
-        .forEach(
-            r -> {
-              var tps = brokerSubTp.get(r.nodeInfo().id());
               Assertions.assertTrue(tps.containsKey(r.topicPartition()));
             });
   }
