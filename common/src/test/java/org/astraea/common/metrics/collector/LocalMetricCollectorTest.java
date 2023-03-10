@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
-class MetricCollectorTest extends AbstractMetricCollectorTest {
+class LocalMetricCollectorTest extends AbstractMetricCollectorTest {
   private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
 
   /** Build collector with given sensors and exception handler */
