@@ -179,6 +179,15 @@ public final class Utils {
     }
   }
 
+  public static <T extends CostFunction> Set<T> costFunctions(
+      Set<String> names, Class<T> baseClass, Configuration config) {
+    return costFunctions(
+            names.stream().collect(Collectors.toUnmodifiableMap(n -> n, ignored -> "1")),
+            baseClass,
+            config)
+        .keySet();
+  }
+
   public static <T extends CostFunction> Map<T, Double> costFunctions(
       Map<String, String> nameAndWeight, Class<T> baseClass, Configuration config) {
     return nameAndWeight.entrySet().stream()
@@ -197,15 +206,6 @@ public final class Utils {
                         "the weight of cost function must be positive number", e);
                   }
                 }));
-  }
-
-  public static <T extends CostFunction> Set<T> costFunctions(
-      Set<String> names, Class<T> baseClass, Configuration config) {
-    return costFunctions(
-            names.stream().collect(Collectors.toUnmodifiableMap(n -> n, ignored -> "1")),
-            baseClass,
-            config)
-        .keySet();
   }
 
   public static <T> T construct(Class<T> target, Configuration configuration) {
