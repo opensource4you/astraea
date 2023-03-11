@@ -349,12 +349,11 @@ class BalancerHandler implements Handler {
     String balancer = GreedyBalancer.class.getName();
 
     Map<String, String> balancerConfig = Map.of();
-
+    Map<String, String> costConfig = Map.of();
     Duration timeout = Duration.ofSeconds(3);
     Set<String> topics = Set.of();
-    Map<String, String> costConfig = Map.of();
-
     List<CostWeight> clusterCosts = List.of();
+    Set<String> moveCosts = Set.of();
 
     HasClusterCost clusterCost() {
       if (clusterCosts.isEmpty())
@@ -369,7 +368,7 @@ class BalancerHandler implements Handler {
 
     HasMoveCost moveCost() {
       var config = Configuration.of(costConfig);
-      var cf = Utils.costFunctions(config.raw().keySet(), HasMoveCost.class, config);
+      var cf = Utils.costFunctions(moveCosts, HasMoveCost.class, config);
       return HasMoveCost.of(cf);
     }
   }

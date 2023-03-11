@@ -30,6 +30,7 @@ import org.astraea.common.admin.Replica;
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
   private final Configuration moveCostLimit;
+  private static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
 
   public RecordSizeCost() {
     this.moveCostLimit = Configuration.of(Map.of());
@@ -66,7 +67,7 @@ public class RecordSizeCost
                                 - before.replicaStream(id).mapToLong(Replica::size).sum())));
     var maxMigratedSize =
         moveCostLimit
-            .string(this.getClass().getName())
+            .string(MAX_MIGRATE_SIZE_KEY)
             .map(DataSize::of)
             .map(DataSize::bytes)
             .orElse(Long.MAX_VALUE);

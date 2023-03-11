@@ -126,6 +126,7 @@ public class BalancerHandlerTest {
       var request = new BalancerPostRequest();
       request.balancer = GreedyBalancer.class.getName();
       request.balancerConfig = Map.of("a", "b");
+      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
       request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       request.timeout = Duration.ofMillis(1234);
       var progress = submitPlanGeneration(handler, request);
@@ -170,6 +171,7 @@ public class BalancerHandlerTest {
       var request = new BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "30");
       request.topics = Set.copyOf(allowedTopics);
+      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
       request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertTrue(
