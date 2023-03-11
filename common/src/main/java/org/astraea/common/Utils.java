@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -178,9 +179,18 @@ public final class Utils {
     }
   }
 
+  public static <T extends CostFunction> Set<T> costFunctions(
+      Set<String> names, Class<T> baseClass, Configuration config) {
+    return costFunctions(
+            names.stream().collect(Collectors.toUnmodifiableMap(n -> n, ignored -> "1")),
+            baseClass,
+            config)
+        .keySet();
+  }
+
   public static <T extends CostFunction> Map<T, Double> costFunctions(
-      Configuration config, Class<T> baseClass) {
-    return config.entrySet().stream()
+      Map<String, String> nameAndWeight, Class<T> baseClass, Configuration config) {
+    return nameAndWeight.entrySet().stream()
         .collect(
             Collectors.toUnmodifiableMap(
                 entry -> construct(entry.getKey(), baseClass, config),

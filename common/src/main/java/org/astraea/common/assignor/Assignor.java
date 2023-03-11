@@ -79,7 +79,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     if (maxUpperBoundMiB < maxTrafficMiBInterval)
       throw new IllegalArgumentException("max traffic interval cannot larger than max upperbound");
     var costFunctions =
-        Utils.costFunctions(config.filteredPrefixConfigs(COST_PREFIX), HasPartitionCost.class);
+            Utils.costFunctions(
+                    config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =

@@ -192,6 +192,9 @@ public interface MBeanClient extends AutoCloseable {
       return Utils.packException(
           () ->
               connection.queryMBeans(beanQuery.objectName(), null).stream()
+                  // Parallelize the sampling of bean objects. The underlying RMI is thread-safe.
+                  // https://github.com/skiptests/astraea/issues/1553#issuecomment-1461143723
+                  .parallel()
                   .map(ObjectInstance::getObjectName)
                   .map(BeanQuery::fromObjectName)
                   .map(this::bean)
