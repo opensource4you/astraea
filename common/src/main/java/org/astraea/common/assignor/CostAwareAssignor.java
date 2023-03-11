@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -102,17 +101,19 @@ public class CostAwareAssignor extends Assignor {
   }
 
   /**
-   * perform assign algorithm to get balanced assignment and ensure that similar loads within a node
-   * would be assigned to the same consumer.
+   * perform assign algorithm ensure that similar loads within a node would be assigned to the same
+   * consumer.
    *
    * @param costs the tp and their cost within a node
    * @param subscription All subscription for consumers
-   * @return the assignment
+   * @param intervalPerBroker Transforming the traffic of each node into cost
+   * @return the final assignment
    */
   Map<String, List<TopicPartition>> greedyAssign(
       Map<Integer, Map<TopicPartition, Double>> costs,
       Map<String, org.astraea.common.assignor.Subscription> subscription,
-      Map<Integer, Double> limitedPerBroker) {
+      Map<Integer, Double> intervalPerBroker) {
+    // TODO: need detect consumer with different subscription
     // initial
     var assignment = new HashMap<String, List<TopicPartition>>();
     var consumers = subscription.keySet();
@@ -123,41 +124,23 @@ public class CostAwareAssignor extends Assignor {
         assignment.keySet().stream()
             .map(c -> Map.entry(c, (double) 0))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    Function<Map<String, Double>, String> largestLoadConsumer =
-        (consumerCost) ->
-            Collections.max(consumerCost.entrySet(), Map.Entry.comparingByValue()).getKey();
 
     costs.forEach(
-        (id, tpsCost) -> {
-          // let networkIngress cost be ascending order
-          var sortedCost = new LinkedHashMap<TopicPartition, Double>();
-          tpsCost.entrySet().stream()
-              .sorted(Map.Entry.comparingByValue())
-              .forEach(entry -> sortedCost.put(entry.getKey(), entry.getValue()));
-          // maintain the temp cost of the consumer
-          var tmpCostPerConsumer = new HashMap<>(costPerConsumer);
-          // get the consumer with the largest load
-          var consumer = largestLoadConsumer.apply(tmpCostPerConsumer);
-          var lastValue = Collections.min(sortedCost.values());
-
-          for (var e : sortedCost.entrySet()) {
-            var tp = e.getKey();
-            var cost = e.getValue();
-
-            if (cost - lastValue > limitedPerBroker.get(id)) {
-              tmpCostPerConsumer.remove(consumer);
-              consumer = largestLoadConsumer.apply(tmpCostPerConsumer);
-              lastValue = cost;
-            }
-
-            assignment.get(consumer).add(tp);
-            costPerConsumer.computeIfPresent(consumer, (ignore, c) -> c + cost);
-          }
-        });
+        (brokerId, cost) ->
+            assignPerNode(cost, costPerConsumer, intervalPerBroker.get(brokerId))
+                .forEach((consumer, result) -> assignment.get(consumer).addAll(result)));
     return assignment;
   }
 
-  Map<String, List<TopicPartition>> nodeAssignment(
+  /**
+   * aggregate the assignment of with interval and without interval
+   *
+   * @param partitionCost partition cost
+   * @param consumerCost the consumer with its total cost
+   * @param interval the config of `max.traffic.mib.interval`
+   * @return the assignment of a node
+   */
+  Map<String, List<TopicPartition>> assignPerNode(
       Map<TopicPartition, Double> partitionCost,
       Map<String, Double> consumerCost,
       Double interval) {
@@ -216,6 +199,16 @@ public class CostAwareAssignor extends Assignor {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  /**
+   * Assign the partitions which cost is larger than `max.upper.bound.mib`. For costs that exceed
+   * the upper bound, they should be evenly distributed as much as possible.
+   *
+   * @param partitionCost partition cost based on the cost function user used
+   * @param interval the config of `max.traffic.mib.interval`
+   * @param groupNumber the group number must equal to the (number of consumers - number of group
+   *     within interval)
+   * @return the part of assignment
+   */
   protected Map<Double, HashMap<TopicPartition, Double>> groupPartitionWithoutInterval(
       Map<TopicPartition, Double> partitionCost, Double interval, int groupNumber) {
     var upperBound = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
@@ -226,7 +219,7 @@ public class CostAwareAssignor extends Assignor {
     if (groupNumber == 1) return Map.of(1.0, new HashMap<>(dontCareSimilarCost));
 
     var result =
-        IntStream.range(0, groupNumber)
+        IntStream.range(1, groupNumber + 1)
             .mapToObj(i -> Map.entry((double) i, new HashMap<TopicPartition, Double>()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var tmpCost = result.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> 0.0));
@@ -243,12 +236,22 @@ public class CostAwareAssignor extends Assignor {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  /**
+   * Assign the partitions which cost is less than `max.upper.bound.mib`. The reason for needing to
+   * look at the upper bound is to assign partitions with similar amounts of traffic to the same
+   * consumer.
+   *
+   * @param partitionCost the partition cost
+   * @param interval the config of `max.traffic.mib.interval`, Distinguishing the interval of
+   *     traffic
+   * @return the part of assignment
+   */
   protected Map<Double, HashMap<TopicPartition, Double>> groupPartitionWithInterval(
       Map<TopicPartition, Double> partitionCost, Double interval) {
     // upper = 50, interval = 10
-    // 0~10, 10~20, 20~30, 30~40, 40~50
+    // range: 0~10, 10~20, 20~30, 30~40, 40~50
     // upper = 35, interval = 10
-    // 0~10, 10~20, 20~30, 30~35
+    // range: 0~10, 10~20, 20~30, 30~35
     var upperBoundCost = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
     var groupNumbers = (int) Math.ceil(maxUpperBoundMiB / maxTrafficMiBInterval);
     var intervals =

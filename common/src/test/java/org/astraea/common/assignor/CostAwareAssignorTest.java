@@ -95,7 +95,7 @@ public class CostAwareAssignorTest {
         assignor.estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
     var _10MiBCost = costPerBroker.get(1).get(TopicPartition.of("b-0"));
     var format = new DecimalFormat("#.####");
-    //    Assertions.assertEquals(_10MiBCost, resultOf10MiBCost.get(1));
+
     Assertions.assertEquals(
         Double.parseDouble(format.format(_10MiBCost)),
         Double.parseDouble(format.format(resultOf10MiBCost.get(1))));
@@ -190,9 +190,9 @@ public class CostAwareAssignorTest {
     var interval = ThreadLocalRandom.current().nextDouble(0.005);
     var upperBound = (assignor.maxUpperBoundMiB / assignor.maxTrafficMiBInterval) * interval;
     var testPartitionCost = partitionCost(600);
-      System.out.println(testPartitionCost);
     var singleConsumer = assignor.groupPartitionWithoutInterval(testPartitionCost, upperBound, 1);
     var twoConsumers = assignor.groupPartitionWithoutInterval(testPartitionCost, upperBound, 2);
+
     Assertions.assertEquals(1, singleConsumer.size());
     singleConsumer.forEach(
         (ignore, costs) -> {
@@ -208,7 +208,7 @@ public class CostAwareAssignorTest {
   }
 
   @Test
-  void testNodeAssignment() {
+  void testAssignPerNode() {
     var assignor = new CostAwareAssignor();
     var interval = ThreadLocalRandom.current().nextDouble(0.001);
     var partitionCost =
@@ -221,9 +221,7 @@ public class CostAwareAssignorTest {
                 i -> Map.entry(Utils.randomString(5), ThreadLocalRandom.current().nextDouble(0.1)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     partitionCost.forEach(
-        (groupId, subAssignment) -> {
-          assignor.nodeAssignment(subAssignment, consumerCost, interval);
-        });
+        (groupId, subAssignment) -> assignor.assignPerNode(subAssignment, consumerCost, interval));
   }
 
   static Map<TopicPartition, Double> partitionCost(int number) {
