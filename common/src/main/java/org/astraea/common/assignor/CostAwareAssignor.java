@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
@@ -66,7 +69,6 @@ public class CostAwareAssignor extends Assignor {
   protected Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       ClusterInfo clusterInfo) {
-    // 1. check unregister node. if there are unregister nodes, register them
     registerUnregisterNode(clusterInfo);
     var subscribedTopics =
         subscriptions.values().stream()
@@ -82,7 +84,6 @@ public class CostAwareAssignor extends Assignor {
         Duration.ofSeconds(maxWaitBean));
     var clusterBean = metricCollector.clusterBean();
 
-    // 2. get the partition cost of all subscribed topic
     var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
     var costPerBroker = wrapCostBaseOnNode(clusterInfo, subscribedTopics, partitionCost);
     var intervalPerBroker = estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
@@ -156,6 +157,126 @@ public class CostAwareAssignor extends Assignor {
     return assignment;
   }
 
+  Map<String, List<TopicPartition>> nodeAssignment(
+      Map<TopicPartition, Double> partitionCost,
+      Map<String, Double> consumerCost,
+      Double interval) {
+    // TODO: avoid numberOfConsumer < intervalAssignment.size()
+    var intervalAssignment = groupPartitionWithInterval(partitionCost, interval);
+    var groupNumberOfNonInterval = consumerCost.size() - intervalAssignment.size();
+    Map<Double, HashMap<TopicPartition, Double>> result;
+
+    if (groupNumberOfNonInterval == 0) {
+      var upperBound = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
+      var dontCareSimilarCost =
+          partitionCost.entrySet().stream()
+              .filter(e -> e.getValue() >= upperBound)
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      intervalAssignment.get(upperBound).putAll(dontCareSimilarCost);
+      result = intervalAssignment;
+    } else {
+      var dontCareSimilar =
+          groupPartitionWithoutInterval(partitionCost, interval, groupNumberOfNonInterval);
+      result =
+          Stream.concat(intervalAssignment.entrySet().stream(), dontCareSimilar.entrySet().stream())
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    var assignOrder =
+        result.entrySet().stream()
+            .map(
+                e -> {
+                  var id = e.getKey();
+                  var total = e.getValue().values().stream().mapToDouble(x -> x).sum();
+                  return Map.entry(id, total);
+                })
+            .sorted(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    Collections.reverse(assignOrder);
+
+    var tmpConsumerCost = new HashMap<>(consumerCost);
+    Supplier<String> lowestCostConsumer =
+        () -> Collections.min(tmpConsumerCost.entrySet(), Map.Entry.comparingByValue()).getKey();
+
+    return assignOrder.stream()
+        .map(
+            id -> {
+              var consumer = lowestCostConsumer.get();
+
+              tmpConsumerCost.remove(consumer);
+              consumerCost.compute(
+                  consumer,
+                  (ignore, cost) ->
+                      cost + result.get(id).values().stream().mapToDouble(x -> x).sum());
+              return Map.entry(
+                  consumer,
+                  result.get(id).keySet().stream().collect(Collectors.toUnmodifiableList()));
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  protected Map<Double, HashMap<TopicPartition, Double>> groupPartitionWithoutInterval(
+      Map<TopicPartition, Double> partitionCost, Double interval, int groupNumber) {
+    var upperBound = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
+    var dontCareSimilarCost =
+        partitionCost.entrySet().stream()
+            .filter(e -> e.getValue() >= upperBound)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (groupNumber == 1) return Map.of(1.0, new HashMap<>(dontCareSimilarCost));
+
+    var result =
+        IntStream.range(0, groupNumber)
+            .mapToObj(i -> Map.entry((double) i, new HashMap<TopicPartition, Double>()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var tmpCost = result.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> 0.0));
+    Supplier<Double> minCost =
+        () -> Collections.min(tmpCost.entrySet(), Map.Entry.comparingByValue()).getKey();
+    dontCareSimilarCost.forEach(
+        (tp, cost) -> {
+          var min = minCost.get();
+          result.get(min).put(tp, cost);
+          tmpCost.computeIfPresent(min, (ignore, costValue) -> costValue + cost);
+        });
+    return result.entrySet().stream()
+        .filter(e -> !e.getValue().isEmpty())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  protected Map<Double, HashMap<TopicPartition, Double>> groupPartitionWithInterval(
+      Map<TopicPartition, Double> partitionCost, Double interval) {
+    // upper = 50, interval = 10
+    // 0~10, 10~20, 20~30, 30~40, 40~50
+    // upper = 35, interval = 10
+    // 0~10, 10~20, 20~30, 30~35
+    var upperBoundCost = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
+    var groupNumbers = (int) Math.ceil(maxUpperBoundMiB / maxTrafficMiBInterval);
+    var intervals =
+        IntStream.range(1, groupNumbers + 1)
+            .mapToObj(
+                i ->
+                    Map.entry(
+                        Math.min(interval * i, upperBoundCost),
+                        new HashMap<TopicPartition, Double>()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var orderedList = intervals.keySet().stream().sorted().collect(Collectors.toUnmodifiableList());
+    // Aggregate similar traffic to the same key of intervals.
+    // If cost is larger than upperBound cost, put it into dontCareSimilarCost
+    partitionCost.entrySet().stream()
+        .filter(e -> e.getValue() < upperBoundCost)
+        .forEach(
+            e -> {
+              for (var i : orderedList) {
+                if (e.getValue() < i) {
+                  intervals.get(i).put(e.getKey(), e.getValue());
+                  break;
+                }
+              }
+            });
+    return intervals.entrySet().stream()
+        .filter(e -> !e.getValue().isEmpty())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
   /**
    * Wrap the partition and cost based on nodes. This method is used to process special cost, e.g.,
    * `LogSizeCost` and `NetworkIngressCost`
@@ -202,7 +323,7 @@ public class CostAwareAssignor extends Assignor {
       ClusterInfo clusterInfo,
       ClusterBean clusterBean,
       Map<Integer, Map<TopicPartition, Double>> tpCostPerBroker) {
-    var interval = DataRate.MiB.of(maxTrafficMiBInterval).perSecond().byteRate();
+    var interval = DataRate.MiB.of((long) maxTrafficMiBInterval).perSecond().byteRate();
     // get partitions' cost
     var partitionsTraffic =
         replicaLeaderLocation(clusterInfo).entrySet().stream()

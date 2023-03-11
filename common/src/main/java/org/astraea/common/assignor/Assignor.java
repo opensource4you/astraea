@@ -47,8 +47,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String MAX_TRAFFIC_MIB_INTERVAL = "max.traffic.mib.interval";
   public static final String MAX_UPPER_BOUND_MIB = "max.upper.bound.mib";
   int maxWaitBean = 3;
-  int maxTrafficMiBInterval = 10;
-  int maxUpperBoundMiB = 40;
+  double maxTrafficMiBInterval = 10;
+  double maxUpperBoundMiB = 40;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
@@ -76,6 +76,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = value);
     config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
     config.integer(MAX_UPPER_BOUND_MIB).ifPresent(value -> this.maxUpperBoundMiB = value);
+    if (maxUpperBoundMiB < maxTrafficMiBInterval)
+      throw new IllegalArgumentException("max traffic interval cannot larger than max upperbound");
     var costFunctions =
         Utils.costFunctions(config.filteredPrefixConfigs(COST_PREFIX), HasPartitionCost.class);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);

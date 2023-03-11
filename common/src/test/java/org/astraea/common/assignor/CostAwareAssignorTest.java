@@ -23,8 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
@@ -122,6 +125,115 @@ public class CostAwareAssignorTest {
               var tps = brokerTp.get(r.nodeInfo().id());
               Assertions.assertTrue(tps.containsKey(r.topicPartition()));
             });
+  }
+
+  @Test
+  void testGroupPartitionWithInterval() {
+    var assignor = new CostAwareAssignor();
+    var assignorModifyInterval = new CostAwareAssignor();
+    assignorModifyInterval.configure(Map.of("max.traffic.mib.interval", 12));
+    var assignorModifyUpperBound = new CostAwareAssignor();
+    assignorModifyUpperBound.configure(Map.of("max.upper.bound.mib", 25));
+    var testPartitionCost = partitionCost(600);
+    var interval = ThreadLocalRandom.current().nextDouble(0.15);
+    var result = assignor.groupPartitionWithInterval(testPartitionCost, interval);
+    var resultWithModifyInterval =
+        assignorModifyInterval.groupPartitionWithInterval(testPartitionCost, interval);
+    var resultWithModifyUpperBound =
+        assignorModifyUpperBound.groupPartitionWithInterval(testPartitionCost, interval);
+
+    Assertions.assertEquals(
+        (int) Math.ceil(assignor.maxUpperBoundMiB / assignor.maxTrafficMiBInterval), result.size());
+    Assertions.assertEquals(
+        (int)
+            Math.ceil(
+                assignorModifyInterval.maxUpperBoundMiB
+                    / assignorModifyInterval.maxTrafficMiBInterval),
+        resultWithModifyInterval.size());
+    Assertions.assertEquals(
+        (int)
+            Math.ceil(
+                assignorModifyUpperBound.maxUpperBoundMiB
+                    / assignorModifyUpperBound.maxTrafficMiBInterval),
+        resultWithModifyUpperBound.size());
+
+    var list = result.keySet().stream().sorted().collect(Collectors.toUnmodifiableList());
+    var listWithModifyInterval =
+        resultWithModifyInterval.keySet().stream()
+            .sorted()
+            .collect(Collectors.toUnmodifiableList());
+    var listWithModifyUpperBound =
+        resultWithModifyUpperBound.keySet().stream()
+            .sorted()
+            .collect(Collectors.toUnmodifiableList());
+
+    for (Double bound : list) {
+      Assertions.assertTrue(
+          result.get(bound).values().stream()
+              .allMatch(cost -> cost < bound && cost > bound - interval));
+    }
+    for (Double bound : listWithModifyInterval) {
+      Assertions.assertTrue(
+          resultWithModifyInterval.get(bound).values().stream()
+              .allMatch(cost -> cost < bound && cost > bound - interval));
+    }
+    for (Double bound : listWithModifyUpperBound) {
+      Assertions.assertTrue(
+          resultWithModifyUpperBound.get(bound).values().stream()
+              .allMatch(cost -> cost < bound && cost > bound - interval));
+    }
+  }
+
+  @Test
+  void testGroupPartitionWithoutInterval() {
+    var assignor = new CostAwareAssignor();
+    var interval = ThreadLocalRandom.current().nextDouble(0.005);
+    var upperBound = (assignor.maxUpperBoundMiB / assignor.maxTrafficMiBInterval) * interval;
+    var testPartitionCost = partitionCost(600);
+      System.out.println(testPartitionCost);
+    var singleConsumer = assignor.groupPartitionWithoutInterval(testPartitionCost, upperBound, 1);
+    var twoConsumers = assignor.groupPartitionWithoutInterval(testPartitionCost, upperBound, 2);
+    Assertions.assertEquals(1, singleConsumer.size());
+    singleConsumer.forEach(
+        (ignore, costs) -> {
+          var value = costs.values();
+          Assertions.assertTrue(value.stream().allMatch(v -> v >= upperBound));
+        });
+    Assertions.assertEquals(2, twoConsumers.size());
+    twoConsumers.forEach(
+        (ignore, costs) -> {
+          var value = costs.values();
+          Assertions.assertTrue(value.stream().allMatch(v -> v >= upperBound));
+        });
+  }
+
+  @Test
+  void testNodeAssignment() {
+    var assignor = new CostAwareAssignor();
+    var interval = ThreadLocalRandom.current().nextDouble(0.001);
+    var partitionCost =
+        IntStream.range(0, 2)
+            .mapToObj(i -> Map.entry(i, partitionCost(ThreadLocalRandom.current().nextInt(250))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var consumerCost =
+        IntStream.range(0, 5)
+            .mapToObj(
+                i -> Map.entry(Utils.randomString(5), ThreadLocalRandom.current().nextDouble(0.1)))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    partitionCost.forEach(
+        (groupId, subAssignment) -> {
+          assignor.nodeAssignment(subAssignment, consumerCost, interval);
+        });
+  }
+
+  static Map<TopicPartition, Double> partitionCost(int number) {
+    return IntStream.range(0, number)
+        .mapToObj(
+            i ->
+                Map.entry(
+                    TopicPartition.of(Utils.randomString(4), ThreadLocalRandom.current().nextInt()),
+                    ThreadLocalRandom.current().nextDouble(0.3)))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   static ClusterInfo buildClusterInfo() {
