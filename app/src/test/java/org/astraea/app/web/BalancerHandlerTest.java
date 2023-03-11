@@ -69,6 +69,7 @@ import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.RecordSizeCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -362,7 +363,19 @@ public class BalancerHandlerTest {
           Set.of(
               "org.astraea.common.cost.ReplicaLeaderCost",
               "org.astraea.common.cost.RecordSizeCost");
-      request.costConfig = Map.of("maxMigratedLeader", leaderLimit, "maxMigratedSize", sizeLimit);
+      request.costConfig =
+          Map.of(
+              ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY,
+              leaderLimit,
+              RecordSizeCost.MAX_MIGRATE_SIZE_KEY,
+              sizeLimit);
+      Assertions.assertEquals(2, request.moveCosts.size());
+      Assertions.assertEquals(2, request.moveCost().config().raw().size());
+      Assertions.assertEquals(
+          request.moveCost().config().string(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY).get(),
+          leaderLimit);
+      Assertions.assertEquals(
+          request.moveCost().config().string(RecordSizeCost.MAX_MIGRATE_SIZE_KEY).get(), sizeLimit);
       var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertEquals(2, report.migrationCosts.size());
       report.migrationCosts.forEach(
@@ -1408,6 +1421,8 @@ public class BalancerHandlerTest {
             + "}";
     var request =
         JsonConverter.defaultConverter().fromJson(json, TypeRef.of(BalancerPostRequest.class));
+    Assertions.assertTrue(request.moveCosts.contains("org.astraea.common.cost.RecordSizeCost"));
+    Assertions.assertTrue(request.moveCosts.contains("org.astraea.common.cost.ReplicaLeaderCost"));
     Assertions.assertEquals(
         "org.astraea.common.balancer.algorithms.GreedyBalancer", request.balancer);
     Assertions.assertNotNull(request.balancerConfig);

@@ -47,6 +47,11 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   }
 
   @Override
+  public Configuration config() {
+    return this.config;
+  }
+
+  @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())

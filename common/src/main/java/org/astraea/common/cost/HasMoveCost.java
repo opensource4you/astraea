@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -30,7 +31,7 @@ public interface HasMoveCost extends CostFunction {
 
   HasMoveCost EMPTY = (originClusterInfo, newClusterInfo, clusterBean) -> MoveCost.EMPTY;
 
-  static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts) {
+  static HasMoveCost of(Collection<HasMoveCost> hasMoveCosts, Configuration configuration) {
     var sensor =
         MetricSensor.of(
             hasMoveCosts.stream()
@@ -103,6 +104,11 @@ public interface HasMoveCost extends CostFunction {
       @Override
       public Optional<MetricSensor> metricSensor() {
         return sensor;
+      }
+
+      @Override
+      public Configuration config() {
+        return configuration;
       }
 
       @Override

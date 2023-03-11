@@ -50,6 +50,10 @@ public interface CostFunction {
     return Optional.empty();
   }
 
+  default Configuration config() {
+    return Configuration.EMPTY;
+  }
+
   static String toStringComposite(Map<? extends CostFunction, Double> costWeights) {
     BiFunction<CostFunction, Double, String> descriptiveName =
         (cost, value) -> "{\"" + cost.toString() + "\" weight " + value + "}";

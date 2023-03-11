@@ -381,7 +381,7 @@ class BalancerHandler implements Handler {
     HasMoveCost moveCost() {
       var config = Configuration.of(costConfig);
       var cf = Utils.costFunctions(moveCosts, HasMoveCost.class, config);
-      return HasMoveCost.of(cf);
+      return HasMoveCost.of(cf, config);
     }
   }
 
