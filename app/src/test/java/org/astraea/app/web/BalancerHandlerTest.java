@@ -1419,9 +1419,9 @@ public class BalancerHandlerTest {
     Assertions.assertEquals(1D, request.clusterCosts.get(0).weight);
 
     Assertions.assertEquals(2, request.moveCosts.size());
-    Assertions.assertEquals(2, request.balancerConfig.entrySet().size());
-    Assertions.assertEquals("500MB", request.balancerConfig.get("maxMigratedSize"));
-    Assertions.assertEquals("50", request.balancerConfig.get("maxMigratedLeader"));
+    Assertions.assertEquals(2, request.costConfig.size());
+    Assertions.assertEquals("500MB", request.costConfig.get("maxMigratedSize"));
+    Assertions.assertEquals("50", request.costConfig.get("maxMigratedLeader"));
 
     var noCostRequest =
         JsonConverter.defaultConverter()
