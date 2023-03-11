@@ -22,36 +22,42 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
-import org.astraea.it.Service;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
-class MetricCollectorTest {
+class LocalMetricCollectorTest extends AbstractMetricCollectorTest {
 
-  private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
-
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
+  /** Build collector with given sensors and exception handler */
+  @Override
+  protected MetricCollector collector(Map<MetricSensor, BiConsumer<Integer, Exception>> sensors) {
+    var idJmx =
+        SERVICE.dataFolders().keySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    id -> id,
+                    ignore ->
+                        new InetSocketAddress(
+                            SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort())));
+    // register all brokers
+    return MetricCollector.local()
+        .addMetricSensors(sensors)
+        .registerJmxs(idJmx)
+        .interval(Duration.ofSeconds(6))
+        .build();
   }
 
   private static final MetricSensor MEMORY_METRIC_SENSOR =
@@ -110,47 +116,7 @@ class MetricCollectorTest {
   }
 
   @Test
-  void testListMetricTypes() {
-    var sample = Duration.ofMillis(100);
-    try (var collector =
-        MetricCollector.local()
-            .addMetricSensor(MEMORY_METRIC_SENSOR)
-            .addMetricSensor(OS_METRIC_SENSOR)
-            .interval(sample)
-            .build()) {
-
-      Utils.sleep(sample);
-
-      Assertions.assertEquals(
-          Set.of(JvmMemory.class, OperatingSystemInfo.class), collector.listMetricTypes());
-    }
-  }
-
-  @Test
-  void clusterBean() {
-    var sample = Duration.ofMillis(200);
-    try (var collector =
-        MetricCollector.local()
-            .addMetricSensor(MEMORY_METRIC_SENSOR)
-            .addMetricSensor(OS_METRIC_SENSOR)
-            .interval(sample)
-            .build()) {
-
-      Utils.sleep(sample);
-      Utils.sleep(sample);
-
-      ClusterBean clusterBean = collector.clusterBean();
-
-      Assertions.assertEquals(1, clusterBean.all().keySet().size());
-      Assertions.assertTrue(
-          clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof JvmMemory));
-      Assertions.assertTrue(
-          clusterBean.all().get(-1).stream().anyMatch(x -> x instanceof OperatingSystemInfo));
-    }
-  }
-
-  @Test
-  void metrics() {
+  void testSampledInterval() {
     var sample = Duration.ofSeconds(2);
     try (var collector =
         MetricCollector.local()
@@ -226,33 +192,6 @@ class MetricCollectorTest {
   }
 
   @Test
-  void testSensorErrorHandling() {
-    var called = new AtomicBoolean();
-    MetricSensor noSuchMetricSensor =
-        (client, ignored) -> {
-          BeanObject beanObject =
-              client.bean(
-                  BeanQuery.builder().domainName("no.such.metric").property("k", "v").build());
-          return List.of(() -> beanObject);
-        };
-    try (var collector =
-        MetricCollector.local()
-            .addMetricSensor(
-                noSuchMetricSensor,
-                (id, ex) -> {
-                  Assertions.assertEquals(-1, id);
-                  Assertions.assertInstanceOf(NoSuchElementException.class, ex);
-                  called.set(true);
-                })
-            .interval(Duration.ofMillis(100))
-            .build()) {
-
-      Utils.sleep(Duration.ofMillis(300));
-      Assertions.assertTrue(called.get(), "The error was triggered");
-    }
-  }
-
-  @Test
   void testCleaner() {
     try (var collector =
         MetricCollector.local()
@@ -278,7 +217,7 @@ class MetricCollectorTest {
   }
 
   @Test
-  void testLocalStoreBeans() {
+  void testInitBeans() {
     Map<Integer, Collection<HasBeanObject>> beans =
         Map.of(1, List.of(() -> new BeanObject("domain", Map.of(), Map.of())));
     try (var collector = MetricCollector.local().storeBeans(beans).build()) {
