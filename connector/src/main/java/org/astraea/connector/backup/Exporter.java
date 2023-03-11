@@ -162,7 +162,6 @@ public class Exporter extends SinkConnector {
               while (itr.hasNext()) {
                 var writer = itr.next();
                 if (currentTime - writer.latestAppendTimestamp() > interval) {
-                  System.out.println("close writer " + writer);
                   writer.close();
                   itr.remove();
                 } else {
