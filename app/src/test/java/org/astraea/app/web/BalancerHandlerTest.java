@@ -358,13 +358,13 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
-      request.costConfig =
-          Map.of(
+      request.moveCosts =
+          Set.of(
               "org.astraea.common.cost.ReplicaLeaderCost",
-              leaderLimit,
-              "org.astraea.common.cost.RecordSizeCost",
-              sizeLimit);
+              "org.astraea.common.cost.RecordSizeCost");
+      request.costConfig = Map.of("maxMigratedLeader", leaderLimit, "maxMigratedSize", sizeLimit);
       var report = submitPlanGeneration(handler, request).plan;
+      Assertions.assertEquals(2, report.migrationCosts.size());
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {

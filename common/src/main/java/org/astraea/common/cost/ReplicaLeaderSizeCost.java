@@ -37,16 +37,16 @@ import org.astraea.common.metrics.collector.MetricSensor;
 public class ReplicaLeaderSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
 
-  private final Configuration moveCostLimit;
+  private final Configuration config;
 
   public static final String COST_LIMIT_KEY = "maxMigratedLeaderSize";
 
   public ReplicaLeaderSizeCost() {
-    this.moveCostLimit = Configuration.of(Map.of());
+    this.config = Configuration.of(Map.of());
   }
 
-  public ReplicaLeaderSizeCost(Configuration moveCostLimit) {
-    this.moveCostLimit = moveCostLimit;
+  public ReplicaLeaderSizeCost(Configuration config) {
+    this.config = config;
   }
 
   private final Dispersion dispersion = Dispersion.cov();
@@ -74,11 +74,7 @@ public class ReplicaLeaderSizeCost
                             after.replicaStream(id).mapToLong(Replica::size).sum()
                                 - before.replicaStream(id).mapToLong(Replica::size).sum())));
     var maxMigratedLeaderSize =
-        moveCostLimit
-            .string(COST_LIMIT_KEY)
-            .map(DataSize::of)
-            .map(DataSize::bytes)
-            .orElse(Long.MAX_VALUE);
+        config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeaderSize
             < moveCost.values().stream()

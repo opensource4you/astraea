@@ -31,14 +31,14 @@ import org.astraea.common.metrics.collector.MetricSensor;
 public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   public static final String COST_LIMIT_KEY = "maxMigratedReplicas";
 
-  private final Configuration moveCostLimit;
+  private final Configuration config;
 
   public ReplicaNumberCost() {
-    this.moveCostLimit = Configuration.of(Map.of());
+    this.config = Configuration.of(Map.of());
   }
 
-  public ReplicaNumberCost(Configuration moveCostLimit) {
-    this.moveCostLimit = moveCostLimit;
+  public ReplicaNumberCost(Configuration config) {
+    this.config = config;
   }
 
   @Override
@@ -78,7 +78,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
                       return newReplicas - removedReplicas;
                     }));
     var maxMigratedReplicas =
-        moveCostLimit.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+        config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedReplicas < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
     return MoveCost.changedReplicaCount(moveCost, overflow);

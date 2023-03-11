@@ -267,6 +267,12 @@ class BalancerHandler implements Handler {
                 cost.movedRecordSize().entrySet().stream()
                     .collect(
                         Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
+            new MigrationCost(
+                MOVED_LEADER_SIZE,
+                cost.movedReplicaLeaderSize().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
@@ -353,17 +359,23 @@ class BalancerHandler implements Handler {
     Duration timeout = Duration.ofSeconds(3);
     Set<String> topics = Set.of();
     List<CostWeight> clusterCosts = List.of();
-    Set<String> moveCosts = Set.of();
+    Set<String> moveCosts =
+        Set.of(
+            "org.astraea.common.cost.ReplicaLeaderCost",
+            "org.astraea.common.cost.RecordSizeCost",
+            "org.astraea.common.cost.ReplicaNumberCost",
+            "org.astraea.common.cost.ReplicaLeaderSizeCost");
 
     HasClusterCost clusterCost() {
       if (clusterCosts.isEmpty())
         throw new IllegalArgumentException("clusterCosts is not specified");
+      var config = Configuration.of(costConfig);
       return HasClusterCost.of(
           Utils.costFunctions(
               clusterCosts.stream()
                   .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))),
               HasClusterCost.class,
-              Configuration.EMPTY));
+              config));
     }
 
     HasMoveCost moveCost() {
@@ -457,6 +469,7 @@ class BalancerHandler implements Handler {
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
   static final String MOVED_SIZE = "moved size (bytes)";
+  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   static class MigrationCost {
     final String name;

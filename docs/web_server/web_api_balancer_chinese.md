@@ -12,15 +12,26 @@ POST /balancer
 
 參數
 
-| 名稱                | 說明                                                         | 預設值                                                   |
-|-------------------|------------------------------------------------------------|-------------------------------------------------------|
-| clusterCosts      | (必填) 指定要優化的目標以及對應權重                                        | 無                                                     |
-| topics            | (選填) 只嘗試搬移指定的 topics                                       | 無，除了內部 topics 以外的都作為候選對象                              |
-| timeout           | (選填) 指定產生時間                                                | 3s                                                    |
-| balancer          | (選填) 欲使用的負載優化計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer |
-| balancerConfig    | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                     |
- | maxMigratedSize   | (選填) 設定最大可搬移的log size                                      | 無 　                                                   |
- | maxMigratedLeader | (選填) 設定最大可搬移的leader 數量                                     | 無                                                     |
+| 名稱           | 說明                                                         | 預設值                                                       |
+| -------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| clusterCosts   | (必填) 指定要優化的目標以及對應權重                          | 無                                                           |
+| topics         | (選填) 只嘗試搬移指定的 topics                               | 無，除了內部 topics 以外的都作為候選對象                     |
+| timeout        | (選填) 指定產生時間                                          | 3s                                                           |
+| balancer       | (選填) 欲使用的負載優化計劃搜尋演算法                        | org.astraea.common.balancer.algorithms.GreedyBalancer        |
+| balancerConfig | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                           |
+| moveCosts      | (必填) 指定要計算的各項搬移成本                              | "org.astraea.common.cost.ReplicaLeaderCost", "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaNumberCost", "org.astraea.common.cost.ReplicaLeaderSizeCost" |
+| costConfig     | (選填) 針對各個搬移成本做限制，讓，此為一個 JSON Object 內含一系列的 key/value String | 無                                                           |
+
+costConfig: 
+
+| config key            | config value                  |
+| --------------------- | ----------------------------- |
+| maxMigratedSize       | 設定最大可搬移的資料量        |
+| maxMigratedLeader     | 設定最大可搬移的leader 數量   |
+| maxMigratedReplicas   | 設定最大可搬移的replica 數量  |
+| maxMigratedLeaderSize | 設定最大可搬移的leader 資料量 |
+
+
 
 目前支援的 Cost Function
 
@@ -42,19 +53,27 @@ cURL 範例
 ```shell
 curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
-    -d '{ 
-      "timeout": "10s" ,
-      "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-      "balancerConfig": {
-        "shuffle.tweaker.min.step": "1",
-        "shuffle.tweaker.max.step": "5"
-      },
-      "clusterCosts": [
-        { "cost": "org.astraea.common.cost.ReplicaLeaderSizeCost", "weight": 1 },
-        { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
-      ],
-      "maxMigratedSize": "300MB",
-      "maxMigratedLeader": 3
+    -d '{
+        	"timeout": "5s",
+  			"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+  			"balancerConfig": {
+  			"shuffle.tweaker.min.step": "1",
+  			"shuffle.tweaker.max.step": "10"
+  		},
+  		"clusterCosts": [
+  		{
+  			"cost": "org.astraea.common.cost.ReplicaLeaderCost",
+  			"weight": 1
+  		}
+  		],
+  		"moveCosts": [
+  			"org.astraea.common.cost.ReplicaLeaderCost",
+  			"org.astraea.common.cost.RecordSizeCost"
+  		],
+  		"costConfig": {
+  			"maxMigratedSize": "500MB",
+  			"maxMigratedLeader": 5
+  		}
     }'
 ```
 
