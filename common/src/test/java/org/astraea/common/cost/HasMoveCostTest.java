@@ -19,6 +19,7 @@ package org.astraea.common.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -44,7 +45,7 @@ public class HasMoveCostTest {
           }
         };
 
-    var f2 = HasMoveCost.of(List.of(function));
+    var f2 = HasMoveCost.of(List.of(function), Configuration.EMPTY);
     Assertions.assertTrue(f2.metricSensor().isPresent());
   }
 }

@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -57,7 +58,7 @@ public class MoveCostTest {
                 return Map.of(1, 100, 2, 200, 3, 300);
               }
             };
-    var merged = HasMoveCost.of(List.of(cost0, cost1));
+    var merged = HasMoveCost.of(List.of(cost0, cost1), Configuration.EMPTY);
     var result = merged.moveCost(null, null, ClusterBean.EMPTY);
     Assertions.assertEquals(10, result.changedReplicaCount().get(1));
     Assertions.assertEquals(20, result.changedReplicaCount().get(2));
@@ -75,7 +76,7 @@ public class MoveCostTest {
     }
     var cost1 = new ReplicaLeaderCost();
     var cost2 = new FakeCf();
-    var mergeCost = HasMoveCost.of(List.of(cost1, cost2));
+    var mergeCost = HasMoveCost.of(List.of(cost1, cost2), Configuration.EMPTY);
     var metrics =
         mergeCost.metricSensor().stream()
             .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
