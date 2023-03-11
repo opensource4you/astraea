@@ -1393,7 +1393,19 @@ public class BalancerHandlerTest {
   @Test
   void testJsonToBalancerPostRequest() {
     var json =
-        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\", \"topics\":[\"aa\"], \"clusterCosts\":[{\"cost\":\"aaa\"}]}";
+        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\""
+            + ", \"topics\":[\"aa\"]"
+            + ", \"clusterCosts\":[{\"cost\":\"aaa\"}],"
+            + "\"moveCosts\":["
+            + "    \"org.astraea.common.cost.RecordSizeCost\","
+            + "    \"org.astraea.common.cost.ReplicaLeaderCost\""
+            + "  ],"
+            + "  \"costConfig\":"
+            + "  {"
+            + "    \"maxMigratedSize\": \"500MB\","
+            + "    \"maxMigratedLeader\": \"50\""
+            + "  }"
+            + "}";
     var request =
         JsonConverter.defaultConverter().fromJson(json, TypeRef.of(BalancerPostRequest.class));
     Assertions.assertEquals(
@@ -1405,6 +1417,11 @@ public class BalancerHandlerTest {
     Assertions.assertEquals(1, request.clusterCosts.size());
     Assertions.assertEquals("aaa", request.clusterCosts.get(0).cost);
     Assertions.assertEquals(1D, request.clusterCosts.get(0).weight);
+
+    Assertions.assertEquals(2, request.moveCosts.size());
+    Assertions.assertEquals(2, request.balancerConfig.entrySet().size());
+    Assertions.assertEquals("500MB", request.balancerConfig.get("maxMigratedSize"));
+    Assertions.assertEquals("50", request.balancerConfig.get("maxMigratedLeader"));
 
     var noCostRequest =
         JsonConverter.defaultConverter()
