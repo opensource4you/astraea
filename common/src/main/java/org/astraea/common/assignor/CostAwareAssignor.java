@@ -30,6 +30,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
@@ -63,6 +64,10 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  * config by `max.wait.bean=10` or `max.traffic.mib.interval=15`
  */
 public class CostAwareAssignor extends Assignor {
+  public static final String MAX_TRAFFIC_MIB_INTERVAL = "max.traffic.mib.interval";
+  public static final String MAX_UPPER_BOUND_MIB = "max.upper.bound.mib";
+  double maxTrafficMiBInterval = 10;
+  double maxUpperBoundMiB = 40;
 
   @Override
   protected Map<String, List<TopicPartition>> assign(
@@ -396,6 +401,14 @@ public class CostAwareAssignor extends Assignor {
             Collectors.groupingBy(
                 Map.Entry::getKey,
                 Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+  }
+
+  @Override
+  protected void configure(Configuration config) {
+    config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
+    config.integer(MAX_UPPER_BOUND_MIB).ifPresent(value -> this.maxUpperBoundMiB = value);
+    if (maxUpperBoundMiB < maxTrafficMiBInterval)
+      throw new IllegalArgumentException("max traffic interval cannot larger than max upperbound");
   }
 
   @Override

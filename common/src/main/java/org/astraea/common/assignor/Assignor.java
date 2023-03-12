@@ -44,11 +44,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
   public static final String MAX_WAIT_BEAN = "max.wait.bean";
-  public static final String MAX_TRAFFIC_MIB_INTERVAL = "max.traffic.mib.interval";
-  public static final String MAX_UPPER_BOUND_MIB = "max.upper.bound.mib";
   Duration maxWaitBean = Duration.ofSeconds(3);
-  double maxTrafficMiBInterval = 10;
-  double maxUpperBoundMiB = 40;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
@@ -71,31 +67,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    *
    * @param config configuration
    */
-  protected void configure(Configuration config) {
-    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
-    if (bootstrap.isEmpty()) throw new NoSuchFieldError("cannot find bootstrap");
-    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = Duration.ofSeconds(value));
-    config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
-    config.integer(MAX_UPPER_BOUND_MIB).ifPresent(value -> this.maxUpperBoundMiB = value);
-    if (maxUpperBoundMiB < maxTrafficMiBInterval)
-      throw new IllegalArgumentException("max traffic interval cannot larger than max upperbound");
-    var costFunctions =
-        Utils.costFunctions(
-            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
-    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
-    var defaultJMXPort = config.integer(JMX_PORT);
-    this.costFunction =
-        costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(), 1D))
-            : HasPartitionCost.of(costFunctions);
-    this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    metricCollector =
-        MetricCollector.local()
-            .interval(Duration.ofSeconds(1))
-            .expiration(Duration.ofSeconds(15))
-            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
-            .build();
-  }
+  protected void configure(Configuration config) {}
 
   // -----------------------[helper]-----------------------//
 
@@ -168,6 +140,25 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
+    if (bootstrap.isEmpty()) throw new NoSuchFieldError("cannot find bootstrap");
+    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = Duration.ofSeconds(value));
+    var costFunctions =
+        Utils.costFunctions(
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
+    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
+    var defaultJMXPort = config.integer(JMX_PORT);
+    this.costFunction =
+        costFunctions.isEmpty()
+            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(), 1D))
+            : HasPartitionCost.of(costFunctions);
+    this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
+    metricCollector =
+        MetricCollector.local()
+            .interval(Duration.ofSeconds(1))
+            .expiration(Duration.ofSeconds(15))
+            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+            .build();
     configure(config);
   }
 }
