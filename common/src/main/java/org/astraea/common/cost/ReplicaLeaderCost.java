@@ -76,7 +76,6 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
         (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
   }
 
-  @Override
   public Configuration config() {
     return this.config;
   }

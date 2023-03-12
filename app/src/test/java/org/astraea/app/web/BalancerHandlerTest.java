@@ -370,12 +370,6 @@ public class BalancerHandlerTest {
               RecordSizeCost.MAX_MIGRATE_SIZE_KEY,
               sizeLimit);
       Assertions.assertEquals(2, request.moveCosts.size());
-      Assertions.assertEquals(2, request.moveCost().config().raw().size());
-      Assertions.assertEquals(
-          request.moveCost().config().string(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY).get(),
-          leaderLimit);
-      Assertions.assertEquals(
-          request.moveCost().config().string(RecordSizeCost.MAX_MIGRATE_SIZE_KEY).get(), sizeLimit);
       var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertEquals(2, report.migrationCosts.size());
       report.migrationCosts.forEach(

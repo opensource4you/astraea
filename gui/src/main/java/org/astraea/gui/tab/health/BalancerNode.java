@@ -259,8 +259,8 @@ class BalancerNode {
                                   .moveCost(
                                       HasMoveCost.of(
                                           List.of(
-                                              new ReplicaLeaderSizeCost(), new ReplicaLeaderCost()),
-                                          Configuration.EMPTY))
+                                              new ReplicaLeaderSizeCost(),
+                                              new ReplicaLeaderCost())))
                                   .topicFilter(
                                       topic ->
                                           patterns.isEmpty()

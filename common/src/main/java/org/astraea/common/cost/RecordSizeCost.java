@@ -104,7 +104,6 @@ public class RecordSizeCost
     return this.getClass().getSimpleName();
   }
 
-  @Override
   public Configuration config() {
     return this.config;
   }
