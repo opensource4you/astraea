@@ -139,7 +139,7 @@ public interface BrokerCluster extends AutoCloseable {
 
                   // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
                   // correctly.
-                  configs.put("auto.leader.rebalance.enable", String.valueOf(false));
+//                  configs.put("auto.leader.rebalance.enable", String.valueOf(false));
 
                   // add custom configs
                   configs.putAll(override);
