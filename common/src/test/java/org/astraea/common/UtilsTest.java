@@ -233,7 +233,7 @@ public class UtilsTest {
                 "20",
                 "org.astraea.common.cost.BrokerOutputCost",
                 "1.25"));
-    var ans = Utils.costFunctions(config, HasBrokerCost.class);
+    var ans = Utils.costFunctions(config.raw(), HasBrokerCost.class, config);
     Assertions.assertEquals(2, ans.size());
     for (var entry : ans.entrySet()) {
       if (entry.getKey().getClass().getName().equals("org.astraea.common.cost.BrokerInputCost")) {
@@ -258,6 +258,7 @@ public class UtilsTest {
                 "org.astraea.common.cost.BrokerOutputCost",
                 "1.25"));
     Assertions.assertThrows(
-        IllegalArgumentException.class, () -> Utils.costFunctions(config2, HasBrokerCost.class));
+        IllegalArgumentException.class,
+        () -> Utils.costFunctions(config2.raw(), HasBrokerCost.class, config2));
   }
 }

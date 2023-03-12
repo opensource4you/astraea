@@ -66,4 +66,8 @@ public interface MetricCollector extends AutoCloseable {
   static LocalMetricCollector.Builder local() {
     return new LocalMetricCollector.Builder();
   }
+
+  static InternalTopicCollector.Builder internalTopic() {
+    return new InternalTopicCollector.Builder();
+  }
 }
