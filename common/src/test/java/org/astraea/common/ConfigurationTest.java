@@ -18,6 +18,7 @@ package org.astraea.common;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -48,5 +49,16 @@ public class ConfigurationTest {
   void testFilteredConfigs() {
     var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
     Assertions.assertEquals(Map.of("key", "v2"), config.filteredPrefixConfigs("filtered").raw());
+  }
+
+  @Test
+  void testDuration() {
+    var config = Configuration.of(Map.of("wait.time", "15ms", "response", "3s"));
+    var waitTime = config.duration("wait.time");
+    var response = config.duration("response");
+    var empty = config.duration("walala");
+    Assertions.assertEquals(Utils.toDuration("15ms"), waitTime.orElseThrow());
+    Assertions.assertEquals(Utils.toDuration("3s"), response.orElseThrow());
+    Assertions.assertTrue(empty.isEmpty());
   }
 }
