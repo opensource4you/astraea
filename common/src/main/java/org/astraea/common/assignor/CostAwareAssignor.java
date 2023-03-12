@@ -80,7 +80,7 @@ public class CostAwareAssignor extends Assignor {
         () ->
             !metricCollector.clusterBean().all().isEmpty()
                 && metricCollector.clusterBean().topics().containsAll(subscribedTopics),
-        Duration.ofSeconds(maxWaitBean));
+        maxWaitBean);
     var clusterBean = metricCollector.clusterBean();
 
     var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean).value();

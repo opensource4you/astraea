@@ -46,7 +46,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String MAX_WAIT_BEAN = "max.wait.bean";
   public static final String MAX_TRAFFIC_MIB_INTERVAL = "max.traffic.mib.interval";
   public static final String MAX_UPPER_BOUND_MIB = "max.upper.bound.mib";
-  int maxWaitBean = 3;
+  Duration maxWaitBean = Duration.ofSeconds(3);
   double maxTrafficMiBInterval = 10;
   double maxUpperBoundMiB = 40;
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
@@ -73,7 +73,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected void configure(Configuration config) {
     config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
-    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = value);
+    if (bootstrap.isEmpty()) throw new NoSuchFieldError("cannot find bootstrap");
+    config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = Duration.ofSeconds(value));
     config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
     config.integer(MAX_UPPER_BOUND_MIB).ifPresent(value -> this.maxUpperBoundMiB = value);
     if (maxUpperBoundMiB < maxTrafficMiBInterval)
