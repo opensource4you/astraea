@@ -66,7 +66,10 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
+import org.astraea.common.cost.RecordSizeCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -124,6 +127,8 @@ public class BalancerHandlerTest {
       var request = new BalancerPostRequest();
       request.balancer = GreedyBalancer.class.getName();
       request.balancerConfig = Map.of("a", "b");
+      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
+      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       request.timeout = Duration.ofMillis(1234);
       var progress = submitPlanGeneration(handler, request);
       var report = progress.plan;
@@ -167,6 +172,8 @@ public class BalancerHandlerTest {
       var request = new BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "30");
       request.topics = Set.copyOf(allowedTopics);
+      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
+      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
@@ -259,6 +266,14 @@ public class BalancerHandlerTest {
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
+      HasMoveCost failMoveCostFunction =
+          (before, after, clusterBean) ->
+              new MoveCost() {
+                @Override
+                public boolean overflow() {
+                  return true;
+                }
+              };
 
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
@@ -274,7 +289,6 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
                       .build());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
@@ -296,7 +310,6 @@ public class BalancerHandlerTest {
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
                           .moveCost(moveCostFunction)
-                          .movementConstraint(moveCosts -> true)
                           .build()));
 
       // test cluster cost predicate
@@ -315,7 +328,6 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
                       .build())
               .solution());
 
@@ -334,34 +346,49 @@ public class BalancerHandlerTest {
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
-                      .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> false)
+                      .moveCost(failMoveCostFunction)
                       .build())
               .solution());
     }
   }
 
-  @CsvSource(value = {"2,100Byte", "2,500Byte", "2,1GB", "5,100Byte", "5,500Byte", "5,1GB"})
+  @CsvSource(value = {"5,500Byte", "10,500Byte", "5,1GB"})
   @ParameterizedTest
   void testMoveCost(String leaderLimit, String sizeLimit) {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin);
       var request = new BalancerHandler.BalancerPostRequest();
-      request.maxMigratedSize = DataSize.of(sizeLimit);
-      request.maxMigratedLeader = Long.parseLong(leaderLimit);
+      request.moveCosts =
+          Set.of(
+              "org.astraea.common.cost.ReplicaLeaderCost",
+              "org.astraea.common.cost.RecordSizeCost");
+      request.costConfig =
+          Map.of(
+              ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY,
+              leaderLimit,
+              RecordSizeCost.MAX_MIGRATE_SIZE_KEY,
+              sizeLimit);
+      Assertions.assertEquals(2, request.moveCosts.size());
       var report = submitPlanGeneration(handler, request).plan;
+      Assertions.assertEquals(2, report.migrationCosts.size());
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
               case BalancerHandler.MOVED_SIZE:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
+                    migrationCost.brokerCosts.values().stream()
+                            .map(Math::abs)
+                            .mapToLong(Double::intValue)
+                            .sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
               case BalancerHandler.CHANGED_LEADERS:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Double::byteValue).sum()
+                    migrationCost.brokerCosts.values().stream()
+                            .map(Math::abs)
+                            .mapToLong(Double::byteValue)
+                            .sum()
                         <= Integer.parseInt(leaderLimit));
                 break;
             }
@@ -1373,18 +1400,37 @@ public class BalancerHandlerTest {
   @Test
   void testJsonToBalancerPostRequest() {
     var json =
-        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\", \"topics\":[\"aa\"], \"clusterCosts\":[{\"cost\":\"aaa\"}]}";
+        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\""
+            + ", \"topics\":[\"aa\"]"
+            + ", \"clusterCosts\":[{\"cost\":\"aaa\"}],"
+            + "\"moveCosts\":["
+            + "    \"org.astraea.common.cost.RecordSizeCost\","
+            + "    \"org.astraea.common.cost.ReplicaLeaderCost\""
+            + "  ],"
+            + "  \"costConfig\":"
+            + "  {"
+            + "    \"maxMigratedSize\": \"500MB\","
+            + "    \"maxMigratedLeader\": \"50\""
+            + "  }"
+            + "}";
     var request =
         JsonConverter.defaultConverter().fromJson(json, TypeRef.of(BalancerPostRequest.class));
+    Assertions.assertTrue(request.moveCosts.contains("org.astraea.common.cost.RecordSizeCost"));
+    Assertions.assertTrue(request.moveCosts.contains("org.astraea.common.cost.ReplicaLeaderCost"));
     Assertions.assertEquals(
         "org.astraea.common.balancer.algorithms.GreedyBalancer", request.balancer);
     Assertions.assertNotNull(request.balancerConfig);
     Assertions.assertNotNull(request.timeout);
     Assertions.assertEquals(Set.of("aa"), request.topics);
-    Assertions.assertNotNull(request.maxMigratedSize);
+
     Assertions.assertEquals(1, request.clusterCosts.size());
     Assertions.assertEquals("aaa", request.clusterCosts.get(0).cost);
     Assertions.assertEquals(1D, request.clusterCosts.get(0).weight);
+
+    Assertions.assertEquals(2, request.moveCosts.size());
+    Assertions.assertEquals(2, request.costConfig.size());
+    Assertions.assertEquals("500MB", request.costConfig.get("maxMigratedSize"));
+    Assertions.assertEquals("50", request.costConfig.get("maxMigratedLeader"));
 
     var noCostRequest =
         JsonConverter.defaultConverter()

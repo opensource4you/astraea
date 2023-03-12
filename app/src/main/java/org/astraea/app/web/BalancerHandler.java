@@ -30,12 +30,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -51,23 +49,11 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.RecordSizeCost;
-import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaLeaderSizeCost;
-import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 class BalancerHandler implements Handler {
-
-  static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
-      HasMoveCost.of(
-          List.of(
-              new ReplicaNumberCost(),
-              new ReplicaLeaderCost(),
-              new RecordSizeCost(),
-              new ReplicaLeaderSizeCost()));
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
@@ -281,6 +267,12 @@ class BalancerHandler implements Handler {
                 cost.movedRecordSize().entrySet().stream()
                     .collect(
                         Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
+            new MigrationCost(
+                MOVED_LEADER_SIZE,
+                cost.movedReplicaLeaderSize().entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
         .filter(m -> !m.brokerCosts.isEmpty())
         .collect(Collectors.toList());
@@ -351,24 +343,11 @@ class BalancerHandler implements Handler {
         Configuration.of(balancerPostRequest.balancerConfig),
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .moveCost(balancerPostRequest.moveCost())
             .timeout(balancerPostRequest.timeout)
-            .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
             .build(),
         currentClusterInfo);
-  }
-
-  // TODO: There needs to be a way for"GU" and Web to share this function.
-  static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
-    return cost -> {
-      if (request.maxMigratedSize.bytes()
-          < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
-      if (request.maxMigratedLeader
-          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
-        return false;
-      return true;
-    };
   }
 
   static class BalancerPostRequest implements Request {
@@ -376,25 +355,33 @@ class BalancerHandler implements Handler {
     String balancer = GreedyBalancer.class.getName();
 
     Map<String, String> balancerConfig = Map.of();
-
+    Map<String, String> costConfig = Map.of();
     Duration timeout = Duration.ofSeconds(3);
     Set<String> topics = Set.of();
-
-    DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
-
-    long maxMigratedLeader = Long.MAX_VALUE;
-
     List<CostWeight> clusterCosts = List.of();
+    Set<String> moveCosts =
+        Set.of(
+            "org.astraea.common.cost.ReplicaLeaderCost",
+            "org.astraea.common.cost.RecordSizeCost",
+            "org.astraea.common.cost.ReplicaNumberCost",
+            "org.astraea.common.cost.ReplicaLeaderSizeCost");
 
     HasClusterCost clusterCost() {
       if (clusterCosts.isEmpty())
         throw new IllegalArgumentException("clusterCosts is not specified");
+      var config = Configuration.of(costConfig);
       return HasClusterCost.of(
           Utils.costFunctions(
               clusterCosts.stream()
                   .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))),
               HasClusterCost.class,
-              Configuration.EMPTY));
+              config));
+    }
+
+    HasMoveCost moveCost() {
+      var config = Configuration.of(costConfig);
+      var cf = Utils.costFunctions(moveCosts, HasMoveCost.class, config);
+      return HasMoveCost.of(cf);
     }
   }
 
@@ -482,6 +469,7 @@ class BalancerHandler implements Handler {
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
   static final String MOVED_SIZE = "moved size (bytes)";
+  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   static class MigrationCost {
     final String name;

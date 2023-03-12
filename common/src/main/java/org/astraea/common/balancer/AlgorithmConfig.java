@@ -92,7 +92,7 @@ public interface AlgorithmConfig {
     private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
-    private Predicate<MoveCost> movementConstraint = ignore -> true;
+    private Predicate<MoveCost> movementConstraint = moveCost -> !moveCost.overflow();
     private Predicate<String> topicFilter = ignore -> true;
 
     private ClusterInfo clusterInfo;
@@ -160,18 +160,6 @@ public interface AlgorithmConfig {
      */
     public Builder clusterConstraint(BiPredicate<ClusterCost, ClusterCost> clusterConstraint) {
       this.clusterConstraint = clusterConstraint;
-      return this;
-    }
-
-    /**
-     * Specify the movement cost constraint for any rebalance plan.
-     *
-     * @param moveConstraint a {@link Predicate} to determine if the rebalance result is
-     *     acceptable(in terms of the ongoing cost caused by execute this rebalance plan).
-     * @return this
-     */
-    public Builder movementConstraint(Predicate<MoveCost> moveConstraint) {
-      this.movementConstraint = Objects.requireNonNull(moveConstraint);
       return this;
     }
 

@@ -16,10 +16,12 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -34,6 +36,19 @@ import org.astraea.common.metrics.collector.MetricSensor;
  */
 public class ReplicaLeaderSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
+
+  private final Configuration config;
+
+  public static final String COST_LIMIT_KEY = "maxMigratedLeaderSize";
+
+  public ReplicaLeaderSizeCost() {
+    this.config = Configuration.of(Map.of());
+  }
+
+  public ReplicaLeaderSizeCost(Configuration config) {
+    this.config = config;
+  }
+
   private final Dispersion dispersion = Dispersion.cov();
 
   /**
@@ -46,7 +61,7 @@ public class ReplicaLeaderSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.movedReplicaLeaderSize(
+    var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -57,7 +72,17 @@ public class ReplicaLeaderSizeCost
                     id ->
                         DataSize.Byte.of(
                             after.replicaStream(id).mapToLong(Replica::size).sum()
-                                - before.replicaStream(id).mapToLong(Replica::size).sum()))));
+                                - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var maxMigratedLeaderSize =
+        config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
+    var overflow =
+        maxMigratedLeaderSize
+            < moveCost.values().stream()
+                .map(DataSize::bytes)
+                .map(Math::abs)
+                .mapToLong(s -> s)
+                .sum();
+    return MoveCost.movedReplicaLeaderSize(moveCost, overflow);
   }
 
   /**

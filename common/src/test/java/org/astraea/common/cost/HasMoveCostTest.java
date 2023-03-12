@@ -33,10 +33,9 @@ public class HasMoveCostTest {
     var sensor = Mockito.mock(MetricSensor.class);
     var function =
         new HasMoveCost() {
-
           @Override
           public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-            return MoveCost.movedRecordSize(Map.of());
+            return MoveCost.movedRecordSize(Map.of(), false);
           }
 
           @Override

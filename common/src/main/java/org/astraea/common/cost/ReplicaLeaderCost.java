@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -32,7 +33,16 @@ import org.astraea.common.metrics.collector.MetricSensor;
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.cov();
-  public static final String COST_NAME = "leader";
+  private final Configuration config;
+  public static final String MAX_MIGRATE_LEADER_KEY = "maxMigratedLeader";
+
+  public ReplicaLeaderCost() {
+    this.config = Configuration.of(Map.of());
+  }
+
+  public ReplicaLeaderCost(Configuration config) {
+    this.config = config;
+  }
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -66,9 +76,13 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
         (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
   }
 
+  public Configuration config() {
+    return this.config;
+  }
+
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.changedReplicaLeaderCount(
+    var moveCost =
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
             .distinct()
@@ -100,7 +114,12 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
                                               .noneMatch(Replica::isLeader))
                                   .count();
                       return newLeaders - removedLeaders;
-                    })));
+                    }));
+    var maxMigratedLeader =
+        config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+    var overflow =
+        maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
+    return MoveCost.changedReplicaLeaderCount(moveCost, overflow);
   }
 
   @Override

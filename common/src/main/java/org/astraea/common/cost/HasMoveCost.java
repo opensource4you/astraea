@@ -39,6 +39,7 @@ public interface HasMoveCost extends CostFunction {
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
     return new HasMoveCost() {
+
       @Override
       public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
         var costs =
@@ -70,6 +71,7 @@ public interface HasMoveCost extends CostFunction {
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
+        var overflow = costs.stream().anyMatch(MoveCost::overflow);
         return new MoveCost() {
           @Override
           public Map<Integer, DataSize> movedReplicaLeaderSize() {
@@ -89,6 +91,11 @@ public interface HasMoveCost extends CostFunction {
           @Override
           public Map<Integer, Integer> changedReplicaLeaderCount() {
             return changedReplicaLeaderCount;
+          }
+
+          @Override
+          public boolean overflow() {
+            return overflow;
           }
         };
       }

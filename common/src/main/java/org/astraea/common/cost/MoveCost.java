@@ -24,38 +24,58 @@ public interface MoveCost {
 
   MoveCost EMPTY = new MoveCost() {};
 
-  static MoveCost movedReplicaLeaderSize(Map<Integer, DataSize> value) {
+  static MoveCost movedReplicaLeaderSize(Map<Integer, DataSize> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, DataSize> movedReplicaLeaderSize() {
         return value;
       }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
     };
   }
 
-  static MoveCost movedRecordSize(Map<Integer, DataSize> value) {
+  static MoveCost movedRecordSize(Map<Integer, DataSize> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, DataSize> movedRecordSize() {
         return value;
       }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
     };
   }
 
-  static MoveCost changedReplicaCount(Map<Integer, Integer> value) {
+  static MoveCost changedReplicaCount(Map<Integer, Integer> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, Integer> changedReplicaCount() {
         return value;
       }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
     };
   }
 
-  static MoveCost changedReplicaLeaderCount(Map<Integer, Integer> value) {
+  static MoveCost changedReplicaLeaderCount(Map<Integer, Integer> value, boolean overflow) {
     return new MoveCost() {
       @Override
       public Map<Integer, Integer> changedReplicaLeaderCount() {
         return value;
+      }
+
+      @Override
+      public boolean overflow() {
+        return overflow;
       }
     };
   }
@@ -89,5 +109,12 @@ public interface MoveCost {
    */
   default Map<Integer, Integer> changedReplicaLeaderCount() {
     return Map.of();
+  }
+
+  /**
+   * @return check if the cost exceeds the limit value of the user
+   */
+  default boolean overflow() {
+    return false;
   }
 }
