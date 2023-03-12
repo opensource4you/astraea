@@ -58,13 +58,11 @@ Consumer 拉取資料的簡短流程：
 
 ### 解法
 
-* 將 Consumer 端的 `fetch.max.wait.ms` 參數調小
-  * `fetch.max.wait.ms` 調小後可以讓 broker 比較快速的回應 consumer， consumer 就能夠再對該節點發送 fetch 請求
+將 Consumer 端的 `fetch.max.wait.ms` 參數調小，調小後可以縮短節點延後處理 fetch 請求的時間， consumer 就能夠再對該節點發送 fetch 請求，緩解拖慢消費的情形
 
 ### 副作用
 
-* 影響到 broker 服務的頻寬
-  * 因為 consumer 發送 fetch 請求的頻率上升，broker 端所承受的請求上升，可能會影響到 broker 其他服務的頻寬
+因為 consumer 發送 fetch 請求的頻率上升，broker 端所承受的請求數上升，可能會影響到 broker 其他服務的頻寬
 
 ### 詳細討論
 
