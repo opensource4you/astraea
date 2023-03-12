@@ -3,7 +3,7 @@
 此文件整理 Kafka 使用上可能會遇到的問題，以及解決方法
 
 1. [單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)
-2. [Consumer poll速度太慢](#consumer-poll速度太慢)
+2. [單一partition的Consumer拉取的速度太慢](#單一partition的Consumer拉取的速度太慢)
 3. [資料流入較慢的 partitions 會拖慢同節點內其他 partitions 被消費的速度](#資料流入較慢的-partitions-會拖慢同節點內其他-partitions-被消費的速度)
 
 ## 單一partition的副本同步速度太慢
@@ -25,11 +25,11 @@ Kafka端處理fetch request時，會有一個迴圈，這個迴圈會在跟os的
 [#1518](https://github.com/skiptests/astraea/issues/1516)
 
 
-## Consumer poll速度太慢
+## 單一partition的Consumer拉取的速度太慢
 
 ### 原因
 
-原因跟[單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)類似，不會一直連續的做fetch，而是fetch一次之後會先做一些處理，因此每次fetch都會有一些間隔
+原因跟[單一partition的副本同步速度太慢](#單一partition的副本同步速度太慢)類似，當topic只有一個單一partition時，不會一直連續的做fetch，而是fetch一次之後會先做一些處理，因此每次fetch都會有一些間隔
 
 ### 解法
 
