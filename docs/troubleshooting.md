@@ -154,8 +154,8 @@ curl -X POST --location "http://localhost:8001/reassignments" \
     -H "Content-Type: application/json" \
     -d '{
           "toFolders": [
-            { "topic":  "topicB", "partition":  121, "broker":  1, "to":  "/tmp/log-folder-1"},
-            { "topic":  "topicB", "partition":  221, "broker":  4, "to":  "/tmp/log-folder-0"}
+            { "topic": "topicB", "partition": 121, "broker": 1, "to": "/tmp/log-folder-1"},
+            { "topic": "topicB", "partition": 221, "broker": 4, "to": "/tmp/log-folder-0"}
           ]
         }'
 ```
@@ -200,10 +200,24 @@ curl -X POST --location "http://localhost:8001/reassignments" \
     -H "Content-Type: application/json" \
     -d '{
           "toFolders": [
-            { "topic":  "topicB", "partition":  121, "broker":  1, "to":  "/tmp/log-folder-2"},
-            { "topic":  "topicB", "partition":  221, "broker":  4, "to":  "/tmp/log-folder-1"}
+            { "topic": "topicB", "partition": 121, "broker": 1, "to": "/tmp/log-folder-2"},
+            { "topic": "topicB", "partition": 221, "broker": 4, "to": "/tmp/log-folder-1"}
           ]
         }'
 ```
 
 如此一來即可解決這個 data directory 間的搬移的 bug。
+
+## Balancer 計劃無法生成 (因 LogSize metric 不存在)
+
+Apache Kafka 的 JMX Mbeans 實作存在一些問題，搬移 Partition 後有機會，其對應的 `kafka.log:type=Log,name=Size,topic={t},partition={p}`
+ Mbean 會不存在於目的地節點，這個 [bug](https://issues.apache.org/jira/browse/KAFKA-14544) 可能出現在 Apache Kafka 3.5.0 之前的版本。
+
+### 症狀
+
+如果遇到這個情況，Balancer 針對和 `Log` 有關的 Cost Function (如 `NetworkIngrsesCost` 和 `NetworkEgressCost`) 會因為
+沒辦法蒐集到足夠的 metrics 而無法進行後續的計劃搜尋。
+
+### 解決辦法
+
+重開服務該 Partition 的 Kafak 節點，重開後對應的 `Log` Mbean 會重新顯現。
