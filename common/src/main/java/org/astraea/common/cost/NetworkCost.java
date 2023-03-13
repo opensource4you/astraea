@@ -256,7 +256,7 @@ public abstract class NetworkCost implements HasClusterCost {
           "Unable to resolve the network ingress rate of "
               + topicPartition
               + ". "
-              + "If this issue persist for awhile. Consider look into the Astraea troubleshooting page.");
+              + "If this issue persists for a while. Consider looking into the Astraea troubleshooting page.");
     }
     return value;
   }
@@ -271,7 +271,7 @@ public abstract class NetworkCost implements HasClusterCost {
           "Unable to resolve the network egress rate of "
               + topicPartition
               + ". "
-              + "If this issue persist for awhile. Consider look into the Astraea troubleshooting page.");
+              + "If this issue persists for a while. Consider looking into the Astraea troubleshooting page.");
     }
     return value;
   }
