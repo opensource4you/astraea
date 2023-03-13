@@ -109,7 +109,7 @@ public abstract class NetworkCost implements HasClusterCost {
                             .mapToLong(
                                 replica -> {
                                   // ingress might come from producer-send or follower-fetch.
-                                  return notNull(ingressRate.get(replica.topicPartition()));
+                                  return ingress(cachedCalculation, replica.topicPartition());
                                 })
                             .sum()));
     var brokerEgressRate =
@@ -126,8 +126,8 @@ public abstract class NetworkCost implements HasClusterCost {
                                   // this implementation assumes no consumer rack awareness fetcher
                                   // enabled so all consumers fetch data from the leader only.
                                   return replica.isLeader()
-                                      ? notNull(egressRate.get(replica.topicPartition()))
-                                          + notNull(ingressRate.get(replica.topicPartition()))
+                                      ? egress(cachedCalculation, replica.topicPartition())
+                                          + ingress(cachedCalculation, replica.topicPartition())
                                               // Multiply by the number of follower replicas. This
                                               // number considers both online replicas and offline
                                               // replicas since an offline replica is probably a
@@ -246,9 +246,33 @@ public abstract class NetworkCost implements HasClusterCost {
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private <T> T notNull(T value) {
-    if (value == null)
-      throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), "No metric");
+  private long ingress(CachedCalculation calculation, TopicPartition topicPartition) {
+    var value = calculation.partitionIngressRate.get(topicPartition);
+    if (value == null) {
+      // Maybe the user run into this bug: https://github.com/skiptests/astraea/issues/1388
+      throw new NoSufficientMetricsException(
+          this,
+          Duration.ofSeconds(1),
+          "Unable to resolve the network ingress rate of "
+              + topicPartition
+              + ". "
+              + "If this issue persists for a while. Consider looking into the Astraea troubleshooting page.");
+    }
+    return value;
+  }
+
+  private long egress(CachedCalculation calculation, TopicPartition topicPartition) {
+    var value = calculation.partitionEgressRate.get(topicPartition);
+    if (value == null) {
+      // Maybe the user run into this bug: https://github.com/skiptests/astraea/issues/1388
+      throw new NoSufficientMetricsException(
+          this,
+          Duration.ofSeconds(1),
+          "Unable to resolve the network egress rate of "
+              + topicPartition
+              + ". "
+              + "If this issue persists for a while. Consider looking into the Astraea troubleshooting page.");
+    }
     return value;
   }
 
