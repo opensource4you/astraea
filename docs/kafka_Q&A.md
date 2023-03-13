@@ -3,7 +3,7 @@
 此文件整理 Kafka 使用上可能會遇到的問題，以及解決方法
 
 1. [單一partition的fetch速度太慢](#單一partition的fetch速度太慢)
-3. [資料流入較慢的 partitions 會拖慢同節點內其他 partitions 被消費的速度](#資料流入較慢的-partitions-會拖慢同節點內其他-partitions-被消費的速度)
+2. [資料流入較慢的 partitions 會拖慢同節點內其他 partitions 被消費的速度](#資料流入較慢的-partitions-會拖慢同節點內其他-partitions-被消費的速度)
 
 ## 單一partition的fetch速度太慢
 
