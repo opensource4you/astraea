@@ -136,10 +136,9 @@ public class MetricPublisher {
                         try {
                           var delayedClient = clients.poll(5, TimeUnit.SECONDS);
                           if (delayedClient != null) {
-                            beanQueue.addAll(
-                                delayedClient.mBeanClient.beans(BeanQuery.all()).stream()
-                                    .map(bean -> new IdBean(delayedClient.id, bean))
-                                    .collect(Collectors.toList()));
+                            delayedClient.mBeanClient.beans(BeanQuery.all()).stream()
+                                .map(bean -> new IdBean(delayedClient.id, bean))
+                                .forEach(bean -> Utils.packException(() -> beanQueue.put(bean)));
                             clients.put(
                                 new DelayedIdClient(
                                     duration, delayedClient.id, delayedClient.mBeanClient));
