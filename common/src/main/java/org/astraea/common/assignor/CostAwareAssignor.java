@@ -297,20 +297,11 @@ public class CostAwareAssignor extends Assignor {
         .filter(Replica::isLeader)
         .filter(Replica::isOnline)
         .filter(replica -> topics.contains(replica.topic()))
-        .collect(Collectors.groupingBy(replica -> replica.nodeInfo().id()))
-        .entrySet()
-        .stream()
-        .map(
-            e ->
-                Map.entry(
-                    e.getKey(),
-                    e.getValue().stream()
-                        .map(
-                            replica ->
-                                Map.entry(
-                                    replica.topicPartition(), cost.get(replica.topicPartition())))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(
+            Collectors.groupingBy(
+                replica -> replica.nodeInfo().id(),
+                Collectors.toUnmodifiableMap(
+                    Replica::topicPartition, r -> cost.get(r.topicPartition()))));
   }
 
   // visible for test

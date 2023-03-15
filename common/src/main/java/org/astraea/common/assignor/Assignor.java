@@ -41,10 +41,10 @@ import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
-  public static final String COST_PREFIX = "assignor.cost";
-  public static final String JMX_PORT = "jmx.port";
-  public static final String MAX_WAIT_BEAN = "max.wait.bean";
-  Duration maxWaitBean = Duration.ofSeconds(3);
+  private static final String COST_PREFIX = "assignor.cost";
+  private static final String JMX_PORT = "jmx.port";
+  private static final String MAX_WAIT_BEAN = "max.wait.bean";
+  protected Duration maxWaitBean = Duration.ofSeconds(3);
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
   private String bootstrap;
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
@@ -140,8 +140,11 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
-    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
-    if (bootstrap.isEmpty()) throw new NoSuchFieldError("cannot find bootstrap");
+    bootstrap =
+        config
+            .string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG)
+            .filter(s -> !s.isEmpty())
+            .orElseThrow(() -> new NoSuchFieldError("cannot find bootstrap"));
     config.integer(MAX_WAIT_BEAN).ifPresent(value -> this.maxWaitBean = Duration.ofSeconds(value));
     var costFunctions =
         Utils.costFunctions(
