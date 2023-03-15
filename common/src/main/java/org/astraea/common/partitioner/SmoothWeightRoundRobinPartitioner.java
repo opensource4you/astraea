@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.collector.LocalMetricCollector;
@@ -63,7 +64,11 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
     Supplier<Map<Integer, Double>> supplier =
         () ->
             // fetch the latest beans for each node
-            neutralIntegratedCost.brokerCost(clusterInfo, metricCollector.clusterBean()).value();
+            neutralIntegratedCost
+                .brokerCost(
+                    clusterInfo,
+                    ClusterBean.masked(metricCollector.clusterBean(), node -> node != -1))
+                .value();
 
     smoothWeightCal.refresh(supplier);
 
