@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -37,11 +36,7 @@ public interface MetricSensor {
    */
   static Optional<MetricSensor> of(Collection<MetricSensor> metricSensors) {
     if (metricSensors.isEmpty()) return Optional.empty();
-    return Optional.of(
-        (client, clusterBean) ->
-            metricSensors.stream()
-                .flatMap(f -> f.fetch(client, clusterBean).stream())
-                .collect(Collectors.toUnmodifiableList()));
+    return of(metricSensors, (ex) -> {});
   }
 
   /**
@@ -50,18 +45,18 @@ public interface MetricSensor {
    * @param metricSensors cost function and exception handler
    * @return sensor if there is available sensor. Otherwise, empty is returned
    */
-  static Optional<MetricSensor> of(Map<MetricSensor, Consumer<Exception>> metricSensors) {
+  static Optional<MetricSensor> of(
+      Collection<MetricSensor> metricSensors, Consumer<Exception> exceptionHandler) {
     if (metricSensors.isEmpty()) return Optional.empty();
     return Optional.of(
         (client, clusterBean) ->
-            metricSensors.entrySet().stream()
+            metricSensors.stream()
                 .flatMap(
-                    e -> {
-                      var sensor = e.getKey();
+                    ms -> {
                       try {
-                        return sensor.fetch(client, clusterBean).stream();
+                        return ms.fetch(client, clusterBean).stream();
                       } catch (NoSuchElementException ex) {
-                        e.getValue().accept(ex);
+                        exceptionHandler.accept(ex);
                         return Stream.empty();
                       }
                     })

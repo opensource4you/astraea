@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.astraea.common.admin.ClusterBean;
@@ -77,14 +76,16 @@ public class MetricSensorTest {
           throw new RuntimeException();
         };
 
-    var sensor = MetricSensor.of(Map.of(metricSensor0, e -> {}, metricSensor1, e -> {})).get();
+    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
     Assertions.assertDoesNotThrow(
         () -> sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
+    Assertions.assertEquals(
+        1, sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY).size());
 
     Assertions.assertThrows(
         RuntimeException.class,
         () ->
-            MetricSensor.of(Map.of(metricSensor0, e -> {}, metricSensor2, e -> {}))
+            MetricSensor.of(List.of(metricSensor0, metricSensor2))
                 .get()
                 .fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
   }
