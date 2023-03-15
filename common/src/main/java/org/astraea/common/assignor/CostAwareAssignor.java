@@ -81,13 +81,9 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toUnmodifiableSet());
 
     // wait for clusterBean
-    Utils.waitFor(
-        () ->
-            !metricCollector.clusterBean().all().isEmpty()
-                && metricCollector.clusterBean().topics().containsAll(subscribedTopics),
-        maxWaitBean);
-    var clusterBean = metricCollector.clusterBean();
+    retry(clusterInfo);
 
+    var clusterBean = metricCollector.clusterBean();
     var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
     var costPerBroker = wrapCostBaseOnNode(clusterInfo, subscribedTopics, partitionCost);
     var intervalPerBroker = estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
@@ -401,6 +397,21 @@ public class CostAwareAssignor extends Assignor {
             Collectors.groupingBy(
                 Map.Entry::getKey,
                 Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+  }
+
+  private void retry(ClusterInfo clusterInfo) {
+    var timeoutMs = System.currentTimeMillis() + maxWaitBean.toMillis();
+    while (System.currentTimeMillis() < timeoutMs) {
+      try {
+        var clusterBean = metricCollector.clusterBean();
+        var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean);
+        if (partitionCost.value().values().stream().noneMatch(v -> Double.isNaN(v))) return;
+      } catch (NoSufficientMetricsException e) {
+        e.printStackTrace();
+        Utils.sleep(Duration.ofSeconds(1));
+      }
+    }
+    throw new RuntimeException("Failed to fetch clusterBean due to timeout");
   }
 
   @Override
