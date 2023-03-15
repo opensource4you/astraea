@@ -17,8 +17,12 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
@@ -40,6 +44,29 @@ public interface MetricSensor {
                 .collect(Collectors.toUnmodifiableList()));
   }
 
+  /**
+   * merge all sensors and their exception handler into single one
+   *
+   * @param metricSensors cost function and exception handler
+   * @return sensor if there is available sensor. Otherwise, empty is returned
+   */
+  static Optional<MetricSensor> of(Map<MetricSensor, Consumer<Exception>> metricSensors) {
+    if (metricSensors.isEmpty()) return Optional.empty();
+    return Optional.of(
+        (client, clusterBean) ->
+            metricSensors.entrySet().stream()
+                .flatMap(
+                    e -> {
+                      var sensor = e.getKey();
+                      try {
+                        return sensor.fetch(client, clusterBean).stream();
+                      } catch (NoSuchElementException ex) {
+                        e.getValue().accept(ex);
+                        return Stream.empty();
+                      }
+                    })
+                .collect(Collectors.toUnmodifiableList()));
+  }
   /**
    * generate the metrics to stored by metrics collector. The implementation can use MBeanClient to
    * fetch metrics from remote/local mbean server. Or the implementation can generate custom metrics
