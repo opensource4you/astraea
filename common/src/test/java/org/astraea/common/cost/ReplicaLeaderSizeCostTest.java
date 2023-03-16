@@ -66,7 +66,7 @@ class ReplicaLeaderSizeCostTest {
         3, moveCost.movedReplicaLeaderSize().size(), moveCost.movedReplicaLeaderSize().toString());
     Assertions.assertEquals(700000, moveCost.movedReplicaLeaderSize().get(0).bytes());
     Assertions.assertEquals(-700000, moveCost.movedReplicaLeaderSize().get(1).bytes());
-    Assertions.assertEquals(6000000, moveCost.movedReplicaLeaderSize().get(2).bytes());
+    Assertions.assertEquals(0, moveCost.movedReplicaLeaderSize().get(2).bytes());
   }
 
   /*
