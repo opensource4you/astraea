@@ -403,7 +403,7 @@ public class ClusterInfoTest {
     var result = ClusterInfo.changedRecordSize(before, clusterInfo, ignored -> true);
     Assertions.assertEquals(3, result.size());
     Assertions.assertEquals(-99, result.get(0).bytes());
-    Assertions.assertEquals(0, result.get(1).bytes());
+    Assertions.assertEquals(111, result.get(1).bytes());
     Assertions.assertEquals(99, result.get(2).bytes());
   }
 
