@@ -361,7 +361,7 @@ public class BalancerHandlerTest {
               sizeLimit);
       Assertions.assertEquals(2, request.moveCosts.size());
       var report = submitPlanGeneration(handler, request).plan;
-      Assertions.assertEquals(2, report.migrationCosts.size());
+      Assertions.assertEquals(4, report.migrationCosts.size());
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {

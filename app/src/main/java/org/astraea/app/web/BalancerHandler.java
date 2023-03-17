@@ -276,7 +276,8 @@ class BalancerHandler implements Handler {
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
-        .filter(m -> !m.brokerCosts.isEmpty())
+        .filter(
+            m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
         .collect(Collectors.toList());
   }
 
