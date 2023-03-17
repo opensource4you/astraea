@@ -67,7 +67,7 @@ public class MetricPublisher {
     var targetClients = new DelayQueue<DelayedIdClient>();
     // queue of fetched beans
     var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
-    var fetchRateSensor = Sensor.builder().addStat(RATE_PROPERTY, Rate.count()).build();
+    var fetchRateSensor = Sensor.builder().addStat(RATE_PROPERTY, Rate.of()).build();
     var close = new AtomicBoolean(false);
     MBeanRegister.local()
         .domainName(DOMAIN_NAME)

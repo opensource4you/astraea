@@ -34,7 +34,7 @@ public class RateTest {
 
   @Test
   void testCountMeasure() {
-    var rate = Rate.count();
+    var rate = Rate.of();
     Assertions.assertDoesNotThrow(rate::measure);
     Assertions.assertEquals(0.0, rate.measure());
     rate.record(1.0);
