@@ -84,7 +84,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return MoveCost.changedReplicaLeaderCount(moveCost, overflow);
+    return () -> overflow;
   }
 
   @Override

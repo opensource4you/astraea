@@ -110,8 +110,6 @@ public final class BalancerBenchmark {
 
     ClusterCost initial();
 
-    Optional<Balancer.Solution> solution();
-
     Map<Long, ClusterCost> costTimeSeries();
 
     Map<Long, MoveCost> moveCostTimeSeries();

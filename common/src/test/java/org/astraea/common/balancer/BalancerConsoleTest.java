@@ -19,6 +19,7 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -394,15 +395,14 @@ class BalancerConsoleTest {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(AlgorithmConfig config) {
+          public Optional<Plan> offer(AlgorithmConfig config) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return new Plan(
-                config.clusterInfo(),
-                () -> 0,
-                new Solution(() -> 0, MoveCost.EMPTY, config.clusterInfo()));
+            return Optional.of(
+                new Plan(
+                    config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0, MoveCost.EMPTY));
           }
         };
 
@@ -433,7 +433,7 @@ class BalancerConsoleTest {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(AlgorithmConfig config) {
+          public Optional<Plan> offer(AlgorithmConfig config) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
           }

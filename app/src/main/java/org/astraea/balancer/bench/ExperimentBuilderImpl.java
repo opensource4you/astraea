@@ -85,8 +85,7 @@ class ExperimentBuilderImpl implements BalancerBenchmark.ExperimentBuilder {
           for (int i = 0; i < trials; i++) {
             balancer
                 .offer(newConfig)
-                .solution()
-                .map(Balancer.Solution::proposalClusterCost)
+                .map(Balancer.Plan::proposalClusterCost)
                 .ifPresent(results::add);
           }
           final var res = results.stream().collect(Collectors.toUnmodifiableSet());

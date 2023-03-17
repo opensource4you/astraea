@@ -107,7 +107,6 @@ public class BalancerAlgorithmTest {
                       .timeout(Duration.ofSeconds(5))
                       .clusterCost(new ReplicaNumberCost())
                       .build())
-              .solution()
               .get();
 
       var plan =
@@ -123,11 +122,10 @@ public class BalancerAlgorithmTest {
                       .timeout(Duration.ofSeconds(5))
                       .clusterCost(new ReplicaNumberCost())
                       .build())
-              .solution()
               .get();
 
       Assertions.assertTrue(
-          plan.proposalClusterCost.value() > planOfGreedy.proposalClusterCost.value());
+          plan.proposalClusterCost().value() > planOfGreedy.proposalClusterCost().value());
     }
   }
 }

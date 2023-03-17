@@ -65,7 +65,7 @@ public class RecordSizeCost
                 .map(Math::abs)
                 .mapToLong(s -> s)
                 .sum();
-    return MoveCost.movedRecordSize(moveCost, overflow);
+    return () -> overflow;
   }
 
   @Override
