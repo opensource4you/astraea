@@ -183,7 +183,7 @@ public class MetricPublisher {
                 (Runnable)
                     () -> {
                       try (var publisher = JMXPublisher.create(bootstrap)) {
-                        while (!closed.get()) {
+                        while (!closed.get() || !beanQueue.isEmpty()) {
                           try {
                             var idBean = beanQueue.poll(5, TimeUnit.SECONDS);
                             if (idBean != null) {
