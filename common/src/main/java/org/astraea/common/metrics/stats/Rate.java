@@ -17,13 +17,13 @@
 package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.DoubleAdder;
 import org.astraea.common.DataSize;
 
 /** By contrast to {@link Avg}, {@link Rate} measure the value by time instead of "count". */
 public interface Rate<T> extends Stat<T> {
   /**
-   * @return sum of recorded size / (time of last record - start time). Noted that the unit is
-   *     second
+   * @return sum of recorded size / (current time - start time). Noted that the unit is second
    */
   static Rate<DataSize> sizeRate() {
     return new Rate<>() {
@@ -40,6 +40,27 @@ public interface Rate<T> extends Stat<T> {
         var diff = System.currentTimeMillis() - start;
         if (diff <= 0) return DataSize.Byte.of(0);
         return size.dataRate(Duration.ofMillis(diff)).dataSize();
+      }
+    };
+  }
+
+  /**
+   * @return sum of recorded value / (current time - start time). Noted that the unit is second.
+   */
+  static Rate<Double> of() {
+    final long start = System.currentTimeMillis();
+    var adder = new DoubleAdder();
+    return new Rate<>() {
+      @Override
+      public void record(Double value) {
+        adder.add(value);
+      }
+
+      @Override
+      public Double measure() {
+        var diff = System.currentTimeMillis() - start;
+        if (diff <= 0) return 0.0;
+        return adder.sum() / diff * 1000;
       }
     };
   }
