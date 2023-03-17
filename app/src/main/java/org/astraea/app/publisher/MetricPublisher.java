@@ -80,7 +80,9 @@ public class MetricPublisher {
     var JMXFetcherThreads =
         jmxFetcherThreads(
             3, targetClients, arguments.period, beanQueue, fetchRateSensor, close::get);
-    var publisherThreads = publisherThreads(2, arguments.bootstrapServers(), beanQueue, close::get);
+    var publisherThreads =
+        publisherThreads(
+            2, arguments.bootstrapServers(), beanQueue, () -> close.get() && beanQueue.isEmpty());
     var periodicJobPool = Executors.newScheduledThreadPool(1);
     var threadPool = Executors.newFixedThreadPool(3 + 2);
     var admin = Admin.of(arguments.bootstrapServers());
@@ -183,7 +185,7 @@ public class MetricPublisher {
                 (Runnable)
                     () -> {
                       try (var publisher = JMXPublisher.create(bootstrap)) {
-                        while (!closed.get() || !beanQueue.isEmpty()) {
+                        while (!closed.get()) {
                           try {
                             var idBean = beanQueue.poll(5, TimeUnit.SECONDS);
                             if (idBean != null) {
