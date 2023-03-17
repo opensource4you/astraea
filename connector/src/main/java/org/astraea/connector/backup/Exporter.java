@@ -16,6 +16,7 @@
  */
 package org.astraea.connector.backup;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -101,6 +102,14 @@ public class Exporter extends SinkConnector {
           .type(Definition.Type.STRING)
           .documentation("a value that needs to be overridden in the file system.")
           .build();
+
+  static Definition QUEUE_SIZE_KEY =
+      Definition.builder()
+          .name("records.queue.number")
+          .type(Definition.Type.INT)
+          .documentation("a value that represents the size of the record queue.")
+          .defaultValue("100000")
+          .build();
   private Configuration configs;
 
   @Override
@@ -128,7 +137,8 @@ public class Exporter extends SinkConnector {
         PASSWORD_KEY,
         PATH_KEY,
         SIZE_KEY,
-        OVERRIDE_KEY);
+        OVERRIDE_KEY,
+        QUEUE_SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -137,7 +147,7 @@ public class Exporter extends SinkConnector {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
+    private BlockingQueue<Record<byte[], byte[]>> recordsQueue;
 
     static Runnable createWriter(
         FileSystem fs,
@@ -146,14 +156,14 @@ public class Exporter extends SinkConnector {
         long interval,
         DataSize size,
         Supplier<Boolean> closed,
-        Supplier<Record<byte[], byte[]>> recordsQueue) {
+        Supplier<ArrayList<Record<byte[], byte[]>>> recordsQueue) {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
         var longestWriteTime = System.currentTimeMillis();
 
         try {
           while (!closed.get()) {
-            var record = recordsQueue.get();
+            var records = recordsQueue.get();
             var currentTime = System.currentTimeMillis();
 
             if (currentTime - longestWriteTime > interval) {
@@ -170,26 +180,29 @@ public class Exporter extends SinkConnector {
               }
             }
 
-            if (record != null) {
-              var writer =
-                  writers.computeIfAbsent(
-                      record.topicPartition(),
-                      ignored -> {
-                        var fileName = String.valueOf(record.offset());
-                        return RecordWriter.builder(
-                                fs.write(
-                                    String.join(
-                                        "/",
-                                        path,
-                                        topicName,
-                                        String.valueOf(record.partition()),
-                                        fileName)))
-                            .build();
-                      });
-              writer.append(record);
-              if (writer.size().greaterThan(size)) {
-                writers.remove(record.topicPartition()).close();
-              }
+            if (!records.isEmpty()) {
+              records.forEach(
+                  record -> {
+                    var writer =
+                        writers.computeIfAbsent(
+                            record.topicPartition(),
+                            ignored -> {
+                              var fileName = String.valueOf(record.offset());
+                              return RecordWriter.builder(
+                                      fs.write(
+                                          String.join(
+                                              "/",
+                                              path,
+                                              topicName,
+                                              String.valueOf(record.partition()),
+                                              fileName)))
+                                  .build();
+                            });
+                    writer.append(record);
+                    if (writer.size().greaterThan(size)) {
+                      writers.remove(record.topicPartition()).close();
+                    }
+                  });
             }
           }
         } finally {
@@ -210,6 +223,12 @@ public class Exporter extends SinkConnector {
                   configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
               .toMillis();
 
+      this.recordsQueue =
+          new LinkedBlockingQueue<>(
+              configuration
+                  .integer(QUEUE_SIZE_KEY.name())
+                  .orElse(Integer.valueOf(QUEUE_SIZE_KEY.defaultValue().toString())));
+
       var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture =
           CompletableFuture.runAsync(
@@ -222,14 +241,17 @@ public class Exporter extends SinkConnector {
                   this.closed::get,
                   () ->
                       Utils.packException(
-                          () ->
-                              this.recordsQueue.poll(
-                                  Math.min(interval, 1000), TimeUnit.MILLISECONDS))));
+                          () -> {
+                            var list =
+                                new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
+                            this.recordsQueue.drainTo(list);
+                            return list;
+                          })));
     }
 
     @Override
     protected void put(List<Record<byte[], byte[]>> records) {
-      recordsQueue.addAll(records);
+      records.forEach(r -> Utils.packException(() -> recordsQueue.put(r)));
     }
 
     @Override
