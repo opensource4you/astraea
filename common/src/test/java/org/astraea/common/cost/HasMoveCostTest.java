@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -35,7 +34,7 @@ public class HasMoveCostTest {
         new HasMoveCost() {
           @Override
           public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-            return MoveCost.movedRecordSize(Map.of(), false);
+            return () -> false;
           }
 
           @Override

@@ -73,7 +73,7 @@ class GreedyBalancerTest {
                             .executionId(id)
                             .clusterCost(cost)
                             .build());
-                Assertions.assertTrue(plan.solution().isPresent());
+                Assertions.assertTrue(plan.isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(
                         () ->

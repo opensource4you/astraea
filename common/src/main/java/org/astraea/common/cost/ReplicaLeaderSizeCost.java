@@ -68,7 +68,7 @@ public class ReplicaLeaderSizeCost
                 .map(Math::abs)
                 .mapToLong(s -> s)
                 .sum();
-    return MoveCost.movedReplicaLeaderSize(moveCost, overflow);
+    return () -> overflow;
   }
 
   /**

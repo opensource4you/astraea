@@ -17,6 +17,7 @@
 package org.astraea.common.balancer.algorithms;
 
 import java.util.Comparator;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,7 +62,7 @@ public class SingleStepBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(AlgorithmConfig config) {
+  public Optional<Plan> offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
@@ -80,14 +81,14 @@ public class SingleStepBalancer implements Balancer {
         .takeWhile(ignored -> System.currentTimeMillis() - start <= config.timeout().toMillis())
         .map(
             newAllocation ->
-                new Solution(
+                new Plan(
+                    config.clusterInfo(),
+                    currentCost,
+                    newAllocation,
                     clusterCostFunction.clusterCost(newAllocation, clusterBean),
-                    moveCostFunction.moveCost(currentClusterInfo, newAllocation, clusterBean),
-                    newAllocation))
+                    moveCostFunction.moveCost(currentClusterInfo, newAllocation, clusterBean)))
         .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
         .filter(plan -> config.movementConstraint().test(plan.moveCost()))
-        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
-        .map(solution -> new Plan(currentClusterInfo, currentCost, solution))
-        .orElse(new Plan(currentClusterInfo, currentCost));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }
 }

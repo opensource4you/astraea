@@ -51,7 +51,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
         config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedReplicas < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return MoveCost.changedReplicaCount(moveCost, overflow);
+    return () -> overflow;
   }
 
   @Override

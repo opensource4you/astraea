@@ -131,20 +131,12 @@ public class BalancerConsoleImpl implements BalancerConsole {
               (id, previousTask) -> {
                 if (previousTask != null)
                   throw new IllegalStateException("Conflict task ID: " + taskId);
-                return clusterInfo
-                    .thenApply(
-                        cluster ->
-                            retryOffer(
-                                balancer,
-                                metricSource,
-                                AlgorithmConfig.builder(config).clusterInfo(cluster).build()))
-                    .thenApply(
-                        plan -> {
-                          if (plan.solution().isPresent()) return plan;
-                          else
-                            throw new IllegalStateException(
-                                "Unable to find a rebalance plan that can improve this cluster");
-                        });
+                return clusterInfo.thenApply(
+                    cluster ->
+                        retryOffer(
+                            balancer,
+                            metricSource,
+                            AlgorithmConfig.builder(config).clusterInfo(cluster).build()));
               });
         }
       }
@@ -215,16 +207,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
                                 ? BalancerConsoleImpl.this.checkNoOngoingMigration()
                                 : CompletableFuture.completedStage(null))
                     .thenCompose(ignore -> planGen)
-                    .thenCompose(
-                        plan ->
-                            plan.solution()
-                                .map(Balancer.Solution::proposal)
-                                .map(target -> executor.run(admin, target, timeout))
-                                .orElseThrow(
-                                    () ->
-                                        new IllegalStateException(
-                                            "Plan generation failed to find any usable balance plan that will improve this cluster: "
-                                                + taskId)));
+                    .thenCompose(plan -> executor.run(admin, plan.proposal(), timeout));
               }
             });
       }
@@ -270,7 +253,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
   private CompletionStage<Void> checkPlanConsistency(Balancer.Plan plan) {
     final var before =
         plan
-            .initialClusterInfo
+            .initialClusterInfo()
             .replicaStream()
             .collect(Collectors.groupingBy(Replica::topicPartition))
             .entrySet()
@@ -336,11 +319,13 @@ public class BalancerConsoleImpl implements BalancerConsole {
     final var timeoutMs = System.currentTimeMillis() + config.timeout().toMillis();
     while (System.currentTimeMillis() < timeoutMs) {
       try {
-        return balancer.offer(
-            AlgorithmConfig.builder(config)
-                .clusterBean(clusterBeanSupplier.get())
-                .timeout(Duration.ofMillis(timeoutMs - System.currentTimeMillis()))
-                .build());
+        var plan =
+            balancer.offer(
+                AlgorithmConfig.builder(config)
+                    .clusterBean(clusterBeanSupplier.get())
+                    .timeout(Duration.ofMillis(timeoutMs - System.currentTimeMillis()))
+                    .build());
+        if (plan.isPresent()) return plan.get();
       } catch (NoSufficientMetricsException e) {
         e.printStackTrace();
         var remainTimeout = timeoutMs - System.currentTimeMillis();
